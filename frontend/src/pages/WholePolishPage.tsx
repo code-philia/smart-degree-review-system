@@ -1,9 +1,10 @@
-import { ChangeEvent, FormEvent, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
 import { useAuthSession } from '../auth/AuthSessionProvider';
 import {
   createWholePolishResult,
   downloadWholePolishText,
+  fetchWholePolishResult,
   type WholePolishLevel,
   type WholePolishResult,
 } from '../api/normativeRules';
@@ -23,6 +24,7 @@ function getFileExtension(fileName: string) {
 }
 
 function WholePolishPage() {
+  const { resultId } = useParams();
   const { status, user } = useAuthSession();
   const [text, setText] = useState('');
   const [level, setLevel] = useState<WholePolishLevel>('standard');
@@ -30,8 +32,39 @@ function WholePolishPage() {
   const [result, setResult] = useState<WholePolishResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [loadingResult, setLoadingResult] = useState(false);
 
   const canSubmit = useMemo(() => Boolean(text.trim()) && !submitting, [text, submitting]);
+
+  useEffect(() => {
+    if (!resultId || !user) {
+      return;
+    }
+
+    let active = true;
+    setLoadingResult(true);
+    setErrorMessage(null);
+    fetchWholePolishResult(resultId)
+      .then((response) => {
+        if (active) {
+          setResult(response);
+        }
+      })
+      .catch((error) => {
+        if (active) {
+          setErrorMessage(error instanceof Error ? error.message : '润色结果加载失败');
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoadingResult(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [resultId, user]);
 
   async function readSelectedFile(file: File) {
     if (!ACCEPTED_FILE_EXTENSIONS.includes(getFileExtension(file.name))) {
@@ -128,8 +161,12 @@ function WholePolishPage() {
           <input className="sr-only" type="file" accept=".txt,.md,text/plain,text/markdown" onChange={handleFileChange} />
         </label>
 
+        <label className="mt-6 block text-sm font-bold text-slate-700" htmlFor="whole-polish-textarea">
+          粘贴文本
+        </label>
         <textarea
-          className="mt-6 min-h-36 w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm leading-7 outline-none focus:border-blue-500"
+          id="whole-polish-textarea"
+          className="mt-2 min-h-36 w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm leading-7 outline-none focus:border-blue-500"
           value={text}
           onChange={(event) => setText(event.target.value)}
           placeholder="粘贴需要全文润色的文本。"
@@ -168,6 +205,8 @@ function WholePolishPage() {
         </button>
       </form>
 
+      {loadingResult ? <p className="mx-auto max-w-6xl px-6 pb-6 text-sm font-semibold text-slate-500">正在加载润色结果…</p> : null}
+
       {result ? (
         <section className="mx-auto max-w-6xl px-6 pb-12">
           <div className="rounded-3xl border border-slate-200 bg-[#F8FAFC] p-6">
@@ -177,15 +216,34 @@ function WholePolishPage() {
                 <span className="mt-2 font-black">润色完成</span>
               </div>
               <div className="space-y-3 text-sm">
+                <p><span className="text-slate-500">结果编号：</span><strong data-testid="whole-polish-result-id">{result.id}</strong></p>
                 <p><span className="text-slate-500">文档名称：</span><strong>{result.source_filename || '粘贴文本'}</strong></p>
-                <p><span className="text-slate-500">润色档位：</span><strong className="text-orange-600">{result.level}</strong></p>
+                <p><span className="text-slate-500">润色档位：</span><strong className="text-orange-600">{result.level === 'standard' ? '标准优化' : result.level === 'enhanced' ? '增强优化' : '基础校准'}</strong></p>
                 <p><span className="text-slate-500">变更数量：</span><strong>{result.changes.length}</strong></p>
                 <p><span className="text-slate-500">完成时间：</span><strong>{result.created_at}</strong></p>
               </div>
             </div>
+            <div className="mt-6 rounded-2xl bg-white p-5">
+              <h2 className="text-xl font-black text-slate-900">润色结果</h2>
+              <p className="mt-3 whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-sm leading-7 text-slate-800">{result.polished_text}</p>
+            </div>
+            <div className="mt-6 rounded-2xl bg-white p-5">
+              <h2 className="text-xl font-black text-slate-900">变更明细</h2>
+              <ul className="mt-3 space-y-3" aria-label="变更列表">
+                {result.changes.map((change, index) => (
+                  <li key={`${change.position}-${index}`} className="rounded-xl border border-slate-200 p-4 text-sm leading-6">
+                    <p><span className="font-bold text-slate-500">原文：</span>{change.original_text}</p>
+                    <p><span className="font-bold text-slate-500">新文：</span>{change.new_text}</p>
+                    <p><span className="font-bold text-slate-500">位置：</span>{change.position}</p>
+                    <p><span className="font-bold text-slate-500">规则：</span>{change.rule}</p>
+                    {change.reason ? <p><span className="font-bold text-slate-500">原因：</span>{change.reason}</p> : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
             <div className="mt-6 flex flex-wrap justify-center gap-4">
               <Link className="rounded-lg bg-blue-500 px-8 py-3 font-bold text-white" to={`/whole-polish/${result.id}`}>查看结果</Link>
-              <button className="rounded-lg bg-green-500 px-8 py-3 font-bold text-white" type="button" onClick={handleDownload}>下载结果</button>
+              <button className="rounded-lg bg-green-500 px-8 py-3 font-bold text-white" type="button" onClick={handleDownload}>下载 UTF-8 TXT</button>
             </div>
           </div>
         </section>
