@@ -180,5 +180,93 @@
     "passed": null,
     "first_line": "1",
     "scenario_id": null
+  },
+  "FLOW-RULE-PUBLISH:API:001": {
+    "test_id": "FLOW-RULE-PUBLISH:API:001",
+    "req_id": "FLOW-RULE-PUBLISH",
+    "interface_ids": [
+      "API-FLOW-RULE-PUBLISH-EXPRESS-ROUTES",
+      "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE",
+      "FUNC-FLOW-RULE-PUBLISH-RULE-CONFIG-SERVICE"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/flow-rule-publish.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FLOW-RULE-PUBLISH:DB:001": {
+    "test_id": "FLOW-RULE-PUBLISH:DB:001",
+    "req_id": "FLOW-RULE-PUBLISH",
+    "interface_ids": [
+      "DB-FLOW-RULE-PUBLISH-RULE-OVERRIDE-REPOSITORY",
+      "DB-FLOW-RULE-PUBLISH-RULE-OVERRIDE-SCHEMA",
+      "FUNC-FLOW-RULE-PUBLISH-RULE-CONFIG-SERVICE"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/flow-rule-publish.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FLOW-RULE-PUBLISH:SCENARIO:001:E2E": {
+    "test_id": "FLOW-RULE-PUBLISH:SCENARIO:001:E2E",
+    "req_id": "FLOW-RULE-PUBLISH",
+    "interface_ids": [
+      "UI-FLOW-RULE-PUBLISH-RULE-CONFIG-PAGE",
+      "UI-FLOW-RULE-PUBLISH-ROUTE-CONNECTOR",
+      "API-FLOW-RULE-PUBLISH-CLIENT",
+      "API-FLOW-RULE-PUBLISH-EXPRESS-ROUTES",
+      "FUNC-FLOW-RULE-PUBLISH-RULE-CONFIG-SERVICE"
+    ],
+    "type": "E2E",
+    "file_path": "backend/test-e2e/flow-rule-publish.spec.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FLOW-RULE-PUBLISH:SCENARIO:001:INTEGRATION": {
+    "test_id": "FLOW-RULE-PUBLISH:SCENARIO:001:INTEGRATION",
+    "req_id": "FLOW-RULE-PUBLISH",
+    "interface_ids": [
+      "FUNC-FLOW-RULE-PUBLISH-RULE-CONFIG-SERVICE",
+      "DB-FLOW-RULE-PUBLISH-RULE-OVERRIDE-REPOSITORY",
+      "DB-FLOW-RULE-PUBLISH-RULE-OVERRIDE-SCHEMA",
+      "FUNC-FEAT-NORMATIVE-FORMAT-RULES-ENGINE"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/flow-rule-publish.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FLOW-RULE-PUBLISH:SCENARIO:002:E2E": {
+    "test_id": "FLOW-RULE-PUBLISH:SCENARIO:002:E2E",
+    "req_id": "FLOW-RULE-PUBLISH",
+    "interface_ids": [
+      "UI-FLOW-RULE-PUBLISH-RULE-CONFIG-PAGE",
+      "API-FLOW-RULE-PUBLISH-EXPRESS-ROUTES",
+      "FUNC-FLOW-RULE-PUBLISH-RULE-CONFIG-SERVICE",
+      "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE"
+    ],
+    "type": "E2E",
+    "file_path": "backend/test-e2e/flow-rule-publish.spec.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FLOW-RULE-PUBLISH:SCENARIO:002:INTEGRATION": {
+    "test_id": "FLOW-RULE-PUBLISH:SCENARIO:002:INTEGRATION",
+    "req_id": "FLOW-RULE-PUBLISH",
+    "interface_ids": [
+      "FUNC-FLOW-RULE-PUBLISH-RULE-CONFIG-SERVICE",
+      "DB-FLOW-RULE-PUBLISH-RULE-OVERRIDE-REPOSITORY",
+      "API-FLOW-RULE-PUBLISH-EXPRESS-ROUTES"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/flow-rule-publish.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
   }
 }

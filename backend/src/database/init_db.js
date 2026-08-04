@@ -94,6 +94,25 @@ async function initializeDatabase(options = {}) {
       );`,
     );
 
+    await runStatement(
+      database,
+      `CREATE TABLE IF NOT EXISTS normative_rule_overrides (
+        id TEXT PRIMARY KEY,
+        scope_level TEXT NOT NULL CHECK (scope_level IN ('school', 'college')),
+        college_id TEXT,
+        rule_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        category TEXT NOT NULL,
+        severity TEXT NOT NULL,
+        enabled INTEGER NOT NULL CHECK (enabled IN (0, 1)),
+        match_params_json TEXT NOT NULL,
+        prompt TEXT NOT NULL,
+        updated_by TEXT NOT NULL,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (scope_level, college_id, rule_id)
+      );`,
+    );
+
     return database;
 
     /**

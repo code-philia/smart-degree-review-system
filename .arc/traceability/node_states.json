@@ -175,9 +175,9 @@
   },
   "FLOW-RULE-PUBLISH": {
     "req_id": "FLOW-RULE-PUBLISH",
-    "state": "UNSEEN",
-    "phase": null,
-    "updated_at": "2026-08-04 15:03:18"
+    "state": "DESIGNED",
+    "phase": "design",
+    "updated_at": "2026-08-04 16:32:51"
   },
   "MOD-AI-REVIEW": {
     "req_id": "MOD-AI-REVIEW",

@@ -41,16 +41,18 @@
   "API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT": {
     "interface_id": "API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT",
     "req_ids": [
-      "FEAT-NORMATIVE-FORMAT-RULES"
+      "FEAT-NORMATIVE-FORMAT-RULES",
+      "FLOW-RULE-PUBLISH"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT\", \"req_id\": \"FEAT-NORMATIVE-FORMAT-RULES\", \"type\": \"API\", \"name\": \"NormativeBackendRouteMount\", \"file_path\": \"backend/src/app.js\", \"first_line\": \"8\", \"responsibility\": \"Mount the current-node Express normative route module into the existing backend app under /api/normative while preserving the single backend-hosted runtime.\", \"specification\": \"Imports backend/src/normative/normativeRoutes.js and registers app.use('/api/normative', normativeRoutes) beside existing /api/auth routes. Static frontend hosting and SPA fallback remain unchanged so runtime stays backend-led on port 3000.\", \"inputs\": [{\"name\": \"Express app\", \"type\": \"express.Application\", \"required\": true}], \"outputs\": [{\"name\": \"mounted API route tree\", \"type\": \"/api/normative/*\"}], \"callers\": [\"backend/src/index.js server startup\", \"backend tests importing app\"], \"callees\": [\"backend/src/normative/normativeRoutes.js\"], \"test_focus\": [\"Backend app exposes /api/normative/analyze under the same app object used by runtime and Supertest.\"]}",
+    "content": "{\"interface_id\": \"API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT\", \"req_id\": \"FLOW-RULE-PUBLISH\", \"type\": \"API\", \"name\": \"Existing normative backend mount\", \"file_path\": \"backend/src/app.js\", \"first_line\": \"11\", \"responsibility\": \"Reuse the existing /api/normative Express mount so rule configuration endpoints remain part of the backend-hosted single-origin runtime.\", \"specification\": \"The current node extends backend/src/normative/normativeRoutes.js, which is already registered by app.use('/api/normative', normativeRoutes). No parallel server or route tree is introduced. Static frontend hosting remains backend-led on port 3000 after frontend build.\", \"inputs\": [\"Requests under /api/normative\"], \"outputs\": [\"Dispatch to normativeRoutes\"], \"callers\": [\"backend/src/index.js server startup\", \"frontend/src/api/ruleConfig.ts\", \"backend integration tests\"], \"callees\": [\"backend/src/normative/normativeRoutes.js\"], \"test_focus\": [\"Rule configuration API is reachable at /api/normative/rule-configs on the backend origin\"]}",
     "file_path": "backend/src/app.js",
-    "first_line": "8",
+    "first_line": "11",
     "implemented": true,
     "callers": [
       "backend/src/index.js server startup",
-      "backend tests importing app"
+      "frontend/src/api/ruleConfig.ts",
+      "backend integration tests"
     ],
     "callees": [
       "backend/src/normative/normativeRoutes.js"
@@ -91,6 +93,44 @@
     "callees": [
       "backend/src/auth/authMiddleware.js",
       "backend/src/normative/normativeService.js"
+    ]
+  },
+  "API-FLOW-RULE-PUBLISH-CLIENT": {
+    "interface_id": "API-FLOW-RULE-PUBLISH-CLIENT",
+    "req_ids": [
+      "FLOW-RULE-PUBLISH"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FLOW-RULE-PUBLISH-CLIENT\", \"req_id\": \"FLOW-RULE-PUBLISH\", \"type\": \"API\", \"name\": \"Rule configuration frontend API client\", \"file_path\": \"frontend/src/api/ruleConfig.ts\", \"first_line\": \"1\", \"responsibility\": \"Expose typed frontend calls and DTOs for listing, publishing, and resetting school/college normative rule configurations through the shared Axios client.\", \"specification\": \"Exports RuleScopeLevel, RuleConfigScope, RuleConfigDto, RuleConfigListResponse, PublishRuleConfigRequest, and ResetCollegeRuleRequest. fetchRuleConfigurations(scope) issues GET /api/normative/rule-configs with scope query params. publishRuleConfiguration(payload) issues PUT /api/normative/rule-configs. resetCollegeRuleConfiguration(payload) issues POST /api/normative/rule-configs/reset-college. All calls use frontend/src/api/index.ts so global Axios behavior, same-origin /api base URL, and credentials handling are preserved.\", \"inputs\": [\"Optional RuleConfigScope for list requests\", \"PublishRuleConfigRequest with school/college scope and rule payload\", \"ResetCollegeRuleRequest with college_id and rule_id\"], \"outputs\": [\"Promise<RuleConfigListResponse>\"], \"callers\": [\"frontend/src/pages/RuleConfigPage.tsx\"], \"callees\": [\"frontend/src/api/index.ts shared Axios client\", \"backend/src/normative/normativeRoutes.js mounted at /api/normative\"], \"test_focus\": [\"Client uses /normative/rule-configs endpoints through shared apiClient\", \"DTO includes rule_id, title, category, severity, enabled, match_params, prompt, source, and college_id\", \"No local fallback arrays bypass backend responses\"]}",
+    "file_path": "frontend/src/api/ruleConfig.ts",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "frontend/src/pages/RuleConfigPage.tsx"
+    ],
+    "callees": [
+      "frontend/src/api/index.ts shared Axios client",
+      "backend/src/normative/normativeRoutes.js mounted at /api/normative"
+    ]
+  },
+  "API-FLOW-RULE-PUBLISH-EXPRESS-ROUTES": {
+    "interface_id": "API-FLOW-RULE-PUBLISH-EXPRESS-ROUTES",
+    "req_ids": [
+      "FLOW-RULE-PUBLISH"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FLOW-RULE-PUBLISH-EXPRESS-ROUTES\", \"req_id\": \"FLOW-RULE-PUBLISH\", \"type\": \"API\", \"name\": \"Rule configuration Express routes\", \"file_path\": \"backend/src/normative/normativeRoutes.js\", \"first_line\": \"27\", \"responsibility\": \"Provide protected HTTP endpoints for school/college rule configuration listing, publish, and college reset under the existing /api/normative route mount.\", \"specification\": \"Adds GET /api/normative/rule-configs, PUT /api/normative/rule-configs, and POST /api/normative/rule-configs/reset-college beside the existing normative rules/analyze endpoints. Each rule-configuration endpoint calls requireAuth({ allowedRoles: ['SCHOOL_ADMIN', 'COLLEGE_ADMIN'] }) before service logic is invoked. Anonymous users receive 401 from requireAuth. Authenticated STUDENT and SUPERVISOR users receive 403. Service-raised authorization failures, including COLLEGE_ADMIN cross-college access, are returned as 403. The routes delegate data-scope and merge/publish/reset semantics to ruleConfigService and never trust UI visibility as the authorization boundary.\", \"inputs\": [\"GET query: level, college_id\", \"PUT JSON body: scope, college_id, rule payload\", \"POST JSON body: college_id, rule_id\", \"Authenticated req.user from auth middleware\"], \"outputs\": [\"200 RuleConfigListResponse for successful list/publish/reset\", \"401 for anonymous requests\", \"403 for denied roles or cross-college scope\", \"501 for design skeleton operations not yet implemented\"], \"callers\": [\"frontend/src/api/ruleConfig.ts\", \"backend/src/app.js mounted at /api/normative\", \"backend API tests via Supertest\"], \"callees\": [\"backend/src/auth/authMiddleware.js requireAuth\", \"backend/src/normative/ruleConfigService.js\"], \"test_focus\": [\"SCHOOL_ADMIN can call rule configuration endpoints\", \"COLLEGE_ADMIN can call endpoints only for their own college scope\", \"COLLEGE_ADMIN modifying college02 from college01 receives 403 before mutation\", \"STUDENT, SUPERVISOR, and anonymous requests are rejected at backend boundary\"]}",
+    "file_path": "backend/src/normative/normativeRoutes.js",
+    "first_line": "27",
+    "implemented": false,
+    "callers": [
+      "frontend/src/api/ruleConfig.ts",
+      "backend/src/app.js mounted at /api/normative",
+      "backend API tests via Supertest"
+    ],
+    "callees": [
+      "backend/src/auth/authMiddleware.js requireAuth",
+      "backend/src/normative/ruleConfigService.js"
     ]
   },
   "DB-FEAT-AUTH-SESSION-DEMO-SEED": {
@@ -152,17 +192,54 @@
       "sqlite3 database via shared runStatement/exec helpers"
     ]
   },
+  "DB-FLOW-RULE-PUBLISH-RULE-OVERRIDE-REPOSITORY": {
+    "interface_id": "DB-FLOW-RULE-PUBLISH-RULE-OVERRIDE-REPOSITORY",
+    "req_ids": [
+      "FLOW-RULE-PUBLISH"
+    ],
+    "type": "DB",
+    "content": "{\"interface_id\": \"DB-FLOW-RULE-PUBLISH-RULE-OVERRIDE-REPOSITORY\", \"req_id\": \"FLOW-RULE-PUBLISH\", \"type\": \"DB\", \"name\": \"Rule override repository\", \"file_path\": \"backend/src/normative/ruleConfigRepository.js\", \"first_line\": \"1\", \"responsibility\": \"Provide persistence operations for school and college normative rule overrides through the shared database runtime helpers.\", \"specification\": \"Uses backend/src/database/index.js helpers rather than creating a separate SQLite connection. listRuleOverrides(scope) returns persisted override rows for school or college scope. getRuleOverride(scope) fetches one override by scope and rule_id. upsertRuleOverride(scope, rule) persists or replaces a school/college override in a transaction. deleteRuleOverride(scope) removes a college override during reset. Rows correspond to normative_rule_overrides and serialize match_params through match_params_json.\", \"inputs\": [\"Scope with scope_level, optional college_id, and rule_id\", \"Rule fields: rule_id, title, category, severity, enabled, match_params, prompt, updated_by\"], \"outputs\": [\"Override rows normalized for service merge\", \"Mutation result for upsert/delete\"], \"callers\": [\"backend/src/normative/ruleConfigService.js\"], \"callees\": [\"backend/src/database/index.js all/get/run/withTransaction\"], \"test_focus\": [\"Uses isolated test DB harness via shared scaffold\", \"School and college overrides are stored separately for the same rule_id\", \"Deleting a college override leaves the school override intact\", \"No one-off database connection helper is introduced\"]}",
+    "file_path": "backend/src/normative/ruleConfigRepository.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "backend/src/normative/ruleConfigService.js"
+    ],
+    "callees": [
+      "backend/src/database/index.js all/get/run/withTransaction"
+    ]
+  },
+  "DB-FLOW-RULE-PUBLISH-RULE-OVERRIDE-SCHEMA": {
+    "interface_id": "DB-FLOW-RULE-PUBLISH-RULE-OVERRIDE-SCHEMA",
+    "req_ids": [
+      "FLOW-RULE-PUBLISH"
+    ],
+    "type": "DB",
+    "content": "{\"interface_id\": \"DB-FLOW-RULE-PUBLISH-RULE-OVERRIDE-SCHEMA\", \"req_id\": \"FLOW-RULE-PUBLISH\", \"type\": \"DB\", \"name\": \"Rule override SQLite schema\", \"file_path\": \"backend/src/database/init_db.js\", \"first_line\": \"82\", \"responsibility\": \"Extend the centralized SQLite schema with the durable school/college rule override table required by rule configuration.\", \"specification\": \"Creates normative_rule_overrides idempotently in initializeDatabase. The table stores scope_level constrained to school or college, optional college_id, rule_id, title, category, severity, enabled as 0/1, match_params_json, prompt, updated_by, and updated_at. A uniqueness constraint on scope_level, college_id, and rule_id supports one active override for the same rule_id per scope. This table supports national defaults from code, school overrides, college overrides, and college reset deletion.\", \"inputs\": [\"initializeDatabase lifecycle from backend/src/database/index.js\"], \"outputs\": [\"SQLite table normative_rule_overrides available to repository and tests\"], \"callers\": [\"backend/src/database/index.js\", \"backend/src/normative/ruleConfigRepository.js\", \"backend tests using createTestDatabaseHarness\"], \"callees\": [\"sqlite3 via centralized runStatement\"], \"test_focus\": [\"Schema initializes idempotently in runtime and isolated test DBs\", \"Unique constraint prevents duplicate override rows per scope/rule_id\", \"Table fields cover all requirement-owned rule attributes\"]}",
+    "file_path": "backend/src/database/init_db.js",
+    "first_line": "82",
+    "implemented": false,
+    "callers": [
+      "backend/src/database/index.js",
+      "backend/src/normative/ruleConfigRepository.js",
+      "backend tests using createTestDatabaseHarness"
+    ],
+    "callees": [
+      "sqlite3 via centralized runStatement"
+    ]
+  },
   "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE": {
     "interface_id": "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE",
     "req_ids": [
       "FEAT-AUTH-SESSION",
       "FEAT-AUTH-PASSWORD",
-      "FEAT-NORMATIVE-FORMAT-RULES"
+      "FEAT-NORMATIVE-FORMAT-RULES",
+      "FLOW-RULE-PUBLISH"
     ],
     "type": "FUNC",
-    "content": "{\"interface_id\": \"FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE\", \"req_id\": \"FEAT-NORMATIVE-FORMAT-RULES\", \"type\": \"FUNC\", \"name\": \"ReusedAuthzMiddlewareForNormativeRules\", \"file_path\": \"backend/src/auth/authMiddleware.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse the server-side authorization boundary to protect normative rule listing and analysis before data is returned or rule execution occurs.\", \"specification\": \"The current node calls requireAuth() on /api/normative/rules and /api/normative/analyze. Because declared permissions are ALL with allowed roles STUDENT, SUPERVISOR, SCHOOL_ADMIN, and COLLEGE_ADMIN, no narrower role filter is passed; all authenticated catalog roles are allowed. Anonymous users are denied with 401. There is no resource data-scope constraint for this stateless text analysis request.\", \"inputs\": [{\"name\": \"session cookie\", \"type\": \"auth session id\", \"required\": true}, {\"name\": \"options.allowedRoles\", \"type\": \"undefined for all authenticated roles\", \"required\": false}], \"outputs\": [{\"name\": \"req.user\", \"type\": \"AuthenticatedUser on success\"}, {\"name\": \"401/403 response\", \"type\": \"authorization failure\"}], \"callers\": [\"backend/src/normative/normativeRoutes.js\"], \"callees\": [\"backend/src/auth/sessionService.js\"], \"test_focus\": [\"Protected normative endpoints reject anonymous access and accept all four authenticated role catalog users.\"]}",
+    "content": "{\"interface_id\": \"FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE\", \"req_id\": \"FLOW-RULE-PUBLISH\", \"type\": \"FUNC\", \"name\": \"Existing auth and role middleware\", \"file_path\": \"backend/src/auth/authMiddleware.js\", \"first_line\": \"25\", \"responsibility\": \"Reuse the server-side authentication and role authorization boundary for rule configuration endpoints before data is returned or state changes.\", \"specification\": \"requireAuth({ allowedRoles: ['SCHOOL_ADMIN', 'COLLEGE_ADMIN'] }) loads the HttpOnly-cookie session, returns 401 for anonymous requests, returns 403 for authenticated users whose role is not SCHOOL_ADMIN or COLLEGE_ADMIN, sets req.user for downstream ruleConfigService, and leaves college-specific resource-scope checks to the current node service because the requested college can vary per payload.\", \"inputs\": [\"Cookie header containing arc_session\", \"allowedRoles option\"], \"outputs\": [\"req.user for authorized school/college administrators\", \"401 anonymous response\", \"403 role-denied response\"], \"callers\": [\"backend/src/normative/normativeRoutes.js\"], \"callees\": [\"backend/src/auth/sessionService.js\"], \"test_focus\": [\"Anonymous rule configuration requests return 401\", \"STUDENT and SUPERVISOR rule configuration requests return 403\", \"Authorized users reach ruleConfigService with serialized collegeId\"]}",
     "file_path": "backend/src/auth/authMiddleware.js",
-    "first_line": "1",
+    "first_line": "25",
     "implemented": true,
     "callers": [
       "backend/src/normative/normativeRoutes.js"
@@ -195,17 +272,37 @@
   "FUNC-FEAT-NORMATIVE-FORMAT-RULES-ENGINE": {
     "interface_id": "FUNC-FEAT-NORMATIVE-FORMAT-RULES-ENGINE",
     "req_ids": [
-      "FEAT-NORMATIVE-FORMAT-RULES"
+      "FEAT-NORMATIVE-FORMAT-RULES",
+      "FLOW-RULE-PUBLISH"
     ],
     "type": "FUNC",
-    "content": "{\"interface_id\": \"FUNC-FEAT-NORMATIVE-FORMAT-RULES-ENGINE\", \"req_id\": \"FEAT-NORMATIVE-FORMAT-RULES\", \"type\": \"FUNC\", \"name\": \"DefaultNormativeRulesEngine\", \"file_path\": \"backend/src/normative/normativeService.js\", \"first_line\": \"1\", \"responsibility\": \"Own the executable default normative rule engine for detecting required section order, punctuation pairing, repeated punctuation, numeric date format, reference numbering, and text quality issues.\", \"specification\": \"Exports DEFAULT_NORMATIVE_RULES and analyzeDefaultNormativeRules(text). The implementation must tokenize raw text with stable 1-based line and column positions and return { issues }. It must detect: required section order 摘要、关键词、引言、结论、参考文献 in that order; unmatched Chinese/English parentheses, brackets, book-title marks, and quotes; repeated punctuation “，，”, “。。” and “；；” plus any run of three or more identical punctuation characters; numeric dates that are not YYYY-MM-DD; non-empty reference lines after 参考文献 that must start at [1] and increment continuously; repeated consecutive words, Tab characters, trailing whitespace, sentences over 120 characters, and disabled words from the built-in rule table. Each issue must include rule_id, category, severity, line, column, excerpt, message, and suggestion. The design skeleton intentionally does not complete the rule algorithms.\", \"inputs\": [{\"name\": \"text\", \"type\": \"string\", \"required\": true}], \"outputs\": [{\"name\": \"analysis result\", \"type\": \"Promise<{ issues: NormativeIssue[] }>\"}], \"callers\": [\"backend/src/normative/normativeRoutes.js\"], \"callees\": [], \"test_focus\": [\"Unit tests cover line/column calculation and deterministic issue output for scenario text with unpaired punctuation, “。。” and an over-120-character sentence.\", \"Unit tests cover each required rule family and verify required issue fields are present.\", \"Blank or non-string inputs are rejected at API/service boundaries rather than producing fake success.\"]}",
+    "content": "{\"interface_id\": \"FUNC-FEAT-NORMATIVE-FORMAT-RULES-ENGINE\", \"req_id\": \"FLOW-RULE-PUBLISH\", \"type\": \"FUNC\", \"name\": \"Existing default normative rule engine\", \"file_path\": \"backend/src/normative/normativeService.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse the dependency-owned national default rule catalog and analysis engine as the lowest-precedence baseline for school and college rule configuration.\", \"specification\": \"DEFAULT_NORMATIVE_RULES remains the national/default baseline. The current node service must merge persisted school and college overrides over this default list by rule_id. For TEXT-LONG-SENTENCE and other configurable rules, the implementation should route effective match_params into analysis so a college override can affect only that college while other colleges inherit the school value.\", \"inputs\": [\"Raw thesis text\", \"Future effective rule configuration resolved by ruleConfigService\"], \"outputs\": [\"Normative issues generated with rule_id/category/severity/message/suggestion\"], \"callers\": [\"backend/src/normative/normativeRoutes.js\", \"backend/src/normative/ruleConfigService.js\"], \"callees\": [], \"test_focus\": [\"Configured TEXT-LONG-SENTENCE threshold changes analysis for scoped college only\", \"Default baseline remains available when no school/college override exists\"]}",
     "file_path": "backend/src/normative/normativeService.js",
     "first_line": "1",
     "implemented": true,
     "callers": [
-      "backend/src/normative/normativeRoutes.js"
+      "backend/src/normative/normativeRoutes.js",
+      "backend/src/normative/ruleConfigService.js"
     ],
     "callees": []
+  },
+  "FUNC-FLOW-RULE-PUBLISH-RULE-CONFIG-SERVICE": {
+    "interface_id": "FUNC-FLOW-RULE-PUBLISH-RULE-CONFIG-SERVICE",
+    "req_ids": [
+      "FLOW-RULE-PUBLISH"
+    ],
+    "type": "FUNC",
+    "content": "{\"interface_id\": \"FUNC-FLOW-RULE-PUBLISH-RULE-CONFIG-SERVICE\", \"req_id\": \"FLOW-RULE-PUBLISH\", \"type\": \"FUNC\", \"name\": \"Rule configuration service\", \"file_path\": \"backend/src/normative/ruleConfigService.js\", \"first_line\": \"9\", \"responsibility\": \"Own rule configuration authorization, scope validation, effective-rule merge semantics, publish/reset orchestration, and future analysis-rule resolution.\", \"specification\": \"Exports MANAGE_RULE_ROLES, assertRuleConfigAccess, listEffectiveRuleConfigurations, publishRuleConfiguration, resetCollegeRuleConfiguration, and resolveRulesForAnalysis. assertRuleConfigAccess allows only SCHOOL_ADMIN and COLLEGE_ADMIN. SCHOOL_ADMIN may maintain school defaults and inspect configured college scopes. COLLEGE_ADMIN may maintain only the college matching user.collegeId; requested college_id, collegeId, or college fields that differ from user.collegeId throw a 403 error before repository mutation. Effective merge order is national default < school override < college override for the same rule_id. College reset deletes the college override for the specified rule_id so the college inherits the school value. Rule records include rule_id, title, category, severity, enabled, match_params, and prompt.\", \"inputs\": [\"Authenticated user from requireAuth\", \"Scope query or payload containing level and optional college_id\", \"Rule payload containing editable rule fields\"], \"outputs\": [\"RuleConfigListResponse with merged rules and scope\", \"403 errors for denied role or cross-college scope\", \"Repository calls for list/upsert/delete override operations\"], \"callers\": [\"backend/src/normative/normativeRoutes.js\"], \"callees\": [\"backend/src/normative/ruleConfigRepository.js\", \"backend/src/normative/normativeService.js DEFAULT_NORMATIVE_RULES\"], \"test_focus\": [\"Merges TEXT-LONG-SENTENCE threshold as national default < school < college\", \"college01 override to 100 affects college01 analysis while other colleges inherit school 120\", \"College reset removes only the college override and exposes school value\", \"Cross-college modification throws 403 before repository mutation\"]}",
+    "file_path": "backend/src/normative/ruleConfigService.js",
+    "first_line": "9",
+    "implemented": false,
+    "callers": [
+      "backend/src/normative/normativeRoutes.js"
+    ],
+    "callees": [
+      "backend/src/normative/ruleConfigRepository.js",
+      "backend/src/normative/normativeService.js DEFAULT_NORMATIVE_RULES"
+    ]
   },
   "UI-FEAT-AUTH-HELP-AUTH-ROUTE-CONNECTOR": {
     "interface_id": "UI-FEAT-AUTH-HELP-AUTH-ROUTE-CONNECTOR",
@@ -265,17 +362,17 @@
     "req_ids": [
       "FEAT-AUTH-SESSION",
       "FEAT-AUTH-PASSWORD",
-      "FEAT-NORMATIVE-FORMAT-RULES"
+      "FEAT-NORMATIVE-FORMAT-RULES",
+      "FLOW-RULE-PUBLISH"
     ],
     "type": "UI",
-    "content": "{\"interface_id\": \"UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER\", \"req_id\": \"FEAT-NORMATIVE-FORMAT-RULES\", \"type\": \"UI\", \"name\": \"ReusedAuthSessionProviderForNormativePage\", \"file_path\": \"frontend/src/auth/AuthSessionProvider.tsx\", \"first_line\": \"1\", \"responsibility\": \"Reuse the shared frontend session source of truth so the normative detection page follows the same loading, anonymous, and authenticated states as the rest of the app.\", \"specification\": \"NormativeCheckPage consumes useAuthSession from this dependency-owned provider. It must not create page-local fake user state. Session recovery after refresh continues to use fetchCurrentSession and the same cookie-backed backend session path.\", \"inputs\": [{\"name\": \"session API responses\", \"type\": \"SessionResponse\", \"required\": true}], \"outputs\": [{\"name\": \"status/user/login/logout/refreshSession\", \"type\": \"Auth session context\"}], \"callers\": [\"frontend/src/main.tsx\", \"frontend/src/App.tsx\", \"frontend/src/pages/NormativeCheckPage.tsx\"], \"callees\": [\"frontend/src/api/authSession.ts\"], \"test_focus\": [\"The normative page renders loading and anonymous states from the global provider and submits only when an authenticated user is available.\"]}",
+    "content": "{\"interface_id\": \"UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER\", \"req_id\": \"FLOW-RULE-PUBLISH\", \"type\": \"UI\", \"name\": \"Existing global auth session provider\", \"file_path\": \"frontend/src/auth/AuthSessionProvider.tsx\", \"first_line\": \"19\", \"responsibility\": \"Reuse the shared frontend session source of truth so rule configuration page access and scope derive from the authenticated user rather than page-local fake state.\", \"specification\": \"RuleConfigPage consumes useAuthSession to distinguish loading, anonymous, authenticated denied roles, SCHOOL_ADMIN, and COLLEGE_ADMIN. Session recovery after refresh continues to use fetchCurrentSession and the same cookie-backed auth client path used by the rest of the app.\", \"inputs\": [\"Cookie-backed current session from frontend/src/api/authSession.ts\"], \"outputs\": [\"status and user with role, collegeId, supervisorId, and scope\"], \"callers\": [\"frontend/src/pages/RuleConfigPage.tsx\", \"frontend/src/main.tsx\"], \"callees\": [\"frontend/src/api/authSession.ts\"], \"test_focus\": [\"RuleConfigPage reacts to shared session status without local mock users\", \"COLLEGE_ADMIN scope comes from user.collegeId\"]}",
     "file_path": "frontend/src/auth/AuthSessionProvider.tsx",
-    "first_line": "1",
+    "first_line": "19",
     "implemented": true,
     "callers": [
-      "frontend/src/main.tsx",
-      "frontend/src/App.tsx",
-      "frontend/src/pages/NormativeCheckPage.tsx"
+      "frontend/src/pages/RuleConfigPage.tsx",
+      "frontend/src/main.tsx"
     ],
     "callees": [
       "frontend/src/api/authSession.ts"
@@ -333,6 +430,42 @@
     "callees": [
       "frontend/src/pages/NormativeCheckPage.tsx",
       "frontend/src/auth/AuthSessionProvider.tsx"
+    ]
+  },
+  "UI-FLOW-RULE-PUBLISH-ROUTE-CONNECTOR": {
+    "interface_id": "UI-FLOW-RULE-PUBLISH-ROUTE-CONNECTOR",
+    "req_ids": [
+      "FLOW-RULE-PUBLISH"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FLOW-RULE-PUBLISH-ROUTE-CONNECTOR\", \"req_id\": \"FLOW-RULE-PUBLISH\", \"type\": \"UI\", \"name\": \"RuleConfig route connector\", \"file_path\": \"frontend/src/App.tsx\", \"first_line\": \"7\", \"responsibility\": \"Wire the owned rule configuration page into the existing React route tree without creating a parallel app shell or duplicate auth provider.\", \"specification\": \"Imports RuleConfigPage and maps /rule-config to it inside the existing Routes tree. The route remains under the same AuthSessionProvider established at the application root, so the page uses the existing global session state and cookie-backed auth recovery.\", \"inputs\": [\"Browser route /rule-config\"], \"outputs\": [\"RuleConfigPage route element\"], \"callers\": [\"frontend/src/main.tsx BrowserRouter/App mount\"], \"callees\": [\"frontend/src/pages/RuleConfigPage.tsx\", \"frontend/src/auth/AuthSessionProvider.tsx\"], \"test_focus\": [\"Visiting /rule-config renders the owned page through the existing app route tree\", \"Route does not instantiate a duplicate auth/session provider\"]}",
+    "file_path": "frontend/src/App.tsx",
+    "first_line": "7",
+    "implemented": false,
+    "callers": [
+      "frontend/src/main.tsx BrowserRouter/App mount"
+    ],
+    "callees": [
+      "frontend/src/pages/RuleConfigPage.tsx",
+      "frontend/src/auth/AuthSessionProvider.tsx"
+    ]
+  },
+  "UI-FLOW-RULE-PUBLISH-RULE-CONFIG-PAGE": {
+    "interface_id": "UI-FLOW-RULE-PUBLISH-RULE-CONFIG-PAGE",
+    "req_ids": [
+      "FLOW-RULE-PUBLISH"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FLOW-RULE-PUBLISH-RULE-CONFIG-PAGE\", \"req_id\": \"FLOW-RULE-PUBLISH\", \"type\": \"UI\", \"name\": \"RuleConfigPage\", \"file_path\": \"frontend/src/pages/RuleConfigPage.tsx\", \"first_line\": \"10\", \"responsibility\": \"Render the authenticated school/college administrator rule configuration surface using the visual reference style while consuming runtime rule data from the owned API client instead of hardcoded rows.\", \"specification\": \"Mounted at /rule-config through the existing React route tree. Consumes useAuthSession as the shared session source of truth. While session status is loading, renders an explicit loading state. When anonymous, renders a login-required state. When authenticated as STUDENT or SUPERVISOR, renders a no-permission state and does not show editable rule data. For SCHOOL_ADMIN, requests school-level rule configuration. For COLLEGE_ADMIN, requests college-level rule configuration scoped to user.collegeId. The visible table columns represent rule_id, title, category, severity, enabled status, match_params, and prompt. Empty/error/loading states are explicit and no screenshot-specific business rows are hardcoded.\", \"inputs\": [\"AuthSessionProvider context: status, user.role, user.collegeId\", \"RuleConfigDto[] returned by fetchRuleConfigurations\"], \"outputs\": [\"Admin rule configuration page with navy section chrome, dense table layout, explicit loading/empty/error states, and action affordances for publish/reset\"], \"callers\": [\"frontend/src/App.tsx route path /rule-config\"], \"callees\": [\"frontend/src/auth/AuthSessionProvider.tsx\", \"frontend/src/api/ruleConfig.ts\"], \"test_focus\": [\"Anonymous users see login-required state instead of fake rows\", \"STUDENT and SUPERVISOR users see no-permission state\", \"COLLEGE_ADMIN requests level=college with their own collegeId\", \"Runtime empty/error/loading states render without fallback sample rows\", \"Visual structure preserves navy admin header, table columns, badges/action region\"]}",
+    "file_path": "frontend/src/pages/RuleConfigPage.tsx",
+    "first_line": "10",
+    "implemented": false,
+    "callers": [
+      "frontend/src/App.tsx route path /rule-config"
+    ],
+    "callees": [
+      "frontend/src/auth/AuthSessionProvider.tsx",
+      "frontend/src/api/ruleConfig.ts"
     ]
   },
   "UI-MOD-AUTH-LOGIN-COMPOSITION-SHELL": {
