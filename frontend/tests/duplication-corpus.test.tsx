@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -83,6 +83,17 @@ function fileInput(container: HTMLElement) {
   return input as HTMLInputElement;
 }
 
+function testFileList(file: File): FileList {
+  return {
+    0: file,
+    length: 1,
+    item: (index: number) => (index === 0 ? file : null),
+    [Symbol.iterator]: function* iterateFiles() {
+      yield file;
+    },
+  } as FileList;
+}
+
 describe('FEAT-DUPLICATION-CORPUS frontend corpus page and API client contract', () => {
   beforeEach(() => {
     vi.mocked(fetchCurrentSession).mockReset();
@@ -133,10 +144,12 @@ describe('FEAT-DUPLICATION-CORPUS frontend corpus page and API client contract',
 
     await screen.findByRole('heading', { name: '本地比对样本库' });
     await user.upload(fileInput(container), new File(['Markdown 样本文本'], 'sample.md', { type: 'text/markdown' }));
-    expect(screen.getByLabelText('样本文本')).toHaveValue('Markdown 样本文本');
+    await waitFor(() => expect(screen.getByLabelText('样本文本')).toHaveValue('Markdown 样本文本'));
     expect(screen.getByText('已选择：sample.md')).toBeInTheDocument();
 
-    await user.upload(fileInput(container), new File(['PDF'], 'sample.pdf', { type: 'application/pdf' }));
+    fireEvent.change(fileInput(container), {
+      target: { files: testFileList(new File(['PDF'], 'sample.pdf', { type: 'application/pdf' })) },
+    });
     expect(screen.getByText('仅支持上传 .txt 或 .md 文件')).toBeInTheDocument();
     expect(createDuplicationCorpusSample).not.toHaveBeenCalled();
 

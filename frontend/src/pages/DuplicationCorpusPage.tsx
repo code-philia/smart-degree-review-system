@@ -16,6 +16,19 @@ function getFileExtension(fileName: string) {
   return dotIndex === -1 ? '' : fileName.slice(dotIndex).toLowerCase();
 }
 
+function readTextFile(file: File): Promise<string> {
+  if (typeof file.text === 'function') {
+    return file.text();
+  }
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+    reader.onerror = () => reject(reader.error || new Error('file-read-failed'));
+    reader.readAsText(file, 'utf-8');
+  });
+}
+
 function DuplicationCorpusPage() {
   const { status, user } = useAuthSession();
   const [samples, setSamples] = useState<DuplicationCorpusSample[]>([]);
@@ -76,7 +89,7 @@ function DuplicationCorpusPage() {
     }
 
     try {
-      setContent(await file.text());
+      setContent(await readTextFile(file));
       setSelectedFileName(file.name);
     } catch {
       setErrorMessage('文件读取失败，请确认文件为 UTF-8 文本');

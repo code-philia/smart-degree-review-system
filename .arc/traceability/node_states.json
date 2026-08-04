@@ -43,9 +43,9 @@
   },
   "FEAT-DUPLICATION-CORPUS": {
     "req_id": "FEAT-DUPLICATION-CORPUS",
-    "state": "DESIGNED",
-    "phase": "design",
-    "updated_at": "2026-08-04 17:18:32"
+    "state": "PASSED",
+    "phase": "test",
+    "updated_at": "2026-08-04 17:23:33"
   },
   "FEAT-DUPLICATION-DETECT": {
     "req_id": "FEAT-DUPLICATION-DETECT",
