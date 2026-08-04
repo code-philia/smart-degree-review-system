@@ -27,7 +27,7 @@ const DEFAULT_LEVELS: Record<InnovationScoreDimensionKey, number> = {
 function InnovationScoringPage() {
   const { status, user } = useAuthSession();
   const [degreeType, setDegreeType] = useState<InnovationDegreeType>('master');
-  const [levels, setLevels] = useState(DEFAULT_LEVELS);
+  const [levels, setLevels] = useState<Record<InnovationScoreDimensionKey, number>>(DEFAULT_LEVELS);
   const [report, setReport] = useState<InnovationScoreResponse | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -49,15 +49,22 @@ function InnovationScoringPage() {
   }
 
   if (status === 'loading') {
-    return <main className="px-6 py-12 text-sm font-semibold text-slate-500">正在加载登录状态…</main>;
+    return (
+      <main className="min-h-screen bg-[#FEFDFB] px-6 py-12">
+        <section className="mx-auto max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h1 className="text-2xl font-black text-slate-900">创新性评分</h1>
+          <p className="mt-3 text-sm font-semibold text-slate-500">正在加载登录状态…</p>
+        </section>
+      </main>
+    );
   }
 
   if (!user) {
     return (
-      <main className="mx-auto max-w-4xl px-6 py-12">
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h1 className="text-2xl font-black text-slate-900">创新性固定透明评分</h1>
-          <p className="mt-3 text-sm leading-6 text-slate-600">请先登录后按五个维度计算创新性综合分。</p>
+      <main className="min-h-screen bg-[#FEFDFB] px-6 py-12">
+        <section className="mx-auto max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h1 className="text-2xl font-black text-slate-900">创新性评分</h1>
+          <p className="mt-3 text-sm leading-6 text-slate-600">请先登录后计算创新性分数，系统将按当前账号权限调用后台评分服务。</p>
           <Link className="mt-5 inline-flex h-11 items-center rounded bg-blue-600 px-4 font-semibold text-white" to="/auth">
             前往登录
           </Link>
@@ -68,9 +75,10 @@ function InnovationScoringPage() {
 
   return (
     <main className="min-h-screen bg-[#FEFDFB] px-6 py-10">
-      <section className="mx-auto max-w-5xl rounded-[28px] border border-[#B8B8B8] bg-white p-8">
-        <h1 className="text-3xl font-black text-[#111111]">创新性固定透明评分</h1>
-        <p className="mt-3 text-sm font-semibold text-slate-600">选择博士或硕士权重，并为五个维度选择 1-5 级。</p>
+      <section className="mx-auto max-w-5xl rounded-[28px] border border-[#B8B8B8] bg-white p-8 shadow-sm">
+        <h1 className="text-3xl font-black text-[#111111]">创新性评分</h1>
+        <p className="mt-3 text-sm font-semibold text-slate-600">当前登录用户：{user.username}（{user.role}）</p>
+        <p className="mt-2 text-sm font-semibold text-slate-600">选择博士或硕士权重，并为五个维度选择 1-5 级。</p>
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <label className="block text-sm font-black text-slate-800">
@@ -88,7 +96,7 @@ function InnovationScoringPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             {DIMENSIONS.map((dimension) => (
               <label key={dimension.key} className="block rounded-2xl border border-slate-200 p-4 text-sm font-black text-slate-800">
-                {dimension.label}
+                {dimension.label}等级
                 <select
                   className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-4 text-sm font-semibold outline-none focus:border-blue-500"
                   value={levels[dimension.key]}
@@ -107,18 +115,45 @@ function InnovationScoringPage() {
           >
             {submitting ? '计算中…' : '计算创新性分数'}
           </button>
-          {errorMessage ? <p className="text-sm font-semibold text-red-600">{errorMessage}</p> : null}
+          {errorMessage ? <p className="text-sm font-semibold text-red-600" role="alert">{errorMessage}</p> : null}
         </form>
 
         {report ? (
-          <section className="mt-8 rounded-2xl border border-blue-100 bg-blue-50 p-5">
-            <h2 className="text-2xl font-black text-blue-900">{report.total_score} 分 · {report.grade_label}</h2>
-            <p className="mt-3 text-sm font-bold text-blue-900">公式：{report.formula}</p>
-            <ul className="mt-4 space-y-2 text-sm font-semibold text-slate-700">
-              {report.dimensions.map((dimension) => (
-                <li key={dimension.key}>{dimension.label}：{dimension.level} 级 × 20 = {dimension.raw_score}，权重 {Math.round(dimension.weight * 100)}%，加权 {dimension.weighted_score}</li>
-              ))}
-            </ul>
+          <section className="mt-8 rounded-2xl border border-blue-100 bg-blue-50 p-5" aria-labelledby="innovation-score-report-heading">
+            <div className="flex flex-wrap items-end gap-4">
+              <h2 id="innovation-score-report-heading" className="text-2xl font-black text-blue-950">创新性评分报告</h2>
+              <p className="text-3xl font-black text-blue-700">{report.total_score} 分</p>
+              <p className="rounded-full bg-white px-4 py-2 text-base font-black text-blue-900">{report.grade_label}</p>
+            </div>
+            <p className="mt-4 text-sm font-bold text-blue-900">公式：{report.formula}</p>
+            <p className="mt-2 text-sm font-semibold text-slate-700">
+              本次输入：{report.degree_type === 'master' ? '硕士' : '博士'}；
+              {report.dimensions.map((dimension) => `${dimension.label}${report.input.levels[dimension.key]}级`).join('，')}
+            </p>
+            <div className="mt-5 overflow-x-auto">
+              <table className="w-full border-collapse text-left text-sm" aria-label="创新性评分明细">
+                <thead>
+                  <tr className="border-b border-blue-200 text-slate-600">
+                    <th className="py-3 pr-4 font-black">维度</th>
+                    <th className="py-3 pr-4 font-black">输入等级</th>
+                    <th className="py-3 pr-4 font-black">原始分</th>
+                    <th className="py-3 pr-4 font-black">权重</th>
+                    <th className="py-3 pr-4 font-black">加权贡献</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {report.dimensions.map((dimension) => (
+                    <tr key={dimension.key} className="border-b border-blue-100 last:border-0">
+                      <td className="py-3 pr-4 font-black text-slate-900">{dimension.label}</td>
+                      <td className="py-3 pr-4 font-semibold text-slate-700">{dimension.level}</td>
+                      <td className="py-3 pr-4 font-semibold text-slate-700">{dimension.raw_score}</td>
+                      <td className="py-3 pr-4 font-semibold text-slate-700">{dimension.weight * 100}%</td>
+                      <td className="py-3 pr-4 font-semibold text-slate-700">{dimension.weighted_score}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </section>
         ) : null}
       </section>

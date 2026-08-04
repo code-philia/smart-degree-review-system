@@ -79,9 +79,9 @@
   },
   "FEAT-INNOVATION-SCORING-MODEL": {
     "req_id": "FEAT-INNOVATION-SCORING-MODEL",
-    "state": "DESIGNED",
-    "phase": "design",
-    "updated_at": "2026-08-04 18:28:46"
+    "state": "PASSED",
+    "phase": "test",
+    "updated_at": "2026-08-04 18:30:54"
   },
   "FEAT-LEDGER-FILTERED-STATS": {
     "req_id": "FEAT-LEDGER-FILTERED-STATS",
