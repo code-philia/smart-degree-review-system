@@ -99,6 +99,19 @@ export type DuplicationDetectionResponse = {
   risk: DuplicationRiskReport;
 };
 
+export type DuplicationHistoryRecord = {
+  id: string;
+  user_id: string;
+  source_type: 'paste' | 'file';
+  source_filename?: string | null;
+  original_text: string;
+  total_similarity_rate: number;
+  writing_risk_score: number;
+  sample_count: number;
+  report_json: DuplicationDetectionResponse | Record<string, unknown>;
+  created_at: string;
+};
+
 export type AnalyzeNormativeTextResponse = {
   issues: NormativeIssue[];
 };
@@ -121,6 +134,24 @@ export async function createDuplicationDetection(
   payload: DuplicationDetectionRequest,
 ): Promise<DuplicationDetectionResponse> {
   const response = await apiClient.post<DuplicationDetectionResponse>('/normative/duplication-detections', payload);
+  return response.data;
+}
+
+export async function fetchDuplicationDetectionHistory(): Promise<DuplicationHistoryRecord[]> {
+  const response = await apiClient.get<{ records: DuplicationHistoryRecord[] }>('/normative/duplication-detection-reports');
+  return response.data.records;
+}
+
+export async function fetchDuplicationDetectionReport(reportId: string): Promise<DuplicationHistoryRecord> {
+  const response = await apiClient.get<DuplicationHistoryRecord>(`/normative/duplication-detection-reports/${reportId}`);
+  return response.data;
+}
+
+export async function downloadDuplicationReportJson(reportId: string): Promise<Blob> {
+  const response = await apiClient.get(`/normative/duplication-detection-reports/${reportId}/download`, {
+    responseType: 'blob',
+    headers: { Accept: 'application/json' },
+  });
   return response.data;
 }
 

@@ -27,6 +27,12 @@ const {
   MAX_DUPLICATION_DETECTION_TEXT_BYTES,
   runDuplicationDetection,
 } = require('./duplicationDetectionService');
+const {
+  ALLOWED_DUPLICATION_HISTORY_ROLES,
+  buildDuplicationDownloadPayload,
+  getDuplicationReportForUser,
+  listDuplicationHistoryForUser,
+} = require('./duplicationHistoryService');
 
 const router = express.Router();
 
@@ -123,6 +129,60 @@ router.post(
         res.status(413).json({ code: 413, message: '待检文本不能超过 5 MB' });
         return;
       }
+      if (error?.status) {
+        res.status(error.status).json({ code: error.status, message: error.message });
+        return;
+      }
+      next(error);
+    }
+  },
+);
+
+router.get(
+  '/duplication-detection-reports',
+  requireAuth({ allowedRoles: ALLOWED_DUPLICATION_HISTORY_ROLES }),
+  async (req, res, next) => {
+    try {
+      const records = await listDuplicationHistoryForUser(req.user);
+      res.json({ records });
+    } catch (error) {
+      if (error?.status) {
+        res.status(error.status).json({ code: error.status, message: error.message });
+        return;
+      }
+      next(error);
+    }
+  },
+);
+
+router.get(
+  '/duplication-detection-reports/:reportId',
+  requireAuth({ allowedRoles: ALLOWED_DUPLICATION_HISTORY_ROLES }),
+  async (req, res, next) => {
+    try {
+      const report = await getDuplicationReportForUser(req.user, req.params.reportId);
+      res.json(report);
+    } catch (error) {
+      if (error?.status) {
+        res.status(error.status).json({ code: error.status, message: error.message });
+        return;
+      }
+      next(error);
+    }
+  },
+);
+
+router.get(
+  '/duplication-detection-reports/:reportId/download',
+  requireAuth({ allowedRoles: ALLOWED_DUPLICATION_HISTORY_ROLES }),
+  async (req, res, next) => {
+    try {
+      const report = await getDuplicationReportForUser(req.user, req.params.reportId);
+      res
+        .type('application/json; charset=utf-8')
+        .attachment(`duplication-report-${report.id}.json`)
+        .send(JSON.stringify(buildDuplicationDownloadPayload(report), null, 2));
+    } catch (error) {
       if (error?.status) {
         res.status(error.status).json({ code: error.status, message: error.message });
         return;

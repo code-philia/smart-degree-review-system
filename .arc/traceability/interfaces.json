@@ -99,21 +99,58 @@
   "API-FEAT-DUPLICATION-DETECT-EXPRESS-ROUTE": {
     "interface_id": "API-FEAT-DUPLICATION-DETECT-EXPRESS-ROUTE",
     "req_ids": [
-      "FEAT-DUPLICATION-DETECT"
+      "FEAT-DUPLICATION-DETECT",
+      "FEAT-DUPLICATION-HISTORY"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-DUPLICATION-DETECT-EXPRESS-ROUTE\", \"req_id\": \"FEAT-DUPLICATION-DETECT\", \"type\": \"API\", \"name\": \"POST /api/normative/duplication-detections\", \"file_path\": \"backend/src/normative/normativeRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Provide the protected HTTP boundary for running local duplication similarity and writing-risk detection under the existing normative route tree.\", \"specification\": \"Adds POST /api/normative/duplication-detections beside existing corpus and normative endpoints. Uses requireAuth({ allowedRoles: ['STUDENT','SUPERVISOR','SCHOOL_ADMIN','COLLEGE_ADMIN'] }) before reading request data or corpus samples; anonymous users are denied by the auth middleware. Parses JSON with the detection text byte limit and delegates to runDuplicationDetection(req.user, req.body). Returns 201 with completed or no_samples report. Maps oversized bodies to 413, service validation/authorization errors to their status code, and otherwise delegates to Express error handling. No role is excluded from declared permissions, but authentication is required because scenarios use student01 and the backend boundary must enforce access.\", \"inputs\": [\"Authenticated Express request with text, source_type, source_filename, threshold\"], \"outputs\": [\"201 DuplicationDetectionResponse\", \"400 validation errors\", \"401 anonymous denial\", \"403 unsupported-role denial if role catalog changes\", \"413 body too large\"], \"callers\": [\"backend/src/app.js /api/normative mount\", \"frontend/src/api/normativeRules.ts createDuplicationDetection\", \"backend integration tests via Supertest\"], \"callees\": [\"backend/src/auth/authMiddleware.js requireAuth\", \"backend/src/normative/duplicationDetectionService.js runDuplicationDetection\"], \"test_focus\": \"Backend API tests should verify anonymous denial, allowed roles acceptance, empty text 400, no-sample response without fabricated matches, corpus-backed completed response shape, and 413 limit behavior.\"}",
+    "content": "{\"interface_id\": \"API-FEAT-DUPLICATION-DETECT-EXPRESS-ROUTE\", \"req_id\": \"FEAT-DUPLICATION-HISTORY\", \"type\": \"API\", \"name\": \"ExistingDuplicationDetectionRouteDependency\", \"file_path\": \"backend/src/normative/normativeRoutes.js\", \"first_line\": \"117\", \"responsibility\": \"Reuse the dependency-owned duplication detection route as the producer of completed reports that this node records and later lists.\", \"specification\": \"POST /api/normative/duplication-detections remains owned by FEAT-DUPLICATION-DETECT for similarity/risk calculation. FEAT-DUPLICATION-HISTORY depends on that completed detection result being persisted through FUNC-FEAT-DUPLICATION-HISTORY-SERVICE createDuplicationHistoryFromDetection during implementation, preserving one connected flow from detection creation to history/report operations.\", \"inputs\": [\"Authenticated duplication detection request\"], \"outputs\": [\"DuplicationDetectionResponse used as report_json source for history\"], \"callers\": [\"frontend/src/api/normativeRules.ts createDuplicationDetection\"], \"callees\": [\"backend/src/normative/duplicationDetectionService.js\", \"FUNC-FEAT-DUPLICATION-HISTORY-SERVICE future persistence connection\"], \"test_focus\": [\"Completed detection creates a durable history record for the same authenticated owner\", \"History does not fabricate records independent of completed detection output\"]}",
     "file_path": "backend/src/normative/normativeRoutes.js",
-    "first_line": "1",
+    "first_line": "117",
     "implemented": true,
     "callers": [
+      "frontend/src/api/normativeRules.ts createDuplicationDetection"
+    ],
+    "callees": [
+      "backend/src/normative/duplicationDetectionService.js",
+      "FUNC-FEAT-DUPLICATION-HISTORY-SERVICE future persistence connection"
+    ]
+  },
+  "API-FEAT-DUPLICATION-HISTORY-CLIENT": {
+    "interface_id": "API-FEAT-DUPLICATION-HISTORY-CLIENT",
+    "req_ids": [
+      "FEAT-DUPLICATION-HISTORY"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-DUPLICATION-HISTORY-CLIENT\", \"req_id\": \"FEAT-DUPLICATION-HISTORY\", \"type\": \"API\", \"name\": \"DuplicationHistoryClient\", \"file_path\": \"frontend/src/api/normativeRules.ts\", \"first_line\": \"102\", \"responsibility\": \"Expose typed same-origin Axios calls and DTOs for duplication history list, report detail, and UTF-8 JSON download.\", \"specification\": \"Extends the existing normativeRules client module rather than adding a separate API client root. Defines DuplicationHistoryRecord with id, user_id, source_type, source_filename, original_text, total_similarity_rate, writing_risk_score, sample_count, report_json, and created_at. fetchDuplicationDetectionHistory() calls GET /api/normative/duplication-detection-reports and returns records. fetchDuplicationDetectionReport(reportId) calls GET /api/normative/duplication-detection-reports/:reportId. downloadDuplicationReportJson(reportId) calls GET /api/normative/duplication-detection-reports/:reportId/download with responseType blob and Accept application/json, using the shared Axios instance and interceptors.\", \"inputs\": [\"reportId string for detail/download\"], \"outputs\": [\"Promise<DuplicationHistoryRecord[]>\", \"Promise<DuplicationHistoryRecord>\", \"Promise<Blob>\"], \"callers\": [\"frontend/src/pages/DuplicationHistoryPage.tsx\"], \"callees\": [\"frontend/src/api/index.ts shared Axios client\", \"API-FEAT-DUPLICATION-HISTORY-EXPRESS-ROUTES\"], \"test_focus\": [\"Client calls the exact /normative/duplication-detection-reports endpoints through shared Axios\", \"Download request uses blob responseType and JSON Accept header\", \"DTO exposes similarity, risk, sample count, and created_at fields required by the UI\"]}",
+    "file_path": "frontend/src/api/normativeRules.ts",
+    "first_line": "102",
+    "implemented": false,
+    "callers": [
+      "frontend/src/pages/DuplicationHistoryPage.tsx"
+    ],
+    "callees": [
+      "frontend/src/api/index.ts shared Axios client",
+      "API-FEAT-DUPLICATION-HISTORY-EXPRESS-ROUTES"
+    ]
+  },
+  "API-FEAT-DUPLICATION-HISTORY-EXPRESS-ROUTES": {
+    "interface_id": "API-FEAT-DUPLICATION-HISTORY-EXPRESS-ROUTES",
+    "req_ids": [
+      "FEAT-DUPLICATION-HISTORY"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-DUPLICATION-HISTORY-EXPRESS-ROUTES\", \"req_id\": \"FEAT-DUPLICATION-HISTORY\", \"type\": \"API\", \"name\": \"DuplicationHistoryExpressRoutes\", \"file_path\": \"backend/src/normative/normativeRoutes.js\", \"first_line\": \"142\", \"responsibility\": \"Provide protected HTTP boundaries for listing owned duplication reports, reading one owned report, and downloading one owned report as UTF-8 JSON.\", \"specification\": \"Adds GET /api/normative/duplication-detection-reports, GET /api/normative/duplication-detection-reports/:reportId, and GET /api/normative/duplication-detection-reports/:reportId/download under the existing /api/normative route tree. Each endpoint calls requireAuth({ allowedRoles: ['STUDENT','SUPERVISOR','SCHOOL_ADMIN','COLLEGE_ADMIN'] }) before returning data. Anonymous users are denied by the auth middleware. The service layer additionally scopes all reads to the authenticated user's owner id so student01 receives only student01 records. Download responses use application/json; charset=utf-8 and attachment filename duplication-report-{id}.json.\", \"inputs\": [\"Authenticated req.user\", \"Optional route param reportId\"], \"outputs\": [\"{ records: DuplicationHistoryRecord[] }\", \"DuplicationHistoryRecord\", \"UTF-8 JSON attachment\", \"401/403/404/400 error JSON from auth/service boundary\"], \"callers\": [\"backend/src/app.js /api/normative mount\", \"frontend/src/api/normativeRules.ts duplication history calls\", \"backend integration tests via Supertest\"], \"callees\": [\"FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE\", \"FUNC-FEAT-DUPLICATION-HISTORY-SERVICE\"], \"test_focus\": [\"Anonymous requests are rejected before data access\", \"Allowed roles can access endpoint but only receive own scoped records\", \"List endpoint preserves repository descending time order\", \"Detail/download return 404 for another user's report\", \"Download returns UTF-8 JSON attachment\"]}",
+    "file_path": "backend/src/normative/normativeRoutes.js",
+    "first_line": "142",
+    "implemented": false,
+    "callers": [
       "backend/src/app.js /api/normative mount",
-      "frontend/src/api/normativeRules.ts createDuplicationDetection",
+      "frontend/src/api/normativeRules.ts duplication history calls",
       "backend integration tests via Supertest"
     ],
     "callees": [
-      "backend/src/auth/authMiddleware.js requireAuth",
-      "backend/src/normative/duplicationDetectionService.js runDuplicationDetection"
+      "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE",
+      "FUNC-FEAT-DUPLICATION-HISTORY-SERVICE"
     ]
   },
   "API-FEAT-NORMATIVE-DETECT-CLIENT": {
@@ -160,10 +197,11 @@
       "FLOW-RULE-PUBLISH",
       "FEAT-RULE-TEMPLATE-UPLOAD",
       "FEAT-DUPLICATION-CORPUS",
-      "FEAT-DUPLICATION-DETECT"
+      "FEAT-DUPLICATION-DETECT",
+      "FEAT-DUPLICATION-HISTORY"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT\", \"req_id\": \"FEAT-DUPLICATION-DETECT\", \"type\": \"API\", \"name\": \"Reuse /api/normative backend mount\", \"file_path\": \"backend/src/app.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse the existing normative Express mount so duplication detection is served by the single backend-hosted runtime.\", \"specification\": \"The current node extends backend/src/normative/normativeRoutes.js under the existing app.use('/api/normative', normativeRoutes) mount. It introduces no parallel server, no separate route tree, and no frontend dev-server dependency. Runtime remains frontend build then backend start on port 3000, with the backend serving frontend/dist and /api on the same origin.\", \"inputs\": [\"HTTP requests under /api/normative\"], \"outputs\": [\"Mounted normative routes including POST /api/normative/duplication-detections\"], \"callers\": [\"backend/src/index.js server startup\", \"frontend/src/api/normativeRules.ts\"], \"callees\": [\"backend/src/normative/normativeRoutes.js\"], \"test_focus\": \"Runtime/E2E tests should target http://localhost:3000 and verify the backend-hosted frontend can call /api/normative/duplication-detections on the same origin.\"}",
+    "content": "{\"interface_id\": \"API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT\", \"req_id\": \"FEAT-DUPLICATION-HISTORY\", \"type\": \"API\", \"name\": \"ExistingNormativeBackendMount\", \"file_path\": \"backend/src/app.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse the existing /api/normative Express mount so duplication history is served by the single backend-hosted runtime.\", \"specification\": \"The current node extends backend/src/normative/normativeRoutes.js under the existing app.use('/api/normative', normativeRoutes) mount. It introduces no parallel server or separate route tree and remains compatible with the backend serving frontend/dist on port 3000.\", \"inputs\": [\"HTTP requests under /api/normative\"], \"outputs\": [\"Requests delegated to normativeRoutes\"], \"callers\": [\"backend/src/index.js server startup\", \"frontend/src/api/normativeRules.ts\"], \"callees\": [\"API-FEAT-DUPLICATION-HISTORY-EXPRESS-ROUTES\"], \"test_focus\": [\"Duplication history endpoints are reachable under /api/normative on the backend-hosted origin\"]}",
     "file_path": "backend/src/app.js",
     "first_line": "1",
     "implemented": true,
@@ -172,7 +210,7 @@
       "frontend/src/api/normativeRules.ts"
     ],
     "callees": [
-      "backend/src/normative/normativeRoutes.js"
+      "API-FEAT-DUPLICATION-HISTORY-EXPRESS-ROUTES"
     ]
   },
   "API-FEAT-NORMATIVE-FORMAT-RULES-CLIENT": {
@@ -425,6 +463,43 @@
       "sqlite3 through centralized runStatement"
     ]
   },
+  "DB-FEAT-DUPLICATION-HISTORY-REPOSITORY": {
+    "interface_id": "DB-FEAT-DUPLICATION-HISTORY-REPOSITORY",
+    "req_ids": [
+      "FEAT-DUPLICATION-HISTORY"
+    ],
+    "type": "DB",
+    "content": "{\"interface_id\": \"DB-FEAT-DUPLICATION-HISTORY-REPOSITORY\", \"req_id\": \"FEAT-DUPLICATION-HISTORY\", \"type\": \"DB\", \"name\": \"DuplicationHistoryRepository\", \"file_path\": \"backend/src/normative/duplicationHistoryRepository.js\", \"first_line\": \"3\", \"responsibility\": \"Read and write duplication detection report history through the shared SQLite runtime helpers.\", \"specification\": \"Uses backend/src/database helpers all/get/run and does not open a separate SQLite connection. createDuplicationHistoryRecord(record) inserts a completed duplication report with id, user_id, source_type, optional source_filename, original_text, total_similarity_rate, writing_risk_score, sample_count, report_json, and created_at. listDuplicationHistoryByUser(userId) selects only WHERE user_id = ? ORDER BY created_at DESC. findDuplicationHistoryByIdForUser(reportId, userId) selects only WHERE id = ? AND user_id = ?. parseDuplicationHistoryRow deserializes report_json and normalizes nullable source_filename.\", \"inputs\": [\"Duplication history record object\", \"userId string\", \"reportId string\"], \"outputs\": [\"DuplicationHistoryRecord\", \"DuplicationHistoryRecord[]\", \"null when owner-scoped report is absent\"], \"callers\": [\"FUNC-FEAT-DUPLICATION-HISTORY-SERVICE\"], \"callees\": [\"backend/src/database/index.js all/get/run\", \"DB-FEAT-DUPLICATION-HISTORY-SCHEMA\"], \"test_focus\": [\"Repository uses shared test DB harness through database/index.js\", \"List query orders records by created_at DESC\", \"Detail query cannot return a report for a different user\", \"report_json is stored and parsed as JSON\"]}",
+    "file_path": "backend/src/normative/duplicationHistoryRepository.js",
+    "first_line": "3",
+    "implemented": false,
+    "callers": [
+      "FUNC-FEAT-DUPLICATION-HISTORY-SERVICE"
+    ],
+    "callees": [
+      "backend/src/database/index.js all/get/run",
+      "DB-FEAT-DUPLICATION-HISTORY-SCHEMA"
+    ]
+  },
+  "DB-FEAT-DUPLICATION-HISTORY-SCHEMA": {
+    "interface_id": "DB-FEAT-DUPLICATION-HISTORY-SCHEMA",
+    "req_ids": [
+      "FEAT-DUPLICATION-HISTORY"
+    ],
+    "type": "DB",
+    "content": "{\"interface_id\": \"DB-FEAT-DUPLICATION-HISTORY-SCHEMA\", \"req_id\": \"FEAT-DUPLICATION-HISTORY\", \"type\": \"DB\", \"name\": \"DuplicationHistorySchema\", \"file_path\": \"backend/src/database/init_db.js\", \"first_line\": \"171\", \"responsibility\": \"Extend the centralized SQLite schema with durable owner-scoped duplication detection report history.\", \"specification\": \"Creates duplication_detection_reports idempotently in initializeDatabase. The table stores id, user_id, source_type constrained to paste/file, nullable source_filename, original_text, total_similarity_rate, writing_risk_score, sample_count, report_json, and created_at. user_id references auth_users(id) with ON DELETE CASCADE. This schema is the durable source for history rows and report JSON download; no feature-local DB connection or one-off schema lifecycle is permitted.\", \"inputs\": [\"Database initialization lifecycle\"], \"outputs\": [\"duplication_detection_reports table available to shared DB runtime\"], \"callers\": [\"backend/src/database/index.js initializeDatabase\", \"DB-FEAT-DUPLICATION-HISTORY-REPOSITORY\", \"backend tests using createTestDatabaseHarness\"], \"callees\": [\"sqlite3 via centralized runStatement\"], \"test_focus\": [\"initializeDatabase creates table idempotently\", \"Schema enforces source_type values\", \"Foreign key connects reports to auth users\", \"Required metric/report columns exist\"]}",
+    "file_path": "backend/src/database/init_db.js",
+    "first_line": "171",
+    "implemented": false,
+    "callers": [
+      "backend/src/database/index.js initializeDatabase",
+      "DB-FEAT-DUPLICATION-HISTORY-REPOSITORY",
+      "backend tests using createTestDatabaseHarness"
+    ],
+    "callees": [
+      "sqlite3 via centralized runStatement"
+    ]
+  },
   "DB-FEAT-NORMATIVE-DETECT-TASK-REPOSITORY": {
     "interface_id": "DB-FEAT-NORMATIVE-DETECT-TASK-REPOSITORY",
     "req_ids": [
@@ -563,15 +638,16 @@
       "FEAT-NORMATIVE-DETECT",
       "FEAT-NORMATIVE-REPORT",
       "FEAT-DUPLICATION-CORPUS",
-      "FEAT-DUPLICATION-DETECT"
+      "FEAT-DUPLICATION-DETECT",
+      "FEAT-DUPLICATION-HISTORY"
     ],
     "type": "FUNC",
-    "content": "{\"interface_id\": \"FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE\", \"req_id\": \"FEAT-DUPLICATION-DETECT\", \"type\": \"FUNC\", \"name\": \"Reuse requireAuth authorization middleware\", \"file_path\": \"backend/src/auth/authMiddleware.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse server-side authentication and role authorization before duplication detection data is returned.\", \"specification\": \"The duplication detection route calls requireAuth({ allowedRoles: ['STUDENT','SUPERVISOR','SCHOOL_ADMIN','COLLEGE_ADMIN'] }) before service execution. Anonymous users must receive an auth denial before any corpus reads or detection work. The declared role catalog has no denied roles for this node; data scope is read-only access to the shared local corpus and does not mutate user- or role-scoped records.\", \"inputs\": [\"Express request with session cookie\", \"Allowed role list\"], \"outputs\": [\"req.user for authenticated allowed roles\", \"401/403 denial before route handler logic\"], \"callers\": [\"backend/src/normative/normativeRoutes.js POST /duplication-detections\"], \"callees\": [\"backend/src/auth/sessionService.js\"], \"test_focus\": \"API tests should verify anonymous requests are denied at the backend boundary and each declared role can reach the route when authenticated.\"}",
+    "content": "{\"interface_id\": \"FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE\", \"req_id\": \"FEAT-DUPLICATION-HISTORY\", \"type\": \"FUNC\", \"name\": \"ExistingAuthzMiddleware\", \"file_path\": \"backend/src/auth/authMiddleware.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse server-side authentication and role authorization before duplication history data is returned.\", \"specification\": \"Duplication history routes call requireAuth({ allowedRoles: ['STUDENT','SUPERVISOR','SCHOOL_ADMIN','COLLEGE_ADMIN'] }) before service execution. Anonymous users must receive auth denial before any history repository read. UI hiding is supplementary; backend authorization remains the enforcement boundary.\", \"inputs\": [\"Express request with session cookie\", \"allowedRoles option\"], \"outputs\": [\"req.user for authenticated allowed roles\", \"401/403 denial for anonymous or disallowed access\"], \"callers\": [\"API-FEAT-DUPLICATION-HISTORY-EXPRESS-ROUTES\"], \"callees\": [\"backend/src/auth/sessionService.js\"], \"test_focus\": [\"Anonymous request is denied before repository access\", \"Allowed role request receives req.user for owner-scoped service logic\"]}",
     "file_path": "backend/src/auth/authMiddleware.js",
     "first_line": "1",
     "implemented": true,
     "callers": [
-      "backend/src/normative/normativeRoutes.js POST /duplication-detections"
+      "API-FEAT-DUPLICATION-HISTORY-EXPRESS-ROUTES"
     ],
     "callees": [
       "backend/src/auth/sessionService.js"
@@ -630,6 +706,24 @@
     ],
     "callees": [
       "backend/src/normative/duplicationCorpusRepository.js listCorpusSamples"
+    ]
+  },
+  "FUNC-FEAT-DUPLICATION-HISTORY-SERVICE": {
+    "interface_id": "FUNC-FEAT-DUPLICATION-HISTORY-SERVICE",
+    "req_ids": [
+      "FEAT-DUPLICATION-HISTORY"
+    ],
+    "type": "FUNC",
+    "content": "{\"interface_id\": \"FUNC-FEAT-DUPLICATION-HISTORY-SERVICE\", \"req_id\": \"FEAT-DUPLICATION-HISTORY\", \"type\": \"FUNC\", \"name\": \"DuplicationHistoryService\", \"file_path\": \"backend/src/normative/duplicationHistoryService.js\", \"first_line\": \"16\", \"responsibility\": \"Enforce duplication-history authorization and owner data scope, orchestrate list/detail/download payloads, and define the persistence boundary for completed detection results.\", \"specification\": \"Defines ALLOWED_DUPLICATION_HISTORY_ROLES as STUDENT, SUPERVISOR, SCHOOL_ADMIN, and COLLEGE_ADMIN. ensureCanAccessDuplicationHistory(user) derives anonymous denial and role denial before returning owner id from username/id. listDuplicationHistoryForUser(user) reads only records for that owner. getDuplicationReportForUser(user, reportId) validates report id and returns only an owner-scoped report or 404. buildDuplicationDownloadPayload(report) emits report metadata, similarity/risk/sample metrics, report JSON, and original_text. createDuplicationHistoryFromDetection(user, request, detectionResult) defines how FEAT-DUPLICATION-DETECT results will be persisted into history using the same owner scope and no fake success path.\", \"inputs\": [\"Authenticated user\", \"reportId string\", \"Detection request text/source metadata\", \"DuplicationDetectionResponse\"], \"outputs\": [\"Owner-scoped history records\", \"Owner-scoped report detail\", \"Download JSON payload\", \"HTTP-style errors with status\"], \"callers\": [\"backend/src/normative/normativeRoutes.js duplication report endpoints\", \"backend/src/normative/duplicationDetectionService.js future persistence connection\"], \"callees\": [\"DB-FEAT-DUPLICATION-HISTORY-REPOSITORY\"], \"test_focus\": [\"Service rejects missing user with 401\", \"Service rejects unsupported role with 403\", \"Service scopes list/detail by user username/id\", \"Service produces download payload with required metrics\", \"Create-from-detection maps similarity, risk score, sample count, original text, and report JSON\"]}",
+    "file_path": "backend/src/normative/duplicationHistoryService.js",
+    "first_line": "16",
+    "implemented": false,
+    "callers": [
+      "backend/src/normative/normativeRoutes.js duplication report endpoints",
+      "backend/src/normative/duplicationDetectionService.js future persistence connection"
+    ],
+    "callees": [
+      "DB-FEAT-DUPLICATION-HISTORY-REPOSITORY"
     ]
   },
   "FUNC-FEAT-NORMATIVE-DETECT-TASK-SERVICE": {
@@ -869,6 +963,41 @@
     "callees": [
       "frontend/src/api/normativeRules.ts createDuplicationDetection",
       "frontend/src/auth/AuthSessionProvider.tsx useAuthSession"
+    ]
+  },
+  "UI-FEAT-DUPLICATION-HISTORY-PAGE": {
+    "interface_id": "UI-FEAT-DUPLICATION-HISTORY-PAGE",
+    "req_ids": [
+      "FEAT-DUPLICATION-HISTORY"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-DUPLICATION-HISTORY-PAGE\", \"req_id\": \"FEAT-DUPLICATION-HISTORY\", \"type\": \"UI\", \"name\": \"DuplicationHistoryPage\", \"file_path\": \"frontend/src/pages/DuplicationHistoryPage.tsx\", \"first_line\": \"19\", \"responsibility\": \"Render the student-facing duplication history and report-detail screens using runtime data only.\", \"specification\": \"Provides /duplication-history and /duplication-history/:reportId page behavior. Uses AuthSessionProvider to show loading and anonymous login prompts. For authenticated users, fetches duplication history from the typed API client, renders a visually referenced six-column table with document name, detection type, total similarity rate, writing risk score, sample count, detection time, report preview, JSON download, and stable empty/error/loading states. The report-detail view displays metrics, the JSON report payload, a JSON download action, and browser print action. No screenshot values or fallback rows are allowed.\", \"inputs\": [\"Authenticated session state from useAuthSession\", \"Route param reportId\", \"DuplicationHistoryRecord[] or DuplicationHistoryRecord from frontend/src/api/normativeRules.ts\"], \"outputs\": [\"History table UI\", \"Report detail UI\", \"JSON download via Blob URL\", \"window.print() browser print action\", \"Anonymous/loading/empty/error states\"], \"callers\": [\"frontend/src/App.tsx routes /duplication-history and /duplication-history/:reportId\"], \"callees\": [\"API-FEAT-DUPLICATION-HISTORY-CLIENT\", \"API-FEAT-AUTH-SESSION-CLIENT\"], \"test_focus\": [\"Authenticated student sees only fetched records in descending API order\", \"No hardcoded sample rows appear when API returns empty records\", \"Report preview route loads one report and exposes JSON download and print actions\", \"Anonymous user is prompted to log in instead of seeing protected data\"]}",
+    "file_path": "frontend/src/pages/DuplicationHistoryPage.tsx",
+    "first_line": "19",
+    "implemented": false,
+    "callers": [
+      "frontend/src/App.tsx routes /duplication-history and /duplication-history/:reportId"
+    ],
+    "callees": [
+      "API-FEAT-DUPLICATION-HISTORY-CLIENT",
+      "API-FEAT-AUTH-SESSION-CLIENT"
+    ]
+  },
+  "UI-FEAT-DUPLICATION-HISTORY-ROUTE-WIRING": {
+    "interface_id": "UI-FEAT-DUPLICATION-HISTORY-ROUTE-WIRING",
+    "req_ids": [
+      "FEAT-DUPLICATION-HISTORY"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-DUPLICATION-HISTORY-ROUTE-WIRING\", \"req_id\": \"FEAT-DUPLICATION-HISTORY\", \"type\": \"UI\", \"name\": \"DuplicationHistoryRouteWiring\", \"file_path\": \"frontend/src/App.tsx\", \"first_line\": \"23\", \"responsibility\": \"Mount the duplication history list and detail pages in the existing React route tree.\", \"specification\": \"Adds routes /duplication-history and /duplication-history/:reportId to the existing React Router configuration without creating a parallel app entrypoint. The routes render DuplicationHistoryPage and continue to run under the backend-hosted built frontend runtime.\", \"inputs\": [\"Browser location path\"], \"outputs\": [\"DuplicationHistoryPage mounted for list/detail routes\"], \"callers\": [\"frontend/src/main.tsx BrowserRouter runtime\"], \"callees\": [\"UI-FEAT-DUPLICATION-HISTORY-PAGE\"], \"test_focus\": [\"Navigating to /duplication-history mounts the history page\", \"Navigating to /duplication-history/:reportId passes reportId to the detail page\"]}",
+    "file_path": "frontend/src/App.tsx",
+    "first_line": "23",
+    "implemented": false,
+    "callers": [
+      "frontend/src/main.tsx BrowserRouter runtime"
+    ],
+    "callees": [
+      "UI-FEAT-DUPLICATION-HISTORY-PAGE"
     ]
   },
   "UI-FEAT-NORMATIVE-DETECT-PAGE": {

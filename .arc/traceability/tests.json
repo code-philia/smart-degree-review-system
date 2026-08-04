@@ -239,6 +239,90 @@
     "first_line": "1",
     "scenario_id": null
   },
+  "FEAT-DUPLICATION-HISTORY:API:AUTHZ:001": {
+    "test_id": "FEAT-DUPLICATION-HISTORY:API:AUTHZ:001",
+    "req_id": "FEAT-DUPLICATION-HISTORY",
+    "interface_ids": [
+      "API-FEAT-DUPLICATION-HISTORY-EXPRESS-ROUTES",
+      "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/duplication-history.integration.test.js",
+    "passed": null,
+    "first_line": "121",
+    "scenario_id": null
+  },
+  "FEAT-DUPLICATION-HISTORY:API:DOWNLOAD:001": {
+    "test_id": "FEAT-DUPLICATION-HISTORY:API:DOWNLOAD:001",
+    "req_id": "FEAT-DUPLICATION-HISTORY",
+    "interface_ids": [
+      "API-FEAT-DUPLICATION-HISTORY-EXPRESS-ROUTES",
+      "FUNC-FEAT-DUPLICATION-HISTORY-SERVICE"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/duplication-history.integration.test.js",
+    "passed": null,
+    "first_line": "195",
+    "scenario_id": null
+  },
+  "FEAT-DUPLICATION-HISTORY:API:PERSISTENCE:001": {
+    "test_id": "FEAT-DUPLICATION-HISTORY:API:PERSISTENCE:001",
+    "req_id": "FEAT-DUPLICATION-HISTORY",
+    "interface_ids": [
+      "API-FEAT-DUPLICATION-DETECT-EXPRESS-ROUTE",
+      "FUNC-FEAT-DUPLICATION-HISTORY-SERVICE",
+      "DB-FEAT-DUPLICATION-HISTORY-REPOSITORY",
+      "DB-FEAT-DUPLICATION-HISTORY-SCHEMA"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/duplication-history.integration.test.js",
+    "passed": null,
+    "first_line": "268",
+    "scenario_id": null
+  },
+  "FEAT-DUPLICATION-HISTORY:FUNC:001": {
+    "test_id": "FEAT-DUPLICATION-HISTORY:FUNC:001",
+    "req_id": "FEAT-DUPLICATION-HISTORY",
+    "interface_ids": [
+      "FUNC-FEAT-DUPLICATION-HISTORY-SERVICE",
+      "DB-FEAT-DUPLICATION-HISTORY-REPOSITORY"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/duplication-history.integration.test.js",
+    "passed": null,
+    "first_line": "239",
+    "scenario_id": null
+  },
+  "FEAT-DUPLICATION-HISTORY:SCENARIO:001:E2E": {
+    "test_id": "FEAT-DUPLICATION-HISTORY:SCENARIO:001:E2E",
+    "req_id": "FEAT-DUPLICATION-HISTORY",
+    "interface_ids": [
+      "UI-FEAT-DUPLICATION-HISTORY-PAGE",
+      "UI-FEAT-DUPLICATION-HISTORY-ROUTE-WIRING",
+      "API-FEAT-DUPLICATION-HISTORY-CLIENT",
+      "API-FEAT-DUPLICATION-HISTORY-EXPRESS-ROUTES",
+      "API-FEAT-DUPLICATION-DETECT-EXPRESS-ROUTE"
+    ],
+    "type": "E2E",
+    "file_path": "backend/test-e2e/duplication-history.spec.js",
+    "passed": null,
+    "first_line": "73",
+    "scenario_id": null
+  },
+  "FEAT-DUPLICATION-HISTORY:SCENARIO:001:INTEGRATION": {
+    "test_id": "FEAT-DUPLICATION-HISTORY:SCENARIO:001:INTEGRATION",
+    "req_id": "FEAT-DUPLICATION-HISTORY",
+    "interface_ids": [
+      "API-FEAT-DUPLICATION-HISTORY-EXPRESS-ROUTES",
+      "FUNC-FEAT-DUPLICATION-HISTORY-SERVICE",
+      "DB-FEAT-DUPLICATION-HISTORY-REPOSITORY"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/duplication-history.integration.test.js",
+    "passed": null,
+    "first_line": "128",
+    "scenario_id": null
+  },
   "FEAT-NORMATIVE-DETECT:E2E:SCENARIOS:001": {
     "test_id": "FEAT-NORMATIVE-DETECT:E2E:SCENARIOS:001",
     "req_id": "FEAT-NORMATIVE-DETECT",
