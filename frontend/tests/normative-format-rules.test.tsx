@@ -96,7 +96,8 @@ describe('FEAT-NORMATIVE-FORMAT-RULES frontend route and page contract', () => {
     expect(await screen.findByRole('heading', { name: '默认规范检测规则' })).toBeInTheDocument();
     expect(screen.getByText(/当前登录用户：student01（STUDENT）/)).toBeInTheDocument();
 
-    await user.type(screen.getByLabelText('待检测文本'), scenarioText);
+    await user.click(screen.getByLabelText('待检测文本'));
+    await user.paste(scenarioText);
     await user.click(screen.getByRole('button', { name: '运行默认规则' }));
 
     await waitFor(() => expect(analyzeDefaultNormativeText).toHaveBeenCalledWith({ text: scenarioText }));

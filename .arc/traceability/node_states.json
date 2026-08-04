@@ -103,9 +103,9 @@
   },
   "FEAT-NORMATIVE-FORMAT-RULES": {
     "req_id": "FEAT-NORMATIVE-FORMAT-RULES",
-    "state": "DESIGNED",
-    "phase": "design",
-    "updated_at": "2026-08-04 16:13:34"
+    "state": "PASSED",
+    "phase": "test",
+    "updated_at": "2026-08-04 16:18:48"
   },
   "FEAT-NORMATIVE-REPORT": {
     "req_id": "FEAT-NORMATIVE-REPORT",
