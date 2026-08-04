@@ -103,6 +103,150 @@
     "edge_type": "cross_req",
     "created_at": "2026-08-04 17:45:31"
   },
+  "FEAT-POLISH-HISTORY::FEAT-AUTH-PASSWORD::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES::DB-FEAT-AUTH-SESSION-REPOSITORY": {
+    "source_req_id": "FEAT-POLISH-HISTORY",
+    "target_req_id": "FEAT-AUTH-PASSWORD",
+    "from_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "to_interface_id": "DB-FEAT-AUTH-SESSION-REPOSITORY",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-04 18:20:55"
+  },
+  "FEAT-POLISH-HISTORY::FEAT-AUTH-PASSWORD::API-FEAT-POLISH-HISTORY-EXPRESS-ROUTES::FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE": {
+    "source_req_id": "FEAT-POLISH-HISTORY",
+    "target_req_id": "FEAT-AUTH-PASSWORD",
+    "from_interface_id": "API-FEAT-POLISH-HISTORY-EXPRESS-ROUTES",
+    "to_interface_id": "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-04 18:20:54"
+  },
+  "FEAT-POLISH-HISTORY::FEAT-AUTH-PASSWORD::UI-FEAT-POLISH-HISTORY-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-POLISH-HISTORY",
+    "target_req_id": "FEAT-AUTH-PASSWORD",
+    "from_interface_id": "UI-FEAT-POLISH-HISTORY-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-04 18:20:54"
+  },
+  "FEAT-POLISH-HISTORY::FEAT-AUTH-SESSION::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES::DB-FEAT-AUTH-SESSION-REPOSITORY": {
+    "source_req_id": "FEAT-POLISH-HISTORY",
+    "target_req_id": "FEAT-AUTH-SESSION",
+    "from_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "to_interface_id": "DB-FEAT-AUTH-SESSION-REPOSITORY",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-04 18:20:55"
+  },
+  "FEAT-POLISH-HISTORY::FEAT-AUTH-SESSION::API-FEAT-POLISH-HISTORY-EXPRESS-ROUTES::FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE": {
+    "source_req_id": "FEAT-POLISH-HISTORY",
+    "target_req_id": "FEAT-AUTH-SESSION",
+    "from_interface_id": "API-FEAT-POLISH-HISTORY-EXPRESS-ROUTES",
+    "to_interface_id": "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-04 18:20:54"
+  },
+  "FEAT-POLISH-HISTORY::FEAT-AUTH-SESSION::UI-FEAT-POLISH-HISTORY-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-POLISH-HISTORY",
+    "target_req_id": "FEAT-AUTH-SESSION",
+    "from_interface_id": "UI-FEAT-POLISH-HISTORY-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-04 18:20:54"
+  },
+  "FEAT-POLISH-HISTORY::FEAT-DUPLICATION-CORPUS::API-FEAT-POLISH-HISTORY-EXPRESS-ROUTES::FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE": {
+    "source_req_id": "FEAT-POLISH-HISTORY",
+    "target_req_id": "FEAT-DUPLICATION-CORPUS",
+    "from_interface_id": "API-FEAT-POLISH-HISTORY-EXPRESS-ROUTES",
+    "to_interface_id": "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-04 18:20:54"
+  },
+  "FEAT-POLISH-HISTORY::FEAT-DUPLICATION-CORPUS::UI-FEAT-POLISH-HISTORY-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-POLISH-HISTORY",
+    "target_req_id": "FEAT-DUPLICATION-CORPUS",
+    "from_interface_id": "UI-FEAT-POLISH-HISTORY-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-04 18:20:54"
+  },
+  "FEAT-POLISH-HISTORY::FEAT-DUPLICATION-DETECT::API-FEAT-POLISH-HISTORY-EXPRESS-ROUTES::FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE": {
+    "source_req_id": "FEAT-POLISH-HISTORY",
+    "target_req_id": "FEAT-DUPLICATION-DETECT",
+    "from_interface_id": "API-FEAT-POLISH-HISTORY-EXPRESS-ROUTES",
+    "to_interface_id": "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-04 18:20:54"
+  },
+  "FEAT-POLISH-HISTORY::FEAT-DUPLICATION-HISTORY::API-FEAT-POLISH-HISTORY-EXPRESS-ROUTES::FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE": {
+    "source_req_id": "FEAT-POLISH-HISTORY",
+    "target_req_id": "FEAT-DUPLICATION-HISTORY",
+    "from_interface_id": "API-FEAT-POLISH-HISTORY-EXPRESS-ROUTES",
+    "to_interface_id": "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-04 18:20:54"
+  },
+  "FEAT-POLISH-HISTORY::FEAT-NORMATIVE-DETECT::API-FEAT-POLISH-HISTORY-EXPRESS-ROUTES::FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE": {
+    "source_req_id": "FEAT-POLISH-HISTORY",
+    "target_req_id": "FEAT-NORMATIVE-DETECT",
+    "from_interface_id": "API-FEAT-POLISH-HISTORY-EXPRESS-ROUTES",
+    "to_interface_id": "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-04 18:20:54"
+  },
+  "FEAT-POLISH-HISTORY::FEAT-NORMATIVE-FORMAT-RULES::API-FEAT-POLISH-HISTORY-EXPRESS-ROUTES::FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE": {
+    "source_req_id": "FEAT-POLISH-HISTORY",
+    "target_req_id": "FEAT-NORMATIVE-FORMAT-RULES",
+    "from_interface_id": "API-FEAT-POLISH-HISTORY-EXPRESS-ROUTES",
+    "to_interface_id": "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-04 18:20:54"
+  },
+  "FEAT-POLISH-HISTORY::FEAT-NORMATIVE-FORMAT-RULES::UI-FEAT-POLISH-HISTORY-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-POLISH-HISTORY",
+    "target_req_id": "FEAT-NORMATIVE-FORMAT-RULES",
+    "from_interface_id": "UI-FEAT-POLISH-HISTORY-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-04 18:20:54"
+  },
+  "FEAT-POLISH-HISTORY::FEAT-NORMATIVE-REPORT::API-FEAT-POLISH-HISTORY-EXPRESS-ROUTES::FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE": {
+    "source_req_id": "FEAT-POLISH-HISTORY",
+    "target_req_id": "FEAT-NORMATIVE-REPORT",
+    "from_interface_id": "API-FEAT-POLISH-HISTORY-EXPRESS-ROUTES",
+    "to_interface_id": "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-04 18:20:54"
+  },
+  "FEAT-POLISH-HISTORY::FEAT-POLISH-LOCAL::UI-FEAT-POLISH-HISTORY-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-POLISH-HISTORY",
+    "target_req_id": "FEAT-POLISH-LOCAL",
+    "from_interface_id": "UI-FEAT-POLISH-HISTORY-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-04 18:20:54"
+  },
+  "FEAT-POLISH-HISTORY::FEAT-POLISH-WHOLE::UI-FEAT-POLISH-HISTORY-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-POLISH-HISTORY",
+    "target_req_id": "FEAT-POLISH-WHOLE",
+    "from_interface_id": "UI-FEAT-POLISH-HISTORY-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-04 18:20:54"
+  },
+  "FEAT-POLISH-HISTORY::FEAT-RULE-TEMPLATE-UPLOAD::API-FEAT-POLISH-HISTORY-EXPRESS-ROUTES::FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE": {
+    "source_req_id": "FEAT-POLISH-HISTORY",
+    "target_req_id": "FEAT-RULE-TEMPLATE-UPLOAD",
+    "from_interface_id": "API-FEAT-POLISH-HISTORY-EXPRESS-ROUTES",
+    "to_interface_id": "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-04 18:20:54"
+  },
+  "FEAT-POLISH-HISTORY::FLOW-RULE-PUBLISH::API-FEAT-POLISH-HISTORY-EXPRESS-ROUTES::FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE": {
+    "source_req_id": "FEAT-POLISH-HISTORY",
+    "target_req_id": "FLOW-RULE-PUBLISH",
+    "from_interface_id": "API-FEAT-POLISH-HISTORY-EXPRESS-ROUTES",
+    "to_interface_id": "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-04 18:20:54"
+  },
   "FEAT-POLISH-LOCAL::FEAT-AUTH-PASSWORD::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES::DB-FEAT-AUTH-SESSION-REPOSITORY": {
     "source_req_id": "FEAT-POLISH-LOCAL",
     "target_req_id": "FEAT-AUTH-PASSWORD",

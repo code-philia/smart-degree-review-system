@@ -171,6 +171,25 @@ export type LocalPolishResult = {
   created_at: string;
 };
 
+export type PolishHistoryRecord = {
+  id: string;
+  user_id: string;
+  polish_type: 'whole' | 'local';
+  source_type: 'paste' | 'file';
+  source_filename?: string | null;
+  document_name: string;
+  original_text: string;
+  polished_text: string;
+  level: WholePolishLevel;
+  changes: WholePolishChange[];
+  diff_segments: LocalPolishDiffSegment[];
+  change_count: number;
+  rule_version?: string;
+  source_result_id?: string | null;
+  retry_of?: string | null;
+  created_at: string;
+};
+
 export type AnalyzeNormativeTextResponse = {
   issues: NormativeIssue[];
 };
@@ -236,6 +255,24 @@ export async function fetchWholePolishResult(resultId: string): Promise<WholePol
 
 export async function downloadWholePolishText(resultId: string): Promise<Blob> {
   const response = await apiClient.get(`/normative/whole-polish-results/${resultId}/download`, {
+    responseType: 'blob',
+    headers: { Accept: 'text/plain' },
+  });
+  return response.data;
+}
+
+export async function fetchPolishHistory(): Promise<PolishHistoryRecord[]> {
+  const response = await apiClient.get<{ records: PolishHistoryRecord[] }>('/normative/polish-history');
+  return response.data.records;
+}
+
+export async function fetchPolishHistoryRecord(polishType: PolishHistoryRecord['polish_type'], resultId: string): Promise<PolishHistoryRecord> {
+  const response = await apiClient.get<PolishHistoryRecord>(`/normative/polish-history/${polishType}/${resultId}`);
+  return response.data;
+}
+
+export async function downloadPolishResultText(polishType: PolishHistoryRecord['polish_type'], resultId: string): Promise<Blob> {
+  const response = await apiClient.get(`/normative/polish-history/${polishType}/${resultId}/download`, {
     responseType: 'blob',
     headers: { Accept: 'text/plain' },
   });

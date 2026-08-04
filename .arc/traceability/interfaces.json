@@ -7,16 +7,16 @@
       "FEAT-NORMATIVE-FORMAT-RULES",
       "FEAT-DUPLICATION-CORPUS",
       "FEAT-POLISH-WHOLE",
-      "FEAT-POLISH-LOCAL"
+      "FEAT-POLISH-LOCAL",
+      "FEAT-POLISH-HISTORY"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-CLIENT\", \"req_id\": \"FEAT-POLISH-LOCAL\", \"type\": \"API\", \"name\": \"Shared auth session client dependency\", \"file_path\": \"frontend/src/api/authSession.ts\", \"first_line\": \"1\", \"responsibility\": \"Reuse current-session recovery and cookie-backed auth client calls so the local polishing page consumes shared authenticated state instead of duplicating session state.\", \"specification\": \"The local polishing page depends on the existing AuthSessionProvider path to know loading, anonymous, or authenticated user state. This node does not change authenticated state; it consumes the existing session client/provider and shows explicit loading or login-required UI before calling protected polishing APIs.\", \"inputs\": {\"cookies\": \"existing session cookie\"}, \"outputs\": {\"session_state\": \"loading, anonymous, or authenticated user\"}, \"callers\": [\"frontend/src/auth/AuthSessionProvider.tsx\", \"frontend/src/pages/LocalPolishPage.tsx indirectly\"], \"callees\": [\"backend/src/auth/authRoutes.js mounted at /api/auth\"], \"test_focus\": [\"Local polishing page does not issue protected API calls before authenticated state is known.\", \"Anonymous session state renders a login prompt.\"]}",
+    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-CLIENT\", \"req_id\": \"FEAT-POLISH-HISTORY\", \"type\": \"API\", \"name\": \"Reused frontend auth session client/provider path\", \"file_path\": \"frontend/src/api/authSession.ts\", \"first_line\": \"1\", \"responsibility\": \"Reuse current-session recovery and shared authenticated UI state before polish history APIs are called.\", \"specification\": \"PolishHistoryPage consumes useAuthSession through the existing AuthSessionProvider path. It does not change authenticated state. Loading and anonymous states are handled in the UI before invoking history API calls.\", \"inputs\": {\"cookie_session\": \"Existing cookie-backed browser session\"}, \"outputs\": {\"session_state\": \"loading, authenticated user, or anonymous\"}, \"callers\": [\"frontend/src/pages/PolishHistoryPage.tsx\"], \"callees\": [\"backend/src/auth/authRoutes.js mounted at /api/auth\"], \"test_focus\": [\"History page does not duplicate session state\", \"Anonymous users see login prompt\"]}",
     "file_path": "frontend/src/api/authSession.ts",
     "first_line": "1",
     "implemented": true,
     "callers": [
-      "frontend/src/auth/AuthSessionProvider.tsx",
-      "frontend/src/pages/LocalPolishPage.tsx indirectly"
+      "frontend/src/pages/PolishHistoryPage.tsx"
     ],
     "callees": [
       "backend/src/auth/authRoutes.js mounted at /api/auth"
@@ -28,19 +28,19 @@
       "FEAT-AUTH-SESSION",
       "FEAT-AUTH-PASSWORD",
       "FEAT-POLISH-WHOLE",
-      "FEAT-POLISH-LOCAL"
+      "FEAT-POLISH-LOCAL",
+      "FEAT-POLISH-HISTORY"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"req_id\": \"FEAT-POLISH-LOCAL\", \"type\": \"API\", \"name\": \"Shared auth route and middleware dependency\", \"file_path\": \"backend/src/auth/authRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse backend session routes and middleware-backed current user identity for local polishing route authorization.\", \"specification\": \"Local polishing routes rely on the existing cookie-backed auth system and requireAuth middleware to deny anonymous access and attach req.user. The current node reuses, rather than changes, login/current-session/logout routes and the authorization middleware.\", \"inputs\": {\"session_cookie\": \"cookie-backed session id\"}, \"outputs\": {\"req.user\": \"authenticated user with role and scope\"}, \"callers\": [\"backend/src/normative/normativeRoutes.js local-polish endpoints\"], \"callees\": [\"backend/src/auth/sessionService.js\", \"backend/src/auth/authMiddleware.js\", \"DB-FEAT-AUTH-SESSION-REPOSITORY\"], \"test_focus\": [\"Protected local-polish routes reject anonymous requests.\", \"Allowed role checks are enforced server-side before service execution.\"]}",
+    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"req_id\": \"FEAT-POLISH-HISTORY\", \"type\": \"API\", \"name\": \"Reused backend auth/session authorization boundary\", \"file_path\": \"backend/src/auth/authRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse cookie-backed authentication and requireAuth middleware for server-side polish history authorization.\", \"specification\": \"Polish history routes use the existing requireAuth middleware to deny anonymous access and attach req.user before any owner-scoped service call. This node reuses the session system and does not modify login/current/logout behavior.\", \"inputs\": {\"request\": \"Express request with session cookie\"}, \"outputs\": {\"req.user\": \"Authenticated user identity and role, or 401 response\"}, \"callers\": [\"backend/src/normative/normativeRoutes.js polish-history endpoints\"], \"callees\": [\"backend/src/auth/sessionService.js\", \"DB-FEAT-AUTH-SESSION-REPOSITORY\"], \"test_focus\": [\"Anonymous polish history requests are blocked at backend boundary\", \"req.user.id is available for owner-scoped repository queries\"]}",
     "file_path": "backend/src/auth/authRoutes.js",
     "first_line": "1",
     "implemented": true,
     "callers": [
-      "backend/src/normative/normativeRoutes.js local-polish endpoints"
+      "backend/src/normative/normativeRoutes.js polish-history endpoints"
     ],
     "callees": [
       "backend/src/auth/sessionService.js",
-      "backend/src/auth/authMiddleware.js",
       "DB-FEAT-AUTH-SESSION-REPOSITORY"
     ]
   },
@@ -295,6 +295,44 @@
       "backend/src/normative/detectionReportService.js"
     ]
   },
+  "API-FEAT-POLISH-HISTORY-CLIENT": {
+    "interface_id": "API-FEAT-POLISH-HISTORY-CLIENT",
+    "req_ids": [
+      "FEAT-POLISH-HISTORY"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-POLISH-HISTORY-CLIENT\", \"req_id\": \"FEAT-POLISH-HISTORY\", \"type\": \"API\", \"name\": \"Polish history Axios client\", \"file_path\": \"frontend/src/api/normativeRules.ts\", \"first_line\": \"174\", \"responsibility\": \"Expose typed same-origin Axios calls and DTOs for polish history list, detail, and UTF-8 .txt download.\", \"specification\": \"Extends the existing normativeRules API module so history uses the shared Axios client and interceptors. Defines PolishHistoryRecord with id, user_id, polish_type, source/document fields, original_text, polished_text, level, changes, diff_segments, change_count, and created_at. fetchPolishHistory() calls GET /api/normative/polish-history and returns records. fetchPolishHistoryRecord(polishType, resultId) calls GET /api/normative/polish-history/:polishType/:resultId. downloadPolishResultText(polishType, resultId) calls GET /api/normative/polish-history/:polishType/:resultId/download with responseType blob and Accept text/plain.\", \"inputs\": {\"polishType\": \"'whole' | 'local' for detail/download\", \"resultId\": \"Persisted whole/local polish result id\"}, \"outputs\": {\"fetchPolishHistory\": \"Promise<PolishHistoryRecord[]>\", \"fetchPolishHistoryRecord\": \"Promise<PolishHistoryRecord>\", \"downloadPolishResultText\": \"Promise<Blob>\"}, \"callers\": [\"frontend/src/pages/PolishHistoryPage.tsx\"], \"callees\": [\"frontend/src/api/index.ts shared Axios client\", \"API-FEAT-POLISH-HISTORY-EXPRESS-ROUTES\"], \"test_focus\": [\"Uses existing shared Axios client rather than a standalone fetch wrapper\", \"Calls exact same-origin /normative/polish-history endpoints\", \"Requests download responses as text/plain blobs\"]}",
+    "file_path": "frontend/src/api/normativeRules.ts",
+    "first_line": "174",
+    "implemented": false,
+    "callers": [
+      "frontend/src/pages/PolishHistoryPage.tsx"
+    ],
+    "callees": [
+      "frontend/src/api/index.ts shared Axios client",
+      "API-FEAT-POLISH-HISTORY-EXPRESS-ROUTES"
+    ]
+  },
+  "API-FEAT-POLISH-HISTORY-EXPRESS-ROUTES": {
+    "interface_id": "API-FEAT-POLISH-HISTORY-EXPRESS-ROUTES",
+    "req_ids": [
+      "FEAT-POLISH-HISTORY"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-POLISH-HISTORY-EXPRESS-ROUTES\", \"req_id\": \"FEAT-POLISH-HISTORY\", \"type\": \"API\", \"name\": \"Polish history Express routes\", \"file_path\": \"backend/src/normative/normativeRoutes.js\", \"first_line\": \"322\", \"responsibility\": \"Provide protected HTTP boundaries for listing owner-scoped polish history, reading one record, and downloading one .txt result.\", \"specification\": \"Adds GET /api/normative/polish-history, GET /api/normative/polish-history/:polishType/:resultId, and GET /api/normative/polish-history/:polishType/:resultId/download under the existing normative route tree mounted by backend/src/app.js. Each route calls requireAuth({ allowedRoles: ALLOWED_POLISH_HISTORY_ROLES }) before service access. Allowed roles are STUDENT, SUPERVISOR, SCHOOL_ADMIN, and COLLEGE_ADMIN; anonymous requests are denied by requireAuth. Data scope is owner-only: the service receives req.user and queries by req.user.id, so student01 cannot see another student's records. Download returns text/plain; charset=utf-8 and attachment polish-result-{type}-{id}.txt.\", \"inputs\": {\"auth\": \"Cookie-backed authenticated req.user from requireAuth\", \"params\": {\"polishType\": \"'whole' | 'local'\", \"resultId\": \"Persisted result id\"}}, \"outputs\": {\"GET /polish-history\": \"{ records: PolishHistoryRecord[] } ordered by created_at DESC\", \"GET /polish-history/:polishType/:resultId\": \"PolishHistoryRecord\", \"GET /polish-history/:polishType/:resultId/download\": \"UTF-8 text/plain .txt attachment\"}, \"callers\": [\"backend/src/app.js /api/normative mount\", \"frontend/src/api/normativeRules.ts polish history calls\", \"backend integration tests via Supertest\"], \"callees\": [\"FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE\", \"FUNC-FEAT-POLISH-HISTORY-SERVICE\"], \"test_focus\": [\"401 for anonymous requests\", \"Allows declared roles and rejects records not owned by req.user.id\", \"Lists both whole and local records ordered newest first\", \"Detail/download return 404 for another user's result id\"]}",
+    "file_path": "backend/src/normative/normativeRoutes.js",
+    "first_line": "322",
+    "implemented": false,
+    "callers": [
+      "backend/src/app.js /api/normative mount",
+      "frontend/src/api/normativeRules.ts polish history calls",
+      "backend integration tests via Supertest"
+    ],
+    "callees": [
+      "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE",
+      "FUNC-FEAT-POLISH-HISTORY-SERVICE"
+    ]
+  },
   "API-FEAT-POLISH-LOCAL-CLIENT": {
     "interface_id": "API-FEAT-POLISH-LOCAL-CLIENT",
     "req_ids": [
@@ -316,21 +354,21 @@
   "API-FEAT-POLISH-LOCAL-EXPRESS-ROUTES": {
     "interface_id": "API-FEAT-POLISH-LOCAL-EXPRESS-ROUTES",
     "req_ids": [
-      "FEAT-POLISH-LOCAL"
+      "FEAT-POLISH-LOCAL",
+      "FEAT-POLISH-HISTORY"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-POLISH-LOCAL-EXPRESS-ROUTES\", \"req_id\": \"FEAT-POLISH-LOCAL\", \"type\": \"API\", \"name\": \"Local polish Express routes\", \"file_path\": \"backend/src/normative/normativeRoutes.js\", \"first_line\": \"34\", \"responsibility\": \"Provide protected backend HTTP boundaries for creating and reading owner-scoped local polishing results under the existing /api/normative route tree.\", \"specification\": \"Adds POST /api/normative/local-polish-results and GET /api/normative/local-polish-results/:resultId beside the dependency-owned whole polish routes. Both routes call requireAuth({ allowedRoles: ALLOWED_LOCAL_POLISH_ROLES }) before reading request bodies, returning data, or changing state. Allowed roles are STUDENT, SUPERVISOR, SCHOOL_ADMIN, and COLLEGE_ADMIN; no declared roles are excluded. Anonymous users are denied by requireAuth because the scenario actor is a logged-in STUDENT and results are user-owned. POST accepts JSON up to MAX_LOCAL_POLISH_TEXT_BYTES and delegates to createLocalPolishResult. GET delegates to getLocalPolishResultForUser and must only return records owned by req.user.id. The route is mounted through backend/src/app.js at /api/normative and served on the single backend origin.\", \"inputs\": {\"POST /local-polish-results\": {\"text\": \"string\", \"level\": \"basic | standard | enhanced\", \"retry_of\": \"optional string\"}, \"GET /local-polish-results/:resultId\": {\"resultId\": \"string path param\"}, \"auth\": \"cookie-backed authenticated req.user\"}, \"outputs\": {\"201\": \"LocalPolishResult\", \"200\": \"LocalPolishResult\", \"400\": \"validation errors\", \"401\": \"anonymous denied by requireAuth\", \"403\": \"role denied if role falls outside allowed list\", \"404\": \"missing or non-owned result\", \"413\": \"text too large\"}, \"callers\": [\"backend/src/app.js /api/normative mount\", \"frontend/src/api/normativeRules.ts createLocalPolishResult/fetchLocalPolishResult\", \"backend integration tests via Supertest\"], \"callees\": [\"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES via requireAuth middleware\", \"FUNC-FEAT-POLISH-LOCAL-SERVICE\"], \"test_focus\": [\"Anonymous POST and GET are rejected at the server boundary.\", \"All four declared roles can create local polish results.\", \"GET cannot return another user's result.\", \"POST returns identical polished_text, changes, and diff_segments for same text, level, and unchanged rule_version retry.\"]}",
+    "content": "{\"interface_id\": \"API-FEAT-POLISH-LOCAL-EXPRESS-ROUTES\", \"req_id\": \"FEAT-POLISH-HISTORY\", \"type\": \"API\", \"name\": \"Reused local polish producer route\", \"file_path\": \"backend/src/normative/normativeRoutes.js\", \"first_line\": \"274\", \"responsibility\": \"Reuse dependency-owned local polish creation/detail routes as producers of persisted local polish results consumed by history.\", \"specification\": \"POST /api/normative/local-polish-results persists local_polish_results owned by the authenticated user. FEAT-POLISH-HISTORY reads those records through its repository and exposes them beside whole polish records in one history list.\", \"inputs\": {\"local_polish_request\": \"Existing LocalPolishRequest from dependency\"}, \"outputs\": {\"local_polish_results\": \"Persisted rows read by polish history\"}, \"callers\": [\"frontend/src/pages/LocalPolishPage.tsx\", \"backend integration tests preparing history records\"], \"callees\": [\"backend/src/normative/localPolishService.js\", \"DB-FEAT-POLISH-HISTORY-EXISTING-POLISH-TABLES\"], \"test_focus\": [\"Local polish results created for student01 appear in student01 history\", \"Local polish results created for another user do not appear\"]}",
     "file_path": "backend/src/normative/normativeRoutes.js",
-    "first_line": "34",
+    "first_line": "274",
     "implemented": true,
     "callers": [
-      "backend/src/app.js /api/normative mount",
-      "frontend/src/api/normativeRules.ts createLocalPolishResult/fetchLocalPolishResult",
-      "backend integration tests via Supertest"
+      "frontend/src/pages/LocalPolishPage.tsx",
+      "backend integration tests preparing history records"
     ],
     "callees": [
-      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES via requireAuth middleware",
-      "FUNC-FEAT-POLISH-LOCAL-SERVICE"
+      "backend/src/normative/localPolishService.js",
+      "DB-FEAT-POLISH-HISTORY-EXISTING-POLISH-TABLES"
     ]
   },
   "API-FEAT-POLISH-WHOLE-CLIENT": {
@@ -358,20 +396,21 @@
     "interface_id": "API-FEAT-POLISH-WHOLE-EXPRESS-ROUTES",
     "req_ids": [
       "FEAT-POLISH-WHOLE",
-      "FEAT-POLISH-LOCAL"
+      "FEAT-POLISH-LOCAL",
+      "FEAT-POLISH-HISTORY"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-POLISH-WHOLE-EXPRESS-ROUTES\", \"req_id\": \"FEAT-POLISH-LOCAL\", \"type\": \"API\", \"name\": \"Whole polish shared route dependency\", \"file_path\": \"backend/src/normative/normativeRoutes.js\", \"first_line\": \"34\", \"responsibility\": \"Reuse the existing /api/normative route tree and whole-polish authorization/service pattern for local polish route placement.\", \"specification\": \"Local polish is added beside whole-polish routes under the existing backend/src/app.js /api/normative mount. It introduces no parallel server, route tree, or separate runtime port, and reuses the established requireAuth allowed-role pattern.\", \"inputs\": {\"route_mount\": \"/api/normative\"}, \"outputs\": {\"connected_routes\": \"whole-polish and local-polish endpoints in one normative route tree\"}, \"callers\": [\"backend/src/app.js /api/normative mount\", \"frontend/src/api/normativeRules.ts\"], \"callees\": [\"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES via requireAuth middleware\", \"FUNC-FEAT-POLISH-LOCAL-SERVICE\"], \"test_focus\": [\"Local polish endpoint is reachable under the backend-hosted /api/normative origin.\"]}",
+    "content": "{\"interface_id\": \"API-FEAT-POLISH-WHOLE-EXPRESS-ROUTES\", \"req_id\": \"FEAT-POLISH-HISTORY\", \"type\": \"API\", \"name\": \"Reused whole polish producer route\", \"file_path\": \"backend/src/normative/normativeRoutes.js\", \"first_line\": \"218\", \"responsibility\": \"Reuse dependency-owned whole polish creation/detail/download routes as producers of persisted whole polish results consumed by history.\", \"specification\": \"POST /api/normative/whole-polish-results persists whole_polish_results owned by the authenticated user. FEAT-POLISH-HISTORY reads those records through its repository rather than duplicating creation behavior.\", \"inputs\": {\"whole_polish_request\": \"Existing WholePolishRequest from dependency\"}, \"outputs\": {\"whole_polish_results\": \"Persisted rows read by polish history\"}, \"callers\": [\"frontend/src/pages/WholePolishPage.tsx\", \"backend integration tests preparing history records\"], \"callees\": [\"backend/src/normative/wholePolishService.js\", \"DB-FEAT-POLISH-HISTORY-EXISTING-POLISH-TABLES\"], \"test_focus\": [\"Whole polish results created for student01 appear in student01 history\", \"Whole polish results created for another user do not appear\"]}",
     "file_path": "backend/src/normative/normativeRoutes.js",
-    "first_line": "34",
+    "first_line": "218",
     "implemented": true,
     "callers": [
-      "backend/src/app.js /api/normative mount",
-      "frontend/src/api/normativeRules.ts"
+      "frontend/src/pages/WholePolishPage.tsx",
+      "backend integration tests preparing history records"
     ],
     "callees": [
-      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES via requireAuth middleware",
-      "FUNC-FEAT-POLISH-LOCAL-SERVICE"
+      "backend/src/normative/wholePolishService.js",
+      "DB-FEAT-POLISH-HISTORY-EXISTING-POLISH-TABLES"
     ]
   },
   "API-FEAT-RULE-TEMPLATE-UPLOAD-CLIENT": {
@@ -637,6 +676,43 @@
     "callees": [
       "backend/src/database/index.js all/get/run",
       "backend/src/database/init_db.js normative_detection_tasks schema"
+    ]
+  },
+  "DB-FEAT-POLISH-HISTORY-EXISTING-POLISH-TABLES": {
+    "interface_id": "DB-FEAT-POLISH-HISTORY-EXISTING-POLISH-TABLES",
+    "req_ids": [
+      "FEAT-POLISH-HISTORY"
+    ],
+    "type": "DB",
+    "content": "{\"interface_id\": \"DB-FEAT-POLISH-HISTORY-EXISTING-POLISH-TABLES\", \"req_id\": \"FEAT-POLISH-HISTORY\", \"type\": \"DB\", \"name\": \"Existing polish result tables\", \"file_path\": \"backend/src/database/init_db.js\", \"first_line\": \"188\", \"responsibility\": \"Reuse centralized SQLite schema for durable whole and local polish results instead of creating a duplicate history table.\", \"specification\": \"The history feature reads existing whole_polish_results and local_polish_results created by initializeDatabase. whole_polish_results stores id, user_id, source_type, source_filename, original_text, polished_text, level, changes_json, and created_at. local_polish_results stores id, user_id, original_text, polished_text, level, rule_version, changes_json, diff_segments_json, source_result_id, retry_of, and created_at. Both tables have user_id foreign keys to auth_users and support owner-scoped history retrieval.\", \"inputs\": {\"initializeDatabase\": \"Centralized schema lifecycle\", \"producer_services\": \"wholePolishService and localPolishService inserts\"}, \"outputs\": {\"tables\": [\"whole_polish_results\", \"local_polish_results\"]}, \"callers\": [\"backend/src/database/index.js initializeDatabase\", \"DB-FEAT-POLISH-HISTORY-REPOSITORY\", \"dependency-owned whole/local polish repositories\"], \"callees\": [\"SQLite via centralized runStatement\"], \"test_focus\": [\"History tests use scaffold-created isolated DB with these existing tables\", \"No duplicate history storage is introduced\", \"Records remain durable and user-owned through auth_users foreign keys\"]}",
+    "file_path": "backend/src/database/init_db.js",
+    "first_line": "188",
+    "implemented": false,
+    "callers": [
+      "backend/src/database/index.js initializeDatabase",
+      "DB-FEAT-POLISH-HISTORY-REPOSITORY",
+      "dependency-owned whole/local polish repositories"
+    ],
+    "callees": [
+      "SQLite via centralized runStatement"
+    ]
+  },
+  "DB-FEAT-POLISH-HISTORY-REPOSITORY": {
+    "interface_id": "DB-FEAT-POLISH-HISTORY-REPOSITORY",
+    "req_ids": [
+      "FEAT-POLISH-HISTORY"
+    ],
+    "type": "DB",
+    "content": "{\"interface_id\": \"DB-FEAT-POLISH-HISTORY-REPOSITORY\", \"req_id\": \"FEAT-POLISH-HISTORY\", \"type\": \"DB\", \"name\": \"Polish history repository\", \"file_path\": \"backend/src/normative/polishHistoryRepository.js\", \"first_line\": \"61\", \"responsibility\": \"Read unified owner-scoped whole and local polish history from existing SQLite tables through shared database helpers.\", \"specification\": \"Uses backend/src/database all/get helpers and does not open a separate SQLite connection. listPolishHistoryByUser(userId) UNIONs whole_polish_results and local_polish_results for the same user id, normalizes rows to a common PolishHistoryRecord shape, parses changes_json/diff_segments_json safely, computes change_count, labels polish_type as whole/local, and orders by created_at DESC. findPolishHistoryRecordForUser(polishType, resultId, userId) selects from the matching existing table with WHERE id = ? AND user_id = ? and returns null when absent.\", \"inputs\": {\"userId\": \"Authenticated owner id\", \"polishType\": \"whole | local for detail reads\", \"resultId\": \"Persisted whole/local polish result id\"}, \"outputs\": {\"listPolishHistoryByUser\": \"Normalized records from whole_polish_results and local_polish_results\", \"findPolishHistoryRecordForUser\": \"One normalized record or null\"}, \"callers\": [\"FUNC-FEAT-POLISH-HISTORY-SERVICE\"], \"callees\": [\"backend/src/database/index.js all/get\", \"DB-FEAT-POLISH-HISTORY-EXISTING-POLISH-TABLES\"], \"test_focus\": [\"Queries both existing polish result tables with user_id scope\", \"Orders combined rows by created_at DESC\", \"Does not return records belonging to a different user\", \"Normalizes whole and local rows into one DTO shape\"]}",
+    "file_path": "backend/src/normative/polishHistoryRepository.js",
+    "first_line": "61",
+    "implemented": false,
+    "callers": [
+      "FUNC-FEAT-POLISH-HISTORY-SERVICE"
+    ],
+    "callees": [
+      "backend/src/database/index.js all/get",
+      "DB-FEAT-POLISH-HISTORY-EXISTING-POLISH-TABLES"
     ]
   },
   "DB-FEAT-POLISH-LOCAL-REPOSITORY": {
@@ -936,6 +1012,23 @@
     "callees": [
       "backend/src/normative/detectionTaskRepository.js listDetectionTasksByUser",
       "backend/src/normative/detectionTaskRepository.js findDetectionTaskByIdForUser"
+    ]
+  },
+  "FUNC-FEAT-POLISH-HISTORY-SERVICE": {
+    "interface_id": "FUNC-FEAT-POLISH-HISTORY-SERVICE",
+    "req_ids": [
+      "FEAT-POLISH-HISTORY"
+    ],
+    "type": "FUNC",
+    "content": "{\"interface_id\": \"FUNC-FEAT-POLISH-HISTORY-SERVICE\", \"req_id\": \"FEAT-POLISH-HISTORY\", \"type\": \"FUNC\", \"name\": \"Polish history service\", \"file_path\": \"backend/src/normative/polishHistoryService.js\", \"first_line\": \"22\", \"responsibility\": \"Coordinate role authorization, owner scoping, type validation, list/detail retrieval, and .txt payload building for polish history.\", \"specification\": \"Exports ALLOWED_POLISH_HISTORY_ROLES, listPolishHistoryForUser(user), getPolishHistoryRecordForUser(user, polishType, resultId), ensureCanAccessPolishHistory(user), and buildPolishResultText(record). ensureCanAccessPolishHistory requires an authenticated user id and one of STUDENT, SUPERVISOR, SCHOOL_ADMIN, or COLLEGE_ADMIN, returning owner id for repository calls. Detail access validates polishType as whole/local, validates resultId presence, queries owner-scoped repository records, and throws 404 when absent. Download text is the persisted polished_text only.\", \"inputs\": {\"user\": \"Authenticated user with id and role\", \"polishType\": \"whole | local\", \"resultId\": \"result id for detail/download\"}, \"outputs\": {\"listPolishHistoryForUser\": \"Owner-scoped unified history records\", \"getPolishHistoryRecordForUser\": \"One owner-scoped record or HTTP error\", \"buildPolishResultText\": \"UTF-8 text body for .txt result\"}, \"callers\": [\"API-FEAT-POLISH-HISTORY-EXPRESS-ROUTES\"], \"callees\": [\"DB-FEAT-POLISH-HISTORY-REPOSITORY\"], \"test_focus\": [\"Maps missing user to 401 and unsupported role to 403\", \"Rejects invalid polishType with 400\", \"Returns only repository rows matching authenticated user id\", \"Builds download text from persisted polished_text\"]}",
+    "file_path": "backend/src/normative/polishHistoryService.js",
+    "first_line": "22",
+    "implemented": false,
+    "callers": [
+      "API-FEAT-POLISH-HISTORY-EXPRESS-ROUTES"
+    ],
+    "callees": [
+      "DB-FEAT-POLISH-HISTORY-REPOSITORY"
     ]
   },
   "FUNC-FEAT-POLISH-LOCAL-SERVICE": {
@@ -1284,6 +1377,24 @@
     ],
     "callees": [
       "frontend/src/pages/NormativeReportPage.tsx"
+    ]
+  },
+  "UI-FEAT-POLISH-HISTORY-PAGE": {
+    "interface_id": "UI-FEAT-POLISH-HISTORY-PAGE",
+    "req_ids": [
+      "FEAT-POLISH-HISTORY"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-POLISH-HISTORY-PAGE\", \"req_id\": \"FEAT-POLISH-HISTORY\", \"type\": \"UI\", \"name\": \"PolishHistoryPage\", \"file_path\": \"frontend/src/pages/PolishHistoryPage.tsx\", \"first_line\": \"35\", \"responsibility\": \"Render the student-facing polish history page and detail view using runtime records only.\", \"specification\": \"Displays a dark navy title/count header and full-width table matching the visual reference. Fetches authenticated user's whole and local polish history on /polish-history, shows loading, empty, and error states without sample rows, sorts as returned by the backend, and supports viewing original/result differences plus downloading the polished .txt result. If session is loading it shows session loading text; if anonymous it prompts login instead of calling history APIs.\", \"inputs\": {\"route_params\": {\"polishType\": \"optional 'whole' | 'local'\", \"resultId\": \"optional polish result id\"}, \"session\": \"useAuthSession() authenticated user state\", \"api\": \"fetchPolishHistory, fetchPolishHistoryRecord, downloadPolishResultText\"}, \"outputs\": {\"list_view\": \"Runtime-driven table with sequence, document name, mode, level, generation time, and actions.\", \"detail_view\": \"Original text and polished text comparison with .txt download action.\", \"states\": \"loading, anonymous login prompt, empty, error\"}, \"callers\": [\"frontend/src/App.tsx routes /polish-history and /polish-history/:polishType/:resultId\"], \"callees\": [\"API-FEAT-POLISH-HISTORY-CLIENT\", \"API-FEAT-AUTH-SESSION-CLIENT\"], \"test_focus\": [\"Renders no hardcoded records and displays empty state when API returns []\", \"Displays only records returned for the authenticated user\", \"Shows visual-reference table columns and count from runtime data\", \"Detail route fetches one owner-scoped record and download action requests .txt blob\", \"Anonymous state prompts login instead of rendering history data\"]}",
+    "file_path": "frontend/src/pages/PolishHistoryPage.tsx",
+    "first_line": "35",
+    "implemented": false,
+    "callers": [
+      "frontend/src/App.tsx routes /polish-history and /polish-history/:polishType/:resultId"
+    ],
+    "callees": [
+      "API-FEAT-POLISH-HISTORY-CLIENT",
+      "API-FEAT-AUTH-SESSION-CLIENT"
     ]
   },
   "UI-FEAT-POLISH-LOCAL-PAGE": {

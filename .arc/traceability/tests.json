@@ -462,6 +462,97 @@
     "first_line": "1",
     "scenario_id": null
   },
+  "FEAT-POLISH-HISTORY:API:AUTHZ:001": {
+    "test_id": "FEAT-POLISH-HISTORY:API:AUTHZ:001",
+    "req_id": "FEAT-POLISH-HISTORY",
+    "interface_ids": [
+      "API-FEAT-POLISH-HISTORY-EXPRESS-ROUTES",
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+      "FUNC-FEAT-POLISH-HISTORY-SERVICE"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/polish-history.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-POLISH-HISTORY:API:DETAIL-DOWNLOAD:001": {
+    "test_id": "FEAT-POLISH-HISTORY:API:DETAIL-DOWNLOAD:001",
+    "req_id": "FEAT-POLISH-HISTORY",
+    "interface_ids": [
+      "API-FEAT-POLISH-HISTORY-EXPRESS-ROUTES",
+      "FUNC-FEAT-POLISH-HISTORY-SERVICE",
+      "DB-FEAT-POLISH-HISTORY-REPOSITORY"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/polish-history.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-POLISH-HISTORY:API:ROLES:001": {
+    "test_id": "FEAT-POLISH-HISTORY:API:ROLES:001",
+    "req_id": "FEAT-POLISH-HISTORY",
+    "interface_ids": [
+      "API-FEAT-POLISH-HISTORY-EXPRESS-ROUTES",
+      "FUNC-FEAT-POLISH-HISTORY-SERVICE",
+      "DB-FEAT-POLISH-HISTORY-REPOSITORY"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/polish-history.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-POLISH-HISTORY:FUNC:SERVICE:001": {
+    "test_id": "FEAT-POLISH-HISTORY:FUNC:SERVICE:001",
+    "req_id": "FEAT-POLISH-HISTORY",
+    "interface_ids": [
+      "FUNC-FEAT-POLISH-HISTORY-SERVICE"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/polish-history.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-POLISH-HISTORY:SCENARIO:001": {
+    "test_id": "FEAT-POLISH-HISTORY:SCENARIO:001",
+    "req_id": "FEAT-POLISH-HISTORY",
+    "interface_ids": [
+      "API-FEAT-POLISH-HISTORY-EXPRESS-ROUTES",
+      "FUNC-FEAT-POLISH-HISTORY-SERVICE",
+      "DB-FEAT-POLISH-HISTORY-REPOSITORY",
+      "DB-FEAT-POLISH-HISTORY-EXISTING-POLISH-TABLES",
+      "API-FEAT-POLISH-WHOLE-EXPRESS-ROUTES",
+      "API-FEAT-POLISH-LOCAL-EXPRESS-ROUTES"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/polish-history.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-POLISH-HISTORY:SCENARIO:001:E2E": {
+    "test_id": "FEAT-POLISH-HISTORY:SCENARIO:001:E2E",
+    "req_id": "FEAT-POLISH-HISTORY",
+    "interface_ids": [
+      "UI-FEAT-POLISH-HISTORY-PAGE",
+      "API-FEAT-POLISH-HISTORY-CLIENT",
+      "API-FEAT-POLISH-HISTORY-EXPRESS-ROUTES",
+      "FUNC-FEAT-POLISH-HISTORY-SERVICE",
+      "DB-FEAT-POLISH-HISTORY-REPOSITORY",
+      "API-FEAT-AUTH-SESSION-CLIENT",
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+      "API-FEAT-POLISH-WHOLE-EXPRESS-ROUTES",
+      "API-FEAT-POLISH-LOCAL-EXPRESS-ROUTES"
+    ],
+    "type": "E2E",
+    "file_path": "backend/test-e2e/polish-history.spec.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
   "FEAT-POLISH-LOCAL:API:AUTHZ:001": {
     "test_id": "FEAT-POLISH-LOCAL:API:AUTHZ:001",
     "req_id": "FEAT-POLISH-LOCAL",

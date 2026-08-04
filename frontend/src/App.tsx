@@ -9,6 +9,7 @@ import HomePage from './pages/HomePage';
 import LocalPolishPage from './pages/LocalPolishPage';
 import NormativeCheckPage from './pages/NormativeCheckPage';
 import NormativeReportPage from './pages/NormativeReportPage';
+import PolishHistoryPage from './pages/PolishHistoryPage';
 import RuleConfigPage from './pages/RuleConfigPage';
 import WholePolishPage from './pages/WholePolishPage';
 
@@ -27,6 +28,8 @@ function App() {
       <Route path="/whole-polish" element={<WholePolishPage />} />
       <Route path="/whole-polish/:resultId" element={<WholePolishPage />} />
       <Route path="/local-polish" element={<LocalPolishPage />} />
+      <Route path="/polish-history" element={<PolishHistoryPage />} />
+      <Route path="/polish-history/:polishType/:resultId" element={<PolishHistoryPage />} />
       <Route
         path="/auth"
         element={<AuthPage accountFormSlot={<LocalAccountLoginForm />} helpSlot={<DemoAccountHelpPanel />} />}
