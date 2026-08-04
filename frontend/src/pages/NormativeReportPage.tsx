@@ -139,7 +139,7 @@ function NormativeReportPage() {
                 <h2 className="text-xl font-black text-[#1F3760]">问题列表</h2>
                 <div className="mt-4 space-y-3">
                   {report.issues.map((issue, index) => (
-                    <button key={`${issue.rule_id}-${index}`} className={`w-full rounded-xl border p-4 text-left text-sm ${activeIssue?.index === index ? 'border-[#D62020] bg-red-50' : 'border-slate-200 bg-white'}`} type="button" onClick={() => handleIssueClick(issue, index)}>
+                    <button key={`${issue.rule_id}-${index}`} aria-label={`${issue.severity} 第 ${issue.line} 行，第 ${issue.column} 列`} className={`w-full rounded-xl border p-4 text-left text-sm ${activeIssue?.index === index ? 'border-[#D62020] bg-red-50' : 'border-slate-200 bg-white'}`} type="button" onClick={() => handleIssueClick(issue, index)}>
                       <span className="font-black text-[#D62020]">{issue.severity}</span>
                       <span className="ml-2 text-slate-500">第 {issue.line} 行，第 {issue.column} 列</span>
                       <p className="mt-2 font-semibold text-slate-900">{issue.message}</p>
