@@ -3,6 +3,7 @@ import DemoAccountHelpPanel from './auth/DemoAccountHelpPanel';
 import LocalAccountLoginForm from './auth/LocalAccountLoginForm';
 import AuthPage from './pages/AuthPage';
 import DuplicationCorpusPage from './pages/DuplicationCorpusPage';
+import DuplicationDetectPage from './pages/DuplicationDetectPage';
 import HomePage from './pages/HomePage';
 import NormativeCheckPage from './pages/NormativeCheckPage';
 import NormativeReportPage from './pages/NormativeReportPage';
@@ -17,6 +18,7 @@ function App() {
       <Route path="/normative-reports/:reportId" element={<NormativeReportPage />} />
       <Route path="/rule-config" element={<RuleConfigPage />} />
       <Route path="/duplication-corpus" element={<DuplicationCorpusPage />} />
+      <Route path="/duplication-detect" element={<DuplicationDetectPage />} />
       <Route
         path="/auth"
         element={<AuthPage accountFormSlot={<LocalAccountLoginForm />} helpSlot={<DemoAccountHelpPanel />} />}

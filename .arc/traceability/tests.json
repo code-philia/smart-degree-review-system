@@ -177,6 +177,68 @@
     "first_line": "1",
     "scenario_id": null
   },
+  "FEAT-DUPLICATION-DETECT:E2E:SCENARIOS:001": {
+    "test_id": "FEAT-DUPLICATION-DETECT:E2E:SCENARIOS:001",
+    "req_id": "FEAT-DUPLICATION-DETECT",
+    "interface_ids": [
+      "UI-FEAT-DUPLICATION-DETECT-PAGE",
+      "UI-FEAT-DUPLICATION-DETECT-APP-ROUTE",
+      "API-FEAT-DUPLICATION-DETECT-CLIENT",
+      "API-FEAT-DUPLICATION-DETECT-EXPRESS-ROUTE",
+      "FUNC-FEAT-DUPLICATION-DETECT-SERVICE",
+      "DB-FEAT-DUPLICATION-CORPUS-REPOSITORY",
+      "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE",
+      "API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT"
+    ],
+    "type": "E2E",
+    "file_path": "backend/test-e2e/duplication-detect.spec.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-DUPLICATION-DETECT:INTEGRATION:API:001": {
+    "test_id": "FEAT-DUPLICATION-DETECT:INTEGRATION:API:001",
+    "req_id": "FEAT-DUPLICATION-DETECT",
+    "interface_ids": [
+      "API-FEAT-DUPLICATION-DETECT-EXPRESS-ROUTE",
+      "FUNC-FEAT-DUPLICATION-DETECT-SERVICE",
+      "DB-FEAT-DUPLICATION-CORPUS-REPOSITORY",
+      "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE",
+      "API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/duplication-detect.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-DUPLICATION-DETECT:INTEGRATION:FRONTEND:001": {
+    "test_id": "FEAT-DUPLICATION-DETECT:INTEGRATION:FRONTEND:001",
+    "req_id": "FEAT-DUPLICATION-DETECT",
+    "interface_ids": [
+      "UI-FEAT-DUPLICATION-DETECT-PAGE",
+      "UI-FEAT-DUPLICATION-DETECT-APP-ROUTE",
+      "API-FEAT-DUPLICATION-DETECT-CLIENT"
+    ],
+    "type": "Integration",
+    "file_path": "frontend/tests/duplication-detect.test.tsx",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-DUPLICATION-DETECT:UNIT:SERVICE:001": {
+    "test_id": "FEAT-DUPLICATION-DETECT:UNIT:SERVICE:001",
+    "req_id": "FEAT-DUPLICATION-DETECT",
+    "interface_ids": [
+      "FUNC-FEAT-DUPLICATION-DETECT-SERVICE",
+      "DB-FEAT-DUPLICATION-CORPUS-REPOSITORY"
+    ],
+    "type": "Unit",
+    "file_path": "backend/tests/duplication-detect.unit.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
   "FEAT-NORMATIVE-DETECT:E2E:SCENARIOS:001": {
     "test_id": "FEAT-NORMATIVE-DETECT:E2E:SCENARIOS:001",
     "req_id": "FEAT-NORMATIVE-DETECT",

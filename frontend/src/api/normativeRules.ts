@@ -47,6 +47,58 @@ export type DetectionTaskResponse = {
   created_at: string;
 };
 
+export type DuplicationDetectionRequest = {
+  text: string;
+  source_type: 'paste' | 'file';
+  source_filename?: string | null;
+  threshold?: number;
+};
+
+export type DuplicationSimilaritySegment = {
+  source_start: number;
+  source_end: number;
+  sample_start: number;
+  sample_end: number;
+  source_excerpt: string;
+  sample_excerpt: string;
+};
+
+export type DuplicationSimilarityMatch = {
+  sample_id: string;
+  title: string;
+  subject: string;
+  year: number;
+  jaccard_score: number;
+  matched_character_count: number;
+  segments: DuplicationSimilaritySegment[];
+};
+
+export type DuplicationRiskFactorKey =
+  | 'paragraph_duplication_rate'
+  | 'sentence_length_low_variation'
+  | 'template_connector_density'
+  | 'vague_phrase_density';
+
+export type DuplicationRiskReport = {
+  score: number;
+  label: 'heuristic_only';
+  explanation: string;
+  factors: Record<DuplicationRiskFactorKey, number>;
+  weights: Record<DuplicationRiskFactorKey, number>;
+};
+
+export type DuplicationDetectionResponse = {
+  status: 'completed' | 'no_samples';
+  source_type: 'paste' | 'file';
+  source_filename?: string | null;
+  threshold: number;
+  effective_character_count: number;
+  total_similarity_rate: number;
+  sample_count: number;
+  top_matches: DuplicationSimilarityMatch[];
+  risk: DuplicationRiskReport;
+};
+
 export type AnalyzeNormativeTextResponse = {
   issues: NormativeIssue[];
 };
@@ -62,6 +114,13 @@ export async function createNormativeDetectionTask(
   payload: CreateDetectionTaskRequest,
 ): Promise<DetectionTaskResponse> {
   const response = await apiClient.post<DetectionTaskResponse>('/normative/detection-tasks', payload);
+  return response.data;
+}
+
+export async function createDuplicationDetection(
+  payload: DuplicationDetectionRequest,
+): Promise<DuplicationDetectionResponse> {
+  const response = await apiClient.post<DuplicationDetectionResponse>('/normative/duplication-detections', payload);
   return response.data;
 }
 

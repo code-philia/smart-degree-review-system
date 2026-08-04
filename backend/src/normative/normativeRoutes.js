@@ -22,6 +22,11 @@ const {
   deleteDuplicationCorpusSample,
   listDuplicationCorpusSamples,
 } = require('./duplicationCorpusService');
+const {
+  ALLOWED_DUPLICATION_DETECTION_ROLES,
+  MAX_DUPLICATION_DETECTION_TEXT_BYTES,
+  runDuplicationDetection,
+} = require('./duplicationDetectionService');
 
 const router = express.Router();
 
@@ -96,6 +101,28 @@ router.delete(
       await deleteDuplicationCorpusSample(req.user, req.params.sampleId);
       res.status(204).send();
     } catch (error) {
+      if (error?.status) {
+        res.status(error.status).json({ code: error.status, message: error.message });
+        return;
+      }
+      next(error);
+    }
+  },
+);
+
+router.post(
+  '/duplication-detections',
+  requireAuth({ allowedRoles: ALLOWED_DUPLICATION_DETECTION_ROLES }),
+  express.json({ limit: MAX_DUPLICATION_DETECTION_TEXT_BYTES }),
+  async (req, res, next) => {
+    try {
+      const result = await runDuplicationDetection(req.user, req.body || {});
+      res.status(201).json(result);
+    } catch (error) {
+      if (error?.type === 'entity.too.large') {
+        res.status(413).json({ code: 413, message: '待检文本不能超过 5 MB' });
+        return;
+      }
       if (error?.status) {
         res.status(error.status).json({ code: error.status, message: error.message });
         return;

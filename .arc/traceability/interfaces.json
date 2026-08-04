@@ -78,6 +78,44 @@
       "backend/src/normative/duplicationCorpusService.js"
     ]
   },
+  "API-FEAT-DUPLICATION-DETECT-CLIENT": {
+    "interface_id": "API-FEAT-DUPLICATION-DETECT-CLIENT",
+    "req_ids": [
+      "FEAT-DUPLICATION-DETECT"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-DUPLICATION-DETECT-CLIENT\", \"req_id\": \"FEAT-DUPLICATION-DETECT\", \"type\": \"API\", \"name\": \"createDuplicationDetection client contract\", \"file_path\": \"frontend/src/api/normativeRules.ts\", \"first_line\": \"1\", \"responsibility\": \"Expose typed same-origin Axios call and DTOs for submitting local duplication detection requests and consuming similarity/risk reports.\", \"specification\": \"Extends the existing normativeRules client module with DuplicationDetectionRequest, DuplicationSimilaritySegment, DuplicationSimilarityMatch, DuplicationRiskReport, DuplicationDetectionResponse, and createDuplicationDetection(payload). The function posts to /api/normative/duplication-detections through frontend/src/api/index.ts so cookie-backed auth and global Axios interception remain consistent. Response status is completed or no_samples; no client fallback arrays or hardcoded samples are allowed.\", \"inputs\": [\"{ text, source_type, source_filename?, threshold? }\"], \"outputs\": [\"DuplicationDetectionResponse with threshold, effective_character_count, total_similarity_rate, sample_count, top_matches, and risk\"], \"callers\": [\"frontend/src/pages/DuplicationDetectPage.tsx\"], \"callees\": [\"frontend/src/api/index.ts shared Axios client\", \"backend/src/normative/normativeRoutes.js POST /api/normative/duplication-detections\"], \"test_focus\": \"Client tests should verify the exact endpoint, request body forwarding, typed no_samples/completed response handling, and use of the shared Axios client.\"}",
+    "file_path": "frontend/src/api/normativeRules.ts",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "frontend/src/pages/DuplicationDetectPage.tsx"
+    ],
+    "callees": [
+      "frontend/src/api/index.ts shared Axios client",
+      "backend/src/normative/normativeRoutes.js POST /api/normative/duplication-detections"
+    ]
+  },
+  "API-FEAT-DUPLICATION-DETECT-EXPRESS-ROUTE": {
+    "interface_id": "API-FEAT-DUPLICATION-DETECT-EXPRESS-ROUTE",
+    "req_ids": [
+      "FEAT-DUPLICATION-DETECT"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-DUPLICATION-DETECT-EXPRESS-ROUTE\", \"req_id\": \"FEAT-DUPLICATION-DETECT\", \"type\": \"API\", \"name\": \"POST /api/normative/duplication-detections\", \"file_path\": \"backend/src/normative/normativeRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Provide the protected HTTP boundary for running local duplication similarity and writing-risk detection under the existing normative route tree.\", \"specification\": \"Adds POST /api/normative/duplication-detections beside existing corpus and normative endpoints. Uses requireAuth({ allowedRoles: ['STUDENT','SUPERVISOR','SCHOOL_ADMIN','COLLEGE_ADMIN'] }) before reading request data or corpus samples; anonymous users are denied by the auth middleware. Parses JSON with the detection text byte limit and delegates to runDuplicationDetection(req.user, req.body). Returns 201 with completed or no_samples report. Maps oversized bodies to 413, service validation/authorization errors to their status code, and otherwise delegates to Express error handling. No role is excluded from declared permissions, but authentication is required because scenarios use student01 and the backend boundary must enforce access.\", \"inputs\": [\"Authenticated Express request with text, source_type, source_filename, threshold\"], \"outputs\": [\"201 DuplicationDetectionResponse\", \"400 validation errors\", \"401 anonymous denial\", \"403 unsupported-role denial if role catalog changes\", \"413 body too large\"], \"callers\": [\"backend/src/app.js /api/normative mount\", \"frontend/src/api/normativeRules.ts createDuplicationDetection\", \"backend integration tests via Supertest\"], \"callees\": [\"backend/src/auth/authMiddleware.js requireAuth\", \"backend/src/normative/duplicationDetectionService.js runDuplicationDetection\"], \"test_focus\": \"Backend API tests should verify anonymous denial, allowed roles acceptance, empty text 400, no-sample response without fabricated matches, corpus-backed completed response shape, and 413 limit behavior.\"}",
+    "file_path": "backend/src/normative/normativeRoutes.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "backend/src/app.js /api/normative mount",
+      "frontend/src/api/normativeRules.ts createDuplicationDetection",
+      "backend integration tests via Supertest"
+    ],
+    "callees": [
+      "backend/src/auth/authMiddleware.js requireAuth",
+      "backend/src/normative/duplicationDetectionService.js runDuplicationDetection"
+    ]
+  },
   "API-FEAT-NORMATIVE-DETECT-CLIENT": {
     "interface_id": "API-FEAT-NORMATIVE-DETECT-CLIENT",
     "req_ids": [
@@ -121,16 +159,17 @@
       "FEAT-NORMATIVE-FORMAT-RULES",
       "FLOW-RULE-PUBLISH",
       "FEAT-RULE-TEMPLATE-UPLOAD",
-      "FEAT-DUPLICATION-CORPUS"
+      "FEAT-DUPLICATION-CORPUS",
+      "FEAT-DUPLICATION-DETECT"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT\", \"req_id\": \"FEAT-DUPLICATION-CORPUS\", \"type\": \"API\", \"name\": \"existingNormativeBackendMount\", \"file_path\": \"backend/src/app.js\", \"first_line\": \"17\", \"responsibility\": \"Reuse the existing /api/normative Express mount so corpus endpoints are served by the single backend-hosted runtime.\", \"specification\": \"The current node extends backend/src/normative/normativeRoutes.js under app.use('/api/normative', normativeRoutes). No parallel server, route tree, or frontend dev-server runtime is introduced. The backend continues to serve frontend/dist and API routes on port 3000.\", \"inputs\": [\"Express app startup\", \"requests under /api/normative/duplication-corpus\"], \"outputs\": [\"mounted corpus API endpoints on single origin\"], \"callers\": [\"backend/src/index.js server startup\", \"frontend/src/api/duplicationCorpus.ts\"], \"callees\": [\"backend/src/normative/normativeRoutes.js\"], \"test_focus\": [\"corpus API is reachable under /api/normative on backend-hosted origin\", \"no additional app/server mount is required\"]}",
+    "content": "{\"interface_id\": \"API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT\", \"req_id\": \"FEAT-DUPLICATION-DETECT\", \"type\": \"API\", \"name\": \"Reuse /api/normative backend mount\", \"file_path\": \"backend/src/app.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse the existing normative Express mount so duplication detection is served by the single backend-hosted runtime.\", \"specification\": \"The current node extends backend/src/normative/normativeRoutes.js under the existing app.use('/api/normative', normativeRoutes) mount. It introduces no parallel server, no separate route tree, and no frontend dev-server dependency. Runtime remains frontend build then backend start on port 3000, with the backend serving frontend/dist and /api on the same origin.\", \"inputs\": [\"HTTP requests under /api/normative\"], \"outputs\": [\"Mounted normative routes including POST /api/normative/duplication-detections\"], \"callers\": [\"backend/src/index.js server startup\", \"frontend/src/api/normativeRules.ts\"], \"callees\": [\"backend/src/normative/normativeRoutes.js\"], \"test_focus\": \"Runtime/E2E tests should target http://localhost:3000 and verify the backend-hosted frontend can call /api/normative/duplication-detections on the same origin.\"}",
     "file_path": "backend/src/app.js",
-    "first_line": "17",
+    "first_line": "1",
     "implemented": true,
     "callers": [
       "backend/src/index.js server startup",
-      "frontend/src/api/duplicationCorpus.ts"
+      "frontend/src/api/normativeRules.ts"
     ],
     "callees": [
       "backend/src/normative/normativeRoutes.js"
@@ -350,19 +389,20 @@
   "DB-FEAT-DUPLICATION-CORPUS-REPOSITORY": {
     "interface_id": "DB-FEAT-DUPLICATION-CORPUS-REPOSITORY",
     "req_ids": [
-      "FEAT-DUPLICATION-CORPUS"
+      "FEAT-DUPLICATION-CORPUS",
+      "FEAT-DUPLICATION-DETECT"
     ],
     "type": "DB",
-    "content": "{\"interface_id\": \"DB-FEAT-DUPLICATION-CORPUS-REPOSITORY\", \"req_id\": \"FEAT-DUPLICATION-CORPUS\", \"type\": \"DB\", \"name\": \"duplicationCorpusRepository\", \"file_path\": \"backend/src/normative/duplicationCorpusRepository.js\", \"first_line\": \"1\", \"responsibility\": \"Persist and retrieve duplication corpus samples through the shared SQLite runtime helpers.\", \"specification\": \"Uses backend/src/database/index.js all/get/run helpers and crypto.randomUUID; it must not open a separate SQLite connection. createCorpusSample(sample) inserts into duplication_corpus_samples and returns the stored DTO. listCorpusSamples() returns all rows ordered by created_at descending. deleteCorpusSample(sampleId) removes one row and returns whether it existed. parseCorpusRow(row) maps SQLite rows to API/service DTO shape with nullable source_filename.\", \"inputs\": [\"sample persistence object\", \"sample id\"], \"outputs\": [\"DuplicationCorpusSample\", \"DuplicationCorpusSample[]\", \"boolean delete result\"], \"callers\": [\"backend/src/normative/duplicationCorpusService.js\", \"future duplication similarity service\"], \"callees\": [\"backend/src/database/index.js run/get/all\", \"backend/src/database/init_db.js duplication_corpus_samples schema\"], \"test_focus\": [\"uses isolated test DB harness via shared scaffold\", \"inserts all required metadata and content\", \"orders list by newest first\", \"maps null source_filename consistently\", \"deletes only requested sample id\"]}",
+    "content": "{\"interface_id\": \"DB-FEAT-DUPLICATION-CORPUS-REPOSITORY\", \"req_id\": \"FEAT-DUPLICATION-DETECT\", \"type\": \"DB\", \"name\": \"Reuse duplication corpus repository for detection reads\", \"file_path\": \"backend/src/normative/duplicationCorpusRepository.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse existing SQLite-backed corpus sample retrieval for local similarity detection without opening a separate database connection.\", \"specification\": \"The detection service calls listCorpusSamples() from the dependency-owned repository. It reads duplication_corpus_samples through shared backend/src/database/index.js helpers and returns parsed sample DTOs with id, title, subject, year, content, source_type, source_filename, created_by, and created_at. This node does not create a new table or repository for corpus reads; it depends on the corpus feature's durable storage.\", \"inputs\": [\"SQLite duplication_corpus_samples table state\"], \"outputs\": [\"Array of duplication corpus sample DTOs\"], \"callers\": [\"backend/src/normative/duplicationDetectionService.js runDuplicationDetection\", \"backend/src/normative/duplicationCorpusService.js\"], \"callees\": [\"backend/src/database/index.js all/get/run\", \"backend/src/database/init_db.js duplication_corpus_samples schema\"], \"test_focus\": \"Integration tests should seed corpus samples through the database scaffold/dependency service and verify detection reads those real samples, including the empty-table case.\"}",
     "file_path": "backend/src/normative/duplicationCorpusRepository.js",
     "first_line": "1",
     "implemented": true,
     "callers": [
-      "backend/src/normative/duplicationCorpusService.js",
-      "future duplication similarity service"
+      "backend/src/normative/duplicationDetectionService.js runDuplicationDetection",
+      "backend/src/normative/duplicationCorpusService.js"
     ],
     "callees": [
-      "backend/src/database/index.js run/get/all",
+      "backend/src/database/index.js all/get/run",
       "backend/src/database/init_db.js duplication_corpus_samples schema"
     ]
   },
@@ -522,15 +562,16 @@
       "FEAT-RULE-TEMPLATE-UPLOAD",
       "FEAT-NORMATIVE-DETECT",
       "FEAT-NORMATIVE-REPORT",
-      "FEAT-DUPLICATION-CORPUS"
+      "FEAT-DUPLICATION-CORPUS",
+      "FEAT-DUPLICATION-DETECT"
     ],
     "type": "FUNC",
-    "content": "{\"interface_id\": \"FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE\", \"req_id\": \"FEAT-DUPLICATION-CORPUS\", \"type\": \"FUNC\", \"name\": \"reusedRequireAuthForCorpus\", \"file_path\": \"backend/src/auth/authMiddleware.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse the server-side authentication and role authorization boundary before corpus data is returned or changed.\", \"specification\": \"Corpus routes call requireAuth({ allowedRoles: ['SCHOOL_ADMIN'] }). Anonymous requests must be denied before route service logic returns data or mutates SQLite. Authenticated STUDENT, SUPERVISOR, and COLLEGE_ADMIN users are denied by role. SCHOOL_ADMIN users may proceed to service-level validation and persistence. The corpus feature does not alter session state.\", \"inputs\": [\"HttpOnly session cookie\", \"allowedRoles ['SCHOOL_ADMIN']\"], \"outputs\": [\"req.user for authorized school admin\", \"401 anonymous response\", \"403 denied-role response\"], \"callers\": [\"backend/src/normative/normativeRoutes.js corpus endpoints\"], \"callees\": [\"backend/src/auth/sessionService.js\"], \"test_focus\": [\"anonymous access denied\", \"denied declared roles receive 403\", \"SCHOOL_ADMIN reaches corpus service\"]}",
+    "content": "{\"interface_id\": \"FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE\", \"req_id\": \"FEAT-DUPLICATION-DETECT\", \"type\": \"FUNC\", \"name\": \"Reuse requireAuth authorization middleware\", \"file_path\": \"backend/src/auth/authMiddleware.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse server-side authentication and role authorization before duplication detection data is returned.\", \"specification\": \"The duplication detection route calls requireAuth({ allowedRoles: ['STUDENT','SUPERVISOR','SCHOOL_ADMIN','COLLEGE_ADMIN'] }) before service execution. Anonymous users must receive an auth denial before any corpus reads or detection work. The declared role catalog has no denied roles for this node; data scope is read-only access to the shared local corpus and does not mutate user- or role-scoped records.\", \"inputs\": [\"Express request with session cookie\", \"Allowed role list\"], \"outputs\": [\"req.user for authenticated allowed roles\", \"401/403 denial before route handler logic\"], \"callers\": [\"backend/src/normative/normativeRoutes.js POST /duplication-detections\"], \"callees\": [\"backend/src/auth/sessionService.js\"], \"test_focus\": \"API tests should verify anonymous requests are denied at the backend boundary and each declared role can reach the route when authenticated.\"}",
     "file_path": "backend/src/auth/authMiddleware.js",
     "first_line": "1",
     "implemented": true,
     "callers": [
-      "backend/src/normative/normativeRoutes.js corpus endpoints"
+      "backend/src/normative/normativeRoutes.js POST /duplication-detections"
     ],
     "callees": [
       "backend/src/auth/sessionService.js"
@@ -572,6 +613,23 @@
     ],
     "callees": [
       "backend/src/normative/duplicationCorpusRepository.js"
+    ]
+  },
+  "FUNC-FEAT-DUPLICATION-DETECT-SERVICE": {
+    "interface_id": "FUNC-FEAT-DUPLICATION-DETECT-SERVICE",
+    "req_ids": [
+      "FEAT-DUPLICATION-DETECT"
+    ],
+    "type": "FUNC",
+    "content": "{\"interface_id\": \"FUNC-FEAT-DUPLICATION-DETECT-SERVICE\", \"req_id\": \"FEAT-DUPLICATION-DETECT\", \"type\": \"FUNC\", \"name\": \"runDuplicationDetection\", \"file_path\": \"backend/src/normative/duplicationDetectionService.js\", \"first_line\": \"1\", \"responsibility\": \"Own local similarity normalization/matching and heuristic writing-risk calculation business rules while reading real corpus samples through the dependency repository.\", \"specification\": \"Exports ALLOWED_DUPLICATION_DETECTION_ROLES, DEFAULT_DUPLICATION_MATCH_THRESHOLD, MAX_DUPLICATION_DETECTION_TEXT_BYTES, and runDuplicationDetection(user, payload). The service validates authenticated allowed roles, non-empty text, byte limits, source metadata, and threshold default 0.65. Full implementation must lowercase text, normalize whitespace, remove punctuation, build character 5-gram sets, compute Jaccard similarity against local corpus samples, return the highest five samples, include similar paragraph/segment spans, and compute total_similarity_rate as de-duplicated matched source characters divided by effective source characters. Risk score must be weighted as paragraph duplication 35%, low sentence-length variation 25%, template connector density 20%, and vague phrase density 20%, with an explanation that this is heuristic risk rather than an AI truth conclusion. If corpus is empty, return status no_samples with sample_count 0, top_matches [], and still calculate writing risk from the submitted text.\", \"inputs\": [\"Authenticated user DTO\", \"Detection payload text/source metadata/optional threshold\", \"Corpus samples from duplicationCorpusRepository\"], \"outputs\": [\"DuplicationDetectionResponse business DTO\", \"Service errors with status for 400/401/403/413\"], \"callers\": [\"backend/src/normative/normativeRoutes.js POST /duplication-detections\"], \"callees\": [\"backend/src/normative/duplicationCorpusRepository.js listCorpusSamples\"], \"test_focus\": \"Unit tests should target normalization, punctuation removal, whitespace normalization, 5-gram Jaccard scoring, top-five ordering, segment extraction, de-duplicated total similarity rate, empty corpus no_samples behavior, risk factor weighting, and authorization/validation errors.\"}",
+    "file_path": "backend/src/normative/duplicationDetectionService.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "backend/src/normative/normativeRoutes.js POST /duplication-detections"
+    ],
+    "callees": [
+      "backend/src/normative/duplicationCorpusRepository.js listCorpusSamples"
     ]
   },
   "FUNC-FEAT-NORMATIVE-DETECT-TASK-SERVICE": {
@@ -776,6 +834,41 @@
       "frontend/src/api/duplicationCorpus.ts",
       "frontend/src/auth/AuthSessionProvider.tsx",
       "frontend/src/api/authSession.ts"
+    ]
+  },
+  "UI-FEAT-DUPLICATION-DETECT-APP-ROUTE": {
+    "interface_id": "UI-FEAT-DUPLICATION-DETECT-APP-ROUTE",
+    "req_ids": [
+      "FEAT-DUPLICATION-DETECT"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-DUPLICATION-DETECT-APP-ROUTE\", \"req_id\": \"FEAT-DUPLICATION-DETECT\", \"type\": \"UI\", \"name\": \"Duplication detection route registration\", \"file_path\": \"frontend/src/App.tsx\", \"first_line\": \"1\", \"responsibility\": \"Mount the duplication detection page into the existing React route tree without introducing a separate frontend runtime.\", \"specification\": \"Adds /duplication-detect to the existing React Router Routes and renders DuplicationDetectPage. The page remains served by the backend-hosted frontend dist in the single-port runtime. This is a narrow connector only; detection state and behavior are owned by DuplicationDetectPage and backend interfaces.\", \"inputs\": [\"Browser navigation to /duplication-detect\"], \"outputs\": [\"DuplicationDetectPage route element\"], \"callers\": [\"React Router runtime\"], \"callees\": [\"frontend/src/pages/DuplicationDetectPage.tsx\"], \"test_focus\": \"Route tests should verify /duplication-detect renders the upload workflow under the existing app shell.\"}",
+    "file_path": "frontend/src/App.tsx",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "React Router runtime"
+    ],
+    "callees": [
+      "frontend/src/pages/DuplicationDetectPage.tsx"
+    ]
+  },
+  "UI-FEAT-DUPLICATION-DETECT-PAGE": {
+    "interface_id": "UI-FEAT-DUPLICATION-DETECT-PAGE",
+    "req_ids": [
+      "FEAT-DUPLICATION-DETECT"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-DUPLICATION-DETECT-PAGE\", \"req_id\": \"FEAT-DUPLICATION-DETECT\", \"type\": \"UI\", \"name\": \"DuplicationDetectPage\", \"file_path\": \"frontend/src/pages/DuplicationDetectPage.tsx\", \"first_line\": \"1\", \"responsibility\": \"Provide the authenticated user-facing local similarity detection workflow with upload/text entry, type selection, progress presentation, similarity results, no-sample state, and heuristic-risk disclaimer.\", \"specification\": \"Renders the visual-reference-inspired document upload card and progress/report card using Tailwind utility classes. Uses AuthSessionProvider state to show loading and anonymous login prompts; authenticated STUDENT, SUPERVISOR, SCHOOL_ADMIN, and COLLEGE_ADMIN users can submit text or .txt/.md files. Calls createDuplicationDetection through the shared Axios client. Runtime-driven fields include selected file metadata, submitted text, submission/progress state, API errors, sample count, total similarity rate, effective character count, top matches, and risk score. Must display that writing risk is heuristic and not an AI authenticity conclusion. Must render status 'no_samples' as an explicit no-available-samples result without fabricated matches.\", \"inputs\": [\"Auth session state from useAuthSession\", \"User-selected .txt/.md file or pasted text\", \"Selected detection type option\", \"DuplicationDetectionResponse from API\"], \"outputs\": [\"POST request payload for local duplication detection\", \"Upload/progress/report UI states\", \"Explicit login, loading, error, no-sample, and result states\"], \"callers\": [\"frontend/src/App.tsx route /duplication-detect\"], \"callees\": [\"frontend/src/api/normativeRules.ts createDuplicationDetection\", \"frontend/src/auth/AuthSessionProvider.tsx useAuthSession\"], \"test_focus\": \"Frontend tests should verify anonymous login prompt, file validation, disabled/active submit behavior, API invocation with pasted/file text, no_samples rendering, top match rendering, progress/report metadata, and visible heuristic-risk disclaimer.\"}",
+    "file_path": "frontend/src/pages/DuplicationDetectPage.tsx",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "frontend/src/App.tsx route /duplication-detect"
+    ],
+    "callees": [
+      "frontend/src/api/normativeRules.ts createDuplicationDetection",
+      "frontend/src/auth/AuthSessionProvider.tsx useAuthSession"
     ]
   },
   "UI-FEAT-NORMATIVE-DETECT-PAGE": {
