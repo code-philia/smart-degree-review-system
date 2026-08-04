@@ -3,10 +3,11 @@
     "interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
     "req_ids": [
       "FEAT-AUTH-SESSION",
-      "FEAT-AUTH-PASSWORD"
+      "FEAT-AUTH-PASSWORD",
+      "FEAT-NORMATIVE-FORMAT-RULES"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-CLIENT\", \"req_id\": \"FEAT-AUTH-PASSWORD\", \"type\": \"API\", \"name\": \"Frontend auth session API client\", \"file_path\": \"frontend/src/api/authSession.ts\", \"first_line\": \"1\", \"responsibility\": \"Reuse typed frontend calls for local password login, current-session recovery, and logout through the shared Axios client and same-origin /api path.\", \"specification\": \"Exports AuthRole, AuthenticatedUser, LoginRequest, SessionResponse, loginWithLocalAccount, fetchCurrentSession, and logoutCurrentSession. Calls POST /api/auth/login, GET /api/auth/me, and POST /api/auth/logout using the shared Axios client with interceptors. It must not store passwords, session ids, or fallback user data in frontend state.\", \"inputs\": [\"LoginRequest { username, password }\", \"HttpOnly cookie sent by browser for /auth/me and /auth/logout\"], \"outputs\": [\"SessionResponse { user }\", \"Rejected promise for 401 invalid credentials or anonymous session\"], \"callers\": [\"frontend/src/auth/AuthSessionProvider.tsx\"], \"callees\": [\"backend/src/auth/authRoutes.js mounted at /api/auth\"], \"test_focus\": [\"POST /auth/login is used for password login.\", \"GET /auth/me is available for session recovery.\", \"Invalid credentials propagate an error to the unified UI error path.\"]}",
+    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-CLIENT\", \"req_id\": \"FEAT-NORMATIVE-FORMAT-RULES\", \"type\": \"API\", \"name\": \"ReusedAuthSessionClientForNormativePage\", \"file_path\": \"frontend/src/api/authSession.ts\", \"first_line\": \"1\", \"responsibility\": \"Reuse current-session recovery and cookie-backed auth client calls required by the normative page's shared AuthSessionProvider.\", \"specification\": \"The current node depends on this existing client indirectly through AuthSessionProvider for fetchCurrentSession/login/logout. It keeps session state consistent with protected /api/normative calls, which rely on the same cookie credentials via the shared Axios client.\", \"inputs\": [{\"name\": \"login/session/logout requests\", \"type\": \"typed auth payloads\", \"required\": false}], \"outputs\": [{\"name\": \"SessionResponse or logout completion\", \"type\": \"Promise\"}], \"callers\": [\"frontend/src/auth/AuthSessionProvider.tsx\"], \"callees\": [\"backend/src/auth/authRoutes.js mounted at /api/auth\"], \"test_focus\": [\"A logged-in session recovered by the shared auth client allows the normative page to call protected analysis without a separate auth mechanism.\"]}",
     "file_path": "frontend/src/api/authSession.ts",
     "first_line": "1",
     "implemented": true,
@@ -35,6 +36,61 @@
     "callees": [
       "backend/src/auth/sessionService.js",
       "backend/src/auth/authMiddleware.js"
+    ]
+  },
+  "API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT": {
+    "interface_id": "API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT",
+    "req_ids": [
+      "FEAT-NORMATIVE-FORMAT-RULES"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT\", \"req_id\": \"FEAT-NORMATIVE-FORMAT-RULES\", \"type\": \"API\", \"name\": \"NormativeBackendRouteMount\", \"file_path\": \"backend/src/app.js\", \"first_line\": \"8\", \"responsibility\": \"Mount the current-node Express normative route module into the existing backend app under /api/normative while preserving the single backend-hosted runtime.\", \"specification\": \"Imports backend/src/normative/normativeRoutes.js and registers app.use('/api/normative', normativeRoutes) beside existing /api/auth routes. Static frontend hosting and SPA fallback remain unchanged so runtime stays backend-led on port 3000.\", \"inputs\": [{\"name\": \"Express app\", \"type\": \"express.Application\", \"required\": true}], \"outputs\": [{\"name\": \"mounted API route tree\", \"type\": \"/api/normative/*\"}], \"callers\": [\"backend/src/index.js server startup\", \"backend tests importing app\"], \"callees\": [\"backend/src/normative/normativeRoutes.js\"], \"test_focus\": [\"Backend app exposes /api/normative/analyze under the same app object used by runtime and Supertest.\"]}",
+    "file_path": "backend/src/app.js",
+    "first_line": "8",
+    "implemented": false,
+    "callers": [
+      "backend/src/index.js server startup",
+      "backend tests importing app"
+    ],
+    "callees": [
+      "backend/src/normative/normativeRoutes.js"
+    ]
+  },
+  "API-FEAT-NORMATIVE-FORMAT-RULES-CLIENT": {
+    "interface_id": "API-FEAT-NORMATIVE-FORMAT-RULES-CLIENT",
+    "req_ids": [
+      "FEAT-NORMATIVE-FORMAT-RULES"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-NORMATIVE-FORMAT-RULES-CLIENT\", \"req_id\": \"FEAT-NORMATIVE-FORMAT-RULES\", \"type\": \"API\", \"name\": \"NormativeRulesApiClient\", \"file_path\": \"frontend/src/api/normativeRules.ts\", \"first_line\": \"1\", \"responsibility\": \"Expose typed frontend API calls and issue DTOs for running the default normative rule set through the shared Axios client and same-origin /api path.\", \"specification\": \"Exports NormativeRuleCategory, NormativeSeverity, NormativeIssue, AnalyzeNormativeTextRequest, AnalyzeNormativeTextResponse, and analyzeDefaultNormativeText(payload). The request posts { text } to /api/normative/analyze via the shared apiClient, preserving global Axios configuration including withCredentials and interceptors. The response must be { issues: NormativeIssue[] } where every issue includes rule_id, category, severity, line, column, excerpt, message, and suggestion.\", \"inputs\": [{\"name\": \"payload\", \"type\": \"{ text: string }\", \"required\": true}], \"outputs\": [{\"name\": \"analysis response\", \"type\": \"Promise<{ issues: NormativeIssue[] }>\"}], \"callers\": [\"frontend/src/pages/NormativeCheckPage.tsx\"], \"callees\": [\"frontend/src/api/index.ts shared Axios client\", \"backend/src/normative/normativeRoutes.js mounted at /api/normative\"], \"test_focus\": [\"Client posts to /normative/analyze through the shared apiClient and preserves the typed issue fields required by the UI and scenario.\"]}",
+    "file_path": "frontend/src/api/normativeRules.ts",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "frontend/src/pages/NormativeCheckPage.tsx"
+    ],
+    "callees": [
+      "frontend/src/api/index.ts shared Axios client",
+      "backend/src/normative/normativeRoutes.js mounted at /api/normative"
+    ]
+  },
+  "API-FEAT-NORMATIVE-FORMAT-RULES-EXPRESS-ROUTES": {
+    "interface_id": "API-FEAT-NORMATIVE-FORMAT-RULES-EXPRESS-ROUTES",
+    "req_ids": [
+      "FEAT-NORMATIVE-FORMAT-RULES"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-NORMATIVE-FORMAT-RULES-EXPRESS-ROUTES\", \"req_id\": \"FEAT-NORMATIVE-FORMAT-RULES\", \"type\": \"API\", \"name\": \"NormativeRulesExpressRoutes\", \"file_path\": \"backend/src/normative/normativeRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Provide protected backend HTTP endpoints for listing and running the built-in default normative format rules.\", \"specification\": \"Defines GET /api/normative/rules and POST /api/normative/analyze, mounted from backend/src/app.js. Both endpoints use requireAuth() before returning data or executing analysis, allowing authenticated STUDENT, SUPERVISOR, SCHOOL_ADMIN, and COLLEGE_ADMIN users and denying anonymous requests with 401 through the reused auth middleware. POST /analyze accepts JSON { text: string }, rejects blank text with 400, calls analyzeDefaultNormativeRules(text), and returns { issues }. Later implementation must not persist analysis results unless another requirement owns persistence.\", \"inputs\": [{\"name\": \"Cookie session\", \"type\": \"HttpOnly session cookie\", \"required\": true}, {\"name\": \"POST body\", \"type\": \"{ text: string }\", \"required\": true}], \"outputs\": [{\"name\": \"rules response\", \"type\": \"{ rules: DefaultNormativeRule[] }\"}, {\"name\": \"analysis response\", \"type\": \"{ issues: NormativeIssue[] }\"}, {\"name\": \"auth errors\", \"type\": \"401 for anonymous, 403 if future role restrictions fail\"}, {\"name\": \"validation error\", \"type\": \"400 for blank text\"}], \"callers\": [\"frontend/src/api/normativeRules.ts\", \"backend/src/app.js\"], \"callees\": [\"backend/src/auth/authMiddleware.js\", \"backend/src/normative/normativeService.js\"], \"test_focus\": [\"Anonymous POST /api/normative/analyze is denied before analysis.\", \"Authenticated STUDENT/SUPERVISOR/SCHOOL_ADMIN/COLLEGE_ADMIN can call POST /api/normative/analyze.\", \"The scenario text returns separate pairing, duplicate punctuation, and long-sentence issues, each with line and column.\"]}",
+    "file_path": "backend/src/normative/normativeRoutes.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "frontend/src/api/normativeRules.ts",
+      "backend/src/app.js"
+    ],
+    "callees": [
+      "backend/src/auth/authMiddleware.js",
+      "backend/src/normative/normativeService.js"
     ]
   },
   "DB-FEAT-AUTH-SESSION-DEMO-SEED": {
@@ -100,16 +156,16 @@
     "interface_id": "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE",
     "req_ids": [
       "FEAT-AUTH-SESSION",
-      "FEAT-AUTH-PASSWORD"
+      "FEAT-AUTH-PASSWORD",
+      "FEAT-NORMATIVE-FORMAT-RULES"
     ],
     "type": "FUNC",
-    "content": "{\"interface_id\": \"FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE\", \"req_id\": \"FEAT-AUTH-PASSWORD\", \"type\": \"FUNC\", \"name\": \"Reusable auth authorization middleware\", \"file_path\": \"backend/src/auth/authMiddleware.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse the server-side authorization boundary for protected session actions and downstream role/data-scope enforcement.\", \"specification\": \"Provides parseCookies and requireAuth(options). Anonymous users are denied for protected boundaries such as logout and future business APIs before data is returned or state changes. Role enforcement accepts STUDENT, SUPERVISOR, SCHOOL_ADMIN, and COLLEGE_ADMIN for this permission-bearing leaf; no declared role is excluded. Data-scope enforcement is supplied by the serialized user fields and middleware options, not by frontend visibility alone.\", \"inputs\": [\"Cookie header\", \"allowedRoles option\", \"optional data-scope option\"], \"outputs\": [\"req.user for authorized users\", \"401 for anonymous/invalid session\", \"403 for disallowed role or data scope\"], \"callers\": [\"backend/src/auth/authRoutes.js logout route\", \"future protected business API route modules\"], \"callees\": [\"backend/src/auth/sessionService.js\"], \"test_focus\": [\"Anonymous protected requests are rejected server-side.\", \"Allowed role set covers STUDENT, SUPERVISOR, SCHOOL_ADMIN, and COLLEGE_ADMIN.\", \"Authorization is not implemented only by hiding frontend menu items.\"]}",
+    "content": "{\"interface_id\": \"FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE\", \"req_id\": \"FEAT-NORMATIVE-FORMAT-RULES\", \"type\": \"FUNC\", \"name\": \"ReusedAuthzMiddlewareForNormativeRules\", \"file_path\": \"backend/src/auth/authMiddleware.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse the server-side authorization boundary to protect normative rule listing and analysis before data is returned or rule execution occurs.\", \"specification\": \"The current node calls requireAuth() on /api/normative/rules and /api/normative/analyze. Because declared permissions are ALL with allowed roles STUDENT, SUPERVISOR, SCHOOL_ADMIN, and COLLEGE_ADMIN, no narrower role filter is passed; all authenticated catalog roles are allowed. Anonymous users are denied with 401. There is no resource data-scope constraint for this stateless text analysis request.\", \"inputs\": [{\"name\": \"session cookie\", \"type\": \"auth session id\", \"required\": true}, {\"name\": \"options.allowedRoles\", \"type\": \"undefined for all authenticated roles\", \"required\": false}], \"outputs\": [{\"name\": \"req.user\", \"type\": \"AuthenticatedUser on success\"}, {\"name\": \"401/403 response\", \"type\": \"authorization failure\"}], \"callers\": [\"backend/src/normative/normativeRoutes.js\"], \"callees\": [\"backend/src/auth/sessionService.js\"], \"test_focus\": [\"Protected normative endpoints reject anonymous access and accept all four authenticated role catalog users.\"]}",
     "file_path": "backend/src/auth/authMiddleware.js",
     "first_line": "1",
     "implemented": true,
     "callers": [
-      "backend/src/auth/authRoutes.js logout route",
-      "future protected business API route modules"
+      "backend/src/normative/normativeRoutes.js"
     ],
     "callees": [
       "backend/src/auth/sessionService.js"
@@ -135,6 +191,21 @@
       "bcrypt",
       "crypto"
     ]
+  },
+  "FUNC-FEAT-NORMATIVE-FORMAT-RULES-ENGINE": {
+    "interface_id": "FUNC-FEAT-NORMATIVE-FORMAT-RULES-ENGINE",
+    "req_ids": [
+      "FEAT-NORMATIVE-FORMAT-RULES"
+    ],
+    "type": "FUNC",
+    "content": "{\"interface_id\": \"FUNC-FEAT-NORMATIVE-FORMAT-RULES-ENGINE\", \"req_id\": \"FEAT-NORMATIVE-FORMAT-RULES\", \"type\": \"FUNC\", \"name\": \"DefaultNormativeRulesEngine\", \"file_path\": \"backend/src/normative/normativeService.js\", \"first_line\": \"1\", \"responsibility\": \"Own the executable default normative rule engine for detecting required section order, punctuation pairing, repeated punctuation, numeric date format, reference numbering, and text quality issues.\", \"specification\": \"Exports DEFAULT_NORMATIVE_RULES and analyzeDefaultNormativeRules(text). The implementation must tokenize raw text with stable 1-based line and column positions and return { issues }. It must detect: required section order 摘要、关键词、引言、结论、参考文献 in that order; unmatched Chinese/English parentheses, brackets, book-title marks, and quotes; repeated punctuation “，，”, “。。” and “；；” plus any run of three or more identical punctuation characters; numeric dates that are not YYYY-MM-DD; non-empty reference lines after 参考文献 that must start at [1] and increment continuously; repeated consecutive words, Tab characters, trailing whitespace, sentences over 120 characters, and disabled words from the built-in rule table. Each issue must include rule_id, category, severity, line, column, excerpt, message, and suggestion. The design skeleton intentionally does not complete the rule algorithms.\", \"inputs\": [{\"name\": \"text\", \"type\": \"string\", \"required\": true}], \"outputs\": [{\"name\": \"analysis result\", \"type\": \"Promise<{ issues: NormativeIssue[] }>\"}], \"callers\": [\"backend/src/normative/normativeRoutes.js\"], \"callees\": [], \"test_focus\": [\"Unit tests cover line/column calculation and deterministic issue output for scenario text with unpaired punctuation, “。。” and an over-120-character sentence.\", \"Unit tests cover each required rule family and verify required issue fields are present.\", \"Blank or non-string inputs are rejected at API/service boundaries rather than producing fake success.\"]}",
+    "file_path": "backend/src/normative/normativeService.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "backend/src/normative/normativeRoutes.js"
+    ],
+    "callees": []
   },
   "UI-FEAT-AUTH-HELP-AUTH-ROUTE-CONNECTOR": {
     "interface_id": "UI-FEAT-AUTH-HELP-AUTH-ROUTE-CONNECTOR",
@@ -193,17 +264,18 @@
     "interface_id": "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
     "req_ids": [
       "FEAT-AUTH-SESSION",
-      "FEAT-AUTH-PASSWORD"
+      "FEAT-AUTH-PASSWORD",
+      "FEAT-NORMATIVE-FORMAT-RULES"
     ],
     "type": "UI",
-    "content": "{\"interface_id\": \"UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER\", \"req_id\": \"FEAT-AUTH-PASSWORD\", \"type\": \"UI\", \"name\": \"Global auth session provider\", \"file_path\": \"frontend/src/auth/AuthSessionProvider.tsx\", \"first_line\": \"1\", \"responsibility\": \"Reuse the shared frontend source of truth for current user state, login transition, logout transition, and refresh-time session recovery.\", \"specification\": \"Provides useAuthSession with loading/authenticated/anonymous status, current authenticated user, login(payload), logout(), and refreshSession(). Login must call loginWithLocalAccount, store the returned user globally, and allow role-aware surfaces such as RoleAwareHomeMenu to render from the same state. RefreshSession must call /api/auth/me so HttpOnly-cookie-backed sessions survive navigation and refresh.\", \"inputs\": [\"LoginRequest from LocalAccountLoginForm\", \"HttpOnly cookie-backed current-session API response\"], \"outputs\": [\"Global AuthSessionContext\", \"AuthenticatedUser for role-aware UI\", \"Anonymous state on failed recovery\"], \"callers\": [\"frontend/src/main.tsx\", \"frontend/src/auth/LocalAccountLoginForm.tsx\", \"frontend/src/auth/RoleAwareHomeMenu.tsx\"], \"callees\": [\"frontend/src/api/authSession.ts\"], \"test_focus\": [\"Login updates global authenticated state.\", \"Session recovery loads user from /api/auth/me.\", \"Role-aware home content consumes the same provider state.\"]}",
+    "content": "{\"interface_id\": \"UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER\", \"req_id\": \"FEAT-NORMATIVE-FORMAT-RULES\", \"type\": \"UI\", \"name\": \"ReusedAuthSessionProviderForNormativePage\", \"file_path\": \"frontend/src/auth/AuthSessionProvider.tsx\", \"first_line\": \"1\", \"responsibility\": \"Reuse the shared frontend session source of truth so the normative detection page follows the same loading, anonymous, and authenticated states as the rest of the app.\", \"specification\": \"NormativeCheckPage consumes useAuthSession from this dependency-owned provider. It must not create page-local fake user state. Session recovery after refresh continues to use fetchCurrentSession and the same cookie-backed backend session path.\", \"inputs\": [{\"name\": \"session API responses\", \"type\": \"SessionResponse\", \"required\": true}], \"outputs\": [{\"name\": \"status/user/login/logout/refreshSession\", \"type\": \"Auth session context\"}], \"callers\": [\"frontend/src/main.tsx\", \"frontend/src/App.tsx\", \"frontend/src/pages/NormativeCheckPage.tsx\"], \"callees\": [\"frontend/src/api/authSession.ts\"], \"test_focus\": [\"The normative page renders loading and anonymous states from the global provider and submits only when an authenticated user is available.\"]}",
     "file_path": "frontend/src/auth/AuthSessionProvider.tsx",
     "first_line": "1",
     "implemented": true,
     "callers": [
       "frontend/src/main.tsx",
-      "frontend/src/auth/LocalAccountLoginForm.tsx",
-      "frontend/src/auth/RoleAwareHomeMenu.tsx"
+      "frontend/src/App.tsx",
+      "frontend/src/pages/NormativeCheckPage.tsx"
     ],
     "callees": [
       "frontend/src/api/authSession.ts"
@@ -224,6 +296,42 @@
       "frontend/src/App.tsx via AuthPage.accountFormSlot"
     ],
     "callees": [
+      "frontend/src/auth/AuthSessionProvider.tsx"
+    ]
+  },
+  "UI-FEAT-NORMATIVE-FORMAT-RULES-PAGE": {
+    "interface_id": "UI-FEAT-NORMATIVE-FORMAT-RULES-PAGE",
+    "req_ids": [
+      "FEAT-NORMATIVE-FORMAT-RULES"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-NORMATIVE-FORMAT-RULES-PAGE\", \"req_id\": \"FEAT-NORMATIVE-FORMAT-RULES\", \"type\": \"UI\", \"name\": \"DefaultNormativeCheckPage\", \"file_path\": \"frontend/src/pages/NormativeCheckPage.tsx\", \"first_line\": \"1\", \"responsibility\": \"Provide the authenticated user-facing page for submitting thesis text to the built-in default normative format rules and displaying every returned issue with rule_id, category, severity, line, column, excerpt, message, and suggestion.\", \"specification\": \"Mounted at /normative-check through the existing React route tree. Consumes the shared AuthSessionProvider via useAuthSession. While session status is loading, renders an explicit loading state. When anonymous, renders an explicit login-required state with a link to /auth and does not fake results. When authenticated as STUDENT, SUPERVISOR, SCHOOL_ADMIN, or COLLEGE_ADMIN, renders a textarea, submit button, execution status, error state, and results table. Submit calls analyzeDefaultNormativeText with the raw text and renders issues returned by the backend. It does not implement local-only rule detection or fallback issue arrays.\", \"inputs\": [{\"name\": \"current auth session\", \"type\": \"AuthSessionProvider state\", \"required\": true}, {\"name\": \"text\", \"type\": \"string\", \"required\": true}], \"outputs\": [{\"name\": \"visible rule issues\", \"type\": \"NormativeIssue[] table rows\"}, {\"name\": \"loading/anonymous/error/empty states\", \"type\": \"React UI states\"}], \"callers\": [\"frontend/src/App.tsx route path /normative-check\"], \"callees\": [\"frontend/src/auth/AuthSessionProvider.tsx\", \"frontend/src/api/normativeRules.ts\"], \"test_focus\": [\"Authenticated student can paste text containing an unpaired bracket, “。。” and an over-120-character sentence, submit it, and see separate pairing, duplicate punctuation, and long-sentence issues with line/column fields.\", \"Anonymous users see login-required state and cannot trigger fake local results.\", \"Backend or network failure renders an explicit error state and clears stale results.\"]}",
+    "file_path": "frontend/src/pages/NormativeCheckPage.tsx",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "frontend/src/App.tsx route path /normative-check"
+    ],
+    "callees": [
+      "frontend/src/auth/AuthSessionProvider.tsx",
+      "frontend/src/api/normativeRules.ts"
+    ]
+  },
+  "UI-FEAT-NORMATIVE-FORMAT-RULES-ROUTE-CONNECTOR": {
+    "interface_id": "UI-FEAT-NORMATIVE-FORMAT-RULES-ROUTE-CONNECTOR",
+    "req_ids": [
+      "FEAT-NORMATIVE-FORMAT-RULES"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-NORMATIVE-FORMAT-RULES-ROUTE-CONNECTOR\", \"req_id\": \"FEAT-NORMATIVE-FORMAT-RULES\", \"type\": \"UI\", \"name\": \"NormativeCheckRouteConnector\", \"file_path\": \"frontend/src/App.tsx\", \"first_line\": \"1\", \"responsibility\": \"Wire the current-node normative detection page into the existing React route tree without creating a parallel app shell or duplicate auth provider.\", \"specification\": \"Imports NormativeCheckPage and maps /normative-check to it inside the existing Routes tree. The route remains nested under the shared AuthSessionProvider used by the rest of the app so the page consumes the same global session source of truth as login, logout, and home menu surfaces.\", \"inputs\": [{\"name\": \"browser path\", \"type\": \"string\", \"required\": true}], \"outputs\": [{\"name\": \"route element\", \"type\": \"NormativeCheckPage\"}], \"callers\": [\"frontend/src/main.tsx BrowserRouter/App mount\"], \"callees\": [\"frontend/src/pages/NormativeCheckPage.tsx\", \"frontend/src/auth/AuthSessionProvider.tsx\"], \"test_focus\": [\"Navigating to /normative-check renders the normative check page under the existing auth session context.\"]}",
+    "file_path": "frontend/src/App.tsx",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "frontend/src/main.tsx BrowserRouter/App mount"
+    ],
+    "callees": [
+      "frontend/src/pages/NormativeCheckPage.tsx",
       "frontend/src/auth/AuthSessionProvider.tsx"
     ]
   },

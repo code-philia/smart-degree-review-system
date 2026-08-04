@@ -7,6 +7,7 @@ const app = express();
 
 // route modules imports
 const authRoutes = require('./auth/authRoutes');
+const normativeRoutes = require('./normative/normativeRoutes');
 
 // middleware imports
 app.use(cors());
@@ -17,6 +18,7 @@ app.get('/api/health', (req, res) => {
   res.json({ code: 200, message: 'Backend Ready' });
 });
 app.use('/api/auth', authRoutes);
+app.use('/api/normative', normativeRoutes);
 
 const frontendDistPath = path.resolve(__dirname, '../../frontend/dist');
 

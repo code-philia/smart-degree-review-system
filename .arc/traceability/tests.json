@@ -125,5 +125,60 @@
     "passed": true,
     "first_line": "1",
     "scenario_id": null
+  },
+  "FEAT-NORMATIVE-FORMAT-RULES:E2E:001": {
+    "test_id": "FEAT-NORMATIVE-FORMAT-RULES:E2E:001",
+    "req_id": "FEAT-NORMATIVE-FORMAT-RULES",
+    "interface_ids": [
+      "UI-FEAT-NORMATIVE-FORMAT-RULES-PAGE",
+      "UI-FEAT-NORMATIVE-FORMAT-RULES-ROUTE-CONNECTOR",
+      "API-FEAT-NORMATIVE-FORMAT-RULES-EXPRESS-ROUTES"
+    ],
+    "type": "E2E",
+    "file_path": "backend/test-e2e/normative-format-rules.spec.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-NORMATIVE-FORMAT-RULES:FRONTEND:001": {
+    "test_id": "FEAT-NORMATIVE-FORMAT-RULES:FRONTEND:001",
+    "req_id": "FEAT-NORMATIVE-FORMAT-RULES",
+    "interface_ids": [
+      "UI-FEAT-NORMATIVE-FORMAT-RULES-PAGE",
+      "UI-FEAT-NORMATIVE-FORMAT-RULES-ROUTE-CONNECTOR",
+      "API-FEAT-NORMATIVE-FORMAT-RULES-CLIENT",
+      "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER"
+    ],
+    "type": "Integration",
+    "file_path": "frontend/tests/normative-format-rules.test.tsx",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-NORMATIVE-FORMAT-RULES:INTEGRATION:001": {
+    "test_id": "FEAT-NORMATIVE-FORMAT-RULES:INTEGRATION:001",
+    "req_id": "FEAT-NORMATIVE-FORMAT-RULES",
+    "interface_ids": [
+      "API-FEAT-NORMATIVE-FORMAT-RULES-EXPRESS-ROUTES",
+      "API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT",
+      "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/normative-format-rules.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-NORMATIVE-FORMAT-RULES:UNIT:001": {
+    "test_id": "FEAT-NORMATIVE-FORMAT-RULES:UNIT:001",
+    "req_id": "FEAT-NORMATIVE-FORMAT-RULES",
+    "interface_ids": [
+      "FUNC-FEAT-NORMATIVE-FORMAT-RULES-ENGINE"
+    ],
+    "type": "Unit",
+    "file_path": "backend/tests/normative-format-rules.unit.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
   }
 }
