@@ -187,9 +187,9 @@
   },
   "MOD-AUTH": {
     "req_id": "MOD-AUTH",
-    "state": "DESIGNED",
-    "phase": "design",
-    "updated_at": "2026-08-04 15:09:23"
+    "state": "PASSED",
+    "phase": "test",
+    "updated_at": "2026-08-04 15:56:54"
   },
   "MOD-DUPLICATION-CHECK": {
     "req_id": "MOD-DUPLICATION-CHECK",
