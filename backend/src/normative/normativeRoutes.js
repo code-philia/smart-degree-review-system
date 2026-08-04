@@ -336,12 +336,15 @@ router.get(
 );
 
 router.get(
-  '/polish-history/:polishType/:resultId',
+  '/polish-history/:polishType/:resultId/download',
   requireAuth({ allowedRoles: ALLOWED_POLISH_HISTORY_ROLES }),
   async (req, res, next) => {
     try {
       const record = await getPolishHistoryRecordForUser(req.user, req.params.polishType, req.params.resultId);
-      res.json(record);
+      res
+        .type('text/plain; charset=utf-8')
+        .attachment(`polish-result-${record.polish_type}-${record.id}.txt`)
+        .send(buildPolishResultText(record));
     } catch (error) {
       if (error?.status) {
         res.status(error.status).json({ code: error.status, message: error.message });
@@ -353,15 +356,12 @@ router.get(
 );
 
 router.get(
-  '/polish-history/:polishType/:resultId/download',
+  '/polish-history/:polishType/:resultId',
   requireAuth({ allowedRoles: ALLOWED_POLISH_HISTORY_ROLES }),
   async (req, res, next) => {
     try {
       const record = await getPolishHistoryRecordForUser(req.user, req.params.polishType, req.params.resultId);
-      res
-        .type('text/plain; charset=utf-8')
-        .attachment(`polish-result-${record.polish_type}-${record.id}.txt`)
-        .send(buildPolishResultText(record));
+      res.json(record);
     } catch (error) {
       if (error?.status) {
         res.status(error.status).json({ code: error.status, message: error.message });

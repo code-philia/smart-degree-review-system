@@ -115,9 +115,9 @@
   },
   "FEAT-POLISH-HISTORY": {
     "req_id": "FEAT-POLISH-HISTORY",
-    "state": "DESIGNED",
-    "phase": "design",
-    "updated_at": "2026-08-04 18:20:55"
+    "state": "PASSED",
+    "phase": "test",
+    "updated_at": "2026-08-04 18:21:53"
   },
   "FEAT-POLISH-LOCAL": {
     "req_id": "FEAT-POLISH-LOCAL",
