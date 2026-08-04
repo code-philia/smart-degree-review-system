@@ -124,7 +124,7 @@ export type WholePolishChange = {
 };
 
 export type LocalPolishDiffSegment = {
-  type: 'unchanged' | 'added' | 'deleted' | 'replaced' | 'format';
+  type: 'unchanged' | 'added' | 'deleted' | 'replacement' | 'replaced' | 'format';
   text: string;
   original_text?: string;
   new_text?: string;

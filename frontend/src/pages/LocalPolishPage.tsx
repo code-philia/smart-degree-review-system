@@ -27,12 +27,13 @@ function renderResultText(result: LocalPolishResult | null) {
       {result.diff_segments.map((segment, index) => (
         <span
           key={`${segment.type}-${index}-${segment.text.slice(0, 8)}`}
+          data-diff-type={segment.type}
           className={
             segment.type === 'added'
               ? 'text-[#22B573]'
               : segment.type === 'deleted'
                 ? 'text-[#E74C3C] line-through'
-                : segment.type === 'replaced'
+                : segment.type === 'replaced' || segment.type === 'replacement'
                   ? 'bg-orange-50 text-[#F07E2E]'
                   : segment.type === 'format'
                     ? 'bg-slate-100 text-slate-700'
@@ -132,6 +133,7 @@ function LocalPolishPage() {
               <span className="text-base font-semibold text-[#9AA1AA]">{characterCount} 字符</span>
             </div>
             <textarea
+              aria-label="原始文本输入"
               className="min-h-[460px] w-full resize-none px-8 py-8 text-2xl leading-relaxed outline-none"
               value={text}
               onChange={(event) => setText(event.target.value)}
@@ -144,7 +146,11 @@ function LocalPolishPage() {
               <span>AI 润色结果</span>
               <span className="text-base font-bold text-[#22B573]">{submitting ? '处理中' : result ? '润色完成' : '等待处理'}</span>
             </div>
-            <div className="min-h-[460px] px-8 py-8 text-2xl leading-relaxed">{renderResultText(result)}</div>
+            <div className="min-h-[460px] px-8 py-8 text-2xl leading-relaxed">
+              <div data-testid="local-polish-result-id" className="sr-only">{result?.id || ''}</div>
+              <div data-testid="local-polish-result-text">{result?.polished_text || ''}</div>
+              <div data-testid="local-polish-diff-segments">{renderResultText(result)}</div>
+            </div>
           </article>
         </section>
 
