@@ -323,6 +323,65 @@
     "first_line": "128",
     "scenario_id": null
   },
+  "FEAT-INNOVATION-SCORING-MODEL:E2E:SCENARIO:001:MASTER-WEIGHTS": {
+    "test_id": "FEAT-INNOVATION-SCORING-MODEL:E2E:SCENARIO:001:MASTER-WEIGHTS",
+    "req_id": "FEAT-INNOVATION-SCORING-MODEL",
+    "interface_ids": [
+      "UI-FEAT-INNOVATION-SCORING-MODEL-PAGE",
+      "UI-FEAT-INNOVATION-SCORING-MODEL-APP-ROUTE",
+      "API-FEAT-INNOVATION-SCORING-MODEL-CLIENT",
+      "API-FEAT-INNOVATION-SCORING-MODEL-EXPRESS-ROUTE",
+      "FUNC-FEAT-INNOVATION-SCORING-MODEL-SERVICE",
+      "API-FEAT-AUTH-SESSION-CLIENT",
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES"
+    ],
+    "type": "E2E",
+    "file_path": "backend/test-e2e/innovation-scoring.spec.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-INNOVATION-SCORING-MODEL:INTEGRATION:API:PROTECTED-INNOVATION-SCORES": {
+    "test_id": "FEAT-INNOVATION-SCORING-MODEL:INTEGRATION:API:PROTECTED-INNOVATION-SCORES",
+    "req_id": "FEAT-INNOVATION-SCORING-MODEL",
+    "interface_ids": [
+      "API-FEAT-INNOVATION-SCORING-MODEL-EXPRESS-ROUTE",
+      "FUNC-FEAT-INNOVATION-SCORING-MODEL-SERVICE",
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/innovation-scoring.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-INNOVATION-SCORING-MODEL:INTEGRATION:UI:ROUTE-REPORT-AND-CLIENT": {
+    "test_id": "FEAT-INNOVATION-SCORING-MODEL:INTEGRATION:UI:ROUTE-REPORT-AND-CLIENT",
+    "req_id": "FEAT-INNOVATION-SCORING-MODEL",
+    "interface_ids": [
+      "UI-FEAT-INNOVATION-SCORING-MODEL-PAGE",
+      "UI-FEAT-INNOVATION-SCORING-MODEL-APP-ROUTE",
+      "API-FEAT-INNOVATION-SCORING-MODEL-CLIENT",
+      "API-FEAT-AUTH-SESSION-CLIENT"
+    ],
+    "type": "Integration",
+    "file_path": "frontend/tests/innovation-scoring.test.tsx",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-INNOVATION-SCORING-MODEL:UNIT:SERVICE:FIXED-TRANSPARENT-SCORING": {
+    "test_id": "FEAT-INNOVATION-SCORING-MODEL:UNIT:SERVICE:FIXED-TRANSPARENT-SCORING",
+    "req_id": "FEAT-INNOVATION-SCORING-MODEL",
+    "interface_ids": [
+      "FUNC-FEAT-INNOVATION-SCORING-MODEL-SERVICE"
+    ],
+    "type": "Unit",
+    "file_path": "backend/tests/innovation-scoring.unit.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
   "FEAT-NORMATIVE-DETECT:E2E:SCENARIOS:001": {
     "test_id": "FEAT-NORMATIVE-DETECT:E2E:SCENARIOS:001",
     "req_id": "FEAT-NORMATIVE-DETECT",

@@ -171,6 +171,38 @@ export type LocalPolishResult = {
   created_at: string;
 };
 
+export type InnovationDegreeType = 'doctoral' | 'master';
+
+export type InnovationScoreDimensionKey =
+  | 'research_topic'
+  | 'research_method'
+  | 'research_content'
+  | 'research_conclusion'
+  | 'application_value';
+
+export type InnovationScoreRequest = {
+  degree_type: InnovationDegreeType;
+  levels: Record<InnovationScoreDimensionKey, number>;
+};
+
+export type InnovationScoreDimensionReport = {
+  key: InnovationScoreDimensionKey;
+  label: string;
+  level: number;
+  raw_score: number;
+  weight: number;
+  weighted_score: number;
+};
+
+export type InnovationScoreResponse = {
+  degree_type: InnovationDegreeType;
+  total_score: number;
+  grade_label: '优秀' | '良好' | '一般' | '待提升';
+  formula: string;
+  dimensions: InnovationScoreDimensionReport[];
+  input: InnovationScoreRequest;
+};
+
 export type PolishHistoryRecord = {
   id: string;
   user_id: string;
@@ -258,6 +290,11 @@ export async function downloadWholePolishText(resultId: string): Promise<Blob> {
     responseType: 'blob',
     headers: { Accept: 'text/plain' },
   });
+  return response.data;
+}
+
+export async function calculateInnovationScore(payload: InnovationScoreRequest): Promise<InnovationScoreResponse> {
+  const response = await apiClient.post<InnovationScoreResponse>('/normative/innovation-scores', payload);
   return response.data;
 }
 

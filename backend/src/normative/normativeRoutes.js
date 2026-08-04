@@ -53,6 +53,11 @@ const {
   getPolishHistoryRecordForUser,
   listPolishHistoryForUser,
 } = require('./polishHistoryService');
+const {
+  ALLOWED_INNOVATION_SCORING_ROLES,
+  MAX_INNOVATION_SCORING_JSON_BYTES,
+  calculateInnovationScore,
+} = require('./innovationScoringService');
 
 const router = express.Router();
 
@@ -365,6 +370,32 @@ router.get(
     } catch (error) {
       if (error?.status) {
         res.status(error.status).json({ code: error.status, message: error.message });
+        return;
+      }
+      next(error);
+    }
+  },
+);
+
+router.post(
+  '/innovation-scores',
+  requireAuth({ allowedRoles: ALLOWED_INNOVATION_SCORING_ROLES }),
+  express.json({ limit: MAX_INNOVATION_SCORING_JSON_BYTES }),
+  async (req, res, next) => {
+    try {
+      const result = await calculateInnovationScore(req.user, req.body || {});
+      res.status(201).json(result);
+    } catch (error) {
+      if (error?.type === 'entity.too.large') {
+        res.status(413).json({ code: 413, message: '评分输入不能超过 32 KB' });
+        return;
+      }
+      if (error?.status) {
+        res.status(error.status).json({ code: error.status, message: error.message });
+        return;
+      }
+      if (error?.code === 'INNOVATION_SCORING_SERVICE_NOT_IMPLEMENTED') {
+        res.status(501).json({ code: 501, message: error.message });
         return;
       }
       next(error);
