@@ -113,6 +113,26 @@ async function initializeDatabase(options = {}) {
       );`,
     );
 
+    await runStatement(
+      database,
+      `CREATE TABLE IF NOT EXISTS normative_rule_drafts (
+        id TEXT PRIMARY KEY,
+        import_batch_id TEXT NOT NULL,
+        scope_level TEXT NOT NULL CHECK (scope_level IN ('school', 'college')),
+        college_id TEXT,
+        rule_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        category TEXT NOT NULL,
+        severity TEXT NOT NULL,
+        enabled INTEGER NOT NULL CHECK (enabled IN (0, 1)),
+        message TEXT NOT NULL,
+        params_json TEXT NOT NULL,
+        updated_by TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (scope_level, college_id, rule_id)
+      );`,
+    );
+
     return database;
 
     /**

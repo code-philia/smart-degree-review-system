@@ -163,9 +163,9 @@
   },
   "FEAT-RULE-TEMPLATE-UPLOAD": {
     "req_id": "FEAT-RULE-TEMPLATE-UPLOAD",
-    "state": "UNSEEN",
-    "phase": null,
-    "updated_at": "2026-08-04 15:03:18"
+    "state": "DESIGNED",
+    "phase": "design",
+    "updated_at": "2026-08-04 16:44:32"
   },
   "FEAT-STUDENT-QUALITY-PORTRAIT": {
     "req_id": "FEAT-STUDENT-QUALITY-PORTRAIT",

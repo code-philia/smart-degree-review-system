@@ -42,17 +42,17 @@
     "interface_id": "API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT",
     "req_ids": [
       "FEAT-NORMATIVE-FORMAT-RULES",
-      "FLOW-RULE-PUBLISH"
+      "FLOW-RULE-PUBLISH",
+      "FEAT-RULE-TEMPLATE-UPLOAD"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT\", \"req_id\": \"FLOW-RULE-PUBLISH\", \"type\": \"API\", \"name\": \"Existing normative backend mount\", \"file_path\": \"backend/src/app.js\", \"first_line\": \"11\", \"responsibility\": \"Reuse the existing /api/normative Express mount so rule configuration endpoints remain part of the backend-hosted single-origin runtime.\", \"specification\": \"The current node extends backend/src/normative/normativeRoutes.js, which is already registered by app.use('/api/normative', normativeRoutes). No parallel server or route tree is introduced. Static frontend hosting remains backend-led on port 3000 after frontend build.\", \"inputs\": [\"Requests under /api/normative\"], \"outputs\": [\"Dispatch to normativeRoutes\"], \"callers\": [\"backend/src/index.js server startup\", \"frontend/src/api/ruleConfig.ts\", \"backend integration tests\"], \"callees\": [\"backend/src/normative/normativeRoutes.js\"], \"test_focus\": [\"Rule configuration API is reachable at /api/normative/rule-configs on the backend origin\"]}",
+    "content": "{\"interface_id\": \"API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT\", \"req_id\": \"FEAT-RULE-TEMPLATE-UPLOAD\", \"type\": \"API\", \"name\": \"复用规范性检测后端挂载\", \"file_path\": \"backend/src/app.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse the existing /api/normative Express mount so draft import is served by the single backend-hosted runtime.\", \"specification\": \"The current feature extends backend/src/normative/normativeRoutes.js under the already-mounted /api/normative route. No parallel server, route tree, or frontend dev-server runtime is introduced.\", \"inputs\": {\"http_request\": \"Same-origin request under /api/normative\"}, \"outputs\": {\"mounted_route\": \"POST /api/normative/rule-drafts/import reaches normativeRoutes\"}, \"callers\": [\"backend/src/index.js server startup\", \"frontend/src/api/ruleConfig.ts\"], \"callees\": [\"backend/src/normative/normativeRoutes.js\"], \"test_focus\": [\"E2E/API tests target backend-hosted http://localhost:3000 origin.\", \"Import endpoint is reachable under /api/normative.\"]}",
     "file_path": "backend/src/app.js",
-    "first_line": "11",
+    "first_line": "1",
     "implemented": true,
     "callers": [
       "backend/src/index.js server startup",
-      "frontend/src/api/ruleConfig.ts",
-      "backend integration tests"
+      "frontend/src/api/ruleConfig.ts"
     ],
     "callees": [
       "backend/src/normative/normativeRoutes.js"
@@ -93,6 +93,43 @@
     "callees": [
       "backend/src/auth/authMiddleware.js",
       "backend/src/normative/normativeService.js"
+    ]
+  },
+  "API-FEAT-RULE-TEMPLATE-UPLOAD-CLIENT": {
+    "interface_id": "API-FEAT-RULE-TEMPLATE-UPLOAD-CLIENT",
+    "req_ids": [
+      "FEAT-RULE-TEMPLATE-UPLOAD"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-RULE-TEMPLATE-UPLOAD-CLIENT\", \"req_id\": \"FEAT-RULE-TEMPLATE-UPLOAD\", \"type\": \"API\", \"name\": \"前端规则草稿导入 API 客户端\", \"file_path\": \"frontend/src/api/ruleConfig.ts\", \"first_line\": \"31\", \"responsibility\": \"Expose typed frontend DTOs and upload call for importing a JSON rule set as drafts through the shared Axios client.\", \"specification\": \"Adds ImportRuleDraftTemplateResponse, ImportRuleDraftTemplateError, and importRuleDraftTemplate(file). The function posts FormData with field file to /api/normative/rule-drafts/import through the existing same-origin Axios client/interceptors. It returns scope, imported_count, draft_batch_id, and draft summaries. It must not bypass the backend with local parsing or fake draft persistence.\", \"inputs\": {\"file\": \"Browser File selected by an authorized administrator.\"}, \"outputs\": {\"promise\": \"Resolves ImportRuleDraftTemplateResponse or rejects through shared Axios error handling.\"}, \"callers\": [\"frontend/src/components/RuleDraftImportPanel.tsx\"], \"callees\": [\"frontend/src/api/index.ts shared Axios client\", \"backend/src/normative/normativeRoutes.js POST /api/normative/rule-drafts/import\"], \"test_focus\": [\"Posts to /normative/rule-drafts/import through shared apiClient.\", \"Uses FormData payload rather than JSON-stringifying the File.\", \"Preserves typed response fields used by the UI.\"]}",
+    "file_path": "frontend/src/api/ruleConfig.ts",
+    "first_line": "31",
+    "implemented": false,
+    "callers": [
+      "frontend/src/components/RuleDraftImportPanel.tsx"
+    ],
+    "callees": [
+      "frontend/src/api/index.ts shared Axios client",
+      "backend/src/normative/normativeRoutes.js POST /api/normative/rule-drafts/import"
+    ]
+  },
+  "API-FEAT-RULE-TEMPLATE-UPLOAD-EXPRESS-ROUTE": {
+    "interface_id": "API-FEAT-RULE-TEMPLATE-UPLOAD-EXPRESS-ROUTE",
+    "req_ids": [
+      "FEAT-RULE-TEMPLATE-UPLOAD"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-RULE-TEMPLATE-UPLOAD-EXPRESS-ROUTE\", \"req_id\": \"FEAT-RULE-TEMPLATE-UPLOAD\", \"type\": \"API\", \"name\": \"规则草稿导入后端端点\", \"file_path\": \"backend/src/normative/normativeRoutes.js\", \"first_line\": \"65\", \"responsibility\": \"Provide the protected HTTP boundary for importing a UTF-8 JSON rule set as drafts under the existing normative API route tree.\", \"specification\": \"Adds POST /api/normative/rule-drafts/import under the existing /api/normative mount. The route must call requireAuth({ allowedRoles: ['SCHOOL_ADMIN','COLLEGE_ADMIN'] }) before reading, validating, or writing draft data. Anonymous users are denied with 401 by requireAuth; STUDENT and SUPERVISOR are denied with 403. Upload size is capped at MAX_RULE_DRAFT_IMPORT_BYTES. The route delegates parsing/validation/scope/persistence to importRuleDraftTemplate and returns 201 with draft import result on success. Validation failures should return a structured 400 containing item index and reason; no item may be saved on invalid input.\", \"inputs\": {\"request\": \"Authenticated POST with JSON file content or multipart file upload, max 1 MB.\", \"user\": \"req.user from auth middleware.\"}, \"outputs\": {\"201\": \"Import result with scope, imported_count, draft_batch_id, drafts.\", \"400\": \"Validation errors with item_index/field/reason and no saved drafts.\", \"401\": \"Anonymous session missing.\", \"403\": \"Role denied or college-scope violation.\", \"413\": \"Upload larger than 1 MB.\"}, \"callers\": [\"frontend/src/api/ruleConfig.ts importRuleDraftTemplate\", \"backend integration tests via Supertest\"], \"callees\": [\"backend/src/auth/authMiddleware.js requireAuth\", \"backend/src/normative/ruleDraftImportService.js importRuleDraftTemplate\"], \"test_focus\": [\"SCHOOL_ADMIN valid JSON creates draft rows and leaves active overrides unchanged.\", \"COLLEGE_ADMIN invalid item reports exact index/reason and saves nothing.\", \"STUDENT/SUPERVISOR/anonymous cannot import.\", \"Over-1MB upload is rejected before persistence.\"]}",
+    "file_path": "backend/src/normative/normativeRoutes.js",
+    "first_line": "65",
+    "implemented": false,
+    "callers": [
+      "frontend/src/api/ruleConfig.ts importRuleDraftTemplate",
+      "backend integration tests via Supertest"
+    ],
+    "callees": [
+      "backend/src/auth/authMiddleware.js requireAuth",
+      "backend/src/normative/ruleDraftImportService.js importRuleDraftTemplate"
     ]
   },
   "API-FLOW-RULE-PUBLISH-CLIENT": {
@@ -192,6 +229,42 @@
       "sqlite3 database via shared runStatement/exec helpers"
     ]
   },
+  "DB-FEAT-RULE-TEMPLATE-UPLOAD-DRAFT-REPOSITORY": {
+    "interface_id": "DB-FEAT-RULE-TEMPLATE-UPLOAD-DRAFT-REPOSITORY",
+    "req_ids": [
+      "FEAT-RULE-TEMPLATE-UPLOAD"
+    ],
+    "type": "DB",
+    "content": "{\"interface_id\": \"DB-FEAT-RULE-TEMPLATE-UPLOAD-DRAFT-REPOSITORY\", \"req_id\": \"FEAT-RULE-TEMPLATE-UPLOAD\", \"type\": \"DB\", \"name\": \"规则草稿仓储\", \"file_path\": \"backend/src/normative/ruleDraftRepository.js\", \"first_line\": \"1\", \"responsibility\": \"Provide draft persistence operations through the shared SQLite database runtime helpers.\", \"specification\": \"Owns listRuleDrafts(scope), replaceRuleDrafts(scope, drafts, updatedBy), and clearRuleDrafts(scope). Implementation must use backend/src/database/index.js helpers and withTransaction, not a separate SQLite connection. replaceRuleDrafts must atomically replace/import draft rows for the resolved school or college scope, preserve draft-only state in normative_rule_drafts, and never write normative_rule_overrides or active rule configuration records.\", \"inputs\": {\"scope\": \"Resolved school or college scope with optional college_id.\", \"drafts\": \"Validated normalized draft records.\", \"updatedBy\": \"Authenticated user id/username.\"}, \"outputs\": {\"listRuleDrafts\": \"Persisted draft rows for scope.\", \"replaceRuleDrafts\": \"Created count and persisted draft summaries.\", \"clearRuleDrafts\": \"Delete result for scope.\"}, \"callers\": [\"backend/src/normative/ruleDraftImportService.js\"], \"callees\": [\"backend/src/database/index.js all/run/withTransaction\"], \"test_focus\": [\"Uses isolated test DB scaffold in database-using tests.\", \"Atomic replacement rolls back all rows on insert failure.\", \"Draft rows are separate from normative_rule_overrides.\"]}",
+    "file_path": "backend/src/normative/ruleDraftRepository.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "backend/src/normative/ruleDraftImportService.js"
+    ],
+    "callees": [
+      "backend/src/database/index.js all/run/withTransaction"
+    ]
+  },
+  "DB-FEAT-RULE-TEMPLATE-UPLOAD-DRAFT-SCHEMA": {
+    "interface_id": "DB-FEAT-RULE-TEMPLATE-UPLOAD-DRAFT-SCHEMA",
+    "req_ids": [
+      "FEAT-RULE-TEMPLATE-UPLOAD"
+    ],
+    "type": "DB",
+    "content": "{\"interface_id\": \"DB-FEAT-RULE-TEMPLATE-UPLOAD-DRAFT-SCHEMA\", \"req_id\": \"FEAT-RULE-TEMPLATE-UPLOAD\", \"type\": \"DB\", \"name\": \"规则草稿表结构\", \"file_path\": \"backend/src/database/init_db.js\", \"first_line\": \"90\", \"responsibility\": \"Extend the centralized SQLite schema with durable draft storage for imported JSON rule sets.\", \"specification\": \"Creates normative_rule_drafts idempotently in initializeDatabase. The table stores import_batch_id, scope_level school/college, optional college_id, rule_id, title, category, severity, enabled, message, params_json, updated_by, created_at, and a uniqueness constraint by scope/college/rule_id. The table is separate from normative_rule_overrides so imports save drafts only and cannot automatically affect published/effective rules.\", \"inputs\": {\"initializeDatabase\": \"Runtime or test database bootstrap through shared scaffold.\"}, \"outputs\": {\"schema\": \"normative_rule_drafts table exists for repository operations.\"}, \"callers\": [\"backend/src/database/index.js\", \"backend/src/normative/ruleDraftRepository.js\", \"backend tests using createTestDatabaseHarness\"], \"callees\": [\"sqlite3 via centralized runStatement\"], \"test_focus\": [\"initializeDatabase creates normative_rule_drafts in isolated test DB.\", \"Draft schema permits school and college scoped drafts.\", \"Draft schema remains distinct from active override schema.\"]}",
+    "file_path": "backend/src/database/init_db.js",
+    "first_line": "90",
+    "implemented": false,
+    "callers": [
+      "backend/src/database/index.js",
+      "backend/src/normative/ruleDraftRepository.js",
+      "backend tests using createTestDatabaseHarness"
+    ],
+    "callees": [
+      "sqlite3 via centralized runStatement"
+    ]
+  },
   "DB-FLOW-RULE-PUBLISH-RULE-OVERRIDE-REPOSITORY": {
     "interface_id": "DB-FLOW-RULE-PUBLISH-RULE-OVERRIDE-REPOSITORY",
     "req_ids": [
@@ -234,12 +307,13 @@
       "FEAT-AUTH-SESSION",
       "FEAT-AUTH-PASSWORD",
       "FEAT-NORMATIVE-FORMAT-RULES",
-      "FLOW-RULE-PUBLISH"
+      "FLOW-RULE-PUBLISH",
+      "FEAT-RULE-TEMPLATE-UPLOAD"
     ],
     "type": "FUNC",
-    "content": "{\"interface_id\": \"FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE\", \"req_id\": \"FLOW-RULE-PUBLISH\", \"type\": \"FUNC\", \"name\": \"Existing auth and role middleware\", \"file_path\": \"backend/src/auth/authMiddleware.js\", \"first_line\": \"25\", \"responsibility\": \"Reuse the server-side authentication and role authorization boundary for rule configuration endpoints before data is returned or state changes.\", \"specification\": \"requireAuth({ allowedRoles: ['SCHOOL_ADMIN', 'COLLEGE_ADMIN'] }) loads the HttpOnly-cookie session, returns 401 for anonymous requests, returns 403 for authenticated users whose role is not SCHOOL_ADMIN or COLLEGE_ADMIN, sets req.user for downstream ruleConfigService, and leaves college-specific resource-scope checks to the current node service because the requested college can vary per payload.\", \"inputs\": [\"Cookie header containing arc_session\", \"allowedRoles option\"], \"outputs\": [\"req.user for authorized school/college administrators\", \"401 anonymous response\", \"403 role-denied response\"], \"callers\": [\"backend/src/normative/normativeRoutes.js\"], \"callees\": [\"backend/src/auth/sessionService.js\"], \"test_focus\": [\"Anonymous rule configuration requests return 401\", \"STUDENT and SUPERVISOR rule configuration requests return 403\", \"Authorized users reach ruleConfigService with serialized collegeId\"]}",
+    "content": "{\"interface_id\": \"FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE\", \"req_id\": \"FEAT-RULE-TEMPLATE-UPLOAD\", \"type\": \"FUNC\", \"name\": \"复用认证与角色授权中间件\", \"file_path\": \"backend/src/auth/authMiddleware.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse the server-side authentication and role authorization boundary before rule draft import can read or mutate data.\", \"specification\": \"POST /api/normative/rule-drafts/import must call requireAuth({ allowedRoles: ['SCHOOL_ADMIN','COLLEGE_ADMIN'] }). It loads the cookie-backed session, returns 401 for anonymous users, returns 403 for authenticated denied roles STUDENT/SUPERVISOR, and attaches req.user for service-level college-scope checks.\", \"inputs\": {\"cookie_session\": \"HttpOnly auth session cookie\"}, \"outputs\": {\"req.user\": \"Authenticated user for allowed roles\", \"401\": \"Anonymous access denied\", \"403\": \"Role denied\"}, \"callers\": [\"backend/src/normative/normativeRoutes.js\"], \"callees\": [\"backend/src/auth/sessionService.js\"], \"test_focus\": [\"Authorization is enforced at backend route, not only UI.\", \"Denied declared roles cannot create drafts.\"]}",
     "file_path": "backend/src/auth/authMiddleware.js",
-    "first_line": "25",
+    "first_line": "1",
     "implemented": true,
     "callers": [
       "backend/src/normative/normativeRoutes.js"
@@ -286,22 +360,41 @@
     ],
     "callees": []
   },
-  "FUNC-FLOW-RULE-PUBLISH-RULE-CONFIG-SERVICE": {
-    "interface_id": "FUNC-FLOW-RULE-PUBLISH-RULE-CONFIG-SERVICE",
+  "FUNC-FEAT-RULE-TEMPLATE-UPLOAD-IMPORT-SERVICE": {
+    "interface_id": "FUNC-FEAT-RULE-TEMPLATE-UPLOAD-IMPORT-SERVICE",
     "req_ids": [
-      "FLOW-RULE-PUBLISH"
+      "FEAT-RULE-TEMPLATE-UPLOAD"
     ],
     "type": "FUNC",
-    "content": "{\"interface_id\": \"FUNC-FLOW-RULE-PUBLISH-RULE-CONFIG-SERVICE\", \"req_id\": \"FLOW-RULE-PUBLISH\", \"type\": \"FUNC\", \"name\": \"Rule configuration service\", \"file_path\": \"backend/src/normative/ruleConfigService.js\", \"first_line\": \"9\", \"responsibility\": \"Own rule configuration authorization, scope validation, effective-rule merge semantics, publish/reset orchestration, and future analysis-rule resolution.\", \"specification\": \"Exports MANAGE_RULE_ROLES, assertRuleConfigAccess, listEffectiveRuleConfigurations, publishRuleConfiguration, resetCollegeRuleConfiguration, and resolveRulesForAnalysis. assertRuleConfigAccess allows only SCHOOL_ADMIN and COLLEGE_ADMIN. SCHOOL_ADMIN may maintain school defaults and inspect configured college scopes. COLLEGE_ADMIN may maintain only the college matching user.collegeId; requested college_id, collegeId, or college fields that differ from user.collegeId throw a 403 error before repository mutation. Effective merge order is national default < school override < college override for the same rule_id. College reset deletes the college override for the specified rule_id so the college inherits the school value. Rule records include rule_id, title, category, severity, enabled, match_params, and prompt.\", \"inputs\": [\"Authenticated user from requireAuth\", \"Scope query or payload containing level and optional college_id\", \"Rule payload containing editable rule fields\"], \"outputs\": [\"RuleConfigListResponse with merged rules and scope\", \"403 errors for denied role or cross-college scope\", \"Repository calls for list/upsert/delete override operations\"], \"callers\": [\"backend/src/normative/normativeRoutes.js\"], \"callees\": [\"backend/src/normative/ruleConfigRepository.js\", \"backend/src/normative/normativeService.js DEFAULT_NORMATIVE_RULES\"], \"test_focus\": [\"Merges TEXT-LONG-SENTENCE threshold as national default < school < college\", \"college01 override to 100 affects college01 analysis while other colleges inherit school 120\", \"College reset removes only the college override and exposes school value\", \"Cross-college modification throws 403 before repository mutation\"]}",
-    "file_path": "backend/src/normative/ruleConfigService.js",
-    "first_line": "9",
-    "implemented": true,
+    "content": "{\"interface_id\": \"FUNC-FEAT-RULE-TEMPLATE-UPLOAD-IMPORT-SERVICE\", \"req_id\": \"FEAT-RULE-TEMPLATE-UPLOAD\", \"type\": \"FUNC\", \"name\": \"规则草稿导入服务\", \"file_path\": \"backend/src/normative/ruleDraftImportService.js\", \"first_line\": \"1\", \"responsibility\": \"Own JSON template import validation, scope authorization, and atomic draft creation semantics.\", \"specification\": \"Exports MAX_RULE_DRAFT_IMPORT_BYTES, ALLOWED_TEMPLATE_SEVERITIES ['严重','一般','轻微'], REQUIRED_TEMPLATE_FIELDS ['rule_id','title','category','severity','enabled','message'], and importRuleDraftTemplate(user, upload). Implementation must verify authorized role/scope through assertRuleConfigAccess, reject DOC/DOCX and non-UTF-8/non-JSON content, require top-level array, validate every item contains required fields, validate severity belongs to allowed Chinese severities, accept optional params only as JSON object-compatible data, and map message to draft message without activating rules. Persistence must be all-or-nothing: if any item fails, no draft rows are saved and returned errors include item index and reason.\", \"inputs\": {\"user\": \"Authenticated user from requireAuth.\", \"upload\": {\"content\": \"Buffer/string file content\", \"contentType\": \"HTTP content type\", \"fileName\": \"Optional uploaded filename\", \"scope\": \"Optional requested school/college scope\"}}, \"outputs\": {\"success\": \"scope, imported_count, draft_batch_id, drafts\", \"validation_error\": \"HTTP 400 style error with item-indexed reasons\", \"authorization_error\": \"HTTP 403 style error from assertRuleConfigAccess\"}, \"callers\": [\"backend/src/normative/normativeRoutes.js\"], \"callees\": [\"backend/src/normative/ruleConfigService.js assertRuleConfigAccess\", \"backend/src/normative/ruleDraftRepository.js\"], \"test_focus\": [\"Valid two-item array creates exactly two drafts.\", \"Missing rule_id and invalid severity return item-indexed errors.\", \"Invalid import never partially persists drafts.\", \"Successful import does not call publish/upsert active rule override behavior.\"]}",
+    "file_path": "backend/src/normative/ruleDraftImportService.js",
+    "first_line": "1",
+    "implemented": false,
     "callers": [
       "backend/src/normative/normativeRoutes.js"
     ],
     "callees": [
+      "backend/src/normative/ruleConfigService.js assertRuleConfigAccess",
+      "backend/src/normative/ruleDraftRepository.js"
+    ]
+  },
+  "FUNC-FLOW-RULE-PUBLISH-RULE-CONFIG-SERVICE": {
+    "interface_id": "FUNC-FLOW-RULE-PUBLISH-RULE-CONFIG-SERVICE",
+    "req_ids": [
+      "FLOW-RULE-PUBLISH",
+      "FEAT-RULE-TEMPLATE-UPLOAD"
+    ],
+    "type": "FUNC",
+    "content": "{\"interface_id\": \"FUNC-FLOW-RULE-PUBLISH-RULE-CONFIG-SERVICE\", \"req_id\": \"FEAT-RULE-TEMPLATE-UPLOAD\", \"type\": \"FUNC\", \"name\": \"复用规则配置访问与作用域服务\", \"file_path\": \"backend/src/normative/ruleConfigService.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse dependency-owned administrator role and college-scope authorization semantics for draft import.\", \"specification\": \"importRuleDraftTemplate calls assertRuleConfigAccess so SCHOOL_ADMIN can import school-level drafts and COLLEGE_ADMIN cannot import drafts for another college. The draft import service must not duplicate or weaken these access rules.\", \"inputs\": {\"user\": \"Authenticated user\", \"requestedScope\": \"School/college import scope\"}, \"outputs\": {\"allowed\": \"No exception for allowed role/scope\", \"forbidden\": \"403 error for denied role or cross-college scope\"}, \"callers\": [\"backend/src/normative/ruleDraftImportService.js\"], \"callees\": [\"backend/src/normative/ruleConfigRepository.js\", \"backend/src/normative/normativeService.js\"], \"test_focus\": [\"COLLEGE_ADMIN scope is constrained to own college.\", \"Draft import follows same manage-rule roles as publish/reset.\"]}",
+    "file_path": "backend/src/normative/ruleConfigService.js",
+    "first_line": "1",
+    "implemented": true,
+    "callers": [
+      "backend/src/normative/ruleDraftImportService.js"
+    ],
+    "callees": [
       "backend/src/normative/ruleConfigRepository.js",
-      "backend/src/normative/normativeService.js DEFAULT_NORMATIVE_RULES"
+      "backend/src/normative/normativeService.js"
     ]
   },
   "UI-FEAT-AUTH-HELP-AUTH-ROUTE-CONNECTOR": {
@@ -432,40 +525,59 @@
       "frontend/src/auth/AuthSessionProvider.tsx"
     ]
   },
+  "UI-FEAT-RULE-TEMPLATE-UPLOAD-DRAFT-IMPORT-PANEL": {
+    "interface_id": "UI-FEAT-RULE-TEMPLATE-UPLOAD-DRAFT-IMPORT-PANEL",
+    "req_ids": [
+      "FEAT-RULE-TEMPLATE-UPLOAD"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-RULE-TEMPLATE-UPLOAD-DRAFT-IMPORT-PANEL\", \"req_id\": \"FEAT-RULE-TEMPLATE-UPLOAD\", \"type\": \"UI\", \"name\": \"JSON 规则集导入草稿面板\", \"file_path\": \"frontend/src/components/RuleDraftImportPanel.tsx\", \"first_line\": \"1\", \"responsibility\": \"Render the administrator-facing JSON file upload surface for importing rule drafts without activating them.\", \"specification\": \"Mounted inside the existing rule configuration page. Provides a file input accepting .json/application-json files, client-side 1 MB size guard, explicit copy that DOC/DOCX template inference is unsupported, importing/loading state, success message showing imported draft count, and error message area for backend validation errors including item index/reason. It must not create hardcoded draft rows or claim success without the API response.\", \"inputs\": {\"session_context\": \"Inherited from RuleConfigPage/useAuthSession; panel is only mounted for SCHOOL_ADMIN or COLLEGE_ADMIN after page-level checks.\", \"file\": \"A user-selected UTF-8 JSON file no larger than 1 MB.\"}, \"outputs\": {\"submit\": \"Calls importRuleDraftTemplate(file).\", \"success_state\": \"Displays imported_count and states active rules were not changed.\", \"error_state\": \"Displays concrete client or API error text.\"}, \"callers\": [\"frontend/src/pages/RuleConfigPage.tsx\"], \"callees\": [\"frontend/src/api/ruleConfig.ts importRuleDraftTemplate\"], \"test_focus\": [\"Shows upload instructions including draft-only and DOC/DOCX unsupported copy.\", \"Rejects missing or over-1MB file before API call.\", \"Calls import API for selected valid JSON file and displays imported_count.\", \"Displays API validation error text without adding fake success records.\"]}",
+    "file_path": "frontend/src/components/RuleDraftImportPanel.tsx",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "frontend/src/pages/RuleConfigPage.tsx"
+    ],
+    "callees": [
+      "frontend/src/api/ruleConfig.ts importRuleDraftTemplate"
+    ]
+  },
   "UI-FLOW-RULE-PUBLISH-ROUTE-CONNECTOR": {
     "interface_id": "UI-FLOW-RULE-PUBLISH-ROUTE-CONNECTOR",
     "req_ids": [
-      "FLOW-RULE-PUBLISH"
+      "FLOW-RULE-PUBLISH",
+      "FEAT-RULE-TEMPLATE-UPLOAD"
     ],
     "type": "UI",
-    "content": "{\"interface_id\": \"UI-FLOW-RULE-PUBLISH-ROUTE-CONNECTOR\", \"req_id\": \"FLOW-RULE-PUBLISH\", \"type\": \"UI\", \"name\": \"RuleConfig route connector\", \"file_path\": \"frontend/src/App.tsx\", \"first_line\": \"7\", \"responsibility\": \"Wire the owned rule configuration page into the existing React route tree without creating a parallel app shell or duplicate auth provider.\", \"specification\": \"Imports RuleConfigPage and maps /rule-config to it inside the existing Routes tree. The route remains under the same AuthSessionProvider established at the application root, so the page uses the existing global session state and cookie-backed auth recovery.\", \"inputs\": [\"Browser route /rule-config\"], \"outputs\": [\"RuleConfigPage route element\"], \"callers\": [\"frontend/src/main.tsx BrowserRouter/App mount\"], \"callees\": [\"frontend/src/pages/RuleConfigPage.tsx\", \"frontend/src/auth/AuthSessionProvider.tsx\"], \"test_focus\": [\"Visiting /rule-config renders the owned page through the existing app route tree\", \"Route does not instantiate a duplicate auth/session provider\"]}",
+    "content": "{\"interface_id\": \"UI-FLOW-RULE-PUBLISH-ROUTE-CONNECTOR\", \"req_id\": \"FEAT-RULE-TEMPLATE-UPLOAD\", \"type\": \"UI\", \"name\": \"复用规则配置路由连接器\", \"file_path\": \"frontend/src/App.tsx\", \"first_line\": \"1\", \"responsibility\": \"Reuse the existing React /rule-config route as the only entry point for rule draft import.\", \"specification\": \"App keeps /rule-config mapped to RuleConfigPage under the existing BrowserRouter/AuthSessionProvider tree. The current feature does not add a separate upload route or duplicate session provider.\", \"inputs\": {\"route\": \"/rule-config\"}, \"outputs\": {\"element\": \"RuleConfigPage containing RuleDraftImportPanel for authorized administrators\"}, \"callers\": [\"frontend/src/main.tsx\"], \"callees\": [\"frontend/src/pages/RuleConfigPage.tsx\"], \"test_focus\": [\"Navigating to /rule-config reaches the existing page shell with upload panel for allowed roles.\"]}",
     "file_path": "frontend/src/App.tsx",
-    "first_line": "7",
+    "first_line": "1",
     "implemented": true,
     "callers": [
-      "frontend/src/main.tsx BrowserRouter/App mount"
+      "frontend/src/main.tsx"
     ],
     "callees": [
-      "frontend/src/pages/RuleConfigPage.tsx",
-      "frontend/src/auth/AuthSessionProvider.tsx"
+      "frontend/src/pages/RuleConfigPage.tsx"
     ]
   },
   "UI-FLOW-RULE-PUBLISH-RULE-CONFIG-PAGE": {
     "interface_id": "UI-FLOW-RULE-PUBLISH-RULE-CONFIG-PAGE",
     "req_ids": [
-      "FLOW-RULE-PUBLISH"
+      "FLOW-RULE-PUBLISH",
+      "FEAT-RULE-TEMPLATE-UPLOAD"
     ],
     "type": "UI",
-    "content": "{\"interface_id\": \"UI-FLOW-RULE-PUBLISH-RULE-CONFIG-PAGE\", \"req_id\": \"FLOW-RULE-PUBLISH\", \"type\": \"UI\", \"name\": \"RuleConfigPage\", \"file_path\": \"frontend/src/pages/RuleConfigPage.tsx\", \"first_line\": \"10\", \"responsibility\": \"Render the authenticated school/college administrator rule configuration surface using the visual reference style while consuming runtime rule data from the owned API client instead of hardcoded rows.\", \"specification\": \"Mounted at /rule-config through the existing React route tree. Consumes useAuthSession as the shared session source of truth. While session status is loading, renders an explicit loading state. When anonymous, renders a login-required state. When authenticated as STUDENT or SUPERVISOR, renders a no-permission state and does not show editable rule data. For SCHOOL_ADMIN, requests school-level rule configuration. For COLLEGE_ADMIN, requests college-level rule configuration scoped to user.collegeId. The visible table columns represent rule_id, title, category, severity, enabled status, match_params, and prompt. Empty/error/loading states are explicit and no screenshot-specific business rows are hardcoded.\", \"inputs\": [\"AuthSessionProvider context: status, user.role, user.collegeId\", \"RuleConfigDto[] returned by fetchRuleConfigurations\"], \"outputs\": [\"Admin rule configuration page with navy section chrome, dense table layout, explicit loading/empty/error states, and action affordances for publish/reset\"], \"callers\": [\"frontend/src/App.tsx route path /rule-config\"], \"callees\": [\"frontend/src/auth/AuthSessionProvider.tsx\", \"frontend/src/api/ruleConfig.ts\"], \"test_focus\": [\"Anonymous users see login-required state instead of fake rows\", \"STUDENT and SUPERVISOR users see no-permission state\", \"COLLEGE_ADMIN requests level=college with their own collegeId\", \"Runtime empty/error/loading states render without fallback sample rows\", \"Visual structure preserves navy admin header, table columns, badges/action region\"]}",
+    "content": "{\"interface_id\": \"UI-FLOW-RULE-PUBLISH-RULE-CONFIG-PAGE\", \"req_id\": \"FEAT-RULE-TEMPLATE-UPLOAD\", \"type\": \"UI\", \"name\": \"规则配置页复用挂载点\", \"file_path\": \"frontend/src/pages/RuleConfigPage.tsx\", \"first_line\": \"1\", \"responsibility\": \"Reuse and extend the dependency-owned rule configuration page as the authenticated shell for JSON draft import.\", \"specification\": \"The existing /rule-config page remains the single UI entry. It continues to consume AuthSessionProvider, show loading/anonymous/denied states, and only render management surfaces for SCHOOL_ADMIN/COLLEGE_ADMIN. The current feature mounts RuleDraftImportPanel inside the authorized page rather than adding a parallel route or duplicate auth state.\", \"inputs\": {\"auth_session\": \"status and user from useAuthSession\"}, \"outputs\": {\"authorized_mount\": \"Renders RuleDraftImportPanel only after existing role checks pass.\"}, \"callers\": [\"frontend/src/App.tsx route path /rule-config\"], \"callees\": [\"frontend/src/auth/AuthSessionProvider.tsx\", \"frontend/src/api/ruleConfig.ts\", \"frontend/src/components/RuleDraftImportPanel.tsx\"], \"test_focus\": [\"Anonymous users see login-required state, not upload controls.\", \"STUDENT/SUPERVISOR see denied state, not upload controls.\", \"SCHOOL_ADMIN/COLLEGE_ADMIN see the JSON draft import panel.\"]}",
     "file_path": "frontend/src/pages/RuleConfigPage.tsx",
-    "first_line": "10",
+    "first_line": "1",
     "implemented": true,
     "callers": [
       "frontend/src/App.tsx route path /rule-config"
     ],
     "callees": [
       "frontend/src/auth/AuthSessionProvider.tsx",
-      "frontend/src/api/ruleConfig.ts"
+      "frontend/src/api/ruleConfig.ts",
+      "frontend/src/components/RuleDraftImportPanel.tsx"
     ]
   },
   "UI-MOD-AUTH-LOGIN-COMPOSITION-SHELL": {

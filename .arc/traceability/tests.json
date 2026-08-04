@@ -181,6 +181,58 @@
     "first_line": "1",
     "scenario_id": null
   },
+  "FEAT-RULE-TEMPLATE-UPLOAD:E2E:SCENARIOS:001": {
+    "test_id": "FEAT-RULE-TEMPLATE-UPLOAD:E2E:SCENARIOS:001",
+    "req_id": "FEAT-RULE-TEMPLATE-UPLOAD",
+    "interface_ids": [
+      "UI-FEAT-RULE-TEMPLATE-UPLOAD-DRAFT-IMPORT-PANEL",
+      "UI-FLOW-RULE-PUBLISH-RULE-CONFIG-PAGE",
+      "API-FEAT-RULE-TEMPLATE-UPLOAD-CLIENT",
+      "API-FEAT-RULE-TEMPLATE-UPLOAD-EXPRESS-ROUTE",
+      "FUNC-FEAT-RULE-TEMPLATE-UPLOAD-IMPORT-SERVICE",
+      "DB-FEAT-RULE-TEMPLATE-UPLOAD-DRAFT-REPOSITORY",
+      "API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT",
+      "UI-FLOW-RULE-PUBLISH-ROUTE-CONNECTOR"
+    ],
+    "type": "E2E",
+    "file_path": "backend/test-e2e/rule-template-upload.spec.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-RULE-TEMPLATE-UPLOAD:INTEGRATION:BACKEND:001": {
+    "test_id": "FEAT-RULE-TEMPLATE-UPLOAD:INTEGRATION:BACKEND:001",
+    "req_id": "FEAT-RULE-TEMPLATE-UPLOAD",
+    "interface_ids": [
+      "API-FEAT-RULE-TEMPLATE-UPLOAD-EXPRESS-ROUTE",
+      "FUNC-FEAT-RULE-TEMPLATE-UPLOAD-IMPORT-SERVICE",
+      "DB-FEAT-RULE-TEMPLATE-UPLOAD-DRAFT-REPOSITORY",
+      "DB-FEAT-RULE-TEMPLATE-UPLOAD-DRAFT-SCHEMA",
+      "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE",
+      "FUNC-FLOW-RULE-PUBLISH-RULE-CONFIG-SERVICE",
+      "API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/rule-template-upload.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-RULE-TEMPLATE-UPLOAD:INTEGRATION:FRONTEND:001": {
+    "test_id": "FEAT-RULE-TEMPLATE-UPLOAD:INTEGRATION:FRONTEND:001",
+    "req_id": "FEAT-RULE-TEMPLATE-UPLOAD",
+    "interface_ids": [
+      "UI-FEAT-RULE-TEMPLATE-UPLOAD-DRAFT-IMPORT-PANEL",
+      "UI-FLOW-RULE-PUBLISH-RULE-CONFIG-PAGE",
+      "API-FEAT-RULE-TEMPLATE-UPLOAD-CLIENT",
+      "UI-FLOW-RULE-PUBLISH-ROUTE-CONNECTOR"
+    ],
+    "type": "Integration",
+    "file_path": "frontend/tests/rule-template-upload.test.tsx",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
   "FLOW-RULE-PUBLISH:API:001": {
     "test_id": "FLOW-RULE-PUBLISH:API:001",
     "req_id": "FLOW-RULE-PUBLISH",

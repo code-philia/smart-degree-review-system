@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import RuleDraftImportPanel from '../components/RuleDraftImportPanel';
 import { useAuthSession } from '../auth/AuthSessionProvider';
 import {
   fetchRuleConfigurations,
@@ -110,6 +111,8 @@ function RuleConfigPage() {
             ) : null}
           </div>
         </section>
+
+        <RuleDraftImportPanel />
 
         <footer className="flex flex-wrap gap-3 border-t border-[#D8DDE6] bg-slate-50 p-5">
           <button className="rounded-lg bg-[#3D8BFF] px-5 py-2 text-sm font-bold text-white" type="button" onClick={() => void publishRuleConfiguration}>

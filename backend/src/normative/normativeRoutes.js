@@ -6,6 +6,7 @@ const {
   publishRuleConfiguration,
   resetCollegeRuleConfiguration,
 } = require('./ruleConfigService');
+const { importRuleDraftTemplate, MAX_RULE_DRAFT_IMPORT_BYTES } = require('./ruleDraftImportService');
 
 const router = express.Router();
 
@@ -14,7 +15,7 @@ function sendRuleConfigError(error, res, next) {
     res.status(error.status).json({ code: error.status, message: error.message });
     return;
   }
-  if (error?.code === 'RULE_CONFIG_SERVICE_NOT_IMPLEMENTED') {
+  if (error?.code === 'RULE_CONFIG_SERVICE_NOT_IMPLEMENTED' || error?.code === 'RULE_DRAFT_IMPORT_NOT_IMPLEMENTED') {
     res.status(501).json({ code: 501, message: error.message });
     return;
   }
@@ -62,6 +63,24 @@ router.post(
     try {
       const result = await resetCollegeRuleConfiguration(req.user, req.body || {});
       res.json(result);
+    } catch (error) {
+      sendRuleConfigError(error, res, next);
+    }
+  },
+);
+
+router.post(
+  '/rule-drafts/import',
+  requireAuth({ allowedRoles: ['SCHOOL_ADMIN', 'COLLEGE_ADMIN'] }),
+  express.raw({ type: ['application/json', 'application/octet-stream'], limit: MAX_RULE_DRAFT_IMPORT_BYTES }),
+  async (req, res, next) => {
+    try {
+      const result = await importRuleDraftTemplate(req.user, {
+        content: Buffer.isBuffer(req.body) ? req.body : Buffer.from(JSON.stringify(req.body || [])),
+        contentType: req.get('content-type') || '',
+        fileName: typeof req.query?.file_name === 'string' ? req.query.file_name : undefined,
+      });
+      res.status(201).json(result);
     } catch (error) {
       sendRuleConfigError(error, res, next);
     }
