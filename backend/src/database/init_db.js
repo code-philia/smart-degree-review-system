@@ -69,6 +69,31 @@ async function initializeDatabase(options = {}) {
   initPromise = (async () => {
     await runStatement(database, 'PRAGMA foreign_keys = ON;');
 
+    await runStatement(
+      database,
+      `CREATE TABLE IF NOT EXISTS auth_users (
+        id TEXT PRIMARY KEY,
+        username TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        role TEXT NOT NULL CHECK (role IN ('STUDENT', 'SUPERVISOR', 'SCHOOL_ADMIN', 'COLLEGE_ADMIN')),
+        college_id TEXT,
+        supervisor_id TEXT,
+        scope TEXT NOT NULL CHECK (scope IN ('COLLEGE', 'SCHOOL')),
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );`,
+    );
+
+    await runStatement(
+      database,
+      `CREATE TABLE IF NOT EXISTS auth_sessions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE
+      );`,
+    );
+
     /**
      * Guide model instructions:
      * 1. Use CREATE TABLE IF NOT EXISTS to create new tables.

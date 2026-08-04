@@ -1,12 +1,34 @@
+const bcrypt = require('bcrypt');
 const { closeDb } = require('./init_db');
 const { withTransaction } = require('./db_runtime');
 
 async function seedDatabase() {
   return withTransaction(async ({ run, get, all, exec }) => {
-    void run;
     void get;
     void all;
     void exec;
+
+    const passwordHash = await bcrypt.hash('ArcDemo123!', 10);
+    const demoUsers = [
+      ['student01', 'student01', passwordHash, 'STUDENT', 'college01', 'supervisor01', 'COLLEGE'],
+      ['supervisor01', 'supervisor01', passwordHash, 'SUPERVISOR', 'college01', null, 'COLLEGE'],
+      ['college_admin01', 'college_admin01', passwordHash, 'COLLEGE_ADMIN', 'college01', null, 'COLLEGE'],
+      ['school_admin01', 'school_admin01', passwordHash, 'SCHOOL_ADMIN', null, null, 'SCHOOL'],
+    ];
+
+    for (const user of demoUsers) {
+      await run(
+        `INSERT INTO auth_users (id, username, password_hash, role, college_id, supervisor_id, scope)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(username) DO UPDATE SET
+           password_hash = excluded.password_hash,
+           role = excluded.role,
+           college_id = excluded.college_id,
+           supervisor_id = excluded.supervisor_id,
+           scope = excluded.scope`,
+        user,
+      );
+    }
 
     /**
      * Guide model instructions:

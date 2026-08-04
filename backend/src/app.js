@@ -6,6 +6,7 @@ const path = require('path');
 const app = express();
 
 // route modules imports
+const authRoutes = require('./auth/authRoutes');
 
 // middleware imports
 app.use(cors());
@@ -21,6 +22,7 @@ initializeDatabase().catch((error) => {
 app.get('/api/health', (req, res) => {
   res.json({ code: 200, message: 'Backend Ready' });
 });
+app.use('/api/auth', authRoutes);
 
 const frontendDistPath = path.resolve(__dirname, '../../frontend/dist');
 

@@ -1,11 +1,177 @@
 {
+  "API-FEAT-AUTH-SESSION-CLIENT": {
+    "interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "req_ids": [
+      "FEAT-AUTH-SESSION"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-CLIENT\", \"req_id\": \"FEAT-AUTH-SESSION\", \"type\": \"API\", \"name\": \"Frontend auth session API client\", \"file_path\": \"frontend/src/api/authSession.ts\", \"first_line\": \"1\", \"responsibility\": \"Define typed frontend calls for login, current user session recovery, and logout using the shared Axios client and same-origin /api base path.\", \"specification\": \"Exports AuthRole, AuthenticatedUser, LoginRequest, SessionResponse, loginWithLocalAccount, fetchCurrentSession, and logoutCurrentSession. Calls POST /api/auth/login, GET /api/auth/me, and POST /api/auth/logout. The shared client uses withCredentials and Axios response interceptors, so HttpOnly SameSite=Lax cookies are carried by browser requests and global HTTP errors remain centralized.\", \"inputs\": {\"LoginRequest\": \"{ username: string, password: string }\", \"cookie\": \"HttpOnly arc_session cookie automatically included by browser when present\"}, \"outputs\": {\"SessionResponse\": \"{ user: { id, username, role, collegeId, supervisorId, scope } }\", \"logout\": \"void on 204\"}, \"callers\": [\"frontend/src/auth/AuthSessionProvider.tsx\"], \"callees\": [\"backend/src/auth/authRoutes.js mounted at /api/auth\"], \"test_focus\": [\"Verify current user API returns the full student01 relationship fields after login.\", \"Verify 401 from /auth/me propagates to provider anonymous state.\", \"Verify client uses the shared interceptor-enabled Axios instance rather than a one-off fetch client.\"]}",
+    "file_path": "frontend/src/api/authSession.ts",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "frontend/src/auth/AuthSessionProvider.tsx"
+    ],
+    "callees": [
+      "backend/src/auth/authRoutes.js mounted at /api/auth"
+    ]
+  },
+  "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES": {
+    "interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "req_ids": [
+      "FEAT-AUTH-SESSION"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"req_id\": \"FEAT-AUTH-SESSION\", \"type\": \"API\", \"name\": \"Express auth session routes\", \"file_path\": \"backend/src/auth/authRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Own backend HTTP endpoints for login session creation, current-user loading, and logout using HttpOnly SameSite=Lax cookies.\", \"specification\": \"Defines POST /api/auth/login, GET /api/auth/me, and POST /api/auth/logout, mounted from backend/src/app.js. Login validates credentials through sessionService.login and sets arc_session with HttpOnly, SameSite=Lax, path=/, and maxAge. /me loads the session from the cookie and returns 401 when anonymous. /logout requires an authenticated session, deletes it, and clears the cookie. No business data is returned to anonymous callers.\", \"inputs\": {\"POST /login\": \"{ username, password } JSON body\", \"GET /me\": \"arc_session cookie\", \"POST /logout\": \"arc_session cookie\"}, \"outputs\": {\"login_success\": \"200 { user } and Set-Cookie arc_session HttpOnly SameSite=Lax\", \"login_failure\": \"401 with no session cookie\", \"me_success\": \"200 { user }\", \"me_anonymous\": \"401 { code, message }\", \"logout_success\": \"204 and cleared cookie\"}, \"callers\": [\"frontend/src/api/authSession.ts\", \"backend/src/app.js\"], \"callees\": [\"backend/src/auth/sessionService.js\", \"backend/src/auth/authMiddleware.js\"], \"test_focus\": [\"POST /api/auth/login with student01/ArcDemo123! sets an HttpOnly SameSite=Lax cookie and returns STUDENT, college01, supervisor01.\", \"GET /api/auth/me with that cookie restores the same user relationship after refresh-like requests.\", \"GET /api/auth/me without a valid cookie returns 401.\", \"POST /api/auth/logout removes the server session and clears the cookie.\"]}",
+    "file_path": "backend/src/auth/authRoutes.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "frontend/src/api/authSession.ts",
+      "backend/src/app.js"
+    ],
+    "callees": [
+      "backend/src/auth/sessionService.js",
+      "backend/src/auth/authMiddleware.js"
+    ]
+  },
+  "DB-FEAT-AUTH-SESSION-DEMO-SEED": {
+    "interface_id": "DB-FEAT-AUTH-SESSION-DEMO-SEED",
+    "req_ids": [
+      "FEAT-AUTH-SESSION"
+    ],
+    "type": "DB",
+    "content": "{\"interface_id\": \"DB-FEAT-AUTH-SESSION-DEMO-SEED\", \"req_id\": \"FEAT-AUTH-SESSION\", \"type\": \"DB\", \"name\": \"Idempotent demo account seed data\", \"file_path\": \"backend/src/database/seed_db.js\", \"first_line\": \"1\", \"responsibility\": \"Own first-start/repeated seed behavior for four required local demo accounts with bcrypt-hashed initial password and required organization relationships.\", \"specification\": \"seedDatabase uses the shared transaction scaffold and bcrypt.hash('ArcDemo123!', 10). It upserts student01, supervisor01, college_admin01, and school_admin01. student01 belongs to college01 and supervisor01; supervisor01 and college_admin01 belong to college01; school_admin01 has SCHOOL scope with no college. Repeated seed runs update required role, hash, relationship, and scope fields without duplicating rows.\", \"inputs\": {\"seedDatabase\": \"Runtime/dev/test seed entrypoint\", \"initial_password\": \"ArcDemo123! hashed with bcrypt before storage\"}, \"outputs\": {\"demo_users\": \"Four auth_users rows with hashed password_hash values and required role/scope relationships\"}, \"callers\": [\"backend/src/database/index.js\", \"backend/src/database/prepare_e2e.js\", \"tests using createTestDatabaseHarness plus seedDatabase\"], \"callees\": [\"backend/src/database/db_runtime.js withTransaction\", \"bcrypt\"], \"test_focus\": [\"Repeated seedDatabase calls leave exactly one row per demo username.\", \"password_hash values are bcrypt hashes, not ArcDemo123! plaintext.\", \"student01 restores STUDENT, college01, supervisor01, and COLLEGE scope after login/current-user flow.\"]}",
+    "file_path": "backend/src/database/seed_db.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "backend/src/database/index.js",
+      "backend/src/database/prepare_e2e.js",
+      "tests using createTestDatabaseHarness plus seedDatabase"
+    ],
+    "callees": [
+      "backend/src/database/db_runtime.js withTransaction",
+      "bcrypt"
+    ]
+  },
+  "DB-FEAT-AUTH-SESSION-REPOSITORY": {
+    "interface_id": "DB-FEAT-AUTH-SESSION-REPOSITORY",
+    "req_ids": [
+      "FEAT-AUTH-SESSION"
+    ],
+    "type": "DB",
+    "content": "{\"interface_id\": \"DB-FEAT-AUTH-SESSION-REPOSITORY\", \"req_id\": \"FEAT-AUTH-SESSION\", \"type\": \"DB\", \"name\": \"Auth session repository queries\", \"file_path\": \"backend/src/auth/sessionRepository.js\", \"first_line\": \"1\", \"responsibility\": \"Own persistence queries for users and sessions while reusing the shared database runtime helpers instead of creating a feature-local connection.\", \"specification\": \"Exports findUserByUsername, findUserById, createSession, findSession, and deleteSession. Queries auth_users and auth_sessions through backend/src/database barrel exports. findSession joins session and user records to provide the service with expiration, role, organization relationship, and scope fields needed for current-user recovery and authorization checks.\", \"inputs\": {\"username\": \"Local account username\", \"userId\": \"auth_users.id\", \"sessionId\": \"auth_sessions.id\", \"expiresAt\": \"ISO timestamp\"}, \"outputs\": {\"user_row\": \"User row with passwordHash only where needed for login\", \"session_row\": \"Joined session/user row for session recovery\", \"delete\": \"Session removed when logging out or expiring\"}, \"callers\": [\"backend/src/auth/sessionService.js\"], \"callees\": [\"backend/src/database/index.js\"], \"test_focus\": [\"Repository uses shared database scaffold helpers.\", \"findUserByUsername exposes passwordHash only to the service login path.\", \"findSession returns all relationship fields required by scenario FEAT-AUTH-SESSION:SCENARIO:001.\"]}",
+    "file_path": "backend/src/auth/sessionRepository.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "backend/src/auth/sessionService.js"
+    ],
+    "callees": [
+      "backend/src/database/index.js"
+    ]
+  },
+  "DB-FEAT-AUTH-SESSION-SCHEMA": {
+    "interface_id": "DB-FEAT-AUTH-SESSION-SCHEMA",
+    "req_ids": [
+      "FEAT-AUTH-SESSION"
+    ],
+    "type": "DB",
+    "content": "{\"interface_id\": \"DB-FEAT-AUTH-SESSION-SCHEMA\", \"req_id\": \"FEAT-AUTH-SESSION\", \"type\": \"DB\", \"name\": \"Auth users and sessions SQLite schema\", \"file_path\": \"backend/src/database/init_db.js\", \"first_line\": \"51\", \"responsibility\": \"Own centralized idempotent schema creation for local demo users and persistent login sessions using the existing database lifecycle scaffold.\", \"specification\": \"Adds CREATE TABLE IF NOT EXISTS auth_users and auth_sessions inside initializeDatabase. auth_users stores id, unique username, bcrypt password_hash, role constrained to STUDENT/SUPERVISOR/SCHOOL_ADMIN/COLLEGE_ADMIN, college_id, supervisor_id, scope constrained to COLLEGE/SCHOOL, and created_at. auth_sessions stores id, user_id foreign key, expires_at, and created_at with ON DELETE CASCADE. Schema remains centralized in init_db.js and reusable by runtime and test harnesses.\", \"inputs\": {\"initializeDatabase\": \"Runtime/test DB initialization call\", \"reset\": \"Existing reset option from scaffold\"}, \"outputs\": {\"auth_users\": \"Durable demo user and relationship records\", \"auth_sessions\": \"Durable server-side session records keyed by cookie id\"}, \"callers\": [\"backend/src/database/index.js\", \"backend/src/auth/sessionRepository.js\", \"backend/src/database/seed_db.js\", \"backend/src/database/test_harness.js\"], \"callees\": [\"sqlite3 database via runStatement\"], \"test_focus\": [\"Repeated initializeDatabase calls are idempotent.\", \"Schema supports all four demo roles and required student01 college/supervisor relationship.\", \"auth_sessions joins to auth_users for current-user recovery and cascades when users are deleted in isolated tests.\"]}",
+    "file_path": "backend/src/database/init_db.js",
+    "first_line": "51",
+    "implemented": false,
+    "callers": [
+      "backend/src/database/index.js",
+      "backend/src/auth/sessionRepository.js",
+      "backend/src/database/seed_db.js",
+      "backend/src/database/test_harness.js"
+    ],
+    "callees": [
+      "sqlite3 database via runStatement"
+    ]
+  },
+  "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE": {
+    "interface_id": "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE",
+    "req_ids": [
+      "FEAT-AUTH-SESSION"
+    ],
+    "type": "FUNC",
+    "content": "{\"interface_id\": \"FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE\", \"req_id\": \"FEAT-AUTH-SESSION\", \"type\": \"FUNC\", \"name\": \"Reusable authenticated role and data-scope middleware\", \"file_path\": \"backend/src/auth/authMiddleware.js\", \"first_line\": \"1\", \"responsibility\": \"Provide the server-side authorization boundary that protected business APIs can reuse to reject anonymous requests and enforce allowed roles plus data scope before returning data or mutating state.\", \"specification\": \"Exports parseCookies and requireAuth(options). requireAuth loads the user from arc_session, returns 401 for anonymous/invalid sessions, returns 403 when authenticated user role is not in options.allowedRoles or data scope does not match, attaches req.user on success, and calls next. Allowed role vocabulary covers STUDENT, SUPERVISOR, SCHOOL_ADMIN, and COLLEGE_ADMIN. SCHOOL scope may access all scoped resources; COLLEGE scope is constrained by collegeId; supervisor scope can match supervisorId or self.\", \"inputs\": {\"options.allowedRoles\": \"Optional list of allowed roles for protected route\", \"options.scope\": \"Optional data-scope object such as { collegeId } or { supervisorId }\", \"request_cookie\": \"arc_session cookie\"}, \"outputs\": {\"anonymous\": \"401 Authentication required\", \"forbidden\": \"403 Forbidden\", \"authorized\": \"req.user set then next()\"}, \"callers\": [\"backend/src/auth/authRoutes.js logout route\", \"future protected business API route modules\"], \"callees\": [\"backend/src/auth/sessionService.js\"], \"test_focus\": [\"Any protected business API using requireAuth returns 401 when no valid session exists.\", \"Allowed roles STUDENT, SUPERVISOR, COLLEGE_ADMIN, and SCHOOL_ADMIN can be configured server-side, not hidden only in UI.\", \"College-scoped users are denied mismatched college data while SCHOOL scope can pass all-school checks.\"]}",
+    "file_path": "backend/src/auth/authMiddleware.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "backend/src/auth/authRoutes.js logout route",
+      "future protected business API route modules"
+    ],
+    "callees": [
+      "backend/src/auth/sessionService.js"
+    ]
+  },
+  "FUNC-FEAT-AUTH-SESSION-SERVICE": {
+    "interface_id": "FUNC-FEAT-AUTH-SESSION-SERVICE",
+    "req_ids": [
+      "FEAT-AUTH-SESSION"
+    ],
+    "type": "FUNC",
+    "content": "{\"interface_id\": \"FUNC-FEAT-AUTH-SESSION-SERVICE\", \"req_id\": \"FEAT-AUTH-SESSION\", \"type\": \"FUNC\", \"name\": \"Session credential and lifecycle service\", \"file_path\": \"backend/src/auth/sessionService.js\", \"first_line\": \"1\", \"responsibility\": \"Own password verification, durable session creation/loading/expiration handling, logout deletion, and safe user serialization for auth routes and middleware.\", \"specification\": \"Uses bcrypt.compare against stored password_hash values and crypto.randomUUID session ids. Creates sessions with an 8-hour TTL, loads sessions by id, removes expired sessions, and serializes user identity fields without exposing passwordHash. The returned user contains id, username, role, collegeId, supervisorId, and scope for downstream authorization decisions.\", \"inputs\": {\"login\": \"username/password from API route\", \"loadSession\": \"session id from arc_session cookie\", \"logout\": \"session id from arc_session cookie\"}, \"outputs\": {\"login_success\": \"{ sessionId, user }\", \"login_failure\": \"null\", \"loadSession_success\": \"AuthenticatedUser\", \"loadSession_failure\": \"null\", \"logout\": \"deleted session when present\"}, \"callers\": [\"backend/src/auth/authRoutes.js\", \"backend/src/auth/authMiddleware.js\"], \"callees\": [\"backend/src/auth/sessionRepository.js\", \"bcrypt\", \"crypto\"], \"test_focus\": [\"Verify bcrypt hash comparison is required and plaintext password storage is never used for validation.\", \"Verify expired sessions are rejected and deleted.\", \"Verify serialized users omit passwordHash and include role/scope/organization relationship fields.\"]}",
+    "file_path": "backend/src/auth/sessionService.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "backend/src/auth/authRoutes.js",
+      "backend/src/auth/authMiddleware.js"
+    ],
+    "callees": [
+      "backend/src/auth/sessionRepository.js",
+      "bcrypt",
+      "crypto"
+    ]
+  },
+  "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER": {
+    "interface_id": "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+    "req_ids": [
+      "FEAT-AUTH-SESSION"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER\", \"req_id\": \"FEAT-AUTH-SESSION\", \"type\": \"UI\", \"name\": \"Global authenticated session provider\", \"file_path\": \"frontend/src/auth/AuthSessionProvider.tsx\", \"first_line\": \"1\", \"responsibility\": \"Own the frontend source of truth for authenticated state, current user loading, login transition, logout transition, and refresh-time session recovery.\", \"specification\": \"Provides AuthSessionProvider and useAuthSession. On mount it calls fetchCurrentSession to recover an HttpOnly-cookie-backed session. It exposes status values loading/authenticated/anonymous, the current user object with username, role, collegeId, supervisorId, and scope, plus login/logout/refreshSession actions. It must be mounted above App so shell, route, and page consumers share one state source rather than duplicating page-local auth state.\", \"inputs\": {\"children\": \"React subtree requiring session context\", \"fetchCurrentSession\": \"GET /api/auth/me client call\", \"login\": \"POST /api/auth/login client call with username/password\", \"logout\": \"POST /api/auth/logout client call\"}, \"outputs\": {\"context\": \"{ status, user, refreshSession, login, logout } with AuthenticatedUser or null\"}, \"callers\": [\"frontend/src/main.tsx\"], \"callees\": [\"frontend/src/api/authSession.ts\"], \"test_focus\": [\"When a valid session cookie exists, refreshSession restores student01 with STUDENT role, college01, supervisor01, and COLLEGE scope.\", \"When /api/auth/me returns 401, provider enters anonymous state and exposes no fake user.\", \"Login success updates global authenticated state, not only a page-local success message.\", \"Logout clears global user state.\"]}",
+    "file_path": "frontend/src/auth/AuthSessionProvider.tsx",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "frontend/src/main.tsx"
+    ],
+    "callees": [
+      "frontend/src/api/authSession.ts"
+    ]
+  },
+  "UI-FEAT-AUTH-SESSION-LOCAL-LOGIN-FORM": {
+    "interface_id": "UI-FEAT-AUTH-SESSION-LOCAL-LOGIN-FORM",
+    "req_ids": [
+      "FEAT-AUTH-SESSION"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-AUTH-SESSION-LOCAL-LOGIN-FORM\", \"req_id\": \"FEAT-AUTH-SESSION\", \"type\": \"UI\", \"name\": \"Local account login form slot\", \"file_path\": \"frontend/src/auth/LocalAccountLoginForm.tsx\", \"first_line\": \"1\", \"responsibility\": \"Provide the child-owned local username/password login UI that plugs into the parent AuthPage slot and drives global session state.\", \"specification\": \"Renders username and password inputs, submits credentials through useAuthSession.login, displays loading/error states from the real API path, and renders authenticated user feedback from the shared provider. It must not use fallback sample users or hardcoded success. Password verification details remain server-owned.\", \"inputs\": {\"username\": \"Local account username such as student01\", \"password\": \"Local account password\", \"AuthSessionContext\": \"login/status/user from AuthSessionProvider\"}, \"outputs\": {\"submit\": \"Calls global login action\", \"feedback\": \"API-backed loading, error, or authenticated current-user display\"}, \"callers\": [\"frontend/src/App.tsx via AuthPage.accountFormSlot\"], \"callees\": [\"frontend/src/auth/AuthSessionProvider.tsx\"], \"test_focus\": [\"Submitting student01/ArcDemo123! calls the provider login path and reflects authenticated state returned by the backend.\", \"Failed login displays an error without creating fake session state.\", \"The form remains connected to the parent AuthPage shell.\"]}",
+    "file_path": "frontend/src/auth/LocalAccountLoginForm.tsx",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "frontend/src/App.tsx via AuthPage.accountFormSlot"
+    ],
+    "callees": [
+      "frontend/src/auth/AuthSessionProvider.tsx"
+    ]
+  },
   "UI-MOD-AUTH-LOGIN-COMPOSITION-SHELL": {
     "interface_id": "UI-MOD-AUTH-LOGIN-COMPOSITION-SHELL",
     "req_ids": [
-      "MOD-AUTH"
+      "MOD-AUTH",
+      "FEAT-AUTH-SESSION"
     ],
     "type": "UI",
-    "content": "{\"interface_id\": \"UI-MOD-AUTH-LOGIN-COMPOSITION-SHELL\", \"req_id\": \"MOD-AUTH\", \"type\": \"UI\", \"name\": \"Local authentication composition shell\", \"file_path\": \"frontend/src/pages/AuthPage.tsx\", \"first_line\": \"1\", \"responsibility\": \"Provide the non-leaf visual and composition boundary for local identity authentication without implementing child-owned login, password, session, or help behavior.\", \"specification\": \"Renders a white full-page authentication canvas following the visual reference: left blue institutional hero panel, right authentication area split into an out-of-scope scan-login explanation column and a local account/password mount area. The shell supports four declared role categories through copy and entry-point framing, but does not enforce permissions or create server contracts. jAccount, SMS verification, WeChat scan, and 交我办 scan are shown only as unsupported/out-of-scope guidance for this local SQLite version. Child features should attach their account form, session state, password validation, and help content through the accountFormSlot/helpSlot composition points or by extending this page.\", \"inputs\": [\"Optional ReactNode accountFormSlot for child-owned local username/password/session UI\", \"Optional ReactNode helpSlot for child-owned account help content\"], \"outputs\": [\"Backend-hosted React page at /auth\", \"Stable visual regions: hero panel, unsupported QR/external-method notice, local account login mount area, help links\"], \"callers\": [\"frontend/src/App.tsx Route path=\\\"/auth\\\"\"], \"callees\": [\"FEAT-AUTH-SESSION child-owned local account/session UI\", \"FEAT-AUTH-PASSWORD child-owned password verification UI\", \"FEAT-AUTH-HELP child-owned account help UI\"], \"test_focus\": \"Smoke render /auth; verify split layout, local-account login heading, explicit unsupported external-method messaging, and absence of fake successful authentication or hardcoded QR/captcha tokens.\"}",
+    "content": "{\"interface_id\": \"UI-MOD-AUTH-LOGIN-COMPOSITION-SHELL\", \"req_id\": \"FEAT-AUTH-SESSION\", \"type\": \"UI\", \"name\": \"Parent auth composition shell reused by local session login\", \"file_path\": \"frontend/src/pages/AuthPage.tsx\", \"first_line\": \"1\", \"responsibility\": \"Provide the parent-owned visual authentication canvas and slot where FEAT-AUTH-SESSION mounts local account/session UI without taking ownership of the page shell.\", \"specification\": \"AuthPage keeps the institutional hero, unsupported scan-login explanation, and local account/password area. FEAT-AUTH-SESSION supplies accountFormSlot with the local login form while preserving parent ownership of layout, visual hierarchy, help slot, and /auth composition semantics.\", \"inputs\": {\"accountFormSlot\": \"ReactNode supplied by FEAT-AUTH-SESSION for local account login and session feedback\", \"helpSlot\": \"Optional ReactNode supplied by help/password child features\"}, \"outputs\": {\"rendered_shell\": \"Authentication page with local account slot mounted in the right-side login area\"}, \"callers\": [\"frontend/src/App.tsx Route path=\\\"/auth\\\"\"], \"callees\": [\"frontend/src/auth/LocalAccountLoginForm.tsx\"], \"test_focus\": [\"Verify /auth renders the parent shell with FEAT-AUTH-SESSION local account form mounted in the accountFormSlot.\", \"Verify the shell does not fake authenticated state when the session provider is anonymous or loading.\"]}",
     "file_path": "frontend/src/pages/AuthPage.tsx",
     "first_line": "1",
     "implemented": false,
@@ -13,18 +179,17 @@
       "frontend/src/App.tsx Route path=\"/auth\""
     ],
     "callees": [
-      "FEAT-AUTH-SESSION child-owned local account/session UI",
-      "FEAT-AUTH-PASSWORD child-owned password verification UI",
-      "FEAT-AUTH-HELP child-owned account help UI"
+      "frontend/src/auth/LocalAccountLoginForm.tsx"
     ]
   },
   "UI-MOD-AUTH-ROUTE-CONNECTOR": {
     "interface_id": "UI-MOD-AUTH-ROUTE-CONNECTOR",
     "req_ids": [
-      "MOD-AUTH"
+      "MOD-AUTH",
+      "FEAT-AUTH-SESSION"
     ],
     "type": "UI",
-    "content": "{\"interface_id\": \"UI-MOD-AUTH-ROUTE-CONNECTOR\", \"req_id\": \"MOD-AUTH\", \"type\": \"UI\", \"name\": \"Authentication route connector\", \"file_path\": \"frontend/src/App.tsx\", \"first_line\": \"1\", \"responsibility\": \"Wire the MOD-AUTH authentication shell into the existing React route tree without creating a parallel app entrypoint.\", \"specification\": \"Adds the '/auth' route to the existing App.tsx Routes alongside the parent '/' route. This is a thin connector only; all visual structure is delegated to AuthPage and all executable authentication behavior is delegated to child leaf requirements.\", \"inputs\": [\"Browser URL path\"], \"outputs\": [\"AuthPage element for /auth\", \"HomePage element for /\"], \"callers\": [\"frontend/src/main.tsx BrowserRouter/App mount\"], \"callees\": [\"frontend/src/pages/HomePage.tsx\", \"frontend/src/pages/AuthPage.tsx\"], \"test_focus\": \"Route-level smoke coverage that /auth renders the MOD-AUTH shell while '/' still renders the existing home shell.\"}",
+    "content": "{\"interface_id\": \"UI-MOD-AUTH-ROUTE-CONNECTOR\", \"req_id\": \"FEAT-AUTH-SESSION\", \"type\": \"UI\", \"name\": \"Parent auth route connector reused for session UI\", \"file_path\": \"frontend/src/App.tsx\", \"first_line\": \"1\", \"responsibility\": \"Wire the parent-owned /auth route into the React route tree and delegate executable local session behavior to FEAT-AUTH-SESSION form/provider contracts.\", \"specification\": \"The existing /auth route remains the single authentication entrypoint. FEAT-AUTH-SESSION extends this connector by passing LocalAccountLoginForm into AuthPage.accountFormSlot; no duplicate auth page or parallel router is created.\", \"inputs\": {\"route_path\": \"/auth\", \"accountFormSlot\": \"LocalAccountLoginForm from FEAT-AUTH-SESSION\"}, \"outputs\": {\"route_element\": \"AuthPage with local account session form mounted\"}, \"callers\": [\"frontend/src/main.tsx BrowserRouter/App mount\"], \"callees\": [\"frontend/src/pages/AuthPage.tsx\", \"frontend/src/auth/LocalAccountLoginForm.tsx\"], \"test_focus\": [\"Verify /auth renders through App.tsx and does not require a separate frontend dev server route.\", \"Verify the local login form is reachable from the parent-designed authentication page.\"]}",
     "file_path": "frontend/src/App.tsx",
     "first_line": "1",
     "implemented": false,
@@ -32,8 +197,8 @@
       "frontend/src/main.tsx BrowserRouter/App mount"
     ],
     "callees": [
-      "frontend/src/pages/HomePage.tsx",
-      "frontend/src/pages/AuthPage.tsx"
+      "frontend/src/pages/AuthPage.tsx",
+      "frontend/src/auth/LocalAccountLoginForm.tsx"
     ]
   },
   "UI-SYS-DEGREE-AI-REVIEW-HOME-SHELL": {

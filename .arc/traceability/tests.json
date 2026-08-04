@@ -1,1 +1,52 @@
-{}
+{
+  "FEAT-AUTH-SESSION-E2E-SCENARIOS": {
+    "test_id": "FEAT-AUTH-SESSION-E2E-SCENARIOS",
+    "req_id": "FEAT-AUTH-SESSION",
+    "interface_ids": [
+      "UI-MOD-AUTH-LOGIN-COMPOSITION-SHELL",
+      "UI-MOD-AUTH-ROUTE-CONNECTOR",
+      "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+      "UI-FEAT-AUTH-SESSION-LOCAL-LOGIN-FORM",
+      "API-FEAT-AUTH-SESSION-CLIENT",
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES"
+    ],
+    "type": "E2E",
+    "file_path": "backend/test-e2e/auth-session.spec.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-AUTH-SESSION-INTEGRATION-AUTH-SESSION-BACKEND": {
+    "test_id": "FEAT-AUTH-SESSION-INTEGRATION-AUTH-SESSION-BACKEND",
+    "req_id": "FEAT-AUTH-SESSION",
+    "interface_ids": [
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+      "FUNC-FEAT-AUTH-SESSION-SERVICE",
+      "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE",
+      "DB-FEAT-AUTH-SESSION-SCHEMA",
+      "DB-FEAT-AUTH-SESSION-DEMO-SEED",
+      "DB-FEAT-AUTH-SESSION-REPOSITORY"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/auth-session.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-AUTH-SESSION-INTEGRATION-AUTH-SESSION-FRONTEND": {
+    "test_id": "FEAT-AUTH-SESSION-INTEGRATION-AUTH-SESSION-FRONTEND",
+    "req_id": "FEAT-AUTH-SESSION",
+    "interface_ids": [
+      "UI-MOD-AUTH-LOGIN-COMPOSITION-SHELL",
+      "UI-MOD-AUTH-ROUTE-CONNECTOR",
+      "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+      "UI-FEAT-AUTH-SESSION-LOCAL-LOGIN-FORM",
+      "API-FEAT-AUTH-SESSION-CLIENT"
+    ],
+    "type": "Integration",
+    "file_path": "frontend/tests/auth-session.test.tsx",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  }
+}
