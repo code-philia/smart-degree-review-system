@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthSessionProvider } from '../src/auth/AuthSessionProvider';
 import LocalAccountLoginForm from '../src/auth/LocalAccountLoginForm';
@@ -93,9 +94,11 @@ describe('FEAT-AUTH-PASSWORD frontend local login and role-aware home menu', () 
     const user = userEvent.setup();
 
     render(
-      <AuthSessionProvider>
-        <LocalAccountLoginForm />
-      </AuthSessionProvider>,
+      <MemoryRouter>
+        <AuthSessionProvider>
+          <LocalAccountLoginForm />
+        </AuthSessionProvider>
+      </MemoryRouter>,
     );
 
     await user.type(await screen.findByLabelText('账号'), 'student01');

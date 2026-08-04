@@ -145,7 +145,7 @@
     "content": "{\"interface_id\": \"UI-FEAT-AUTH-PASSWORD-ROLE-AWARE-HOME-MENU\", \"req_id\": \"FEAT-AUTH-PASSWORD\", \"type\": \"UI\", \"name\": \"Role-aware authenticated home menu\", \"file_path\": \"frontend/src/auth/RoleAwareHomeMenu.tsx\", \"first_line\": \"1\", \"responsibility\": \"Render the authenticated user's role-specific home menu and data-scope summary using the shared global auth session state after local password login succeeds.\", \"specification\": \"Consumes useAuthSession from AuthSessionProvider. While session state is loading, renders an explicit loading state. When anonymous, renders an explicit login-required state rather than fake menu data. When authenticated, maps STUDENT to 学生菜单, SUPERVISOR to 导师菜单, SCHOOL_ADMIN to 学校管理菜单, and COLLEGE_ADMIN to 学院管理菜单, and displays data scope as 全校 for SCHOOL or 本学院 for COLLEGE. This component must not create page-local auth state or hardcoded user records; all role and scope data comes from the recovered/current session user.\", \"inputs\": [\"AuthSessionProvider context: status\", \"AuthSessionProvider context: user.role\", \"AuthSessionProvider context: user.scope\"], \"outputs\": [\"Loading/authenticated/anonymous home-menu UI\", \"Accessible section labelled 当前角色菜单 for authenticated users\"], \"callers\": [\"frontend/src/pages/HomePage.tsx\"], \"callees\": [\"frontend/src/auth/AuthSessionProvider.tsx\"], \"test_focus\": [\"After logging in as student01, '/' displays 学生菜单.\", \"Authenticated menu uses the provider user rather than local fallback records.\", \"Anonymous and loading states are explicit and do not present protected role data.\"]}",
     "file_path": "frontend/src/auth/RoleAwareHomeMenu.tsx",
     "first_line": "1",
-    "implemented": false,
+    "implemented": true,
     "callers": [
       "frontend/src/pages/HomePage.tsx"
     ],
@@ -242,7 +242,7 @@
     "content": "{\"interface_id\": \"UI-SYS-DEGREE-AI-REVIEW-HOME-SHELL\", \"req_id\": \"FEAT-AUTH-PASSWORD\", \"type\": \"UI\", \"name\": \"Home shell role-menu mount\", \"file_path\": \"frontend/src/pages/HomePage.tsx\", \"first_line\": \"1\", \"responsibility\": \"Reuse the parent-owned system home shell as the successful-login destination and mount the current-node role-aware menu without taking ownership of the full visual architecture page.\", \"specification\": \"HomePage remains the root '/' route and retains parent-owned architecture content. FEAT-AUTH-PASSWORD extends it only by importing and rendering RoleAwareHomeMenu near the page header so the global session user can drive role menu and data-scope display after login.\", \"inputs\": [\"React route '/'\", \"RoleAwareHomeMenu component\"], \"outputs\": [\"Backend-hosted home page with role-aware authenticated menu mount\"], \"callers\": [\"frontend/src/App.tsx Route path=\\\"/\\\"\"], \"callees\": [\"frontend/src/auth/RoleAwareHomeMenu.tsx\"], \"test_focus\": [\"Successful login can navigate to the existing home route.\", \"The home route displays role-aware menu content from the shared session path.\"]}",
     "file_path": "frontend/src/pages/HomePage.tsx",
     "first_line": "1",
-    "implemented": false,
+    "implemented": true,
     "callers": [
       "frontend/src/App.tsx Route path=\"/\""
     ],

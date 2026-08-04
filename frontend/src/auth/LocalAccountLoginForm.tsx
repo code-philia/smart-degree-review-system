@@ -1,8 +1,10 @@
 import { FormEvent, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuthSession } from './AuthSessionProvider';
 
 function LocalAccountLoginForm() {
   const { login, status, user } = useAuthSession();
+  const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -15,8 +17,9 @@ function LocalAccountLoginForm() {
 
     try {
       await login({ username, password });
+      navigate('/');
     } catch {
-      setErrorMessage('账号或密码不正确，请重试。');
+      setErrorMessage('用户名或密码错误');
     } finally {
       setSubmitting(false);
     }
