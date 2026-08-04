@@ -199,6 +199,24 @@ async function initializeDatabase(options = {}) {
       );`,
     );
 
+    await runStatement(
+      database,
+      `CREATE TABLE IF NOT EXISTS local_polish_results (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        original_text TEXT NOT NULL,
+        polished_text TEXT NOT NULL,
+        level TEXT NOT NULL CHECK (level IN ('basic', 'standard', 'enhanced')),
+        rule_version TEXT NOT NULL,
+        changes_json TEXT NOT NULL,
+        diff_segments_json TEXT NOT NULL,
+        source_result_id TEXT,
+        retry_of TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE
+      );`,
+    );
+
     return database;
 
     /**

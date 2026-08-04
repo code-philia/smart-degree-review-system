@@ -462,6 +462,91 @@
     "first_line": "1",
     "scenario_id": null
   },
+  "FEAT-POLISH-LOCAL:API:AUTHZ:001": {
+    "test_id": "FEAT-POLISH-LOCAL:API:AUTHZ:001",
+    "req_id": "FEAT-POLISH-LOCAL",
+    "interface_ids": [
+      "API-FEAT-POLISH-LOCAL-EXPRESS-ROUTES",
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+      "FUNC-FEAT-POLISH-LOCAL-SERVICE"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/local-polish.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-POLISH-LOCAL:API:READ-SCOPE:001": {
+    "test_id": "FEAT-POLISH-LOCAL:API:READ-SCOPE:001",
+    "req_id": "FEAT-POLISH-LOCAL",
+    "interface_ids": [
+      "API-FEAT-POLISH-LOCAL-EXPRESS-ROUTES",
+      "FUNC-FEAT-POLISH-LOCAL-SERVICE",
+      "DB-FEAT-POLISH-LOCAL-REPOSITORY"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/local-polish.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-POLISH-LOCAL:DB:REPOSITORY:001": {
+    "test_id": "FEAT-POLISH-LOCAL:DB:REPOSITORY:001",
+    "req_id": "FEAT-POLISH-LOCAL",
+    "interface_ids": [
+      "DB-FEAT-POLISH-LOCAL-REPOSITORY",
+      "DB-FEAT-POLISH-LOCAL-SCHEMA"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/local-polish.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-POLISH-LOCAL:E2E:SCENARIO:001": {
+    "test_id": "FEAT-POLISH-LOCAL:E2E:SCENARIO:001",
+    "req_id": "FEAT-POLISH-LOCAL",
+    "interface_ids": [
+      "UI-FEAT-POLISH-LOCAL-ROUTE",
+      "UI-FEAT-POLISH-LOCAL-PAGE",
+      "API-FEAT-AUTH-SESSION-CLIENT",
+      "API-FEAT-POLISH-LOCAL-CLIENT",
+      "API-FEAT-POLISH-LOCAL-EXPRESS-ROUTES",
+      "FUNC-FEAT-POLISH-LOCAL-SERVICE",
+      "DB-FEAT-POLISH-LOCAL-REPOSITORY"
+    ],
+    "type": "E2E",
+    "file_path": "backend/test-e2e/local-polish.spec.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-POLISH-LOCAL:FUNC:VALIDATION:001": {
+    "test_id": "FEAT-POLISH-LOCAL:FUNC:VALIDATION:001",
+    "req_id": "FEAT-POLISH-LOCAL",
+    "interface_ids": [
+      "FUNC-FEAT-POLISH-LOCAL-SERVICE"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/local-polish.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-POLISH-LOCAL:SCENARIO:001": {
+    "test_id": "FEAT-POLISH-LOCAL:SCENARIO:001",
+    "req_id": "FEAT-POLISH-LOCAL",
+    "interface_ids": [
+      "API-FEAT-POLISH-LOCAL-EXPRESS-ROUTES",
+      "FUNC-FEAT-POLISH-LOCAL-SERVICE",
+      "DB-FEAT-POLISH-LOCAL-REPOSITORY"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/local-polish.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
   "FEAT-POLISH-WHOLE:INTEGRATION:BACKEND-CONTRACT:001": {
     "test_id": "FEAT-POLISH-WHOLE:INTEGRATION:BACKEND-CONTRACT:001",
     "req_id": "FEAT-POLISH-WHOLE",

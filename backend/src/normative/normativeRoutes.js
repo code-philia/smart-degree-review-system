@@ -41,6 +41,12 @@ const {
   createWholePolishResult,
   getWholePolishResultForUser,
 } = require('./wholePolishService');
+const {
+  ALLOWED_LOCAL_POLISH_ROLES,
+  MAX_LOCAL_POLISH_TEXT_BYTES,
+  createLocalPolishResult,
+  getLocalPolishResultForUser,
+} = require('./localPolishService');
 
 const router = express.Router();
 
@@ -253,6 +259,49 @@ router.get(
         .type('text/plain; charset=utf-8')
         .attachment(`whole-polish-${result.id}.txt`)
         .send(buildDownloadText(result));
+    } catch (error) {
+      if (error?.status) {
+        res.status(error.status).json({ code: error.status, message: error.message });
+        return;
+      }
+      next(error);
+    }
+  },
+);
+
+router.post(
+  '/local-polish-results',
+  requireAuth({ allowedRoles: ALLOWED_LOCAL_POLISH_ROLES }),
+  express.json({ limit: MAX_LOCAL_POLISH_TEXT_BYTES }),
+  async (req, res, next) => {
+    try {
+      const result = await createLocalPolishResult(req.user, req.body || {});
+      res.status(201).json(result);
+    } catch (error) {
+      if (error?.type === 'entity.too.large') {
+        res.status(413).json({ code: 413, message: '局部润色文本不能超过 5 MB' });
+        return;
+      }
+      if (error?.status) {
+        res.status(error.status).json({ code: error.status, message: error.message });
+        return;
+      }
+      if (error?.code === 'LOCAL_POLISH_SERVICE_NOT_IMPLEMENTED') {
+        res.status(501).json({ code: 501, message: error.message });
+        return;
+      }
+      next(error);
+    }
+  },
+);
+
+router.get(
+  '/local-polish-results/:resultId',
+  requireAuth({ allowedRoles: ALLOWED_LOCAL_POLISH_ROLES }),
+  async (req, res, next) => {
+    try {
+      const result = await getLocalPolishResultForUser(req.user, req.params.resultId);
+      res.json(result);
     } catch (error) {
       if (error?.status) {
         res.status(error.status).json({ code: error.status, message: error.message });

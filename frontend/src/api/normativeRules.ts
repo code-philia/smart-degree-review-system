@@ -113,6 +113,7 @@ export type DuplicationHistoryRecord = {
 };
 
 export type WholePolishLevel = 'basic' | 'standard' | 'enhanced';
+export type LocalPolishLevel = WholePolishLevel;
 
 export type WholePolishChange = {
   original_text: string;
@@ -122,11 +123,26 @@ export type WholePolishChange = {
   reason?: string;
 };
 
+export type LocalPolishDiffSegment = {
+  type: 'unchanged' | 'added' | 'deleted' | 'replaced' | 'format';
+  text: string;
+  original_text?: string;
+  new_text?: string;
+  position: number;
+  rule?: string;
+};
+
 export type WholePolishRequest = {
   text: string;
   level: WholePolishLevel;
   source_type: 'paste' | 'file';
   source_filename?: string | null;
+};
+
+export type LocalPolishRequest = {
+  text: string;
+  level: LocalPolishLevel;
+  retry_of?: string | null;
 };
 
 export type WholePolishResult = {
@@ -138,6 +154,20 @@ export type WholePolishResult = {
   polished_text: string;
   level: WholePolishLevel;
   changes: WholePolishChange[];
+  created_at: string;
+};
+
+export type LocalPolishResult = {
+  id: string;
+  user_id: string;
+  original_text: string;
+  polished_text: string;
+  level: LocalPolishLevel;
+  rule_version: string;
+  changes: WholePolishChange[];
+  diff_segments: LocalPolishDiffSegment[];
+  source_result_id?: string | null;
+  retry_of?: string | null;
   created_at: string;
 };
 
@@ -186,6 +216,16 @@ export async function downloadDuplicationReportJson(reportId: string): Promise<B
 
 export async function createWholePolishResult(payload: WholePolishRequest): Promise<WholePolishResult> {
   const response = await apiClient.post<WholePolishResult>('/normative/whole-polish-results', payload);
+  return response.data;
+}
+
+export async function createLocalPolishResult(payload: LocalPolishRequest): Promise<LocalPolishResult> {
+  const response = await apiClient.post<LocalPolishResult>('/normative/local-polish-results', payload);
+  return response.data;
+}
+
+export async function fetchLocalPolishResult(resultId: string): Promise<LocalPolishResult> {
+  const response = await apiClient.get<LocalPolishResult>(`/normative/local-polish-results/${resultId}`);
   return response.data;
 }
 

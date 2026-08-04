@@ -103,6 +103,70 @@
     "edge_type": "cross_req",
     "created_at": "2026-08-04 17:45:31"
   },
+  "FEAT-POLISH-LOCAL::FEAT-AUTH-PASSWORD::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES::DB-FEAT-AUTH-SESSION-REPOSITORY": {
+    "source_req_id": "FEAT-POLISH-LOCAL",
+    "target_req_id": "FEAT-AUTH-PASSWORD",
+    "from_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "to_interface_id": "DB-FEAT-AUTH-SESSION-REPOSITORY",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-04 18:10:02"
+  },
+  "FEAT-POLISH-LOCAL::FEAT-AUTH-PASSWORD::UI-FEAT-POLISH-LOCAL-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-POLISH-LOCAL",
+    "target_req_id": "FEAT-AUTH-PASSWORD",
+    "from_interface_id": "UI-FEAT-POLISH-LOCAL-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-04 18:10:02"
+  },
+  "FEAT-POLISH-LOCAL::FEAT-AUTH-SESSION::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES::DB-FEAT-AUTH-SESSION-REPOSITORY": {
+    "source_req_id": "FEAT-POLISH-LOCAL",
+    "target_req_id": "FEAT-AUTH-SESSION",
+    "from_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "to_interface_id": "DB-FEAT-AUTH-SESSION-REPOSITORY",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-04 18:10:02"
+  },
+  "FEAT-POLISH-LOCAL::FEAT-AUTH-SESSION::UI-FEAT-POLISH-LOCAL-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-POLISH-LOCAL",
+    "target_req_id": "FEAT-AUTH-SESSION",
+    "from_interface_id": "UI-FEAT-POLISH-LOCAL-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-04 18:10:02"
+  },
+  "FEAT-POLISH-LOCAL::FEAT-DUPLICATION-CORPUS::UI-FEAT-POLISH-LOCAL-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-POLISH-LOCAL",
+    "target_req_id": "FEAT-DUPLICATION-CORPUS",
+    "from_interface_id": "UI-FEAT-POLISH-LOCAL-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-04 18:10:02"
+  },
+  "FEAT-POLISH-LOCAL::FEAT-NORMATIVE-FORMAT-RULES::UI-FEAT-POLISH-LOCAL-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-POLISH-LOCAL",
+    "target_req_id": "FEAT-NORMATIVE-FORMAT-RULES",
+    "from_interface_id": "UI-FEAT-POLISH-LOCAL-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-04 18:10:02"
+  },
+  "FEAT-POLISH-LOCAL::FEAT-POLISH-WHOLE::API-FEAT-POLISH-WHOLE-CLIENT::API-FEAT-POLISH-WHOLE-EXPRESS-ROUTES": {
+    "source_req_id": "FEAT-POLISH-LOCAL",
+    "target_req_id": "FEAT-POLISH-WHOLE",
+    "from_interface_id": "API-FEAT-POLISH-WHOLE-CLIENT",
+    "to_interface_id": "API-FEAT-POLISH-WHOLE-EXPRESS-ROUTES",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-04 18:10:02"
+  },
+  "FEAT-POLISH-LOCAL::FEAT-POLISH-WHOLE::UI-FEAT-POLISH-LOCAL-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-POLISH-LOCAL",
+    "target_req_id": "FEAT-POLISH-WHOLE",
+    "from_interface_id": "UI-FEAT-POLISH-LOCAL-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-04 18:10:02"
+  },
   "FEAT-POLISH-WHOLE::FEAT-AUTH-PASSWORD::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES::DB-FEAT-AUTH-SESSION-REPOSITORY": {
     "source_req_id": "FEAT-POLISH-WHOLE",
     "target_req_id": "FEAT-AUTH-PASSWORD",
