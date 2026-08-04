@@ -1,4 +1,55 @@
 {
+  "FEAT-AUTH-PASSWORD-E2E-SCENARIOS-001-002": {
+    "test_id": "FEAT-AUTH-PASSWORD-E2E-SCENARIOS-001-002",
+    "req_id": "FEAT-AUTH-PASSWORD",
+    "interface_ids": [
+      "UI-FEAT-AUTH-SESSION-LOCAL-LOGIN-FORM",
+      "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+      "API-FEAT-AUTH-SESSION-CLIENT",
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+      "UI-FEAT-AUTH-PASSWORD-ROLE-AWARE-HOME-MENU",
+      "UI-SYS-DEGREE-AI-REVIEW-HOME-SHELL",
+      "UI-MOD-AUTH-LOGIN-COMPOSITION-SHELL",
+      "UI-MOD-AUTH-ROUTE-CONNECTOR"
+    ],
+    "type": "E2E",
+    "file_path": "backend/test-e2e/auth-password.spec.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-AUTH-PASSWORD-INTEGRATION-AUTH-API-001": {
+    "test_id": "FEAT-AUTH-PASSWORD-INTEGRATION-AUTH-API-001",
+    "req_id": "FEAT-AUTH-PASSWORD",
+    "interface_ids": [
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+      "FUNC-FEAT-AUTH-SESSION-SERVICE",
+      "DB-FEAT-AUTH-SESSION-REPOSITORY",
+      "DB-FEAT-AUTH-SESSION-SCHEMA",
+      "DB-FEAT-AUTH-SESSION-DEMO-SEED",
+      "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/auth-password.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-AUTH-PASSWORD-INTEGRATION-FRONTEND-ROLE-MENU-001": {
+    "test_id": "FEAT-AUTH-PASSWORD-INTEGRATION-FRONTEND-ROLE-MENU-001",
+    "req_id": "FEAT-AUTH-PASSWORD",
+    "interface_ids": [
+      "UI-FEAT-AUTH-PASSWORD-ROLE-AWARE-HOME-MENU",
+      "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+      "UI-FEAT-AUTH-SESSION-LOCAL-LOGIN-FORM",
+      "API-FEAT-AUTH-SESSION-CLIENT"
+    ],
+    "type": "Integration",
+    "file_path": "frontend/tests/auth-password.test.tsx",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
   "FEAT-AUTH-SESSION-E2E-SCENARIOS": {
     "test_id": "FEAT-AUTH-SESSION-E2E-SCENARIOS",
     "req_id": "FEAT-AUTH-SESSION",

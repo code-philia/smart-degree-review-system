@@ -1,3 +1,5 @@
+import RoleAwareHomeMenu from '../auth/RoleAwareHomeMenu';
+
 const userModules = ['学生端', '导师端', '学院端', '学校端'];
 const engineModules = ['数据库存储', '多级权限管理', 'AI 模型库'];
 const coreModules = [
@@ -43,6 +45,8 @@ function HomePage() {
             </p>
           </div>
         </header>
+
+        <RoleAwareHomeMenu />
 
         <div className="flex flex-col items-center" aria-label="系统架构图">
           <section className="w-full border border-[#9CCC65] bg-[#D50000] px-6 py-7 text-white">
