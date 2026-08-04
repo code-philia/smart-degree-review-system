@@ -211,9 +211,9 @@
   },
   "MOD-NORMATIVE-DETECTION": {
     "req_id": "MOD-NORMATIVE-DETECTION",
-    "state": "UNSEEN",
-    "phase": null,
-    "updated_at": "2026-08-04 15:03:18"
+    "state": "DESIGNED",
+    "phase": "design",
+    "updated_at": "2026-08-04 15:56:55"
   },
   "MOD-POLISH": {
     "req_id": "MOD-POLISH",
