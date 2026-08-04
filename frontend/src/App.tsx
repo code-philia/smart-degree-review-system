@@ -9,6 +9,7 @@ import HomePage from './pages/HomePage';
 import NormativeCheckPage from './pages/NormativeCheckPage';
 import NormativeReportPage from './pages/NormativeReportPage';
 import RuleConfigPage from './pages/RuleConfigPage';
+import WholePolishPage from './pages/WholePolishPage';
 
 function App() {
   return (
@@ -22,6 +23,8 @@ function App() {
       <Route path="/duplication-detect" element={<DuplicationDetectPage />} />
       <Route path="/duplication-history" element={<DuplicationHistoryPage />} />
       <Route path="/duplication-history/:reportId" element={<DuplicationHistoryPage />} />
+      <Route path="/whole-polish" element={<WholePolishPage />} />
+      <Route path="/whole-polish/:resultId" element={<WholePolishPage />} />
       <Route
         path="/auth"
         element={<AuthPage accountFormSlot={<LocalAccountLoginForm />} helpSlot={<DemoAccountHelpPanel />} />}

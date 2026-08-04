@@ -112,6 +112,35 @@ export type DuplicationHistoryRecord = {
   created_at: string;
 };
 
+export type WholePolishLevel = 'basic' | 'standard' | 'enhanced';
+
+export type WholePolishChange = {
+  original_text: string;
+  new_text: string;
+  position: number;
+  rule: string;
+  reason?: string;
+};
+
+export type WholePolishRequest = {
+  text: string;
+  level: WholePolishLevel;
+  source_type: 'paste' | 'file';
+  source_filename?: string | null;
+};
+
+export type WholePolishResult = {
+  id: string;
+  user_id: string;
+  source_type: 'paste' | 'file';
+  source_filename?: string | null;
+  original_text: string;
+  polished_text: string;
+  level: WholePolishLevel;
+  changes: WholePolishChange[];
+  created_at: string;
+};
+
 export type AnalyzeNormativeTextResponse = {
   issues: NormativeIssue[];
 };
@@ -151,6 +180,24 @@ export async function downloadDuplicationReportJson(reportId: string): Promise<B
   const response = await apiClient.get(`/normative/duplication-detection-reports/${reportId}/download`, {
     responseType: 'blob',
     headers: { Accept: 'application/json' },
+  });
+  return response.data;
+}
+
+export async function createWholePolishResult(payload: WholePolishRequest): Promise<WholePolishResult> {
+  const response = await apiClient.post<WholePolishResult>('/normative/whole-polish-results', payload);
+  return response.data;
+}
+
+export async function fetchWholePolishResult(resultId: string): Promise<WholePolishResult> {
+  const response = await apiClient.get<WholePolishResult>(`/normative/whole-polish-results/${resultId}`);
+  return response.data;
+}
+
+export async function downloadWholePolishText(resultId: string): Promise<Blob> {
+  const response = await apiClient.get(`/normative/whole-polish-results/${resultId}/download`, {
+    responseType: 'blob',
+    headers: { Accept: 'text/plain' },
   });
   return response.data;
 }

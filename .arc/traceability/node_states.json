@@ -127,9 +127,9 @@
   },
   "FEAT-POLISH-WHOLE": {
     "req_id": "FEAT-POLISH-WHOLE",
-    "state": "UNSEEN",
-    "phase": null,
-    "updated_at": "2026-08-04 15:03:18"
+    "state": "DESIGNED",
+    "phase": "design",
+    "updated_at": "2026-08-04 17:58:15"
   },
   "FEAT-QUALITY-DASHBOARD": {
     "req_id": "FEAT-QUALITY-DASHBOARD",

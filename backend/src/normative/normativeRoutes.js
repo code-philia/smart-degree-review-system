@@ -34,6 +34,13 @@ const {
   getDuplicationReportForUser,
   listDuplicationHistoryForUser,
 } = require('./duplicationHistoryService');
+const {
+  ALLOWED_WHOLE_POLISH_ROLES,
+  MAX_WHOLE_POLISH_TEXT_BYTES,
+  buildDownloadText,
+  createWholePolishResult,
+  getWholePolishResultForUser,
+} = require('./wholePolishService');
 
 const router = express.Router();
 
@@ -187,6 +194,65 @@ router.get(
         .type('application/json; charset=utf-8')
         .attachment(`duplication-report-${report.id}.json`)
         .send(JSON.stringify(buildDuplicationDownloadPayload(report), null, 2));
+    } catch (error) {
+      if (error?.status) {
+        res.status(error.status).json({ code: error.status, message: error.message });
+        return;
+      }
+      next(error);
+    }
+  },
+);
+
+router.post(
+  '/whole-polish-results',
+  requireAuth({ allowedRoles: ALLOWED_WHOLE_POLISH_ROLES }),
+  express.json({ limit: MAX_WHOLE_POLISH_TEXT_BYTES }),
+  async (req, res, next) => {
+    try {
+      const result = await createWholePolishResult(req.user, req.body || {});
+      res.status(201).json(result);
+    } catch (error) {
+      if (error?.type === 'entity.too.large') {
+        res.status(413).json({ code: 413, message: '文件或文本不能超过 5 MB' });
+        return;
+      }
+      if (error?.status) {
+        res.status(error.status).json({ code: error.status, message: error.message });
+        return;
+      }
+      next(error);
+    }
+  },
+);
+
+router.get(
+  '/whole-polish-results/:resultId',
+  requireAuth({ allowedRoles: ALLOWED_WHOLE_POLISH_ROLES }),
+  async (req, res, next) => {
+    try {
+      const result = await getWholePolishResultForUser(req.user, req.params.resultId);
+      res.json(result);
+    } catch (error) {
+      if (error?.status) {
+        res.status(error.status).json({ code: error.status, message: error.message });
+        return;
+      }
+      next(error);
+    }
+  },
+);
+
+router.get(
+  '/whole-polish-results/:resultId/download',
+  requireAuth({ allowedRoles: ALLOWED_WHOLE_POLISH_ROLES }),
+  async (req, res, next) => {
+    try {
+      const result = await getWholePolishResultForUser(req.user, req.params.resultId);
+      res
+        .type('text/plain; charset=utf-8')
+        .attachment(`whole-polish-${result.id}.txt`)
+        .send(buildDownloadText(result));
     } catch (error) {
       if (error?.status) {
         res.status(error.status).json({ code: error.status, message: error.message });

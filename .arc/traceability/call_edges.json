@@ -102,5 +102,53 @@
     "to_interface_id": "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE",
     "edge_type": "cross_req",
     "created_at": "2026-08-04 17:45:31"
+  },
+  "FEAT-POLISH-WHOLE::FEAT-AUTH-PASSWORD::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES::DB-FEAT-AUTH-SESSION-REPOSITORY": {
+    "source_req_id": "FEAT-POLISH-WHOLE",
+    "target_req_id": "FEAT-AUTH-PASSWORD",
+    "from_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "to_interface_id": "DB-FEAT-AUTH-SESSION-REPOSITORY",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-04 17:58:15"
+  },
+  "FEAT-POLISH-WHOLE::FEAT-AUTH-PASSWORD::UI-FEAT-POLISH-WHOLE-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-POLISH-WHOLE",
+    "target_req_id": "FEAT-AUTH-PASSWORD",
+    "from_interface_id": "UI-FEAT-POLISH-WHOLE-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-04 17:58:15"
+  },
+  "FEAT-POLISH-WHOLE::FEAT-AUTH-SESSION::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES::DB-FEAT-AUTH-SESSION-REPOSITORY": {
+    "source_req_id": "FEAT-POLISH-WHOLE",
+    "target_req_id": "FEAT-AUTH-SESSION",
+    "from_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "to_interface_id": "DB-FEAT-AUTH-SESSION-REPOSITORY",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-04 17:58:15"
+  },
+  "FEAT-POLISH-WHOLE::FEAT-AUTH-SESSION::UI-FEAT-POLISH-WHOLE-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-POLISH-WHOLE",
+    "target_req_id": "FEAT-AUTH-SESSION",
+    "from_interface_id": "UI-FEAT-POLISH-WHOLE-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-04 17:58:15"
+  },
+  "FEAT-POLISH-WHOLE::FEAT-DUPLICATION-CORPUS::UI-FEAT-POLISH-WHOLE-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-POLISH-WHOLE",
+    "target_req_id": "FEAT-DUPLICATION-CORPUS",
+    "from_interface_id": "UI-FEAT-POLISH-WHOLE-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-04 17:58:15"
+  },
+  "FEAT-POLISH-WHOLE::FEAT-NORMATIVE-FORMAT-RULES::UI-FEAT-POLISH-WHOLE-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-POLISH-WHOLE",
+    "target_req_id": "FEAT-NORMATIVE-FORMAT-RULES",
+    "from_interface_id": "UI-FEAT-POLISH-WHOLE-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-04 17:58:15"
   }
 }

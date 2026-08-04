@@ -462,6 +462,42 @@
     "first_line": "1",
     "scenario_id": null
   },
+  "FEAT-POLISH-WHOLE:INTEGRATION:BACKEND-CONTRACT:001": {
+    "test_id": "FEAT-POLISH-WHOLE:INTEGRATION:BACKEND-CONTRACT:001",
+    "req_id": "FEAT-POLISH-WHOLE",
+    "interface_ids": [
+      "API-FEAT-POLISH-WHOLE-EXPRESS-ROUTES",
+      "FUNC-FEAT-POLISH-WHOLE-SERVICE",
+      "DB-FEAT-POLISH-WHOLE-REPOSITORY",
+      "DB-FEAT-POLISH-WHOLE-SCHEMA",
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+      "API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/whole-polish.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-POLISH-WHOLE:SCENARIO:001:E2E:STUDENT-STANDARD-POLISH": {
+    "test_id": "FEAT-POLISH-WHOLE:SCENARIO:001:E2E:STUDENT-STANDARD-POLISH",
+    "req_id": "FEAT-POLISH-WHOLE",
+    "interface_ids": [
+      "UI-FEAT-POLISH-WHOLE-PAGE",
+      "UI-FEAT-POLISH-WHOLE-APP-ROUTE",
+      "API-FEAT-POLISH-WHOLE-CLIENT",
+      "API-FEAT-POLISH-WHOLE-EXPRESS-ROUTES",
+      "FUNC-FEAT-POLISH-WHOLE-SERVICE",
+      "DB-FEAT-POLISH-WHOLE-REPOSITORY",
+      "API-FEAT-AUTH-SESSION-CLIENT",
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES"
+    ],
+    "type": "E2E",
+    "file_path": "backend/test-e2e/whole-polish.spec.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
   "FEAT-RULE-TEMPLATE-UPLOAD:E2E:SCENARIOS:001": {
     "test_id": "FEAT-RULE-TEMPLATE-UPLOAD:E2E:SCENARIOS:001",
     "req_id": "FEAT-RULE-TEMPLATE-UPLOAD",

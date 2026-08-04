@@ -5,16 +5,17 @@
       "FEAT-AUTH-SESSION",
       "FEAT-AUTH-PASSWORD",
       "FEAT-NORMATIVE-FORMAT-RULES",
-      "FEAT-DUPLICATION-CORPUS"
+      "FEAT-DUPLICATION-CORPUS",
+      "FEAT-POLISH-WHOLE"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-CLIENT\", \"req_id\": \"FEAT-DUPLICATION-CORPUS\", \"type\": \"API\", \"name\": \"reusedAuthSessionClientForCorpusPage\", \"file_path\": \"frontend/src/api/authSession.ts\", \"first_line\": \"1\", \"responsibility\": \"Reuse current-session recovery and cookie-backed auth client calls consumed by AuthSessionProvider for corpus page access state.\", \"specification\": \"The corpus page depends on the existing AuthSessionProvider path to know whether the user is loading, anonymous, SCHOOL_ADMIN, or a denied authenticated role. This node does not change authenticated state; it consumes the shared session source of truth rather than adding page-local auth.\", \"inputs\": [\"browser cookie session\", \"AuthSessionProvider current-user load\"], \"outputs\": [\"current user role and status for UI access states\"], \"callers\": [\"frontend/src/auth/AuthSessionProvider.tsx\", \"frontend/src/pages/DuplicationCorpusPage.tsx indirectly\"], \"callees\": [\"backend/src/auth/authRoutes.js mounted at /api/auth\"], \"test_focus\": [\"corpus page access rendering follows shared session state\", \"no duplicate frontend auth state is introduced\"]}",
+    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-CLIENT\", \"req_id\": \"FEAT-POLISH-WHOLE\", \"type\": \"API\", \"name\": \"Reused Auth Session Frontend Client\", \"file_path\": \"frontend/src/api/authSession.ts\", \"first_line\": \"1\", \"responsibility\": \"Reuse current-session recovery and cookie-backed auth client calls so the polishing page consumes the shared authenticated state instead of duplicating login/session state.\", \"specification\": \"The polishing page depends on the existing AuthSessionProvider path to know loading, anonymous, or authenticated user state. This node does not change authenticated state; it consumes the existing session client and provider path. Anonymous users are not allowed to call protected polishing APIs and are routed to login in the UI.\", \"inputs\": {\"session_cookie\": \"HttpOnly backend session cookie\"}, \"outputs\": {\"auth_state\": \"loading, anonymous, or authenticated user with role\"}, \"callers\": [\"frontend/src/auth/AuthSessionProvider.tsx\", \"frontend/src/pages/WholePolishPage.tsx indirectly\"], \"callees\": [\"backend/src/auth/authRoutes.js mounted at /api/auth\"], \"test_focus\": [\"WholePolishPage renders loading and anonymous states from the shared provider.\"]}",
     "file_path": "frontend/src/api/authSession.ts",
     "first_line": "1",
     "implemented": true,
     "callers": [
       "frontend/src/auth/AuthSessionProvider.tsx",
-      "frontend/src/pages/DuplicationCorpusPage.tsx indirectly"
+      "frontend/src/pages/WholePolishPage.tsx indirectly"
     ],
     "callees": [
       "backend/src/auth/authRoutes.js mounted at /api/auth"
@@ -24,20 +25,21 @@
     "interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
     "req_ids": [
       "FEAT-AUTH-SESSION",
-      "FEAT-AUTH-PASSWORD"
+      "FEAT-AUTH-PASSWORD",
+      "FEAT-POLISH-WHOLE"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"req_id\": \"FEAT-AUTH-PASSWORD\", \"type\": \"API\", \"name\": \"Express auth routes\", \"file_path\": \"backend/src/auth/authRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse backend HTTP endpoints for credential login, current-user loading, and logout with HttpOnly SameSite=Lax cookie session handling.\", \"specification\": \"Defines POST /api/auth/login, GET /api/auth/me, and POST /api/auth/logout. Login accepts anonymous credential exchange, calls sessionService.login, returns 401 with a generic invalid-credential response for any username/password failure, and sets arc_session as HttpOnly SameSite=Lax path=/ on success. GET /me denies anonymous or invalid sessions with 401 before returning user data. Logout uses requireAuth and clears the cookie. Allowed authenticated roles are STUDENT, SUPERVISOR, SCHOOL_ADMIN, and COLLEGE_ADMIN; no declared role is excluded.\", \"inputs\": [\"POST /api/auth/login body { username, password }\", \"Cookie header with arc_session for /me and /logout\"], \"outputs\": [\"200 { user } and Set-Cookie arc_session on valid credentials\", \"401 generic invalid-credential response without user-existence leakage\", \"401 anonymous response for missing/invalid current session\", \"204 logout response with cleared cookie\"], \"callers\": [\"frontend/src/api/authSession.ts\", \"backend/src/app.js\"], \"callees\": [\"backend/src/auth/sessionService.js\", \"backend/src/auth/authMiddleware.js\"], \"test_focus\": [\"Successful student01 login sets an HttpOnly arc_session cookie.\", \"Wrong password returns 401 and does not set a session cookie.\", \"Current-session endpoint enforces anonymous denial before user data is returned.\"]}",
+    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"req_id\": \"FEAT-POLISH-WHOLE\", \"type\": \"API\", \"name\": \"Reused Auth Session Backend Boundary\", \"file_path\": \"backend/src/auth/authRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse backend session routes and middleware-backed current user identity for polishing route authorization.\", \"specification\": \"The polishing routes rely on the existing cookie-backed auth system and requireAuth middleware to deny anonymous access and attach req.user. This node reuses, rather than changes, POST /api/auth/login, GET /api/auth/me, POST /api/auth/logout, and the middleware semantics used by protected normative routes.\", \"inputs\": {\"session_cookie\": \"HttpOnly session id\"}, \"outputs\": {\"req_user\": \"authenticated user id, role, scope, and college context\"}, \"callers\": [\"backend/src/normative/normativeRoutes.js whole-polish endpoints\"], \"callees\": [\"backend/src/auth/sessionService.js\", \"backend/src/auth/authMiddleware.js\", \"DB-FEAT-AUTH-SESSION-REPOSITORY\"], \"test_focus\": [\"Protected polishing endpoints reject missing or invalid sessions before service execution.\"]}",
     "file_path": "backend/src/auth/authRoutes.js",
     "first_line": "1",
     "implemented": true,
     "callers": [
-      "frontend/src/api/authSession.ts",
-      "backend/src/app.js"
+      "backend/src/normative/normativeRoutes.js whole-polish endpoints"
     ],
     "callees": [
       "backend/src/auth/sessionService.js",
-      "backend/src/auth/authMiddleware.js"
+      "backend/src/auth/authMiddleware.js",
+      "DB-FEAT-AUTH-SESSION-REPOSITORY"
     ]
   },
   "API-FEAT-DUPLICATION-CORPUS-CLIENT": {
@@ -198,10 +200,11 @@
       "FEAT-RULE-TEMPLATE-UPLOAD",
       "FEAT-DUPLICATION-CORPUS",
       "FEAT-DUPLICATION-DETECT",
-      "FEAT-DUPLICATION-HISTORY"
+      "FEAT-DUPLICATION-HISTORY",
+      "FEAT-POLISH-WHOLE"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT\", \"req_id\": \"FEAT-DUPLICATION-HISTORY\", \"type\": \"API\", \"name\": \"ExistingNormativeBackendMount\", \"file_path\": \"backend/src/app.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse the existing /api/normative Express mount so duplication history is served by the single backend-hosted runtime.\", \"specification\": \"The current node extends backend/src/normative/normativeRoutes.js under the existing app.use('/api/normative', normativeRoutes) mount. It introduces no parallel server or separate route tree and remains compatible with the backend serving frontend/dist on port 3000.\", \"inputs\": [\"HTTP requests under /api/normative\"], \"outputs\": [\"Requests delegated to normativeRoutes\"], \"callers\": [\"backend/src/index.js server startup\", \"frontend/src/api/normativeRules.ts\"], \"callees\": [\"API-FEAT-DUPLICATION-HISTORY-EXPRESS-ROUTES\"], \"test_focus\": [\"Duplication history endpoints are reachable under /api/normative on the backend-hosted origin\"]}",
+    "content": "{\"interface_id\": \"API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT\", \"req_id\": \"FEAT-POLISH-WHOLE\", \"type\": \"API\", \"name\": \"Reused Normative Backend Mount\", \"file_path\": \"backend/src/app.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse the existing /api/normative Express mount so whole-text polishing is served by the single backend-hosted runtime.\", \"specification\": \"The current node extends backend/src/normative/normativeRoutes.js under the existing app.use('/api/normative', normativeRoutes) mount. It introduces no parallel server, route tree, or frontend dev-server dependency and remains compatible with the backend-hosted frontend dist runtime on port 3000.\", \"inputs\": {\"http_origin\": \"http://localhost:3000\", \"api_path\": \"/api/normative/whole-polish-results...\"}, \"outputs\": {\"mounted_routes\": \"whole-polish endpoints reachable under /api/normative\"}, \"callers\": [\"backend/src/index.js server startup\", \"frontend/src/api/normativeRules.ts\"], \"callees\": [\"API-FEAT-POLISH-WHOLE-EXPRESS-ROUTES\"], \"test_focus\": [\"Whole polish endpoints are reachable through the existing backend app mount.\"]}",
     "file_path": "backend/src/app.js",
     "first_line": "1",
     "implemented": true,
@@ -210,7 +213,7 @@
       "frontend/src/api/normativeRules.ts"
     ],
     "callees": [
-      "API-FEAT-DUPLICATION-HISTORY-EXPRESS-ROUTES"
+      "API-FEAT-POLISH-WHOLE-EXPRESS-ROUTES"
     ]
   },
   "API-FEAT-NORMATIVE-FORMAT-RULES-CLIENT": {
@@ -288,6 +291,44 @@
     "callees": [
       "backend/src/auth/authMiddleware.js requireAuth",
       "backend/src/normative/detectionReportService.js"
+    ]
+  },
+  "API-FEAT-POLISH-WHOLE-CLIENT": {
+    "interface_id": "API-FEAT-POLISH-WHOLE-CLIENT",
+    "req_ids": [
+      "FEAT-POLISH-WHOLE"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-POLISH-WHOLE-CLIENT\", \"req_id\": \"FEAT-POLISH-WHOLE\", \"type\": \"API\", \"name\": \"Whole Polish Frontend API Client\", \"file_path\": \"frontend/src/api/normativeRules.ts\", \"first_line\": \"100\", \"responsibility\": \"Expose typed same-origin Axios calls and DTOs for creating, reading, and downloading whole-text polishing results through the shared normative API client.\", \"specification\": \"Extends the existing normativeRules client module and shared Axios instance. Defines WholePolishLevel, WholePolishChange, WholePolishRequest, and WholePolishResult. createWholePolishResult posts to /api/normative/whole-polish-results. fetchWholePolishResult gets /api/normative/whole-polish-results/:resultId. downloadWholePolishText gets /api/normative/whole-polish-results/:resultId/download with responseType blob and Accept text/plain. Must keep cookie-backed auth and global Axios interceptors from frontend/src/api/index.ts.\", \"inputs\": {\"create_payload\": {\"text\": \"string\", \"level\": \"basic | standard | enhanced\", \"source_type\": \"paste | file\", \"source_filename\": \"string | null\"}, \"result_id\": \"persisted whole_polish_results id\"}, \"outputs\": {\"result\": \"WholePolishResult with original_text, polished_text, level, changes, owner id, and created_at\", \"download\": \"Blob containing UTF-8 text/plain polished_text\"}, \"callers\": [\"frontend/src/pages/WholePolishPage.tsx\"], \"callees\": [\"frontend/src/api/index.ts shared Axios client\", \"API-FEAT-POLISH-WHOLE-EXPRESS-ROUTES\"], \"test_focus\": [\"Client posts to /normative/whole-polish-results through the shared API base.\", \"Download request uses blob response and text/plain Accept header.\", \"DTO requires every change to carry original_text, new_text, position, and rule.\"]}",
+    "file_path": "frontend/src/api/normativeRules.ts",
+    "first_line": "100",
+    "implemented": false,
+    "callers": [
+      "frontend/src/pages/WholePolishPage.tsx"
+    ],
+    "callees": [
+      "frontend/src/api/index.ts shared Axios client",
+      "API-FEAT-POLISH-WHOLE-EXPRESS-ROUTES"
+    ]
+  },
+  "API-FEAT-POLISH-WHOLE-EXPRESS-ROUTES": {
+    "interface_id": "API-FEAT-POLISH-WHOLE-EXPRESS-ROUTES",
+    "req_ids": [
+      "FEAT-POLISH-WHOLE"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-POLISH-WHOLE-EXPRESS-ROUTES\", \"req_id\": \"FEAT-POLISH-WHOLE\", \"type\": \"API\", \"name\": \"Whole Polish Express Routes\", \"file_path\": \"backend/src/normative/normativeRoutes.js\", \"first_line\": \"190\", \"responsibility\": \"Provide protected HTTP boundaries for creating owner-scoped polishing results, reading one owned result, and downloading one owned result as UTF-8 .txt.\", \"specification\": \"Adds POST /api/normative/whole-polish-results, GET /api/normative/whole-polish-results/:resultId, and GET /api/normative/whole-polish-results/:resultId/download under the existing /api/normative route tree. Every route calls requireAuth({ allowedRoles: ALLOWED_WHOLE_POLISH_ROLES }) before reading or mutating data. Allowed roles are STUDENT, SUPERVISOR, SCHOOL_ADMIN, and COLLEGE_ADMIN. Anonymous requests are denied by requireAuth because the scenario uses authenticated student01 and permissions describe role access only. Result read/download are constrained to req.user.id ownership through the service/repository lookup. POST uses express.json with MAX_WHOLE_POLISH_TEXT_BYTES and returns 201 with the persisted result. Download responds text/plain; charset=utf-8 and attachment whole-polish-{id}.txt.\", \"inputs\": {\"POST_body\": \"WholePolishRequest JSON\", \"GET_params\": {\"resultId\": \"string\"}, \"auth\": \"cookie-backed req.user from requireAuth\"}, \"outputs\": {\"POST_201\": \"WholePolishResult JSON\", \"GET_200\": \"WholePolishResult JSON\", \"download_200\": \"UTF-8 text/plain attachment\", \"errors\": \"401/403 from auth middleware, 400 validation, 404 missing owned result, 413 too large\"}, \"callers\": [\"backend/src/app.js /api/normative mount\", \"frontend/src/api/normativeRules.ts createWholePolishResult/fetchWholePolishResult/downloadWholePolishText\", \"backend integration tests via Supertest\"], \"callees\": [\"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES via requireAuth middleware\", \"FUNC-FEAT-POLISH-WHOLE-SERVICE\"], \"test_focus\": [\"Anonymous requests cannot create/read/download polishing results.\", \"All declared roles can create results when authenticated.\", \"A user cannot read or download another user's polishing result.\", \"Download returns text/plain UTF-8 attachment containing polished text.\"]}",
+    "file_path": "backend/src/normative/normativeRoutes.js",
+    "first_line": "190",
+    "implemented": false,
+    "callers": [
+      "backend/src/app.js /api/normative mount",
+      "frontend/src/api/normativeRules.ts createWholePolishResult/fetchWholePolishResult/downloadWholePolishText",
+      "backend integration tests via Supertest"
+    ],
+    "callees": [
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES via requireAuth middleware",
+      "FUNC-FEAT-POLISH-WHOLE-SERVICE"
     ]
   },
   "API-FEAT-RULE-TEMPLATE-UPLOAD-CLIENT": {
@@ -555,6 +596,43 @@
       "backend/src/database/init_db.js normative_detection_tasks schema"
     ]
   },
+  "DB-FEAT-POLISH-WHOLE-REPOSITORY": {
+    "interface_id": "DB-FEAT-POLISH-WHOLE-REPOSITORY",
+    "req_ids": [
+      "FEAT-POLISH-WHOLE"
+    ],
+    "type": "DB",
+    "content": "{\"interface_id\": \"DB-FEAT-POLISH-WHOLE-REPOSITORY\", \"req_id\": \"FEAT-POLISH-WHOLE\", \"type\": \"DB\", \"name\": \"Whole Polish Result Repository\", \"file_path\": \"backend/src/normative/wholePolishRepository.js\", \"first_line\": \"1\", \"responsibility\": \"Persist and retrieve whole-text polishing results through the shared SQLite runtime helpers without opening a separate database connection.\", \"specification\": \"Exports createWholePolishResult(result) and getWholePolishResultForUser(userId, resultId). Inserts id, user_id, source_type, source_filename, original_text, polished_text, level, serialized changes_json, and created_at into whole_polish_results. Reads by result id and user id to enforce owner scope at the persistence query boundary. Deserializes changes_json defensively into an array for API responses.\", \"inputs\": {\"create_result\": \"complete result object with id, user_id, source metadata, texts, level, changes, created_at\", \"lookup\": {\"userId\": \"authenticated owner id\", \"resultId\": \"result id\"}}, \"outputs\": {\"result\": \"WholePolishResult row mapped to API DTO or null\"}, \"callers\": [\"FUNC-FEAT-POLISH-WHOLE-SERVICE\"], \"callees\": [\"backend/src/database/index.js get/run\", \"DB-FEAT-POLISH-WHOLE-SCHEMA\"], \"test_focus\": [\"Create stores changes_json as JSON and returns the persisted row.\", \"Lookup filters by both id and user_id.\", \"Malformed or empty changes_json maps to an empty changes array rather than crashing.\"]}",
+    "file_path": "backend/src/normative/wholePolishRepository.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "FUNC-FEAT-POLISH-WHOLE-SERVICE"
+    ],
+    "callees": [
+      "backend/src/database/index.js get/run",
+      "DB-FEAT-POLISH-WHOLE-SCHEMA"
+    ]
+  },
+  "DB-FEAT-POLISH-WHOLE-SCHEMA": {
+    "interface_id": "DB-FEAT-POLISH-WHOLE-SCHEMA",
+    "req_ids": [
+      "FEAT-POLISH-WHOLE"
+    ],
+    "type": "DB",
+    "content": "{\"interface_id\": \"DB-FEAT-POLISH-WHOLE-SCHEMA\", \"req_id\": \"FEAT-POLISH-WHOLE\", \"type\": \"DB\", \"name\": \"Whole Polish Result Schema\", \"file_path\": \"backend/src/database/init_db.js\", \"first_line\": \"187\", \"responsibility\": \"Extend centralized SQLite schema lifecycle with durable owner-scoped full-text polishing result storage.\", \"specification\": \"Creates whole_polish_results idempotently in initializeDatabase. The table stores id, user_id, source_type constrained to paste/file, nullable source_filename, original_text, polished_text, level constrained to basic/standard/enhanced, changes_json, and created_at. user_id references auth_users(id) with ON DELETE CASCADE. This schema must be used by runtime bootstrap and database-using tests through the shared scaffold.\", \"inputs\": {\"database_bootstrap\": \"initializeDatabase options including test harness dbPath/reset\"}, \"outputs\": {\"table\": \"whole_polish_results available for repository CRUD\"}, \"callers\": [\"backend/src/database/index.js initializeDatabase\", \"backend/src/normative/wholePolishRepository.js\", \"backend tests using createTestDatabaseHarness\"], \"callees\": [\"sqlite3 via centralized runStatement\"], \"test_focus\": [\"Test harness initialization creates whole_polish_results.\", \"Level and source_type constraints reject invalid persisted values.\", \"Foreign key links results to authenticated users.\"]}",
+    "file_path": "backend/src/database/init_db.js",
+    "first_line": "187",
+    "implemented": false,
+    "callers": [
+      "backend/src/database/index.js initializeDatabase",
+      "backend/src/normative/wholePolishRepository.js",
+      "backend tests using createTestDatabaseHarness"
+    ],
+    "callees": [
+      "sqlite3 via centralized runStatement"
+    ]
+  },
   "DB-FEAT-RULE-TEMPLATE-UPLOAD-DRAFT-REPOSITORY": {
     "interface_id": "DB-FEAT-RULE-TEMPLATE-UPLOAD-DRAFT-REPOSITORY",
     "req_ids": [
@@ -778,6 +856,24 @@
     "callees": [
       "backend/src/normative/detectionTaskRepository.js listDetectionTasksByUser",
       "backend/src/normative/detectionTaskRepository.js findDetectionTaskByIdForUser"
+    ]
+  },
+  "FUNC-FEAT-POLISH-WHOLE-SERVICE": {
+    "interface_id": "FUNC-FEAT-POLISH-WHOLE-SERVICE",
+    "req_ids": [
+      "FEAT-POLISH-WHOLE"
+    ],
+    "type": "FUNC",
+    "content": "{\"interface_id\": \"FUNC-FEAT-POLISH-WHOLE-SERVICE\", \"req_id\": \"FEAT-POLISH-WHOLE\", \"type\": \"FUNC\", \"name\": \"Whole Polish Rule Service\", \"file_path\": \"backend/src/normative/wholePolishService.js\", \"first_line\": \"1\", \"responsibility\": \"Own the deterministic three-level full-text polishing contract and orchestration between request validation, administrator-maintained phrase rules, persisted result creation, owner-scoped reads, and download text construction.\", \"specification\": \"Exports ALLOWED_WHOLE_POLISH_ROLES, MAX_WHOLE_POLISH_TEXT_BYTES, WHOLE_POLISH_LEVELS, createWholePolishResult(user, payload), getWholePolishResultForUser(user, resultId), and buildDownloadText(result). The full implementation must normalize line-end spaces and continuous whitespace, fix repeated punctuation and consecutive repeated words for basic level; additionally apply administrator-maintained original phrase -> replacement phrase mappings from effective rule configuration for standard level; additionally split sentences longer than 120 characters containing semicolon or comma at the first legal separator for enhanced level and record the split reason. Every change record must contain original_text, new_text, position, rule, and optional reason. The service must persist original_text, polished_text, level, source metadata, owner id, and changes through the repository. Current DESIGN skeleton validates text/level and preserves rule-resolution and persistence shape for later implementation.\", \"inputs\": {\"user\": \"authenticated user with id, role, and optional collegeId\", \"payload\": \"text, level, source_type, source_filename\"}, \"outputs\": {\"created_result\": \"owner-scoped WholePolishResult\", \"download_text\": \"polished_text only for UTF-8 .txt download\"}, \"callers\": [\"API-FEAT-POLISH-WHOLE-EXPRESS-ROUTES\"], \"callees\": [\"backend/src/normative/ruleConfigService.js resolveRulesForAnalysis\", \"DB-FEAT-POLISH-WHOLE-REPOSITORY\"], \"test_focus\": [\"Basic level records deterministic changes for trailing spaces, whitespace normalization, repeated punctuation, and repeated words.\", \"Standard level applies configured phrase replacement mappings after basic changes.\", \"Enhanced level applies standard changes then records legal long-sentence split reasons.\", \"Every change includes original_text, new_text, position, and rule.\", \"Invalid empty text or invalid level returns 400-style errors.\"]}",
+    "file_path": "backend/src/normative/wholePolishService.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "API-FEAT-POLISH-WHOLE-EXPRESS-ROUTES"
+    ],
+    "callees": [
+      "backend/src/normative/ruleConfigService.js resolveRulesForAnalysis",
+      "DB-FEAT-POLISH-WHOLE-REPOSITORY"
     ]
   },
   "FUNC-FEAT-RULE-TEMPLATE-UPLOAD-IMPORT-SERVICE": {
@@ -1090,6 +1186,42 @@
     ],
     "callees": [
       "frontend/src/pages/NormativeReportPage.tsx"
+    ]
+  },
+  "UI-FEAT-POLISH-WHOLE-APP-ROUTE": {
+    "interface_id": "UI-FEAT-POLISH-WHOLE-APP-ROUTE",
+    "req_ids": [
+      "FEAT-POLISH-WHOLE"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-POLISH-WHOLE-APP-ROUTE\", \"req_id\": \"FEAT-POLISH-WHOLE\", \"type\": \"UI\", \"name\": \"Whole Polish App Route Connector\", \"file_path\": \"frontend/src/App.tsx\", \"first_line\": \"12\", \"responsibility\": \"Wire the full-text polishing page into the existing React route tree without creating a separate frontend runtime.\", \"specification\": \"Imports WholePolishPage and mounts it at /whole-polish and /whole-polish/:resultId under the existing Routes component. This connector keeps the feature reachable through the backend-hosted built frontend and does not introduce duplicated shell state.\", \"inputs\": {\"browser_path\": \"/whole-polish or /whole-polish/:resultId\"}, \"outputs\": {\"route_element\": \"WholePolishPage\"}, \"callers\": [\"React Router browser navigation\", \"backend-hosted frontend dist\"], \"callees\": [\"UI-FEAT-POLISH-WHOLE-PAGE\"], \"test_focus\": [\"Navigating to /whole-polish renders the polishing workflow through the normal app route tree.\"]}",
+    "file_path": "frontend/src/App.tsx",
+    "first_line": "12",
+    "implemented": false,
+    "callers": [
+      "React Router browser navigation",
+      "backend-hosted frontend dist"
+    ],
+    "callees": [
+      "UI-FEAT-POLISH-WHOLE-PAGE"
+    ]
+  },
+  "UI-FEAT-POLISH-WHOLE-PAGE": {
+    "interface_id": "UI-FEAT-POLISH-WHOLE-PAGE",
+    "req_ids": [
+      "FEAT-POLISH-WHOLE"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-POLISH-WHOLE-PAGE\", \"req_id\": \"FEAT-POLISH-WHOLE\", \"type\": \"UI\", \"name\": \"Whole Polish Upload And Result Page\", \"file_path\": \"frontend/src/pages/WholePolishPage.tsx\", \"first_line\": \"1\", \"responsibility\": \"Provide the authenticated user-facing full-text polishing workflow for paste/file input, three processing levels, completion summary, result preview entry, and UTF-8 text download action.\", \"specification\": \"Renders a dark navy header, large dashed upload zone, paste textarea, three selectable level cards for basic/standard/enhanced polishing, and a prominent submit button. Supports .txt/.md UTF-8 file reading up to 5 MB and paste input without hardcoded result data. Uses AuthSessionProvider state: loading shows explicit loading, anonymous users see a login CTA, authenticated allowed roles can submit. On submit calls createWholePolishResult with text, source_type, source_filename, and level. On success renders runtime metadata including filename/paste label, level, change count, created_at, preview link, and download button. Download uses downloadWholePolishText and browser Blob handling.\", \"inputs\": {\"auth_state\": \"status and user from useAuthSession\", \"user_text\": \"textarea content or uploaded .txt/.md file content\", \"level\": \"basic | standard | enhanced\"}, \"outputs\": {\"submission\": \"WholePolishRequest sent through shared normative API client\", \"visible_result\": \"WholePolishResult metadata, change count, and download action\", \"states\": \"loading, anonymous/login required, validation error, submitting, completed\"}, \"callers\": [\"frontend/src/App.tsx route /whole-polish and /whole-polish/:resultId\"], \"callees\": [\"API-FEAT-AUTH-SESSION-CLIENT\", \"API-FEAT-POLISH-WHOLE-CLIENT\"], \"test_focus\": [\"Anonymous users are directed to login rather than shown fake results.\", \"Valid paste text with standard level calls createWholePolishResult using source_type paste.\", \"Unsupported file extensions and files over 5 MB show validation errors.\", \"Completed response renders runtime metadata and enables UTF-8 download call.\"]}",
+    "file_path": "frontend/src/pages/WholePolishPage.tsx",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "frontend/src/App.tsx route /whole-polish and /whole-polish/:resultId"
+    ],
+    "callees": [
+      "API-FEAT-AUTH-SESSION-CLIENT",
+      "API-FEAT-POLISH-WHOLE-CLIENT"
     ]
   },
   "UI-FEAT-RULE-TEMPLATE-UPLOAD-DRAFT-IMPORT-PANEL": {

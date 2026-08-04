@@ -183,6 +183,22 @@ async function initializeDatabase(options = {}) {
       );`,
     );
 
+    await runStatement(
+      database,
+      `CREATE TABLE IF NOT EXISTS whole_polish_results (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        source_type TEXT NOT NULL CHECK (source_type IN ('paste', 'file')),
+        source_filename TEXT,
+        original_text TEXT NOT NULL,
+        polished_text TEXT NOT NULL,
+        level TEXT NOT NULL CHECK (level IN ('basic', 'standard', 'enhanced')),
+        changes_json TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE
+      );`,
+    );
+
     return database;
 
     /**
