@@ -208,7 +208,7 @@
     ],
     "type": "Integration",
     "file_path": "backend/tests/duplication-detect.integration.test.js",
-    "passed": null,
+    "passed": true,
     "first_line": "1",
     "scenario_id": null
   },
@@ -222,7 +222,7 @@
     ],
     "type": "Integration",
     "file_path": "frontend/tests/duplication-detect.test.tsx",
-    "passed": null,
+    "passed": true,
     "first_line": "1",
     "scenario_id": null
   },

@@ -23,14 +23,23 @@ function DuplicationDetectPage() {
 
   const progress = useMemo(() => (submitting ? 68 : report ? 100 : 0), [report, submitting]);
 
-  async function readSelectedFile(file: File) {
+  function readSelectedFile(file: File): Promise<string> {
     if (!ACCEPTED_FILE_EXTENSIONS.includes(getFileExtension(file.name))) {
       throw new Error('仅支持上传 .txt 或 .md 文件');
     }
     if (file.size > MAX_FILE_BYTES) {
       throw new Error('文件大小不能超过 5 MB');
     }
-    return file.text();
+    if (typeof file.text === 'function') {
+      return file.text();
+    }
+
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+      reader.onerror = () => reject(reader.error || new Error('file-read-failed'));
+      reader.readAsText(file, 'utf-8');
+    });
   }
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -64,6 +73,7 @@ function DuplicationDetectPage() {
         source_filename: selectedFile?.name || null,
       });
       setReport(result);
+      setText('');
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '相似度检测失败');
     } finally {
@@ -170,6 +180,16 @@ function DuplicationDetectPage() {
                     <article key={match.sample_id} className="rounded-2xl border border-slate-200 p-4">
                       <h2 className="font-black text-slate-900">{match.title}</h2>
                       <p className="mt-1 text-sm text-slate-500">Jaccard：{match.jaccard_score.toFixed(3)} · 命中字符：{match.matched_character_count}</p>
+                      <div className="mt-3 space-y-2">
+                        {match.segments.map((segment) => (
+                          <blockquote
+                            key={`${segment.source_start}-${segment.sample_start}`}
+                            className="rounded-xl border-l-4 border-blue-500 bg-slate-50 px-3 py-2 text-sm font-semibold leading-6 text-slate-700"
+                          >
+                            {segment.source_excerpt}
+                          </blockquote>
+                        ))}
+                      </div>
                     </article>
                   ))}
                 </div>
