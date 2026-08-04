@@ -217,9 +217,9 @@
   },
   "MOD-POLISH": {
     "req_id": "MOD-POLISH",
-    "state": "UNSEEN",
-    "phase": null,
-    "updated_at": "2026-08-04 15:03:18"
+    "state": "DESIGNED",
+    "phase": "design",
+    "updated_at": "2026-08-04 17:47:54"
   },
   "MOD-QUALITY-PORTRAIT": {
     "req_id": "MOD-QUALITY-PORTRAIT",
