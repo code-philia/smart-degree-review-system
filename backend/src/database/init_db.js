@@ -150,6 +150,22 @@ async function initializeDatabase(options = {}) {
       );`,
     );
 
+    await runStatement(
+      database,
+      `CREATE TABLE IF NOT EXISTS duplication_corpus_samples (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        subject TEXT NOT NULL,
+        year INTEGER NOT NULL,
+        content TEXT NOT NULL,
+        source_type TEXT NOT NULL CHECK (source_type IN ('paste', 'file')),
+        source_filename TEXT,
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (created_by) REFERENCES auth_users(id) ON DELETE RESTRICT
+      );`,
+    );
+
     return database;
 
     /**

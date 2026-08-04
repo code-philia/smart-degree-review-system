@@ -16,6 +16,12 @@ const {
   getDetectionReportForUser,
   listDetectionReportsForUser,
 } = require('./detectionReportService');
+const {
+  MAX_CORPUS_SAMPLE_BYTES,
+  createDuplicationCorpusSample,
+  deleteDuplicationCorpusSample,
+  listDuplicationCorpusSamples,
+} = require('./duplicationCorpusService');
 
 const router = express.Router();
 
@@ -42,6 +48,62 @@ function sendRuleConfigError(error, res, next) {
 router.get('/rules', requireAuth(), (req, res) => {
   res.json({ rules: DEFAULT_NORMATIVE_RULES });
 });
+
+router.get(
+  '/duplication-corpus',
+  requireAuth({ allowedRoles: ['SCHOOL_ADMIN'] }),
+  async (req, res, next) => {
+    try {
+      const samples = await listDuplicationCorpusSamples(req.user);
+      res.json({ samples });
+    } catch (error) {
+      if (error?.status) {
+        res.status(error.status).json({ code: error.status, message: error.message });
+        return;
+      }
+      next(error);
+    }
+  },
+);
+
+router.post(
+  '/duplication-corpus',
+  requireAuth({ allowedRoles: ['SCHOOL_ADMIN'] }),
+  express.json({ limit: MAX_CORPUS_SAMPLE_BYTES }),
+  async (req, res, next) => {
+    try {
+      const sample = await createDuplicationCorpusSample(req.user, req.body || {});
+      res.status(201).json(sample);
+    } catch (error) {
+      if (error?.type === 'entity.too.large') {
+        res.status(413).json({ code: 413, message: '样本文本不能超过 5 MB' });
+        return;
+      }
+      if (error?.status) {
+        res.status(error.status).json({ code: error.status, message: error.message });
+        return;
+      }
+      next(error);
+    }
+  },
+);
+
+router.delete(
+  '/duplication-corpus/:sampleId',
+  requireAuth({ allowedRoles: ['SCHOOL_ADMIN'] }),
+  async (req, res, next) => {
+    try {
+      await deleteDuplicationCorpusSample(req.user, req.params.sampleId);
+      res.status(204).send();
+    } catch (error) {
+      if (error?.status) {
+        res.status(error.status).json({ code: error.status, message: error.message });
+        return;
+      }
+      next(error);
+    }
+  },
+);
 
 router.get(
   '/rule-configs',

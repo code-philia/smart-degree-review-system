@@ -4,15 +4,17 @@
     "req_ids": [
       "FEAT-AUTH-SESSION",
       "FEAT-AUTH-PASSWORD",
-      "FEAT-NORMATIVE-FORMAT-RULES"
+      "FEAT-NORMATIVE-FORMAT-RULES",
+      "FEAT-DUPLICATION-CORPUS"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-CLIENT\", \"req_id\": \"FEAT-NORMATIVE-FORMAT-RULES\", \"type\": \"API\", \"name\": \"ReusedAuthSessionClientForNormativePage\", \"file_path\": \"frontend/src/api/authSession.ts\", \"first_line\": \"1\", \"responsibility\": \"Reuse current-session recovery and cookie-backed auth client calls required by the normative page's shared AuthSessionProvider.\", \"specification\": \"The current node depends on this existing client indirectly through AuthSessionProvider for fetchCurrentSession/login/logout. It keeps session state consistent with protected /api/normative calls, which rely on the same cookie credentials via the shared Axios client.\", \"inputs\": [{\"name\": \"login/session/logout requests\", \"type\": \"typed auth payloads\", \"required\": false}], \"outputs\": [{\"name\": \"SessionResponse or logout completion\", \"type\": \"Promise\"}], \"callers\": [\"frontend/src/auth/AuthSessionProvider.tsx\"], \"callees\": [\"backend/src/auth/authRoutes.js mounted at /api/auth\"], \"test_focus\": [\"A logged-in session recovered by the shared auth client allows the normative page to call protected analysis without a separate auth mechanism.\"]}",
+    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-CLIENT\", \"req_id\": \"FEAT-DUPLICATION-CORPUS\", \"type\": \"API\", \"name\": \"reusedAuthSessionClientForCorpusPage\", \"file_path\": \"frontend/src/api/authSession.ts\", \"first_line\": \"1\", \"responsibility\": \"Reuse current-session recovery and cookie-backed auth client calls consumed by AuthSessionProvider for corpus page access state.\", \"specification\": \"The corpus page depends on the existing AuthSessionProvider path to know whether the user is loading, anonymous, SCHOOL_ADMIN, or a denied authenticated role. This node does not change authenticated state; it consumes the shared session source of truth rather than adding page-local auth.\", \"inputs\": [\"browser cookie session\", \"AuthSessionProvider current-user load\"], \"outputs\": [\"current user role and status for UI access states\"], \"callers\": [\"frontend/src/auth/AuthSessionProvider.tsx\", \"frontend/src/pages/DuplicationCorpusPage.tsx indirectly\"], \"callees\": [\"backend/src/auth/authRoutes.js mounted at /api/auth\"], \"test_focus\": [\"corpus page access rendering follows shared session state\", \"no duplicate frontend auth state is introduced\"]}",
     "file_path": "frontend/src/api/authSession.ts",
     "first_line": "1",
     "implemented": true,
     "callers": [
-      "frontend/src/auth/AuthSessionProvider.tsx"
+      "frontend/src/auth/AuthSessionProvider.tsx",
+      "frontend/src/pages/DuplicationCorpusPage.tsx indirectly"
     ],
     "callees": [
       "backend/src/auth/authRoutes.js mounted at /api/auth"
@@ -36,6 +38,44 @@
     "callees": [
       "backend/src/auth/sessionService.js",
       "backend/src/auth/authMiddleware.js"
+    ]
+  },
+  "API-FEAT-DUPLICATION-CORPUS-CLIENT": {
+    "interface_id": "API-FEAT-DUPLICATION-CORPUS-CLIENT",
+    "req_ids": [
+      "FEAT-DUPLICATION-CORPUS"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-DUPLICATION-CORPUS-CLIENT\", \"req_id\": \"FEAT-DUPLICATION-CORPUS\", \"type\": \"API\", \"name\": \"duplicationCorpusApiClient\", \"file_path\": \"frontend/src/api/duplicationCorpus.ts\", \"first_line\": \"26\", \"responsibility\": \"Expose typed same-origin Axios calls for listing, creating, and deleting local duplication corpus samples.\", \"specification\": \"Uses the shared frontend Axios client from frontend/src/api/index.ts so cookie-backed auth and global response interception remain consistent. fetchDuplicationCorpusSamples() calls GET /api/normative/duplication-corpus and returns samples. createDuplicationCorpusSample(payload) calls POST /api/normative/duplication-corpus with title, subject, year, content, source_type paste/file, and optional source_filename. deleteDuplicationCorpusSample(sampleId) calls DELETE /api/normative/duplication-corpus/:sampleId. No mock responses or fallback arrays are allowed.\", \"inputs\": [\"CreateDuplicationCorpusSampleRequest\", \"sample id\"], \"outputs\": [\"DuplicationCorpusSample[]\", \"DuplicationCorpusSample\", \"void delete completion or propagated Axios error\"], \"callers\": [\"frontend/src/pages/DuplicationCorpusPage.tsx\"], \"callees\": [\"frontend/src/api/index.ts shared Axios client\", \"backend/src/normative/normativeRoutes.js corpus endpoints\"], \"test_focus\": [\"issues same-origin /api/normative requests through shared apiClient\", \"serializes create payload fields exactly\", \"propagates backend 401/403/400/413/501 errors to UI callers\"]}",
+    "file_path": "frontend/src/api/duplicationCorpus.ts",
+    "first_line": "26",
+    "implemented": false,
+    "callers": [
+      "frontend/src/pages/DuplicationCorpusPage.tsx"
+    ],
+    "callees": [
+      "frontend/src/api/index.ts shared Axios client",
+      "backend/src/normative/normativeRoutes.js corpus endpoints"
+    ]
+  },
+  "API-FEAT-DUPLICATION-CORPUS-EXPRESS-ROUTES": {
+    "interface_id": "API-FEAT-DUPLICATION-CORPUS-EXPRESS-ROUTES",
+    "req_ids": [
+      "FEAT-DUPLICATION-CORPUS"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-DUPLICATION-CORPUS-EXPRESS-ROUTES\", \"req_id\": \"FEAT-DUPLICATION-CORPUS\", \"type\": \"API\", \"name\": \"duplicationCorpusExpressRoutes\", \"file_path\": \"backend/src/normative/normativeRoutes.js\", \"first_line\": \"53\", \"responsibility\": \"Provide protected backend HTTP endpoints for school administrators to list, create, and delete local duplication corpus samples under the existing normative route tree.\", \"specification\": \"Adds GET /api/normative/duplication-corpus, POST /api/normative/duplication-corpus, and DELETE /api/normative/duplication-corpus/:sampleId beside existing normative endpoints. Each endpoint must call requireAuth({ allowedRoles: ['SCHOOL_ADMIN'] }) before data is returned or state changes. Anonymous requests are denied by session middleware; declared denied roles STUDENT, SUPERVISOR, and COLLEGE_ADMIN receive 403. POST accepts JSON capped by MAX_CORPUS_SAMPLE_BYTES and returns 201 with the persisted sample. DELETE returns 204 after deletion. Route handlers translate known service status errors to JSON responses and do not implement persistence inline.\", \"inputs\": [\"cookie-backed session\", \"POST JSON body title/subject/year/content/source_type/source_filename\", \"DELETE route param sampleId\"], \"outputs\": [\"GET { samples }\", \"POST persisted sample with id and timestamps\", \"DELETE 204 no content\", \"401/403/400/404/413/501 error JSON where applicable\"], \"callers\": [\"backend/src/app.js /api/normative mount\", \"frontend/src/api/duplicationCorpus.ts\", \"backend integration tests via Supertest\"], \"callees\": [\"backend/src/auth/authMiddleware.js requireAuth\", \"backend/src/normative/duplicationCorpusService.js\"], \"test_focus\": [\"denies anonymous requests before service access\", \"denies STUDENT SUPERVISOR and COLLEGE_ADMIN roles\", \"allows SCHOOL_ADMIN role\", \"returns persisted list response shape\", \"uses request-size limit for sample text\", \"does not create a parallel Express app or route mount\"]}",
+    "file_path": "backend/src/normative/normativeRoutes.js",
+    "first_line": "53",
+    "implemented": false,
+    "callers": [
+      "backend/src/app.js /api/normative mount",
+      "frontend/src/api/duplicationCorpus.ts",
+      "backend integration tests via Supertest"
+    ],
+    "callees": [
+      "backend/src/auth/authMiddleware.js requireAuth",
+      "backend/src/normative/duplicationCorpusService.js"
     ]
   },
   "API-FEAT-NORMATIVE-DETECT-CLIENT": {
@@ -80,16 +120,17 @@
     "req_ids": [
       "FEAT-NORMATIVE-FORMAT-RULES",
       "FLOW-RULE-PUBLISH",
-      "FEAT-RULE-TEMPLATE-UPLOAD"
+      "FEAT-RULE-TEMPLATE-UPLOAD",
+      "FEAT-DUPLICATION-CORPUS"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT\", \"req_id\": \"FEAT-RULE-TEMPLATE-UPLOAD\", \"type\": \"API\", \"name\": \"复用规范性检测后端挂载\", \"file_path\": \"backend/src/app.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse the existing /api/normative Express mount so draft import is served by the single backend-hosted runtime.\", \"specification\": \"The current feature extends backend/src/normative/normativeRoutes.js under the already-mounted /api/normative route. No parallel server, route tree, or frontend dev-server runtime is introduced.\", \"inputs\": {\"http_request\": \"Same-origin request under /api/normative\"}, \"outputs\": {\"mounted_route\": \"POST /api/normative/rule-drafts/import reaches normativeRoutes\"}, \"callers\": [\"backend/src/index.js server startup\", \"frontend/src/api/ruleConfig.ts\"], \"callees\": [\"backend/src/normative/normativeRoutes.js\"], \"test_focus\": [\"E2E/API tests target backend-hosted http://localhost:3000 origin.\", \"Import endpoint is reachable under /api/normative.\"]}",
+    "content": "{\"interface_id\": \"API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT\", \"req_id\": \"FEAT-DUPLICATION-CORPUS\", \"type\": \"API\", \"name\": \"existingNormativeBackendMount\", \"file_path\": \"backend/src/app.js\", \"first_line\": \"17\", \"responsibility\": \"Reuse the existing /api/normative Express mount so corpus endpoints are served by the single backend-hosted runtime.\", \"specification\": \"The current node extends backend/src/normative/normativeRoutes.js under app.use('/api/normative', normativeRoutes). No parallel server, route tree, or frontend dev-server runtime is introduced. The backend continues to serve frontend/dist and API routes on port 3000.\", \"inputs\": [\"Express app startup\", \"requests under /api/normative/duplication-corpus\"], \"outputs\": [\"mounted corpus API endpoints on single origin\"], \"callers\": [\"backend/src/index.js server startup\", \"frontend/src/api/duplicationCorpus.ts\"], \"callees\": [\"backend/src/normative/normativeRoutes.js\"], \"test_focus\": [\"corpus API is reachable under /api/normative on backend-hosted origin\", \"no additional app/server mount is required\"]}",
     "file_path": "backend/src/app.js",
-    "first_line": "1",
+    "first_line": "17",
     "implemented": true,
     "callers": [
       "backend/src/index.js server startup",
-      "frontend/src/api/ruleConfig.ts"
+      "frontend/src/api/duplicationCorpus.ts"
     ],
     "callees": [
       "backend/src/normative/normativeRoutes.js"
@@ -306,6 +347,44 @@
       "sqlite3 database via shared runStatement/exec helpers"
     ]
   },
+  "DB-FEAT-DUPLICATION-CORPUS-REPOSITORY": {
+    "interface_id": "DB-FEAT-DUPLICATION-CORPUS-REPOSITORY",
+    "req_ids": [
+      "FEAT-DUPLICATION-CORPUS"
+    ],
+    "type": "DB",
+    "content": "{\"interface_id\": \"DB-FEAT-DUPLICATION-CORPUS-REPOSITORY\", \"req_id\": \"FEAT-DUPLICATION-CORPUS\", \"type\": \"DB\", \"name\": \"duplicationCorpusRepository\", \"file_path\": \"backend/src/normative/duplicationCorpusRepository.js\", \"first_line\": \"1\", \"responsibility\": \"Persist and retrieve duplication corpus samples through the shared SQLite runtime helpers.\", \"specification\": \"Uses backend/src/database/index.js all/get/run helpers and crypto.randomUUID; it must not open a separate SQLite connection. createCorpusSample(sample) inserts into duplication_corpus_samples and returns the stored DTO. listCorpusSamples() returns all rows ordered by created_at descending. deleteCorpusSample(sampleId) removes one row and returns whether it existed. parseCorpusRow(row) maps SQLite rows to API/service DTO shape with nullable source_filename.\", \"inputs\": [\"sample persistence object\", \"sample id\"], \"outputs\": [\"DuplicationCorpusSample\", \"DuplicationCorpusSample[]\", \"boolean delete result\"], \"callers\": [\"backend/src/normative/duplicationCorpusService.js\", \"future duplication similarity service\"], \"callees\": [\"backend/src/database/index.js run/get/all\", \"backend/src/database/init_db.js duplication_corpus_samples schema\"], \"test_focus\": [\"uses isolated test DB harness via shared scaffold\", \"inserts all required metadata and content\", \"orders list by newest first\", \"maps null source_filename consistently\", \"deletes only requested sample id\"]}",
+    "file_path": "backend/src/normative/duplicationCorpusRepository.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "backend/src/normative/duplicationCorpusService.js",
+      "future duplication similarity service"
+    ],
+    "callees": [
+      "backend/src/database/index.js run/get/all",
+      "backend/src/database/init_db.js duplication_corpus_samples schema"
+    ]
+  },
+  "DB-FEAT-DUPLICATION-CORPUS-SCHEMA": {
+    "interface_id": "DB-FEAT-DUPLICATION-CORPUS-SCHEMA",
+    "req_ids": [
+      "FEAT-DUPLICATION-CORPUS"
+    ],
+    "type": "DB",
+    "content": "{\"interface_id\": \"DB-FEAT-DUPLICATION-CORPUS-SCHEMA\", \"req_id\": \"FEAT-DUPLICATION-CORPUS\", \"type\": \"DB\", \"name\": \"duplicationCorpusSchema\", \"file_path\": \"backend/src/database/init_db.js\", \"first_line\": \"155\", \"responsibility\": \"Extend the centralized SQLite schema with durable local prototype corpus sample storage.\", \"specification\": \"Creates duplication_corpus_samples idempotently in initializeDatabase. The table stores id, title, subject, year, content, source_type constrained to paste/file, optional source_filename, created_by, and created_at. created_by references auth_users(id) so samples remain tied to a real authenticated school administrator. Schema lifecycle stays in backend/src/database/init_db.js and tests must use the shared database harness rather than one-off DB setup.\", \"inputs\": [\"initializeDatabase lifecycle\"], \"outputs\": [\"SQLite table duplication_corpus_samples\"], \"callers\": [\"backend/src/database/index.js initializeDatabase\", \"backend/src/normative/duplicationCorpusRepository.js\", \"backend tests using createTestDatabaseHarness\"], \"callees\": [\"sqlite3 through centralized runStatement\"], \"test_focus\": [\"schema initializes idempotently\", \"table is available in runtime and isolated test DBs\", \"source_type check rejects unsupported values\", \"created_by foreign key ties samples to auth_users\"]}",
+    "file_path": "backend/src/database/init_db.js",
+    "first_line": "155",
+    "implemented": false,
+    "callers": [
+      "backend/src/database/index.js initializeDatabase",
+      "backend/src/normative/duplicationCorpusRepository.js",
+      "backend tests using createTestDatabaseHarness"
+    ],
+    "callees": [
+      "sqlite3 through centralized runStatement"
+    ]
+  },
   "DB-FEAT-NORMATIVE-DETECT-TASK-REPOSITORY": {
     "interface_id": "DB-FEAT-NORMATIVE-DETECT-TASK-REPOSITORY",
     "req_ids": [
@@ -442,15 +521,16 @@
       "FLOW-RULE-PUBLISH",
       "FEAT-RULE-TEMPLATE-UPLOAD",
       "FEAT-NORMATIVE-DETECT",
-      "FEAT-NORMATIVE-REPORT"
+      "FEAT-NORMATIVE-REPORT",
+      "FEAT-DUPLICATION-CORPUS"
     ],
     "type": "FUNC",
-    "content": "{\"interface_id\": \"FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE\", \"req_id\": \"FEAT-NORMATIVE-REPORT\", \"type\": \"FUNC\", \"name\": \"Reused report authorization middleware\", \"file_path\": \"backend/src/auth/authMiddleware.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse the server-side authentication and role authorization boundary before report history, report detail, or report download data is returned.\", \"specification\": \"Report routes call requireAuth({ allowedRoles: ['STUDENT','SUPERVISOR','SCHOOL_ADMIN','COLLEGE_ADMIN'] }). Anonymous users are denied before data is returned. No declared role is excluded by role, but resource scope is enforced downstream by querying only rows owned by the authenticated user id.\", \"inputs\": {\"session_cookie\": \"Existing auth session cookie\", \"allowedRoles\": [\"STUDENT\", \"SUPERVISOR\", \"SCHOOL_ADMIN\", \"COLLEGE_ADMIN\"]}, \"outputs\": {\"req.user\": \"Authenticated user for report ownership checks\", \"denial\": \"401/403 middleware response for invalid access\"}, \"callers\": [\"backend/src/normative/normativeRoutes.js report endpoints\"], \"callees\": [\"backend/src/auth/sessionService.js\"], \"test_focus\": \"API tests should prove UI visibility is not the permission boundary by asserting anonymous requests cannot list, read, or download reports.\"}",
+    "content": "{\"interface_id\": \"FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE\", \"req_id\": \"FEAT-DUPLICATION-CORPUS\", \"type\": \"FUNC\", \"name\": \"reusedRequireAuthForCorpus\", \"file_path\": \"backend/src/auth/authMiddleware.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse the server-side authentication and role authorization boundary before corpus data is returned or changed.\", \"specification\": \"Corpus routes call requireAuth({ allowedRoles: ['SCHOOL_ADMIN'] }). Anonymous requests must be denied before route service logic returns data or mutates SQLite. Authenticated STUDENT, SUPERVISOR, and COLLEGE_ADMIN users are denied by role. SCHOOL_ADMIN users may proceed to service-level validation and persistence. The corpus feature does not alter session state.\", \"inputs\": [\"HttpOnly session cookie\", \"allowedRoles ['SCHOOL_ADMIN']\"], \"outputs\": [\"req.user for authorized school admin\", \"401 anonymous response\", \"403 denied-role response\"], \"callers\": [\"backend/src/normative/normativeRoutes.js corpus endpoints\"], \"callees\": [\"backend/src/auth/sessionService.js\"], \"test_focus\": [\"anonymous access denied\", \"denied declared roles receive 403\", \"SCHOOL_ADMIN reaches corpus service\"]}",
     "file_path": "backend/src/auth/authMiddleware.js",
     "first_line": "1",
     "implemented": true,
     "callers": [
-      "backend/src/normative/normativeRoutes.js report endpoints"
+      "backend/src/normative/normativeRoutes.js corpus endpoints"
     ],
     "callees": [
       "backend/src/auth/sessionService.js"
@@ -475,6 +555,23 @@
       "backend/src/auth/sessionRepository.js",
       "bcrypt",
       "crypto"
+    ]
+  },
+  "FUNC-FEAT-DUPLICATION-CORPUS-SERVICE": {
+    "interface_id": "FUNC-FEAT-DUPLICATION-CORPUS-SERVICE",
+    "req_ids": [
+      "FEAT-DUPLICATION-CORPUS"
+    ],
+    "type": "FUNC",
+    "content": "{\"interface_id\": \"FUNC-FEAT-DUPLICATION-CORPUS-SERVICE\", \"req_id\": \"FEAT-DUPLICATION-CORPUS\", \"type\": \"FUNC\", \"name\": \"duplicationCorpusService\", \"file_path\": \"backend/src/normative/duplicationCorpusService.js\", \"first_line\": \"15\", \"responsibility\": \"Own school-admin authorization-aware business rules for validating, creating, listing, and deleting local duplication corpus samples.\", \"specification\": \"Exports MAX_CORPUS_SAMPLE_BYTES, ALLOWED_CORPUS_FILE_EXTENSIONS, listDuplicationCorpusSamples(user), createDuplicationCorpusSample(user, payload), and deleteDuplicationCorpusSample(user, sampleId). The service rejects missing users with 401 and any role other than SCHOOL_ADMIN with 403 even though routes also enforce requireAuth. Full implementation must validate non-empty UTF-8 content, non-empty title and subject, numeric reasonable year, source_type paste/file, and .txt/.md filename when source_type is file. Create persists samples with created_by from user.id. Delete removes existing samples and should return a controlled 404 for missing ids during implementation. The service is the future integration point for similarity detection to read local prototype corpus records.\", \"inputs\": [\"authenticated user object\", \"create payload\", \"sample id\"], \"outputs\": [\"DuplicationCorpusSample[]\", \"created DuplicationCorpusSample\", \"delete completion\", \"status-coded service errors\"], \"callers\": [\"backend/src/normative/normativeRoutes.js\"], \"callees\": [\"backend/src/normative/duplicationCorpusRepository.js\"], \"test_focus\": [\"enforces SCHOOL_ADMIN independent of UI visibility\", \"rejects blank content/title/subject and invalid year\", \"accepts paste and .txt/.md file metadata\", \"persists created_by as authenticated user id\", \"delegates all SQLite access to repository\", \"returns records usable by later similarity detection\"]}",
+    "file_path": "backend/src/normative/duplicationCorpusService.js",
+    "first_line": "15",
+    "implemented": false,
+    "callers": [
+      "backend/src/normative/normativeRoutes.js"
+    ],
+    "callees": [
+      "backend/src/normative/duplicationCorpusRepository.js"
     ]
   },
   "FUNC-FEAT-NORMATIVE-DETECT-TASK-SERVICE": {
@@ -660,6 +757,25 @@
     ],
     "callees": [
       "frontend/src/auth/AuthSessionProvider.tsx"
+    ]
+  },
+  "UI-FEAT-DUPLICATION-CORPUS-PAGE": {
+    "interface_id": "UI-FEAT-DUPLICATION-CORPUS-PAGE",
+    "req_ids": [
+      "FEAT-DUPLICATION-CORPUS"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-DUPLICATION-CORPUS-PAGE\", \"req_id\": \"FEAT-DUPLICATION-CORPUS\", \"type\": \"UI\", \"name\": \"DuplicationCorpusPage\", \"file_path\": \"frontend/src/pages/DuplicationCorpusPage.tsx\", \"first_line\": \"19\", \"responsibility\": \"Provide the school-admin-facing page for adding, viewing, and deleting local duplication corpus samples through the real authenticated API path.\", \"specification\": \"Renders loading, anonymous login prompt, non-SCHOOL_ADMIN denial, empty, error, form, upload, list, and delete states. Accepts pasted UTF-8 text or a .txt/.md file read in-browser, captures title, subject, and year, and calls the shared duplication corpus API client. It must not render hardcoded sample rows or fallback arrays; listed records come from GET /api/normative/duplication-corpus. UI hiding is supplementary only; server authorization remains authoritative. The page explicitly states samples are SQLite-backed local prototype comparison data and not a real school paper library integration.\", \"inputs\": [\"AuthSessionProvider status and user role\", \"title string\", \"subject string\", \"year numeric string\", \"content string from pasted text or File.text()\", \"optional .txt/.md selected file name\", \"delete sample id\"], \"outputs\": [\"school admin corpus management UI\", \"create request to frontend/src/api/duplicationCorpus.ts\", \"delete request to frontend/src/api/duplicationCorpus.ts\", \"loading/empty/error/access-denied states\"], \"callers\": [\"frontend/src/App.tsx route /duplication-corpus\"], \"callees\": [\"frontend/src/api/duplicationCorpus.ts\", \"frontend/src/auth/AuthSessionProvider.tsx\", \"frontend/src/api/authSession.ts\"], \"test_focus\": [\"renders login prompt for anonymous state\", \"renders access-denied state for non-SCHOOL_ADMIN users\", \"loads samples from API for SCHOOL_ADMIN without fallback rows\", \"reads accepted .txt/.md files into textarea\", \"rejects unsupported extensions and files over 5 MB client-side\", \"submits title subject year content and source metadata to API\", \"removes deleted sample from list only after API success\"]}",
+    "file_path": "frontend/src/pages/DuplicationCorpusPage.tsx",
+    "first_line": "19",
+    "implemented": false,
+    "callers": [
+      "frontend/src/App.tsx route /duplication-corpus"
+    ],
+    "callees": [
+      "frontend/src/api/duplicationCorpus.ts",
+      "frontend/src/auth/AuthSessionProvider.tsx",
+      "frontend/src/api/authSession.ts"
     ]
   },
   "UI-FEAT-NORMATIVE-DETECT-PAGE": {

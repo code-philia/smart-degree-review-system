@@ -126,6 +126,57 @@
     "first_line": "1",
     "scenario_id": null
   },
+  "FEAT-DUPLICATION-CORPUS:E2E:SCENARIO:001": {
+    "test_id": "FEAT-DUPLICATION-CORPUS:E2E:SCENARIO:001",
+    "req_id": "FEAT-DUPLICATION-CORPUS",
+    "interface_ids": [
+      "UI-FEAT-DUPLICATION-CORPUS-PAGE",
+      "API-FEAT-DUPLICATION-CORPUS-CLIENT",
+      "API-FEAT-DUPLICATION-CORPUS-EXPRESS-ROUTES",
+      "FUNC-FEAT-DUPLICATION-CORPUS-SERVICE",
+      "DB-FEAT-DUPLICATION-CORPUS-REPOSITORY",
+      "DB-FEAT-DUPLICATION-CORPUS-SCHEMA",
+      "API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT",
+      "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE",
+      "API-FEAT-AUTH-SESSION-CLIENT"
+    ],
+    "type": "E2E",
+    "file_path": "backend/test-e2e/duplication-corpus.spec.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-DUPLICATION-CORPUS:INTEGRATION:BACKEND:001": {
+    "test_id": "FEAT-DUPLICATION-CORPUS:INTEGRATION:BACKEND:001",
+    "req_id": "FEAT-DUPLICATION-CORPUS",
+    "interface_ids": [
+      "API-FEAT-DUPLICATION-CORPUS-EXPRESS-ROUTES",
+      "FUNC-FEAT-DUPLICATION-CORPUS-SERVICE",
+      "DB-FEAT-DUPLICATION-CORPUS-REPOSITORY",
+      "DB-FEAT-DUPLICATION-CORPUS-SCHEMA",
+      "API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT",
+      "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/duplication-corpus.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-DUPLICATION-CORPUS:INTEGRATION:FRONTEND:001": {
+    "test_id": "FEAT-DUPLICATION-CORPUS:INTEGRATION:FRONTEND:001",
+    "req_id": "FEAT-DUPLICATION-CORPUS",
+    "interface_ids": [
+      "UI-FEAT-DUPLICATION-CORPUS-PAGE",
+      "API-FEAT-DUPLICATION-CORPUS-CLIENT",
+      "API-FEAT-AUTH-SESSION-CLIENT"
+    ],
+    "type": "Integration",
+    "file_path": "frontend/tests/duplication-corpus.test.tsx",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
   "FEAT-NORMATIVE-DETECT:E2E:SCENARIOS:001": {
     "test_id": "FEAT-NORMATIVE-DETECT:E2E:SCENARIOS:001",
     "req_id": "FEAT-NORMATIVE-DETECT",
