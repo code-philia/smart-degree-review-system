@@ -214,7 +214,7 @@
     ],
     "type": "Integration",
     "file_path": "backend/tests/rule-template-upload.integration.test.js",
-    "passed": null,
+    "passed": true,
     "first_line": "1",
     "scenario_id": null
   },
@@ -229,7 +229,7 @@
     ],
     "type": "Integration",
     "file_path": "frontend/tests/rule-template-upload.test.tsx",
-    "passed": null,
+    "passed": true,
     "first_line": "1",
     "scenario_id": null
   },

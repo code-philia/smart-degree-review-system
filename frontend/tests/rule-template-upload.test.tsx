@@ -145,6 +145,7 @@ describe('FEAT-RULE-TEMPLATE-UPLOAD frontend route and import panel contract', (
 
     const { container } = renderRuleConfigRoute();
 
+    await screen.findByText(/JSON 规则集导入草稿/);
     await user.upload(ruleDraftFileInput(container), file);
     await user.click(screen.getByRole('button', { name: '导入规则草稿' }));
 
@@ -159,6 +160,7 @@ describe('FEAT-RULE-TEMPLATE-UPLOAD frontend route and import panel contract', (
 
     const { container } = renderRuleConfigRoute();
 
+    await screen.findByText(/JSON 规则集导入草稿/);
     await user.upload(ruleDraftFileInput(container), jsonFile('invalid-rules.json'));
     await user.click(screen.getByRole('button', { name: '导入规则草稿' }));
 

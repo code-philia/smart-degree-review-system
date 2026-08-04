@@ -11,8 +11,16 @@ const { importRuleDraftTemplate, MAX_RULE_DRAFT_IMPORT_BYTES } = require('./rule
 const router = express.Router();
 
 function sendRuleConfigError(error, res, next) {
+  if (error?.type === 'entity.too.large') {
+    res.status(413).json({ code: 413, message: '文件大小不能超过 1 MB' });
+    return;
+  }
   if (error?.status) {
-    res.status(error.status).json({ code: error.status, message: error.message });
+    const body = { code: error.status, message: error.message };
+    if (Array.isArray(error.errors)) {
+      body.errors = error.errors;
+    }
+    res.status(error.status).json(body);
     return;
   }
   if (error?.code === 'RULE_CONFIG_SERVICE_NOT_IMPLEMENTED' || error?.code === 'RULE_DRAFT_IMPORT_NOT_IMPLEMENTED') {
