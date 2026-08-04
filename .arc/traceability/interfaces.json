@@ -38,6 +38,43 @@
       "backend/src/auth/authMiddleware.js"
     ]
   },
+  "API-FEAT-NORMATIVE-DETECT-CLIENT": {
+    "interface_id": "API-FEAT-NORMATIVE-DETECT-CLIENT",
+    "req_ids": [
+      "FEAT-NORMATIVE-DETECT"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-NORMATIVE-DETECT-CLIENT\", \"req_id\": \"FEAT-NORMATIVE-DETECT\", \"type\": \"API\", \"name\": \"Normative Detection Frontend Client\", \"file_path\": \"frontend/src/api/normativeRules.ts\", \"first_line\": \"1\", \"responsibility\": \"Expose typed frontend DTOs and same-origin Axios call for creating persisted normative detection tasks.\", \"specification\": \"Adds DetectionTaskStatus, CreateDetectionTaskRequest, DetectionTaskResponse, and createNormativeDetectionTask(payload). The function posts to /api/normative/detection-tasks through the shared Axios client so global interceptors and cookie-backed auth behavior remain consistent. Request payload includes text, source_type paste/file, optional source_filename, and future selected_rule_ids. Response includes task id, user_id, completed status, source metadata, original_text, rule_snapshot, issues, severity_counts, and created_at.\", \"inputs\": {\"payload\": \"CreateDetectionTaskRequest\"}, \"outputs\": {\"response\": \"Promise<DetectionTaskResponse>\"}, \"callers\": [\"frontend/src/pages/NormativeCheckPage.tsx\"], \"callees\": [\"frontend/src/api/index.ts shared Axios client\", \"backend/src/normative/normativeRoutes.js POST /api/normative/detection-tasks\"], \"test_focus\": [\"Posts to the same-origin /normative/detection-tasks endpoint through the shared Axios instance.\", \"Type contract exposes task persistence fields required by UI and backend tests.\"]}",
+    "file_path": "frontend/src/api/normativeRules.ts",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "frontend/src/pages/NormativeCheckPage.tsx"
+    ],
+    "callees": [
+      "frontend/src/api/index.ts shared Axios client",
+      "backend/src/normative/normativeRoutes.js POST /api/normative/detection-tasks"
+    ]
+  },
+  "API-FEAT-NORMATIVE-DETECT-EXPRESS-ROUTE": {
+    "interface_id": "API-FEAT-NORMATIVE-DETECT-EXPRESS-ROUTE",
+    "req_ids": [
+      "FEAT-NORMATIVE-DETECT"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-NORMATIVE-DETECT-EXPRESS-ROUTE\", \"req_id\": \"FEAT-NORMATIVE-DETECT\", \"type\": \"API\", \"name\": \"Create Normative Detection Task Route\", \"file_path\": \"backend/src/normative/normativeRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Provide the protected HTTP boundary for creating persisted normative detection tasks under the existing /api/normative route tree.\", \"specification\": \"Adds POST /api/normative/detection-tasks beside existing normative endpoints. The route uses requireAuth({ allowedRoles: ['STUDENT','SUPERVISOR','SCHOOL_ADMIN','COLLEGE_ADMIN'] }) before creating tasks, so anonymous requests receive the shared auth denial and all declared roles are allowed. It accepts JSON payloads up to MAX_DETECTION_TEXT_BYTES, delegates task creation to detectionTaskService.createDetectionTask(req.user, req.body), returns 201 with the saved task, maps oversized payloads to a readable 413 error, and maps service validation errors to status/message JSON. It reuses backend/src/app.js's existing /api/normative mount and does not create a parallel route tree.\", \"inputs\": {\"headers\": \"Cookie-backed auth session\", \"body\": \"CreateDetectionTaskRequest JSON\"}, \"outputs\": {\"success\": \"201 DetectionTaskResponse\", \"errors\": \"401 anonymous, 400 invalid text/file metadata, 413 over 5 MB, 500 unexpected errors\"}, \"callers\": [\"frontend/src/api/normativeRules.ts createNormativeDetectionTask\", \"backend/src/app.js /api/normative mount\"], \"callees\": [\"backend/src/auth/authMiddleware.js requireAuth\", \"backend/src/normative/detectionTaskService.js createDetectionTask\"], \"test_focus\": [\"Anonymous requests cannot create tasks.\", \"All declared authenticated roles can reach the service boundary.\", \"Oversized JSON bodies return a user-understandable 413 and do not create tasks.\", \"Successful requests return 201 and a completed persisted task.\"]}",
+    "file_path": "backend/src/normative/normativeRoutes.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "frontend/src/api/normativeRules.ts createNormativeDetectionTask",
+      "backend/src/app.js /api/normative mount"
+    ],
+    "callees": [
+      "backend/src/auth/authMiddleware.js requireAuth",
+      "backend/src/normative/detectionTaskService.js createDetectionTask"
+    ]
+  },
   "API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT": {
     "interface_id": "API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT",
     "req_ids": [
@@ -229,6 +266,41 @@
       "sqlite3 database via shared runStatement/exec helpers"
     ]
   },
+  "DB-FEAT-NORMATIVE-DETECT-TASK-REPOSITORY": {
+    "interface_id": "DB-FEAT-NORMATIVE-DETECT-TASK-REPOSITORY",
+    "req_ids": [
+      "FEAT-NORMATIVE-DETECT"
+    ],
+    "type": "DB",
+    "content": "{\"interface_id\": \"DB-FEAT-NORMATIVE-DETECT-TASK-REPOSITORY\", \"req_id\": \"FEAT-NORMATIVE-DETECT\", \"type\": \"DB\", \"name\": \"Normative Detection Task Repository\", \"file_path\": \"backend/src/normative/detectionTaskRepository.js\", \"first_line\": \"1\", \"responsibility\": \"Persist normative detection task records through the shared SQLite runtime helpers.\", \"specification\": \"Exports createDetectionTask(task). It generates an id and created_at when absent, inserts into normative_detection_tasks via backend/src/database run helper, serializes rule_snapshot, issues, and severity_counts as JSON, and returns the saved task DTO. It must not open a separate SQLite connection or create one-off reset helpers.\", \"inputs\": {\"task\": \"user_id, status, source_type, source_filename, original_text, rule_snapshot, issues, severity_counts\"}, \"outputs\": {\"task\": \"Saved DetectionTaskResponse DTO\"}, \"callers\": [\"backend/src/normative/detectionTaskService.js\"], \"callees\": [\"backend/src/database/index.js run\"], \"test_focus\": [\"Successful inserts create one durable row with original text and JSON snapshots.\", \"Repository uses shared database helpers and isolated test DB harness compatibility.\", \"No row is inserted when upstream validation rejects the payload.\"]}",
+    "file_path": "backend/src/normative/detectionTaskRepository.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "backend/src/normative/detectionTaskService.js"
+    ],
+    "callees": [
+      "backend/src/database/index.js run"
+    ]
+  },
+  "DB-FEAT-NORMATIVE-DETECT-TASK-SCHEMA": {
+    "interface_id": "DB-FEAT-NORMATIVE-DETECT-TASK-SCHEMA",
+    "req_ids": [
+      "FEAT-NORMATIVE-DETECT"
+    ],
+    "type": "DB",
+    "content": "{\"interface_id\": \"DB-FEAT-NORMATIVE-DETECT-TASK-SCHEMA\", \"req_id\": \"FEAT-NORMATIVE-DETECT\", \"type\": \"DB\", \"name\": \"Normative Detection Task Schema\", \"file_path\": \"backend/src/database/init_db.js\", \"first_line\": \"1\", \"responsibility\": \"Extend the centralized SQLite schema with durable storage for normative detection task records.\", \"specification\": \"Creates normative_detection_tasks idempotently during initializeDatabase. The table stores id, user_id, status constrained to pending/running/completed, source_type constrained to paste/file, optional source_filename, original_text, rule_snapshot_json, issues_json, severity_counts_json, created_at, and a foreign key to auth_users with cascade delete. Schema creation stays in the shared database bootstrap and is reusable by the test harness.\", \"inputs\": {\"database\": \"Shared SQLite database from backend/src/database/init_db.js\"}, \"outputs\": {\"table\": \"normative_detection_tasks\"}, \"callers\": [\"backend/src/database/index.js initializeDatabase\", \"backend/src/normative/detectionTaskRepository.js\"], \"callees\": [\"sqlite3 via centralized runStatement\"], \"test_focus\": [\"Schema initializes idempotently in isolated test databases.\", \"Status and source_type constraints reject invalid values.\", \"Task rows are associated with authenticated users.\"]}",
+    "file_path": "backend/src/database/init_db.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "backend/src/database/index.js initializeDatabase",
+      "backend/src/normative/detectionTaskRepository.js"
+    ],
+    "callees": [
+      "sqlite3 via centralized runStatement"
+    ]
+  },
   "DB-FEAT-RULE-TEMPLATE-UPLOAD-DRAFT-REPOSITORY": {
     "interface_id": "DB-FEAT-RULE-TEMPLATE-UPLOAD-DRAFT-REPOSITORY",
     "req_ids": [
@@ -308,15 +380,16 @@
       "FEAT-AUTH-PASSWORD",
       "FEAT-NORMATIVE-FORMAT-RULES",
       "FLOW-RULE-PUBLISH",
-      "FEAT-RULE-TEMPLATE-UPLOAD"
+      "FEAT-RULE-TEMPLATE-UPLOAD",
+      "FEAT-NORMATIVE-DETECT"
     ],
     "type": "FUNC",
-    "content": "{\"interface_id\": \"FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE\", \"req_id\": \"FEAT-RULE-TEMPLATE-UPLOAD\", \"type\": \"FUNC\", \"name\": \"复用认证与角色授权中间件\", \"file_path\": \"backend/src/auth/authMiddleware.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse the server-side authentication and role authorization boundary before rule draft import can read or mutate data.\", \"specification\": \"POST /api/normative/rule-drafts/import must call requireAuth({ allowedRoles: ['SCHOOL_ADMIN','COLLEGE_ADMIN'] }). It loads the cookie-backed session, returns 401 for anonymous users, returns 403 for authenticated denied roles STUDENT/SUPERVISOR, and attaches req.user for service-level college-scope checks.\", \"inputs\": {\"cookie_session\": \"HttpOnly auth session cookie\"}, \"outputs\": {\"req.user\": \"Authenticated user for allowed roles\", \"401\": \"Anonymous access denied\", \"403\": \"Role denied\"}, \"callers\": [\"backend/src/normative/normativeRoutes.js\"], \"callees\": [\"backend/src/auth/sessionService.js\"], \"test_focus\": [\"Authorization is enforced at backend route, not only UI.\", \"Denied declared roles cannot create drafts.\"]}",
+    "content": "{\"interface_id\": \"FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE\", \"req_id\": \"FEAT-NORMATIVE-DETECT\", \"type\": \"FUNC\", \"name\": \"Shared Auth Authorization Middleware\", \"file_path\": \"backend/src/auth/authMiddleware.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse the server-side authentication and role authorization boundary before detection tasks are created.\", \"specification\": \"POST /api/normative/detection-tasks calls requireAuth({ allowedRoles: ['STUDENT','SUPERVISOR','SCHOOL_ADMIN','COLLEGE_ADMIN'] }). Anonymous users are denied before data is returned or state changes. No declared role is excluded; data scope is the authenticated user's own task creation plus their college_id for effective rule resolution.\", \"inputs\": {\"request\": \"Express request with session cookie\"}, \"outputs\": {\"req.user_or_error\": \"Authenticated user or 401/403 response\"}, \"callers\": [\"backend/src/normative/normativeRoutes.js POST /detection-tasks\"], \"callees\": [\"backend/src/auth/sessionService.js\"], \"test_focus\": [\"Anonymous users cannot create persisted detection tasks.\", \"Allowed declared roles pass authorization.\", \"Authorization is enforced server-side, not only by UI visibility.\"]}",
     "file_path": "backend/src/auth/authMiddleware.js",
     "first_line": "1",
     "implemented": true,
     "callers": [
-      "backend/src/normative/normativeRoutes.js"
+      "backend/src/normative/normativeRoutes.js POST /detection-tasks"
     ],
     "callees": [
       "backend/src/auth/sessionService.js"
@@ -343,20 +416,39 @@
       "crypto"
     ]
   },
+  "FUNC-FEAT-NORMATIVE-DETECT-TASK-SERVICE": {
+    "interface_id": "FUNC-FEAT-NORMATIVE-DETECT-TASK-SERVICE",
+    "req_ids": [
+      "FEAT-NORMATIVE-DETECT"
+    ],
+    "type": "FUNC",
+    "content": "{\"interface_id\": \"FUNC-FEAT-NORMATIVE-DETECT-TASK-SERVICE\", \"req_id\": \"FEAT-NORMATIVE-DETECT\", \"type\": \"FUNC\", \"name\": \"Normative Detection Task Service\", \"file_path\": \"backend/src/normative/detectionTaskService.js\", \"first_line\": \"1\", \"responsibility\": \"Coordinate validation, effective rule snapshot resolution, synchronous analysis, status transition semantics, severity counting, and persistence for detection tasks.\", \"specification\": \"Exports MAX_DETECTION_TEXT_BYTES, ALLOWED_DETECTION_FILE_EXTENSIONS, DETECTION_STATUSES ['pending','running','completed'], and createDetectionTask(user, payload). The service rejects unauthenticated callers and blank text, resolves the current effective school/college rules through resolveRulesForAnalysis({ college_id: user.collegeId }), runs analysis in the same backend request through analyzeDefaultNormativeRules, computes severity_counts from returned issues, and persists one completed task through detectionTaskRepository. Later implementation may make pending/running internal transition records explicit, but external responses must not fabricate incremental progress percentages.\", \"inputs\": {\"user\": \"Authenticated user with id, role, and optional collegeId\", \"payload\": \"text, source_type, optional source_filename, optional selected_rule_ids\"}, \"outputs\": {\"task\": \"Persisted DetectionTaskResponse with completed status, rule snapshot, issues, severity counts, and created_at\"}, \"callers\": [\"backend/src/normative/normativeRoutes.js POST /detection-tasks\"], \"callees\": [\"backend/src/normative/ruleConfigService.js resolveRulesForAnalysis\", \"backend/src/normative/normativeService.js analyzeDefaultNormativeRules\", \"backend/src/normative/detectionTaskRepository.js createDetectionTask\"], \"test_focus\": [\"Blank text is rejected before persistence.\", \"Effective rules are snapshotted from current school/college configuration.\", \"Returned issues include line and column positions from the analyzer.\", \"Severity counts match the persisted issue list.\", \"A task is saved only after successful validation and analysis.\"]}",
+    "file_path": "backend/src/normative/detectionTaskService.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "backend/src/normative/normativeRoutes.js POST /detection-tasks"
+    ],
+    "callees": [
+      "backend/src/normative/ruleConfigService.js resolveRulesForAnalysis",
+      "backend/src/normative/normativeService.js analyzeDefaultNormativeRules",
+      "backend/src/normative/detectionTaskRepository.js createDetectionTask"
+    ]
+  },
   "FUNC-FEAT-NORMATIVE-FORMAT-RULES-ENGINE": {
     "interface_id": "FUNC-FEAT-NORMATIVE-FORMAT-RULES-ENGINE",
     "req_ids": [
       "FEAT-NORMATIVE-FORMAT-RULES",
-      "FLOW-RULE-PUBLISH"
+      "FLOW-RULE-PUBLISH",
+      "FEAT-NORMATIVE-DETECT"
     ],
     "type": "FUNC",
-    "content": "{\"interface_id\": \"FUNC-FEAT-NORMATIVE-FORMAT-RULES-ENGINE\", \"req_id\": \"FLOW-RULE-PUBLISH\", \"type\": \"FUNC\", \"name\": \"Existing default normative rule engine\", \"file_path\": \"backend/src/normative/normativeService.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse the dependency-owned national default rule catalog and analysis engine as the lowest-precedence baseline for school and college rule configuration.\", \"specification\": \"DEFAULT_NORMATIVE_RULES remains the national/default baseline. The current node service must merge persisted school and college overrides over this default list by rule_id. For TEXT-LONG-SENTENCE and other configurable rules, the implementation should route effective match_params into analysis so a college override can affect only that college while other colleges inherit the school value.\", \"inputs\": [\"Raw thesis text\", \"Future effective rule configuration resolved by ruleConfigService\"], \"outputs\": [\"Normative issues generated with rule_id/category/severity/message/suggestion\"], \"callers\": [\"backend/src/normative/normativeRoutes.js\", \"backend/src/normative/ruleConfigService.js\"], \"callees\": [], \"test_focus\": [\"Configured TEXT-LONG-SENTENCE threshold changes analysis for scoped college only\", \"Default baseline remains available when no school/college override exists\"]}",
+    "content": "{\"interface_id\": \"FUNC-FEAT-NORMATIVE-FORMAT-RULES-ENGINE\", \"req_id\": \"FEAT-NORMATIVE-DETECT\", \"type\": \"FUNC\", \"name\": \"Normative Format Analysis Engine\", \"file_path\": \"backend/src/normative/normativeService.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse the existing normative issue detection engine to produce line/column issue lists for saved tasks.\", \"specification\": \"DetectionTaskService calls analyzeDefaultNormativeRules(text) during the same backend request. The current node persists the returned issues and counts; it does not fabricate progress or issue data.\", \"inputs\": {\"text\": \"Non-empty thesis text\"}, \"outputs\": {\"issues\": \"NormativeIssue[] with rule_id, category, severity, line, column, excerpt, message, suggestion\"}, \"callers\": [\"backend/src/normative/detectionTaskService.js\"], \"callees\": [], \"test_focus\": [\"Issues returned by the analyzer are preserved in task persistence.\", \"Line and column positions are available in the response and saved JSON.\"]}",
     "file_path": "backend/src/normative/normativeService.js",
     "first_line": "1",
     "implemented": true,
     "callers": [
-      "backend/src/normative/normativeRoutes.js",
-      "backend/src/normative/ruleConfigService.js"
+      "backend/src/normative/detectionTaskService.js"
     ],
     "callees": []
   },
@@ -382,19 +474,20 @@
     "interface_id": "FUNC-FLOW-RULE-PUBLISH-RULE-CONFIG-SERVICE",
     "req_ids": [
       "FLOW-RULE-PUBLISH",
-      "FEAT-RULE-TEMPLATE-UPLOAD"
+      "FEAT-RULE-TEMPLATE-UPLOAD",
+      "FEAT-NORMATIVE-DETECT"
     ],
     "type": "FUNC",
-    "content": "{\"interface_id\": \"FUNC-FLOW-RULE-PUBLISH-RULE-CONFIG-SERVICE\", \"req_id\": \"FEAT-RULE-TEMPLATE-UPLOAD\", \"type\": \"FUNC\", \"name\": \"复用规则配置访问与作用域服务\", \"file_path\": \"backend/src/normative/ruleConfigService.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse dependency-owned administrator role and college-scope authorization semantics for draft import.\", \"specification\": \"importRuleDraftTemplate calls assertRuleConfigAccess so SCHOOL_ADMIN can import school-level drafts and COLLEGE_ADMIN cannot import drafts for another college. The draft import service must not duplicate or weaken these access rules.\", \"inputs\": {\"user\": \"Authenticated user\", \"requestedScope\": \"School/college import scope\"}, \"outputs\": {\"allowed\": \"No exception for allowed role/scope\", \"forbidden\": \"403 error for denied role or cross-college scope\"}, \"callers\": [\"backend/src/normative/ruleDraftImportService.js\"], \"callees\": [\"backend/src/normative/ruleConfigRepository.js\", \"backend/src/normative/normativeService.js\"], \"test_focus\": [\"COLLEGE_ADMIN scope is constrained to own college.\", \"Draft import follows same manage-rule roles as publish/reset.\"]}",
+    "content": "{\"interface_id\": \"FUNC-FLOW-RULE-PUBLISH-RULE-CONFIG-SERVICE\", \"req_id\": \"FEAT-NORMATIVE-DETECT\", \"type\": \"FUNC\", \"name\": \"Effective Rule Configuration Resolver\", \"file_path\": \"backend/src/normative/ruleConfigService.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse dependency-owned effective school/college rule merging so each detection task stores the active rule snapshot for the submitting user's scope.\", \"specification\": \"DetectionTaskService calls resolveRulesForAnalysis with the authenticated user's college_id. The resolver merges national defaults, school overrides, and college overrides using existing precedence rules from FLOW-RULE-PUBLISH.\", \"inputs\": {\"context\": \"Optional college_id derived from authenticated user\"}, \"outputs\": {\"rules\": \"Effective rule list to snapshot into the task\"}, \"callers\": [\"backend/src/normative/detectionTaskService.js\"], \"callees\": [\"backend/src/normative/ruleConfigRepository.js\", \"backend/src/normative/normativeService.js DEFAULT_NORMATIVE_RULES\"], \"test_focus\": [\"Task snapshots reflect current effective school/college rules.\", \"Rule configuration precedence is reused rather than duplicated.\"]}",
     "file_path": "backend/src/normative/ruleConfigService.js",
     "first_line": "1",
     "implemented": true,
     "callers": [
-      "backend/src/normative/ruleDraftImportService.js"
+      "backend/src/normative/detectionTaskService.js"
     ],
     "callees": [
       "backend/src/normative/ruleConfigRepository.js",
-      "backend/src/normative/normativeService.js"
+      "backend/src/normative/normativeService.js DEFAULT_NORMATIVE_RULES"
     ]
   },
   "UI-FEAT-AUTH-HELP-AUTH-ROUTE-CONNECTOR": {
@@ -456,16 +549,16 @@
       "FEAT-AUTH-SESSION",
       "FEAT-AUTH-PASSWORD",
       "FEAT-NORMATIVE-FORMAT-RULES",
-      "FLOW-RULE-PUBLISH"
+      "FLOW-RULE-PUBLISH",
+      "FEAT-NORMATIVE-DETECT"
     ],
     "type": "UI",
-    "content": "{\"interface_id\": \"UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER\", \"req_id\": \"FLOW-RULE-PUBLISH\", \"type\": \"UI\", \"name\": \"Existing global auth session provider\", \"file_path\": \"frontend/src/auth/AuthSessionProvider.tsx\", \"first_line\": \"19\", \"responsibility\": \"Reuse the shared frontend session source of truth so rule configuration page access and scope derive from the authenticated user rather than page-local fake state.\", \"specification\": \"RuleConfigPage consumes useAuthSession to distinguish loading, anonymous, authenticated denied roles, SCHOOL_ADMIN, and COLLEGE_ADMIN. Session recovery after refresh continues to use fetchCurrentSession and the same cookie-backed auth client path used by the rest of the app.\", \"inputs\": [\"Cookie-backed current session from frontend/src/api/authSession.ts\"], \"outputs\": [\"status and user with role, collegeId, supervisorId, and scope\"], \"callers\": [\"frontend/src/pages/RuleConfigPage.tsx\", \"frontend/src/main.tsx\"], \"callees\": [\"frontend/src/api/authSession.ts\"], \"test_focus\": [\"RuleConfigPage reacts to shared session status without local mock users\", \"COLLEGE_ADMIN scope comes from user.collegeId\"]}",
+    "content": "{\"interface_id\": \"UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER\", \"req_id\": \"FEAT-NORMATIVE-DETECT\", \"type\": \"UI\", \"name\": \"Shared Auth Session Provider\", \"file_path\": \"frontend/src/auth/AuthSessionProvider.tsx\", \"first_line\": \"1\", \"responsibility\": \"Reuse the global frontend session source of truth so normative detection access derives from the authenticated cookie-backed user.\", \"specification\": \"NormativeCheckPage consumes useAuthSession to distinguish loading, anonymous, and authenticated states. It must not keep a page-local fake user or bypass current-session recovery.\", \"inputs\": {\"session_cookie\": \"HttpOnly auth session cookie\"}, \"outputs\": {\"status_and_user\": \"Shared auth state consumed by NormativeCheckPage\"}, \"callers\": [\"frontend/src/pages/NormativeCheckPage.tsx\"], \"callees\": [\"frontend/src/api/authSession.ts\"], \"test_focus\": [\"Detection controls are hidden from anonymous users.\", \"Authenticated user identity is reused for task creation.\"]}",
     "file_path": "frontend/src/auth/AuthSessionProvider.tsx",
-    "first_line": "19",
+    "first_line": "1",
     "implemented": true,
     "callers": [
-      "frontend/src/pages/RuleConfigPage.tsx",
-      "frontend/src/main.tsx"
+      "frontend/src/pages/NormativeCheckPage.tsx"
     ],
     "callees": [
       "frontend/src/api/authSession.ts"
@@ -489,6 +582,24 @@
       "frontend/src/auth/AuthSessionProvider.tsx"
     ]
   },
+  "UI-FEAT-NORMATIVE-DETECT-PAGE": {
+    "interface_id": "UI-FEAT-NORMATIVE-DETECT-PAGE",
+    "req_ids": [
+      "FEAT-NORMATIVE-DETECT"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-NORMATIVE-DETECT-PAGE\", \"req_id\": \"FEAT-NORMATIVE-DETECT\", \"type\": \"UI\", \"name\": \"Normative Detection Page\", \"file_path\": \"frontend/src/pages/NormativeCheckPage.tsx\", \"first_line\": \"1\", \"responsibility\": \"Render the authenticated workflow for selecting current effective rules, pasting text or uploading .txt/.md files, starting a normative detection task, and showing saved task results.\", \"specification\": \"Mounted through the existing /normative-check route and shared AuthSessionProvider. While auth status is loading, shows an explicit loading state. Anonymous users see a login-required state. Authenticated allowed roles can paste text or choose a UTF-8 .txt/.md file up to 5 MB, submit a task through createNormativeDetectionTask, and view runtime task status, creation time, rule snapshot count, severity counts, and issue table with line/column positions. Rule rows are rendered only from returned rule_snapshot data; the page must not use screenshot-specific or fallback sample rule records. It represents the required status vocabulary as pending/detecting/completed UI copy without fake percent progress; completed tasks show 100% only after the backend returns a completed task.\", \"inputs\": {\"auth_session\": \"useAuthSession status and user\", \"text\": \"Pasted thesis text or UTF-8 text loaded from .txt/.md file\", \"file\": \"Optional browser File with client-side extension and 5 MB guard\"}, \"outputs\": {\"submit_payload\": \"CreateDetectionTaskRequest sent to /api/normative/detection-tasks\", \"rendered_result\": \"DetectionTaskResponse status, rule_snapshot, issues, severity_counts, created_at\"}, \"callers\": [\"frontend/src/App.tsx route path /normative-check\"], \"callees\": [\"frontend/src/auth/AuthSessionProvider.tsx\", \"frontend/src/api/normativeRules.ts createNormativeDetectionTask\"], \"test_focus\": [\"Anonymous users are directed to login instead of seeing task controls.\", \"Client rejects non-.txt/.md or oversized files with understandable validation and does not submit.\", \"Successful paste submission renders completed task data from API response, including persisted issue positions and rule snapshot rows.\", \"No hardcoded screenshot business data or fallback rule arrays are rendered.\"]}",
+    "file_path": "frontend/src/pages/NormativeCheckPage.tsx",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "frontend/src/App.tsx route path /normative-check"
+    ],
+    "callees": [
+      "frontend/src/auth/AuthSessionProvider.tsx",
+      "frontend/src/api/normativeRules.ts createNormativeDetectionTask"
+    ]
+  },
   "UI-FEAT-NORMATIVE-FORMAT-RULES-PAGE": {
     "interface_id": "UI-FEAT-NORMATIVE-FORMAT-RULES-PAGE",
     "req_ids": [
@@ -510,15 +621,16 @@
   "UI-FEAT-NORMATIVE-FORMAT-RULES-ROUTE-CONNECTOR": {
     "interface_id": "UI-FEAT-NORMATIVE-FORMAT-RULES-ROUTE-CONNECTOR",
     "req_ids": [
-      "FEAT-NORMATIVE-FORMAT-RULES"
+      "FEAT-NORMATIVE-FORMAT-RULES",
+      "FEAT-NORMATIVE-DETECT"
     ],
     "type": "UI",
-    "content": "{\"interface_id\": \"UI-FEAT-NORMATIVE-FORMAT-RULES-ROUTE-CONNECTOR\", \"req_id\": \"FEAT-NORMATIVE-FORMAT-RULES\", \"type\": \"UI\", \"name\": \"NormativeCheckRouteConnector\", \"file_path\": \"frontend/src/App.tsx\", \"first_line\": \"1\", \"responsibility\": \"Wire the current-node normative detection page into the existing React route tree without creating a parallel app shell or duplicate auth provider.\", \"specification\": \"Imports NormativeCheckPage and maps /normative-check to it inside the existing Routes tree. The route remains nested under the shared AuthSessionProvider used by the rest of the app so the page consumes the same global session source of truth as login, logout, and home menu surfaces.\", \"inputs\": [{\"name\": \"browser path\", \"type\": \"string\", \"required\": true}], \"outputs\": [{\"name\": \"route element\", \"type\": \"NormativeCheckPage\"}], \"callers\": [\"frontend/src/main.tsx BrowserRouter/App mount\"], \"callees\": [\"frontend/src/pages/NormativeCheckPage.tsx\", \"frontend/src/auth/AuthSessionProvider.tsx\"], \"test_focus\": [\"Navigating to /normative-check renders the normative check page under the existing auth session context.\"]}",
+    "content": "{\"interface_id\": \"UI-FEAT-NORMATIVE-FORMAT-RULES-ROUTE-CONNECTOR\", \"req_id\": \"FEAT-NORMATIVE-DETECT\", \"type\": \"UI\", \"name\": \"Normative Check Route Connector\", \"file_path\": \"frontend/src/App.tsx\", \"first_line\": \"1\", \"responsibility\": \"Reuse the existing React /normative-check route as the user-facing entry point for the expanded detection workflow.\", \"specification\": \"Keeps /normative-check mapped to NormativeCheckPage under the existing BrowserRouter/AuthSessionProvider tree. The current feature extends the existing page instead of adding a parallel route or duplicate auth provider.\", \"inputs\": {\"route\": \"/normative-check\"}, \"outputs\": {\"element\": \"NormativeCheckPage\"}, \"callers\": [\"frontend/src/main.tsx\"], \"callees\": [\"frontend/src/pages/NormativeCheckPage.tsx\", \"frontend/src/auth/AuthSessionProvider.tsx\"], \"test_focus\": [\"The route remains reachable through the existing app shell.\", \"The page consumes the shared auth session state.\"]}",
     "file_path": "frontend/src/App.tsx",
     "first_line": "1",
     "implemented": true,
     "callers": [
-      "frontend/src/main.tsx BrowserRouter/App mount"
+      "frontend/src/main.tsx"
     ],
     "callees": [
       "frontend/src/pages/NormativeCheckPage.tsx",

@@ -25,6 +25,28 @@ export type AnalyzeNormativeTextRequest = {
   text: string;
 };
 
+export type DetectionTaskStatus = 'pending' | 'running' | 'completed';
+
+export type CreateDetectionTaskRequest = {
+  text: string;
+  source_type: 'paste' | 'file';
+  source_filename?: string | null;
+  selected_rule_ids?: string[];
+};
+
+export type DetectionTaskResponse = {
+  id: string;
+  user_id: string;
+  status: DetectionTaskStatus;
+  source_type: 'paste' | 'file';
+  source_filename?: string | null;
+  original_text: string;
+  rule_snapshot: Array<Record<string, unknown>>;
+  issues: NormativeIssue[];
+  severity_counts: Record<string, number>;
+  created_at: string;
+};
+
 export type AnalyzeNormativeTextResponse = {
   issues: NormativeIssue[];
 };
@@ -33,5 +55,12 @@ export async function analyzeDefaultNormativeText(
   payload: AnalyzeNormativeTextRequest,
 ): Promise<AnalyzeNormativeTextResponse> {
   const response = await apiClient.post<AnalyzeNormativeTextResponse>('/normative/analyze', payload);
+  return response.data;
+}
+
+export async function createNormativeDetectionTask(
+  payload: CreateDetectionTaskRequest,
+): Promise<DetectionTaskResponse> {
+  const response = await apiClient.post<DetectionTaskResponse>('/normative/detection-tasks', payload);
   return response.data;
 }

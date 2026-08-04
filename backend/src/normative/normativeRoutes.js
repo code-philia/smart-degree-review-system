@@ -7,6 +7,10 @@ const {
   resetCollegeRuleConfiguration,
 } = require('./ruleConfigService');
 const { importRuleDraftTemplate, MAX_RULE_DRAFT_IMPORT_BYTES } = require('./ruleDraftImportService');
+const {
+  createDetectionTask,
+  MAX_DETECTION_TEXT_BYTES,
+} = require('./detectionTaskService');
 
 const router = express.Router();
 
@@ -91,6 +95,28 @@ router.post(
       res.status(201).json(result);
     } catch (error) {
       sendRuleConfigError(error, res, next);
+    }
+  },
+);
+
+router.post(
+  '/detection-tasks',
+  requireAuth({ allowedRoles: ['STUDENT', 'SUPERVISOR', 'SCHOOL_ADMIN', 'COLLEGE_ADMIN'] }),
+  express.json({ limit: MAX_DETECTION_TEXT_BYTES }),
+  async (req, res, next) => {
+    try {
+      const result = await createDetectionTask(req.user, req.body || {});
+      res.status(201).json(result);
+    } catch (error) {
+      if (error?.type === 'entity.too.large') {
+        res.status(413).json({ code: 413, message: '文件或文本不能超过 5 MB' });
+        return;
+      }
+      if (error?.status) {
+        res.status(error.status).json({ code: error.status, message: error.message });
+        return;
+      }
+      next(error);
     }
   },
 );

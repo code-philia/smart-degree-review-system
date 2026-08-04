@@ -126,6 +126,40 @@
     "first_line": "1",
     "scenario_id": null
   },
+  "FEAT-NORMATIVE-DETECT:E2E:SCENARIOS:001": {
+    "test_id": "FEAT-NORMATIVE-DETECT:E2E:SCENARIOS:001",
+    "req_id": "FEAT-NORMATIVE-DETECT",
+    "interface_ids": [
+      "UI-FEAT-NORMATIVE-DETECT-PAGE",
+      "API-FEAT-NORMATIVE-DETECT-CLIENT",
+      "API-FEAT-NORMATIVE-DETECT-EXPRESS-ROUTE",
+      "UI-FEAT-NORMATIVE-FORMAT-RULES-ROUTE-CONNECTOR",
+      "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER"
+    ],
+    "type": "E2E",
+    "file_path": "backend/test-e2e/normative-detect.spec.ts",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-NORMATIVE-DETECT:INTEGRATION:API-SERVICE-DB:001": {
+    "test_id": "FEAT-NORMATIVE-DETECT:INTEGRATION:API-SERVICE-DB:001",
+    "req_id": "FEAT-NORMATIVE-DETECT",
+    "interface_ids": [
+      "API-FEAT-NORMATIVE-DETECT-EXPRESS-ROUTE",
+      "FUNC-FEAT-NORMATIVE-DETECT-TASK-SERVICE",
+      "DB-FEAT-NORMATIVE-DETECT-TASK-SCHEMA",
+      "DB-FEAT-NORMATIVE-DETECT-TASK-REPOSITORY",
+      "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE",
+      "FUNC-FLOW-RULE-PUBLISH-RULE-CONFIG-SERVICE",
+      "FUNC-FEAT-NORMATIVE-FORMAT-RULES-ENGINE"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/normative-detect.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
   "FEAT-NORMATIVE-FORMAT-RULES:E2E:001": {
     "test_id": "FEAT-NORMATIVE-FORMAT-RULES:E2E:001",
     "req_id": "FEAT-NORMATIVE-FORMAT-RULES",

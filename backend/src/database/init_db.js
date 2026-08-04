@@ -133,6 +133,23 @@ async function initializeDatabase(options = {}) {
       );`,
     );
 
+    await runStatement(
+      database,
+      `CREATE TABLE IF NOT EXISTS normative_detection_tasks (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('pending', 'running', 'completed')),
+        source_type TEXT NOT NULL CHECK (source_type IN ('paste', 'file')),
+        source_filename TEXT,
+        original_text TEXT NOT NULL,
+        rule_snapshot_json TEXT NOT NULL,
+        issues_json TEXT NOT NULL,
+        severity_counts_json TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE
+      );`,
+    );
+
     return database;
 
     /**

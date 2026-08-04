@@ -97,9 +97,9 @@
   },
   "FEAT-NORMATIVE-DETECT": {
     "req_id": "FEAT-NORMATIVE-DETECT",
-    "state": "UNSEEN",
-    "phase": null,
-    "updated_at": "2026-08-04 15:03:18"
+    "state": "DESIGNED",
+    "phase": "design",
+    "updated_at": "2026-08-04 16:55:44"
   },
   "FEAT-NORMATIVE-FORMAT-RULES": {
     "req_id": "FEAT-NORMATIVE-FORMAT-RULES",
