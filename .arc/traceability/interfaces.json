@@ -1,11 +1,49 @@
 {
+  "UI-MOD-AUTH-LOGIN-COMPOSITION-SHELL": {
+    "interface_id": "UI-MOD-AUTH-LOGIN-COMPOSITION-SHELL",
+    "req_ids": [
+      "MOD-AUTH"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-MOD-AUTH-LOGIN-COMPOSITION-SHELL\", \"req_id\": \"MOD-AUTH\", \"type\": \"UI\", \"name\": \"Local authentication composition shell\", \"file_path\": \"frontend/src/pages/AuthPage.tsx\", \"first_line\": \"1\", \"responsibility\": \"Provide the non-leaf visual and composition boundary for local identity authentication without implementing child-owned login, password, session, or help behavior.\", \"specification\": \"Renders a white full-page authentication canvas following the visual reference: left blue institutional hero panel, right authentication area split into an out-of-scope scan-login explanation column and a local account/password mount area. The shell supports four declared role categories through copy and entry-point framing, but does not enforce permissions or create server contracts. jAccount, SMS verification, WeChat scan, and 交我办 scan are shown only as unsupported/out-of-scope guidance for this local SQLite version. Child features should attach their account form, session state, password validation, and help content through the accountFormSlot/helpSlot composition points or by extending this page.\", \"inputs\": [\"Optional ReactNode accountFormSlot for child-owned local username/password/session UI\", \"Optional ReactNode helpSlot for child-owned account help content\"], \"outputs\": [\"Backend-hosted React page at /auth\", \"Stable visual regions: hero panel, unsupported QR/external-method notice, local account login mount area, help links\"], \"callers\": [\"frontend/src/App.tsx Route path=\\\"/auth\\\"\"], \"callees\": [\"FEAT-AUTH-SESSION child-owned local account/session UI\", \"FEAT-AUTH-PASSWORD child-owned password verification UI\", \"FEAT-AUTH-HELP child-owned account help UI\"], \"test_focus\": \"Smoke render /auth; verify split layout, local-account login heading, explicit unsupported external-method messaging, and absence of fake successful authentication or hardcoded QR/captcha tokens.\"}",
+    "file_path": "frontend/src/pages/AuthPage.tsx",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "frontend/src/App.tsx Route path=\"/auth\""
+    ],
+    "callees": [
+      "FEAT-AUTH-SESSION child-owned local account/session UI",
+      "FEAT-AUTH-PASSWORD child-owned password verification UI",
+      "FEAT-AUTH-HELP child-owned account help UI"
+    ]
+  },
+  "UI-MOD-AUTH-ROUTE-CONNECTOR": {
+    "interface_id": "UI-MOD-AUTH-ROUTE-CONNECTOR",
+    "req_ids": [
+      "MOD-AUTH"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-MOD-AUTH-ROUTE-CONNECTOR\", \"req_id\": \"MOD-AUTH\", \"type\": \"UI\", \"name\": \"Authentication route connector\", \"file_path\": \"frontend/src/App.tsx\", \"first_line\": \"1\", \"responsibility\": \"Wire the MOD-AUTH authentication shell into the existing React route tree without creating a parallel app entrypoint.\", \"specification\": \"Adds the '/auth' route to the existing App.tsx Routes alongside the parent '/' route. This is a thin connector only; all visual structure is delegated to AuthPage and all executable authentication behavior is delegated to child leaf requirements.\", \"inputs\": [\"Browser URL path\"], \"outputs\": [\"AuthPage element for /auth\", \"HomePage element for /\"], \"callers\": [\"frontend/src/main.tsx BrowserRouter/App mount\"], \"callees\": [\"frontend/src/pages/HomePage.tsx\", \"frontend/src/pages/AuthPage.tsx\"], \"test_focus\": \"Route-level smoke coverage that /auth renders the MOD-AUTH shell while '/' still renders the existing home shell.\"}",
+    "file_path": "frontend/src/App.tsx",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "frontend/src/main.tsx BrowserRouter/App mount"
+    ],
+    "callees": [
+      "frontend/src/pages/HomePage.tsx",
+      "frontend/src/pages/AuthPage.tsx"
+    ]
+  },
   "UI-SYS-DEGREE-AI-REVIEW-HOME-SHELL": {
     "interface_id": "UI-SYS-DEGREE-AI-REVIEW-HOME-SHELL",
     "req_ids": [
-      "SYS-DEGREE-AI-REVIEW"
+      "SYS-DEGREE-AI-REVIEW",
+      "MOD-AUTH"
     ],
     "type": "UI",
-    "content": "{\"interface_id\": \"UI-SYS-DEGREE-AI-REVIEW-HOME-SHELL\", \"req_id\": \"SYS-DEGREE-AI-REVIEW\", \"type\": \"UI\", \"name\": \"Degree AI Review Home Shell\", \"file_path\": \"frontend/src/pages/HomePage.tsx\", \"first_line\": \"1\", \"responsibility\": \"Render the root visual composition for the智慧学位 AI 评阅辅助系统 as the parent-owned shell and architecture overview surface.\", \"specification\": \"Provides a backend-hosted React home page at the existing '/' route through App.tsx. The shell preserves the visual reference direction: white canvas, deep-red institutional seal treatment, formal Chinese title, three stacked architecture bands, red user layer with four role clients, blue core-function layer with a 3-over-2 function layout, dark slate data/algorithm engine layer, square outlined module boxes, centered white typography, and upward black connector arrows. It must remain presentation/composition-oriented, avoid fake business records or simulated child feature success states, and serve as the stable visual mount/entry surface for child-owned modules.\", \"inputs\": [], \"outputs\": [{\"name\": \"rootPage\", \"description\": \"Static parent UI shell rendered for the application root route with role, function, and engine layer labels.\"}], \"callers\": [\"frontend/src/App.tsx Route path=\\\"/\\\"\"], \"callees\": [], \"test_focus\": \"Smoke render the root route; verify the system title, seal-like identity area, three architecture layers, upward connectors, and expected module labels are present without tables, fake records, forms, or child-owned business behavior.\"}",
+    "content": "{\"interface_id\": \"UI-SYS-DEGREE-AI-REVIEW-HOME-SHELL\", \"req_id\": \"MOD-AUTH\", \"type\": \"UI\", \"name\": \"Root home shell\", \"file_path\": \"frontend/src/pages/HomePage.tsx\", \"first_line\": \"1\", \"responsibility\": \"Render the root visual composition for the 智慧学位 AI 评阅辅助系统 and provide the parent-owned application shell context that can link users toward role-aware module entry points.\", \"specification\": \"Existing parent-owned home page remains the root '/' route. MOD-AUTH reuses this shell as the surrounding app context rather than replacing it; auth-specific composition is exposed through a separate '/auth' route.\", \"inputs\": [], \"outputs\": [\"Root system landing surface\"], \"callers\": [\"frontend/src/App.tsx Route path=\\\"/\\\"\"], \"callees\": [], \"test_focus\": \"Smoke render root home shell and ensure auth module routing does not break the existing '/' route.\"}",
     "file_path": "frontend/src/pages/HomePage.tsx",
     "first_line": "1",
     "implemented": false,
