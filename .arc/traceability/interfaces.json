@@ -136,6 +136,42 @@
       "crypto"
     ]
   },
+  "UI-FEAT-AUTH-HELP-AUTH-ROUTE-CONNECTOR": {
+    "interface_id": "UI-FEAT-AUTH-HELP-AUTH-ROUTE-CONNECTOR",
+    "req_ids": [
+      "FEAT-AUTH-HELP"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-AUTH-HELP-AUTH-ROUTE-CONNECTOR\", \"req_id\": \"FEAT-AUTH-HELP\", \"type\": \"UI\", \"name\": \"Auth route connector for demo-account help\", \"file_path\": \"frontend/src/App.tsx\", \"first_line\": \"1\", \"responsibility\": \"Wire the existing /auth route to pass the demo-account help panel into the parent auth-page shell without creating a parallel route tree.\", \"specification\": \"Imports DemoAccountHelpPanel and injects it into AuthPage as helpSlot alongside the existing local-account login form. The route remains the same /auth entry point used by the current login flow, so the help experience is reached from the same login page rather than a separate screen.\", \"inputs\": [\"React route rendering for /auth\", \"AuthPage slot props\", \"LocalAccountLoginForm existing login slot\"], \"outputs\": [\"Auth page with both login form and help disclosure mounted\"], \"callers\": [\"frontend/src/main.tsx through the React route tree\"], \"callees\": [\"frontend/src/pages/AuthPage.tsx\", \"frontend/src/auth/DemoAccountHelpPanel.tsx\", \"frontend/src/auth/LocalAccountLoginForm.tsx\"], \"test_focus\": [\"Route-level render of /auth includes the demo help panel together with the login form and preserves the existing auth page shell.\"]}",
+    "file_path": "frontend/src/App.tsx",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "frontend/src/main.tsx through the React route tree"
+    ],
+    "callees": [
+      "frontend/src/pages/AuthPage.tsx",
+      "frontend/src/auth/DemoAccountHelpPanel.tsx",
+      "frontend/src/auth/LocalAccountLoginForm.tsx"
+    ]
+  },
+  "UI-FEAT-AUTH-HELP-DEMO-ACCOUNT-PANEL": {
+    "interface_id": "UI-FEAT-AUTH-HELP-DEMO-ACCOUNT-PANEL",
+    "req_ids": [
+      "FEAT-AUTH-HELP"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-AUTH-HELP-DEMO-ACCOUNT-PANEL\", \"req_id\": \"FEAT-AUTH-HELP\", \"type\": \"UI\", \"name\": \"Demo account help panel\", \"file_path\": \"frontend/src/auth/DemoAccountHelpPanel.tsx\", \"first_line\": \"1\", \"responsibility\": \"Render the login-page help disclosure that explains the four local demo accounts, their roles, the shared initial password, and the local-prototype capability boundary.\", \"specification\": \"Exports a help panel component mounted inside the auth page help slot. It presents four demo identities matching the seeded local accounts (student01, supervisor01, college_admin01, school_admin01), labels each role in user-facing Chinese, shows the shared initial password ArcDemo123!, and states that jAccount, SMS verification, and QR scan login are not implemented in this version.\", \"inputs\": [\"Auth-page composition via helpSlot\", \"Static local demo-account metadata aligned with the seeded credentials\"], \"outputs\": [\"Rendered help disclosure with four account cards\", \"Explicit local-prototype boundary copy\"], \"callers\": [\"frontend/src/App.tsx via AuthPage helpSlot\"], \"callees\": [\"frontend/src/pages/AuthPage.tsx\"], \"test_focus\": [\"Renders the help disclosure on /auth, shows four accounts and the prototype-boundary message, and keeps the account/password text visible without needing backend fetches.\"]}",
+    "file_path": "frontend/src/auth/DemoAccountHelpPanel.tsx",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "frontend/src/App.tsx via AuthPage helpSlot"
+    ],
+    "callees": [
+      "frontend/src/pages/AuthPage.tsx"
+    ]
+  },
   "UI-FEAT-AUTH-PASSWORD-ROLE-AWARE-HOME-MENU": {
     "interface_id": "UI-FEAT-AUTH-PASSWORD-ROLE-AWARE-HOME-MENU",
     "req_ids": [
@@ -196,18 +232,20 @@
     "req_ids": [
       "MOD-AUTH",
       "FEAT-AUTH-SESSION",
-      "FEAT-AUTH-PASSWORD"
+      "FEAT-AUTH-PASSWORD",
+      "FEAT-AUTH-HELP"
     ],
     "type": "UI",
-    "content": "{\"interface_id\": \"UI-MOD-AUTH-LOGIN-COMPOSITION-SHELL\", \"req_id\": \"FEAT-AUTH-PASSWORD\", \"type\": \"UI\", \"name\": \"Auth page composition shell\", \"file_path\": \"frontend/src/pages/AuthPage.tsx\", \"first_line\": \"1\", \"responsibility\": \"Reuse the parent-owned authentication page shell and its slot for the local username/password form.\", \"specification\": \"AuthPage keeps parent-owned visual layout and exposes accountFormSlot. FEAT-AUTH-PASSWORD uses the existing slot via App to present LocalAccountLoginForm without creating a duplicate auth page or parallel route tree.\", \"inputs\": [\"accountFormSlot\"], \"outputs\": [\"Parent-owned /auth visual page with local account form mounted\"], \"callers\": [\"frontend/src/App.tsx Route path=\\\"/auth\\\"\"], \"callees\": [\"frontend/src/auth/LocalAccountLoginForm.tsx\"], \"test_focus\": [\"The local password login form appears on /auth.\", \"The auth page shell remains parent-owned.\"]}",
+    "content": "{\"interface_id\": \"UI-MOD-AUTH-LOGIN-COMPOSITION-SHELL\", \"req_id\": \"FEAT-AUTH-HELP\", \"type\": \"UI\", \"name\": \"Auth page composition shell\", \"file_path\": \"frontend/src/pages/AuthPage.tsx\", \"first_line\": \"1\", \"responsibility\": \"Provide the parent-owned auth-page layout and slots that this feature extends through the existing help-slot boundary.\", \"specification\": \"Keeps the authentication page shell, hero area, unsupported-local-login copy, and the helpSlot mount point used by FEAT-AUTH-HELP. The node stays composition-oriented and does not own auth logic or backend behavior.\", \"inputs\": [\"accountFormSlot\", \"helpSlot\"], \"outputs\": [\"Auth-page shell with mount points for login and help content\"], \"callers\": [\"frontend/src/App.tsx\"], \"callees\": [\"frontend/src/auth/LocalAccountLoginForm.tsx\", \"frontend/src/auth/DemoAccountHelpPanel.tsx\"], \"test_focus\": [\"Retains the auth-page shell while exposing a stable help-slot insertion point for the current feature.\"]}",
     "file_path": "frontend/src/pages/AuthPage.tsx",
     "first_line": "1",
     "implemented": true,
     "callers": [
-      "frontend/src/App.tsx Route path=\"/auth\""
+      "frontend/src/App.tsx"
     ],
     "callees": [
-      "frontend/src/auth/LocalAccountLoginForm.tsx"
+      "frontend/src/auth/LocalAccountLoginForm.tsx",
+      "frontend/src/auth/DemoAccountHelpPanel.tsx"
     ]
   },
   "UI-MOD-AUTH-ROUTE-CONNECTOR": {

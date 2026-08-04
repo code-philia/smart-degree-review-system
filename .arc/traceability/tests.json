@@ -1,4 +1,30 @@
 {
+  "FEAT-AUTH-HELP:TEST:001": {
+    "test_id": "FEAT-AUTH-HELP:TEST:001",
+    "req_id": "FEAT-AUTH-HELP",
+    "interface_ids": [
+      "UI-FEAT-AUTH-HELP-DEMO-ACCOUNT-PANEL",
+      "UI-FEAT-AUTH-HELP-AUTH-ROUTE-CONNECTOR"
+    ],
+    "type": "Integration",
+    "file_path": "frontend/tests/auth-help.test.tsx",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-AUTH-HELP:TEST:002": {
+    "test_id": "FEAT-AUTH-HELP:TEST:002",
+    "req_id": "FEAT-AUTH-HELP",
+    "interface_ids": [
+      "UI-FEAT-AUTH-HELP-AUTH-ROUTE-CONNECTOR",
+      "UI-FEAT-AUTH-HELP-DEMO-ACCOUNT-PANEL"
+    ],
+    "type": "E2E",
+    "file_path": "backend/test-e2e/auth-help.spec.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
   "FEAT-AUTH-PASSWORD-E2E-SCENARIOS-001-002": {
     "test_id": "FEAT-AUTH-PASSWORD-E2E-SCENARIOS-001-002",
     "req_id": "FEAT-AUTH-PASSWORD",
