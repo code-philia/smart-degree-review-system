@@ -25,9 +25,9 @@
   },
   "FEAT-AUTH-HELP": {
     "req_id": "FEAT-AUTH-HELP",
-    "state": "DESIGNED",
-    "phase": "design",
-    "updated_at": "2026-08-04 15:50:00"
+    "state": "PASSED",
+    "phase": "test",
+    "updated_at": "2026-08-04 15:56:53"
   },
   "FEAT-AUTH-PASSWORD": {
     "req_id": "FEAT-AUTH-PASSWORD",

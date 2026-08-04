@@ -34,7 +34,7 @@ function DemoAccountHelpPanel() {
       </summary>
 
       <p className="mt-3 text-sm leading-6 text-slate-600">
-        本地原型仅提供账号密码登录验证。默认演示密码为 <span className="font-semibold text-slate-800">ArcDemo123!</span>，四个账号均可用于查看不同角色的登录后界面。
+        本地原型仅提供账号密码登录验证。默认演示密码为 ArcDemo123!，四个账号均可用于查看不同角色的登录后界面。
       </p>
 
       <div className="mt-4 grid gap-3" id="roles" aria-label="四类演示账号">

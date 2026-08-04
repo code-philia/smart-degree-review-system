@@ -145,7 +145,7 @@
     "content": "{\"interface_id\": \"UI-FEAT-AUTH-HELP-AUTH-ROUTE-CONNECTOR\", \"req_id\": \"FEAT-AUTH-HELP\", \"type\": \"UI\", \"name\": \"Auth route connector for demo-account help\", \"file_path\": \"frontend/src/App.tsx\", \"first_line\": \"1\", \"responsibility\": \"Wire the existing /auth route to pass the demo-account help panel into the parent auth-page shell without creating a parallel route tree.\", \"specification\": \"Imports DemoAccountHelpPanel and injects it into AuthPage as helpSlot alongside the existing local-account login form. The route remains the same /auth entry point used by the current login flow, so the help experience is reached from the same login page rather than a separate screen.\", \"inputs\": [\"React route rendering for /auth\", \"AuthPage slot props\", \"LocalAccountLoginForm existing login slot\"], \"outputs\": [\"Auth page with both login form and help disclosure mounted\"], \"callers\": [\"frontend/src/main.tsx through the React route tree\"], \"callees\": [\"frontend/src/pages/AuthPage.tsx\", \"frontend/src/auth/DemoAccountHelpPanel.tsx\", \"frontend/src/auth/LocalAccountLoginForm.tsx\"], \"test_focus\": [\"Route-level render of /auth includes the demo help panel together with the login form and preserves the existing auth page shell.\"]}",
     "file_path": "frontend/src/App.tsx",
     "first_line": "1",
-    "implemented": false,
+    "implemented": true,
     "callers": [
       "frontend/src/main.tsx through the React route tree"
     ],
@@ -164,7 +164,7 @@
     "content": "{\"interface_id\": \"UI-FEAT-AUTH-HELP-DEMO-ACCOUNT-PANEL\", \"req_id\": \"FEAT-AUTH-HELP\", \"type\": \"UI\", \"name\": \"Demo account help panel\", \"file_path\": \"frontend/src/auth/DemoAccountHelpPanel.tsx\", \"first_line\": \"1\", \"responsibility\": \"Render the login-page help disclosure that explains the four local demo accounts, their roles, the shared initial password, and the local-prototype capability boundary.\", \"specification\": \"Exports a help panel component mounted inside the auth page help slot. It presents four demo identities matching the seeded local accounts (student01, supervisor01, college_admin01, school_admin01), labels each role in user-facing Chinese, shows the shared initial password ArcDemo123!, and states that jAccount, SMS verification, and QR scan login are not implemented in this version.\", \"inputs\": [\"Auth-page composition via helpSlot\", \"Static local demo-account metadata aligned with the seeded credentials\"], \"outputs\": [\"Rendered help disclosure with four account cards\", \"Explicit local-prototype boundary copy\"], \"callers\": [\"frontend/src/App.tsx via AuthPage helpSlot\"], \"callees\": [\"frontend/src/pages/AuthPage.tsx\"], \"test_focus\": [\"Renders the help disclosure on /auth, shows four accounts and the prototype-boundary message, and keeps the account/password text visible without needing backend fetches.\"]}",
     "file_path": "frontend/src/auth/DemoAccountHelpPanel.tsx",
     "first_line": "1",
-    "implemented": false,
+    "implemented": true,
     "callers": [
       "frontend/src/App.tsx via AuthPage helpSlot"
     ],

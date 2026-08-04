@@ -8,7 +8,7 @@
     ],
     "type": "Integration",
     "file_path": "frontend/tests/auth-help.test.tsx",
-    "passed": null,
+    "passed": true,
     "first_line": "1",
     "scenario_id": null
   },
