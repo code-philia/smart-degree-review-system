@@ -1,1 +1,17 @@
-{}
+{
+  "UI-SYS-DEGREE-AI-REVIEW-HOME-SHELL": {
+    "interface_id": "UI-SYS-DEGREE-AI-REVIEW-HOME-SHELL",
+    "req_ids": [
+      "SYS-DEGREE-AI-REVIEW"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-SYS-DEGREE-AI-REVIEW-HOME-SHELL\", \"req_id\": \"SYS-DEGREE-AI-REVIEW\", \"type\": \"UI\", \"name\": \"Degree AI Review Home Shell\", \"file_path\": \"frontend/src/pages/HomePage.tsx\", \"first_line\": \"1\", \"responsibility\": \"Render the root visual composition for the智慧学位 AI 评阅辅助系统 as the parent-owned shell and architecture overview surface.\", \"specification\": \"Provides a backend-hosted React home page at the existing '/' route through App.tsx. The shell preserves the visual reference direction: white canvas, deep-red institutional seal treatment, formal Chinese title, three stacked architecture bands, red user layer with four role clients, blue core-function layer with a 3-over-2 function layout, dark slate data/algorithm engine layer, square outlined module boxes, centered white typography, and upward black connector arrows. It must remain presentation/composition-oriented, avoid fake business records or simulated child feature success states, and serve as the stable visual mount/entry surface for child-owned modules.\", \"inputs\": [], \"outputs\": [{\"name\": \"rootPage\", \"description\": \"Static parent UI shell rendered for the application root route with role, function, and engine layer labels.\"}], \"callers\": [\"frontend/src/App.tsx Route path=\\\"/\\\"\"], \"callees\": [], \"test_focus\": \"Smoke render the root route; verify the system title, seal-like identity area, three architecture layers, upward connectors, and expected module labels are present without tables, fake records, forms, or child-owned business behavior.\"}",
+    "file_path": "frontend/src/pages/HomePage.tsx",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "frontend/src/App.tsx Route path=\"/\""
+    ],
+    "callees": []
+  }
+}
