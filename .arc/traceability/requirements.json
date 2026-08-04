@@ -1,0 +1,1619 @@
+{
+  "SYS-DEGREE-AI-REVIEW": {
+    "req_id": "SYS-DEGREE-AI-REVIEW",
+    "name": "智慧学位 AI 评阅辅助系统（ARC 可实现版）",
+    "description": "面向学生、导师、学院管理人员和学校管理人员，建设一个可在当前 ARC Web 模板中完整生成、运行和测试的学位论文辅助系统。\\n系统采用单端口 B/S 架构，前端使用 React，后端使用 Express，业务数据使用 SQLite 持久化。系统在本地单实例中运行，不承诺微服务拆分、校内私有云部署、高并发或弹性扩容。\\n所有核心结果必须由本地可解释的规则、公式和持久化数据产生，不依赖 jAccount、短信、微信、外部大模型、校外文献库或未提供的校内论文库。",
+    "visual_reference": [
+      "./reference/image-001.jpeg",
+      "./reference/image-002.png"
+    ],
+    "reference": [],
+    "permissions": [],
+    "scenarios": [],
+    "parent_id": null,
+    "children_ids": [
+      "MOD-AUTH",
+      "MOD-NORMATIVE-DETECTION",
+      "MOD-DUPLICATION-CHECK",
+      "MOD-POLISH",
+      "MOD-INNOVATION-ANALYSIS",
+      "MOD-AI-REVIEW",
+      "MOD-LEDGER",
+      "MOD-QUALITY-PORTRAIT",
+      "MOD-REPORT-INTERACTION"
+    ],
+    "dependencies": []
+  },
+  "MOD-AUTH": {
+    "req_id": "MOD-AUTH",
+    "name": "本地身份认证与会话",
+    "description": "使用本地 SQLite 用户、密码哈希和服务端会话完成认证。系统提供四类可测试角色账号，并在本地数据中保存学生—导师—学院的组织关系。\\njAccount、短信验证码、交我办和微信扫码不属于本版本实现与验收范围。",
+    "visual_reference": [
+      "./reference/image-003.png"
+    ],
+    "reference": [],
+    "permissions": "ALL",
+    "scenarios": [],
+    "parent_id": "SYS-DEGREE-AI-REVIEW",
+    "children_ids": [
+      "FEAT-AUTH-SESSION",
+      "FEAT-AUTH-PASSWORD",
+      "FEAT-AUTH-HELP"
+    ],
+    "dependencies": []
+  },
+  "FEAT-AUTH-SESSION": {
+    "req_id": "FEAT-AUTH-SESSION",
+    "name": "本地用户、组织关系与会话",
+    "description": "系统首次启动时幂等创建四个演示账号：student01、supervisor01、college_admin01、school_admin01，初始密码均为 ArcDemo123!，密码必须使用 bcrypt 哈希保存。\\nstudent01 属于 college01，导师为 supervisor01；supervisor01 和 college_admin01 属于 college01；school_admin01 拥有全校范围。\\n后端提供登录会话、当前用户、退出登录接口。会话通过 HttpOnly、SameSite=Lax Cookie 保持，受限 API 必须在服务端校验会话、角色和数据范围。",
+    "visual_reference": [],
+    "reference": [],
+    "permissions": "ALL",
+    "scenarios": [
+      {
+        "id": "FEAT-AUTH-SESSION-SCN-1",
+        "name": "恢复已登录会话",
+        "actor": "STUDENT",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "student01 已使用有效账号建立会话。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "用户刷新页面或请求当前用户接口。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "THEN",
+            "content": "系统从服务端会话恢复 student01、STUDENT 角色、college01 和 supervisor01 关系。",
+            "actor": null
+          }
+        ]
+      },
+      {
+        "id": "FEAT-AUTH-SESSION-SCN-2",
+        "name": "拒绝未登录访问",
+        "actor": "STUDENT",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "浏览器不存在有效会话。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "用户请求任一受限业务 API。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "THEN",
+            "content": "后端返回 401，不返回业务数据。",
+            "actor": null
+          }
+        ]
+      }
+    ],
+    "parent_id": "MOD-AUTH",
+    "children_ids": [],
+    "dependencies": []
+  },
+  "FEAT-AUTH-PASSWORD": {
+    "req_id": "FEAT-AUTH-PASSWORD",
+    "name": "本地账号密码登录",
+    "description": "用户输入本地用户名和密码登录。登录成功后进入系统首页，并根据当前角色显示菜单和数据范围。登录失败仅显示统一错误提示，不泄露用户名是否存在。",
+    "visual_reference": [],
+    "reference": [],
+    "permissions": "ALL",
+    "scenarios": [
+      {
+        "id": "FEAT-AUTH-PASSWORD-SCN-1",
+        "name": "使用本地账号成功登录",
+        "actor": "STUDENT",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "用户位于登录页，输入 student01 和 ArcDemo123!。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "用户提交登录表单。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "THEN",
+            "content": "系统建立 HttpOnly Cookie 会话，进入首页并显示学生菜单。",
+            "actor": null
+          }
+        ]
+      },
+      {
+        "id": "FEAT-AUTH-PASSWORD-SCN-2",
+        "name": "拒绝错误密码",
+        "actor": "STUDENT",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "用户输入 student01 和错误密码。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "用户提交登录表单。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "THEN",
+            "content": "系统不建立会话，显示“用户名或密码错误”。",
+            "actor": null
+          }
+        ]
+      }
+    ],
+    "parent_id": "MOD-AUTH",
+    "children_ids": [],
+    "dependencies": [
+      "FEAT-AUTH-SESSION"
+    ]
+  },
+  "FEAT-AUTH-HELP": {
+    "req_id": "FEAT-AUTH-HELP",
+    "name": "本地登录帮助",
+    "description": "登录页提供“演示账号与登录帮助”入口，展示四个演示账号、角色、初始密码和本地原型说明。页面明确说明本版本未接入 jAccount、短信或扫码登录。",
+    "visual_reference": [],
+    "reference": [],
+    "permissions": "ALL",
+    "scenarios": [
+      {
+        "id": "FEAT-AUTH-HELP-SCN-1",
+        "name": "查看演示账号",
+        "actor": "STUDENT",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "用户位于登录页。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "用户打开演示账号帮助。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "THEN",
+            "content": "页面展示四类账号及本地原型能力边界。",
+            "actor": null
+          }
+        ]
+      }
+    ],
+    "parent_id": "MOD-AUTH",
+    "children_ids": [],
+    "dependencies": [
+      "FEAT-AUTH-PASSWORD"
+    ]
+  },
+  "MOD-NORMATIVE-DETECTION": {
+    "req_id": "MOD-NORMATIVE-DETECTION",
+    "name": "论文规则化规范检测",
+    "description": "对 UTF-8 纯文本论文执行可解释、可重复的规则检测。系统支持 .txt 和 .md 文件或直接粘贴文本，单份内容不超过 5 MB。\\n检测范围包括章节完整性、标点配对、连续重复标点、数字与日期的有限规则、参考文献顺序编码、禁用词典、重复词和过长句。不检测 Word/PDF 的字体、页边距、页码或页眉页脚。",
+    "visual_reference": [],
+    "reference": [],
+    "permissions": "ALL",
+    "scenarios": [],
+    "parent_id": "SYS-DEGREE-AI-REVIEW",
+    "children_ids": [
+      "FEAT-NORMATIVE-FORMAT-RULES",
+      "FLOW-RULE-PUBLISH",
+      "FEAT-RULE-TEMPLATE-UPLOAD",
+      "FEAT-NORMATIVE-DETECT",
+      "FEAT-NORMATIVE-REPORT"
+    ],
+    "dependencies": []
+  },
+  "FEAT-NORMATIVE-FORMAT-RULES": {
+    "req_id": "FEAT-NORMATIVE-FORMAT-RULES",
+    "name": "默认规范检测规则",
+    "description": "系统内置以下可执行规则：\\n- 章节顺序：摘要、关键词、引言、结论、参考文献必须出现，且按该顺序排列。\\n- 标点配对：检查中英文圆括号、方括号、书名号和引号是否成对。\\n- 重复标点：报告“，，”“。。”“；；”和连续三个以上相同标点。\\n- 日期格式：数字日期仅接受 YYYY-MM-DD，例如 2026-08-03。\\n- 参考文献：“参考文献”后的非空行必须以 [1] 开始并连续递增。\\n- 文本质量：报告连续重复词、Tab、行尾空格、超过 120 个字符的句子，以及规则表中的禁用词。\\n每条问题输出 rule_id、类别、严重程度、行号、列号、原文片段、问题说明和修改建议。",
+    "visual_reference": [],
+    "reference": [],
+    "permissions": "ALL",
+    "scenarios": [
+      {
+        "id": "FEAT-NORMATIVE-FORMAT-RULES-SCN-1",
+        "name": "检出可重复的文本问题",
+        "actor": "STUDENT",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "文本包含未配对括号、“。。”和一个超过 120 字符的句子。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "学生对该文本运行默认规则。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "THEN",
+            "content": "系统分别返回配对、重复标点和过长句问题，且每条问题包含行列位置。",
+            "actor": null
+          }
+        ]
+      }
+    ],
+    "parent_id": "MOD-NORMATIVE-DETECTION",
+    "children_ids": [],
+    "dependencies": [
+      "FEAT-AUTH-SESSION"
+    ]
+  },
+  "FLOW-RULE-PUBLISH": {
+    "req_id": "FLOW-RULE-PUBLISH",
+    "name": "学校与学院规则配置",
+    "description": "规则包含 rule_id、标题、类别、严重程度、启用状态、匹配参数和提示文案。\\n学校管理人员维护全校默认规则，学院管理人员仅维护本学院规则。同一 rule_id 的合并顺序为国标默认值 < 学校规则 < 学院规则；学院重置后删除学院覆盖并继承学校值。",
+    "visual_reference": [
+      "./reference/image-052.png"
+    ],
+    "reference": [],
+    "permissions": [
+      "SCHOOL_ADMIN",
+      "COLLEGE_ADMIN"
+    ],
+    "scenarios": [
+      {
+        "id": "FLOW-RULE-PUBLISH-SCN-1",
+        "name": "学院规则覆盖学校规则",
+        "actor": "COLLEGE_ADMIN",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "学校已发布 rule_id 为 TEXT-LONG-SENTENCE 的 120 字符阈值。",
+            "actor": "COLLEGE_ADMIN"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "college01 管理员将同一规则改为 100 字符并提交生效。",
+            "actor": "COLLEGE_ADMIN"
+          },
+          {
+            "keyword": "THEN",
+            "content": "college01 学生检测使用 100，其他学院仍使用 120。",
+            "actor": null
+          }
+        ]
+      },
+      {
+        "id": "FLOW-RULE-PUBLISH-SCN-2",
+        "name": "拒绝跨学院修改",
+        "actor": "COLLEGE_ADMIN",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "college_admin01 属于 college01。",
+            "actor": "COLLEGE_ADMIN"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "该用户尝试修改 college02 的规则。",
+            "actor": "COLLEGE_ADMIN"
+          },
+          {
+            "keyword": "THEN",
+            "content": "后端返回 403，且 college02 规则不变。",
+            "actor": null
+          }
+        ]
+      }
+    ],
+    "parent_id": "MOD-NORMATIVE-DETECTION",
+    "children_ids": [],
+    "dependencies": [
+      "FEAT-NORMATIVE-FORMAT-RULES"
+    ]
+  },
+  "FEAT-RULE-TEMPLATE-UPLOAD": {
+    "req_id": "FEAT-RULE-TEMPLATE-UPLOAD",
+    "name": "JSON 规则集导入",
+    "description": "学校或学院管理人员上传不超过 1 MB 的 UTF-8 JSON 文件导入规则草稿。顶层必须为数组，每项必须包含 rule_id、title、category、severity、enabled 和 message，可选 params。\\n导入仅保存草稿，不自动生效；不支持从 DOC/DOCX 模板自动推导规则。",
+    "visual_reference": [],
+    "reference": [],
+    "permissions": [
+      "SCHOOL_ADMIN",
+      "COLLEGE_ADMIN"
+    ],
+    "scenarios": [
+      {
+        "id": "FEAT-RULE-TEMPLATE-UPLOAD-SCN-1",
+        "name": "导入合法规则集",
+        "actor": "SCHOOL_ADMIN",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "管理员准备了包含两条完整规则的 JSON 数组。",
+            "actor": "SCHOOL_ADMIN"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "管理员导入文件。",
+            "actor": "SCHOOL_ADMIN"
+          },
+          {
+            "keyword": "THEN",
+            "content": "系统校验字段并创建两条草稿，不改变已生效规则。",
+            "actor": null
+          }
+        ]
+      },
+      {
+        "id": "FEAT-RULE-TEMPLATE-UPLOAD-SCN-2",
+        "name": "拒绝非法 JSON 规则集",
+        "actor": "COLLEGE_ADMIN",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "JSON 项缺少 rule_id 或 severity 不在严重、一般、轻微之中。",
+            "actor": "COLLEGE_ADMIN"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "管理员导入文件。",
+            "actor": "COLLEGE_ADMIN"
+          },
+          {
+            "keyword": "THEN",
+            "content": "系统显示具体项索引和错误原因，不保存任何项。",
+            "actor": null
+          }
+        ]
+      }
+    ],
+    "parent_id": "MOD-NORMATIVE-DETECTION",
+    "children_ids": [],
+    "dependencies": [
+      "FLOW-RULE-PUBLISH"
+    ]
+  },
+  "FEAT-NORMATIVE-DETECT": {
+    "req_id": "FEAT-NORMATIVE-DETECT",
+    "name": "发起规范检测",
+    "description": "学生可粘贴论文文本或上传 .txt/.md 文件，选择当前生效的学校/学院规则后发起检测。\\n任务状态按“待检测→检测中→已完成”流转，检测在同一后端请求内完成，不伪造百分比进度。系统保存原文、规则快照、问题列表、各级别计数和创建时间。",
+    "visual_reference": [
+      "./reference/image-004.png",
+      "./reference/image-005.png"
+    ],
+    "reference": [],
+    "permissions": "ALL",
+    "scenarios": [
+      {
+        "id": "FEAT-NORMATIVE-DETECT-SCN-1",
+        "name": "对粘贴文本完成检测",
+        "actor": "STUDENT",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "student01 粘贴了包含摘要、关键词、引言、结论和参考文献的文本。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "学生发起检测。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "THEN",
+            "content": "系统保存已完成任务、当次规则快照和带行列位置的问题列表。",
+            "actor": null
+          }
+        ]
+      },
+      {
+        "id": "FEAT-NORMATIVE-DETECT-SCN-2",
+        "name": "拒绝超限或非 UTF-8 文件",
+        "actor": "STUDENT",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "文件超过 5 MB 或无法按 UTF-8 解码。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "学生上传文件。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "THEN",
+            "content": "系统返回可理解的校验错误，不创建检测任务。",
+            "actor": null
+          }
+        ]
+      }
+    ],
+    "parent_id": "MOD-NORMATIVE-DETECTION",
+    "children_ids": [],
+    "dependencies": [
+      "FEAT-AUTH-SESSION",
+      "FEAT-NORMATIVE-FORMAT-RULES",
+      "FLOW-RULE-PUBLISH"
+    ]
+  },
+  "FEAT-NORMATIVE-REPORT": {
+    "req_id": "FEAT-NORMATIVE-REPORT",
+    "name": "规范检测记录与报告",
+    "description": "学生仅查看本人的历史记录。列表按创建时间倒序展示文档名、问题总数、严重/一般/轻微计数和检测时间。\\n报告页左侧显示带行号的纯文本，右侧显示问题列表；点击问题后滚动到对应行并高亮文本片段。支持下载 UTF-8 JSON 报告和使用浏览器打印页面。",
+    "visual_reference": [
+      "./reference/image-006.png"
+    ],
+    "reference": [],
+    "permissions": "ALL",
+    "scenarios": [
+      {
+        "id": "FEAT-NORMATIVE-REPORT-SCN-1",
+        "name": "定位并导出检测问题",
+        "actor": "STUDENT",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "student01 拥有一份包含行列位置的已完成报告。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "学生打开报告、点击一条问题并下载 JSON。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "THEN",
+            "content": "原文滚动到对应行并高亮，下载文件包含规则快照和完整问题列表。",
+            "actor": null
+          }
+        ]
+      }
+    ],
+    "parent_id": "MOD-NORMATIVE-DETECTION",
+    "children_ids": [],
+    "dependencies": [
+      "FEAT-NORMATIVE-DETECT"
+    ]
+  },
+  "MOD-DUPLICATION-CHECK": {
+    "req_id": "MOD-DUPLICATION-CHECK",
+    "name": "本地文本相似度与写作风险检测",
+    "description": "对纯文本执行本地可解释检测。“校内相似度”仅与学校管理人员已导入的本地样本库比对；“写作风险”仅根据重复率、句长分布和模板短语密度输出风险提示，不声称识别 AI 生成真伪。",
+    "visual_reference": [],
+    "reference": [],
+    "permissions": "ALL",
+    "scenarios": [],
+    "parent_id": "SYS-DEGREE-AI-REVIEW",
+    "children_ids": [
+      "FEAT-DUPLICATION-CORPUS",
+      "FEAT-DUPLICATION-DETECT",
+      "FEAT-DUPLICATION-HISTORY"
+    ],
+    "dependencies": []
+  },
+  "FEAT-DUPLICATION-CORPUS": {
+    "req_id": "FEAT-DUPLICATION-CORPUS",
+    "name": "本地比对样本库",
+    "description": "学校管理人员可通过粘贴文本或上传 .txt/.md 文件新增样本，填写标题、学科和年份，并可查看或删除样本。\\n样本保存于 SQLite，仅作为本地原型比对数据，不表示已接入真实校内论文库。",
+    "visual_reference": [],
+    "reference": [],
+    "permissions": [
+      "SCHOOL_ADMIN"
+    ],
+    "scenarios": [
+      {
+        "id": "FEAT-DUPLICATION-CORPUS-SCN-1",
+        "name": "导入本地比对样本",
+        "actor": "SCHOOL_ADMIN",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "school_admin01 准备了一份非空 UTF-8 文本及标题、学科和年份。",
+            "actor": "SCHOOL_ADMIN"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "管理员提交样本。",
+            "actor": "SCHOOL_ADMIN"
+          },
+          {
+            "keyword": "THEN",
+            "content": "系统保存样本，并在后续相似度检测中使用它。",
+            "actor": null
+          }
+        ]
+      }
+    ],
+    "parent_id": "MOD-DUPLICATION-CHECK",
+    "children_ids": [],
+    "dependencies": [
+      "FEAT-AUTH-SESSION"
+    ]
+  },
+  "FEAT-DUPLICATION-DETECT": {
+    "req_id": "FEAT-DUPLICATION-DETECT",
+    "name": "发起本地相似度与风险检测",
+    "description": "系统对文本进行小写化、空白归一化和标点移除，以字符 5-gram 集合计算 Jaccard 相似度，返回最高的五个样本及相似段落。总相似率为所有命中段落字符数去重后除以待检文本有效字符数，比对阈值默认为 0.65。\\n写作风险分由段落重复率 35%、句长变化不足 25%、模板连接词密度 20%和空泛短语密度 20% 加权生成。页面必须显示该分数是启发式风险而非 AI 真伪结论。",
+    "visual_reference": [
+      "./reference/image-008.png",
+      "./reference/image-009.png"
+    ],
+    "reference": [],
+    "permissions": "ALL",
+    "scenarios": [
+      {
+        "id": "FEAT-DUPLICATION-DETECT-SCN-1",
+        "name": "检出本地样本相似段落",
+        "actor": "STUDENT",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "本地样本库已有一篇文本，待检文本包含与其高度相似的段落。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "student01 发起相似度检测。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "THEN",
+            "content": "报告显示命中样本、Jaccard 分数、相似段落和总相似率。",
+            "actor": null
+          }
+        ]
+      },
+      {
+        "id": "FEAT-DUPLICATION-DETECT-SCN-2",
+        "name": "无样本时返回明确结果",
+        "actor": "STUDENT",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "本地样本库为空。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "student01 发起检测。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "THEN",
+            "content": "系统完成写作风险计算，并将相似度结果标记为“无可用样本”，不伪造比对结果。",
+            "actor": null
+          }
+        ]
+      }
+    ],
+    "parent_id": "MOD-DUPLICATION-CHECK",
+    "children_ids": [],
+    "dependencies": [
+      "FEAT-AUTH-SESSION",
+      "FEAT-DUPLICATION-CORPUS"
+    ]
+  },
+  "FEAT-DUPLICATION-HISTORY": {
+    "req_id": "FEAT-DUPLICATION-HISTORY",
+    "name": "相似度与写作风险记录",
+    "description": "学生查看本人检测历史，包含文档名、总相似率、写作风险分、样本库数量和检测时间。报告支持在线查看、JSON 下载和浏览器打印。",
+    "visual_reference": [
+      "./reference/image-010.png"
+    ],
+    "reference": [],
+    "permissions": "ALL",
+    "scenarios": [
+      {
+        "id": "FEAT-DUPLICATION-HISTORY-SCN-1",
+        "name": "查看检测历史",
+        "actor": "STUDENT",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "student01 已完成两次检测。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "学生打开历史记录。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "THEN",
+            "content": "系统仅按时间倒序显示 student01 的两条记录，并可打开完整报告。",
+            "actor": null
+          }
+        ]
+      }
+    ],
+    "parent_id": "MOD-DUPLICATION-CHECK",
+    "children_ids": [],
+    "dependencies": [
+      "FEAT-DUPLICATION-DETECT"
+    ]
+  },
+  "MOD-POLISH": {
+    "req_id": "MOD-POLISH",
+    "name": "规则化文本润色",
+    "description": "使用本地确定性规则修正空白、标点、重复词和可配置短语，并用差异视图展示每处变更。\\n本版本不调用外部大模型，不声称进行语义重构，不生成 Word 原生修订痕迹。",
+    "visual_reference": [],
+    "reference": [],
+    "permissions": "ALL",
+    "scenarios": [],
+    "parent_id": "SYS-DEGREE-AI-REVIEW",
+    "children_ids": [
+      "FEAT-POLISH-WHOLE",
+      "FEAT-POLISH-LOCAL",
+      "FEAT-POLISH-HISTORY"
+    ],
+    "dependencies": []
+  },
+  "FEAT-POLISH-WHOLE": {
+    "req_id": "FEAT-POLISH-WHOLE",
+    "name": "全文规则润色",
+    "description": "支持粘贴文本或上传 .txt/.md，提供三档可解释处理：\\n- 基础校准：去除行尾空格、归一化连续空白、修复重复标点和连续重复词。\\n- 标准优化：在基础校准上，应用管理员维护的“原短语→替换短语”映射。\\n- 增强优化：在标准优化上，对超过 120 字符且包含分号或逗号的句子按首个合法分隔位置拆分，并记录拆分原因。\\n结果保存原文、新文、档位和变更列表，可下载 UTF-8 .txt 结果。",
+    "visual_reference": [
+      "./reference/image-018.png",
+      "./reference/image-019.png",
+      "./reference/image-021.png"
+    ],
+    "reference": [],
+    "permissions": "ALL",
+    "scenarios": [
+      {
+        "id": "FEAT-POLISH-WHOLE-SCN-1",
+        "name": "生成可追溯全文润色结果",
+        "actor": "STUDENT",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "文本包含重复标点、重复词和一个已配置的短语。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "student01 选择标准优化并执行。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "THEN",
+            "content": "系统生成确定的新文和变更列表，每条变更包含原文、新文、位置和规则。",
+            "actor": null
+          }
+        ]
+      }
+    ],
+    "parent_id": "MOD-POLISH",
+    "children_ids": [],
+    "dependencies": [
+      "FEAT-AUTH-SESSION"
+    ]
+  },
+  "FEAT-POLISH-LOCAL": {
+    "req_id": "FEAT-POLISH-LOCAL",
+    "name": "局部文本润色与差异对比",
+    "description": "页面左右分栏展示原文和结果，支持选择档位、处理、复制结果、重置和重试。相同原文、档位和规则版本的重试必须产生相同结果。",
+    "visual_reference": [
+      "./reference/image-022.png"
+    ],
+    "reference": [],
+    "permissions": "ALL",
+    "scenarios": [
+      {
+        "id": "FEAT-POLISH-LOCAL-SCN-1",
+        "name": "重试产生相同结果",
+        "actor": "STUDENT",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "学生已用标准优化处理一段文本，规则版本未变。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "学生点击重试。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "THEN",
+            "content": "新结果和变更列表与上一次完全一致。",
+            "actor": null
+          }
+        ]
+      }
+    ],
+    "parent_id": "MOD-POLISH",
+    "children_ids": [],
+    "dependencies": [
+      "FEAT-POLISH-WHOLE"
+    ]
+  },
+  "FEAT-POLISH-HISTORY": {
+    "req_id": "FEAT-POLISH-HISTORY",
+    "name": "润色历史记录",
+    "description": "学生查看本人全文与局部润色记录，按时间倒序显示名称、档位、变更数和生成时间，并可查看差异或下载 .txt 结果。",
+    "visual_reference": [
+      "./reference/image-020.png"
+    ],
+    "reference": [],
+    "permissions": "ALL",
+    "scenarios": [
+      {
+        "id": "FEAT-POLISH-HISTORY-SCN-1",
+        "name": "查看本人润色记录",
+        "actor": "STUDENT",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "student01 和另一学生都有润色记录。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "student01 打开历史页。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "THEN",
+            "content": "页面仅展示 student01 的记录。",
+            "actor": null
+          }
+        ]
+      }
+    ],
+    "parent_id": "MOD-POLISH",
+    "children_ids": [],
+    "dependencies": [
+      "FEAT-POLISH-LOCAL"
+    ]
+  },
+  "MOD-INNOVATION-ANALYSIS": {
+    "req_id": "MOD-INNOVATION-ANALYSIS",
+    "name": "创新性量表评估",
+    "description": "通过用户填写的五维度等级和证据文本生成透明可解释的创新性自评结果。系统不搜索国内外文献，不访问往届论文库，不声称自动发现学术创新。",
+    "visual_reference": [],
+    "reference": [],
+    "permissions": "ALL",
+    "scenarios": [],
+    "parent_id": "SYS-DEGREE-AI-REVIEW",
+    "children_ids": [
+      "FEAT-INNOVATION-SCORING-MODEL",
+      "FEAT-INNOVATION-ANALYZE",
+      "FEAT-INNOVATION-REPORT",
+      "FEAT-INNOVATION-HISTORY"
+    ],
+    "dependencies": []
+  },
+  "FEAT-INNOVATION-SCORING-MODEL": {
+    "req_id": "FEAT-INNOVATION-SCORING-MODEL",
+    "name": "固定透明评分模型",
+    "description": "五个维度为研究选题、研究方法、研究内容、研究结论和应用价值。每个维度由用户选择 1-5 级，维度原始分=等级×20。\\n博士权重依次为 25%、25%、20%、20%、10%；硕士权重依次为 20%、20%、25%、20%、15%。综合分=各维度原始分×权重之和。\\n90-100 为优秀，80-89.99 为良好，60-79.99 为一般，0-59.99 为待提升。公式和本次输入必须在报告中展示。",
+    "visual_reference": [],
+    "reference": [],
+    "permissions": "ALL",
+    "scenarios": [
+      {
+        "id": "FEAT-INNOVATION-SCORING-MODEL-SCN-1",
+        "name": "按硕士权重计算综合分",
+        "actor": "STUDENT",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "硕士论文五维度等级依次为 5、4、4、3、4。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "系统计算创新性分数。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "THEN",
+            "content": "系统按 20%、20%、25%、20%、15% 权重返回 80 分和“良好”等级。",
+            "actor": null
+          }
+        ]
+      }
+    ],
+    "parent_id": "MOD-INNOVATION-ANALYSIS",
+    "children_ids": [],
+    "dependencies": [
+      "FEAT-AUTH-SESSION"
+    ]
+  },
+  "FEAT-INNOVATION-ANALYZE": {
+    "req_id": "FEAT-INNOVATION-ANALYZE",
+    "name": "发起创新性量表评估",
+    "description": "学生填写论文题目、学历层次、学科、研究方向，并为每个维度选择 1-5 级、填写不少于 20 个字符的证据和改进计划。\\n系统校验所有字段，按固定公式计算分数并保存快照。页面明确标记“本结果为量表自评，不代替专家评审或文献查新”。",
+    "visual_reference": [
+      "./reference/image-023.png",
+      "./reference/image-024.png",
+      "./reference/image-025.png"
+    ],
+    "reference": [],
+    "permissions": "ALL",
+    "scenarios": [
+      {
+        "id": "FEAT-INNOVATION-ANALYZE-SCN-1",
+        "name": "完成五维度评估",
+        "actor": "STUDENT",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "student01 已填写完整的基本信息、五维度等级、证据和改进计划。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "学生提交评估。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "THEN",
+            "content": "系统保存输入快照、权重、分项分、综合分和等级。",
+            "actor": null
+          }
+        ]
+      },
+      {
+        "id": "FEAT-INNOVATION-ANALYZE-SCN-2",
+        "name": "拒绝缺失维度证据",
+        "actor": "STUDENT",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "研究方法维度证据少于 20 个字符。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "学生提交评估。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "THEN",
+            "content": "系统指出研究方法证据不完整，不保存评估。",
+            "actor": null
+          }
+        ]
+      }
+    ],
+    "parent_id": "MOD-INNOVATION-ANALYSIS",
+    "children_ids": [],
+    "dependencies": [
+      "FEAT-INNOVATION-SCORING-MODEL"
+    ]
+  },
+  "FEAT-INNOVATION-REPORT": {
+    "req_id": "FEAT-INNOVATION-REPORT",
+    "name": "创新性量表报告",
+    "description": "报告显示基本信息、五维雷达图、五维评级热力矩阵、证据、改进计划、权重公式、综合分和声明。图表使用本地 SVG 或 CSS 绘制，不依赖外部图表服务。支持 JSON 下载和浏览器打印。",
+    "visual_reference": [
+      "./reference/image-027.png"
+    ],
+    "reference": [],
+    "permissions": "ALL",
+    "scenarios": [
+      {
+        "id": "FEAT-INNOVATION-REPORT-SCN-1",
+        "name": "展示透明评分报告",
+        "actor": "STUDENT",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "student01 有一份已完成评估。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "学生打开报告。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "THEN",
+            "content": "页面以文本和图表展示五维分数、证据、权重和综合分，且两种表示的数值一致。",
+            "actor": null
+          }
+        ]
+      }
+    ],
+    "parent_id": "MOD-INNOVATION-ANALYSIS",
+    "children_ids": [],
+    "dependencies": [
+      "FEAT-INNOVATION-ANALYZE"
+    ]
+  },
+  "FEAT-INNOVATION-HISTORY": {
+    "req_id": "FEAT-INNOVATION-HISTORY",
+    "name": "创新性评估历史",
+    "description": "学生仅查看本人评估，按时间倒序显示论文题目、学历层次、综合分、等级和生成时间。",
+    "visual_reference": [
+      "./reference/image-026.png"
+    ],
+    "reference": [],
+    "permissions": "ALL",
+    "scenarios": [
+      {
+        "id": "FEAT-INNOVATION-HISTORY-SCN-1",
+        "name": "查看创新性评估历史",
+        "actor": "STUDENT",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "student01 已完成多次评估。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "学生打开历史页。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "THEN",
+            "content": "系统按时间倒序显示本人记录，并可进入对应报告。",
+            "actor": null
+          }
+        ]
+      }
+    ],
+    "parent_id": "MOD-INNOVATION-ANALYSIS",
+    "children_ids": [],
+    "dependencies": [
+      "FEAT-INNOVATION-REPORT"
+    ]
+  },
+  "MOD-AI-REVIEW": {
+    "req_id": "MOD-AI-REVIEW",
+    "name": "规则化论文辅助评阅",
+    "description": "基于固定评阅模板和可验证的文本特征生成辅助检查结果。系统检查章节、篇幅、参考文献数量、方法与结论章节及规范问题，主观学术质量统一标记为“待人工确认”。\\n本版本不调用外部大模型，不产生专家级学术结论。",
+    "visual_reference": [],
+    "reference": [],
+    "permissions": "ALL",
+    "scenarios": [],
+    "parent_id": "SYS-DEGREE-AI-REVIEW",
+    "children_ids": [
+      "FEAT-AI-REVIEW-RUBRICS",
+      "FEAT-AI-REVIEW-RUN",
+      "FEAT-AI-REVIEW-RESULT",
+      "FEAT-AI-REVIEW-HISTORY"
+    ],
+    "dependencies": []
+  },
+  "FEAT-AI-REVIEW-RUBRICS": {
+    "req_id": "FEAT-AI-REVIEW-RUBRICS",
+    "name": "评阅模板与客观检查项",
+    "description": "系统内置学术型博士自然科学、学术型博士人文社科、专业型博士、学术型硕士和专业型硕士五类模板。\\n每类模板定义必需章节和最低参考文献数量；共享客观分值为章节完整性 30 分、参考文献数量与编号 20 分、研究方法章节 20 分、结论章节 20 分、规范检测结果 10 分。\\n客观分不低于 80 且无必需章节缺失时结果为“基础检查通过”，否则为“需修改”。",
+    "visual_reference": [],
+    "reference": [],
+    "permissions": "ALL",
+    "scenarios": [
+      {
+        "id": "FEAT-AI-REVIEW-RUBRICS-SCN-1",
+        "name": "显示五类评阅模板",
+        "actor": "STUDENT",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "用户进入辅助评阅页。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "用户打开模板选择器。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "THEN",
+            "content": "系统展示五类模板及各自的必需章节、最低文献数和共享计分项。",
+            "actor": null
+          }
+        ]
+      }
+    ],
+    "parent_id": "MOD-AI-REVIEW",
+    "children_ids": [],
+    "dependencies": [
+      "FEAT-AUTH-SESSION",
+      "FEAT-NORMATIVE-FORMAT-RULES"
+    ]
+  },
+  "FEAT-AI-REVIEW-RUN": {
+    "req_id": "FEAT-AI-REVIEW-RUN",
+    "name": "发起规则化辅助评阅",
+    "description": "用户选择评阅模板，填写论文题目，并粘贴或上传 .txt/.md 论文文本。系统按标题行和关键词识别章节，统计字符数与参考文献条目，复用规范检测规则，并按模板公式生成结果。",
+    "visual_reference": [
+      "./reference/image-032.png"
+    ],
+    "reference": [],
+    "permissions": "ALL",
+    "scenarios": [
+      {
+        "id": "FEAT-AI-REVIEW-RUN-SCN-1",
+        "name": "对章节不完整文本给出需修改结果",
+        "actor": "STUDENT",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "论文缺少所选模板规定的结论章节。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "student01 发起辅助评阅。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "THEN",
+            "content": "系统将结论章节项计为 0 分，整体结果为“需修改”，并指出缺失章节。",
+            "actor": null
+          }
+        ]
+      }
+    ],
+    "parent_id": "MOD-AI-REVIEW",
+    "children_ids": [],
+    "dependencies": [
+      "FEAT-AI-REVIEW-RUBRICS"
+    ]
+  },
+  "FEAT-AI-REVIEW-RESULT": {
+    "req_id": "FEAT-AI-REVIEW-RESULT",
+    "name": "辅助评阅结果",
+    "description": "结果页展示论文基本信息、模板、五项客观分、总分、通过/需修改结论、规范问题和“待人工确认”的主观维度清单。\\n页面左侧使用带行号的纯文本预览，右侧显示检查项，支持 JSON 下载和浏览器打印。",
+    "visual_reference": [
+      "./reference/image-033.png"
+    ],
+    "reference": [],
+    "permissions": "ALL",
+    "scenarios": [
+      {
+        "id": "FEAT-AI-REVIEW-RESULT-SCN-1",
+        "name": "核对评分项和总分",
+        "actor": "STUDENT",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "一份辅助评阅已完成。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "学生打开结果页。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "THEN",
+            "content": "五项分数之和等于总分，且主观学术维度均显示为待人工确认。",
+            "actor": null
+          }
+        ]
+      }
+    ],
+    "parent_id": "MOD-AI-REVIEW",
+    "children_ids": [],
+    "dependencies": [
+      "FEAT-AI-REVIEW-RUN"
+    ]
+  },
+  "FEAT-AI-REVIEW-HISTORY": {
+    "req_id": "FEAT-AI-REVIEW-HISTORY",
+    "name": "辅助评阅历史",
+    "description": "学生仅查看本人历史，按时间倒序显示论文题目、模板、总分、结论和时间，并可进入结果页。",
+    "visual_reference": [
+      "./reference/image-034.png"
+    ],
+    "reference": [],
+    "permissions": "ALL",
+    "scenarios": [
+      {
+        "id": "FEAT-AI-REVIEW-HISTORY-SCN-1",
+        "name": "查看辅助评阅历史",
+        "actor": "STUDENT",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "student01 有两条评阅记录。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "学生打开评阅历史。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "THEN",
+            "content": "系统按时间倒序显示两条记录并提供详情入口。",
+            "actor": null
+          }
+        ]
+      }
+    ],
+    "parent_id": "MOD-AI-REVIEW",
+    "children_ids": [],
+    "dependencies": [
+      "FEAT-AI-REVIEW-RESULT"
+    ]
+  },
+  "MOD-LEDGER": {
+    "req_id": "MOD-LEDGER",
+    "name": "本地检测台账与统计",
+    "description": "聚合本系统 SQLite 中真实存在的规范检测、相似度检测、规则润色、创新性量表和辅助评阅记录。统计在打开页面、更改筛选条件或点击刷新时重新计算，不承诺无延迟实时流处理。",
+    "visual_reference": [],
+    "reference": [],
+    "permissions": [
+      "SUPERVISOR",
+      "COLLEGE_ADMIN",
+      "SCHOOL_ADMIN"
+    ],
+    "scenarios": [],
+    "parent_id": "SYS-DEGREE-AI-REVIEW",
+    "children_ids": [
+      "FEAT-LEDGER-RECORDS",
+      "FEAT-LEDGER-FILTERED-STATS"
+    ],
+    "dependencies": []
+  },
+  "FEAT-LEDGER-RECORDS": {
+    "req_id": "FEAT-LEDGER-RECORDS",
+    "name": "按角色数据范围查看台账",
+    "description": "导师仅查看 supervisor_id 等于当前用户的学生记录；学院管理员仅查看本 college_id；学校管理员查看全部。\\n支持按学生、类型、时间范围和最新记录筛选，显示对应类型的核心结果和详情链接。导出内容为当前权限与筛选结果的 UTF-8 CSV。",
+    "visual_reference": [
+      "./reference/image-035.png"
+    ],
+    "reference": [],
+    "permissions": [
+      "SUPERVISOR",
+      "COLLEGE_ADMIN",
+      "SCHOOL_ADMIN"
+    ],
+    "scenarios": [
+      {
+        "id": "FEAT-LEDGER-RECORDS-SCN-1",
+        "name": "导师仅查看名下学生记录",
+        "actor": "SUPERVISOR",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "supervisor01 登录，数据库中同时有名下和非名下学生记录。",
+            "actor": "SUPERVISOR"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "导师查询台账并导出 CSV。",
+            "actor": "SUPERVISOR"
+          },
+          {
+            "keyword": "THEN",
+            "content": "页面和 CSV 均仅包含 supervisor01 名下学生记录。",
+            "actor": null
+          }
+        ]
+      },
+      {
+        "id": "FEAT-LEDGER-RECORDS-SCN-2",
+        "name": "拒绝跨范围详情访问",
+        "actor": "COLLEGE_ADMIN",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "college_admin01 尝试访问 college02 学生的记录 ID。",
+            "actor": "COLLEGE_ADMIN"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "用户请求详情 API。",
+            "actor": "COLLEGE_ADMIN"
+          },
+          {
+            "keyword": "THEN",
+            "content": "后端返回 403，不泄露记录内容。",
+            "actor": null
+          }
+        ]
+      }
+    ],
+    "parent_id": "MOD-LEDGER",
+    "children_ids": [],
+    "dependencies": [
+      "FEAT-NORMATIVE-REPORT",
+      "FEAT-DUPLICATION-HISTORY",
+      "FEAT-POLISH-HISTORY",
+      "FEAT-INNOVATION-HISTORY",
+      "FEAT-AI-REVIEW-HISTORY"
+    ]
+  },
+  "FEAT-LEDGER-FILTERED-STATS": {
+    "req_id": "FEAT-LEDGER-FILTERED-STATS",
+    "name": "筛选统计与本地图表",
+    "description": "根据当前权限和筛选条件计算各类任务的记录数、参与学生数、今日数量和每日趋势。使用本地 SVG/CSS 柱状图和折线图，页面提供手动刷新，不使用外部图表服务。",
+    "visual_reference": [
+      "./reference/image-041.png"
+    ],
+    "reference": [],
+    "permissions": [
+      "SUPERVISOR",
+      "COLLEGE_ADMIN",
+      "SCHOOL_ADMIN"
+    ],
+    "scenarios": [
+      {
+        "id": "FEAT-LEDGER-FILTERED-STATS-SCN-1",
+        "name": "筛选后重算统计",
+        "actor": "COLLEGE_ADMIN",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "college01 存在多类型、多日期的检测记录。",
+            "actor": "COLLEGE_ADMIN"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "管理员选择规范检测和指定日期范围。",
+            "actor": "COLLEGE_ADMIN"
+          },
+          {
+            "keyword": "THEN",
+            "content": "数据表和图表仅使用该范围的 college01 规范检测记录重算。",
+            "actor": null
+          }
+        ]
+      }
+    ],
+    "parent_id": "MOD-LEDGER",
+    "children_ids": [],
+    "dependencies": [
+      "FEAT-LEDGER-RECORDS"
+    ]
+  },
+  "MOD-QUALITY-PORTRAIT": {
+    "req_id": "MOD-QUALITY-PORTRAIT",
+    "name": "本地论文质量仪表盘与画像",
+    "description": "使用本系统已生成的四类可量化结果计算质量指标，不引入新的 AI 判断。所有公式在页面中公开，且可追溯到原始记录。",
+    "visual_reference": [],
+    "reference": [],
+    "permissions": "ALL",
+    "scenarios": [],
+    "parent_id": "SYS-DEGREE-AI-REVIEW",
+    "children_ids": [
+      "FEAT-QUALITY-DASHBOARD",
+      "FEAT-STUDENT-QUALITY-PORTRAIT"
+    ],
+    "dependencies": []
+  },
+  "FEAT-QUALITY-DASHBOARD": {
+    "req_id": "FEAT-QUALITY-DASHBOARD",
+    "name": "群体质量仪表盘",
+    "description": "规范分=max(0,100-严重错误×10-一般错误×4-轻微错误×1)；原创参考分=100-本地总相似率×100；创新参考分=创新性量表综合分；评阅基础分=辅助评阅客观总分。\\n群体页按权限范围和时间、学生、类型筛选，展示样本数、四指标平均分和分布图。某学生缺失某项时显示“暂无数据”，不用 0 分替代。",
+    "visual_reference": [],
+    "reference": [],
+    "permissions": [
+      "SUPERVISOR",
+      "COLLEGE_ADMIN",
+      "SCHOOL_ADMIN"
+    ],
+    "scenarios": [
+      {
+        "id": "FEAT-QUALITY-DASHBOARD-SCN-1",
+        "name": "聚合有效质量指标",
+        "actor": "SUPERVISOR",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "名下学生拥有规范、相似度和创新性结果，但暂无辅助评阅。",
+            "actor": "SUPERVISOR"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "导师打开质量仪表盘。",
+            "actor": "SUPERVISOR"
+          },
+          {
+            "keyword": "THEN",
+            "content": "系统按公式显示三项分数，评阅基础分显示“暂无数据”且不计入平均。",
+            "actor": null
+          }
+        ]
+      }
+    ],
+    "parent_id": "MOD-QUALITY-PORTRAIT",
+    "children_ids": [],
+    "dependencies": [
+      "FEAT-LEDGER-FILTERED-STATS"
+    ]
+  },
+  "FEAT-STUDENT-QUALITY-PORTRAIT": {
+    "req_id": "FEAT-STUDENT-QUALITY-PORTRAIT",
+    "name": "单学生本地质量画像",
+    "description": "从每类业务选取该学生最新一条已完成记录，展示四指标卡片、雷达图、原始结果时间和详情链接。\\n综合分仅在四项都存在时计算，公式为四项等权平均；否则显示“数据不完整”并列出缺失项。学生仅查看本人，导师和管理员按组织范围查看。",
+    "visual_reference": [
+      "./reference/image-048.png",
+      "./reference/image-049.png",
+      "./reference/image-050.png",
+      "./reference/image-051.png"
+    ],
+    "reference": [],
+    "permissions": "ALL",
+    "scenarios": [
+      {
+        "id": "FEAT-STUDENT-QUALITY-PORTRAIT-SCN-1",
+        "name": "四项数据完整时计算综合分",
+        "actor": "STUDENT",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "student01 四项最新指标分别为 80、90、70、80。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "学生打开本人质量画像。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "THEN",
+            "content": "系统显示四项来源和 80 分综合分。",
+            "actor": null
+          }
+        ]
+      },
+      {
+        "id": "FEAT-STUDENT-QUALITY-PORTRAIT-SCN-2",
+        "name": "拒绝学生查看他人画像",
+        "actor": "STUDENT",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "student01 已登录。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "学生请求另一学生的画像 ID。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "THEN",
+            "content": "后端返回 403，不返回他人指标。",
+            "actor": null
+          }
+        ]
+      }
+    ],
+    "parent_id": "MOD-QUALITY-PORTRAIT",
+    "children_ids": [],
+    "dependencies": [
+      "FEAT-QUALITY-DASHBOARD"
+    ]
+  },
+  "MOD-REPORT-INTERACTION": {
+    "req_id": "MOD-REPORT-INTERACTION",
+    "name": "本地师生报告交互批阅",
+    "description": "学生将本系统内已完成的规范检测、相似度、创新性量表或辅助评阅报告提交给本地组织关系中的导师。\\n“推送”指在 SQLite 中创建站内待办，不发送短信、邮件或外部消息。批注绑定报告 finding_id 或作为整体评语，不在 PDF/Word 坐标层上绘制。",
+    "visual_reference": [],
+    "reference": [],
+    "permissions": [
+      "STUDENT",
+      "SUPERVISOR"
+    ],
+    "scenarios": [],
+    "parent_id": "SYS-DEGREE-AI-REVIEW",
+    "children_ids": [
+      "FEAT-REPORT-STUDENT-SUBMIT",
+      "FEAT-REPORT-SUPERVISOR-QUEUE",
+      "FEAT-REPORT-SUPERVISOR-REVIEW",
+      "FEAT-REPORT-STUDENT-RESULTS"
+    ],
+    "dependencies": []
+  },
+  "FEAT-REPORT-STUDENT-SUBMIT": {
+    "req_id": "FEAT-REPORT-STUDENT-SUBMIT",
+    "name": "学生提交本人报告",
+    "description": "学生可选择一条或多条已完成且属于本人的报告提交。后端通过当前用户 supervisor_id 确定导师，为每批次创建独立提交记录和站内待办。",
+    "visual_reference": [
+      "./reference/image-053.png"
+    ],
+    "reference": [],
+    "permissions": [
+      "STUDENT"
+    ],
+    "scenarios": [
+      {
+        "id": "FEAT-REPORT-STUDENT-SUBMIT-SCN-1",
+        "name": "提交报告并创建导师待办",
+        "actor": "STUDENT",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "student01 拥有一条已完成报告，本地导师为 supervisor01。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "学生提交报告。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "THEN",
+            "content": "系统创建状态为已提交待批阅的记录，并为 supervisor01 创建站内待办。",
+            "actor": null
+          }
+        ]
+      },
+      {
+        "id": "FEAT-REPORT-STUDENT-SUBMIT-SCN-2",
+        "name": "拒绝提交他人报告",
+        "actor": "STUDENT",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "报告不属于 student01。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "student01 尝试提交该报告 ID。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "THEN",
+            "content": "后端返回 403，不创建提交记录或待办。",
+            "actor": null
+          }
+        ]
+      }
+    ],
+    "parent_id": "MOD-REPORT-INTERACTION",
+    "children_ids": [],
+    "dependencies": [
+      "FEAT-NORMATIVE-REPORT",
+      "FEAT-DUPLICATION-HISTORY",
+      "FEAT-INNOVATION-HISTORY",
+      "FEAT-AI-REVIEW-HISTORY"
+    ]
+  },
+  "FEAT-REPORT-SUPERVISOR-QUEUE": {
+    "req_id": "FEAT-REPORT-SUPERVISOR-QUEUE",
+    "name": "导师站内待批阅任务",
+    "description": "导师仅查看 assignee_id 为本人的待办，按待批阅优先、提交时间倒序排列，支持按学生、报告类型和状态筛选。红点数量来自未完成待办记录计数。",
+    "visual_reference": [],
+    "reference": [],
+    "permissions": [
+      "SUPERVISOR"
+    ],
+    "scenarios": [
+      {
+        "id": "FEAT-REPORT-SUPERVISOR-QUEUE-SCN-1",
+        "name": "仅显示本导师待办",
+        "actor": "SUPERVISOR",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "数据库中有分配给 supervisor01 和其他导师的待办。",
+            "actor": "SUPERVISOR"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "supervisor01 打开待批阅中心。",
+            "actor": "SUPERVISOR"
+          },
+          {
+            "keyword": "THEN",
+            "content": "页面和未读计数仅基于 supervisor01 的待办。",
+            "actor": null
+          }
+        ]
+      }
+    ],
+    "parent_id": "MOD-REPORT-INTERACTION",
+    "children_ids": [],
+    "dependencies": [
+      "FEAT-REPORT-STUDENT-SUBMIT"
+    ]
+  },
+  "FEAT-REPORT-SUPERVISOR-REVIEW": {
+    "req_id": "FEAT-REPORT-SUPERVISOR-REVIEW",
+    "name": "导师在线批阅与反馈",
+    "description": "导师可打开原报告，对具体 finding_id 添加批注，或添加整体评价和整改建议。提交时必须至少包含一条整体评价，提交后锁定本轮内容、完成待办并将状态改为批阅完成已反馈。",
+    "visual_reference": [
+      "./reference/image-054.png"
+    ],
+    "reference": [],
+    "permissions": [
+      "SUPERVISOR"
+    ],
+    "scenarios": [
+      {
+        "id": "FEAT-REPORT-SUPERVISOR-REVIEW-SCN-1",
+        "name": "导师完成本轮批阅",
+        "actor": "SUPERVISOR",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "supervisor01 拥有一条待批阅任务。",
+            "actor": "SUPERVISOR"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "导师添加一条问题批注和整体评价后提交。",
+            "actor": "SUPERVISOR"
+          },
+          {
+            "keyword": "THEN",
+            "content": "系统锁定批阅内容、完成待办并将提交状态更新为批阅完成已反馈。",
+            "actor": null
+          }
+        ]
+      },
+      {
+        "id": "FEAT-REPORT-SUPERVISOR-REVIEW-SCN-2",
+        "name": "拒绝非所属导师批阅",
+        "actor": "SUPERVISOR",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "提交记录的 assignee_id 不是 supervisor01。",
+            "actor": "SUPERVISOR"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "supervisor01 请求该提交记录或提交批阅。",
+            "actor": "SUPERVISOR"
+          },
+          {
+            "keyword": "THEN",
+            "content": "后端返回 403，不返回报告且不修改状态。",
+            "actor": null
+          }
+        ]
+      }
+    ],
+    "parent_id": "MOD-REPORT-INTERACTION",
+    "children_ids": [],
+    "dependencies": [
+      "FEAT-REPORT-SUPERVISOR-QUEUE"
+    ]
+  },
+  "FEAT-REPORT-STUDENT-RESULTS": {
+    "req_id": "FEAT-REPORT-STUDENT-RESULTS",
+    "name": "学生查看批阅结果",
+    "description": "学生查看本人所有提交轮次，按时间、报告类型和状态筛选。详情页展示原报告、对应 finding 批注、整体评价、整改建议和历史轮次。\\n学生首次打开已反馈结果时，状态更新为学生已查阅。支持下载包含报告摘要、批注和评价的 JSON 文件。",
+    "visual_reference": [],
+    "reference": [],
+    "permissions": [
+      "STUDENT"
+    ],
+    "scenarios": [
+      {
+        "id": "FEAT-REPORT-STUDENT-RESULTS-SCN-1",
+        "name": "查看反馈并更新已查阅状态",
+        "actor": "STUDENT",
+        "steps": [
+          {
+            "keyword": "GIVEN",
+            "content": "student01 有一条状态为批阅完成已反馈的提交记录。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "WHEN",
+            "content": "学生首次打开详情。",
+            "actor": "STUDENT"
+          },
+          {
+            "keyword": "THEN",
+            "content": "页面展示原报告、批注和整体评价，记录状态更新为学生已查阅。",
+            "actor": null
+          }
+        ]
+      }
+    ],
+    "parent_id": "MOD-REPORT-INTERACTION",
+    "children_ids": [],
+    "dependencies": [
+      "FEAT-REPORT-SUPERVISOR-REVIEW"
+    ]
+  }
+}

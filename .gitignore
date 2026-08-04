@@ -1,0 +1,12 @@
+# >>> arcbench-agent-runtime >>>
+backend/node_modules/
+frontend/node_modules/
+backend/coverage/
+frontend/dist/
+frontend/dist-ssr/
+*.db
+.env
+.arc/*
+!.arc/traceability/
+!.arc/traceability/**
+# <<< arcbench-agent-runtime <<<

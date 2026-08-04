@@ -1,0 +1,576 @@
+# 智慧学位 AI 评阅辅助系统（ARC 可实现版）
+
+面向学生、导师、学院管理人员和学校管理人员，建设一个可在当前 ARC Web 模板中完整生成、运行和测试的学位论文辅助系统。
+系统采用单端口 B/S 架构，前端使用 React，后端使用 Express，业务数据使用 SQLite 持久化。系统在本地单实例中运行，不承诺微服务拆分、校内私有云部署、高并发或弹性扩容。
+所有核心结果必须由本地可解释的规则、公式和持久化数据产生，不依赖 jAccount、短信、微信、外部大模型、校外文献库或未提供的校内论文库。
+
+![系统图标](./reference/image-001.jpeg)
+![系统架构](./reference/image-002.png)
+
+## Roles
+
+- **STUDENT:** 学生
+- **SUPERVISOR:** 导师
+- **SCHOOL_ADMIN:** 学校管理人员
+- **COLLEGE_ADMIN:** 学院管理人员
+
+## MOD-AUTH 本地身份认证与会话
+
+使用本地 SQLite 用户、密码哈希和服务端会话完成认证。系统提供四类可测试角色账号，并在本地数据中保存学生—导师—学院的组织关系。
+jAccount、短信验证码、交我办和微信扫码不属于本版本实现与验收范围。
+![统一身份认证界面参考](./reference/image-003.png)
+Permissions: ALL.
+### Included chapters
+- `FEAT-AUTH-SESSION` 本地用户、组织关系与会话
+- `FEAT-AUTH-PASSWORD` 本地账号密码登录
+- `FEAT-AUTH-HELP` 本地登录帮助
+
+### FEAT-AUTH-SESSION 本地用户、组织关系与会话
+
+系统首次启动时幂等创建四个演示账号：student01、supervisor01、college_admin01、school_admin01，初始密码均为 ArcDemo123!，密码必须使用 bcrypt 哈希保存。
+student01 属于 college01，导师为 supervisor01；supervisor01 和 college_admin01 属于 college01；school_admin01 拥有全校范围。
+后端提供登录会话、当前用户、退出登录接口。会话通过 HttpOnly、SameSite=Lax Cookie 保持，受限 API 必须在服务端校验会话、角色和数据范围。
+Permissions: ALL.
+### Acceptance scenarios
+#### 恢复已登录会话
+Actor: STUDENT.
+- **GIVEN (STUDENT)** student01 已使用有效账号建立会话。
+- **WHEN (STUDENT)** 用户刷新页面或请求当前用户接口。
+- **THEN** 系统从服务端会话恢复 student01、STUDENT 角色、college01 和 supervisor01 关系。
+#### 拒绝未登录访问
+Actor: STUDENT.
+- **GIVEN (STUDENT)** 浏览器不存在有效会话。
+- **WHEN (STUDENT)** 用户请求任一受限业务 API。
+- **THEN** 后端返回 401，不返回业务数据。
+
+### FEAT-AUTH-PASSWORD 本地账号密码登录
+
+用户输入本地用户名和密码登录。登录成功后进入系统首页，并根据当前角色显示菜单和数据范围。登录失败仅显示统一错误提示，不泄露用户名是否存在。
+Permissions: ALL.
+Depends on: `FEAT-AUTH-SESSION`.
+### Acceptance scenarios
+#### 使用本地账号成功登录
+Actor: STUDENT.
+- **GIVEN (STUDENT)** 用户位于登录页，输入 student01 和 ArcDemo123!。
+- **WHEN (STUDENT)** 用户提交登录表单。
+- **THEN** 系统建立 HttpOnly Cookie 会话，进入首页并显示学生菜单。
+#### 拒绝错误密码
+Actor: STUDENT.
+- **GIVEN (STUDENT)** 用户输入 student01 和错误密码。
+- **WHEN (STUDENT)** 用户提交登录表单。
+- **THEN** 系统不建立会话，显示“用户名或密码错误”。
+
+### FEAT-AUTH-HELP 本地登录帮助
+
+登录页提供“演示账号与登录帮助”入口，展示四个演示账号、角色、初始密码和本地原型说明。页面明确说明本版本未接入 jAccount、短信或扫码登录。
+Permissions: ALL.
+Depends on: `FEAT-AUTH-PASSWORD`.
+### Acceptance scenarios
+#### 查看演示账号
+Actor: STUDENT.
+- **GIVEN (STUDENT)** 用户位于登录页。
+- **WHEN (STUDENT)** 用户打开演示账号帮助。
+- **THEN** 页面展示四类账号及本地原型能力边界。
+
+## MOD-NORMATIVE-DETECTION 论文规则化规范检测
+
+对 UTF-8 纯文本论文执行可解释、可重复的规则检测。系统支持 .txt 和 .md 文件或直接粘贴文本，单份内容不超过 5 MB。
+检测范围包括章节完整性、标点配对、连续重复标点、数字与日期的有限规则、参考文献顺序编码、禁用词典、重复词和过长句。不检测 Word/PDF 的字体、页边距、页码或页眉页脚。
+Permissions: ALL.
+### Included chapters
+- `FEAT-NORMATIVE-FORMAT-RULES` 默认规范检测规则
+- `FLOW-RULE-PUBLISH` 学校与学院规则配置
+- `FEAT-RULE-TEMPLATE-UPLOAD` JSON 规则集导入
+- `FEAT-NORMATIVE-DETECT` 发起规范检测
+- `FEAT-NORMATIVE-REPORT` 规范检测记录与报告
+
+### FEAT-NORMATIVE-FORMAT-RULES 默认规范检测规则
+
+系统内置以下可执行规则：
+- 章节顺序：摘要、关键词、引言、结论、参考文献必须出现，且按该顺序排列。
+- 标点配对：检查中英文圆括号、方括号、书名号和引号是否成对。
+- 重复标点：报告“，，”“。。”“；；”和连续三个以上相同标点。
+- 日期格式：数字日期仅接受 YYYY-MM-DD，例如 2026-08-03。
+- 参考文献：“参考文献”后的非空行必须以 [1] 开始并连续递增。
+- 文本质量：报告连续重复词、Tab、行尾空格、超过 120 个字符的句子，以及规则表中的禁用词。
+每条问题输出 rule_id、类别、严重程度、行号、列号、原文片段、问题说明和修改建议。
+Permissions: ALL.
+Depends on: `FEAT-AUTH-SESSION`.
+### Acceptance scenarios
+#### 检出可重复的文本问题
+Actor: STUDENT.
+- **GIVEN (STUDENT)** 文本包含未配对括号、“。。”和一个超过 120 字符的句子。
+- **WHEN (STUDENT)** 学生对该文本运行默认规则。
+- **THEN** 系统分别返回配对、重复标点和过长句问题，且每条问题包含行列位置。
+
+### FLOW-RULE-PUBLISH 学校与学院规则配置
+
+规则包含 rule_id、标题、类别、严重程度、启用状态、匹配参数和提示文案。
+学校管理人员维护全校默认规则，学院管理人员仅维护本学院规则。同一 rule_id 的合并顺序为国标默认值 < 学校规则 < 学院规则；学院重置后删除学院覆盖并继承学校值。
+![模板历史、模板上传与可视化规则配置界面](./reference/image-052.png)
+Permissions: SCHOOL_ADMIN, COLLEGE_ADMIN.
+Depends on: `FEAT-NORMATIVE-FORMAT-RULES`.
+### Acceptance scenarios
+#### 学院规则覆盖学校规则
+Actor: COLLEGE_ADMIN.
+- **GIVEN (COLLEGE_ADMIN)** 学校已发布 rule_id 为 TEXT-LONG-SENTENCE 的 120 字符阈值。
+- **WHEN (COLLEGE_ADMIN)** college01 管理员将同一规则改为 100 字符并提交生效。
+- **THEN** college01 学生检测使用 100，其他学院仍使用 120。
+#### 拒绝跨学院修改
+Actor: COLLEGE_ADMIN.
+- **GIVEN (COLLEGE_ADMIN)** college_admin01 属于 college01。
+- **WHEN (COLLEGE_ADMIN)** 该用户尝试修改 college02 的规则。
+- **THEN** 后端返回 403，且 college02 规则不变。
+
+### FEAT-RULE-TEMPLATE-UPLOAD JSON 规则集导入
+
+学校或学院管理人员上传不超过 1 MB 的 UTF-8 JSON 文件导入规则草稿。顶层必须为数组，每项必须包含 rule_id、title、category、severity、enabled 和 message，可选 params。
+导入仅保存草稿，不自动生效；不支持从 DOC/DOCX 模板自动推导规则。
+Permissions: SCHOOL_ADMIN, COLLEGE_ADMIN.
+Depends on: `FLOW-RULE-PUBLISH`.
+### Acceptance scenarios
+#### 导入合法规则集
+Actor: SCHOOL_ADMIN.
+- **GIVEN (SCHOOL_ADMIN)** 管理员准备了包含两条完整规则的 JSON 数组。
+- **WHEN (SCHOOL_ADMIN)** 管理员导入文件。
+- **THEN** 系统校验字段并创建两条草稿，不改变已生效规则。
+#### 拒绝非法 JSON 规则集
+Actor: COLLEGE_ADMIN.
+- **GIVEN (COLLEGE_ADMIN)** JSON 项缺少 rule_id 或 severity 不在严重、一般、轻微之中。
+- **WHEN (COLLEGE_ADMIN)** 管理员导入文件。
+- **THEN** 系统显示具体项索引和错误原因，不保存任何项。
+
+### FEAT-NORMATIVE-DETECT 发起规范检测
+
+学生可粘贴论文文本或上传 .txt/.md 文件，选择当前生效的学校/学院规则后发起检测。
+任务状态按“待检测→检测中→已完成”流转，检测在同一后端请求内完成，不伪造百分比进度。系统保存原文、规则快照、问题列表、各级别计数和创建时间。
+![规范性检测文件上传与规则选择界面](./reference/image-004.png)
+![规范性检测进度与结果汇总界面](./reference/image-005.png)
+Permissions: ALL.
+Depends on: `FEAT-AUTH-SESSION`, `FEAT-NORMATIVE-FORMAT-RULES`, `FLOW-RULE-PUBLISH`.
+### Acceptance scenarios
+#### 对粘贴文本完成检测
+Actor: STUDENT.
+- **GIVEN (STUDENT)** student01 粘贴了包含摘要、关键词、引言、结论和参考文献的文本。
+- **WHEN (STUDENT)** 学生发起检测。
+- **THEN** 系统保存已完成任务、当次规则快照和带行列位置的问题列表。
+#### 拒绝超限或非 UTF-8 文件
+Actor: STUDENT.
+- **GIVEN (STUDENT)** 文件超过 5 MB 或无法按 UTF-8 解码。
+- **WHEN (STUDENT)** 学生上传文件。
+- **THEN** 系统返回可理解的校验错误，不创建检测任务。
+
+### FEAT-NORMATIVE-REPORT 规范检测记录与报告
+
+学生仅查看本人的历史记录。列表按创建时间倒序展示文档名、问题总数、严重/一般/轻微计数和检测时间。
+报告页左侧显示带行号的纯文本，右侧显示问题列表；点击问题后滚动到对应行并高亮文本片段。支持下载 UTF-8 JSON 报告和使用浏览器打印页面。
+![规范性检测历史记录与报告操作](./reference/image-006.png)
+Permissions: ALL.
+Depends on: `FEAT-NORMATIVE-DETECT`.
+### Acceptance scenarios
+#### 定位并导出检测问题
+Actor: STUDENT.
+- **GIVEN (STUDENT)** student01 拥有一份包含行列位置的已完成报告。
+- **WHEN (STUDENT)** 学生打开报告、点击一条问题并下载 JSON。
+- **THEN** 原文滚动到对应行并高亮，下载文件包含规则快照和完整问题列表。
+
+## MOD-DUPLICATION-CHECK 本地文本相似度与写作风险检测
+
+对纯文本执行本地可解释检测。“校内相似度”仅与学校管理人员已导入的本地样本库比对；“写作风险”仅根据重复率、句长分布和模板短语密度输出风险提示，不声称识别 AI 生成真伪。
+Permissions: ALL.
+### Included chapters
+- `FEAT-DUPLICATION-CORPUS` 本地比对样本库
+- `FEAT-DUPLICATION-DETECT` 发起本地相似度与风险检测
+- `FEAT-DUPLICATION-HISTORY` 相似度与写作风险记录
+
+### FEAT-DUPLICATION-CORPUS 本地比对样本库
+
+学校管理人员可通过粘贴文本或上传 .txt/.md 文件新增样本，填写标题、学科和年份，并可查看或删除样本。
+样本保存于 SQLite，仅作为本地原型比对数据，不表示已接入真实校内论文库。
+Permissions: SCHOOL_ADMIN.
+Depends on: `FEAT-AUTH-SESSION`.
+### Acceptance scenarios
+#### 导入本地比对样本
+Actor: SCHOOL_ADMIN.
+- **GIVEN (SCHOOL_ADMIN)** school_admin01 准备了一份非空 UTF-8 文本及标题、学科和年份。
+- **WHEN (SCHOOL_ADMIN)** 管理员提交样本。
+- **THEN** 系统保存样本，并在后续相似度检测中使用它。
+
+### FEAT-DUPLICATION-DETECT 发起本地相似度与风险检测
+
+系统对文本进行小写化、空白归一化和标点移除，以字符 5-gram 集合计算 Jaccard 相似度，返回最高的五个样本及相似段落。总相似率为所有命中段落字符数去重后除以待检文本有效字符数，比对阈值默认为 0.65。
+写作风险分由段落重复率 35%、句长变化不足 25%、模板连接词密度 20%和空泛短语密度 20% 加权生成。页面必须显示该分数是启发式风险而非 AI 真伪结论。
+![论文查重类型选择与文件上传界面](./reference/image-008.png)
+![论文查重进度界面](./reference/image-009.png)
+Permissions: ALL.
+Depends on: `FEAT-AUTH-SESSION`, `FEAT-DUPLICATION-CORPUS`.
+### Acceptance scenarios
+#### 检出本地样本相似段落
+Actor: STUDENT.
+- **GIVEN (STUDENT)** 本地样本库已有一篇文本，待检文本包含与其高度相似的段落。
+- **WHEN (STUDENT)** student01 发起相似度检测。
+- **THEN** 报告显示命中样本、Jaccard 分数、相似段落和总相似率。
+#### 无样本时返回明确结果
+Actor: STUDENT.
+- **GIVEN (STUDENT)** 本地样本库为空。
+- **WHEN (STUDENT)** student01 发起检测。
+- **THEN** 系统完成写作风险计算，并将相似度结果标记为“无可用样本”，不伪造比对结果。
+
+### FEAT-DUPLICATION-HISTORY 相似度与写作风险记录
+
+学生查看本人检测历史，包含文档名、总相似率、写作风险分、样本库数量和检测时间。报告支持在线查看、JSON 下载和浏览器打印。
+![论文查重历史记录与报告操作](./reference/image-010.png)
+Permissions: ALL.
+Depends on: `FEAT-DUPLICATION-DETECT`.
+### Acceptance scenarios
+#### 查看检测历史
+Actor: STUDENT.
+- **GIVEN (STUDENT)** student01 已完成两次检测。
+- **WHEN (STUDENT)** 学生打开历史记录。
+- **THEN** 系统仅按时间倒序显示 student01 的两条记录，并可打开完整报告。
+
+## MOD-POLISH 规则化文本润色
+
+使用本地确定性规则修正空白、标点、重复词和可配置短语，并用差异视图展示每处变更。
+本版本不调用外部大模型，不声称进行语义重构，不生成 Word 原生修订痕迹。
+Permissions: ALL.
+### Included chapters
+- `FEAT-POLISH-WHOLE` 全文规则润色
+- `FEAT-POLISH-LOCAL` 局部文本润色与差异对比
+- `FEAT-POLISH-HISTORY` 润色历史记录
+
+### FEAT-POLISH-WHOLE 全文规则润色
+
+支持粘贴文本或上传 .txt/.md，提供三档可解释处理：
+- 基础校准：去除行尾空格、归一化连续空白、修复重复标点和连续重复词。
+- 标准优化：在基础校准上，应用管理员维护的“原短语→替换短语”映射。
+- 增强优化：在标准优化上，对超过 120 字符且包含分号或逗号的句子按首个合法分隔位置拆分，并记录拆分原因。
+结果保存原文、新文、档位和变更列表，可下载 UTF-8 .txt 结果。
+![全文润色文档上传与三档等级选择](./reference/image-018.png)
+![全文润色完成信息与结果操作](./reference/image-019.png)
+![带 Word 修订痕迹的润色输出](./reference/image-021.png)
+Permissions: ALL.
+Depends on: `FEAT-AUTH-SESSION`.
+### Acceptance scenarios
+#### 生成可追溯全文润色结果
+Actor: STUDENT.
+- **GIVEN (STUDENT)** 文本包含重复标点、重复词和一个已配置的短语。
+- **WHEN (STUDENT)** student01 选择标准优化并执行。
+- **THEN** 系统生成确定的新文和变更列表，每条变更包含原文、新文、位置和规则。
+
+### FEAT-POLISH-LOCAL 局部文本润色与差异对比
+
+页面左右分栏展示原文和结果，支持选择档位、处理、复制结果、重置和重试。相同原文、档位和规则版本的重试必须产生相同结果。
+![局部文本左右分栏润色界面](./reference/image-022.png)
+Permissions: ALL.
+Depends on: `FEAT-POLISH-WHOLE`.
+### Acceptance scenarios
+#### 重试产生相同结果
+Actor: STUDENT.
+- **GIVEN (STUDENT)** 学生已用标准优化处理一段文本，规则版本未变。
+- **WHEN (STUDENT)** 学生点击重试。
+- **THEN** 新结果和变更列表与上一次完全一致。
+
+### FEAT-POLISH-HISTORY 润色历史记录
+
+学生查看本人全文与局部润色记录，按时间倒序显示名称、档位、变更数和生成时间，并可查看差异或下载 .txt 结果。
+![全文润色历史记录](./reference/image-020.png)
+Permissions: ALL.
+Depends on: `FEAT-POLISH-LOCAL`.
+### Acceptance scenarios
+#### 查看本人润色记录
+Actor: STUDENT.
+- **GIVEN (STUDENT)** student01 和另一学生都有润色记录。
+- **WHEN (STUDENT)** student01 打开历史页。
+- **THEN** 页面仅展示 student01 的记录。
+
+## MOD-INNOVATION-ANALYSIS 创新性量表评估
+
+通过用户填写的五维度等级和证据文本生成透明可解释的创新性自评结果。系统不搜索国内外文献，不访问往届论文库，不声称自动发现学术创新。
+Permissions: ALL.
+### Included chapters
+- `FEAT-INNOVATION-SCORING-MODEL` 固定透明评分模型
+- `FEAT-INNOVATION-ANALYZE` 发起创新性量表评估
+- `FEAT-INNOVATION-REPORT` 创新性量表报告
+- `FEAT-INNOVATION-HISTORY` 创新性评估历史
+
+### FEAT-INNOVATION-SCORING-MODEL 固定透明评分模型
+
+五个维度为研究选题、研究方法、研究内容、研究结论和应用价值。每个维度由用户选择 1-5 级，维度原始分=等级×20。
+博士权重依次为 25%、25%、20%、20%、10%；硕士权重依次为 20%、20%、25%、20%、15%。综合分=各维度原始分×权重之和。
+90-100 为优秀，80-89.99 为良好，60-79.99 为一般，0-59.99 为待提升。公式和本次输入必须在报告中展示。
+Permissions: ALL.
+Depends on: `FEAT-AUTH-SESSION`.
+### Acceptance scenarios
+#### 按硕士权重计算综合分
+Actor: STUDENT.
+- **GIVEN (STUDENT)** 硕士论文五维度等级依次为 5、4、4、3、4。
+- **WHEN (STUDENT)** 系统计算创新性分数。
+- **THEN** 系统按 20%、20%、25%、20%、15% 权重返回 80 分和“良好”等级。
+
+### FEAT-INNOVATION-ANALYZE 发起创新性量表评估
+
+学生填写论文题目、学历层次、学科、研究方向，并为每个维度选择 1-5 级、填写不少于 20 个字符的证据和改进计划。
+系统校验所有字段，按固定公式计算分数并保存快照。页面明确标记“本结果为量表自评，不代替专家评审或文献查新”。
+![创新性分析上传信息界面](./reference/image-023.png)
+![创新性分析处理进度](./reference/image-024.png)
+![创新性分析完成结果操作](./reference/image-025.png)
+Permissions: ALL.
+Depends on: `FEAT-INNOVATION-SCORING-MODEL`.
+### Acceptance scenarios
+#### 完成五维度评估
+Actor: STUDENT.
+- **GIVEN (STUDENT)** student01 已填写完整的基本信息、五维度等级、证据和改进计划。
+- **WHEN (STUDENT)** 学生提交评估。
+- **THEN** 系统保存输入快照、权重、分项分、综合分和等级。
+#### 拒绝缺失维度证据
+Actor: STUDENT.
+- **GIVEN (STUDENT)** 研究方法维度证据少于 20 个字符。
+- **WHEN (STUDENT)** 学生提交评估。
+- **THEN** 系统指出研究方法证据不完整，不保存评估。
+
+### FEAT-INNOVATION-REPORT 创新性量表报告
+
+报告显示基本信息、五维雷达图、五维评级热力矩阵、证据、改进计划、权重公式、综合分和声明。图表使用本地 SVG 或 CSS 绘制，不依赖外部图表服务。支持 JSON 下载和浏览器打印。
+![创新性分析报告基本信息](./reference/image-027.png)
+Permissions: ALL.
+Depends on: `FEAT-INNOVATION-ANALYZE`.
+### Acceptance scenarios
+#### 展示透明评分报告
+Actor: STUDENT.
+- **GIVEN (STUDENT)** student01 有一份已完成评估。
+- **WHEN (STUDENT)** 学生打开报告。
+- **THEN** 页面以文本和图表展示五维分数、证据、权重和综合分，且两种表示的数值一致。
+
+### FEAT-INNOVATION-HISTORY 创新性评估历史
+
+学生仅查看本人评估，按时间倒序显示论文题目、学历层次、综合分、等级和生成时间。
+![创新性分析历史记录](./reference/image-026.png)
+Permissions: ALL.
+Depends on: `FEAT-INNOVATION-REPORT`.
+### Acceptance scenarios
+#### 查看创新性评估历史
+Actor: STUDENT.
+- **GIVEN (STUDENT)** student01 已完成多次评估。
+- **WHEN (STUDENT)** 学生打开历史页。
+- **THEN** 系统按时间倒序显示本人记录，并可进入对应报告。
+
+## MOD-AI-REVIEW 规则化论文辅助评阅
+
+基于固定评阅模板和可验证的文本特征生成辅助检查结果。系统检查章节、篇幅、参考文献数量、方法与结论章节及规范问题，主观学术质量统一标记为“待人工确认”。
+本版本不调用外部大模型，不产生专家级学术结论。
+Permissions: ALL.
+### Included chapters
+- `FEAT-AI-REVIEW-RUBRICS` 评阅模板与客观检查项
+- `FEAT-AI-REVIEW-RUN` 发起规则化辅助评阅
+- `FEAT-AI-REVIEW-RESULT` 辅助评阅结果
+- `FEAT-AI-REVIEW-HISTORY` 辅助评阅历史
+
+### FEAT-AI-REVIEW-RUBRICS 评阅模板与客观检查项
+
+系统内置学术型博士自然科学、学术型博士人文社科、专业型博士、学术型硕士和专业型硕士五类模板。
+每类模板定义必需章节和最低参考文献数量；共享客观分值为章节完整性 30 分、参考文献数量与编号 20 分、研究方法章节 20 分、结论章节 20 分、规范检测结果 10 分。
+客观分不低于 80 且无必需章节缺失时结果为“基础检查通过”，否则为“需修改”。
+Permissions: ALL.
+Depends on: `FEAT-AUTH-SESSION`, `FEAT-NORMATIVE-FORMAT-RULES`.
+### Acceptance scenarios
+#### 显示五类评阅模板
+Actor: STUDENT.
+- **GIVEN (STUDENT)** 用户进入辅助评阅页。
+- **WHEN (STUDENT)** 用户打开模板选择器。
+- **THEN** 系统展示五类模板及各自的必需章节、最低文献数和共享计分项。
+
+### FEAT-AI-REVIEW-RUN 发起规则化辅助评阅
+
+用户选择评阅模板，填写论文题目，并粘贴或上传 .txt/.md 论文文本。系统按标题行和关键词识别章节，统计字符数与参考文献条目，复用规范检测规则，并按模板公式生成结果。
+![AI 智能评阅模板选择与论文上传](./reference/image-032.png)
+Permissions: ALL.
+Depends on: `FEAT-AI-REVIEW-RUBRICS`.
+### Acceptance scenarios
+#### 对章节不完整文本给出需修改结果
+Actor: STUDENT.
+- **GIVEN (STUDENT)** 论文缺少所选模板规定的结论章节。
+- **WHEN (STUDENT)** student01 发起辅助评阅。
+- **THEN** 系统将结论章节项计为 0 分，整体结果为“需修改”，并指出缺失章节。
+
+### FEAT-AI-REVIEW-RESULT 辅助评阅结果
+
+结果页展示论文基本信息、模板、五项客观分、总分、通过/需修改结论、规范问题和“待人工确认”的主观维度清单。
+页面左侧使用带行号的纯文本预览，右侧显示检查项，支持 JSON 下载和浏览器打印。
+![论文原文与 AI 智能评阅结果双栏页](./reference/image-033.png)
+Permissions: ALL.
+Depends on: `FEAT-AI-REVIEW-RUN`.
+### Acceptance scenarios
+#### 核对评分项和总分
+Actor: STUDENT.
+- **GIVEN (STUDENT)** 一份辅助评阅已完成。
+- **WHEN (STUDENT)** 学生打开结果页。
+- **THEN** 五项分数之和等于总分，且主观学术维度均显示为待人工确认。
+
+### FEAT-AI-REVIEW-HISTORY 辅助评阅历史
+
+学生仅查看本人历史，按时间倒序显示论文题目、模板、总分、结论和时间，并可进入结果页。
+![AI 智能评阅历史记录](./reference/image-034.png)
+Permissions: ALL.
+Depends on: `FEAT-AI-REVIEW-RESULT`.
+### Acceptance scenarios
+#### 查看辅助评阅历史
+Actor: STUDENT.
+- **GIVEN (STUDENT)** student01 有两条评阅记录。
+- **WHEN (STUDENT)** 学生打开评阅历史。
+- **THEN** 系统按时间倒序显示两条记录并提供详情入口。
+
+## MOD-LEDGER 本地检测台账与统计
+
+聚合本系统 SQLite 中真实存在的规范检测、相似度检测、规则润色、创新性量表和辅助评阅记录。统计在打开页面、更改筛选条件或点击刷新时重新计算，不承诺无延迟实时流处理。
+Permissions: SUPERVISOR, COLLEGE_ADMIN, SCHOOL_ADMIN.
+### Included chapters
+- `FEAT-LEDGER-RECORDS` 按角色数据范围查看台账
+- `FEAT-LEDGER-FILTERED-STATS` 筛选统计与本地图表
+
+### FEAT-LEDGER-RECORDS 按角色数据范围查看台账
+
+导师仅查看 supervisor_id 等于当前用户的学生记录；学院管理员仅查看本 college_id；学校管理员查看全部。
+支持按学生、类型、时间范围和最新记录筛选，显示对应类型的核心结果和详情链接。导出内容为当前权限与筛选结果的 UTF-8 CSV。
+![全类型检测记录台账](./reference/image-035.png)
+Permissions: SUPERVISOR, COLLEGE_ADMIN, SCHOOL_ADMIN.
+Depends on: `FEAT-NORMATIVE-REPORT`, `FEAT-DUPLICATION-HISTORY`, `FEAT-POLISH-HISTORY`, `FEAT-INNOVATION-HISTORY`, `FEAT-AI-REVIEW-HISTORY`.
+### Acceptance scenarios
+#### 导师仅查看名下学生记录
+Actor: SUPERVISOR.
+- **GIVEN (SUPERVISOR)** supervisor01 登录，数据库中同时有名下和非名下学生记录。
+- **WHEN (SUPERVISOR)** 导师查询台账并导出 CSV。
+- **THEN** 页面和 CSV 均仅包含 supervisor01 名下学生记录。
+#### 拒绝跨范围详情访问
+Actor: COLLEGE_ADMIN.
+- **GIVEN (COLLEGE_ADMIN)** college_admin01 尝试访问 college02 学生的记录 ID。
+- **WHEN (COLLEGE_ADMIN)** 用户请求详情 API。
+- **THEN** 后端返回 403，不泄露记录内容。
+
+### FEAT-LEDGER-FILTERED-STATS 筛选统计与本地图表
+
+根据当前权限和筛选条件计算各类任务的记录数、参与学生数、今日数量和每日趋势。使用本地 SVG/CSS 柱状图和折线图，页面提供手动刷新，不使用外部图表服务。
+![检测筛选统计与动态生成图表](./reference/image-041.png)
+Permissions: SUPERVISOR, COLLEGE_ADMIN, SCHOOL_ADMIN.
+Depends on: `FEAT-LEDGER-RECORDS`.
+### Acceptance scenarios
+#### 筛选后重算统计
+Actor: COLLEGE_ADMIN.
+- **GIVEN (COLLEGE_ADMIN)** college01 存在多类型、多日期的检测记录。
+- **WHEN (COLLEGE_ADMIN)** 管理员选择规范检测和指定日期范围。
+- **THEN** 数据表和图表仅使用该范围的 college01 规范检测记录重算。
+
+## MOD-QUALITY-PORTRAIT 本地论文质量仪表盘与画像
+
+使用本系统已生成的四类可量化结果计算质量指标，不引入新的 AI 判断。所有公式在页面中公开，且可追溯到原始记录。
+Permissions: ALL.
+### Included chapters
+- `FEAT-QUALITY-DASHBOARD` 群体质量仪表盘
+- `FEAT-STUDENT-QUALITY-PORTRAIT` 单学生本地质量画像
+
+### FEAT-QUALITY-DASHBOARD 群体质量仪表盘
+
+规范分=max(0,100-严重错误×10-一般错误×4-轻微错误×1)；原创参考分=100-本地总相似率×100；创新参考分=创新性量表综合分；评阅基础分=辅助评阅客观总分。
+群体页按权限范围和时间、学生、类型筛选，展示样本数、四指标平均分和分布图。某学生缺失某项时显示“暂无数据”，不用 0 分替代。
+Permissions: SUPERVISOR, COLLEGE_ADMIN, SCHOOL_ADMIN.
+Depends on: `FEAT-LEDGER-FILTERED-STATS`.
+### Acceptance scenarios
+#### 聚合有效质量指标
+Actor: SUPERVISOR.
+- **GIVEN (SUPERVISOR)** 名下学生拥有规范、相似度和创新性结果，但暂无辅助评阅。
+- **WHEN (SUPERVISOR)** 导师打开质量仪表盘。
+- **THEN** 系统按公式显示三项分数，评阅基础分显示“暂无数据”且不计入平均。
+
+### FEAT-STUDENT-QUALITY-PORTRAIT 单学生本地质量画像
+
+从每类业务选取该学生最新一条已完成记录，展示四指标卡片、雷达图、原始结果时间和详情链接。
+综合分仅在四项都存在时计算，公式为四项等权平均；否则显示“数据不完整”并列出缺失项。学生仅查看本人，导师和管理员按组织范围查看。
+![单学生规范性质量画像](./reference/image-048.png)
+![单学生论文查重质量画像](./reference/image-049.png)
+![单学生创新性质量画像](./reference/image-050.png)
+![单学生 AI 智能评阅质量画像](./reference/image-051.png)
+Permissions: ALL.
+Depends on: `FEAT-QUALITY-DASHBOARD`.
+### Acceptance scenarios
+#### 四项数据完整时计算综合分
+Actor: STUDENT.
+- **GIVEN (STUDENT)** student01 四项最新指标分别为 80、90、70、80。
+- **WHEN (STUDENT)** 学生打开本人质量画像。
+- **THEN** 系统显示四项来源和 80 分综合分。
+#### 拒绝学生查看他人画像
+Actor: STUDENT.
+- **GIVEN (STUDENT)** student01 已登录。
+- **WHEN (STUDENT)** 学生请求另一学生的画像 ID。
+- **THEN** 后端返回 403，不返回他人指标。
+
+## MOD-REPORT-INTERACTION 本地师生报告交互批阅
+
+学生将本系统内已完成的规范检测、相似度、创新性量表或辅助评阅报告提交给本地组织关系中的导师。
+“推送”指在 SQLite 中创建站内待办，不发送短信、邮件或外部消息。批注绑定报告 finding_id 或作为整体评语，不在 PDF/Word 坐标层上绘制。
+Permissions: STUDENT, SUPERVISOR.
+### Included chapters
+- `FEAT-REPORT-STUDENT-SUBMIT` 学生提交本人报告
+- `FEAT-REPORT-SUPERVISOR-QUEUE` 导师站内待批阅任务
+- `FEAT-REPORT-SUPERVISOR-REVIEW` 导师在线批阅与反馈
+- `FEAT-REPORT-STUDENT-RESULTS` 学生查看批阅结果
+
+### FEAT-REPORT-STUDENT-SUBMIT 学生提交本人报告
+
+学生可选择一条或多条已完成且属于本人的报告提交。后端通过当前用户 supervisor_id 确定导师，为每批次创建独立提交记录和站内待办。
+![学生报告提交与批阅结果台账](./reference/image-053.png)
+Permissions: STUDENT.
+Depends on: `FEAT-NORMATIVE-REPORT`, `FEAT-DUPLICATION-HISTORY`, `FEAT-INNOVATION-HISTORY`, `FEAT-AI-REVIEW-HISTORY`.
+### Acceptance scenarios
+#### 提交报告并创建导师待办
+Actor: STUDENT.
+- **GIVEN (STUDENT)** student01 拥有一条已完成报告，本地导师为 supervisor01。
+- **WHEN (STUDENT)** 学生提交报告。
+- **THEN** 系统创建状态为已提交待批阅的记录，并为 supervisor01 创建站内待办。
+#### 拒绝提交他人报告
+Actor: STUDENT.
+- **GIVEN (STUDENT)** 报告不属于 student01。
+- **WHEN (STUDENT)** student01 尝试提交该报告 ID。
+- **THEN** 后端返回 403，不创建提交记录或待办。
+
+### FEAT-REPORT-SUPERVISOR-QUEUE 导师站内待批阅任务
+
+导师仅查看 assignee_id 为本人的待办，按待批阅优先、提交时间倒序排列，支持按学生、报告类型和状态筛选。红点数量来自未完成待办记录计数。
+Permissions: SUPERVISOR.
+Depends on: `FEAT-REPORT-STUDENT-SUBMIT`.
+### Acceptance scenarios
+#### 仅显示本导师待办
+Actor: SUPERVISOR.
+- **GIVEN (SUPERVISOR)** 数据库中有分配给 supervisor01 和其他导师的待办。
+- **WHEN (SUPERVISOR)** supervisor01 打开待批阅中心。
+- **THEN** 页面和未读计数仅基于 supervisor01 的待办。
+
+### FEAT-REPORT-SUPERVISOR-REVIEW 导师在线批阅与反馈
+
+导师可打开原报告，对具体 finding_id 添加批注，或添加整体评价和整改建议。提交时必须至少包含一条整体评价，提交后锁定本轮内容、完成待办并将状态改为批阅完成已反馈。
+![导师在线交互式报告批阅界面](./reference/image-054.png)
+Permissions: SUPERVISOR.
+Depends on: `FEAT-REPORT-SUPERVISOR-QUEUE`.
+### Acceptance scenarios
+#### 导师完成本轮批阅
+Actor: SUPERVISOR.
+- **GIVEN (SUPERVISOR)** supervisor01 拥有一条待批阅任务。
+- **WHEN (SUPERVISOR)** 导师添加一条问题批注和整体评价后提交。
+- **THEN** 系统锁定批阅内容、完成待办并将提交状态更新为批阅完成已反馈。
+#### 拒绝非所属导师批阅
+Actor: SUPERVISOR.
+- **GIVEN (SUPERVISOR)** 提交记录的 assignee_id 不是 supervisor01。
+- **WHEN (SUPERVISOR)** supervisor01 请求该提交记录或提交批阅。
+- **THEN** 后端返回 403，不返回报告且不修改状态。
+
+### FEAT-REPORT-STUDENT-RESULTS 学生查看批阅结果
+
+学生查看本人所有提交轮次，按时间、报告类型和状态筛选。详情页展示原报告、对应 finding 批注、整体评价、整改建议和历史轮次。
+学生首次打开已反馈结果时，状态更新为学生已查阅。支持下载包含报告摘要、批注和评价的 JSON 文件。
+Permissions: STUDENT.
+Depends on: `FEAT-REPORT-SUPERVISOR-REVIEW`.
+### Acceptance scenarios
+#### 查看反馈并更新已查阅状态
+Actor: STUDENT.
+- **GIVEN (STUDENT)** student01 有一条状态为批阅完成已反馈的提交记录。
+- **WHEN (STUDENT)** 学生首次打开详情。
+- **THEN** 页面展示原报告、批注和整体评价，记录状态更新为学生已查阅。
