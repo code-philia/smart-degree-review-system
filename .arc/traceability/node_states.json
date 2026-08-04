@@ -193,9 +193,9 @@
   },
   "MOD-DUPLICATION-CHECK": {
     "req_id": "MOD-DUPLICATION-CHECK",
-    "state": "DESIGNED",
-    "phase": "design",
-    "updated_at": "2026-08-04 17:10:49"
+    "state": "PASSED",
+    "phase": "test",
+    "updated_at": "2026-08-04 17:47:53"
   },
   "MOD-INNOVATION-ANALYSIS": {
     "req_id": "MOD-INNOVATION-ANALYSIS",
