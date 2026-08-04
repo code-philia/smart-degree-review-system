@@ -22,6 +22,14 @@ app.use('/api/normative', normativeRoutes);
 
 const frontendDistPath = path.resolve(__dirname, '../../frontend/dist');
 
+app.use((error, req, res, next) => {
+  if (error?.type === 'entity.too.large') {
+    res.status(413).json({ code: 413, message: '文件或文本不能超过 5 MB' });
+    return;
+  }
+  next(error);
+});
+
 if (fs.existsSync(frontendDistPath)) {
   app.use(express.static(frontendDistPath));
 

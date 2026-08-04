@@ -12,6 +12,33 @@ function createHttpError(status, message) {
   return error;
 }
 
+function getFileExtension(fileName) {
+  const dotIndex = fileName.lastIndexOf('.');
+  return dotIndex === -1 ? '' : fileName.slice(dotIndex).toLowerCase();
+}
+
+function validateSource(payload) {
+  const sourceType = payload.source_type || 'paste';
+  if (!['paste', 'file'].includes(sourceType)) {
+    throw createHttpError(400, '检测来源类型无效');
+  }
+
+  const sourceFilename = typeof payload.source_filename === 'string' && payload.source_filename.trim()
+    ? payload.source_filename.trim()
+    : null;
+
+  if (sourceType === 'file') {
+    if (!sourceFilename) {
+      throw createHttpError(400, '文件检测需要提供文件名');
+    }
+    if (!ALLOWED_DETECTION_FILE_EXTENSIONS.includes(getFileExtension(sourceFilename))) {
+      throw createHttpError(400, '仅支持上传 .txt 或 .md 文件');
+    }
+  }
+
+  return { sourceType, sourceFilename };
+}
+
 async function createDetectionTask(user, payload = {}) {
   if (!user) {
     throw createHttpError(401, '请先登录后发起规范检测');
@@ -21,24 +48,27 @@ async function createDetectionTask(user, payload = {}) {
   if (!text.trim()) {
     throw createHttpError(400, '检测文本不能为空');
   }
+  if (Buffer.byteLength(text, 'utf8') > MAX_DETECTION_TEXT_BYTES) {
+    throw createHttpError(413, '检测文本或文件内容不能超过 5 MB');
+  }
 
-  const sourceType = payload.source_type === 'file' ? 'file' : 'paste';
-  const sourceFilename = typeof payload.source_filename === 'string' ? payload.source_filename : null;
+  const { sourceType, sourceFilename } = validateSource(payload);
   const rules = await resolveRulesForAnalysis({ college_id: user.collegeId });
   const analysis = await analyzeDefaultNormativeRules(text);
-  const severityCounts = analysis.issues.reduce((counts, issue) => {
+  const issues = Array.isArray(analysis.issues) ? analysis.issues : [];
+  const severityCounts = issues.reduce((counts, issue) => {
     counts[issue.severity] = (counts[issue.severity] || 0) + 1;
     return counts;
   }, {});
 
   return detectionTaskRepository.createDetectionTask({
-    user_id: user.id,
+    user_id: user.username || user.id,
     status: 'completed',
     source_type: sourceType,
     source_filename: sourceFilename,
     original_text: text,
     rule_snapshot: rules,
-    issues: analysis.issues,
+    issues,
     severity_counts: severityCounts,
   });
 }
