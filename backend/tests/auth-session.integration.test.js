@@ -1,7 +1,9 @@
-const express = require('express');
-const request = require('supertest');
-const { afterAll, beforeAll, describe, expect, it } = require('vitest');
+import express from 'express';
+import request from 'supertest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createRequire } from 'node:module';
 
+const require = createRequire(import.meta.url);
 const app = require('../src/app');
 const { requireAuth } = require('../src/auth/authMiddleware');
 const { createTestDatabaseHarness, get, run, seedDatabase } = require('../src/database');

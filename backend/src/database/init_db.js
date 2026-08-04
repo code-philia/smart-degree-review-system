@@ -94,6 +94,8 @@ async function initializeDatabase(options = {}) {
       );`,
     );
 
+    return database;
+
     /**
      * Guide model instructions:
      * 1. Use CREATE TABLE IF NOT EXISTS to create new tables.

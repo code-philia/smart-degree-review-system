@@ -12,12 +12,6 @@ const authRoutes = require('./auth/authRoutes');
 app.use(cors());
 app.use(bodyParser.json());
 
-// initialize database
-const { initializeDatabase } = require('./database/init_db');
-initializeDatabase().catch((error) => {
-  console.error('Database initialization failed:', error);
-});
-
 // register routes
 app.get('/api/health', (req, res) => {
   res.json({ code: 200, message: 'Backend Ready' });
