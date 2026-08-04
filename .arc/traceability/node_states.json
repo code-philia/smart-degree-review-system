@@ -55,9 +55,9 @@
   },
   "FEAT-DUPLICATION-HISTORY": {
     "req_id": "FEAT-DUPLICATION-HISTORY",
-    "state": "DESIGNED",
-    "phase": "design",
-    "updated_at": "2026-08-04 17:45:31"
+    "state": "PASSED",
+    "phase": "test",
+    "updated_at": "2026-08-04 17:47:52"
   },
   "FEAT-INNOVATION-ANALYZE": {
     "req_id": "FEAT-INNOVATION-ANALYZE",

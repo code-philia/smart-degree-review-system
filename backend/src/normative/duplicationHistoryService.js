@@ -26,11 +26,14 @@ function ensureCanAccessDuplicationHistory(user) {
 
 async function createDuplicationHistoryFromDetection(user, request, detectionResult) {
   const ownerId = ensureCanAccessDuplicationHistory(user);
+  const sourceType = detectionResult.source_type || request.source_type || 'paste';
+  const sourceFilename = detectionResult.source_filename ?? request.source_filename ?? null;
+
   return duplicationHistoryRepository.createDuplicationHistoryRecord({
     id: randomUUID(),
     user_id: ownerId,
-    source_type: detectionResult.source_type,
-    source_filename: detectionResult.source_filename || null,
+    source_type: sourceType === 'file' ? 'file' : 'paste',
+    source_filename: sourceFilename || null,
     original_text: request.text,
     total_similarity_rate: detectionResult.total_similarity_rate,
     writing_risk_score: detectionResult.risk?.score || 0,
@@ -61,12 +64,13 @@ async function getDuplicationReportForUser(user, reportId) {
 function buildDuplicationDownloadPayload(report) {
   return {
     id: report.id,
+    source_type: report.source_type,
     source_filename: report.source_filename,
+    created_at: report.created_at,
     total_similarity_rate: report.total_similarity_rate,
     writing_risk_score: report.writing_risk_score,
     sample_count: report.sample_count,
-    created_at: report.created_at,
-    report: report.report_json,
+    report_json: report.report_json,
     original_text: report.original_text,
   };
 }

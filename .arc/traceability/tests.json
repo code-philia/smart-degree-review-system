@@ -248,7 +248,7 @@
     ],
     "type": "Integration",
     "file_path": "backend/tests/duplication-history.integration.test.js",
-    "passed": null,
+    "passed": true,
     "first_line": "121",
     "scenario_id": null
   },
@@ -261,7 +261,7 @@
     ],
     "type": "Integration",
     "file_path": "backend/tests/duplication-history.integration.test.js",
-    "passed": null,
+    "passed": true,
     "first_line": "195",
     "scenario_id": null
   },
@@ -276,7 +276,7 @@
     ],
     "type": "Integration",
     "file_path": "backend/tests/duplication-history.integration.test.js",
-    "passed": null,
+    "passed": true,
     "first_line": "268",
     "scenario_id": null
   },
@@ -289,7 +289,7 @@
     ],
     "type": "Integration",
     "file_path": "backend/tests/duplication-history.integration.test.js",
-    "passed": null,
+    "passed": true,
     "first_line": "239",
     "scenario_id": null
   },
@@ -319,7 +319,7 @@
     ],
     "type": "Integration",
     "file_path": "backend/tests/duplication-history.integration.test.js",
-    "passed": null,
+    "passed": true,
     "first_line": "128",
     "scenario_id": null
   },

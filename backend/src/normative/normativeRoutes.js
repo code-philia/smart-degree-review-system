@@ -30,6 +30,7 @@ const {
 const {
   ALLOWED_DUPLICATION_HISTORY_ROLES,
   buildDuplicationDownloadPayload,
+  createDuplicationHistoryFromDetection,
   getDuplicationReportForUser,
   listDuplicationHistoryForUser,
 } = require('./duplicationHistoryService');
@@ -122,7 +123,11 @@ router.post(
   express.json({ limit: MAX_DUPLICATION_DETECTION_TEXT_BYTES }),
   async (req, res, next) => {
     try {
-      const result = await runDuplicationDetection(req.user, req.body || {});
+      const payload = req.body || {};
+      const result = await runDuplicationDetection(req.user, payload);
+      if (result.status === 'completed') {
+        await createDuplicationHistoryFromDetection(req.user, payload, result);
+      }
       res.status(201).json(result);
     } catch (error) {
       if (error?.type === 'entity.too.large') {

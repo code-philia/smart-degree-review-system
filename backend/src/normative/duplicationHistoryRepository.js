@@ -1,3 +1,4 @@
+const { randomUUID } = require('crypto');
 const { all, get, run } = require('../database');
 
 function parseDuplicationHistoryRow(row) {
@@ -20,6 +21,9 @@ function parseDuplicationHistoryRow(row) {
 }
 
 async function createDuplicationHistoryRecord(record) {
+  const id = record.id || randomUUID();
+  const createdAt = record.created_at || new Date().toISOString();
+
   await run(
     `INSERT INTO duplication_detection_reports (
       id,
@@ -34,7 +38,7 @@ async function createDuplicationHistoryRecord(record) {
       created_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
     [
-      record.id,
+      id,
       record.user_id,
       record.source_type,
       record.source_filename || null,
@@ -43,12 +47,12 @@ async function createDuplicationHistoryRecord(record) {
       record.writing_risk_score,
       record.sample_count,
       JSON.stringify(record.report_json || {}),
-      record.created_at,
+      createdAt,
     ],
   );
 
   return parseDuplicationHistoryRow({
-    id: record.id,
+    id,
     user_id: record.user_id,
     source_type: record.source_type,
     source_filename: record.source_filename || null,
@@ -57,7 +61,7 @@ async function createDuplicationHistoryRecord(record) {
     writing_risk_score: record.writing_risk_score,
     sample_count: record.sample_count,
     report_json: JSON.stringify(record.report_json || {}),
-    created_at: record.created_at,
+    created_at: createdAt,
   });
 }
 
