@@ -215,6 +215,56 @@
     "first_line": "1",
     "scenario_id": null
   },
+  "FEAT-NORMATIVE-REPORT:E2E:SCENARIO-001": {
+    "test_id": "FEAT-NORMATIVE-REPORT:E2E:SCENARIO-001",
+    "req_id": "FEAT-NORMATIVE-REPORT",
+    "interface_ids": [
+      "UI-FEAT-NORMATIVE-REPORT-ROUTE-CONNECTOR",
+      "UI-FEAT-NORMATIVE-REPORT-PAGE",
+      "API-FEAT-NORMATIVE-REPORT-CLIENT",
+      "API-FEAT-NORMATIVE-REPORT-EXPRESS-ROUTES",
+      "FUNC-FEAT-NORMATIVE-REPORT-SERVICE",
+      "DB-FEAT-NORMATIVE-REPORT-TASK-READ-REPOSITORY",
+      "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE",
+      "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER"
+    ],
+    "type": "E2E",
+    "file_path": "backend/test-e2e/normative-report.spec.ts",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-NORMATIVE-REPORT:INTEGRATION:BACKEND-API-SERVICE-001": {
+    "test_id": "FEAT-NORMATIVE-REPORT:INTEGRATION:BACKEND-API-SERVICE-001",
+    "req_id": "FEAT-NORMATIVE-REPORT",
+    "interface_ids": [
+      "API-FEAT-NORMATIVE-REPORT-EXPRESS-ROUTES",
+      "FUNC-FEAT-NORMATIVE-REPORT-SERVICE",
+      "DB-FEAT-NORMATIVE-REPORT-TASK-READ-REPOSITORY",
+      "DB-FEAT-NORMATIVE-DETECT-TASK-SCHEMA",
+      "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/normative-report.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-NORMATIVE-REPORT:INTEGRATION:FRONTEND-UI-CLIENT-001": {
+    "test_id": "FEAT-NORMATIVE-REPORT:INTEGRATION:FRONTEND-UI-CLIENT-001",
+    "req_id": "FEAT-NORMATIVE-REPORT",
+    "interface_ids": [
+      "UI-FEAT-NORMATIVE-REPORT-ROUTE-CONNECTOR",
+      "UI-FEAT-NORMATIVE-REPORT-PAGE",
+      "API-FEAT-NORMATIVE-REPORT-CLIENT",
+      "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER"
+    ],
+    "type": "Integration",
+    "file_path": "frontend/tests/normative-report.test.tsx",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
   "FEAT-RULE-TEMPLATE-UPLOAD:E2E:SCENARIOS:001": {
     "test_id": "FEAT-RULE-TEMPLATE-UPLOAD:E2E:SCENARIOS:001",
     "req_id": "FEAT-RULE-TEMPLATE-UPLOAD",

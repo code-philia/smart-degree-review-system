@@ -64,3 +64,21 @@ export async function createNormativeDetectionTask(
   const response = await apiClient.post<DetectionTaskResponse>('/normative/detection-tasks', payload);
   return response.data;
 }
+
+export async function fetchNormativeDetectionHistory(): Promise<DetectionTaskResponse[]> {
+  const response = await apiClient.get<{ records: DetectionTaskResponse[] }>('/normative/detection-reports');
+  return response.data.records;
+}
+
+export async function fetchNormativeDetectionReport(taskId: string): Promise<DetectionTaskResponse> {
+  const response = await apiClient.get<DetectionTaskResponse>(`/normative/detection-reports/${taskId}`);
+  return response.data;
+}
+
+export async function downloadNormativeReportJson(taskId: string): Promise<Blob> {
+  const response = await apiClient.get(`/normative/detection-reports/${taskId}/download`, {
+    responseType: 'blob',
+    headers: { Accept: 'application/json' },
+  });
+  return response.data;
+}

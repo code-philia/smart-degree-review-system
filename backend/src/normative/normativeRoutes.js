@@ -11,6 +11,11 @@ const {
   createDetectionTask,
   MAX_DETECTION_TEXT_BYTES,
 } = require('./detectionTaskService');
+const {
+  buildDownloadReportPayload,
+  getDetectionReportForUser,
+  listDetectionReportsForUser,
+} = require('./detectionReportService');
 
 const router = express.Router();
 
@@ -95,6 +100,60 @@ router.post(
       res.status(201).json(result);
     } catch (error) {
       sendRuleConfigError(error, res, next);
+    }
+  },
+);
+
+router.get(
+  '/detection-reports',
+  requireAuth({ allowedRoles: ['STUDENT', 'SUPERVISOR', 'SCHOOL_ADMIN', 'COLLEGE_ADMIN'] }),
+  async (req, res, next) => {
+    try {
+      const records = await listDetectionReportsForUser(req.user);
+      res.json({ records });
+    } catch (error) {
+      if (error?.status) {
+        res.status(error.status).json({ code: error.status, message: error.message });
+        return;
+      }
+      next(error);
+    }
+  },
+);
+
+router.get(
+  '/detection-reports/:taskId',
+  requireAuth({ allowedRoles: ['STUDENT', 'SUPERVISOR', 'SCHOOL_ADMIN', 'COLLEGE_ADMIN'] }),
+  async (req, res, next) => {
+    try {
+      const report = await getDetectionReportForUser(req.user, req.params.taskId);
+      res.json(report);
+    } catch (error) {
+      if (error?.status) {
+        res.status(error.status).json({ code: error.status, message: error.message });
+        return;
+      }
+      next(error);
+    }
+  },
+);
+
+router.get(
+  '/detection-reports/:taskId/download',
+  requireAuth({ allowedRoles: ['STUDENT', 'SUPERVISOR', 'SCHOOL_ADMIN', 'COLLEGE_ADMIN'] }),
+  async (req, res, next) => {
+    try {
+      const report = await getDetectionReportForUser(req.user, req.params.taskId);
+      res
+        .type('application/json; charset=utf-8')
+        .attachment(`normative-report-${report.id}.json`)
+        .send(JSON.stringify(buildDownloadReportPayload(report), null, 2));
+    } catch (error) {
+      if (error?.status) {
+        res.status(error.status).json({ code: error.status, message: error.message });
+        return;
+      }
+      next(error);
     }
   },
 );
