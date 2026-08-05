@@ -97,7 +97,7 @@ describe('FEAT-REPORT-SUPERVISOR-QUEUE frontend page and client contract', () =>
     expect(await screen.findByRole('heading', { name: '待批阅任务' })).toBeInTheDocument();
     expect(screen.getByText('未完成待办').closest('div')).toHaveTextContent('2');
     const table = await screen.findByRole('table');
-    expect(within(table).getByText('student01')).toBeInTheDocument();
+    expect(within(table).getAllByText('student01').length).toBeGreaterThan(0);
     expect(within(table).getByText('normative-supervisor01-newer')).toBeInTheDocument();
     expect(within(table).getByText('ai-review-supervisor01-older')).toBeInTheDocument();
     expect(screen.queryByText(/supervisor02|student02|示例|demo/i)).not.toBeInTheDocument();

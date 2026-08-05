@@ -151,9 +151,9 @@
   },
   "FEAT-REPORT-SUPERVISOR-QUEUE": {
     "req_id": "FEAT-REPORT-SUPERVISOR-QUEUE",
-    "state": "DESIGNED",
-    "phase": "design",
-    "updated_at": "2026-08-05 06:36:40"
+    "state": "PASSED",
+    "phase": "test",
+    "updated_at": "2026-08-05 06:38:42"
   },
   "FEAT-REPORT-SUPERVISOR-REVIEW": {
     "req_id": "FEAT-REPORT-SUPERVISOR-REVIEW",
