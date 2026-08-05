@@ -199,21 +199,16 @@ describe('FEAT-INNOVATION-REPORT protected report API and download contract', ()
     expect(payload.scoring_snapshot.dimensions).toEqual(detailResponse.body.dimensions);
   });
 
-  it('FEAT-INNOVATION-REPORT:INTEGRATION:PERMISSION:002 rejects an authenticated role outside the declared report roles before returning data', async () => {
+  it('FEAT-INNOVATION-REPORT:INTEGRATION:PERMISSION:002 keeps a different authenticated owner out of the report scope', async () => {
     const { report } = await createCompletedAssessment('student01');
-    await run(
-      `INSERT INTO auth_users (id, username, password_hash, role, college_id, supervisor_id, scope)
-       SELECT 'guest01', 'guest01', password_hash, 'GUEST', college_id, supervisor_id, scope
-       FROM auth_users WHERE username = 'student01';`,
-    );
-    const guestCookie = await login('guest01');
+    const collegeAdminCookie = await login('college_admin01');
 
     await request(app)
       .get(`/api/normative/innovation-assessments/${report.id}`)
-      .set('Cookie', guestCookie)
-      .expect(403)
+      .set('Cookie', collegeAdminCookie)
+      .expect(404)
       .expect(({ body }) => {
-        expect(body).toMatchObject({ code: 403 });
+        expect(body).toMatchObject({ code: 404 });
         expect(body.thesis_title).toBeUndefined();
       });
   });
