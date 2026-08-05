@@ -1486,7 +1486,7 @@
     ],
     "type": "Integration",
     "file_path": "backend/tests/report-student-submit.integration.test.js",
-    "passed": null,
+    "passed": true,
     "first_line": "1",
     "scenario_id": null
   },
@@ -1499,7 +1499,7 @@
     ],
     "type": "Integration",
     "file_path": "backend/tests/report-student-submit-repository.integration.test.js",
-    "passed": null,
+    "passed": true,
     "first_line": "1",
     "scenario_id": null
   },
@@ -1512,7 +1512,7 @@
     ],
     "type": "Integration",
     "file_path": "frontend/tests/report-student-submit.test.tsx",
-    "passed": null,
+    "passed": true,
     "first_line": "1",
     "scenario_id": null
   },

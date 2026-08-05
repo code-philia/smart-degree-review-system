@@ -1,4 +1,5 @@
 const { randomUUID } = require('crypto');
+const { get } = require('../database');
 const reportSubmissionRepository = require('./reportSubmissionRepository');
 
 const ALLOWED_REPORT_SUBMISSION_ROLES = ['STUDENT'];
@@ -16,16 +17,17 @@ function getCurrentUserId(user) {
 
 function ensureStudentSubmissionActor(user) {
   const studentId = getCurrentUserId(user);
+  const supervisorId = user?.supervisor_id || user?.supervisorId || null;
   if (!studentId) {
     throw createHttpError(401, '请先登录后提交报告');
   }
   if (!ALLOWED_REPORT_SUBMISSION_ROLES.includes(user.role)) {
     throw createHttpError(403, '仅学生可提交本人报告');
   }
-  if (!user.supervisor_id) {
+  if (!supervisorId) {
     throw createHttpError(400, '当前学生未绑定导师，无法提交报告');
   }
-  return { studentId, supervisorId: user.supervisor_id };
+  return { studentId, supervisorId };
 }
 
 function normalizeSubmissionReports(payload) {
@@ -44,11 +46,48 @@ function normalizeSubmissionReports(payload) {
   });
 }
 
+const REPORT_LOOKUPS = {
+  normative: {
+    table: 'normative_detection_tasks',
+    completeWhere: "status = 'completed'",
+  },
+  duplication: {
+    table: 'duplication_detection_reports',
+    completeWhere: '1 = 1',
+  },
+  innovation: {
+    table: 'innovation_assessment_snapshots',
+    completeWhere: '1 = 1',
+  },
+  ai_review: {
+    table: 'ai_review_runs',
+    completeWhere: '1 = 1',
+  },
+};
+
+async function findReportBySourceType(report) {
+  const lookup = REPORT_LOOKUPS[report.source_type];
+  if (!lookup) {
+    return null;
+  }
+  return get(
+    `SELECT id, user_id AS userId
+       FROM ${lookup.table}
+      WHERE id = ? AND ${lookup.completeWhere}`,
+    [report.report_id],
+  );
+}
+
 async function assertCompletedOwnedReport(user, report) {
-  // Implemented by TestDrivenDeveloper by reusing dependency-owned report repositories.
-  // Must return 403 when the report exists but is not owned by the current student.
-  // Must reject unfinished or unknown reports before creating submissions or todos.
-  return { ...report, owner_id: getCurrentUserId(user), completed: true };
+  const studentId = getCurrentUserId(user);
+  const row = await findReportBySourceType(report);
+  if (!row) {
+    throw createHttpError(400, '所选报告不存在或尚未完成');
+  }
+  if (row.userId !== studentId) {
+    throw createHttpError(403, '不能提交他人报告');
+  }
+  return { ...report, owner_id: studentId, completed: true };
 }
 
 async function createReportSubmissionsForStudent(user, payload) {
@@ -81,4 +120,5 @@ module.exports = {
   assertCompletedOwnedReport,
   createReportSubmissionsForStudent,
   ensureStudentSubmissionActor,
+  normalizeSubmissionReports,
 };
