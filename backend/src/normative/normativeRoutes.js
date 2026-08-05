@@ -81,6 +81,11 @@ const {
   MAX_AI_REVIEW_TEXT_BYTES,
   createAiReviewRun,
 } = require('./aiReviewRunService');
+const {
+  ALLOWED_AI_REVIEW_RESULT_ROLES,
+  buildAiReviewResultDownloadPayload,
+  getAiReviewResultForUser,
+} = require('./aiReviewResultService');
 
 const router = express.Router();
 
@@ -475,6 +480,43 @@ router.post(
           body.errors = error.errors;
         }
         res.status(error.status).json(body);
+        return;
+      }
+      next(error);
+    }
+  },
+);
+
+router.get(
+  '/ai-review-runs/:reviewRunId',
+  requireAuth({ allowedRoles: ALLOWED_AI_REVIEW_RESULT_ROLES }),
+  async (req, res, next) => {
+    try {
+      const result = await getAiReviewResultForUser(req.user, req.params.reviewRunId);
+      res.json(result);
+    } catch (error) {
+      if (error?.status) {
+        res.status(error.status).json({ code: error.status, message: error.message });
+        return;
+      }
+      next(error);
+    }
+  },
+);
+
+router.get(
+  '/ai-review-runs/:reviewRunId/download',
+  requireAuth({ allowedRoles: ALLOWED_AI_REVIEW_RESULT_ROLES }),
+  async (req, res, next) => {
+    try {
+      const result = await getAiReviewResultForUser(req.user, req.params.reviewRunId);
+      res
+        .type('application/json; charset=utf-8')
+        .attachment(`ai-review-result-${result.id}.json`)
+        .send(JSON.stringify(buildAiReviewResultDownloadPayload(result), null, 2));
+    } catch (error) {
+      if (error?.status) {
+        res.status(error.status).json({ code: error.status, message: error.message });
         return;
       }
       next(error);

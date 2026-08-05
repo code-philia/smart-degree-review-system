@@ -91,6 +91,17 @@ export type AiReviewRunResponse = {
   created_at: string;
 };
 
+export type AiReviewSubjectiveConfirmationItem = {
+  key: string;
+  label: string;
+  status: '待人工确认';
+};
+
+export type AiReviewResultResponse = AiReviewRunResponse & {
+  objective_score_total: number;
+  subjective_confirmation_items: AiReviewSubjectiveConfirmationItem[];
+};
+
 export type DetectionTaskStatus = 'pending' | 'running' | 'completed';
 
 export type CreateDetectionTaskRequest = {
@@ -391,6 +402,19 @@ export async function fetchReviewRubrics(): Promise<ReviewRubricsResponse> {
 
 export async function createAiReviewRun(payload: AiReviewRunRequest): Promise<AiReviewRunResponse> {
   const response = await apiClient.post<AiReviewRunResponse>('/normative/ai-review-runs', payload);
+  return response.data;
+}
+
+export async function fetchAiReviewResult(reviewRunId: string): Promise<AiReviewResultResponse> {
+  const response = await apiClient.get<AiReviewResultResponse>(`/normative/ai-review-runs/${reviewRunId}`);
+  return response.data;
+}
+
+export async function downloadAiReviewResultJson(reviewRunId: string): Promise<Blob> {
+  const response = await apiClient.get(`/normative/ai-review-runs/${reviewRunId}/download`, {
+    responseType: 'blob',
+    headers: { Accept: 'application/json' },
+  });
   return response.data;
 }
 

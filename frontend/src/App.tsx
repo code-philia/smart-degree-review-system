@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router-dom';
 import DemoAccountHelpPanel from './auth/DemoAccountHelpPanel';
 import LocalAccountLoginForm from './auth/LocalAccountLoginForm';
 import AuthPage from './pages/AuthPage';
+import AiReviewResultPage from './pages/AiReviewResultPage';
 import AiReviewRunPage from './pages/AiReviewRunPage';
 import DuplicationCorpusPage from './pages/DuplicationCorpusPage';
 import DuplicationDetectPage from './pages/DuplicationDetectPage';
@@ -35,6 +36,7 @@ function App() {
       <Route path="/innovation-assessments/:reportId" element={<InnovationReportPage />} />
       <Route path="/innovation-scoring" element={<InnovationScoringPage />} />
       <Route path="/ai-review" element={<AiReviewRunPage />} />
+      <Route path="/ai-review/results/:reviewRunId" element={<AiReviewResultPage />} />
       <Route path="/whole-polish" element={<WholePolishPage />} />
       <Route path="/whole-polish/:resultId" element={<WholePolishPage />} />
       <Route path="/local-polish" element={<LocalPolishPage />} />
