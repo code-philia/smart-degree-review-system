@@ -199,9 +199,9 @@
   },
   "MOD-INNOVATION-ANALYSIS": {
     "req_id": "MOD-INNOVATION-ANALYSIS",
-    "state": "DESIGNED",
-    "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "state": "PASSED",
+    "phase": "test",
+    "updated_at": "2026-08-05 03:17:47"
   },
   "MOD-LEDGER": {
     "req_id": "MOD-LEDGER",
