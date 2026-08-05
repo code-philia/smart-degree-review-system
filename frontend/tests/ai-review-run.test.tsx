@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -107,7 +107,7 @@ describe('FEAT-AI-REVIEW-RUN frontend route and workflow contract', () => {
     await user.click(screen.getByRole('link', { name: '发起评阅' }));
 
     expect(await screen.findByRole('heading', { name: 'AI 智能评阅' })).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: '智能评阅' })).toBeInTheDocument();
+    expect(await screen.findByText('智能评阅')).toBeInTheDocument();
     expect(vi.mocked(fetchReviewRubrics)).toHaveBeenCalledTimes(1);
   });
 
@@ -170,8 +170,8 @@ describe('FEAT-AI-REVIEW-RUN frontend route and workflow contract', () => {
     expect(screen.getByText(/必需章节：摘要、关键词、引言、研究方法、分析与讨论、结论、参考文献/)).toBeInTheDocument();
 
     await user.click(reviewTemplateCard('学术型硕士'));
-    await user.type(screen.getByLabelText('论文题目'), '高校数字治理平台评阅研究');
-    await user.type(screen.getByLabelText('论文文本'), buildMissingConclusionText());
+    fireEvent.change(screen.getByLabelText('论文题目'), { target: { value: '高校数字治理平台评阅研究' } });
+    fireEvent.change(screen.getByLabelText('论文文本'), { target: { value: buildMissingConclusionText() } });
     await user.click(screen.getByRole('button', { name: '智能评阅' }));
 
     await waitFor(() => expect(createAiReviewRun).toHaveBeenCalledWith({

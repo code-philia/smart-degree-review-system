@@ -59,7 +59,7 @@ function AiReviewRunPage() {
           return;
         }
         setRubrics(data);
-        setSelectedTemplateId((current) => current || data.templates[0]?.template_id || '');
+        setSelectedTemplateId((current) => current || data.templates.find((template) => template.template_id === 'academic_master')?.template_id || data.templates[0]?.template_id || '');
       })
       .catch((error) => {
         if (!mounted) {
@@ -198,7 +198,7 @@ function AiReviewRunPage() {
             <span className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-[#3b86f6] text-3xl font-black text-[#3b86f6]">↑</span>
             <span className="mt-4 text-3xl font-black text-slate-900">拖拽或点击上传论文</span>
             <span className="mt-2 text-lg text-slate-500">支持 .txt / .md，UTF-8 编码，最大 5 MB；也可在下方直接粘贴文本</span>
-            <input className="sr-only" type="file" accept=".txt,.md,text/plain,text/markdown" onChange={handleFileChange} />
+            <input className="sr-only" type="file" onChange={handleFileChange} />
             {selectedFile ? <span className="mt-3 text-base font-bold text-[#3b86f6]">{selectedFile.name}</span> : null}
           </label>
 
@@ -217,7 +217,7 @@ function AiReviewRunPage() {
                 {rubrics.templates.map((template, index) => {
                   const selected = template.template_id === selectedTemplateId;
                   return (
-                    <button key={template.template_id} className={`relative min-h-[190px] rounded-[10px] border bg-white p-5 text-center transition hover:shadow ${selected ? 'border-[3px] border-[#3b86f6] bg-blue-50' : 'border-[#d6d6d6]'}`} type="button" onClick={() => setSelectedTemplateId(template.template_id)}>
+                    <button key={template.template_id} aria-label={template.name} className={`relative min-h-[190px] rounded-[10px] border bg-white p-5 text-center transition hover:shadow ${selected ? 'border-[3px] border-[#3b86f6] bg-blue-50' : 'border-[#d6d6d6]'}`} type="button" onClick={() => setSelectedTemplateId(template.template_id)}>
                       {selected ? <span className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-[#3b86f6] text-sm font-black text-white">✓</span> : null}
                       <span className={`mx-auto flex h-14 w-14 items-center justify-center rounded-xl ${TEMPLATE_ICON_COLORS[index % TEMPLATE_ICON_COLORS.length]} text-xl font-black text-white`}>文</span>
                       <span className="mt-4 block text-xl font-black text-slate-900">{template.name}</span>
@@ -230,7 +230,7 @@ function AiReviewRunPage() {
             {selectedTemplate ? <p className="mt-4 text-sm font-semibold text-slate-600">必需章节：{selectedTemplate.required_sections.join('、')}</p> : null}
           </section>
 
-          <button className="mx-auto mt-12 flex h-20 w-full max-w-2xl items-center justify-center rounded-md bg-[#28ae6f] text-3xl font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300" type="submit" disabled={!canSubmit}>{submitting ? '智能评阅中…' : '智能评阅'}</button>
+          {rubrics ? <button className="mx-auto mt-12 flex h-20 w-full max-w-2xl items-center justify-center rounded-md bg-[#28ae6f] text-3xl font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300" type="submit" disabled={!canSubmit}>{submitting ? '智能评阅中…' : '智能评阅'}</button> : null}
           {errorMessage ? <p className="mt-4 text-center text-sm font-bold text-red-600" role="alert">{errorMessage}</p> : null}
         </form>
       )}
