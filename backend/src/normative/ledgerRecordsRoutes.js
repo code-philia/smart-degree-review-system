@@ -7,6 +7,10 @@ const {
   getLedgerRecordForUser,
   listLedgerRecordsForUser,
 } = require('./ledgerRecordsService');
+const {
+  ALLOWED_QUALITY_DASHBOARD_ROLES,
+  getQualityDashboardForUser,
+} = require('./qualityDashboardService');
 
 const router = express.Router();
 
@@ -18,6 +22,7 @@ function sendLedgerRecordsError(error, res, next) {
   if (
     error?.code === 'LEDGER_RECORDS_REPOSITORY_NOT_IMPLEMENTED'
     || error?.code === 'LEDGER_FILTERED_STATS_REPOSITORY_NOT_IMPLEMENTED'
+    || error?.code === 'QUALITY_DASHBOARD_REPOSITORY_NOT_IMPLEMENTED'
   ) {
     res.status(501).json({ code: 501, message: error.message });
     return;
@@ -50,6 +55,15 @@ router.get('/stats', requireAuth({ allowedRoles: ALLOWED_LEDGER_RECORD_ROLES }),
   try {
     const stats = await getLedgerFilteredStatsForUser(req.user, req.query || {});
     res.json(stats);
+  } catch (error) {
+    sendLedgerRecordsError(error, res, next);
+  }
+});
+
+router.get('/quality-dashboard', requireAuth({ allowedRoles: ALLOWED_QUALITY_DASHBOARD_ROLES }), async (req, res, next) => {
+  try {
+    const dashboard = await getQualityDashboardForUser(req.user, req.query || {});
+    res.json(dashboard);
   } catch (error) {
     sendLedgerRecordsError(error, res, next);
   }

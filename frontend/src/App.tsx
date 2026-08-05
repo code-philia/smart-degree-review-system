@@ -19,6 +19,7 @@ import LocalPolishPage from './pages/LocalPolishPage';
 import NormativeCheckPage from './pages/NormativeCheckPage';
 import NormativeReportPage from './pages/NormativeReportPage';
 import PolishHistoryPage from './pages/PolishHistoryPage';
+import QualityDashboardPage from './pages/QualityDashboardPage';
 import RuleConfigPage from './pages/RuleConfigPage';
 import WholePolishPage from './pages/WholePolishPage';
 
@@ -31,6 +32,7 @@ function App() {
       <Route path="/normative-reports/:reportId" element={<NormativeReportPage />} />
       <Route path="/ledger-records" element={<LedgerRecordsPage />} />
       <Route path="/ledger-stats" element={<LedgerFilteredStatsPage />} />
+      <Route path="/quality-dashboard" element={<QualityDashboardPage />} />
       <Route path="/rule-config" element={<RuleConfigPage />} />
       <Route path="/duplication-corpus" element={<DuplicationCorpusPage />} />
       <Route path="/duplication-detect" element={<DuplicationDetectPage />} />

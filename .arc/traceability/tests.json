@@ -1342,6 +1342,120 @@
     "first_line": "1",
     "scenario_id": null
   },
+  "FEAT-QUALITY-DASHBOARD:INTEGRATION:AUTHZ:001": {
+    "test_id": "FEAT-QUALITY-DASHBOARD:INTEGRATION:AUTHZ:001",
+    "req_id": "FEAT-QUALITY-DASHBOARD",
+    "interface_ids": [
+      "API-FEAT-QUALITY-DASHBOARD-EXPRESS-ROUTE",
+      "FUNC-FEAT-QUALITY-DASHBOARD-SERVICE",
+      "DB-FEAT-QUALITY-DASHBOARD-REPOSITORY",
+      "API-FEAT-LEDGER-FILTERED-STATS-EXPRESS-ROUTE"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/quality-dashboard.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-QUALITY-DASHBOARD:INTEGRATION:FILTERS:001": {
+    "test_id": "FEAT-QUALITY-DASHBOARD:INTEGRATION:FILTERS:001",
+    "req_id": "FEAT-QUALITY-DASHBOARD",
+    "interface_ids": [
+      "API-FEAT-QUALITY-DASHBOARD-EXPRESS-ROUTE",
+      "FUNC-FEAT-QUALITY-DASHBOARD-SERVICE",
+      "DB-FEAT-QUALITY-DASHBOARD-REPOSITORY",
+      "API-FEAT-LEDGER-FILTERED-STATS-EXPRESS-ROUTE"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/quality-dashboard.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-QUALITY-DASHBOARD:INTEGRATION:SCENARIO:001": {
+    "test_id": "FEAT-QUALITY-DASHBOARD:INTEGRATION:SCENARIO:001",
+    "req_id": "FEAT-QUALITY-DASHBOARD",
+    "interface_ids": [
+      "API-FEAT-QUALITY-DASHBOARD-EXPRESS-ROUTE",
+      "FUNC-FEAT-QUALITY-DASHBOARD-SERVICE",
+      "DB-FEAT-QUALITY-DASHBOARD-REPOSITORY"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/quality-dashboard.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-QUALITY-DASHBOARD:SCENARIO:001": {
+    "test_id": "FEAT-QUALITY-DASHBOARD:SCENARIO:001",
+    "req_id": "FEAT-QUALITY-DASHBOARD",
+    "interface_ids": [
+      "UI-FEAT-QUALITY-DASHBOARD-APP-ROUTE",
+      "UI-FEAT-QUALITY-DASHBOARD-PAGE",
+      "API-FEAT-QUALITY-DASHBOARD-CLIENT",
+      "API-FEAT-QUALITY-DASHBOARD-EXPRESS-ROUTE",
+      "FUNC-FEAT-QUALITY-DASHBOARD-SERVICE",
+      "DB-FEAT-QUALITY-DASHBOARD-REPOSITORY"
+    ],
+    "type": "E2E",
+    "file_path": "backend/test-e2e/quality-dashboard.spec.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-QUALITY-DASHBOARD:UI:ERROR:001": {
+    "test_id": "FEAT-QUALITY-DASHBOARD:UI:ERROR:001",
+    "req_id": "FEAT-QUALITY-DASHBOARD",
+    "interface_ids": [
+      "UI-FEAT-QUALITY-DASHBOARD-PAGE",
+      "API-FEAT-QUALITY-DASHBOARD-CLIENT"
+    ],
+    "type": "Integration",
+    "file_path": "frontend/tests/quality-dashboard.test.tsx",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-QUALITY-DASHBOARD:UI:FILTERS:001": {
+    "test_id": "FEAT-QUALITY-DASHBOARD:UI:FILTERS:001",
+    "req_id": "FEAT-QUALITY-DASHBOARD",
+    "interface_ids": [
+      "UI-FEAT-QUALITY-DASHBOARD-PAGE",
+      "API-FEAT-QUALITY-DASHBOARD-CLIENT",
+      "API-FEAT-LEDGER-FILTERED-STATS-CLIENT"
+    ],
+    "type": "Integration",
+    "file_path": "frontend/tests/quality-dashboard.test.tsx",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-QUALITY-DASHBOARD:UI:ROUTE:001": {
+    "test_id": "FEAT-QUALITY-DASHBOARD:UI:ROUTE:001",
+    "req_id": "FEAT-QUALITY-DASHBOARD",
+    "interface_ids": [
+      "UI-FEAT-QUALITY-DASHBOARD-APP-ROUTE",
+      "UI-FEAT-QUALITY-DASHBOARD-PAGE"
+    ],
+    "type": "Integration",
+    "file_path": "frontend/tests/quality-dashboard.test.tsx",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-QUALITY-DASHBOARD:UI:SCENARIO:001": {
+    "test_id": "FEAT-QUALITY-DASHBOARD:UI:SCENARIO:001",
+    "req_id": "FEAT-QUALITY-DASHBOARD",
+    "interface_ids": [
+      "UI-FEAT-QUALITY-DASHBOARD-PAGE",
+      "API-FEAT-QUALITY-DASHBOARD-CLIENT"
+    ],
+    "type": "Integration",
+    "file_path": "frontend/tests/quality-dashboard.test.tsx",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
   "FEAT-RULE-TEMPLATE-UPLOAD:E2E:SCENARIOS:001": {
     "test_id": "FEAT-RULE-TEMPLATE-UPLOAD:E2E:SCENARIOS:001",
     "req_id": "FEAT-RULE-TEMPLATE-UPLOAD",

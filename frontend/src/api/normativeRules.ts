@@ -167,6 +167,31 @@ export type DetectionLedgerFilteredStats = {
   generated_at: string;
 };
 
+export type QualityMetricKey = 'normative' | 'originality' | 'innovation' | 'review_base';
+
+export type QualityMetricSummary = {
+  key: QualityMetricKey;
+  label: string;
+  average_score: number | null;
+  sample_count: number;
+  missing_count: number;
+  distribution: Array<{ range: string; count: number }>;
+};
+
+export type QualityDashboardStudentMetric = {
+  student_id: string;
+  student_name: string;
+  scores: Record<QualityMetricKey, number | null>;
+};
+
+export type QualityDashboardResponse = {
+  filters: LedgerRecordFilters;
+  sample_count: number;
+  metrics: QualityMetricSummary[];
+  students: QualityDashboardStudentMetric[];
+  generated_at: string;
+};
+
 export type DetectionTaskStatus = 'pending' | 'running' | 'completed';
 
 export type CreateDetectionTaskRequest = {
@@ -588,6 +613,13 @@ export async function fetchDetectionLedgerFilteredStats(
   filters: LedgerRecordFilters = {},
 ): Promise<DetectionLedgerFilteredStats> {
   const response = await apiClient.get<DetectionLedgerFilteredStats>('/normative/ledger-records/stats', {
+    params: toLedgerRecordParams(filters),
+  });
+  return response.data;
+}
+
+export async function fetchQualityDashboard(filters: LedgerRecordFilters = {}): Promise<QualityDashboardResponse> {
+  const response = await apiClient.get<QualityDashboardResponse>('/normative/ledger-records/quality-dashboard', {
     params: toLedgerRecordParams(filters),
   });
   return response.data;
