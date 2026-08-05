@@ -90,8 +90,11 @@ const {
   ALLOWED_AI_REVIEW_HISTORY_ROLES,
   listAiReviewHistoryForUser,
 } = require('./aiReviewHistoryService');
+const ledgerRecordsRoutes = require('./ledgerRecordsRoutes');
 
 const router = express.Router();
+
+router.use('/ledger-records', ledgerRecordsRoutes);
 
 function sendRuleConfigError(error, res, next) {
   if (error?.type === 'entity.too.large') {

@@ -91,9 +91,9 @@
   },
   "FEAT-LEDGER-RECORDS": {
     "req_id": "FEAT-LEDGER-RECORDS",
-    "state": "UNSEEN",
-    "phase": null,
-    "updated_at": "2026-08-05 04:10:31"
+    "state": "FAILED",
+    "phase": "design",
+    "updated_at": "2026-08-05 05:22:19"
   },
   "FEAT-NORMATIVE-DETECT": {
     "req_id": "FEAT-NORMATIVE-DETECT",

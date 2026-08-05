@@ -107,6 +107,37 @@ export type AiReviewHistoryRecord = Pick<
   'id' | 'user_id' | 'thesis_title' | 'template_id' | 'total_score' | 'result_label' | 'created_at'
 >;
 
+export type DetectionLedgerType = 'normative' | 'aigc' | 'duplication' | 'polish' | 'innovation' | 'ai_review';
+
+export type LedgerRecordFilters = {
+  student?: string;
+  detection_type?: DetectionLedgerType | '';
+  from?: string;
+  to?: string;
+  latest_only?: boolean;
+};
+
+export type DetectionLedgerRecord = {
+  id: string;
+  source_record_id: string;
+  college_id: string | null;
+  college_name: string;
+  student_id: string;
+  student_number: string;
+  student_name: string;
+  supervisor_id: string | null;
+  supervisor_name: string;
+  student_category: string;
+  thesis_title: string;
+  detection_type: DetectionLedgerType;
+  detection_type_label: string;
+  template_name: string;
+  core_result: string;
+  detail_url: string;
+  is_latest: boolean;
+  created_at: string;
+};
+
 export type DetectionTaskStatus = 'pending' | 'running' | 'completed';
 
 export type CreateDetectionTaskRequest = {
@@ -498,6 +529,37 @@ export async function downloadNormativeReportJson(taskId: string): Promise<Blob>
   const response = await apiClient.get(`/normative/detection-reports/${taskId}/download`, {
     responseType: 'blob',
     headers: { Accept: 'application/json' },
+  });
+  return response.data;
+}
+
+function toLedgerRecordParams(filters: LedgerRecordFilters = {}): Record<string, string> {
+  const params: Record<string, string> = {};
+  if (filters.student) params.student = filters.student;
+  if (filters.detection_type) params.detection_type = filters.detection_type;
+  if (filters.from) params.from = filters.from;
+  if (filters.to) params.to = filters.to;
+  if (filters.latest_only !== undefined) params.latest_only = String(filters.latest_only);
+  return params;
+}
+
+export async function fetchDetectionLedgerRecords(filters: LedgerRecordFilters = {}): Promise<DetectionLedgerRecord[]> {
+  const response = await apiClient.get<{ records: DetectionLedgerRecord[] }>('/normative/ledger-records', {
+    params: toLedgerRecordParams(filters),
+  });
+  return response.data.records;
+}
+
+export async function fetchDetectionLedgerRecord(recordId: string): Promise<DetectionLedgerRecord> {
+  const response = await apiClient.get<DetectionLedgerRecord>(`/normative/ledger-records/${recordId}`);
+  return response.data;
+}
+
+export async function downloadDetectionLedgerCsv(filters: LedgerRecordFilters = {}): Promise<Blob> {
+  const response = await apiClient.get('/normative/ledger-records/export.csv', {
+    params: toLedgerRecordParams(filters),
+    responseType: 'blob',
+    headers: { Accept: 'text/csv' },
   });
   return response.data;
 }
