@@ -1508,6 +1508,54 @@
     "first_line": "1",
     "scenario_id": null
   },
+  "FEAT-STUDENT-QUALITY-PORTRAIT:E2E:SCENARIOS:001": {
+    "test_id": "FEAT-STUDENT-QUALITY-PORTRAIT:E2E:SCENARIOS:001",
+    "req_id": "FEAT-STUDENT-QUALITY-PORTRAIT",
+    "interface_ids": [
+      "UI-FEAT-STUDENT-QUALITY-PORTRAIT-APP-ROUTE",
+      "UI-FEAT-STUDENT-QUALITY-PORTRAIT-PAGE",
+      "API-FEAT-STUDENT-QUALITY-PORTRAIT-CLIENT",
+      "API-FEAT-STUDENT-QUALITY-PORTRAIT-EXPRESS-ROUTE",
+      "FUNC-FEAT-STUDENT-QUALITY-PORTRAIT-SERVICE",
+      "DB-FEAT-STUDENT-QUALITY-PORTRAIT-REPOSITORY"
+    ],
+    "type": "E2E",
+    "file_path": "backend/test-e2e/student-quality-portrait.spec.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-STUDENT-QUALITY-PORTRAIT:INTEGRATION:BACKEND:001": {
+    "test_id": "FEAT-STUDENT-QUALITY-PORTRAIT:INTEGRATION:BACKEND:001",
+    "req_id": "FEAT-STUDENT-QUALITY-PORTRAIT",
+    "interface_ids": [
+      "API-FEAT-STUDENT-QUALITY-PORTRAIT-EXPRESS-ROUTE",
+      "FUNC-FEAT-STUDENT-QUALITY-PORTRAIT-SERVICE",
+      "DB-FEAT-STUDENT-QUALITY-PORTRAIT-REPOSITORY",
+      "FUNC-FEAT-QUALITY-DASHBOARD-SERVICE",
+      "DB-FEAT-QUALITY-DASHBOARD-REPOSITORY"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/student-quality-portrait.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-STUDENT-QUALITY-PORTRAIT:INTEGRATION:FRONTEND:001": {
+    "test_id": "FEAT-STUDENT-QUALITY-PORTRAIT:INTEGRATION:FRONTEND:001",
+    "req_id": "FEAT-STUDENT-QUALITY-PORTRAIT",
+    "interface_ids": [
+      "UI-FEAT-STUDENT-QUALITY-PORTRAIT-APP-ROUTE",
+      "UI-FEAT-STUDENT-QUALITY-PORTRAIT-PAGE",
+      "API-FEAT-STUDENT-QUALITY-PORTRAIT-CLIENT",
+      "API-FEAT-QUALITY-DASHBOARD-CLIENT"
+    ],
+    "type": "Integration",
+    "file_path": "frontend/tests/student-quality-portrait.test.tsx",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
   "FLOW-RULE-PUBLISH:API:001": {
     "test_id": "FLOW-RULE-PUBLISH:API:001",
     "req_id": "FLOW-RULE-PUBLISH",

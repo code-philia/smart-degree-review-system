@@ -11,6 +11,10 @@ const {
   ALLOWED_QUALITY_DASHBOARD_ROLES,
   getQualityDashboardForUser,
 } = require('./qualityDashboardService');
+const {
+  ALLOWED_STUDENT_QUALITY_PORTRAIT_ROLES,
+  getStudentQualityPortraitForUser,
+} = require('./studentQualityPortraitService');
 
 const router = express.Router();
 
@@ -23,6 +27,7 @@ function sendLedgerRecordsError(error, res, next) {
     error?.code === 'LEDGER_RECORDS_REPOSITORY_NOT_IMPLEMENTED'
     || error?.code === 'LEDGER_FILTERED_STATS_REPOSITORY_NOT_IMPLEMENTED'
     || error?.code === 'QUALITY_DASHBOARD_REPOSITORY_NOT_IMPLEMENTED'
+    || error?.code === 'STUDENT_QUALITY_PORTRAIT_REPOSITORY_NOT_IMPLEMENTED'
   ) {
     res.status(501).json({ code: 501, message: error.message });
     return;
@@ -64,6 +69,15 @@ router.get('/quality-dashboard', requireAuth({ allowedRoles: ALLOWED_QUALITY_DAS
   try {
     const dashboard = await getQualityDashboardForUser(req.user, req.query || {});
     res.json(dashboard);
+  } catch (error) {
+    sendLedgerRecordsError(error, res, next);
+  }
+});
+
+router.get('/student-quality-portrait/:studentId', requireAuth({ allowedRoles: ALLOWED_STUDENT_QUALITY_PORTRAIT_ROLES }), async (req, res, next) => {
+  try {
+    const portrait = await getStudentQualityPortraitForUser(req.user, req.params.studentId, req.query || {});
+    res.json(portrait);
   } catch (error) {
     sendLedgerRecordsError(error, res, next);
   }

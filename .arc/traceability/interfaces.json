@@ -734,20 +734,19 @@
   "API-FEAT-QUALITY-DASHBOARD-CLIENT": {
     "interface_id": "API-FEAT-QUALITY-DASHBOARD-CLIENT",
     "req_ids": [
-      "FEAT-QUALITY-DASHBOARD"
+      "FEAT-QUALITY-DASHBOARD",
+      "FEAT-STUDENT-QUALITY-PORTRAIT"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-QUALITY-DASHBOARD-CLIENT\", \"req_id\": \"FEAT-QUALITY-DASHBOARD\", \"type\": \"API\", \"name\": \"fetchQualityDashboard\", \"file_path\": \"frontend/src/api/normativeRules.ts\", \"first_line\": \"621\", \"responsibility\": \"Expose typed same-origin Axios access for fetching permission-scoped quality dashboard aggregates through the existing normative API client and interceptors.\", \"specification\": \"Defines QualityMetricKey, QualityMetricSummary, QualityDashboardStudentMetric, and QualityDashboardResponse DTOs in the existing normativeRules client module. fetchQualityDashboard(filters) calls GET /api/normative/ledger-records/quality-dashboard with normalized ledger filter query params via the shared apiClient, preserving global Axios error interception and cookie-backed auth. Response metric average_score and student score values may be number or null; null means missing data and must remain distinct from 0.\", \"inputs\": [\"LedgerRecordFilters\"], \"outputs\": [\"Promise<QualityDashboardResponse>\"], \"callers\": [\"UI-FEAT-QUALITY-DASHBOARD-PAGE\"], \"callees\": [\"frontend/src/api/index.ts shared Axios client\", \"API-FEAT-QUALITY-DASHBOARD-EXPRESS-ROUTE\", \"API-FEAT-LEDGER-FILTERED-STATS-CLIENT\"], \"test_focus\": [\"Sends filters as query params to /normative/ledger-records/quality-dashboard\", \"Preserves null score values in typed response shape\", \"Uses the shared Axios client rather than a feature-local HTTP client\"]}",
+    "content": "{\"interface_id\": \"API-FEAT-QUALITY-DASHBOARD-CLIENT\", \"req_id\": \"FEAT-STUDENT-QUALITY-PORTRAIT\", \"type\": \"API\", \"name\": \"ReusedQualityDashboardClientVocabulary\", \"file_path\": \"frontend/src/api/normativeRules.ts\", \"first_line\": \"621\", \"responsibility\": \"Reuse dependency-owned quality metric key and filter DTO vocabulary so the single-student portrait remains compatible with group dashboard semantics.\", \"specification\": \"The student portrait client reuses QualityMetricKey and LedgerRecordFilters from FEAT-QUALITY-DASHBOARD/ledger-derived APIs instead of defining a parallel metric vocabulary. This keeps normative, originality, innovation, and review_base labels, null-score behavior, and same-origin Axios access consistent.\", \"inputs\": [\"LedgerRecordFilters\", \"QualityMetricKey\"], \"outputs\": [\"Shared query and metric vocabulary for student portrait DTOs\"], \"callers\": [\"API-FEAT-STUDENT-QUALITY-PORTRAIT-CLIENT\"], \"callees\": [\"frontend/src/api/index.ts shared Axios client\"], \"test_focus\": [\"Student portrait DTOs use the same four metric keys as the quality dashboard\"]}",
     "file_path": "frontend/src/api/normativeRules.ts",
     "first_line": "621",
     "implemented": true,
     "callers": [
-      "UI-FEAT-QUALITY-DASHBOARD-PAGE"
+      "API-FEAT-STUDENT-QUALITY-PORTRAIT-CLIENT"
     ],
     "callees": [
-      "frontend/src/api/index.ts shared Axios client",
-      "API-FEAT-QUALITY-DASHBOARD-EXPRESS-ROUTE",
-      "API-FEAT-LEDGER-FILTERED-STATS-CLIENT"
+      "frontend/src/api/index.ts shared Axios client"
     ]
   },
   "API-FEAT-QUALITY-DASHBOARD-EXPRESS-ROUTE": {
@@ -806,6 +805,46 @@
     "callees": [
       "backend/src/auth/authMiddleware.js requireAuth",
       "backend/src/normative/ruleDraftImportService.js importRuleDraftTemplate"
+    ]
+  },
+  "API-FEAT-STUDENT-QUALITY-PORTRAIT-CLIENT": {
+    "interface_id": "API-FEAT-STUDENT-QUALITY-PORTRAIT-CLIENT",
+    "req_ids": [
+      "FEAT-STUDENT-QUALITY-PORTRAIT"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-STUDENT-QUALITY-PORTRAIT-CLIENT\", \"req_id\": \"FEAT-STUDENT-QUALITY-PORTRAIT\", \"type\": \"API\", \"name\": \"fetchStudentQualityPortrait\", \"file_path\": \"frontend/src/api/normativeRules.ts\", \"first_line\": \"625\", \"responsibility\": \"Expose typed same-origin Axios access for fetching one permission-scoped student quality portrait through the existing normative API client and global interceptors.\", \"specification\": \"Defines StudentQualityPortraitMetric and StudentQualityPortraitResponse DTOs beside the reused QualityMetricKey and LedgerRecordFilters vocabulary. fetchStudentQualityPortrait(studentId, filters) calls GET /api/normative/ledger-records/student-quality-portrait/:studentId through the shared apiClient with latest_only=true and optional from/to filters. Score fields are number|null; null means missing data and must remain distinct from 0. The response includes student metadata, four metrics with source_record_id/source_created_at/detail_url, overall_score only when complete, completeness.complete, missing_metric_keys, and missing_metric_labels.\", \"inputs\": [\"studentId: string\", \"Optional Pick<LedgerRecordFilters, 'from' | 'to'>\"], \"outputs\": [\"Promise<StudentQualityPortraitResponse>\"], \"callers\": [\"UI-FEAT-STUDENT-QUALITY-PORTRAIT-PAGE\"], \"callees\": [\"frontend/src/api/index.ts shared Axios client\", \"API-FEAT-STUDENT-QUALITY-PORTRAIT-EXPRESS-ROUTE\", \"API-FEAT-LEDGER-FILTERED-STATS-CLIENT\"], \"test_focus\": [\"Sends request to /normative/ledger-records/student-quality-portrait/:studentId\", \"Serializes latest_only=true and optional date filters through the shared ledger query vocabulary\", \"Preserves null score values in the typed response shape\", \"Uses the shared Axios client rather than a feature-local HTTP client\"]}",
+    "file_path": "frontend/src/api/normativeRules.ts",
+    "first_line": "625",
+    "implemented": false,
+    "callers": [
+      "UI-FEAT-STUDENT-QUALITY-PORTRAIT-PAGE"
+    ],
+    "callees": [
+      "frontend/src/api/index.ts shared Axios client",
+      "API-FEAT-STUDENT-QUALITY-PORTRAIT-EXPRESS-ROUTE",
+      "API-FEAT-LEDGER-FILTERED-STATS-CLIENT"
+    ]
+  },
+  "API-FEAT-STUDENT-QUALITY-PORTRAIT-EXPRESS-ROUTE": {
+    "interface_id": "API-FEAT-STUDENT-QUALITY-PORTRAIT-EXPRESS-ROUTE",
+    "req_ids": [
+      "FEAT-STUDENT-QUALITY-PORTRAIT"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-STUDENT-QUALITY-PORTRAIT-EXPRESS-ROUTE\", \"req_id\": \"FEAT-STUDENT-QUALITY-PORTRAIT\", \"type\": \"API\", \"name\": \"GET /api/normative/ledger-records/student-quality-portrait/:studentId\", \"file_path\": \"backend/src/normative/ledgerRecordsRoutes.js\", \"first_line\": \"76\", \"responsibility\": \"Provide the protected backend HTTP boundary for returning one scoped student quality portrait under the existing ledger records route family.\", \"specification\": \"Adds GET /api/normative/ledger-records/student-quality-portrait/:studentId before /:recordId so it is not captured as a ledger record id. The route calls requireAuth({ allowedRoles: ALLOWED_STUDENT_QUALITY_PORTRAIT_ROLES }) before returning any data. Allowed roles are STUDENT, SUPERVISOR, COLLEGE_ADMIN, and SCHOOL_ADMIN. Anonymous requests receive unauthenticated behavior from requireAuth. Student requests are passed to service-level scope enforcement that returns 403 when requested studentId is not the authenticated student. Supervisor and administrator requests are constrained by organization scope in the service/repository chain before data is returned. Repository not-implemented errors return 501 rather than fake success.\", \"inputs\": [\"Authenticated req.user\", \"Route param studentId\", \"Optional query filters: from, to\"], \"outputs\": [\"StudentQualityPortraitResponse JSON\", \"401 for anonymous access\", \"403 for students requesting another student or users outside permitted organization scope\", \"501 while repository aggregation is not implemented\"], \"callers\": [\"API-FEAT-STUDENT-QUALITY-PORTRAIT-CLIENT\", \"backend integration tests via Supertest\", \"backend/src/normative/normativeRoutes.js /ledger-records mount\"], \"callees\": [\"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"FUNC-FEAT-STUDENT-QUALITY-PORTRAIT-SERVICE\", \"API-FEAT-LEDGER-FILTERED-STATS-EXPRESS-ROUTE\"], \"test_focus\": [\"Allows STUDENT, SUPERVISOR, COLLEGE_ADMIN, and SCHOOL_ADMIN through route auth\", \"Denies anonymous requests before data access\", \"Returns 403 for a STUDENT requesting another student id\", \"Applies route before /:recordId\", \"Returns service response without substituting placeholder portrait data\"]}",
+    "file_path": "backend/src/normative/ledgerRecordsRoutes.js",
+    "first_line": "76",
+    "implemented": false,
+    "callers": [
+      "API-FEAT-STUDENT-QUALITY-PORTRAIT-CLIENT",
+      "backend integration tests via Supertest",
+      "backend/src/normative/normativeRoutes.js /ledger-records mount"
+    ],
+    "callees": [
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+      "FUNC-FEAT-STUDENT-QUALITY-PORTRAIT-SERVICE",
+      "API-FEAT-LEDGER-FILTERED-STATS-EXPRESS-ROUTE"
     ]
   },
   "API-FLOW-RULE-PUBLISH-CLIENT": {
@@ -1319,20 +1358,19 @@
   "DB-FEAT-QUALITY-DASHBOARD-REPOSITORY": {
     "interface_id": "DB-FEAT-QUALITY-DASHBOARD-REPOSITORY",
     "req_ids": [
-      "FEAT-QUALITY-DASHBOARD"
+      "FEAT-QUALITY-DASHBOARD",
+      "FEAT-STUDENT-QUALITY-PORTRAIT"
     ],
     "type": "DB",
-    "content": "{\"interface_id\": \"DB-FEAT-QUALITY-DASHBOARD-REPOSITORY\", \"req_id\": \"FEAT-QUALITY-DASHBOARD\", \"type\": \"DB\", \"name\": \"summarizeQualityDashboard\", \"file_path\": \"backend/src/normative/qualityDashboardRepository.js\", \"first_line\": \"7\", \"responsibility\": \"Own the persistence aggregation contract for computing group quality metrics from durable normative, duplication, innovation, and AI review result data.\", \"specification\": \"summarizeQualityDashboard(scope, filters) is the owned repository boundary that will aggregate persisted records under the supplied data scope and filters. It must compute normative score as max(0, 100 - high severity count × 10 - medium severity count × 4 - low severity count × 1), originality reference score as 100 - local total similarity rate × 100, innovation reference score as the innovation scale composite score, and review base score as AI review objective total. For each student and metric, missing source data must be represented as null/暂无数据 and excluded from metric averages and distributions. During design it throws QUALITY_DASHBOARD_REPOSITORY_NOT_IMPLEMENTED so no fake rows are returned.\", \"inputs\": [\"Access scope from buildLedgerAccessScope\", \"Normalized LedgerRecordFilters\"], \"outputs\": [\"QualityDashboardResponse with sample_count, metrics, students, generated_at\", \"QUALITY_DASHBOARD_REPOSITORY_NOT_IMPLEMENTED until implemented\"], \"callers\": [\"FUNC-FEAT-QUALITY-DASHBOARD-SERVICE\"], \"callees\": [\"backend/src/database/index.js shared SQLite helpers\", \"DB tables for normative_detection_tasks, duplication_detection_reports, innovation assessments, ai_review_runs\", \"DB-FEAT-LEDGER-FILTERED-STATS-REPOSITORY\"], \"test_focus\": [\"Calculates the four formulas from persisted runtime data\", \"Filters by role scope, time, student, and type\", \"Excludes missing values from averages and distributions\", \"Returns null for missing student metric values instead of 0\"]}",
+    "content": "{\"interface_id\": \"DB-FEAT-QUALITY-DASHBOARD-REPOSITORY\", \"req_id\": \"FEAT-STUDENT-QUALITY-PORTRAIT\", \"type\": \"DB\", \"name\": \"ReusedQualityDashboardScoreSemantics\", \"file_path\": \"backend/src/normative/qualityDashboardRepository.js\", \"first_line\": \"7\", \"responsibility\": \"Reuse dependency-owned score formulas and persisted source-table semantics for the four local quality metrics.\", \"specification\": \"The student portrait repository must align with FEAT-QUALITY-DASHBOARD formulas and durable source interpretation: normative severity deductions, originality from duplication similarity, innovation total score, and AI review objective/base score. Unlike the group dashboard, this node selects one latest record per business category for a single student and computes equal-weight overall score only when all four values are present.\", \"inputs\": [\"Persisted normative, duplication, innovation, and AI review records\"], \"outputs\": [\"Consistent four-metric score semantics\"], \"callers\": [\"DB-FEAT-STUDENT-QUALITY-PORTRAIT-REPOSITORY\"], \"callees\": [\"backend/src/database/index.js shared SQLite helpers\"], \"test_focus\": [\"Single-student scores match group-dashboard scoring semantics for the same source rows\"]}",
     "file_path": "backend/src/normative/qualityDashboardRepository.js",
     "first_line": "7",
     "implemented": true,
     "callers": [
-      "FUNC-FEAT-QUALITY-DASHBOARD-SERVICE"
+      "DB-FEAT-STUDENT-QUALITY-PORTRAIT-REPOSITORY"
     ],
     "callees": [
-      "backend/src/database/index.js shared SQLite helpers",
-      "DB tables for normative_detection_tasks, duplication_detection_reports, innovation assessments, ai_review_runs",
-      "DB-FEAT-LEDGER-FILTERED-STATS-REPOSITORY"
+      "backend/src/database/index.js shared SQLite helpers"
     ]
   },
   "DB-FEAT-RULE-TEMPLATE-UPLOAD-DRAFT-REPOSITORY": {
@@ -1369,6 +1407,25 @@
     ],
     "callees": [
       "sqlite3 via centralized runStatement"
+    ]
+  },
+  "DB-FEAT-STUDENT-QUALITY-PORTRAIT-REPOSITORY": {
+    "interface_id": "DB-FEAT-STUDENT-QUALITY-PORTRAIT-REPOSITORY",
+    "req_ids": [
+      "FEAT-STUDENT-QUALITY-PORTRAIT"
+    ],
+    "type": "DB",
+    "content": "{\"interface_id\": \"DB-FEAT-STUDENT-QUALITY-PORTRAIT-REPOSITORY\", \"req_id\": \"FEAT-STUDENT-QUALITY-PORTRAIT\", \"type\": \"DB\", \"name\": \"getStudentQualityPortrait\", \"file_path\": \"backend/src/normative/studentQualityPortraitRepository.js\", \"first_line\": \"1\", \"responsibility\": \"Own the persistence aggregation contract for selecting the latest completed record per quality business type for one scoped student and computing the single-student portrait payload.\", \"specification\": \"getStudentQualityPortrait(scope, studentId, filters) is the owned repository boundary. It must read durable runtime data through shared database helpers and existing schemas: normative_detection_tasks for normative completed tasks, duplication_detection_reports for originality/duplication, innovation_assessment_snapshots for innovation, and ai_review_runs for AI review. For each business category it selects that student's latest completed record within optional date filters and organization scope. It computes four scores using the same semantics as the quality dashboard dependency: normative score max(0, 100 - high×10 - medium×4 - low×1), originality score 100 - total_similarity_rate×100, innovation score from scoring_snapshot_json total_score, and review_base from ai_review_runs total_score or score item sum. It returns metric source_record_id, source_label, source_created_at, and detail_url pointing to existing detail routes. overall_score is the equal-weight average of the four metric scores only when all four exist; otherwise overall_score is null and completeness lists missing metric keys/labels. During design the skeleton throws STUDENT_QUALITY_PORTRAIT_REPOSITORY_NOT_IMPLEMENTED so no fake rows are returned.\", \"inputs\": [\"Access scope from buildStudentPortraitAccessScope\", \"studentId\", \"Normalized date/latest-only filters\"], \"outputs\": [\"StudentQualityPortraitResponse\", \"STUDENT_QUALITY_PORTRAIT_REPOSITORY_NOT_IMPLEMENTED until implemented\"], \"callers\": [\"FUNC-FEAT-STUDENT-QUALITY-PORTRAIT-SERVICE\"], \"callees\": [\"backend/src/database/index.js shared SQLite helpers\", \"DB tables normative_detection_tasks, duplication_detection_reports, innovation_assessment_snapshots, ai_review_runs\", \"DB-FEAT-QUALITY-DASHBOARD-REPOSITORY\"], \"test_focus\": [\"Selects latest completed record per metric type for the requested student\", \"Computes scenario scores 80, 90, 70, 80 into overall_score 80\", \"Returns overall_score null and missing labels when any metric is absent\", \"Applies student, supervisor, college, and school scope before returning records\", \"Returns real detail_url values to existing result pages\"]}",
+    "file_path": "backend/src/normative/studentQualityPortraitRepository.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "FUNC-FEAT-STUDENT-QUALITY-PORTRAIT-SERVICE"
+    ],
+    "callees": [
+      "backend/src/database/index.js shared SQLite helpers",
+      "DB tables normative_detection_tasks, duplication_detection_reports, innovation_assessment_snapshots, ai_review_runs",
+      "DB-FEAT-QUALITY-DASHBOARD-REPOSITORY"
     ]
   },
   "DB-FLOW-RULE-PUBLISH-RULE-OVERRIDE-REPOSITORY": {
@@ -1755,18 +1812,18 @@
   "FUNC-FEAT-QUALITY-DASHBOARD-SERVICE": {
     "interface_id": "FUNC-FEAT-QUALITY-DASHBOARD-SERVICE",
     "req_ids": [
-      "FEAT-QUALITY-DASHBOARD"
+      "FEAT-QUALITY-DASHBOARD",
+      "FEAT-STUDENT-QUALITY-PORTRAIT"
     ],
     "type": "FUNC",
-    "content": "{\"interface_id\": \"FUNC-FEAT-QUALITY-DASHBOARD-SERVICE\", \"req_id\": \"FEAT-QUALITY-DASHBOARD\", \"type\": \"FUNC\", \"name\": \"getQualityDashboardForUser\", \"file_path\": \"backend/src/normative/qualityDashboardService.js\", \"first_line\": \"17\", \"responsibility\": \"Translate authenticated users and query filters into scoped quality dashboard aggregation requests using the existing ledger access model.\", \"specification\": \"Reuses ALLOWED_LEDGER_RECORD_ROLES and buildLedgerAccessScope from ledgerRecordsService so permission and data-scope behavior remains consistent with FEAT-LEDGER-FILTERED-STATS. SUPERVISOR scope is limited to supervised students; COLLEGE_ADMIN scope is limited to college_id; SCHOOL_ADMIN has school-wide scope. toQualityDashboardFilters reuses ledgerRecordsRepository.normalizeLedgerFilters for time, student, type, and latest-only filters. The service delegates aggregation to summarizeQualityDashboard and must preserve missing metrics as null values rather than converting them to 0.\", \"inputs\": [\"Authenticated user\", \"Raw query object\"], \"outputs\": [\"QualityDashboardResponse from repository\", \"401/403 errors raised by reused ledger access scope when user is missing or denied\"], \"callers\": [\"API-FEAT-QUALITY-DASHBOARD-EXPRESS-ROUTE\"], \"callees\": [\"DB-FEAT-QUALITY-DASHBOARD-REPOSITORY\", \"FUNC-FEAT-LEDGER-FILTERED-STATS-SERVICE\"], \"test_focus\": [\"Builds supervisor, college admin, and school admin scopes through the reused ledger scope helper\", \"Normalizes filters consistently with ledger stats\", \"Does not average missing metric values as zero\"]}",
+    "content": "{\"interface_id\": \"FUNC-FEAT-QUALITY-DASHBOARD-SERVICE\", \"req_id\": \"FEAT-STUDENT-QUALITY-PORTRAIT\", \"type\": \"FUNC\", \"name\": \"ReusedQualityDashboardScopeAndFilterService\", \"file_path\": \"backend/src/normative/qualityDashboardService.js\", \"first_line\": \"17\", \"responsibility\": \"Reuse dependency-owned ledger access and filter semantics as the organization-scope model for mentor and administrator portrait access.\", \"specification\": \"The single-student service reuses the ledger-derived access model used by FEAT-QUALITY-DASHBOARD: SUPERVISOR is constrained by supervisor_id, COLLEGE_ADMIN by college_id, and SCHOOL_ADMIN has school-wide scope. This avoids a parallel authorization model for quality portrait data and keeps organization-range viewing coherent with the group dashboard.\", \"inputs\": [\"Authenticated supervisor/admin user\", \"Raw query filters\"], \"outputs\": [\"Scoped access object\", \"Normalized date filters\"], \"callers\": [\"FUNC-FEAT-STUDENT-QUALITY-PORTRAIT-SERVICE\"], \"callees\": [\"FUNC-FEAT-LEDGER-FILTERED-STATS-SERVICE\"], \"test_focus\": [\"Supervisor/admin portrait access follows the same scope rules as the group dashboard\"]}",
     "file_path": "backend/src/normative/qualityDashboardService.js",
     "first_line": "17",
     "implemented": true,
     "callers": [
-      "API-FEAT-QUALITY-DASHBOARD-EXPRESS-ROUTE"
+      "FUNC-FEAT-STUDENT-QUALITY-PORTRAIT-SERVICE"
     ],
     "callees": [
-      "DB-FEAT-QUALITY-DASHBOARD-REPOSITORY",
       "FUNC-FEAT-LEDGER-FILTERED-STATS-SERVICE"
     ]
   },
@@ -1786,6 +1843,24 @@
     "callees": [
       "backend/src/normative/ruleConfigService.js assertRuleConfigAccess",
       "backend/src/normative/ruleDraftRepository.js"
+    ]
+  },
+  "FUNC-FEAT-STUDENT-QUALITY-PORTRAIT-SERVICE": {
+    "interface_id": "FUNC-FEAT-STUDENT-QUALITY-PORTRAIT-SERVICE",
+    "req_ids": [
+      "FEAT-STUDENT-QUALITY-PORTRAIT"
+    ],
+    "type": "FUNC",
+    "content": "{\"interface_id\": \"FUNC-FEAT-STUDENT-QUALITY-PORTRAIT-SERVICE\", \"req_id\": \"FEAT-STUDENT-QUALITY-PORTRAIT\", \"type\": \"FUNC\", \"name\": \"getStudentQualityPortraitForUser\", \"file_path\": \"backend/src/normative/studentQualityPortraitService.js\", \"first_line\": \"1\", \"responsibility\": \"Translate authenticated users, requested student id, and date filters into scoped single-student portrait aggregation requests while enforcing role and data-scope rules.\", \"specification\": \"Exports ALLOWED_STUDENT_QUALITY_PORTRAIT_ROLES with STUDENT, SUPERVISOR, COLLEGE_ADMIN, and SCHOOL_ADMIN. buildStudentPortraitAccessScope rejects missing users with 401 and disallowed roles with 403. For STUDENT it derives the own student id from user.id or user.username and throws 403 if requestedStudentId differs, satisfying the scenario that student01 cannot view another student. For SUPERVISOR, COLLEGE_ADMIN, and SCHOOL_ADMIN it reuses buildLedgerAccessScope so supervisor scope is limited to supervised students, college admin scope to college_id, and school admin to school-wide access. toStudentQualityPortraitFilters reuses ledgerRecordsRepository.normalizeLedgerFilters for date normalization and forces latest-only semantics. The service delegates aggregation to getStudentQualityPortrait and preserves null missing metrics for incomplete data.\", \"inputs\": [\"Authenticated user\", \"studentId route parameter\", \"Raw query object with optional from/to\"], \"outputs\": [\"StudentQualityPortraitResponse from repository\", \"400 when studentId is empty\", \"401 when user is missing\", \"403 when role or data scope is not allowed\"], \"callers\": [\"API-FEAT-STUDENT-QUALITY-PORTRAIT-EXPRESS-ROUTE\"], \"callees\": [\"DB-FEAT-STUDENT-QUALITY-PORTRAIT-REPOSITORY\", \"FUNC-FEAT-LEDGER-FILTERED-STATS-SERVICE\"], \"test_focus\": [\"STUDENT can build scope only for own student id\", \"STUDENT requesting another student id receives 403 before repository access\", \"Supervisor, college admin, and school admin scopes are built through reused ledger scope helper\", \"Date filters normalize consistently with ledger-derived features\"]}",
+    "file_path": "backend/src/normative/studentQualityPortraitService.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "API-FEAT-STUDENT-QUALITY-PORTRAIT-EXPRESS-ROUTE"
+    ],
+    "callees": [
+      "DB-FEAT-STUDENT-QUALITY-PORTRAIT-REPOSITORY",
+      "FUNC-FEAT-LEDGER-FILTERED-STATS-SERVICE"
     ]
   },
   "FUNC-FLOW-RULE-PUBLISH-RULE-CONFIG-SERVICE": {
@@ -2515,6 +2590,41 @@
     ],
     "callees": [
       "frontend/src/api/ruleConfig.ts importRuleDraftTemplate"
+    ]
+  },
+  "UI-FEAT-STUDENT-QUALITY-PORTRAIT-APP-ROUTE": {
+    "interface_id": "UI-FEAT-STUDENT-QUALITY-PORTRAIT-APP-ROUTE",
+    "req_ids": [
+      "FEAT-STUDENT-QUALITY-PORTRAIT"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-STUDENT-QUALITY-PORTRAIT-APP-ROUTE\", \"req_id\": \"FEAT-STUDENT-QUALITY-PORTRAIT\", \"type\": \"UI\", \"name\": \"StudentQualityPortraitAppRoute\", \"file_path\": \"frontend/src/App.tsx\", \"first_line\": \"36\", \"responsibility\": \"Connect the single-student quality portrait page into the existing React Router tree served by the backend-hosted frontend bundle.\", \"specification\": \"Adds /student-quality-portrait and /student-quality-portrait/:studentId routes without introducing a separate shell or dev-server-only entrypoint. The route mounts StudentQualityPortraitPage so downstream UI and E2E tests navigate through the same single-origin runtime. The route is UI visibility only; backend authorization remains authoritative.\", \"inputs\": [\"Browser navigation to /student-quality-portrait\", \"Browser navigation to /student-quality-portrait/:studentId\"], \"outputs\": [\"Mounted StudentQualityPortraitPage\"], \"callers\": [\"React Router\", \"backend-hosted frontend dist\"], \"callees\": [\"UI-FEAT-STUDENT-QUALITY-PORTRAIT-PAGE\"], \"test_focus\": [\"Route /student-quality-portrait renders through the existing App route tree\", \"Route /student-quality-portrait/:studentId is available for direct portrait links\"]}",
+    "file_path": "frontend/src/App.tsx",
+    "first_line": "36",
+    "implemented": false,
+    "callers": [
+      "React Router",
+      "backend-hosted frontend dist"
+    ],
+    "callees": [
+      "UI-FEAT-STUDENT-QUALITY-PORTRAIT-PAGE"
+    ]
+  },
+  "UI-FEAT-STUDENT-QUALITY-PORTRAIT-PAGE": {
+    "interface_id": "UI-FEAT-STUDENT-QUALITY-PORTRAIT-PAGE",
+    "req_ids": [
+      "FEAT-STUDENT-QUALITY-PORTRAIT"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-STUDENT-QUALITY-PORTRAIT-PAGE\", \"req_id\": \"FEAT-STUDENT-QUALITY-PORTRAIT\", \"type\": \"UI\", \"name\": \"StudentQualityPortraitPage\", \"file_path\": \"frontend/src/pages/StudentQualityPortraitPage.tsx\", \"first_line\": \"1\", \"responsibility\": \"Render the single-student local quality portrait with filter input, student/thesis metadata, four metric cards, comprehensive score/completeness state, radar-chart mount area, source timestamps, detail links, and explicit loading/empty/error states.\", \"specification\": \"The page uses runtime data only from fetchStudentQualityPortrait. It must display four metrics: normative, originality, innovation, and review_base. Each card displays score when present, the latest completed source timestamp, and a detail link when supplied by the API. overall_score is displayed only when all four metric scores exist; otherwise it shows “数据不完整” and lists missing metric labels from completeness.missing_metric_labels. The visual structure follows the navy enterprise dashboard references: navy page/header hierarchy, compact query bar, metadata grid, KPI-card rhythm, and radar-chart panel. It must not hardcode screenshot-specific student identifiers, thesis titles, timestamps, scores, or fallback records.\", \"inputs\": [\"Student ID from user input or route parameter\", \"StudentQualityPortraitResponse from API-FEAT-STUDENT-QUALITY-PORTRAIT-CLIENT\"], \"outputs\": [\"Loading state\", \"Empty instruction state\", \"Error state\", \"Student metadata grid\", \"Four metric cards with score/source time/detail link\", \"Overall score or incomplete-data missing-list state\", \"Radar chart mount area driven by metric DTOs\"], \"callers\": [\"UI-FEAT-STUDENT-QUALITY-PORTRAIT-APP-ROUTE\"], \"callees\": [\"API-FEAT-STUDENT-QUALITY-PORTRAIT-CLIENT\"], \"test_focus\": [\"Initial page renders an explicit instruction instead of fake records\", \"Clicking 查询 calls fetchStudentQualityPortrait with the entered student id\", \"When all four scores are 80, 90, 70, 80, the page displays 80.0 分 as comprehensive score\", \"When a metric is missing, the page displays 数据不完整 and lists missing labels\", \"Source timestamps and detail links are rendered from response metrics\"]}",
+    "file_path": "frontend/src/pages/StudentQualityPortraitPage.tsx",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "UI-FEAT-STUDENT-QUALITY-PORTRAIT-APP-ROUTE"
+    ],
+    "callees": [
+      "API-FEAT-STUDENT-QUALITY-PORTRAIT-CLIENT"
     ]
   },
   "UI-FLOW-RULE-PUBLISH-ROUTE-CONNECTOR": {

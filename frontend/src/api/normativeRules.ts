@@ -192,6 +192,39 @@ export type QualityDashboardResponse = {
   generated_at: string;
 };
 
+export type StudentQualityPortraitMetric = {
+  key: QualityMetricKey;
+  label: string;
+  score: number | null;
+  source_record_id: string | null;
+  source_type: DetectionLedgerType;
+  source_label: string;
+  source_created_at: string | null;
+  detail_url: string | null;
+};
+
+export type StudentQualityPortraitResponse = {
+  student: {
+    student_id: string;
+    student_number: string;
+    student_name: string;
+    college_id: string | null;
+    college_name: string;
+    supervisor_id: string | null;
+    supervisor_name: string;
+    student_category: string;
+    thesis_title: string | null;
+  };
+  metrics: StudentQualityPortraitMetric[];
+  overall_score: number | null;
+  completeness: {
+    complete: boolean;
+    missing_metric_keys: QualityMetricKey[];
+    missing_metric_labels: string[];
+  };
+  generated_at: string;
+};
+
 export type DetectionTaskStatus = 'pending' | 'running' | 'completed';
 
 export type CreateDetectionTaskRequest = {
@@ -622,6 +655,17 @@ export async function fetchQualityDashboard(filters: LedgerRecordFilters = {}): 
   const response = await apiClient.get<QualityDashboardResponse>('/normative/ledger-records/quality-dashboard', {
     params: toLedgerRecordParams(filters),
   });
+  return response.data;
+}
+
+export async function fetchStudentQualityPortrait(
+  studentId: string,
+  filters: Pick<LedgerRecordFilters, 'from' | 'to'> = {},
+): Promise<StudentQualityPortraitResponse> {
+  const response = await apiClient.get<StudentQualityPortraitResponse>(
+    `/normative/ledger-records/student-quality-portrait/${studentId}`,
+    { params: toLedgerRecordParams({ ...filters, latest_only: true }) },
+  );
   return response.data;
 }
 
