@@ -7,7 +7,7 @@ import {
 } from '../api/reportSubmissions';
 import {
   fetchAiReviewHistory,
-  fetchDuplicationHistory,
+  fetchDuplicationDetectionHistory,
   fetchInnovationHistory,
   fetchNormativeDetectionHistory,
   type AiReviewHistoryRecord,
@@ -77,7 +77,7 @@ function makeRow(sourceType: ReportSubmissionSourceType, report: {
 async function loadCompletedRuntimeReports(): Promise<RuntimeReportRow[]> {
   const [normative, duplication, innovation, aiReview] = await Promise.all([
     fetchNormativeDetectionHistory(),
-    fetchDuplicationHistory(),
+    fetchDuplicationDetectionHistory(),
     fetchInnovationHistory(),
     fetchAiReviewHistory(),
   ]);
