@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
@@ -64,6 +64,10 @@ describe('FEAT-AI-REVIEW-HISTORY protected history API contract', () => {
   beforeAll(async () => {
     harness = createTestDatabaseHarness({ label: 'feat-ai-review-history-api', seedDefault: true });
     await harness.setup();
+  });
+
+  beforeEach(async () => {
+    await harness.reset();
   });
 
   afterAll(async () => {

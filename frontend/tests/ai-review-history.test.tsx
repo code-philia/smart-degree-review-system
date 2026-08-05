@@ -139,8 +139,9 @@ describe('FEAT-AI-REVIEW-HISTORY frontend history route and client contract', ()
 
   it('FEAT-AI-REVIEW-HISTORY:FRONTEND:CLIENT:001 fetches history through the shared Axios client without local fallback data', async () => {
     const getSpy = vi.spyOn(apiClient, 'get').mockResolvedValueOnce({ data: { records: historyRecords } });
+    const actual = await vi.importActual<typeof import('../src/api/normativeRules')>('../src/api/normativeRules');
 
-    const records = await fetchAiReviewHistory();
+    const records = await actual.fetchAiReviewHistory();
 
     expect(getSpy).toHaveBeenCalledWith('/normative/ai-review-runs');
     expect(records).toBe(historyRecords);
