@@ -25,6 +25,77 @@ function createAssessmentError(status, message, errors) {
   return error;
 }
 
+function normalizeRequiredText(payload, field, label, errors) {
+  const value = typeof payload?.[field] === 'string' ? payload[field].trim() : '';
+  if (!value) {
+    errors.push({ field, message: `${label}不能为空` });
+  }
+  return value;
+}
+
+function normalizeAssessmentPayload(payload) {
+  const errors = [];
+  const normalizedInput = {
+    thesis_title: normalizeRequiredText(payload, 'thesis_title', '论文题目', errors),
+    degree_type: typeof payload?.degree_type === 'string' ? payload.degree_type.trim() : '',
+    primary_discipline: normalizeRequiredText(payload, 'primary_discipline', '一级学科', errors),
+    secondary_discipline: normalizeRequiredText(payload, 'secondary_discipline', '二级学科', errors),
+    research_direction: normalizeRequiredText(payload, 'research_direction', '研究方向', errors),
+    dimensions: {},
+  };
+
+  if (!['doctoral', 'master'].includes(normalizedInput.degree_type)) {
+    errors.push({ field: 'degree_type', message: '学历层次必须为 doctoral 或 master' });
+  }
+
+  if (!payload?.dimensions || typeof payload.dimensions !== 'object') {
+    errors.push({ field: 'dimensions', message: '五个创新性评估维度不能为空' });
+  }
+
+  for (const dimension of INNOVATION_ASSESSMENT_DIMENSIONS) {
+    const dimensionPayload = payload?.dimensions?.[dimension.key];
+    if (!dimensionPayload || typeof dimensionPayload !== 'object') {
+      errors.push({ field: `dimensions.${dimension.key}`, message: `${dimension.label}维度不能为空` });
+      continue;
+    }
+
+    const level = Number(dimensionPayload.level);
+    if (!Number.isInteger(level) || level < 1 || level > 5) {
+      errors.push({ field: `dimensions.${dimension.key}.level`, message: `${dimension.label}等级必须为 1-5 的整数` });
+    }
+
+    const evidence = typeof dimensionPayload.evidence === 'string' ? dimensionPayload.evidence.trim() : '';
+    if (evidence.length < MIN_INNOVATION_ASSESSMENT_TEXT_LENGTH) {
+      errors.push({
+        field: `dimensions.${dimension.key}.evidence`,
+        message: `${dimension.label}证据不完整，需不少于 ${MIN_INNOVATION_ASSESSMENT_TEXT_LENGTH} 个字符`,
+      });
+    }
+
+    const improvementPlan = typeof dimensionPayload.improvement_plan === 'string'
+      ? dimensionPayload.improvement_plan.trim()
+      : '';
+    if (improvementPlan.length < MIN_INNOVATION_ASSESSMENT_TEXT_LENGTH) {
+      errors.push({
+        field: `dimensions.${dimension.key}.improvement_plan`,
+        message: `${dimension.label}改进计划不完整，需不少于 ${MIN_INNOVATION_ASSESSMENT_TEXT_LENGTH} 个字符`,
+      });
+    }
+
+    normalizedInput.dimensions[dimension.key] = {
+      level,
+      evidence,
+      improvement_plan: improvementPlan,
+    };
+  }
+
+  if (errors.length > 0) {
+    throw createAssessmentError(400, '创新性量表评估输入不完整', errors);
+  }
+
+  return normalizedInput;
+}
+
 async function createInnovationAssessment(user, payload) {
   if (!user) {
     throw createAssessmentError(401, '请先登录后发起创新性量表评估');
@@ -33,7 +104,38 @@ async function createInnovationAssessment(user, payload) {
     throw createAssessmentError(403, '当前角色无权发起创新性量表评估');
   }
 
-  throw createAssessmentError(501, '创新性量表评估快照保存尚未实现');
+  const normalizedInput = normalizeAssessmentPayload(payload || {});
+  const levels = Object.fromEntries(
+    INNOVATION_ASSESSMENT_DIMENSIONS.map((dimension) => [
+      dimension.key,
+      normalizedInput.dimensions[dimension.key].level,
+    ]),
+  );
+  const scoringSnapshot = await calculateInnovationScore(user, {
+    degree_type: normalizedInput.degree_type,
+    levels,
+  });
+  const snapshot = buildInnovationAssessmentSnapshot(user, normalizedInput, scoringSnapshot);
+  const insertResult = await insertInnovationAssessmentSnapshot(snapshot);
+
+  return {
+    id: insertResult.id || snapshot.id,
+    user_id: snapshot.user_id,
+    thesis_title: snapshot.thesis_title,
+    degree_type: snapshot.degree_type,
+    primary_discipline: snapshot.primary_discipline,
+    secondary_discipline: snapshot.secondary_discipline,
+    research_direction: snapshot.research_direction,
+    input_snapshot: snapshot.input_snapshot,
+    scoring_snapshot: snapshot.scoring_snapshot,
+    total_score: scoringSnapshot.total_score,
+    grade_label: scoringSnapshot.grade_label,
+    formula: scoringSnapshot.formula,
+    dimensions: scoringSnapshot.dimensions,
+    input: scoringSnapshot.input,
+    disclaimer: snapshot.disclaimer,
+    created_at: snapshot.created_at,
+  };
 }
 
 function buildInnovationAssessmentSnapshot(user, normalizedInput, scoringSnapshot) {

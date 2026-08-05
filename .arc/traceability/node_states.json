@@ -61,9 +61,9 @@
   },
   "FEAT-INNOVATION-ANALYZE": {
     "req_id": "FEAT-INNOVATION-ANALYZE",
-    "state": "DESIGNED",
-    "phase": "design",
-    "updated_at": "2026-08-05 02:44:33"
+    "state": "PASSED",
+    "phase": "test",
+    "updated_at": "2026-08-05 02:45:49"
   },
   "FEAT-INNOVATION-HISTORY": {
     "req_id": "FEAT-INNOVATION-HISTORY",
