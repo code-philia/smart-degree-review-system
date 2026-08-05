@@ -234,6 +234,30 @@ async function initializeDatabase(options = {}) {
       );`,
     );
 
+    await runStatement(
+      database,
+      `CREATE TABLE IF NOT EXISTS ai_review_runs (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        thesis_title TEXT NOT NULL,
+        template_id TEXT NOT NULL,
+        source_type TEXT NOT NULL CHECK (source_type IN ('paste', 'file')),
+        source_filename TEXT,
+        original_text TEXT NOT NULL,
+        section_snapshot_json TEXT NOT NULL,
+        reference_count INTEGER NOT NULL,
+        character_count INTEGER NOT NULL,
+        normative_issues_json TEXT NOT NULL,
+        score_items_json TEXT NOT NULL,
+        total_score INTEGER NOT NULL,
+        result_label TEXT NOT NULL,
+        missing_sections_json TEXT NOT NULL,
+        rubric_snapshot_json TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE
+      );`,
+    );
+
     return database;
 
     /**

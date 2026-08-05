@@ -1,4 +1,20 @@
 {
+  "FEAT-AI-REVIEW-RUBRICS::FEAT-AI-REVIEW-RUN::API-FEAT-AI-REVIEW-RUBRICS-CLIENT::API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE": {
+    "source_req_id": "FEAT-AI-REVIEW-RUBRICS",
+    "target_req_id": "FEAT-AI-REVIEW-RUN",
+    "from_interface_id": "API-FEAT-AI-REVIEW-RUBRICS-CLIENT",
+    "to_interface_id": "API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUBRICS::FEAT-AI-REVIEW-RUN::API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES": {
+    "source_req_id": "FEAT-AI-REVIEW-RUBRICS",
+    "target_req_id": "FEAT-AI-REVIEW-RUN",
+    "from_interface_id": "API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:24"
+  },
   "FEAT-AI-REVIEW-RUBRICS::FEAT-AUTH-PASSWORD::API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES": {
     "source_req_id": "FEAT-AI-REVIEW-RUBRICS",
     "target_req_id": "FEAT-AUTH-PASSWORD",
@@ -158,6 +174,462 @@
     "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
     "edge_type": "cross_req",
     "created_at": "2026-08-05 03:24:26"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-AI-REVIEW-RUBRICS::API-FEAT-AI-REVIEW-RUBRICS-CLIENT::API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-AI-REVIEW-RUBRICS",
+    "from_interface_id": "API-FEAT-AI-REVIEW-RUBRICS-CLIENT",
+    "to_interface_id": "API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-AI-REVIEW-RUBRICS::API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-AI-REVIEW-RUBRICS",
+    "from_interface_id": "API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:24"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-AI-REVIEW-RUBRICS::API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE::FUNC-FEAT-AI-REVIEW-RUBRICS-SERVICE": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-AI-REVIEW-RUBRICS",
+    "from_interface_id": "API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE",
+    "to_interface_id": "FUNC-FEAT-AI-REVIEW-RUBRICS-SERVICE",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:24"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-AI-REVIEW-RUBRICS::API-FEAT-AI-REVIEW-RUN-EXPRESS-ROUTE::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-AI-REVIEW-RUBRICS",
+    "from_interface_id": "API-FEAT-AI-REVIEW-RUN-EXPRESS-ROUTE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-AI-REVIEW-RUBRICS::UI-FEAT-AI-REVIEW-RUN-PAGE::API-FEAT-AI-REVIEW-RUBRICS-CLIENT": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-AI-REVIEW-RUBRICS",
+    "from_interface_id": "UI-FEAT-AI-REVIEW-RUN-PAGE",
+    "to_interface_id": "API-FEAT-AI-REVIEW-RUBRICS-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-AUTH-PASSWORD::API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-AUTH-PASSWORD",
+    "from_interface_id": "API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-AUTH-PASSWORD::API-FEAT-AI-REVIEW-RUN-EXPRESS-ROUTE::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-AUTH-PASSWORD",
+    "from_interface_id": "API-FEAT-AI-REVIEW-RUN-EXPRESS-ROUTE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-AUTH-PASSWORD::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES::DB-FEAT-AUTH-SESSION-SCHEMA": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-AUTH-PASSWORD",
+    "from_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "to_interface_id": "DB-FEAT-AUTH-SESSION-SCHEMA",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:24"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-AUTH-PASSWORD::UI-FEAT-AI-REVIEW-RUN-APP-ROUTE::UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-AUTH-PASSWORD",
+    "from_interface_id": "UI-FEAT-AI-REVIEW-RUN-APP-ROUTE",
+    "to_interface_id": "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-AUTH-PASSWORD::UI-FEAT-AI-REVIEW-RUN-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-AUTH-PASSWORD",
+    "from_interface_id": "UI-FEAT-AI-REVIEW-RUN-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-AUTH-PASSWORD::UI-FEAT-AI-REVIEW-RUN-PAGE::UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-AUTH-PASSWORD",
+    "from_interface_id": "UI-FEAT-AI-REVIEW-RUN-PAGE",
+    "to_interface_id": "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-AUTH-PASSWORD::UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-AUTH-PASSWORD",
+    "from_interface_id": "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:24"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-AUTH-SESSION::API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-AUTH-SESSION",
+    "from_interface_id": "API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-AUTH-SESSION::API-FEAT-AI-REVIEW-RUN-EXPRESS-ROUTE::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-AUTH-SESSION",
+    "from_interface_id": "API-FEAT-AI-REVIEW-RUN-EXPRESS-ROUTE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-AUTH-SESSION::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES::DB-FEAT-AUTH-SESSION-SCHEMA": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-AUTH-SESSION",
+    "from_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "to_interface_id": "DB-FEAT-AUTH-SESSION-SCHEMA",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:24"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-AUTH-SESSION::UI-FEAT-AI-REVIEW-RUN-APP-ROUTE::UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-AUTH-SESSION",
+    "from_interface_id": "UI-FEAT-AI-REVIEW-RUN-APP-ROUTE",
+    "to_interface_id": "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-AUTH-SESSION::UI-FEAT-AI-REVIEW-RUN-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-AUTH-SESSION",
+    "from_interface_id": "UI-FEAT-AI-REVIEW-RUN-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-AUTH-SESSION::UI-FEAT-AI-REVIEW-RUN-PAGE::UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-AUTH-SESSION",
+    "from_interface_id": "UI-FEAT-AI-REVIEW-RUN-PAGE",
+    "to_interface_id": "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-AUTH-SESSION::UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-AUTH-SESSION",
+    "from_interface_id": "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:24"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-DUPLICATION-CORPUS::UI-FEAT-AI-REVIEW-RUN-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-DUPLICATION-CORPUS",
+    "from_interface_id": "UI-FEAT-AI-REVIEW-RUN-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-DUPLICATION-CORPUS::UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-DUPLICATION-CORPUS",
+    "from_interface_id": "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:24"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-INNOVATION-ANALYZE::API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-INNOVATION-ANALYZE",
+    "from_interface_id": "API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:24"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-INNOVATION-ANALYZE::API-FEAT-AI-REVIEW-RUN-EXPRESS-ROUTE::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-INNOVATION-ANALYZE",
+    "from_interface_id": "API-FEAT-AI-REVIEW-RUN-EXPRESS-ROUTE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-INNOVATION-ANALYZE::UI-FEAT-AI-REVIEW-RUN-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-INNOVATION-ANALYZE",
+    "from_interface_id": "UI-FEAT-AI-REVIEW-RUN-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-INNOVATION-ANALYZE::UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-INNOVATION-ANALYZE",
+    "from_interface_id": "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:24"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-INNOVATION-REPORT::API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-INNOVATION-REPORT",
+    "from_interface_id": "API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:24"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-INNOVATION-REPORT::API-FEAT-AI-REVIEW-RUN-EXPRESS-ROUTE::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-INNOVATION-REPORT",
+    "from_interface_id": "API-FEAT-AI-REVIEW-RUN-EXPRESS-ROUTE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-INNOVATION-REPORT::UI-FEAT-AI-REVIEW-RUN-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-INNOVATION-REPORT",
+    "from_interface_id": "UI-FEAT-AI-REVIEW-RUN-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-INNOVATION-REPORT::UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-INNOVATION-REPORT",
+    "from_interface_id": "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:24"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-INNOVATION-SCORING-MODEL::API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-INNOVATION-SCORING-MODEL",
+    "from_interface_id": "API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:24"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-INNOVATION-SCORING-MODEL::API-FEAT-AI-REVIEW-RUN-EXPRESS-ROUTE::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-INNOVATION-SCORING-MODEL",
+    "from_interface_id": "API-FEAT-AI-REVIEW-RUN-EXPRESS-ROUTE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-INNOVATION-SCORING-MODEL::UI-FEAT-AI-REVIEW-RUN-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-INNOVATION-SCORING-MODEL",
+    "from_interface_id": "UI-FEAT-AI-REVIEW-RUN-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-INNOVATION-SCORING-MODEL::UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-INNOVATION-SCORING-MODEL",
+    "from_interface_id": "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:24"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-NORMATIVE-DETECT::UI-FEAT-AI-REVIEW-RUN-APP-ROUTE::UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-NORMATIVE-DETECT",
+    "from_interface_id": "UI-FEAT-AI-REVIEW-RUN-APP-ROUTE",
+    "to_interface_id": "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-NORMATIVE-DETECT::UI-FEAT-AI-REVIEW-RUN-PAGE::UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-NORMATIVE-DETECT",
+    "from_interface_id": "UI-FEAT-AI-REVIEW-RUN-PAGE",
+    "to_interface_id": "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-NORMATIVE-FORMAT-RULES::UI-FEAT-AI-REVIEW-RUN-APP-ROUTE::UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-NORMATIVE-FORMAT-RULES",
+    "from_interface_id": "UI-FEAT-AI-REVIEW-RUN-APP-ROUTE",
+    "to_interface_id": "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-NORMATIVE-FORMAT-RULES::UI-FEAT-AI-REVIEW-RUN-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-NORMATIVE-FORMAT-RULES",
+    "from_interface_id": "UI-FEAT-AI-REVIEW-RUN-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-NORMATIVE-FORMAT-RULES::UI-FEAT-AI-REVIEW-RUN-PAGE::UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-NORMATIVE-FORMAT-RULES",
+    "from_interface_id": "UI-FEAT-AI-REVIEW-RUN-PAGE",
+    "to_interface_id": "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-NORMATIVE-FORMAT-RULES::UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-NORMATIVE-FORMAT-RULES",
+    "from_interface_id": "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:24"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-NORMATIVE-REPORT::UI-FEAT-AI-REVIEW-RUN-APP-ROUTE::UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-NORMATIVE-REPORT",
+    "from_interface_id": "UI-FEAT-AI-REVIEW-RUN-APP-ROUTE",
+    "to_interface_id": "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-NORMATIVE-REPORT::UI-FEAT-AI-REVIEW-RUN-PAGE::UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-NORMATIVE-REPORT",
+    "from_interface_id": "UI-FEAT-AI-REVIEW-RUN-PAGE",
+    "to_interface_id": "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-POLISH-HISTORY::API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-POLISH-HISTORY",
+    "from_interface_id": "API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:24"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-POLISH-HISTORY::API-FEAT-AI-REVIEW-RUN-EXPRESS-ROUTE::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-POLISH-HISTORY",
+    "from_interface_id": "API-FEAT-AI-REVIEW-RUN-EXPRESS-ROUTE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-POLISH-HISTORY::UI-FEAT-AI-REVIEW-RUN-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-POLISH-HISTORY",
+    "from_interface_id": "UI-FEAT-AI-REVIEW-RUN-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-POLISH-HISTORY::UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-POLISH-HISTORY",
+    "from_interface_id": "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:24"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-POLISH-LOCAL::API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-POLISH-LOCAL",
+    "from_interface_id": "API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-POLISH-LOCAL::API-FEAT-AI-REVIEW-RUN-EXPRESS-ROUTE::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-POLISH-LOCAL",
+    "from_interface_id": "API-FEAT-AI-REVIEW-RUN-EXPRESS-ROUTE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-POLISH-LOCAL::UI-FEAT-AI-REVIEW-RUN-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-POLISH-LOCAL",
+    "from_interface_id": "UI-FEAT-AI-REVIEW-RUN-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-POLISH-LOCAL::UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-POLISH-LOCAL",
+    "from_interface_id": "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:24"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-POLISH-WHOLE::API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-POLISH-WHOLE",
+    "from_interface_id": "API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-POLISH-WHOLE::API-FEAT-AI-REVIEW-RUN-EXPRESS-ROUTE::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-POLISH-WHOLE",
+    "from_interface_id": "API-FEAT-AI-REVIEW-RUN-EXPRESS-ROUTE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-POLISH-WHOLE::UI-FEAT-AI-REVIEW-RUN-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-POLISH-WHOLE",
+    "from_interface_id": "UI-FEAT-AI-REVIEW-RUN-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FEAT-POLISH-WHOLE::UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FEAT-POLISH-WHOLE",
+    "from_interface_id": "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:24"
+  },
+  "FEAT-AI-REVIEW-RUN::FLOW-RULE-PUBLISH::UI-FEAT-AI-REVIEW-RUN-APP-ROUTE::UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FLOW-RULE-PUBLISH",
+    "from_interface_id": "UI-FEAT-AI-REVIEW-RUN-APP-ROUTE",
+    "to_interface_id": "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AI-REVIEW-RUN::FLOW-RULE-PUBLISH::UI-FEAT-AI-REVIEW-RUN-PAGE::UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER": {
+    "source_req_id": "FEAT-AI-REVIEW-RUN",
+    "target_req_id": "FLOW-RULE-PUBLISH",
+    "from_interface_id": "UI-FEAT-AI-REVIEW-RUN-PAGE",
+    "to_interface_id": "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:23"
+  },
+  "FEAT-AUTH-PASSWORD::FEAT-AI-REVIEW-RUN::UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-AUTH-PASSWORD",
+    "target_req_id": "FEAT-AI-REVIEW-RUN",
+    "from_interface_id": "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:24"
+  },
+  "FEAT-AUTH-SESSION::FEAT-AI-REVIEW-RUN::UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-AUTH-SESSION",
+    "target_req_id": "FEAT-AI-REVIEW-RUN",
+    "from_interface_id": "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:24"
   },
   "FEAT-DUPLICATION-HISTORY::FEAT-AUTH-PASSWORD::API-FEAT-DUPLICATION-HISTORY-EXPRESS-ROUTES::FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE": {
     "source_req_id": "FEAT-DUPLICATION-HISTORY",
@@ -743,6 +1215,30 @@
     "edge_type": "cross_req",
     "created_at": "2026-08-04 18:28:45"
   },
+  "FEAT-NORMATIVE-DETECT::FEAT-AI-REVIEW-RUN::UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-NORMATIVE-DETECT",
+    "target_req_id": "FEAT-AI-REVIEW-RUN",
+    "from_interface_id": "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:24"
+  },
+  "FEAT-NORMATIVE-FORMAT-RULES::FEAT-AI-REVIEW-RUN::UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-NORMATIVE-FORMAT-RULES",
+    "target_req_id": "FEAT-AI-REVIEW-RUN",
+    "from_interface_id": "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:24"
+  },
+  "FEAT-NORMATIVE-REPORT::FEAT-AI-REVIEW-RUN::UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-NORMATIVE-REPORT",
+    "target_req_id": "FEAT-AI-REVIEW-RUN",
+    "from_interface_id": "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:24"
+  },
   "FEAT-POLISH-HISTORY::FEAT-AUTH-PASSWORD::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES::DB-FEAT-AUTH-SESSION-REPOSITORY": {
     "source_req_id": "FEAT-POLISH-HISTORY",
     "target_req_id": "FEAT-AUTH-PASSWORD",
@@ -998,5 +1494,13 @@
     "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
     "edge_type": "cross_req",
     "created_at": "2026-08-04 17:58:15"
+  },
+  "FLOW-RULE-PUBLISH::FEAT-AI-REVIEW-RUN::UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FLOW-RULE-PUBLISH",
+    "target_req_id": "FEAT-AI-REVIEW-RUN",
+    "from_interface_id": "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 04:13:24"
   }
 }

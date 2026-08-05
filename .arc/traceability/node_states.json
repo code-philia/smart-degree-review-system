@@ -3,240 +3,240 @@
     "req_id": "FEAT-AI-REVIEW-HISTORY",
     "state": "UNSEEN",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "updated_at": "2026-08-05 04:10:31"
   },
   "FEAT-AI-REVIEW-RESULT": {
     "req_id": "FEAT-AI-REVIEW-RESULT",
     "state": "UNSEEN",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "updated_at": "2026-08-05 04:10:31"
   },
   "FEAT-AI-REVIEW-RUBRICS": {
     "req_id": "FEAT-AI-REVIEW-RUBRICS",
     "state": "PASSED",
-    "phase": "test",
-    "updated_at": "2026-08-05 03:28:42"
+    "phase": null,
+    "updated_at": "2026-08-05 04:10:31"
   },
   "FEAT-AI-REVIEW-RUN": {
     "req_id": "FEAT-AI-REVIEW-RUN",
-    "state": "UNSEEN",
-    "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "state": "DESIGNED",
+    "phase": "design",
+    "updated_at": "2026-08-05 04:13:24"
   },
   "FEAT-AUTH-HELP": {
     "req_id": "FEAT-AUTH-HELP",
     "state": "PASSED",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "updated_at": "2026-08-05 04:10:30"
   },
   "FEAT-AUTH-PASSWORD": {
     "req_id": "FEAT-AUTH-PASSWORD",
     "state": "PASSED",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "updated_at": "2026-08-05 04:10:30"
   },
   "FEAT-AUTH-SESSION": {
     "req_id": "FEAT-AUTH-SESSION",
     "state": "PASSED",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "updated_at": "2026-08-05 04:10:30"
   },
   "FEAT-DUPLICATION-CORPUS": {
     "req_id": "FEAT-DUPLICATION-CORPUS",
     "state": "PASSED",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "updated_at": "2026-08-05 04:10:30"
   },
   "FEAT-DUPLICATION-DETECT": {
     "req_id": "FEAT-DUPLICATION-DETECT",
     "state": "PASSED",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "updated_at": "2026-08-05 04:10:30"
   },
   "FEAT-DUPLICATION-HISTORY": {
     "req_id": "FEAT-DUPLICATION-HISTORY",
     "state": "PASSED",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "updated_at": "2026-08-05 04:10:30"
   },
   "FEAT-INNOVATION-ANALYZE": {
     "req_id": "FEAT-INNOVATION-ANALYZE",
     "state": "PASSED",
-    "phase": "test",
-    "updated_at": "2026-08-05 02:45:49"
+    "phase": null,
+    "updated_at": "2026-08-05 04:10:31"
   },
   "FEAT-INNOVATION-HISTORY": {
     "req_id": "FEAT-INNOVATION-HISTORY",
     "state": "FAILED",
-    "phase": "design",
-    "updated_at": "2026-08-05 03:17:45"
+    "phase": null,
+    "updated_at": "2026-08-05 04:10:31"
   },
   "FEAT-INNOVATION-REPORT": {
     "req_id": "FEAT-INNOVATION-REPORT",
     "state": "PASSED",
-    "phase": "test",
-    "updated_at": "2026-08-05 03:07:01"
+    "phase": null,
+    "updated_at": "2026-08-05 04:10:31"
   },
   "FEAT-INNOVATION-SCORING-MODEL": {
     "req_id": "FEAT-INNOVATION-SCORING-MODEL",
     "state": "PASSED",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "updated_at": "2026-08-05 04:10:30"
   },
   "FEAT-LEDGER-FILTERED-STATS": {
     "req_id": "FEAT-LEDGER-FILTERED-STATS",
     "state": "UNSEEN",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "updated_at": "2026-08-05 04:10:31"
   },
   "FEAT-LEDGER-RECORDS": {
     "req_id": "FEAT-LEDGER-RECORDS",
     "state": "UNSEEN",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "updated_at": "2026-08-05 04:10:31"
   },
   "FEAT-NORMATIVE-DETECT": {
     "req_id": "FEAT-NORMATIVE-DETECT",
     "state": "PASSED",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "updated_at": "2026-08-05 04:10:30"
   },
   "FEAT-NORMATIVE-FORMAT-RULES": {
     "req_id": "FEAT-NORMATIVE-FORMAT-RULES",
     "state": "PASSED",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "updated_at": "2026-08-05 04:10:30"
   },
   "FEAT-NORMATIVE-REPORT": {
     "req_id": "FEAT-NORMATIVE-REPORT",
     "state": "PASSED",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "updated_at": "2026-08-05 04:10:30"
   },
   "FEAT-POLISH-HISTORY": {
     "req_id": "FEAT-POLISH-HISTORY",
     "state": "PASSED",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "updated_at": "2026-08-05 04:10:30"
   },
   "FEAT-POLISH-LOCAL": {
     "req_id": "FEAT-POLISH-LOCAL",
     "state": "PASSED",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "updated_at": "2026-08-05 04:10:30"
   },
   "FEAT-POLISH-WHOLE": {
     "req_id": "FEAT-POLISH-WHOLE",
     "state": "PASSED",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "updated_at": "2026-08-05 04:10:30"
   },
   "FEAT-QUALITY-DASHBOARD": {
     "req_id": "FEAT-QUALITY-DASHBOARD",
     "state": "UNSEEN",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "updated_at": "2026-08-05 04:10:31"
   },
   "FEAT-REPORT-STUDENT-RESULTS": {
     "req_id": "FEAT-REPORT-STUDENT-RESULTS",
     "state": "UNSEEN",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:07"
+    "updated_at": "2026-08-05 04:10:31"
   },
   "FEAT-REPORT-STUDENT-SUBMIT": {
     "req_id": "FEAT-REPORT-STUDENT-SUBMIT",
     "state": "UNSEEN",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "updated_at": "2026-08-05 04:10:31"
   },
   "FEAT-REPORT-SUPERVISOR-QUEUE": {
     "req_id": "FEAT-REPORT-SUPERVISOR-QUEUE",
     "state": "UNSEEN",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:07"
+    "updated_at": "2026-08-05 04:10:31"
   },
   "FEAT-REPORT-SUPERVISOR-REVIEW": {
     "req_id": "FEAT-REPORT-SUPERVISOR-REVIEW",
     "state": "UNSEEN",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:07"
+    "updated_at": "2026-08-05 04:10:31"
   },
   "FEAT-RULE-TEMPLATE-UPLOAD": {
     "req_id": "FEAT-RULE-TEMPLATE-UPLOAD",
     "state": "PASSED",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "updated_at": "2026-08-05 04:10:30"
   },
   "FEAT-STUDENT-QUALITY-PORTRAIT": {
     "req_id": "FEAT-STUDENT-QUALITY-PORTRAIT",
     "state": "UNSEEN",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "updated_at": "2026-08-05 04:10:31"
   },
   "FLOW-RULE-PUBLISH": {
     "req_id": "FLOW-RULE-PUBLISH",
     "state": "PASSED",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "updated_at": "2026-08-05 04:10:30"
   },
   "MOD-AI-REVIEW": {
     "req_id": "MOD-AI-REVIEW",
     "state": "DESIGNED",
-    "phase": "design",
-    "updated_at": "2026-08-05 03:17:48"
+    "phase": null,
+    "updated_at": "2026-08-05 04:10:31"
   },
   "MOD-AUTH": {
     "req_id": "MOD-AUTH",
     "state": "CONVERGED",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "updated_at": "2026-08-05 04:10:30"
   },
   "MOD-DUPLICATION-CHECK": {
     "req_id": "MOD-DUPLICATION-CHECK",
     "state": "CONVERGED",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "updated_at": "2026-08-05 04:10:30"
   },
   "MOD-INNOVATION-ANALYSIS": {
     "req_id": "MOD-INNOVATION-ANALYSIS",
-    "state": "PASSED",
-    "phase": "test",
-    "updated_at": "2026-08-05 03:17:47"
+    "state": "CONVERGED",
+    "phase": null,
+    "updated_at": "2026-08-05 04:10:30"
   },
   "MOD-LEDGER": {
     "req_id": "MOD-LEDGER",
     "state": "UNSEEN",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "updated_at": "2026-08-05 04:10:31"
   },
   "MOD-NORMATIVE-DETECTION": {
     "req_id": "MOD-NORMATIVE-DETECTION",
     "state": "CONVERGED",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "updated_at": "2026-08-05 04:10:30"
   },
   "MOD-POLISH": {
     "req_id": "MOD-POLISH",
     "state": "CONVERGED",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "updated_at": "2026-08-05 04:10:30"
   },
   "MOD-QUALITY-PORTRAIT": {
     "req_id": "MOD-QUALITY-PORTRAIT",
     "state": "UNSEEN",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "updated_at": "2026-08-05 04:10:31"
   },
   "MOD-REPORT-INTERACTION": {
     "req_id": "MOD-REPORT-INTERACTION",
     "state": "UNSEEN",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "updated_at": "2026-08-05 04:10:31"
   },
   "SYS-DEGREE-AI-REVIEW": {
     "req_id": "SYS-DEGREE-AI-REVIEW",
     "state": "DESIGNED",
     "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "updated_at": "2026-08-05 04:10:30"
   }
 }

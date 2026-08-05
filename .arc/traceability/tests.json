@@ -58,6 +58,91 @@
     "first_line": "1",
     "scenario_id": null
   },
+  "FEAT-AI-REVIEW-RUN:E2E:SCENARIO-001-MISSING-CONCLUSION-REVISION": {
+    "test_id": "FEAT-AI-REVIEW-RUN:E2E:SCENARIO-001-MISSING-CONCLUSION-REVISION",
+    "req_id": "FEAT-AI-REVIEW-RUN",
+    "interface_ids": [
+      "UI-FEAT-AI-REVIEW-RUN-PAGE",
+      "UI-FEAT-AI-REVIEW-RUN-APP-ROUTE",
+      "API-FEAT-AI-REVIEW-RUN-CLIENT",
+      "API-FEAT-AI-REVIEW-RUN-EXPRESS-ROUTE",
+      "FUNC-FEAT-AI-REVIEW-RUN-SERVICE",
+      "DB-FEAT-AI-REVIEW-RUN-REPOSITORY",
+      "DB-FEAT-AI-REVIEW-RUN-SCHEMA",
+      "API-FEAT-AI-REVIEW-RUBRICS-CLIENT",
+      "API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE",
+      "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+      "API-FEAT-AUTH-SESSION-CLIENT",
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES"
+    ],
+    "type": "E2E",
+    "file_path": "backend/test-e2e/ai-review-run.spec.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-AI-REVIEW-RUN:INTEGRATION:API-AUTH-PERSISTENCE": {
+    "test_id": "FEAT-AI-REVIEW-RUN:INTEGRATION:API-AUTH-PERSISTENCE",
+    "req_id": "FEAT-AI-REVIEW-RUN",
+    "interface_ids": [
+      "API-FEAT-AI-REVIEW-RUN-EXPRESS-ROUTE",
+      "FUNC-FEAT-AI-REVIEW-RUN-SERVICE",
+      "DB-FEAT-AI-REVIEW-RUN-REPOSITORY",
+      "DB-FEAT-AI-REVIEW-RUN-SCHEMA",
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/ai-review-run.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-AI-REVIEW-RUN:INTEGRATION:FRONTEND-ROUTE-AUTH-WORKFLOW": {
+    "test_id": "FEAT-AI-REVIEW-RUN:INTEGRATION:FRONTEND-ROUTE-AUTH-WORKFLOW",
+    "req_id": "FEAT-AI-REVIEW-RUN",
+    "interface_ids": [
+      "UI-FEAT-AI-REVIEW-RUN-PAGE",
+      "UI-FEAT-AI-REVIEW-RUN-APP-ROUTE",
+      "UI-FEAT-AI-REVIEW-RUN-HOME-ENTRY",
+      "API-FEAT-AI-REVIEW-RUN-CLIENT",
+      "API-FEAT-AI-REVIEW-RUBRICS-CLIENT",
+      "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+      "API-FEAT-AUTH-SESSION-CLIENT"
+    ],
+    "type": "Integration",
+    "file_path": "frontend/tests/ai-review-run.test.tsx",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-AI-REVIEW-RUN:INTEGRATION:REPOSITORY-SCHEMA-OWNER-SCOPE": {
+    "test_id": "FEAT-AI-REVIEW-RUN:INTEGRATION:REPOSITORY-SCHEMA-OWNER-SCOPE",
+    "req_id": "FEAT-AI-REVIEW-RUN",
+    "interface_ids": [
+      "DB-FEAT-AI-REVIEW-RUN-REPOSITORY",
+      "DB-FEAT-AI-REVIEW-RUN-SCHEMA"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/ai-review-run-repository.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-AI-REVIEW-RUN:UNIT:SERVICE-SCORING-VALIDATION": {
+    "test_id": "FEAT-AI-REVIEW-RUN:UNIT:SERVICE-SCORING-VALIDATION",
+    "req_id": "FEAT-AI-REVIEW-RUN",
+    "interface_ids": [
+      "FUNC-FEAT-AI-REVIEW-RUN-SERVICE",
+      "DB-FEAT-AI-REVIEW-RUN-REPOSITORY",
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+      "API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE"
+    ],
+    "type": "Unit",
+    "file_path": "backend/tests/ai-review-run.unit.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
   "FEAT-AUTH-HELP:TEST:001": {
     "test_id": "FEAT-AUTH-HELP:TEST:001",
     "req_id": "FEAT-AUTH-HELP",

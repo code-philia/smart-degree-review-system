@@ -51,6 +51,46 @@ export type ReviewRubricsResponse = {
   passing_rule: ReviewRubricPassingRule;
 };
 
+export type AiReviewSourceType = 'paste' | 'file';
+
+export type AiReviewRunRequest = {
+  thesis_title: string;
+  template_id: string;
+  text: string;
+  source_type: AiReviewSourceType;
+  source_filename?: string | null;
+};
+
+export type AiReviewSectionSnapshot = {
+  name: string;
+  present: boolean;
+};
+
+export type AiReviewScoreItem = ReviewRubricScoreItem & {
+  score: number;
+  findings: string[];
+};
+
+export type AiReviewRunResponse = {
+  id: string;
+  user_id: string;
+  thesis_title: string;
+  template_id: string;
+  source_type: AiReviewSourceType;
+  source_filename?: string | null;
+  original_text: string;
+  section_snapshot: AiReviewSectionSnapshot[];
+  reference_count: number;
+  character_count: number;
+  normative_issues: NormativeIssue[];
+  score_items: AiReviewScoreItem[];
+  total_score: number;
+  result_label: string;
+  missing_sections: string[];
+  rubric_snapshot: ReviewRubricsResponse | Record<string, unknown>;
+  created_at: string;
+};
+
 export type DetectionTaskStatus = 'pending' | 'running' | 'completed';
 
 export type CreateDetectionTaskRequest = {
@@ -346,6 +386,11 @@ export async function fetchLocalPolishResult(resultId: string): Promise<LocalPol
 
 export async function fetchReviewRubrics(): Promise<ReviewRubricsResponse> {
   const response = await apiClient.get<ReviewRubricsResponse>('/normative/review-rubrics');
+  return response.data;
+}
+
+export async function createAiReviewRun(payload: AiReviewRunRequest): Promise<AiReviewRunResponse> {
+  const response = await apiClient.post<AiReviewRunResponse>('/normative/ai-review-runs', payload);
   return response.data;
 }
 

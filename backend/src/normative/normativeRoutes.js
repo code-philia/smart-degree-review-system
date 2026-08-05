@@ -76,6 +76,11 @@ const {
   REVIEW_RUBRIC_ALLOWED_ROLES,
   listReviewRubrics,
 } = require('./reviewRubricService');
+const {
+  ALLOWED_AI_REVIEW_RUN_ROLES,
+  MAX_AI_REVIEW_TEXT_BYTES,
+  createAiReviewRun,
+} = require('./aiReviewRunService');
 
 const router = express.Router();
 
@@ -436,6 +441,32 @@ router.post(
     } catch (error) {
       if (error?.type === 'entity.too.large') {
         res.status(413).json({ code: 413, message: '评估输入不能超过 32 KB' });
+        return;
+      }
+      if (error?.status) {
+        const body = { code: error.status, message: error.message };
+        if (Array.isArray(error.errors)) {
+          body.errors = error.errors;
+        }
+        res.status(error.status).json(body);
+        return;
+      }
+      next(error);
+    }
+  },
+);
+
+router.post(
+  '/ai-review-runs',
+  requireAuth({ allowedRoles: ALLOWED_AI_REVIEW_RUN_ROLES }),
+  express.json({ limit: MAX_AI_REVIEW_TEXT_BYTES }),
+  async (req, res, next) => {
+    try {
+      const result = await createAiReviewRun(req.user, req.body || {});
+      res.status(201).json(result);
+    } catch (error) {
+      if (error?.type === 'entity.too.large') {
+        res.status(413).json({ code: 413, message: '论文文本不能超过 5 MB' });
         return;
       }
       if (error?.status) {

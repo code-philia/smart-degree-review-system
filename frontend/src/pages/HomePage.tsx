@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import RoleAwareHomeMenu from '../auth/RoleAwareHomeMenu';
 
 const userModules = ['学生端', '导师端', '学院端', '学校端'];
@@ -74,6 +75,9 @@ function HomePage() {
                 >
                   <h3 className="text-2xl font-black">{module.title}</h3>
                   <p className="mt-2 text-base font-medium leading-6">{module.description}</p>
+                  {module.title === 'AI 智能评阅' ? (
+                    <Link className="mt-4 inline-flex rounded bg-white px-4 py-2 text-sm font-black text-[#1f3f63]" to="/ai-review">发起评阅</Link>
+                  ) : null}
                 </div>
               ))}
             </div>

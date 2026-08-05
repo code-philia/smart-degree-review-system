@@ -2,15 +2,16 @@
   "API-FEAT-AI-REVIEW-RUBRICS-CLIENT": {
     "interface_id": "API-FEAT-AI-REVIEW-RUBRICS-CLIENT",
     "req_ids": [
-      "FEAT-AI-REVIEW-RUBRICS"
+      "FEAT-AI-REVIEW-RUBRICS",
+      "FEAT-AI-REVIEW-RUN"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-AI-REVIEW-RUBRICS-CLIENT\", \"req_id\": \"FEAT-AI-REVIEW-RUBRICS\", \"type\": \"API\", \"name\": \"fetchReviewRubrics\", \"file_path\": \"frontend/src/api/normativeRules.ts\", \"first_line\": \"347\", \"responsibility\": \"Expose typed same-origin Axios access to the protected review rubric endpoint using the existing shared API client and interceptors.\", \"specification\": \"Defines `ReviewRubricTemplate`, `ReviewRubricScoreItem`, `ReviewRubricPassingRule`, and `ReviewRubricsResponse`. `fetchReviewRubrics()` calls `GET /api/normative/review-rubrics` through `apiClient`, preserving cookie-backed auth, same-origin `/api` routing, and global error interception.\", \"inputs\": {\"request\": \"no body; authenticated session cookie supplied by shared Axios client\"}, \"outputs\": {\"response\": \"ReviewRubricsResponse with templates, shared_score_items, and passing_rule\"}, \"callers\": [\"UI-FEAT-AI-REVIEW-RUBRICS-SELECTOR\"], \"callees\": [\"frontend/src/api/index.ts shared Axios client\", \"API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE\"], \"test_focus\": [\"Uses the existing shared Axios client rather than a new HTTP layer.\", \"Requests `/normative/review-rubrics` and returns typed backend data.\", \"Propagates intercepted API errors to the selector error state.\"]}",
+    "content": "{\"interface_id\": \"API-FEAT-AI-REVIEW-RUBRICS-CLIENT\", \"req_id\": \"FEAT-AI-REVIEW-RUN\", \"type\": \"API\", \"name\": \"Reused review rubrics client\", \"file_path\": \"frontend/src/api/normativeRules.ts\", \"first_line\": \"1\", \"responsibility\": \"Reuse typed same-origin Axios access to backend-loaded review templates so the run page renders runtime template cards rather than hardcoded screenshot data.\", \"specification\": \"AiReviewRunPage calls fetchReviewRubrics() before rendering/selecting template cards. The current node reuses ReviewRubricTemplate, ReviewRubricsResponse, shared_score_items, and passing_rule vocabulary from FEAT-AI-REVIEW-RUBRICS and does not duplicate template definitions in the frontend.\", \"inputs\": {\"cookies\": \"existing authenticated session cookies\"}, \"outputs\": {\"templates\": \"ReviewRubricsResponse\"}, \"callers\": [\"UI-FEAT-AI-REVIEW-RUN-PAGE\"], \"callees\": [\"frontend/src/api/index.ts shared Axios client\", \"API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE\"], \"test_focus\": [\"AI review run page waits for real rubric data.\", \"No fallback template arrays are used when loading fails.\"]}",
     "file_path": "frontend/src/api/normativeRules.ts",
-    "first_line": "347",
+    "first_line": "1",
     "implemented": true,
     "callers": [
-      "UI-FEAT-AI-REVIEW-RUBRICS-SELECTOR"
+      "UI-FEAT-AI-REVIEW-RUN-PAGE"
     ],
     "callees": [
       "frontend/src/api/index.ts shared Axios client",
@@ -20,20 +21,58 @@
   "API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE": {
     "interface_id": "API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE",
     "req_ids": [
-      "FEAT-AI-REVIEW-RUBRICS"
+      "FEAT-AI-REVIEW-RUBRICS",
+      "FEAT-AI-REVIEW-RUN"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE\", \"req_id\": \"FEAT-AI-REVIEW-RUBRICS\", \"type\": \"API\", \"name\": \"GET /api/normative/review-rubrics\", \"file_path\": \"backend/src/normative/normativeRoutes.js\", \"first_line\": \"106\", \"responsibility\": \"Provide the protected backend HTTP boundary for listing built-in AI review rubric templates under the existing normative route tree.\", \"specification\": \"Adds `GET /review-rubrics` to `backend/src/normative/normativeRoutes.js`, mounted by the existing `/api/normative` app route. The route calls `requireAuth({ allowedRoles: REVIEW_RUBRIC_ALLOWED_ROLES })` before returning data. Allowed roles are `STUDENT`, `SUPERVISOR`, `SCHOOL_ADMIN`, and `COLLEGE_ADMIN`; anonymous access is denied by `requireAuth`; there is no resource owner scope because the data is shared built-in configuration.\", \"inputs\": {\"auth\": \"authenticated session with role STUDENT, SUPERVISOR, SCHOOL_ADMIN, or COLLEGE_ADMIN\"}, \"outputs\": {\"200\": \"ReviewRubricsResponse\", \"401_or_403\": \"auth middleware denial for anonymous or disallowed role\"}, \"callers\": [\"API-FEAT-AI-REVIEW-RUBRICS-CLIENT\", \"backend/src/app.js /api/normative mount\"], \"callees\": [\"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"FUNC-FEAT-AI-REVIEW-RUBRICS-SERVICE\"], \"test_focus\": [\"Rejects anonymous requests at the backend boundary.\", \"Allows STUDENT, SUPERVISOR, SCHOOL_ADMIN, and COLLEGE_ADMIN roles.\", \"Returns five templates and shared objective scoring semantics from the service.\"]}",
+    "content": "{\"interface_id\": \"API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE\", \"req_id\": \"FEAT-AI-REVIEW-RUN\", \"type\": \"API\", \"name\": \"Reused GET /api/normative/review-rubrics\", \"file_path\": \"backend/src/normative/normativeRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse the protected rubric listing endpoint as the source of selectable review templates for starting a review run.\", \"specification\": \"The current node depends on the existing GET /review-rubrics route under /api/normative. Authorization remains requireAuth({ allowedRoles: REVIEW_RUBRIC_ALLOWED_ROLES }) with STUDENT, SUPERVISOR, SCHOOL_ADMIN, and COLLEGE_ADMIN. The run service also reuses the same rubric service exports for authoritative template and scoring semantics.\", \"inputs\": {\"auth\": \"authenticated req.user\"}, \"outputs\": {\"rubrics\": \"ReviewRubricsResponse\"}, \"callers\": [\"API-FEAT-AI-REVIEW-RUBRICS-CLIENT\", \"FUNC-FEAT-AI-REVIEW-RUN-SERVICE via shared rubric definitions\"], \"callees\": [\"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"FUNC-FEAT-AI-REVIEW-RUBRICS-SERVICE\"], \"test_focus\": [\"Rubric access remains protected.\", \"Review run uses the same template ids and passing labels returned to the UI.\"]}",
     "file_path": "backend/src/normative/normativeRoutes.js",
-    "first_line": "106",
+    "first_line": "1",
     "implemented": true,
     "callers": [
       "API-FEAT-AI-REVIEW-RUBRICS-CLIENT",
-      "backend/src/app.js /api/normative mount"
+      "FUNC-FEAT-AI-REVIEW-RUN-SERVICE via shared rubric definitions"
     ],
     "callees": [
       "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
       "FUNC-FEAT-AI-REVIEW-RUBRICS-SERVICE"
+    ]
+  },
+  "API-FEAT-AI-REVIEW-RUN-CLIENT": {
+    "interface_id": "API-FEAT-AI-REVIEW-RUN-CLIENT",
+    "req_ids": [
+      "FEAT-AI-REVIEW-RUN"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-AI-REVIEW-RUN-CLIENT\", \"req_id\": \"FEAT-AI-REVIEW-RUN\", \"type\": \"API\", \"name\": \"createAiReviewRun typed client\", \"file_path\": \"frontend/src/api/normativeRules.ts\", \"first_line\": \"1\", \"responsibility\": \"Expose typed same-origin Axios DTOs and POST call for creating rule-based AI auxiliary review runs through the shared API client and interceptors.\", \"specification\": \"Extends the existing normativeRules client module rather than adding a parallel HTTP layer. Defines AiReviewRunRequest, AiReviewRunResponse, AiReviewSectionSnapshot, AiReviewScoreItem, and AiReviewSourceType. createAiReviewRun(payload) posts to /api/normative/ai-review-runs through apiClient, preserving cookie-backed auth and global Axios interceptor behavior. The response includes persisted id, owner id, thesis title, template id, source metadata, original text, section snapshot, reference_count, character_count, normative_issues, score_items, total_score, result_label, missing_sections, rubric_snapshot, and created_at.\", \"inputs\": {\"payload\": \"AiReviewRunRequest with thesis_title, template_id, text, source_type, optional source_filename\"}, \"outputs\": {\"response\": \"AiReviewRunResponse\"}, \"callers\": [\"UI-FEAT-AI-REVIEW-RUN-PAGE\"], \"callees\": [\"frontend/src/api/index.ts shared Axios client\", \"API-FEAT-AI-REVIEW-RUN-EXPRESS-ROUTE\"], \"test_focus\": [\"Client posts to /api/normative/ai-review-runs through the shared API client.\", \"DTO supports missing_sections and result_label for the incomplete conclusion scenario.\", \"No separate Axios instance or dev-server origin is introduced.\"]}",
+    "file_path": "frontend/src/api/normativeRules.ts",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "UI-FEAT-AI-REVIEW-RUN-PAGE"
+    ],
+    "callees": [
+      "frontend/src/api/index.ts shared Axios client",
+      "API-FEAT-AI-REVIEW-RUN-EXPRESS-ROUTE"
+    ]
+  },
+  "API-FEAT-AI-REVIEW-RUN-EXPRESS-ROUTE": {
+    "interface_id": "API-FEAT-AI-REVIEW-RUN-EXPRESS-ROUTE",
+    "req_ids": [
+      "FEAT-AI-REVIEW-RUN"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-AI-REVIEW-RUN-EXPRESS-ROUTE\", \"req_id\": \"FEAT-AI-REVIEW-RUN\", \"type\": \"API\", \"name\": \"POST /api/normative/ai-review-runs\", \"file_path\": \"backend/src/normative/normativeRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Provide the protected backend HTTP boundary for creating a persisted rule-based auxiliary review result under the existing normative route tree.\", \"specification\": \"Adds POST /ai-review-runs to backend/src/normative/normativeRoutes.js, mounted by the existing /api/normative app route. The endpoint calls requireAuth({ allowedRoles: ALLOWED_AI_REVIEW_RUN_ROLES }) before invoking createAiReviewRun, so anonymous requests are rejected and allowed roles are STUDENT, SUPERVISOR, SCHOOL_ADMIN, and COLLEGE_ADMIN. Request body is JSON limited to 5 MB. 400 validation errors may include field errors; oversized requests return 413; successful creation returns 201 with AiReviewRunResponse. Resource scope is owner-scoped at creation via req.user.id.\", \"inputs\": {\"auth\": \"cookie-backed authenticated req.user\", \"body\": \"AiReviewRunRequest JSON\"}, \"outputs\": {\"201\": \"AiReviewRunResponse\", \"400\": \"validation error body\", \"401\": \"anonymous denied by requireAuth\", \"403\": \"role denied by requireAuth/service\", \"413\": \"text too large\"}, \"callers\": [\"API-FEAT-AI-REVIEW-RUN-CLIENT\", \"backend/src/app.js /api/normative mount\"], \"callees\": [\"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"FUNC-FEAT-AI-REVIEW-RUN-SERVICE\"], \"test_focus\": [\"Anonymous POST is rejected before review creation.\", \"Allowed STUDENT can create a run.\", \"Text missing the selected template's 结论 section returns 201 with result_label 需修改 and conclusion score 0.\", \"Route does not bypass auth with frontend-only visibility.\"]}",
+    "file_path": "backend/src/normative/normativeRoutes.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "API-FEAT-AI-REVIEW-RUN-CLIENT",
+      "backend/src/app.js /api/normative mount"
+    ],
+    "callees": [
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+      "FUNC-FEAT-AI-REVIEW-RUN-SERVICE"
     ]
   },
   "API-FEAT-AUTH-SESSION-CLIENT": {
@@ -48,15 +87,17 @@
       "FEAT-POLISH-HISTORY",
       "FEAT-INNOVATION-SCORING-MODEL",
       "FEAT-INNOVATION-ANALYZE",
-      "FEAT-INNOVATION-REPORT"
+      "FEAT-INNOVATION-REPORT",
+      "FEAT-AI-REVIEW-RUN"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-CLIENT\", \"req_id\": \"FEAT-INNOVATION-REPORT\", \"type\": \"API\", \"name\": \"Reused authenticated UI session client\", \"file_path\": \"frontend/src/api/authSession.ts\", \"first_line\": \"1\", \"responsibility\": \"Reuse current-session recovery and authenticated UI state before the innovation report page requests protected report data.\", \"specification\": \"InnovationReportPage consumes useAuthSession through the existing AuthSessionProvider path. This feature does not mutate auth state. Loading and anonymous states are handled before invoking the report API; backend authorization remains authoritative.\", \"inputs\": {\"cookies\": \"existing auth/session cookie state\"}, \"outputs\": {\"session_state\": \"loading, authenticated user, or anonymous\"}, \"callers\": [\"UI-FEAT-INNOVATION-REPORT-PAGE\"], \"callees\": [\"backend/src/auth/authRoutes.js mounted at /api/auth\"], \"test_focus\": [\"Report fetch waits for authenticated session\", \"Anonymous users see login prompt rather than fake report data\"]}",
+    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-CLIENT\", \"req_id\": \"FEAT-AI-REVIEW-RUN\", \"type\": \"API\", \"name\": \"Reused authenticated UI session client\", \"file_path\": \"frontend/src/api/authSession.ts\", \"first_line\": \"1\", \"responsibility\": \"Reuse current-session recovery and authenticated UI state before the AI review run page requests protected rubric data or submits review creation.\", \"specification\": \"This feature does not mutate auth state. It relies on the existing authSession client through AuthSessionProvider to recover cookie-backed user state after refresh/navigation. Anonymous state is handled before invoking review APIs; backend authorization remains authoritative.\", \"inputs\": {\"cookies\": \"existing auth/session cookie state\"}, \"outputs\": {\"session_state\": \"loading, authenticated user, or anonymous\"}, \"callers\": [\"UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER\", \"UI-FEAT-AI-REVIEW-RUN-PAGE\"], \"callees\": [\"backend/src/auth/authRoutes.js mounted at /api/auth\"], \"test_focus\": [\"Review page waits for authenticated session.\", \"Anonymous users see login prompt rather than fake review data.\"]}",
     "file_path": "frontend/src/api/authSession.ts",
     "first_line": "1",
     "implemented": true,
     "callers": [
-      "UI-FEAT-INNOVATION-REPORT-PAGE"
+      "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+      "UI-FEAT-AI-REVIEW-RUN-PAGE"
     ],
     "callees": [
       "backend/src/auth/authRoutes.js mounted at /api/auth"
@@ -73,19 +114,21 @@
       "FEAT-INNOVATION-SCORING-MODEL",
       "FEAT-INNOVATION-ANALYZE",
       "FEAT-INNOVATION-REPORT",
-      "FEAT-AI-REVIEW-RUBRICS"
+      "FEAT-AI-REVIEW-RUBRICS",
+      "FEAT-AI-REVIEW-RUN"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"req_id\": \"FEAT-AI-REVIEW-RUBRICS\", \"type\": \"API\", \"name\": \"Reused auth/session authorization boundary\", \"file_path\": \"backend/src/auth/authRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse the existing cookie-backed authentication and authorization middleware path before rubric data is returned.\", \"specification\": \"The rubric route relies on the existing `requireAuth` middleware from the auth/session dependency. This feature does not mutate auth state. Backend authorization is the enforcement boundary; frontend visibility is supplementary only.\", \"inputs\": {\"session\": \"cookie-backed authenticated request\"}, \"outputs\": {\"req.user\": \"authenticated user attached for allowed roles\", \"denial\": \"anonymous or unauthorized requests rejected before service access\"}, \"callers\": [\"API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE\"], \"callees\": [\"backend/src/auth/sessionService.js\", \"DB-FEAT-AUTH-SESSION-REPOSITORY\"], \"test_focus\": [\"Rubric API authorization is enforced server-side with the declared role set.\"]}",
+    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"req_id\": \"FEAT-AI-REVIEW-RUN\", \"type\": \"API\", \"name\": \"Reused backend auth and authorization middleware path\", \"file_path\": \"backend/src/auth/authRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse the existing cookie-backed authentication and authorization path before rubric data is returned or AI review runs are created.\", \"specification\": \"The owned AI review run POST route and reused review-rubrics GET route rely on existing requireAuth middleware/session behavior. Allowed roles for this node are STUDENT, SUPERVISOR, SCHOOL_ADMIN, and COLLEGE_ADMIN. There are no declared excluded roles, but anonymous requests must be denied because the scenario actor is a logged-in student and creation persists owner-scoped data.\", \"inputs\": {\"request\": \"Express request with session cookie\"}, \"outputs\": {\"req.user\": \"authenticated user for allowed roles or rejected response\"}, \"callers\": [\"API-FEAT-AI-REVIEW-RUN-EXPRESS-ROUTE\", \"API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE\"], \"callees\": [\"backend/src/auth/sessionService.js\", \"DB-FEAT-AUTH-SESSION-SCHEMA\"], \"test_focus\": [\"Anonymous review creation is rejected at backend boundary.\", \"Allowed roles can reach review creation.\", \"Owner id comes from authenticated session, not request body.\"]}",
     "file_path": "backend/src/auth/authRoutes.js",
     "first_line": "1",
     "implemented": true,
     "callers": [
+      "API-FEAT-AI-REVIEW-RUN-EXPRESS-ROUTE",
       "API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE"
     ],
     "callees": [
       "backend/src/auth/sessionService.js",
-      "DB-FEAT-AUTH-SESSION-REPOSITORY"
+      "DB-FEAT-AUTH-SESSION-SCHEMA"
     ]
   },
   "API-FEAT-DUPLICATION-CORPUS-CLIENT": {
@@ -647,6 +690,44 @@
       "backend/src/normative/ruleConfigService.js"
     ]
   },
+  "DB-FEAT-AI-REVIEW-RUN-REPOSITORY": {
+    "interface_id": "DB-FEAT-AI-REVIEW-RUN-REPOSITORY",
+    "req_ids": [
+      "FEAT-AI-REVIEW-RUN"
+    ],
+    "type": "DB",
+    "content": "{\"interface_id\": \"DB-FEAT-AI-REVIEW-RUN-REPOSITORY\", \"req_id\": \"FEAT-AI-REVIEW-RUN\", \"type\": \"DB\", \"name\": \"AI review run repository\", \"file_path\": \"backend/src/normative/aiReviewRunRepository.js\", \"first_line\": \"1\", \"responsibility\": \"Persist and parse owner-scoped AI auxiliary review run snapshots through the shared SQLite runtime helpers.\", \"specification\": \"Uses backend/src/database barrel helpers all/get/run and does not create a one-off database connection. insertAiReviewRun(reviewRun) writes id, user_id, thesis_title, template_id, source metadata, original_text, section_snapshot_json, reference_count, character_count, normative_issues_json, score_items_json, total_score, result_label, missing_sections_json, rubric_snapshot_json, and created_at to ai_review_runs. listAiReviewRunsForUser(userId) and findAiReviewRunForUser(reviewRunId, userId) provide owner-scoped retrieval for later history/report nodes.\", \"inputs\": {\"review_run\": \"service-built review snapshot\", \"user_id\": \"authenticated owner id\", \"reviewRunId\": \"review run id for detail retrieval\"}, \"outputs\": {\"parsed_rows\": \"AiReviewRunResponse-compatible records with JSON fields parsed\"}, \"callers\": [\"FUNC-FEAT-AI-REVIEW-RUN-SERVICE\", \"future AI review history/report services\"], \"callees\": [\"backend/src/database/index.js shared run/get/all helpers\", \"DB-FEAT-AI-REVIEW-RUN-SCHEMA\"], \"test_focus\": [\"Repository writes JSON snapshots through the shared DB runtime.\", \"Parsed rows expose missing_sections and score_items as arrays.\", \"User-scoped lookup does not return another user's review run.\"]}",
+    "file_path": "backend/src/normative/aiReviewRunRepository.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "FUNC-FEAT-AI-REVIEW-RUN-SERVICE",
+      "future AI review history/report services"
+    ],
+    "callees": [
+      "backend/src/database/index.js shared run/get/all helpers",
+      "DB-FEAT-AI-REVIEW-RUN-SCHEMA"
+    ]
+  },
+  "DB-FEAT-AI-REVIEW-RUN-SCHEMA": {
+    "interface_id": "DB-FEAT-AI-REVIEW-RUN-SCHEMA",
+    "req_ids": [
+      "FEAT-AI-REVIEW-RUN"
+    ],
+    "type": "DB",
+    "content": "{\"interface_id\": \"DB-FEAT-AI-REVIEW-RUN-SCHEMA\", \"req_id\": \"FEAT-AI-REVIEW-RUN\", \"type\": \"DB\", \"name\": \"ai_review_runs schema\", \"file_path\": \"backend/src/database/init_db.js\", \"first_line\": \"1\", \"responsibility\": \"Extend the centralized SQLite schema lifecycle with durable storage for rule-based AI auxiliary review runs.\", \"specification\": \"Adds CREATE TABLE IF NOT EXISTS ai_review_runs inside initializeDatabase. The table stores owner id, thesis title, selected template id, source type and filename, original text, section snapshot JSON, reference count, character count, normative issues JSON, score items JSON, total score, result label, missing sections JSON, rubric snapshot JSON, and created timestamp. user_id references auth_users(id) with cascade delete. The schema remains idempotent and uses the existing database scaffold.\", \"inputs\": {\"database_initialization\": \"backend/src/database/init_db.js initializeDatabase lifecycle\"}, \"outputs\": {\"table\": \"ai_review_runs\"}, \"callers\": [\"backend/src/database/index.js\", \"DB-FEAT-AI-REVIEW-RUN-REPOSITORY\", \"backend/src/database/test_harness.js for isolated DB tests\"], \"callees\": [\"sqlite3 database via centralized runStatement\"], \"test_focus\": [\"Isolated test DB initialization creates ai_review_runs.\", \"Foreign key ties review runs to auth_users.\", \"Required JSON and score fields are available for persisted review results.\"]}",
+    "file_path": "backend/src/database/init_db.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "backend/src/database/index.js",
+      "DB-FEAT-AI-REVIEW-RUN-REPOSITORY",
+      "backend/src/database/test_harness.js for isolated DB tests"
+    ],
+    "callees": [
+      "sqlite3 database via centralized runStatement"
+    ]
+  },
   "DB-FEAT-AUTH-SESSION-DEMO-SEED": {
     "interface_id": "DB-FEAT-AUTH-SESSION-DEMO-SEED",
     "req_ids": [
@@ -1110,6 +1191,25 @@
     ],
     "callees": []
   },
+  "FUNC-FEAT-AI-REVIEW-RUN-SERVICE": {
+    "interface_id": "FUNC-FEAT-AI-REVIEW-RUN-SERVICE",
+    "req_ids": [
+      "FEAT-AI-REVIEW-RUN"
+    ],
+    "type": "FUNC",
+    "content": "{\"interface_id\": \"FUNC-FEAT-AI-REVIEW-RUN-SERVICE\", \"req_id\": \"FEAT-AI-REVIEW-RUN\", \"type\": \"FUNC\", \"name\": \"createAiReviewRun service\", \"file_path\": \"backend/src/normative/aiReviewRunService.js\", \"first_line\": \"1\", \"responsibility\": \"Normalize and authorize review-run input, identify required sections, count characters and references, reuse normative detection rules, apply rubric scoring semantics, and persist the generated result.\", \"specification\": \"Exports ALLOWED_AI_REVIEW_RUN_ROLES, MAX_AI_REVIEW_TEXT_BYTES, ALLOWED_AI_REVIEW_FILE_EXTENSIONS, and createAiReviewRun(user, payload). The service requires an authenticated user whose role is STUDENT, SUPERVISOR, SCHOOL_ADMIN, or COLLEGE_ADMIN; validates thesis_title, template_id, text, and file source metadata; resolves template_id from dependency-owned REVIEW_RUBRIC_TEMPLATES; identifies section presence using title-line and keyword matching; counts visible characters and [n] reference entries after 参考文献; calls analyzeDefaultNormativeRules(text) to reuse built-in normative checks; calculates shared objective score items from rubric definitions. A missing 结论 section produces the conclusion_section item with score 0, includes 结论 in missing_sections, and yields the revise_label 需修改 unless passing criteria are satisfied. It persists the complete snapshot through DB-FEAT-AI-REVIEW-RUN-REPOSITORY.\", \"inputs\": {\"user\": \"authenticated req.user\", \"payload\": \"AiReviewRunRequest-like object\"}, \"outputs\": {\"review_run\": \"Persisted AiReviewRunResponse-compatible object\"}, \"callers\": [\"API-FEAT-AI-REVIEW-RUN-EXPRESS-ROUTE\"], \"callees\": [\"FUNC-FEAT-AI-REVIEW-RUBRICS-SERVICE via reviewRubricService exports\", \"backend/src/normative/normativeService.js analyzeDefaultNormativeRules\", \"DB-FEAT-AI-REVIEW-RUN-REPOSITORY\"], \"test_focus\": [\"Rejects missing title, template, or text with field-level validation.\", \"Rejects unknown template ids.\", \"For text without 结论, conclusion_section score is 0 and result_label is 需修改.\", \"Counts references from bracketed entries after 参考文献.\", \"Includes normative issues generated by the existing normativeService.\"]}",
+    "file_path": "backend/src/normative/aiReviewRunService.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "API-FEAT-AI-REVIEW-RUN-EXPRESS-ROUTE"
+    ],
+    "callees": [
+      "FUNC-FEAT-AI-REVIEW-RUBRICS-SERVICE via reviewRubricService exports",
+      "backend/src/normative/normativeService.js analyzeDefaultNormativeRules",
+      "DB-FEAT-AI-REVIEW-RUN-REPOSITORY"
+    ]
+  },
   "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE": {
     "interface_id": "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE",
     "req_ids": [
@@ -1440,6 +1540,63 @@
       "API-FEAT-AI-REVIEW-RUBRICS-CLIENT"
     ]
   },
+  "UI-FEAT-AI-REVIEW-RUN-APP-ROUTE": {
+    "interface_id": "UI-FEAT-AI-REVIEW-RUN-APP-ROUTE",
+    "req_ids": [
+      "FEAT-AI-REVIEW-RUN"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-AI-REVIEW-RUN-APP-ROUTE\", \"req_id\": \"FEAT-AI-REVIEW-RUN\", \"type\": \"UI\", \"name\": \"AI review route connector\", \"file_path\": \"frontend/src/App.tsx\", \"first_line\": \"1\", \"responsibility\": \"Mount the owned AI review run page inside the existing React route tree served by the backend-hosted frontend runtime.\", \"specification\": \"Registers /ai-review to render AiReviewRunPage under the existing BrowserRouter/AuthSessionProvider app tree. This node does not create a parallel router or separate frontend runtime.\", \"inputs\": {\"path\": \"/ai-review\"}, \"outputs\": {\"element\": \"AiReviewRunPage\"}, \"callers\": [\"frontend/src/main.tsx\", \"backend-hosted frontend dist on port 3000\"], \"callees\": [\"UI-FEAT-AI-REVIEW-RUN-PAGE\", \"UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER\"], \"test_focus\": [\"The /ai-review route renders inside the existing app.\", \"The route preserves shared auth/session context.\"]}",
+    "file_path": "frontend/src/App.tsx",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "frontend/src/main.tsx",
+      "backend-hosted frontend dist on port 3000"
+    ],
+    "callees": [
+      "UI-FEAT-AI-REVIEW-RUN-PAGE",
+      "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER"
+    ]
+  },
+  "UI-FEAT-AI-REVIEW-RUN-HOME-ENTRY": {
+    "interface_id": "UI-FEAT-AI-REVIEW-RUN-HOME-ENTRY",
+    "req_ids": [
+      "FEAT-AI-REVIEW-RUN"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-AI-REVIEW-RUN-HOME-ENTRY\", \"req_id\": \"FEAT-AI-REVIEW-RUN\", \"type\": \"UI\", \"name\": \"Home AI review entry link\", \"file_path\": \"frontend/src/pages/HomePage.tsx\", \"first_line\": \"1\", \"responsibility\": \"Expose a connected entry point from the existing home page's AI 智能评阅 module to the owned review run workflow.\", \"specification\": \"Adds a 发起评阅 Link only for the AI 智能评阅 module and routes to /ai-review. It does not duplicate review logic or create static sample review content on the home page.\", \"inputs\": {\"user_action\": \"click 发起评阅\"}, \"outputs\": {\"navigation\": \"/ai-review\"}, \"callers\": [\"authenticated or anonymous users viewing HomePage\"], \"callees\": [\"UI-FEAT-AI-REVIEW-RUN-APP-ROUTE\"], \"test_focus\": [\"Home page AI 智能评阅 card navigates to the owned review workflow.\", \"No hardcoded review results appear on the home page.\"]}",
+    "file_path": "frontend/src/pages/HomePage.tsx",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "authenticated or anonymous users viewing HomePage"
+    ],
+    "callees": [
+      "UI-FEAT-AI-REVIEW-RUN-APP-ROUTE"
+    ]
+  },
+  "UI-FEAT-AI-REVIEW-RUN-PAGE": {
+    "interface_id": "UI-FEAT-AI-REVIEW-RUN-PAGE",
+    "req_ids": [
+      "FEAT-AI-REVIEW-RUN"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-AI-REVIEW-RUN-PAGE\", \"req_id\": \"FEAT-AI-REVIEW-RUN\", \"type\": \"UI\", \"name\": \"AiReviewRunPage\", \"file_path\": \"frontend/src/pages/AiReviewRunPage.tsx\", \"first_line\": \"1\", \"responsibility\": \"Render the authenticated rule-based auxiliary review workflow for selecting a review template, entering a thesis title, pasting or uploading .txt/.md thesis text, submitting the review, and showing the runtime result.\", \"specification\": \"Provides the visual-reference-aligned AI 智能评阅 page with deep navy header, two-tab navigation, three-step progress band, dashed upload drop zone with drag-over feedback, thesis title input, paste textarea, runtime template card grid loaded from GET /api/normative/review-rubrics, centered green 智能评阅 CTA, validation/error states, and result summary. It consumes useAuthSession for loading, anonymous, and authenticated states and never renders fake templates or fake success. File input accepts .txt/.md up to 5 MB and uses File.text(); pasted text and selected file text are submitted through createAiReviewRun. The history tab is an explicit non-owned empty handoff, not fake records.\", \"inputs\": {\"auth_state\": \"useAuthSession status and user\", \"thesis_title\": \"user-entered string\", \"template_id\": \"selected backend-loaded ReviewRubricTemplate.template_id\", \"text\": \"pasted text or UTF-8 text read from .txt/.md file\", \"file\": \"optional browser File metadata\"}, \"outputs\": {\"ui_states\": [\"auth loading\", \"anonymous login prompt\", \"template loading\", \"template error\", \"editable upload workflow\", \"submitting\", \"field/API error\", \"runtime review result\"], \"submit\": \"AiReviewRunRequest sent through API-FEAT-AI-REVIEW-RUN-CLIENT\"}, \"callers\": [\"UI-FEAT-AI-REVIEW-RUN-APP-ROUTE\", \"UI-FEAT-AI-REVIEW-RUN-HOME-ENTRY\"], \"callees\": [\"UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER\", \"API-FEAT-AUTH-SESSION-CLIENT\", \"API-FEAT-AI-REVIEW-RUBRICS-CLIENT\", \"API-FEAT-AI-REVIEW-RUN-CLIENT\"], \"test_focus\": [\"Anonymous users see a login prompt and cannot submit a fake review.\", \"Authenticated student sees the visual upload/template/CTA workflow.\", \"Template cards render from fetched rubric data without fallback arrays.\", \"Unsupported file extensions and files over 5 MB show client validation errors.\", \"Submitting text missing 结论 renders a returned 需修改 result and missing section copy.\"]}",
+    "file_path": "frontend/src/pages/AiReviewRunPage.tsx",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "UI-FEAT-AI-REVIEW-RUN-APP-ROUTE",
+      "UI-FEAT-AI-REVIEW-RUN-HOME-ENTRY"
+    ],
+    "callees": [
+      "UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER",
+      "API-FEAT-AUTH-SESSION-CLIENT",
+      "API-FEAT-AI-REVIEW-RUBRICS-CLIENT",
+      "API-FEAT-AI-REVIEW-RUN-CLIENT"
+    ]
+  },
   "UI-FEAT-AUTH-HELP-AUTH-ROUTE-CONNECTOR": {
     "interface_id": "UI-FEAT-AUTH-HELP-AUTH-ROUTE-CONNECTOR",
     "req_ids": [
@@ -1501,18 +1658,19 @@
       "FEAT-NORMATIVE-FORMAT-RULES",
       "FLOW-RULE-PUBLISH",
       "FEAT-NORMATIVE-DETECT",
-      "FEAT-NORMATIVE-REPORT"
+      "FEAT-NORMATIVE-REPORT",
+      "FEAT-AI-REVIEW-RUN"
     ],
     "type": "UI",
-    "content": "{\"interface_id\": \"UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER\", \"req_id\": \"FEAT-NORMATIVE-REPORT\", \"type\": \"UI\", \"name\": \"Reused global auth session provider\", \"file_path\": \"frontend/src/auth/AuthSessionProvider.tsx\", \"first_line\": \"1\", \"responsibility\": \"Reuse global frontend session state so report history and detail views derive access from the cookie-backed authenticated user.\", \"specification\": \"NormativeReportPage consumes useAuthSession to distinguish loading, anonymous, and authenticated states. It does not keep a page-local fake user and does not fetch report data until an authenticated session is available.\", \"inputs\": {\"current_session\": \"Loaded via existing authSession client\"}, \"outputs\": {\"status\": \"loading/authenticated/anonymous state\", \"user\": \"Authenticated user or null\"}, \"callers\": [\"frontend/src/pages/NormativeReportPage.tsx\"], \"callees\": [\"frontend/src/api/authSession.ts\"], \"test_focus\": \"Frontend tests should verify the page renders loading and login-required states without issuing report API calls for anonymous users.\"}",
+    "content": "{\"interface_id\": \"UI-FEAT-AUTH-SESSION-GLOBAL-PROVIDER\", \"req_id\": \"FEAT-AI-REVIEW-RUN\", \"type\": \"UI\", \"name\": \"Reused global auth session provider\", \"file_path\": \"frontend/src/auth/AuthSessionProvider.tsx\", \"first_line\": \"1\", \"responsibility\": \"Reuse global frontend session state so the AI review run page derives access from the cookie-backed authenticated user instead of local fake auth state.\", \"specification\": \"AiReviewRunPage consumes useAuthSession to distinguish loading, anonymous, and authenticated states. It does not keep a page-local fake user and does not submit review data until an authenticated session is available. Backend authorization remains the authoritative enforcement boundary.\", \"inputs\": {\"current_session\": \"Loaded via existing authSession client\"}, \"outputs\": {\"status\": \"loading/authenticated/anonymous state\", \"user\": \"Authenticated user or null\"}, \"callers\": [\"UI-FEAT-AI-REVIEW-RUN-PAGE\"], \"callees\": [\"API-FEAT-AUTH-SESSION-CLIENT\"], \"test_focus\": [\"Loading and anonymous states render without issuing create-review calls.\", \"Authenticated session enables the real review workflow.\"]}",
     "file_path": "frontend/src/auth/AuthSessionProvider.tsx",
     "first_line": "1",
     "implemented": true,
     "callers": [
-      "frontend/src/pages/NormativeReportPage.tsx"
+      "UI-FEAT-AI-REVIEW-RUN-PAGE"
     ],
     "callees": [
-      "frontend/src/api/authSession.ts"
+      "API-FEAT-AUTH-SESSION-CLIENT"
     ]
   },
   "UI-FEAT-AUTH-SESSION-LOCAL-LOGIN-FORM": {
