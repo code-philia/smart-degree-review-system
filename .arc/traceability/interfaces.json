@@ -1,34 +1,73 @@
 {
+  "API-FEAT-AI-REVIEW-HISTORY-CLIENT": {
+    "interface_id": "API-FEAT-AI-REVIEW-HISTORY-CLIENT",
+    "req_ids": [
+      "FEAT-AI-REVIEW-HISTORY"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-AI-REVIEW-HISTORY-CLIENT\", \"req_id\": \"FEAT-AI-REVIEW-HISTORY\", \"type\": \"API\", \"name\": \"AI Review History Frontend Client\", \"file_path\": \"frontend/src/api/normativeRules.ts\", \"first_line\": \"105\", \"responsibility\": \"Expose typed same-origin Axios access for listing AI review history records through the existing shared normative API client and interceptors.\", \"specification\": \"Defines AiReviewHistoryRecord as the history projection of persisted AiReviewRunResponse fields: id, user_id, thesis_title, template_id, total_score, result_label, and created_at. fetchAiReviewHistory() calls GET /normative/ai-review-runs via apiClient and returns response.data.records. It introduces no parallel HTTP layer and relies on existing global Axios interceptors for error/session behavior.\", \"inputs\": [\"Cookie-backed authenticated browser request\"], \"outputs\": [\"Promise<AiReviewHistoryRecord[]>\"], \"callers\": [\"UI-FEAT-AI-REVIEW-HISTORY-PAGE\"], \"callees\": [\"frontend/src/api/index.ts shared Axios client\", \"API-FEAT-AI-REVIEW-HISTORY-EXPRESS-ROUTE\"], \"test_focus\": [\"Calls GET /normative/ai-review-runs with shared apiClient\", \"Returns the records array without local fallback data\", \"DTO includes only fields required by the history list and result navigation\"]}",
+    "file_path": "frontend/src/api/normativeRules.ts",
+    "first_line": "105",
+    "implemented": false,
+    "callers": [
+      "UI-FEAT-AI-REVIEW-HISTORY-PAGE"
+    ],
+    "callees": [
+      "frontend/src/api/index.ts shared Axios client",
+      "API-FEAT-AI-REVIEW-HISTORY-EXPRESS-ROUTE"
+    ]
+  },
+  "API-FEAT-AI-REVIEW-HISTORY-EXPRESS-ROUTE": {
+    "interface_id": "API-FEAT-AI-REVIEW-HISTORY-EXPRESS-ROUTE",
+    "req_ids": [
+      "FEAT-AI-REVIEW-HISTORY"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-AI-REVIEW-HISTORY-EXPRESS-ROUTE\", \"req_id\": \"FEAT-AI-REVIEW-HISTORY\", \"type\": \"API\", \"name\": \"AI Review History Express Route\", \"file_path\": \"backend/src/normative/normativeRoutes.js\", \"first_line\": \"512\", \"responsibility\": \"Provide the protected backend HTTP boundary for listing the current authenticated user's AI review history under the existing /api/normative route tree.\", \"specification\": \"Adds GET /api/normative/ai-review-runs beside existing AI review run/result routes. The route calls requireAuth({ allowedRoles: ALLOWED_AI_REVIEW_HISTORY_ROLES }) before any data is returned, so anonymous requests are denied by auth middleware. Allowed declared roles are STUDENT, SUPERVISOR, SCHOOL_ADMIN, and COLLEGE_ADMIN through the reused AI review result/run role set; the data-scope constraint is enforced by passing req.user to listAiReviewHistoryForUser(), which lists only rows whose user_id equals req.user.id. Successful responses are { records }. Service errors with status are returned as JSON { code, message }.\", \"inputs\": [\"Authenticated Express request with req.user\", \"Cookie/session supplied by auth middleware\"], \"outputs\": [\"200 { records: AiReviewHistoryRecord[] }\", \"401/403/other service status JSON errors\"], \"callers\": [\"backend/src/app.js /api/normative mount\", \"API-FEAT-AI-REVIEW-HISTORY-CLIENT\", \"backend integration tests via Supertest\"], \"callees\": [\"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"FUNC-FEAT-AI-REVIEW-HISTORY-SERVICE\"], \"test_focus\": [\"Anonymous request is rejected before data access\", \"Authenticated student receives only own records\", \"Records are returned newest first\", \"Other users' review runs are excluded even for allowed roles\"]}",
+    "file_path": "backend/src/normative/normativeRoutes.js",
+    "first_line": "512",
+    "implemented": false,
+    "callers": [
+      "backend/src/app.js /api/normative mount",
+      "API-FEAT-AI-REVIEW-HISTORY-CLIENT",
+      "backend integration tests via Supertest"
+    ],
+    "callees": [
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+      "FUNC-FEAT-AI-REVIEW-HISTORY-SERVICE"
+    ]
+  },
   "API-FEAT-AI-REVIEW-RESULT-CLIENT": {
     "interface_id": "API-FEAT-AI-REVIEW-RESULT-CLIENT",
     "req_ids": [
-      "FEAT-AI-REVIEW-RESULT"
+      "FEAT-AI-REVIEW-RESULT",
+      "FEAT-AI-REVIEW-HISTORY"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-AI-REVIEW-RESULT-CLIENT\", \"req_id\": \"FEAT-AI-REVIEW-RESULT\", \"type\": \"API\", \"name\": \"AI Review Result Frontend Client\", \"file_path\": \"frontend/src/api/normativeRules.ts\", \"first_line\": \"408\", \"responsibility\": \"Expose typed same-origin Axios calls for reading a persisted AI review result and downloading it as UTF-8 JSON through the existing shared API client and interceptors.\", \"specification\": \"Extends the existing normativeRules API module rather than adding a separate HTTP layer. Defines AiReviewSubjectiveConfirmationItem and AiReviewResultResponse as AiReviewRunResponse plus objective_score_total and subjective_confirmation_items. fetchAiReviewResult(reviewRunId) calls GET /api/normative/ai-review-runs/:reviewRunId. downloadAiReviewResultJson(reviewRunId) calls GET /api/normative/ai-review-runs/:reviewRunId/download with responseType blob and Accept application/json.\", \"inputs\": {\"reviewRunId\": \"string\"}, \"outputs\": {\"fetchAiReviewResult\": \"Promise<AiReviewResultResponse>\", \"downloadAiReviewResultJson\": \"Promise<Blob>\"}, \"callers\": [\"UI-FEAT-AI-REVIEW-RESULT-PAGE\"], \"callees\": [\"frontend/src/api/index.ts shared Axios client\", \"API-FEAT-AI-REVIEW-RESULT-EXPRESS-ROUTES\"], \"test_focus\": [\"Uses shared Axios client so auth cookies and global interceptors apply.\", \"Calls exact normative result detail and download URLs.\", \"Returns typed result vocabulary consumed by the page.\"]}",
+    "content": "{\"interface_id\": \"API-FEAT-AI-REVIEW-RESULT-CLIENT\", \"req_id\": \"FEAT-AI-REVIEW-HISTORY\", \"type\": \"API\", \"name\": \"Reused AI Review Result Client\", \"file_path\": \"frontend/src/api/normativeRules.ts\", \"first_line\": \"1\", \"responsibility\": \"Reuse dependency-owned typed result fetching/downloading so history row detail links enter the existing result page rather than creating a parallel detail contract.\", \"specification\": \"The history page does not fetch full result content itself. It links to /ai-review/results/:reviewRunId where the existing AI review result page calls fetchAiReviewResult(reviewRunId) and downloadAiReviewResultJson(reviewRunId), preserving the dependency-owned result contract and same owner-scope authorization.\", \"inputs\": [\"reviewRunId from selected history row\"], \"outputs\": [\"AiReviewResultResponse for the result page\"], \"callers\": [\"UI-FEAT-AI-REVIEW-RESULT-PAGE\"], \"callees\": [\"API-FEAT-AI-REVIEW-RESULT-EXPRESS-ROUTES\"], \"test_focus\": [\"History row detail link lands on dependency-owned result page\", \"No duplicated result-fetch implementation is introduced by history\"]}",
     "file_path": "frontend/src/api/normativeRules.ts",
-    "first_line": "408",
+    "first_line": "1",
     "implemented": true,
     "callers": [
       "UI-FEAT-AI-REVIEW-RESULT-PAGE"
     ],
     "callees": [
-      "frontend/src/api/index.ts shared Axios client",
       "API-FEAT-AI-REVIEW-RESULT-EXPRESS-ROUTES"
     ]
   },
   "API-FEAT-AI-REVIEW-RESULT-EXPRESS-ROUTES": {
     "interface_id": "API-FEAT-AI-REVIEW-RESULT-EXPRESS-ROUTES",
     "req_ids": [
-      "FEAT-AI-REVIEW-RESULT"
+      "FEAT-AI-REVIEW-RESULT",
+      "FEAT-AI-REVIEW-HISTORY"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-AI-REVIEW-RESULT-EXPRESS-ROUTES\", \"req_id\": \"FEAT-AI-REVIEW-RESULT\", \"type\": \"API\", \"name\": \"AI Review Result Express Routes\", \"file_path\": \"backend/src/normative/normativeRoutes.js\", \"first_line\": \"491\", \"responsibility\": \"Provide protected backend HTTP boundaries for reading one owned AI review result and downloading it as UTF-8 JSON under the existing /api/normative route tree.\", \"specification\": \"Adds GET /api/normative/ai-review-runs/:reviewRunId and GET /api/normative/ai-review-runs/:reviewRunId/download beside POST /ai-review-runs. Both endpoints call requireAuth({ allowedRoles: ALLOWED_AI_REVIEW_RESULT_ROLES }) before service access. Allowed roles are STUDENT, SUPERVISOR, SCHOOL_ADMIN, and COLLEGE_ADMIN; no declared role is excluded. Anonymous requests are denied by requireAuth because the scenario actor is STUDENT and result data is persisted user-owned data. Data scope is owner-scoped: the service/repository may only return a run whose user_id matches req.user.id. Download responds with application/json; charset=utf-8 and an attachment filename ai-review-result-{id}.json.\", \"inputs\": {\"params\": {\"reviewRunId\": \"string\"}, \"auth\": \"req.user from requireAuth\"}, \"outputs\": {\"detail\": \"AiReviewResultResponse JSON\", \"download\": \"UTF-8 JSON attachment\"}, \"callers\": [\"backend/src/app.js /api/normative mount\", \"API-FEAT-AI-REVIEW-RESULT-CLIENT\"], \"callees\": [\"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"FUNC-FEAT-AI-REVIEW-RESULT-SERVICE\"], \"test_focus\": [\"401 for anonymous requests.\", \"403 for roles outside allowed set if such users exist.\", \"404 for missing or non-owned reviewRunId.\", \"200 returns persisted result with subjective confirmation items and objective score total.\", \"Download endpoint returns UTF-8 JSON attachment.\"]}",
+    "content": "{\"interface_id\": \"API-FEAT-AI-REVIEW-RESULT-EXPRESS-ROUTES\", \"req_id\": \"FEAT-AI-REVIEW-HISTORY\", \"type\": \"API\", \"name\": \"Reused AI Review Result Express Routes\", \"file_path\": \"backend/src/normative/normativeRoutes.js\", \"first_line\": \"495\", \"responsibility\": \"Reuse dependency-owned protected result detail and download endpoints as the destination for history record detail entry.\", \"specification\": \"Existing GET /api/normative/ai-review-runs/:reviewRunId and GET /api/normative/ai-review-runs/:reviewRunId/download remain the authoritative result boundaries. They use requireAuth with ALLOWED_AI_REVIEW_RESULT_ROLES and getAiReviewResultForUser(), which restricts access to the current user's review run.\", \"inputs\": [\"Authenticated request\", \"reviewRunId path parameter\"], \"outputs\": [\"AiReviewResultResponse or JSON download\"], \"callers\": [\"UI-FEAT-AI-REVIEW-RESULT-PAGE\", \"API-FEAT-AI-REVIEW-RESULT-CLIENT\"], \"callees\": [\"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"FUNC-FEAT-AI-REVIEW-RESULT-SERVICE\"], \"test_focus\": [\"Detail access remains owner-scoped after navigation from history\", \"History does not bypass dependency-owned result authorization\"]}",
     "file_path": "backend/src/normative/normativeRoutes.js",
-    "first_line": "491",
+    "first_line": "495",
     "implemented": true,
     "callers": [
-      "backend/src/app.js /api/normative mount",
+      "UI-FEAT-AI-REVIEW-RESULT-PAGE",
       "API-FEAT-AI-REVIEW-RESULT-CLIENT"
     ],
     "callees": [
@@ -729,6 +768,25 @@
       "backend/src/normative/ruleConfigService.js"
     ]
   },
+  "DB-FEAT-AI-REVIEW-HISTORY-RUN-REPOSITORY": {
+    "interface_id": "DB-FEAT-AI-REVIEW-HISTORY-RUN-REPOSITORY",
+    "req_ids": [
+      "FEAT-AI-REVIEW-HISTORY"
+    ],
+    "type": "DB",
+    "content": "{\"interface_id\": \"DB-FEAT-AI-REVIEW-HISTORY-RUN-REPOSITORY\", \"req_id\": \"FEAT-AI-REVIEW-HISTORY\", \"type\": \"DB\", \"name\": \"AI Review Run History Repository Reuse\", \"file_path\": \"backend/src/normative/aiReviewRunRepository.js\", \"first_line\": \"74\", \"responsibility\": \"Reuse the existing ai_review_runs persistence owner to list review runs for one user in reverse chronological order.\", \"specification\": \"Uses listAiReviewRunsForUser(userId), which queries ai_review_runs WHERE user_id = ? ORDER BY datetime(created_at) DESC, created_at DESC and parses stored JSON fields. FEAT-AI-REVIEW-HISTORY does not create a new table because history records are projections of completed review runs produced by FEAT-AI-REVIEW-RUN. The repository must remain the only DB access path for this feature's list data.\", \"inputs\": [\"userId from authenticated req.user.id\"], \"outputs\": [\"Parsed AiReviewRunResponse-compatible records ordered newest first\"], \"callers\": [\"FUNC-FEAT-AI-REVIEW-HISTORY-SERVICE\", \"FUNC-FEAT-AI-REVIEW-RESULT-SERVICE dependency\"], \"callees\": [\"backend/src/database/index.js shared SQLite runtime\", \"backend/src/database/init_db.js ai_review_runs schema\"], \"test_focus\": [\"Uses parameterized user_id filter\", \"Sorts by created_at descending\", \"Does not expose records owned by another user\", \"Uses shared database scaffold rather than a feature-local connection\"]}",
+    "file_path": "backend/src/normative/aiReviewRunRepository.js",
+    "first_line": "74",
+    "implemented": false,
+    "callers": [
+      "FUNC-FEAT-AI-REVIEW-HISTORY-SERVICE",
+      "FUNC-FEAT-AI-REVIEW-RESULT-SERVICE dependency"
+    ],
+    "callees": [
+      "backend/src/database/index.js shared SQLite runtime",
+      "backend/src/database/init_db.js ai_review_runs schema"
+    ]
+  },
   "DB-FEAT-AI-REVIEW-RESULT-AI-REVIEW-RUNS": {
     "interface_id": "DB-FEAT-AI-REVIEW-RESULT-AI-REVIEW-RUNS",
     "req_ids": [
@@ -1234,6 +1292,24 @@
       "sqlite3 via centralized runStatement"
     ]
   },
+  "FUNC-FEAT-AI-REVIEW-HISTORY-SERVICE": {
+    "interface_id": "FUNC-FEAT-AI-REVIEW-HISTORY-SERVICE",
+    "req_ids": [
+      "FEAT-AI-REVIEW-HISTORY"
+    ],
+    "type": "FUNC",
+    "content": "{\"interface_id\": \"FUNC-FEAT-AI-REVIEW-HISTORY-SERVICE\", \"req_id\": \"FEAT-AI-REVIEW-HISTORY\", \"type\": \"FUNC\", \"name\": \"AI Review History Service\", \"file_path\": \"backend/src/normative/aiReviewHistoryService.js\", \"first_line\": \"33\", \"responsibility\": \"Authorize and project persisted AI review runs into list records for the current user's history view.\", \"specification\": \"Exports ALLOWED_AI_REVIEW_HISTORY_ROLES, listAiReviewHistoryForUser(user), and toAiReviewHistoryRecord(reviewRun). It reuses ALLOWED_AI_REVIEW_RESULT_ROLES for role consistency with result viewing. It rejects missing users with 401 and disallowed roles with 403. It calls aiReviewRunRepository.listAiReviewRunsForUser(user.id), preserving owner scope and repository-level descending order, then maps each full run to the list projection required by the page: id, user_id, thesis_title, template_id, total_score, result_label, and created_at.\", \"inputs\": [\"Authenticated user object with id and role\"], \"outputs\": [\"AiReviewHistoryRecord[]\", \"Status-bearing authorization errors\"], \"callers\": [\"API-FEAT-AI-REVIEW-HISTORY-EXPRESS-ROUTE\"], \"callees\": [\"DB-FEAT-AI-REVIEW-HISTORY-RUN-REPOSITORY\", \"FUNC-FEAT-AI-REVIEW-RESULT-SERVICE role constants\"], \"test_focus\": [\"Throws 401 when user is absent\", \"Throws 403 when role is outside allowed role set\", \"Calls repository with current user id, not a request-supplied user id\", \"Projects only history-list fields and preserves descending repository order\"]}",
+    "file_path": "backend/src/normative/aiReviewHistoryService.js",
+    "first_line": "33",
+    "implemented": false,
+    "callers": [
+      "API-FEAT-AI-REVIEW-HISTORY-EXPRESS-ROUTE"
+    ],
+    "callees": [
+      "DB-FEAT-AI-REVIEW-HISTORY-RUN-REPOSITORY",
+      "FUNC-FEAT-AI-REVIEW-RESULT-SERVICE role constants"
+    ]
+  },
   "FUNC-FEAT-AI-REVIEW-RESULT-SERVICE": {
     "interface_id": "FUNC-FEAT-AI-REVIEW-RESULT-SERVICE",
     "req_ids": [
@@ -1579,6 +1655,26 @@
     "callees": [
       "backend/src/normative/ruleConfigRepository.js",
       "backend/src/normative/normativeService.js DEFAULT_NORMATIVE_RULES"
+    ]
+  },
+  "UI-FEAT-AI-REVIEW-HISTORY-PAGE": {
+    "interface_id": "UI-FEAT-AI-REVIEW-HISTORY-PAGE",
+    "req_ids": [
+      "FEAT-AI-REVIEW-HISTORY"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-AI-REVIEW-HISTORY-PAGE\", \"req_id\": \"FEAT-AI-REVIEW-HISTORY\", \"type\": \"UI\", \"name\": \"AI Review History Page\", \"file_path\": \"frontend/src/pages/AiReviewHistoryPage.tsx\", \"first_line\": \"10\", \"responsibility\": \"Render the authenticated student's AI review history as a runtime-driven, newest-first table with thesis title, template, total score, conclusion, timestamp, and result-page entry links.\", \"specification\": \"Uses AuthSessionProvider state before fetching. Anonymous users see an explicit login prompt instead of data. Authenticated users call fetchAiReviewHistory(), display loading/error/empty states, render no hardcoded sample rows, and link each record to /ai-review/results/:reviewRunId. Visual structure follows the provided navy header, two-tab navigation, toolbar, dense bordered table, and color-emphasized score/result presentation while leaving non-required filters as disabled shell controls until behavior is owned elsewhere.\", \"inputs\": [\"AuthSessionProvider status and user\", \"AiReviewHistoryRecord[] from fetchAiReviewHistory()\"], \"outputs\": [\"Runtime history table rows\", \"Loading, empty, error, and anonymous login states\", \"Links to dependency-owned AI review result route\"], \"callers\": [\"frontend/src/App.tsx route /ai-review/history\", \"frontend/src/pages/AiReviewRunPage.tsx history tab link\"], \"callees\": [\"API-FEAT-AI-REVIEW-HISTORY-CLIENT\", \"API-FEAT-AUTH-SESSION-CLIENT\", \"UI-FEAT-AI-REVIEW-RESULT-PAGE\"], \"test_focus\": [\"Authenticated student sees records in API-provided order with title, template, score, conclusion, timestamp, and detail link\", \"No records renders an explicit empty state\", \"Anonymous state prompts login and does not call history API\", \"Page does not render hardcoded sample rows\"]}",
+    "file_path": "frontend/src/pages/AiReviewHistoryPage.tsx",
+    "first_line": "10",
+    "implemented": false,
+    "callers": [
+      "frontend/src/App.tsx route /ai-review/history",
+      "frontend/src/pages/AiReviewRunPage.tsx history tab link"
+    ],
+    "callees": [
+      "API-FEAT-AI-REVIEW-HISTORY-CLIENT",
+      "API-FEAT-AUTH-SESSION-CLIENT",
+      "UI-FEAT-AI-REVIEW-RESULT-PAGE"
     ]
   },
   "UI-FEAT-AI-REVIEW-RESULT-APP-ROUTE": {

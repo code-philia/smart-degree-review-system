@@ -1,4 +1,164 @@
 {
+  "FEAT-AI-REVIEW-HISTORY:FRONTEND:AUTH:001": {
+    "test_id": "FEAT-AI-REVIEW-HISTORY:FRONTEND:AUTH:001",
+    "req_id": "FEAT-AI-REVIEW-HISTORY",
+    "interface_ids": [
+      "UI-FEAT-AI-REVIEW-HISTORY-PAGE",
+      "API-FEAT-AUTH-SESSION-CLIENT"
+    ],
+    "type": "Integration",
+    "file_path": "frontend/tests/ai-review-history.test.tsx",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-AI-REVIEW-HISTORY:FRONTEND:CLIENT:001": {
+    "test_id": "FEAT-AI-REVIEW-HISTORY:FRONTEND:CLIENT:001",
+    "req_id": "FEAT-AI-REVIEW-HISTORY",
+    "interface_ids": [
+      "API-FEAT-AI-REVIEW-HISTORY-CLIENT"
+    ],
+    "type": "Integration",
+    "file_path": "frontend/tests/ai-review-history.test.tsx",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-AI-REVIEW-HISTORY:FRONTEND:EMPTY:001": {
+    "test_id": "FEAT-AI-REVIEW-HISTORY:FRONTEND:EMPTY:001",
+    "req_id": "FEAT-AI-REVIEW-HISTORY",
+    "interface_ids": [
+      "UI-FEAT-AI-REVIEW-HISTORY-PAGE",
+      "API-FEAT-AI-REVIEW-HISTORY-CLIENT"
+    ],
+    "type": "Integration",
+    "file_path": "frontend/tests/ai-review-history.test.tsx",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-AI-REVIEW-HISTORY:FRONTEND:ERROR:001": {
+    "test_id": "FEAT-AI-REVIEW-HISTORY:FRONTEND:ERROR:001",
+    "req_id": "FEAT-AI-REVIEW-HISTORY",
+    "interface_ids": [
+      "UI-FEAT-AI-REVIEW-HISTORY-PAGE",
+      "API-FEAT-AI-REVIEW-HISTORY-CLIENT"
+    ],
+    "type": "Integration",
+    "file_path": "frontend/tests/ai-review-history.test.tsx",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-AI-REVIEW-HISTORY:FRONTEND:SCENARIO:001": {
+    "test_id": "FEAT-AI-REVIEW-HISTORY:FRONTEND:SCENARIO:001",
+    "req_id": "FEAT-AI-REVIEW-HISTORY",
+    "interface_ids": [
+      "UI-FEAT-AI-REVIEW-HISTORY-PAGE",
+      "API-FEAT-AI-REVIEW-HISTORY-CLIENT",
+      "API-FEAT-AI-REVIEW-RESULT-CLIENT"
+    ],
+    "type": "Integration",
+    "file_path": "frontend/tests/ai-review-history.test.tsx",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-AI-REVIEW-HISTORY:INTEGRATION:AUTHZ:001": {
+    "test_id": "FEAT-AI-REVIEW-HISTORY:INTEGRATION:AUTHZ:001",
+    "req_id": "FEAT-AI-REVIEW-HISTORY",
+    "interface_ids": [
+      "API-FEAT-AI-REVIEW-HISTORY-EXPRESS-ROUTE"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/ai-review-history.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-AI-REVIEW-HISTORY:INTEGRATION:AUTHZ:002": {
+    "test_id": "FEAT-AI-REVIEW-HISTORY:INTEGRATION:AUTHZ:002",
+    "req_id": "FEAT-AI-REVIEW-HISTORY",
+    "interface_ids": [
+      "API-FEAT-AI-REVIEW-HISTORY-EXPRESS-ROUTE",
+      "FUNC-FEAT-AI-REVIEW-HISTORY-SERVICE"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/ai-review-history.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-AI-REVIEW-HISTORY:INTEGRATION:SCENARIO:001": {
+    "test_id": "FEAT-AI-REVIEW-HISTORY:INTEGRATION:SCENARIO:001",
+    "req_id": "FEAT-AI-REVIEW-HISTORY",
+    "interface_ids": [
+      "API-FEAT-AI-REVIEW-HISTORY-EXPRESS-ROUTE",
+      "FUNC-FEAT-AI-REVIEW-HISTORY-SERVICE",
+      "DB-FEAT-AI-REVIEW-HISTORY-RUN-REPOSITORY"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/ai-review-history.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-AI-REVIEW-HISTORY:SCENARIO:001": {
+    "test_id": "FEAT-AI-REVIEW-HISTORY:SCENARIO:001",
+    "req_id": "FEAT-AI-REVIEW-HISTORY",
+    "interface_ids": [
+      "UI-FEAT-AI-REVIEW-HISTORY-PAGE",
+      "API-FEAT-AI-REVIEW-HISTORY-CLIENT",
+      "API-FEAT-AI-REVIEW-HISTORY-EXPRESS-ROUTE",
+      "FUNC-FEAT-AI-REVIEW-HISTORY-SERVICE",
+      "DB-FEAT-AI-REVIEW-HISTORY-RUN-REPOSITORY",
+      "API-FEAT-AI-REVIEW-RESULT-CLIENT",
+      "API-FEAT-AI-REVIEW-RESULT-EXPRESS-ROUTES"
+    ],
+    "type": "E2E",
+    "file_path": "backend/test-e2e/ai-review-history.spec.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-AI-REVIEW-HISTORY:UNIT:AUTHZ:001": {
+    "test_id": "FEAT-AI-REVIEW-HISTORY:UNIT:AUTHZ:001",
+    "req_id": "FEAT-AI-REVIEW-HISTORY",
+    "interface_ids": [
+      "FUNC-FEAT-AI-REVIEW-HISTORY-SERVICE"
+    ],
+    "type": "Unit",
+    "file_path": "backend/tests/ai-review-history.unit.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-AI-REVIEW-HISTORY:UNIT:AUTHZ:002": {
+    "test_id": "FEAT-AI-REVIEW-HISTORY:UNIT:AUTHZ:002",
+    "req_id": "FEAT-AI-REVIEW-HISTORY",
+    "interface_ids": [
+      "FUNC-FEAT-AI-REVIEW-HISTORY-SERVICE",
+      "DB-FEAT-AI-REVIEW-HISTORY-RUN-REPOSITORY"
+    ],
+    "type": "Unit",
+    "file_path": "backend/tests/ai-review-history.unit.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-AI-REVIEW-HISTORY:UNIT:SCENARIO:001": {
+    "test_id": "FEAT-AI-REVIEW-HISTORY:UNIT:SCENARIO:001",
+    "req_id": "FEAT-AI-REVIEW-HISTORY",
+    "interface_ids": [
+      "FUNC-FEAT-AI-REVIEW-HISTORY-SERVICE",
+      "DB-FEAT-AI-REVIEW-HISTORY-RUN-REPOSITORY"
+    ],
+    "type": "Unit",
+    "file_path": "backend/tests/ai-review-history.unit.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
   "FEAT-AI-REVIEW-RESULT:INTEGRATION:AUTHZ:001": {
     "test_id": "FEAT-AI-REVIEW-RESULT:INTEGRATION:AUTHZ:001",
     "req_id": "FEAT-AI-REVIEW-RESULT",

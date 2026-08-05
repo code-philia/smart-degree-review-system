@@ -86,6 +86,10 @@ const {
   buildAiReviewResultDownloadPayload,
   getAiReviewResultForUser,
 } = require('./aiReviewResultService');
+const {
+  ALLOWED_AI_REVIEW_HISTORY_ROLES,
+  listAiReviewHistoryForUser,
+} = require('./aiReviewHistoryService');
 
 const router = express.Router();
 
@@ -494,6 +498,23 @@ router.get(
     try {
       const result = await getAiReviewResultForUser(req.user, req.params.reviewRunId);
       res.json(result);
+    } catch (error) {
+      if (error?.status) {
+        res.status(error.status).json({ code: error.status, message: error.message });
+        return;
+      }
+      next(error);
+    }
+  },
+);
+
+router.get(
+  '/ai-review-runs',
+  requireAuth({ allowedRoles: ALLOWED_AI_REVIEW_HISTORY_ROLES }),
+  async (req, res, next) => {
+    try {
+      const records = await listAiReviewHistoryForUser(req.user);
+      res.json({ records });
     } catch (error) {
       if (error?.status) {
         res.status(error.status).json({ code: error.status, message: error.message });

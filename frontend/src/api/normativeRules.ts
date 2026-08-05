@@ -102,6 +102,11 @@ export type AiReviewResultResponse = AiReviewRunResponse & {
   subjective_confirmation_items: AiReviewSubjectiveConfirmationItem[];
 };
 
+export type AiReviewHistoryRecord = Pick<
+  AiReviewRunResponse,
+  'id' | 'user_id' | 'thesis_title' | 'template_id' | 'total_score' | 'result_label' | 'created_at'
+>;
+
 export type DetectionTaskStatus = 'pending' | 'running' | 'completed';
 
 export type CreateDetectionTaskRequest = {
@@ -495,4 +500,9 @@ export async function downloadNormativeReportJson(taskId: string): Promise<Blob>
     headers: { Accept: 'application/json' },
   });
   return response.data;
+}
+
+export async function fetchAiReviewHistory(): Promise<AiReviewHistoryRecord[]> {
+  const response = await apiClient.get<{ records: AiReviewHistoryRecord[] }>('/normative/ai-review-runs');
+  return response.data.records;
 }

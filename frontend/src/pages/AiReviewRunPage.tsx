@@ -34,7 +34,7 @@ function AiReviewRunPage() {
   const [rubrics, setRubrics] = useState<ReviewRubricsResponse | null>(null);
   const [rubricError, setRubricError] = useState<string | null>(null);
   const [loadingRubrics, setLoadingRubrics] = useState(false);
-  const [activeTab, setActiveTab] = useState<'upload' | 'history'>('upload');
+  const [activeTab] = useState<'upload'>('upload');
   const [thesisTitle, setThesisTitle] = useState('');
   const [text, setText] = useState('');
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
@@ -155,8 +155,8 @@ function AiReviewRunPage() {
       </header>
 
       <nav className="grid h-20 grid-cols-2 text-3xl font-black" aria-label="AI 智能评阅导航">
-        <button className={activeTab === 'upload' ? 'bg-[#3b86f6] text-white' : 'bg-[#f2f3f5] text-slate-600'} type="button" onClick={() => setActiveTab('upload')}>论文上传</button>
-        <button className={activeTab === 'history' ? 'bg-[#3b86f6] text-white' : 'bg-[#f2f3f5] text-slate-600'} type="button" onClick={() => setActiveTab('history')}>评阅记录</button>
+        <button className={activeTab === 'upload' ? 'bg-[#3b86f6] text-white' : 'bg-[#f2f3f5] text-slate-600'} type="button">论文上传</button>
+        <Link className="flex items-center justify-center bg-[#f2f3f5] text-slate-600" to="/ai-review/history">评阅记录</Link>
       </nav>
 
       <section className="flex h-32 items-center justify-center bg-[#eef0f3]" aria-label="评阅流程进度">
