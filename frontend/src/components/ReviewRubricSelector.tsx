@@ -11,7 +11,7 @@ function ReviewRubricSelector({ isOpen }: ReviewRubricSelectorProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isOpen || rubrics || loading) {
+    if (!isOpen || rubrics) {
       return;
     }
 
@@ -19,27 +19,30 @@ function ReviewRubricSelector({ isOpen }: ReviewRubricSelectorProps) {
     setLoading(true);
     setErrorMessage(null);
 
-    fetchReviewRubrics()
-      .then((response) => {
-        if (mounted) {
-          setRubrics(response);
+    const timer = window.setTimeout(() => {
+      Promise.allSettled([
+        fetchReviewRubrics(),
+        new Promise((resolve) => window.setTimeout(resolve, 80)),
+      ]).then(([rubricResult]) => {
+        if (!mounted) {
+          return;
         }
-      })
-      .catch((error) => {
-        if (mounted) {
+
+        if (rubricResult.status === 'fulfilled') {
+          setRubrics(rubricResult.value);
+        } else {
+          const error = rubricResult.reason;
           setErrorMessage(error instanceof Error ? error.message : '评阅模板加载失败');
         }
-      })
-      .finally(() => {
-        if (mounted) {
-          setLoading(false);
-        }
+        setLoading(false);
       });
+    }, 0);
 
     return () => {
       mounted = false;
+      window.clearTimeout(timer);
     };
-  }, [isOpen, loading, rubrics]);
+  }, [isOpen, rubrics]);
 
   if (!isOpen) {
     return null;
@@ -83,6 +86,10 @@ function ReviewRubricSelector({ isOpen }: ReviewRubricSelectorProps) {
               <p className="mt-1 text-lg font-black text-blue-700">{item.points} 分</p>
             </div>
           ))}
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2 text-sm font-semibold">
+          <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700">{rubrics.passing_rule.pass_label}</span>
+          <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-700">{rubrics.passing_rule.revise_label}</span>
         </div>
         <p className="mt-3 text-sm font-semibold text-slate-700">
           客观分不低于 {rubrics.passing_rule.minimum_objective_score} 且无必需章节缺失时为“{rubrics.passing_rule.pass_label}”，否则为“{rubrics.passing_rule.revise_label}”。
