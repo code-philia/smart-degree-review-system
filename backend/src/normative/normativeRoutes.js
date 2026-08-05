@@ -91,10 +91,12 @@ const {
   listAiReviewHistoryForUser,
 } = require('./aiReviewHistoryService');
 const ledgerRecordsRoutes = require('./ledgerRecordsRoutes');
+const reportSubmissionRoutes = require('./reportSubmissionRoutes');
 
 const router = express.Router();
 
 router.use('/ledger-records', ledgerRecordsRoutes);
+router.use('/report-submissions', reportSubmissionRoutes);
 
 function sendRuleConfigError(error, res, next) {
   if (error?.type === 'entity.too.large') {

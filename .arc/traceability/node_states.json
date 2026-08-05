@@ -145,9 +145,9 @@
   },
   "FEAT-REPORT-STUDENT-SUBMIT": {
     "req_id": "FEAT-REPORT-STUDENT-SUBMIT",
-    "state": "UNSEEN",
-    "phase": null,
-    "updated_at": "2026-08-05 04:10:31"
+    "state": "DESIGNED",
+    "phase": "design",
+    "updated_at": "2026-08-05 06:25:30"
   },
   "FEAT-REPORT-SUPERVISOR-QUEUE": {
     "req_id": "FEAT-REPORT-SUPERVISOR-QUEUE",

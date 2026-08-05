@@ -1456,6 +1456,79 @@
     "first_line": "1",
     "scenario_id": null
   },
+  "FEAT-REPORT-STUDENT-SUBMIT:E2E:SCENARIOS": {
+    "test_id": "FEAT-REPORT-STUDENT-SUBMIT:E2E:SCENARIOS",
+    "req_id": "FEAT-REPORT-STUDENT-SUBMIT",
+    "interface_ids": [
+      "UI-FEAT-REPORT-STUDENT-SUBMIT-PAGE",
+      "API-FEAT-REPORT-STUDENT-SUBMIT-CLIENT",
+      "API-FEAT-REPORT-STUDENT-SUBMIT-EXPRESS-ROUTE",
+      "FUNC-FEAT-REPORT-STUDENT-SUBMIT-SERVICE",
+      "DB-FEAT-REPORT-STUDENT-SUBMIT-REPOSITORY",
+      "DB-FEAT-REPORT-STUDENT-SUBMIT-SCHEMA",
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES"
+    ],
+    "type": "E2E",
+    "file_path": "backend/test-e2e/report-student-submit.spec.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-REPORT-STUDENT-SUBMIT:INTEGRATION:API": {
+    "test_id": "FEAT-REPORT-STUDENT-SUBMIT:INTEGRATION:API",
+    "req_id": "FEAT-REPORT-STUDENT-SUBMIT",
+    "interface_ids": [
+      "API-FEAT-REPORT-STUDENT-SUBMIT-EXPRESS-ROUTE",
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+      "FUNC-FEAT-REPORT-STUDENT-SUBMIT-SERVICE",
+      "DB-FEAT-REPORT-STUDENT-SUBMIT-REPOSITORY",
+      "API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/report-student-submit.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-REPORT-STUDENT-SUBMIT:INTEGRATION:DB": {
+    "test_id": "FEAT-REPORT-STUDENT-SUBMIT:INTEGRATION:DB",
+    "req_id": "FEAT-REPORT-STUDENT-SUBMIT",
+    "interface_ids": [
+      "DB-FEAT-REPORT-STUDENT-SUBMIT-REPOSITORY",
+      "DB-FEAT-REPORT-STUDENT-SUBMIT-SCHEMA"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/report-student-submit-repository.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-REPORT-STUDENT-SUBMIT:INTEGRATION:UI-CLIENT": {
+    "test_id": "FEAT-REPORT-STUDENT-SUBMIT:INTEGRATION:UI-CLIENT",
+    "req_id": "FEAT-REPORT-STUDENT-SUBMIT",
+    "interface_ids": [
+      "UI-FEAT-REPORT-STUDENT-SUBMIT-PAGE",
+      "API-FEAT-REPORT-STUDENT-SUBMIT-CLIENT"
+    ],
+    "type": "Integration",
+    "file_path": "frontend/tests/report-student-submit.test.tsx",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-REPORT-STUDENT-SUBMIT:UNIT:SERVICE": {
+    "test_id": "FEAT-REPORT-STUDENT-SUBMIT:UNIT:SERVICE",
+    "req_id": "FEAT-REPORT-STUDENT-SUBMIT",
+    "interface_ids": [
+      "FUNC-FEAT-REPORT-STUDENT-SUBMIT-SERVICE",
+      "DB-FEAT-REPORT-STUDENT-SUBMIT-REPOSITORY"
+    ],
+    "type": "Unit",
+    "file_path": "backend/tests/report-student-submit.unit.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
   "FEAT-RULE-TEMPLATE-UPLOAD:E2E:SCENARIOS:001": {
     "test_id": "FEAT-RULE-TEMPLATE-UPLOAD:E2E:SCENARIOS:001",
     "req_id": "FEAT-RULE-TEMPLATE-UPLOAD",

@@ -258,6 +258,38 @@ async function initializeDatabase(options = {}) {
       );`,
     );
 
+    await runStatement(
+      database,
+      `CREATE TABLE IF NOT EXISTS report_submissions (
+        id TEXT PRIMARY KEY,
+        batch_id TEXT NOT NULL,
+        student_id TEXT NOT NULL,
+        supervisor_id TEXT NOT NULL,
+        source_type TEXT NOT NULL CHECK (source_type IN ('normative', 'duplication', 'innovation', 'ai_review')),
+        report_id TEXT NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('submitted_pending_review')),
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (student_id) REFERENCES auth_users(id) ON DELETE CASCADE,
+        FOREIGN KEY (supervisor_id) REFERENCES auth_users(id) ON DELETE RESTRICT
+      );`,
+    );
+
+    await runStatement(
+      database,
+      `CREATE TABLE IF NOT EXISTS in_app_todos (
+        id TEXT PRIMARY KEY,
+        submission_id TEXT NOT NULL,
+        assignee_id TEXT NOT NULL,
+        actor_id TEXT NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('pending', 'done')),
+        title TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (submission_id) REFERENCES report_submissions(id) ON DELETE CASCADE,
+        FOREIGN KEY (assignee_id) REFERENCES auth_users(id) ON DELETE CASCADE,
+        FOREIGN KEY (actor_id) REFERENCES auth_users(id) ON DELETE CASCADE
+      );`,
+    );
+
     return database;
 
     /**
