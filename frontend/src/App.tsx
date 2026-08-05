@@ -13,6 +13,7 @@ import InnovationAssessmentPage from './pages/InnovationAssessmentPage';
 import InnovationReportPage from './pages/InnovationReportPage';
 import InnovationScoringPage from './pages/InnovationScoringPage';
 import InnovationHistoryPage from './pages/InnovationHistoryPage';
+import LedgerFilteredStatsPage from './pages/LedgerFilteredStatsPage';
 import LedgerRecordsPage from './pages/LedgerRecordsPage';
 import LocalPolishPage from './pages/LocalPolishPage';
 import NormativeCheckPage from './pages/NormativeCheckPage';
@@ -29,6 +30,7 @@ function App() {
       <Route path="/normative-reports" element={<NormativeReportPage />} />
       <Route path="/normative-reports/:reportId" element={<NormativeReportPage />} />
       <Route path="/ledger-records" element={<LedgerRecordsPage />} />
+      <Route path="/ledger-stats" element={<LedgerFilteredStatsPage />} />
       <Route path="/rule-config" element={<RuleConfigPage />} />
       <Route path="/duplication-corpus" element={<DuplicationCorpusPage />} />
       <Route path="/duplication-detect" element={<DuplicationDetectPage />} />

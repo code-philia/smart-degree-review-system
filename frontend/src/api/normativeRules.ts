@@ -138,6 +138,29 @@ export type DetectionLedgerRecord = {
   created_at: string;
 };
 
+export type DetectionLedgerTypeStat = {
+  detection_type: DetectionLedgerType;
+  detection_type_label: string;
+  record_count: number;
+  student_count: number;
+  today_count: number;
+};
+
+export type DetectionLedgerTrendPoint = {
+  date: string;
+  count: number;
+};
+
+export type DetectionLedgerFilteredStats = {
+  filters: LedgerRecordFilters;
+  total_records: number;
+  total_students: number;
+  today_count: number;
+  by_type: DetectionLedgerTypeStat[];
+  daily_trend: DetectionLedgerTrendPoint[];
+  generated_at: string;
+};
+
 export type DetectionTaskStatus = 'pending' | 'running' | 'completed';
 
 export type CreateDetectionTaskRequest = {
@@ -552,6 +575,15 @@ export async function fetchDetectionLedgerRecords(filters: LedgerRecordFilters =
 
 export async function fetchDetectionLedgerRecord(recordId: string): Promise<DetectionLedgerRecord> {
   const response = await apiClient.get<DetectionLedgerRecord>(`/normative/ledger-records/${recordId}`);
+  return response.data;
+}
+
+export async function fetchDetectionLedgerFilteredStats(
+  filters: LedgerRecordFilters = {},
+): Promise<DetectionLedgerFilteredStats> {
+  const response = await apiClient.get<DetectionLedgerFilteredStats>('/normative/ledger-records/stats', {
+    params: toLedgerRecordParams(filters),
+  });
   return response.data;
 }
 

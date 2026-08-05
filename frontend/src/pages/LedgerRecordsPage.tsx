@@ -64,7 +64,7 @@ function LedgerRecordsPage() {
 
       <section className="flex gap-3 px-7 py-3">
         <button className="h-12 rounded-[5px] bg-[#1f3f63] px-10 text-[22px] font-bold text-white">检测记录台账</button>
-        <button className="h-12 rounded-[5px] border border-[#d6d6d6] bg-white px-10 text-[22px] font-bold text-[#7c8792]">检测数据统计</button>
+        <a className="h-12 rounded-[5px] border border-[#d6d6d6] bg-white px-10 py-2.5 text-[22px] font-bold text-[#7c8792]" href="/ledger-stats">检测数据统计</a>
       </section>
 
       <section className="grid grid-cols-2 gap-3 px-7 pb-3 md:grid-cols-6">

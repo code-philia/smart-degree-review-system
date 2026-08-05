@@ -436,6 +436,43 @@
       "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES"
     ]
   },
+  "API-FEAT-LEDGER-FILTERED-STATS-CLIENT": {
+    "interface_id": "API-FEAT-LEDGER-FILTERED-STATS-CLIENT",
+    "req_ids": [
+      "FEAT-LEDGER-FILTERED-STATS"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-LEDGER-FILTERED-STATS-CLIENT\", \"req_id\": \"FEAT-LEDGER-FILTERED-STATS\", \"type\": \"API\", \"name\": \"Ledger filtered stats frontend client\", \"file_path\": \"frontend/src/api/normativeRules.ts\", \"first_line\": \"581\", \"responsibility\": \"Expose typed same-origin Axios access for fetching filtered ledger statistics through the shared normative API client.\", \"specification\": \"Defines DetectionLedgerTypeStat, DetectionLedgerTrendPoint, and DetectionLedgerFilteredStats DTOs and fetchDetectionLedgerFilteredStats(filters). The call uses GET /api/normative/ledger-records/stats with the same LedgerRecordFilters query normalization used by ledger records, preserving shared Axios interceptors, cookies, and global error behavior.\", \"inputs\": {\"filters\": \"LedgerRecordFilters\"}, \"outputs\": {\"stats\": \"DetectionLedgerFilteredStats\"}, \"callers\": [\"UI-FEAT-LEDGER-FILTERED-STATS-PAGE\"], \"callees\": [\"frontend/src/api/index.ts shared Axios client\", \"API-FEAT-LEDGER-FILTERED-STATS-EXPRESS-ROUTE\"], \"test_focus\": [\"Serializes detection_type, student, from, to, and latest_only query params consistently with ledger records.\", \"Uses /normative/ledger-records/stats on the shared /api Axios base URL.\", \"Returns typed runtime data without fallback arrays.\"]}",
+    "file_path": "frontend/src/api/normativeRules.ts",
+    "first_line": "581",
+    "implemented": false,
+    "callers": [
+      "UI-FEAT-LEDGER-FILTERED-STATS-PAGE"
+    ],
+    "callees": [
+      "frontend/src/api/index.ts shared Axios client",
+      "API-FEAT-LEDGER-FILTERED-STATS-EXPRESS-ROUTE"
+    ]
+  },
+  "API-FEAT-LEDGER-FILTERED-STATS-EXPRESS-ROUTE": {
+    "interface_id": "API-FEAT-LEDGER-FILTERED-STATS-EXPRESS-ROUTE",
+    "req_ids": [
+      "FEAT-LEDGER-FILTERED-STATS"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-LEDGER-FILTERED-STATS-EXPRESS-ROUTE\", \"req_id\": \"FEAT-LEDGER-FILTERED-STATS\", \"type\": \"API\", \"name\": \"Ledger filtered stats Express route\", \"file_path\": \"backend/src/normative/ledgerRecordsRoutes.js\", \"first_line\": \"49\", \"responsibility\": \"Provide the protected backend HTTP boundary for filtered ledger statistics under the existing /api/normative/ledger-records route family.\", \"specification\": \"Adds GET /api/normative/ledger-records/stats before /:recordId. The route calls requireAuth({ allowedRoles: ALLOWED_LEDGER_RECORD_ROLES }) so SUPERVISOR, COLLEGE_ADMIN, and SCHOOL_ADMIN can request stats, STUDENT receives 403, and anonymous requests are denied by auth middleware. It delegates all scope and filter semantics to the service before returning data.\", \"inputs\": {\"query\": \"student, detection_type, from, to, latest_only\", \"session\": \"req.user from requireAuth\"}, \"outputs\": {\"json\": \"DetectionLedgerFilteredStats-compatible payload or structured error\"}, \"callers\": [\"API-FEAT-LEDGER-FILTERED-STATS-CLIENT\", \"backend/src/normative/normativeRoutes.js /ledger-records mount\"], \"callees\": [\"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"FUNC-FEAT-LEDGER-FILTERED-STATS-SERVICE\"], \"test_focus\": [\"Allows SUPERVISOR, COLLEGE_ADMIN, and SCHOOL_ADMIN only.\", \"Denies STUDENT and anonymous callers before statistics are returned.\", \"Passes query filters into the service and returns service payload.\"]}",
+    "file_path": "backend/src/normative/ledgerRecordsRoutes.js",
+    "first_line": "49",
+    "implemented": false,
+    "callers": [
+      "API-FEAT-LEDGER-FILTERED-STATS-CLIENT",
+      "backend/src/normative/normativeRoutes.js /ledger-records mount"
+    ],
+    "callees": [
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+      "FUNC-FEAT-LEDGER-FILTERED-STATS-SERVICE"
+    ]
+  },
   "API-FEAT-NORMATIVE-DETECT-CLIENT": {
     "interface_id": "API-FEAT-NORMATIVE-DETECT-CLIENT",
     "req_ids": [
@@ -1054,6 +1091,24 @@
       "backend/src/database/index.js shared helpers"
     ]
   },
+  "DB-FEAT-LEDGER-FILTERED-STATS-REPOSITORY": {
+    "interface_id": "DB-FEAT-LEDGER-FILTERED-STATS-REPOSITORY",
+    "req_ids": [
+      "FEAT-LEDGER-FILTERED-STATS"
+    ],
+    "type": "DB",
+    "content": "{\"interface_id\": \"DB-FEAT-LEDGER-FILTERED-STATS-REPOSITORY\", \"req_id\": \"FEAT-LEDGER-FILTERED-STATS\", \"type\": \"DB\", \"name\": \"Ledger filtered stats repository\", \"file_path\": \"backend/src/normative/ledgerRecordsRepository.js\", \"first_line\": \"27\", \"responsibility\": \"Own the SQLite aggregation boundary for filtered ledger statistics over persisted ledger records.\", \"specification\": \"Adds summarizeLedgerRecords(scope, filters) as the persistence contract. The implementation stage must query the same durable ledger record source used by FEAT-LEDGER-RECORDS, apply scope constraints before aggregation, compute total_records, distinct participating students, today_count, per-detection-type statistics, and daily_trend for the requested date range, and return no hardcoded sample rows.\", \"inputs\": {\"scope\": \"role-aware ledger access scope\", \"filters\": \"normalized LedgerRecordFilters\"}, \"outputs\": {\"stats\": \"DetectionLedgerFilteredStats-compatible aggregate payload\"}, \"callers\": [\"FUNC-FEAT-LEDGER-FILTERED-STATS-SERVICE\"], \"callees\": [\"backend/src/database shared SQLite query helpers\", \"FEAT-LEDGER-RECORDS persisted ledger record source\"], \"test_focus\": [\"Aggregates only persisted records matching scope and filters.\", \"For college01 COLLEGE_ADMIN, normative type plus date range excludes other colleges, types, and dates.\", \"Computes distinct student counts and daily trend from real database rows.\"]}",
+    "file_path": "backend/src/normative/ledgerRecordsRepository.js",
+    "first_line": "27",
+    "implemented": false,
+    "callers": [
+      "FUNC-FEAT-LEDGER-FILTERED-STATS-SERVICE"
+    ],
+    "callees": [
+      "backend/src/database shared SQLite query helpers",
+      "FEAT-LEDGER-RECORDS persisted ledger record source"
+    ]
+  },
   "DB-FEAT-NORMATIVE-DETECT-TASK-REPOSITORY": {
     "interface_id": "DB-FEAT-NORMATIVE-DETECT-TASK-REPOSITORY",
     "req_ids": [
@@ -1511,6 +1566,24 @@
       "API-FEAT-INNOVATION-SCORING-MODEL-EXPRESS-ROUTE"
     ],
     "callees": []
+  },
+  "FUNC-FEAT-LEDGER-FILTERED-STATS-SERVICE": {
+    "interface_id": "FUNC-FEAT-LEDGER-FILTERED-STATS-SERVICE",
+    "req_ids": [
+      "FEAT-LEDGER-FILTERED-STATS"
+    ],
+    "type": "FUNC",
+    "content": "{\"interface_id\": \"FUNC-FEAT-LEDGER-FILTERED-STATS-SERVICE\", \"req_id\": \"FEAT-LEDGER-FILTERED-STATS\", \"type\": \"FUNC\", \"name\": \"Ledger filtered stats service\", \"file_path\": \"backend/src/normative/ledgerRecordsService.js\", \"first_line\": \"79\", \"responsibility\": \"Apply ledger authorization scope and normalized filters before requesting aggregate statistics from persistence.\", \"specification\": \"Adds getLedgerFilteredStatsForUser(user, query). It reuses buildLedgerAccessScope so supervisor requests are scoped by supervisor_id, college admins by college_id, school admins globally, STUDENT is rejected, and missing users are rejected. It reuses toLedgerFilters so record listing and statistics apply the same detection type/date/student/latest filter semantics.\", \"inputs\": {\"user\": \"authenticated user with role and scope fields\", \"query\": \"raw Express query object\"}, \"outputs\": {\"stats\": \"repository summary result\"}, \"callers\": [\"API-FEAT-LEDGER-FILTERED-STATS-EXPRESS-ROUTE\"], \"callees\": [\"DB-FEAT-LEDGER-FILTERED-STATS-REPOSITORY\", \"FUNC-FEAT-LEDGER-RECORDS-ACCESS-SCOPE-REUSED\"], \"test_focus\": [\"Reuses the same authorization and data-scope behavior as ledger record listing.\", \"Normalizes filters before persistence access.\", \"Does not aggregate records outside the authorized college/supervisor scope.\"]}",
+    "file_path": "backend/src/normative/ledgerRecordsService.js",
+    "first_line": "79",
+    "implemented": false,
+    "callers": [
+      "API-FEAT-LEDGER-FILTERED-STATS-EXPRESS-ROUTE"
+    ],
+    "callees": [
+      "DB-FEAT-LEDGER-FILTERED-STATS-REPOSITORY",
+      "FUNC-FEAT-LEDGER-RECORDS-ACCESS-SCOPE-REUSED"
+    ]
   },
   "FUNC-FEAT-NORMATIVE-DETECT-TASK-SERVICE": {
     "interface_id": "FUNC-FEAT-NORMATIVE-DETECT-TASK-SERVICE",
@@ -2095,6 +2168,41 @@
     "callees": [
       "API-FEAT-AUTH-SESSION-CLIENT",
       "API-FEAT-INNOVATION-SCORING-MODEL-CLIENT"
+    ]
+  },
+  "UI-FEAT-LEDGER-FILTERED-STATS-APP-ROUTE": {
+    "interface_id": "UI-FEAT-LEDGER-FILTERED-STATS-APP-ROUTE",
+    "req_ids": [
+      "FEAT-LEDGER-FILTERED-STATS"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-LEDGER-FILTERED-STATS-APP-ROUTE\", \"req_id\": \"FEAT-LEDGER-FILTERED-STATS\", \"type\": \"UI\", \"name\": \"Ledger filtered stats route mount\", \"file_path\": \"frontend/src/App.tsx\", \"first_line\": \"33\", \"responsibility\": \"Mount the filtered statistics page in the existing React SPA route tree without creating a parallel frontend entrypoint.\", \"specification\": \"Adds /ledger-stats as the route for the filtered statistics page and keeps /ledger-records as the dependency-owned record table entry. Runtime remains backend-hosted Vite dist on the single origin.\", \"inputs\": {\"route\": \"/ledger-stats\"}, \"outputs\": {\"element\": \"LedgerFilteredStatsPage\"}, \"callers\": [\"React Router browser navigation\", \"frontend/src/pages/LedgerRecordsPage.tsx statistics navigation link\"], \"callees\": [\"UI-FEAT-LEDGER-FILTERED-STATS-PAGE\"], \"test_focus\": [\"Navigating to /ledger-stats renders the statistics page shell.\", \"The existing /ledger-records route remains available.\"]}",
+    "file_path": "frontend/src/App.tsx",
+    "first_line": "33",
+    "implemented": false,
+    "callers": [
+      "React Router browser navigation",
+      "frontend/src/pages/LedgerRecordsPage.tsx statistics navigation link"
+    ],
+    "callees": [
+      "UI-FEAT-LEDGER-FILTERED-STATS-PAGE"
+    ]
+  },
+  "UI-FEAT-LEDGER-FILTERED-STATS-PAGE": {
+    "interface_id": "UI-FEAT-LEDGER-FILTERED-STATS-PAGE",
+    "req_ids": [
+      "FEAT-LEDGER-FILTERED-STATS"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-LEDGER-FILTERED-STATS-PAGE\", \"req_id\": \"FEAT-LEDGER-FILTERED-STATS\", \"type\": \"UI\", \"name\": \"Ledger filtered statistics page\", \"file_path\": \"frontend/src/pages/LedgerFilteredStatsPage.tsx\", \"first_line\": \"23\", \"responsibility\": \"Render the permission-gated filtered statistics workspace with visual-reference-aligned filters, manual refresh, summary cards, and local SVG/CSS chart regions driven by API data.\", \"specification\": \"Owns the page-level UI for selecting date range, detection type, and student keyword filters, then manually refreshing statistics. It must render loading, error, empty, and loaded states; display total records, participating students, today's count, per-type counts, and daily trend; use local SVG/CSS only for charts; and never hardcode screenshot business values or fallback arrays.\", \"inputs\": {\"filters\": \"LedgerRecordFilters with detection_type, from, to, student, latest_only\", \"user_action\": \"manual refresh button click\"}, \"outputs\": {\"summary_cards\": \"total_records, total_students, today_count, active type label\", \"charts\": \"local bar chart from by_type and SVG trend region from daily_trend\", \"states\": \"idle, loading, error, empty/result\"}, \"callers\": [\"UI-FEAT-LEDGER-FILTERED-STATS-APP-ROUTE\"], \"callees\": [\"API-FEAT-LEDGER-FILTERED-STATS-CLIENT\"], \"test_focus\": [\"Manual refresh calls the typed stats client with current filters.\", \"Changing detection type/date range recomputes displayed statistics from returned data.\", \"Loading, error, and empty states are explicit and not replaced by fake data.\", \"Charts are rendered locally without external chart service dependencies.\"]}",
+    "file_path": "frontend/src/pages/LedgerFilteredStatsPage.tsx",
+    "first_line": "23",
+    "implemented": false,
+    "callers": [
+      "UI-FEAT-LEDGER-FILTERED-STATS-APP-ROUTE"
+    ],
+    "callees": [
+      "API-FEAT-LEDGER-FILTERED-STATS-CLIENT"
     ]
   },
   "UI-FEAT-NORMATIVE-DETECT-PAGE": {

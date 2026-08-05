@@ -24,8 +24,16 @@ async function findLedgerRecordById(_scope, _recordId) {
   throw error;
 }
 
+async function summarizeLedgerRecords(_scope, _filters = {}) {
+  await all('SELECT 1 AS ledger_stats_contract_probe;');
+  const error = new Error('Ledger filtered statistics repository is not implemented');
+  error.code = 'LEDGER_FILTERED_STATS_REPOSITORY_NOT_IMPLEMENTED';
+  throw error;
+}
+
 module.exports = {
   findLedgerRecordById,
   listLedgerRecords,
   normalizeLedgerFilters,
+  summarizeLedgerRecords,
 };

@@ -76,11 +76,17 @@ async function exportLedgerRecordsCsvForUser(user, query = {}) {
   return buildLedgerCsv(records);
 }
 
+async function getLedgerFilteredStatsForUser(user, query = {}) {
+  const scope = buildLedgerAccessScope(user);
+  return ledgerRecordsRepository.summarizeLedgerRecords(scope, toLedgerFilters(query));
+}
+
 module.exports = {
   ALLOWED_LEDGER_RECORD_ROLES,
   buildLedgerAccessScope,
   buildLedgerCsv,
   exportLedgerRecordsCsvForUser,
+  getLedgerFilteredStatsForUser,
   getLedgerRecordForUser,
   listLedgerRecordsForUser,
   toLedgerFilters,

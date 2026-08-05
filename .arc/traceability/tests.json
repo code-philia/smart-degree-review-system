@@ -921,6 +921,76 @@
     "first_line": "1",
     "scenario_id": null
   },
+  "FEAT-LEDGER-FILTERED-STATS:FUNC:001": {
+    "test_id": "FEAT-LEDGER-FILTERED-STATS:FUNC:001",
+    "req_id": "FEAT-LEDGER-FILTERED-STATS",
+    "interface_ids": [
+      "FUNC-FEAT-LEDGER-FILTERED-STATS-SERVICE",
+      "DB-FEAT-LEDGER-FILTERED-STATS-REPOSITORY"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/ledger-filtered-stats.integration.test.js",
+    "passed": null,
+    "first_line": "267",
+    "scenario_id": null
+  },
+  "FEAT-LEDGER-FILTERED-STATS:INTEGRATION:AUTHZ:001": {
+    "test_id": "FEAT-LEDGER-FILTERED-STATS:INTEGRATION:AUTHZ:001",
+    "req_id": "FEAT-LEDGER-FILTERED-STATS",
+    "interface_ids": [
+      "API-FEAT-LEDGER-FILTERED-STATS-EXPRESS-ROUTE"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/ledger-filtered-stats.integration.test.js",
+    "passed": null,
+    "first_line": "144",
+    "scenario_id": null
+  },
+  "FEAT-LEDGER-FILTERED-STATS:INTEGRATION:SCENARIO:001": {
+    "test_id": "FEAT-LEDGER-FILTERED-STATS:INTEGRATION:SCENARIO:001",
+    "req_id": "FEAT-LEDGER-FILTERED-STATS",
+    "interface_ids": [
+      "API-FEAT-LEDGER-FILTERED-STATS-EXPRESS-ROUTE",
+      "FUNC-FEAT-LEDGER-FILTERED-STATS-SERVICE",
+      "DB-FEAT-LEDGER-FILTERED-STATS-REPOSITORY"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/ledger-filtered-stats.integration.test.js",
+    "passed": null,
+    "first_line": "171",
+    "scenario_id": null
+  },
+  "FEAT-LEDGER-FILTERED-STATS:INTEGRATION:SCOPE:001": {
+    "test_id": "FEAT-LEDGER-FILTERED-STATS:INTEGRATION:SCOPE:001",
+    "req_id": "FEAT-LEDGER-FILTERED-STATS",
+    "interface_ids": [
+      "API-FEAT-LEDGER-FILTERED-STATS-EXPRESS-ROUTE",
+      "FUNC-FEAT-LEDGER-FILTERED-STATS-SERVICE",
+      "DB-FEAT-LEDGER-FILTERED-STATS-REPOSITORY"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/ledger-filtered-stats.integration.test.js",
+    "passed": null,
+    "first_line": "234",
+    "scenario_id": null
+  },
+  "FEAT-LEDGER-FILTERED-STATS:SCENARIO:001": {
+    "test_id": "FEAT-LEDGER-FILTERED-STATS:SCENARIO:001",
+    "req_id": "FEAT-LEDGER-FILTERED-STATS",
+    "interface_ids": [
+      "UI-FEAT-LEDGER-FILTERED-STATS-APP-ROUTE",
+      "UI-FEAT-LEDGER-FILTERED-STATS-PAGE",
+      "API-FEAT-LEDGER-FILTERED-STATS-CLIENT",
+      "API-FEAT-LEDGER-FILTERED-STATS-EXPRESS-ROUTE",
+      "FUNC-FEAT-LEDGER-FILTERED-STATS-SERVICE",
+      "DB-FEAT-LEDGER-FILTERED-STATS-REPOSITORY"
+    ],
+    "type": "E2E",
+    "file_path": "backend/test-e2e/ledger-filtered-stats.spec.js",
+    "passed": null,
+    "first_line": "126",
+    "scenario_id": null
+  },
   "FEAT-NORMATIVE-DETECT:E2E:SCENARIOS:001": {
     "test_id": "FEAT-NORMATIVE-DETECT:E2E:SCENARIOS:001",
     "req_id": "FEAT-NORMATIVE-DETECT",
