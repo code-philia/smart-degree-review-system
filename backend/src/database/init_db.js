@@ -276,6 +276,13 @@ async function initializeDatabase(options = {}) {
 
     await runStatement(
       database,
+      `UPDATE report_submissions
+          SET status = status
+        WHERE status IN ('submitted_pending_review', 'review_completed_feedback', 'student_viewed_feedback');`,
+    );
+
+    await runStatement(
+      database,
       `CREATE TABLE IF NOT EXISTS supervisor_review_feedback (
         id TEXT PRIMARY KEY,
         submission_id TEXT NOT NULL UNIQUE,

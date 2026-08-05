@@ -197,15 +197,16 @@
       "FEAT-AI-REVIEW-RESULT",
       "FEAT-REPORT-STUDENT-SUBMIT",
       "FEAT-REPORT-SUPERVISOR-QUEUE",
-      "FEAT-REPORT-SUPERVISOR-REVIEW"
+      "FEAT-REPORT-SUPERVISOR-REVIEW",
+      "FEAT-REPORT-STUDENT-RESULTS"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"req_id\": \"FEAT-REPORT-SUPERVISOR-REVIEW\", \"type\": \"API\", \"name\": \"Reused cookie-backed auth and authorization middleware\", \"file_path\": \"backend/src/auth/authRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse existing authenticated session recovery and requireAuth role enforcement before review data is returned or submitted.\", \"specification\": \"Review routes rely on requireAuth({ allowedRoles: ['SUPERVISOR'] }) through the existing auth middleware/session stack. Anonymous access is denied by session absence. STUDENT, SCHOOL_ADMIN, and COLLEGE_ADMIN are denied by role. Resource scope is additionally enforced by the review service/repository assignee_id check.\", \"inputs\": {\"session_cookie\": \"existing auth session cookie\"}, \"outputs\": {\"req.user\": \"authenticated user for SUPERVISOR requests\", \"401_or_403\": \"denied anonymous or unauthorized role requests\"}, \"callers\": [\"API-FEAT-REPORT-SUPERVISOR-REVIEW-EXPRESS-ROUTES\"], \"callees\": [\"backend/src/auth/sessionService.js\", \"DB-FEAT-AUTH-SESSION-SCHEMA\"], \"test_focus\": [\"Anonymous and declared denied roles cannot read report detail or submit review.\", \"SUPERVISOR identity is available for assignee scope enforcement.\"]}",
+    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"req_id\": \"FEAT-REPORT-STUDENT-RESULTS\", \"type\": \"API\", \"name\": \"Reused cookie-backed auth and role authorization middleware\", \"file_path\": \"backend/src/auth/authRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse existing authenticated session recovery and requireAuth role enforcement before student report result data is returned or status is changed.\", \"specification\": \"Student result routes call requireAuth({ allowedRoles: ['STUDENT'] }) before service execution. Anonymous requests are denied by session absence. SUPERVISOR, SCHOOL_ADMIN, and COLLEGE_ADMIN are denied by role at the backend boundary. Resource scope is additionally enforced downstream by querying report_submissions with the authenticated student's user id.\", \"inputs\": {\"session_cookie\": \"existing auth session cookie\"}, \"outputs\": {\"req.user\": \"authenticated STUDENT user for result queries\", \"401_or_403\": \"denied anonymous or unauthorized role requests\"}, \"callers\": [\"API-FEAT-REPORT-STUDENT-RESULTS-EXPRESS-ROUTES\"], \"callees\": [\"backend/src/auth/sessionService.js\", \"DB-FEAT-AUTH-SESSION-SCHEMA\"], \"test_focus\": [\"Anonymous users cannot list, open, or download student report results.\", \"SUPERVISOR, SCHOOL_ADMIN, and COLLEGE_ADMIN roles are rejected before data is returned or status mutates.\", \"Authenticated STUDENT identity is available for student_id scope enforcement.\"]}",
     "file_path": "backend/src/auth/authRoutes.js",
     "first_line": "1",
     "implemented": true,
     "callers": [
-      "API-FEAT-REPORT-SUPERVISOR-REVIEW-EXPRESS-ROUTES"
+      "API-FEAT-REPORT-STUDENT-RESULTS-EXPRESS-ROUTES"
     ],
     "callees": [
       "backend/src/auth/sessionService.js",
@@ -773,6 +774,60 @@
       "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
       "FUNC-FEAT-QUALITY-DASHBOARD-SERVICE",
       "API-FEAT-LEDGER-FILTERED-STATS-EXPRESS-ROUTE"
+    ]
+  },
+  "API-FEAT-REPORT-STUDENT-RESULTS-BACKEND-MOUNT": {
+    "interface_id": "API-FEAT-REPORT-STUDENT-RESULTS-BACKEND-MOUNT",
+    "req_ids": [
+      "FEAT-REPORT-STUDENT-RESULTS"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-REPORT-STUDENT-RESULTS-BACKEND-MOUNT\", \"req_id\": \"FEAT-REPORT-STUDENT-RESULTS\", \"type\": \"API\", \"name\": \"Student results normative route mount\", \"file_path\": \"backend/src/normative/normativeRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Mount student result endpoints inside the existing /api/normative route tree so the feature runs on the backend-hosted single origin.\", \"specification\": \"Adds reportStudentResultsRoutes and router.use('/student-report-results', reportStudentResultsRoutes) beside report-submissions and supervisor-review-queue. The feature does not create a second Express app or parallel route family.\", \"inputs\": {\"mount\": \"/api/normative/student-report-results\"}, \"outputs\": {\"connected_routes\": [\"GET /api/normative/student-report-results\", \"GET /api/normative/student-report-results/:submissionId\", \"GET /api/normative/student-report-results/:submissionId/download\"]}, \"callers\": [\"backend/src/app.js /api/normative mount\"], \"callees\": [\"API-FEAT-REPORT-STUDENT-RESULTS-EXPRESS-ROUTES\"], \"test_focus\": [\"Student results endpoints are reachable under the existing normative API prefix.\"]}",
+    "file_path": "backend/src/normative/normativeRoutes.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "backend/src/app.js /api/normative mount"
+    ],
+    "callees": [
+      "API-FEAT-REPORT-STUDENT-RESULTS-EXPRESS-ROUTES"
+    ]
+  },
+  "API-FEAT-REPORT-STUDENT-RESULTS-CLIENT": {
+    "interface_id": "API-FEAT-REPORT-STUDENT-RESULTS-CLIENT",
+    "req_ids": [
+      "FEAT-REPORT-STUDENT-RESULTS"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-REPORT-STUDENT-RESULTS-CLIENT\", \"req_id\": \"FEAT-REPORT-STUDENT-RESULTS\", \"type\": \"API\", \"name\": \"reportStudentResults frontend client\", \"file_path\": \"frontend/src/api/reportStudentResults.ts\", \"first_line\": \"1\", \"responsibility\": \"Expose typed same-origin Axios calls and DTOs for student result list, detail, first-view status update through detail open, and JSON download.\", \"specification\": \"Defines StudentReportResultStatus, StudentReportResultListFilters, StudentReportResultSummary, StudentReportResultDetail, and StudentReportResultDownload. fetchStudentReportResults(filters) calls GET /api/normative/student-report-results using shared Axios params. fetchStudentReportResultDetail(submissionId) calls GET /api/normative/student-report-results/:submissionId. downloadStudentReportResultJson(submissionId) calls GET /api/normative/student-report-results/:submissionId/download. The module uses frontend/src/api/index.ts so cookie-backed auth and global Axios interceptors remain consistent.\", \"inputs\": {\"fetchStudentReportResults\": \"StudentReportResultListFilters\", \"fetchStudentReportResultDetail\": {\"submissionId\": \"string\"}, \"downloadStudentReportResultJson\": {\"submissionId\": \"string\"}}, \"outputs\": {\"fetchStudentReportResults\": \"{ results: StudentReportResultSummary[] }\", \"fetchStudentReportResultDetail\": \"StudentReportResultDetail\", \"downloadStudentReportResultJson\": \"StudentReportResultDownload\"}, \"callers\": [\"UI-FEAT-REPORT-STUDENT-RESULTS-PAGE\"], \"callees\": [\"frontend/src/api/index.ts shared Axios client\", \"API-FEAT-REPORT-STUDENT-RESULTS-EXPRESS-ROUTES\"], \"test_focus\": [\"Serializes list filters as query params through shared Axios.\", \"Encodes submissionId in detail and download URLs.\", \"Does not bypass global auth/error interceptors.\"]}",
+    "file_path": "frontend/src/api/reportStudentResults.ts",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "UI-FEAT-REPORT-STUDENT-RESULTS-PAGE"
+    ],
+    "callees": [
+      "frontend/src/api/index.ts shared Axios client",
+      "API-FEAT-REPORT-STUDENT-RESULTS-EXPRESS-ROUTES"
+    ]
+  },
+  "API-FEAT-REPORT-STUDENT-RESULTS-EXPRESS-ROUTES": {
+    "interface_id": "API-FEAT-REPORT-STUDENT-RESULTS-EXPRESS-ROUTES",
+    "req_ids": [
+      "FEAT-REPORT-STUDENT-RESULTS"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-REPORT-STUDENT-RESULTS-EXPRESS-ROUTES\", \"req_id\": \"FEAT-REPORT-STUDENT-RESULTS\", \"type\": \"API\", \"name\": \"Student report results Express endpoints\", \"file_path\": \"backend/src/normative/reportStudentResultsRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Provide protected backend HTTP boundaries for listing the current student's reviewed submissions, opening one result detail with first-view status mutation, and downloading one result as UTF-8 JSON.\", \"specification\": \"Mounted under /api/normative/student-report-results from the existing normative route family. GET / lists the authenticated student's own submission rounds with optional time/source_type/status filters. GET /:submissionId returns detail and, if the current status is review_completed_feedback, updates the row to student_viewed_feedback before returning. GET /:submissionId/download returns JSON containing report summary, annotations, overall evaluation, and improvement suggestions. Every endpoint calls requireAuth({ allowedRoles: ['STUDENT'] }) before returning data or mutating state. Data scope is student-owned only: queries require report_submissions.student_id to equal req.user.id.\", \"inputs\": {\"GET_/\": {\"query\": \"StudentReportResultListFilters\", \"auth\": \"cookie-backed STUDENT session\"}, \"GET_/:submissionId\": {\"params\": {\"submissionId\": \"string\"}, \"auth\": \"cookie-backed STUDENT session\"}, \"GET_/:submissionId/download\": {\"params\": {\"submissionId\": \"string\"}, \"auth\": \"cookie-backed STUDENT session\"}}, \"outputs\": {\"GET_/_200\": \"{ results: StudentReportResultSummary[] }\", \"GET_/:submissionId_200\": \"StudentReportResultDetail\", \"download_200\": \"application/json; charset=utf-8 StudentReportResultDownload\", \"401\": \"anonymous session denied\", \"403\": \"declared denied role rejected\", \"404\": \"non-owned or missing completed feedback result not exposed\"}, \"callers\": [\"API-FEAT-REPORT-STUDENT-RESULTS-CLIENT\", \"backend/src/normative/normativeRoutes.js /student-report-results mount\"], \"callees\": [\"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"FUNC-FEAT-REPORT-STUDENT-RESULTS-SERVICE\"], \"test_focus\": [\"STUDENT can list only their own reviewed submissions.\", \"SUPERVISOR, SCHOOL_ADMIN, COLLEGE_ADMIN, and anonymous users cannot access endpoints.\", \"Opening a review_completed_feedback detail updates status to student_viewed_feedback.\", \"Download response contains report summary, annotations, evaluation, and suggestions for an owned result.\"]}",
+    "file_path": "backend/src/normative/reportStudentResultsRoutes.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "API-FEAT-REPORT-STUDENT-RESULTS-CLIENT",
+      "backend/src/normative/normativeRoutes.js /student-report-results mount"
+    ],
+    "callees": [
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+      "FUNC-FEAT-REPORT-STUDENT-RESULTS-SERVICE"
     ]
   },
   "API-FEAT-REPORT-STUDENT-SUBMIT-CLIENT": {
@@ -1493,6 +1548,24 @@
       "backend/src/database/index.js shared SQLite helpers"
     ]
   },
+  "DB-FEAT-REPORT-STUDENT-RESULTS-REPOSITORY": {
+    "interface_id": "DB-FEAT-REPORT-STUDENT-RESULTS-REPOSITORY",
+    "req_ids": [
+      "FEAT-REPORT-STUDENT-RESULTS"
+    ],
+    "type": "DB",
+    "content": "{\"interface_id\": \"DB-FEAT-REPORT-STUDENT-RESULTS-REPOSITORY\", \"req_id\": \"FEAT-REPORT-STUDENT-RESULTS\", \"type\": \"DB\", \"name\": \"reportStudentResultsRepository\", \"file_path\": \"backend/src/normative/reportStudentResultsRepository.js\", \"first_line\": \"1\", \"responsibility\": \"Provide SQLite-backed student-scoped read and first-view status update operations using the shared database runtime.\", \"specification\": \"Uses backend/src/database/db_runtime.js and existing report_submissions/supervisor_review_feedback tables. listStudentReportResults({ studentId, filters }) returns only rows where report_submissions.student_id matches the authenticated student and applies time/source_type/status filters in implementation. getStudentReportResult({ studentId, submissionId }) joins supervisor_review_feedback and returns only the student's own feedback result. markStudentFeedbackViewed({ studentId, submissionId }) updates status from review_completed_feedback to student_viewed_feedback only for the matching student-owned submission.\", \"inputs\": {\"studentId\": \"string\", \"submissionId\": \"string\", \"filters\": {\"from\": \"ISO date optional\", \"to\": \"ISO date optional\", \"source_type\": \"string optional\", \"status\": \"string optional\"}}, \"outputs\": {\"list_rows\": \"StudentReportResultSummary row projection\", \"detail_row\": \"joined submission + feedback row or null\", \"status_update\": \"student-owned conditional update\"}, \"callers\": [\"FUNC-FEAT-REPORT-STUDENT-RESULTS-SERVICE\"], \"callees\": [\"backend/src/database/db_runtime.js\", \"DB-FEAT-REPORT-SUPERVISOR-REVIEW-SCHEMA\"], \"test_focus\": [\"List and detail never return another student's submission.\", \"Filters are applied at query/runtime layer rather than in page-local fake data.\", \"Status update changes only matching owned review_completed_feedback rows.\", \"Database tests use shared isolated test DB harness.\"]}",
+    "file_path": "backend/src/normative/reportStudentResultsRepository.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "FUNC-FEAT-REPORT-STUDENT-RESULTS-SERVICE"
+    ],
+    "callees": [
+      "backend/src/database/db_runtime.js",
+      "DB-FEAT-REPORT-SUPERVISOR-REVIEW-SCHEMA"
+    ]
+  },
   "DB-FEAT-REPORT-STUDENT-SUBMIT-REPOSITORY": {
     "interface_id": "DB-FEAT-REPORT-STUDENT-SUBMIT-REPOSITORY",
     "req_ids": [
@@ -1570,16 +1643,16 @@
   "DB-FEAT-REPORT-SUPERVISOR-REVIEW-SCHEMA": {
     "interface_id": "DB-FEAT-REPORT-SUPERVISOR-REVIEW-SCHEMA",
     "req_ids": [
-      "FEAT-REPORT-SUPERVISOR-REVIEW"
+      "FEAT-REPORT-SUPERVISOR-REVIEW",
+      "FEAT-REPORT-STUDENT-RESULTS"
     ],
     "type": "DB",
-    "content": "{\"interface_id\": \"DB-FEAT-REPORT-SUPERVISOR-REVIEW-SCHEMA\", \"req_id\": \"FEAT-REPORT-SUPERVISOR-REVIEW\", \"type\": \"DB\", \"name\": \"Supervisor review feedback schema\", \"file_path\": \"backend/src/database/init_db.js\", \"first_line\": \"270\", \"responsibility\": \"Centralize durable schema support for locked supervisor feedback and the final review_completed_feedback submission state.\", \"specification\": \"Extends the shared database bootstrap rather than creating feature-local DB helpers. Adds supervisor_review_feedback with id, unique submission_id, supervisor_id, annotations_json, required overall_evaluation, optional improvement_suggestions, locked_at, and created_at. Allows report_submissions.status to represent both submitted_pending_review and review_completed_feedback so the review service can persist the final feedback status. Existing in_app_todos.status remains pending/done for todo completion.\", \"inputs\": {\"bootstrap\": \"initializeDatabase()\"}, \"outputs\": {\"tables\": [\"report_submissions with review_completed_feedback vocabulary\", \"supervisor_review_feedback\", \"in_app_todos pending/done reuse\"]}, \"callers\": [\"backend/src/database/index.js\", \"DB-FEAT-REPORT-SUPERVISOR-REVIEW-REPOSITORY\", \"backend/src/database/test_harness.js\"], \"callees\": [\"sqlite3 runtime database\"], \"test_focus\": [\"Schema initializes in isolated test databases.\", \"Feedback table enforces one locked review per submission.\", \"Final status and todo completion can be persisted together.\"]}",
+    "content": "{\"interface_id\": \"DB-FEAT-REPORT-SUPERVISOR-REVIEW-SCHEMA\", \"req_id\": \"FEAT-REPORT-STUDENT-RESULTS\", \"type\": \"DB\", \"name\": \"Reused supervisor feedback persistence schema\", \"file_path\": \"backend/src/database/init_db.js\", \"first_line\": \"270\", \"responsibility\": \"Reuse dependency-owned report_submissions and supervisor_review_feedback as the durable source of completed feedback results consumed by students.\", \"specification\": \"Student results do not create a parallel review table. They read report_submissions rows produced by student submission and supervisor review flows, join supervisor_review_feedback for locked annotations/evaluation/suggestions, and extend status vocabulary with student_viewed_feedback for the first-open read marker. Schema lifecycle remains centralized in backend/src/database/init_db.js and shared DB tests must use the scaffold harness.\", \"inputs\": {\"bootstrap\": \"initializeDatabase()\", \"existing_tables\": [\"report_submissions\", \"supervisor_review_feedback\"]}, \"outputs\": {\"status_vocabulary\": [\"submitted_pending_review\", \"review_completed_feedback\", \"student_viewed_feedback\"], \"feedback_fields\": [\"annotations_json\", \"overall_evaluation\", \"improvement_suggestions\", \"locked_at\"]}, \"callers\": [\"DB-FEAT-REPORT-STUDENT-RESULTS-REPOSITORY\", \"backend/src/database/test_harness.js\"], \"callees\": [\"sqlite3 runtime database\"], \"test_focus\": [\"Existing completed supervisor feedback can be read by student result queries.\", \"student_viewed_feedback status can be persisted centrally without feature-local database helpers.\"]}",
     "file_path": "backend/src/database/init_db.js",
     "first_line": "270",
     "implemented": true,
     "callers": [
-      "backend/src/database/index.js",
-      "DB-FEAT-REPORT-SUPERVISOR-REVIEW-REPOSITORY",
+      "DB-FEAT-REPORT-STUDENT-RESULTS-REPOSITORY",
       "backend/src/database/test_harness.js"
     ],
     "callees": [
@@ -2038,6 +2111,24 @@
     ],
     "callees": [
       "FUNC-FEAT-LEDGER-FILTERED-STATS-SERVICE"
+    ]
+  },
+  "FUNC-FEAT-REPORT-STUDENT-RESULTS-SERVICE": {
+    "interface_id": "FUNC-FEAT-REPORT-STUDENT-RESULTS-SERVICE",
+    "req_ids": [
+      "FEAT-REPORT-STUDENT-RESULTS"
+    ],
+    "type": "FUNC",
+    "content": "{\"interface_id\": \"FUNC-FEAT-REPORT-STUDENT-RESULTS-SERVICE\", \"req_id\": \"FEAT-REPORT-STUDENT-RESULTS\", \"type\": \"FUNC\", \"name\": \"reportStudentResultsService\", \"file_path\": \"backend/src/normative/reportStudentResultsService.js\", \"first_line\": \"1\", \"responsibility\": \"Own student role normalization, student-owned data scope, list/detail/download orchestration, and first-view feedback status transition.\", \"specification\": \"Exports ALLOWED_REPORT_STUDENT_RESULTS_ROLES = ['STUDENT'], ensureStudentResultsActor(user), listStudentReportResults(user, filters), getStudentReportResultDetail(user, submissionId), and buildStudentReportResultDownloadPayload(user, submissionId). The service rejects missing users with 401 and non-STUDENT users with 403. It passes only authenticated studentId to repository queries. Detail requires joined supervisor feedback; when status is review_completed_feedback, it calls markStudentFeedbackViewed and returns student_viewed_feedback. Download builds a deterministic JSON payload with report summary, annotations, overall evaluation, and improvement suggestions.\", \"inputs\": {\"user\": \"authenticated session user\", \"filters\": \"StudentReportResultListFilters\", \"submissionId\": \"string\"}, \"outputs\": {\"list\": \"{ results: StudentReportResultSummary[] }\", \"detail\": \"StudentReportResultDetail\", \"download\": \"StudentReportResultDownload\", \"errors\": [\"401 missing user\", \"403 non-student role\", \"404 missing/non-owned result\"]}, \"callers\": [\"API-FEAT-REPORT-STUDENT-RESULTS-EXPRESS-ROUTES\"], \"callees\": [\"DB-FEAT-REPORT-STUDENT-RESULTS-REPOSITORY\", \"DB-FEAT-REPORT-SUPERVISOR-REVIEW-SCHEMA\"], \"test_focus\": [\"Non-STUDENT actors are rejected before repository access.\", \"Detail read mutates only review_completed_feedback owned rows to student_viewed_feedback.\", \"Download payload includes summary, annotations, evaluation, and suggestions.\", \"No mutation occurs for missing or non-owned submissions.\"]}",
+    "file_path": "backend/src/normative/reportStudentResultsService.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "API-FEAT-REPORT-STUDENT-RESULTS-EXPRESS-ROUTES"
+    ],
+    "callees": [
+      "DB-FEAT-REPORT-STUDENT-RESULTS-REPOSITORY",
+      "DB-FEAT-REPORT-SUPERVISOR-REVIEW-SCHEMA"
     ]
   },
   "FUNC-FEAT-REPORT-STUDENT-SUBMIT-SERVICE": {
@@ -2843,6 +2934,41 @@
     ],
     "callees": [
       "API-FEAT-QUALITY-DASHBOARD-CLIENT"
+    ]
+  },
+  "UI-FEAT-REPORT-STUDENT-RESULTS-APP-ROUTE": {
+    "interface_id": "UI-FEAT-REPORT-STUDENT-RESULTS-APP-ROUTE",
+    "req_ids": [
+      "FEAT-REPORT-STUDENT-RESULTS"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-REPORT-STUDENT-RESULTS-APP-ROUTE\", \"req_id\": \"FEAT-REPORT-STUDENT-RESULTS\", \"type\": \"UI\", \"name\": \"Student results React route connector\", \"file_path\": \"frontend/src/App.tsx\", \"first_line\": \"1\", \"responsibility\": \"Connect the student report results page into the existing React route tree without creating a parallel frontend entrypoint.\", \"specification\": \"Adds imports and routes for /student-report-results and /student-report-results/:submissionId beside the existing student report submission and supervisor review routes. This connector keeps the feature reachable in the single Vite app that is built and served by the Express backend.\", \"inputs\": {\"routes\": [\"/student-report-results\", \"/student-report-results/:submissionId\"]}, \"outputs\": {\"element\": \"StudentReportResultsPage\"}, \"callers\": [\"React Router runtime\"], \"callees\": [\"UI-FEAT-REPORT-STUDENT-RESULTS-PAGE\"], \"test_focus\": [\"Navigating to list and detail URLs mounts StudentReportResultsPage.\"]}",
+    "file_path": "frontend/src/App.tsx",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "React Router runtime"
+    ],
+    "callees": [
+      "UI-FEAT-REPORT-STUDENT-RESULTS-PAGE"
+    ]
+  },
+  "UI-FEAT-REPORT-STUDENT-RESULTS-PAGE": {
+    "interface_id": "UI-FEAT-REPORT-STUDENT-RESULTS-PAGE",
+    "req_ids": [
+      "FEAT-REPORT-STUDENT-RESULTS"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-REPORT-STUDENT-RESULTS-PAGE\", \"req_id\": \"FEAT-REPORT-STUDENT-RESULTS\", \"type\": \"UI\", \"name\": \"StudentReportResultsPage\", \"file_path\": \"frontend/src/pages/StudentReportResultsPage.tsx\", \"first_line\": \"1\", \"responsibility\": \"Render the student-facing result list and detail experience for all owned submission rounds with filter controls, original report content, finding annotations, overall evaluation, improvement suggestions, history rounds, and JSON download action.\", \"specification\": \"Mounted at /student-report-results and /student-report-results/:submissionId through frontend/src/App.tsx. The list view calls fetchStudentReportResults with time/source_type/status filters and renders loading, empty, and error states instead of fallback rows. The detail view calls fetchStudentReportResultDetail(submissionId); opening a review_completed_feedback result triggers backend status transition to student_viewed_feedback through the detail endpoint. Download invokes downloadStudentReportResultJson(submissionId) and must surface the real API response rather than a fake success message.\", \"inputs\": {\"route_params\": {\"submissionId\": \"string | undefined\"}, \"filters\": {\"from\": \"ISO date optional\", \"to\": \"ISO date optional\", \"source_type\": \"normative | duplication | innovation | ai_review optional\", \"status\": \"submitted_pending_review | review_completed_feedback | student_viewed_feedback optional\"}, \"api_data\": [\"StudentReportResultSummary[]\", \"StudentReportResultDetail\"]}, \"outputs\": {\"rendered_states\": [\"loading\", \"empty list\", \"authorization/load error\", \"filtered list\", \"detail with original report/finding annotations/evaluation/suggestions/history\", \"download JSON action\"], \"api_calls\": [\"fetchStudentReportResults(filters)\", \"fetchStudentReportResultDetail(submissionId)\", \"downloadStudentReportResultJson(submissionId)\"]}, \"callers\": [\"frontend/src/App.tsx route /student-report-results\", \"frontend/src/App.tsx route /student-report-results/:submissionId\"], \"callees\": [\"API-FEAT-REPORT-STUDENT-RESULTS-CLIENT\"], \"test_focus\": [\"List uses runtime API data and exposes filters for time, report type, and status.\", \"Detail renders original report, finding annotations, overall evaluation, improvement suggestions, and history rounds.\", \"Opening first completed feedback detail results in a displayed student_viewed_feedback status after backend mutation.\", \"Download action calls the JSON download API for the selected submission.\"]}",
+    "file_path": "frontend/src/pages/StudentReportResultsPage.tsx",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "frontend/src/App.tsx route /student-report-results",
+      "frontend/src/App.tsx route /student-report-results/:submissionId"
+    ],
+    "callees": [
+      "API-FEAT-REPORT-STUDENT-RESULTS-CLIENT"
     ]
   },
   "UI-FEAT-REPORT-STUDENT-SUBMIT-PAGE": {

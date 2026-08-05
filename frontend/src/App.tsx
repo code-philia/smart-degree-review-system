@@ -21,6 +21,7 @@ import NormativeReportPage from './pages/NormativeReportPage';
 import PolishHistoryPage from './pages/PolishHistoryPage';
 import QualityDashboardPage from './pages/QualityDashboardPage';
 import StudentQualityPortraitPage from './pages/StudentQualityPortraitPage';
+import StudentReportResultsPage from './pages/StudentReportResultsPage';
 import StudentReportSubmissionPage from './pages/StudentReportSubmissionPage';
 import SupervisorReviewQueuePage from './pages/SupervisorReviewQueuePage';
 import SupervisorReviewPage from './pages/SupervisorReviewPage';
@@ -40,6 +41,8 @@ function App() {
       <Route path="/student-quality-portrait" element={<StudentQualityPortraitPage />} />
       <Route path="/student-quality-portrait/:studentId" element={<StudentQualityPortraitPage />} />
       <Route path="/student-report-submissions" element={<StudentReportSubmissionPage />} />
+      <Route path="/student-report-results" element={<StudentReportResultsPage />} />
+      <Route path="/student-report-results/:submissionId" element={<StudentReportResultsPage />} />
       <Route path="/supervisor-review-queue" element={<SupervisorReviewQueuePage />} />
       <Route path="/supervisor-review-queue/:submissionId" element={<SupervisorReviewPage />} />
       <Route path="/rule-config" element={<RuleConfigPage />} />

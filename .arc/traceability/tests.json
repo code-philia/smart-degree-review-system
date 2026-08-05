@@ -1456,6 +1456,133 @@
     "first_line": "1",
     "scenario_id": null
   },
+  "FEAT-REPORT-STUDENT-RESULTS:API-CLIENT:001": {
+    "test_id": "FEAT-REPORT-STUDENT-RESULTS:API-CLIENT:001",
+    "req_id": "FEAT-REPORT-STUDENT-RESULTS",
+    "interface_ids": [
+      "API-FEAT-REPORT-STUDENT-RESULTS-CLIENT"
+    ],
+    "type": "Integration",
+    "file_path": "frontend/tests/report-student-results.test.tsx",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-REPORT-STUDENT-RESULTS:E2E:SCENARIO:001": {
+    "test_id": "FEAT-REPORT-STUDENT-RESULTS:E2E:SCENARIO:001",
+    "req_id": "FEAT-REPORT-STUDENT-RESULTS",
+    "interface_ids": [
+      "UI-FEAT-REPORT-STUDENT-RESULTS-PAGE",
+      "UI-FEAT-REPORT-STUDENT-RESULTS-APP-ROUTE",
+      "API-FEAT-REPORT-STUDENT-RESULTS-CLIENT",
+      "API-FEAT-REPORT-STUDENT-RESULTS-EXPRESS-ROUTES",
+      "FUNC-FEAT-REPORT-STUDENT-RESULTS-SERVICE",
+      "DB-FEAT-REPORT-STUDENT-RESULTS-REPOSITORY",
+      "DB-FEAT-REPORT-SUPERVISOR-REVIEW-SCHEMA"
+    ],
+    "type": "E2E",
+    "file_path": "backend/test-e2e/report-student-results.spec.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-REPORT-STUDENT-RESULTS:INTEGRATION:AUTHZ:001": {
+    "test_id": "FEAT-REPORT-STUDENT-RESULTS:INTEGRATION:AUTHZ:001",
+    "req_id": "FEAT-REPORT-STUDENT-RESULTS",
+    "interface_ids": [
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+      "API-FEAT-REPORT-STUDENT-RESULTS-EXPRESS-ROUTES",
+      "FUNC-FEAT-REPORT-STUDENT-RESULTS-SERVICE"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/report-student-results.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-REPORT-STUDENT-RESULTS:INTEGRATION:DOWNLOAD:001": {
+    "test_id": "FEAT-REPORT-STUDENT-RESULTS:INTEGRATION:DOWNLOAD:001",
+    "req_id": "FEAT-REPORT-STUDENT-RESULTS",
+    "interface_ids": [
+      "API-FEAT-REPORT-STUDENT-RESULTS-EXPRESS-ROUTES",
+      "FUNC-FEAT-REPORT-STUDENT-RESULTS-SERVICE"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/report-student-results.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-REPORT-STUDENT-RESULTS:INTEGRATION:FILTERS:001": {
+    "test_id": "FEAT-REPORT-STUDENT-RESULTS:INTEGRATION:FILTERS:001",
+    "req_id": "FEAT-REPORT-STUDENT-RESULTS",
+    "interface_ids": [
+      "API-FEAT-REPORT-STUDENT-RESULTS-EXPRESS-ROUTES",
+      "DB-FEAT-REPORT-STUDENT-RESULTS-REPOSITORY",
+      "DB-FEAT-REPORT-SUPERVISOR-REVIEW-SCHEMA"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/report-student-results.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-REPORT-STUDENT-RESULTS:INTEGRATION:SCENARIO:001": {
+    "test_id": "FEAT-REPORT-STUDENT-RESULTS:INTEGRATION:SCENARIO:001",
+    "req_id": "FEAT-REPORT-STUDENT-RESULTS",
+    "interface_ids": [
+      "API-FEAT-REPORT-STUDENT-RESULTS-EXPRESS-ROUTES",
+      "FUNC-FEAT-REPORT-STUDENT-RESULTS-SERVICE",
+      "DB-FEAT-REPORT-STUDENT-RESULTS-REPOSITORY",
+      "DB-FEAT-REPORT-SUPERVISOR-REVIEW-SCHEMA"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/report-student-results.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-REPORT-STUDENT-RESULTS:UI:DOWNLOAD:001": {
+    "test_id": "FEAT-REPORT-STUDENT-RESULTS:UI:DOWNLOAD:001",
+    "req_id": "FEAT-REPORT-STUDENT-RESULTS",
+    "interface_ids": [
+      "UI-FEAT-REPORT-STUDENT-RESULTS-PAGE",
+      "API-FEAT-REPORT-STUDENT-RESULTS-CLIENT"
+    ],
+    "type": "Integration",
+    "file_path": "frontend/tests/report-student-results.test.tsx",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-REPORT-STUDENT-RESULTS:UI:LIST-FILTERS:001": {
+    "test_id": "FEAT-REPORT-STUDENT-RESULTS:UI:LIST-FILTERS:001",
+    "req_id": "FEAT-REPORT-STUDENT-RESULTS",
+    "interface_ids": [
+      "UI-FEAT-REPORT-STUDENT-RESULTS-PAGE",
+      "UI-FEAT-REPORT-STUDENT-RESULTS-APP-ROUTE",
+      "API-FEAT-REPORT-STUDENT-RESULTS-CLIENT"
+    ],
+    "type": "Integration",
+    "file_path": "frontend/tests/report-student-results.test.tsx",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-REPORT-STUDENT-RESULTS:UI:SCENARIO:001": {
+    "test_id": "FEAT-REPORT-STUDENT-RESULTS:UI:SCENARIO:001",
+    "req_id": "FEAT-REPORT-STUDENT-RESULTS",
+    "interface_ids": [
+      "UI-FEAT-REPORT-STUDENT-RESULTS-PAGE",
+      "UI-FEAT-REPORT-STUDENT-RESULTS-APP-ROUTE",
+      "API-FEAT-REPORT-STUDENT-RESULTS-CLIENT"
+    ],
+    "type": "Integration",
+    "file_path": "frontend/tests/report-student-results.test.tsx",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
   "FEAT-REPORT-STUDENT-SUBMIT:E2E:SCENARIOS": {
     "test_id": "FEAT-REPORT-STUDENT-SUBMIT:E2E:SCENARIOS",
     "req_id": "FEAT-REPORT-STUDENT-SUBMIT",
