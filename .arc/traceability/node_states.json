@@ -139,9 +139,9 @@
   },
   "FEAT-REPORT-STUDENT-RESULTS": {
     "req_id": "FEAT-REPORT-STUDENT-RESULTS",
-    "state": "DESIGNED",
-    "phase": "design",
-    "updated_at": "2026-08-05 08:16:38"
+    "state": "PASSED",
+    "phase": "test",
+    "updated_at": "2026-08-05 08:25:27"
   },
   "FEAT-REPORT-STUDENT-SUBMIT": {
     "req_id": "FEAT-REPORT-STUDENT-SUBMIT",

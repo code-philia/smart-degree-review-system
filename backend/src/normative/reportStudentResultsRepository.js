@@ -1,6 +1,35 @@
 const db = require('../database/db_runtime');
 
+function buildStudentReportResultFilterClause(filters = {}) {
+  const where = ['submission.student_id = ?'];
+  const params = [];
+
+  if (filters.from) {
+    where.push('date(submission.created_at) >= date(?)');
+    params.push(filters.from);
+  }
+  if (filters.to) {
+    where.push('date(submission.created_at) <= date(?)');
+    params.push(filters.to);
+  }
+  if (filters.source_type) {
+    where.push('submission.source_type = ?');
+    params.push(filters.source_type);
+  }
+  if (filters.status) {
+    where.push('submission.status = ?');
+    params.push(filters.status);
+  }
+  if (filters.report_id) {
+    where.push('submission.report_id = ?');
+    params.push(filters.report_id);
+  }
+
+  return { where: where.join(' AND '), params };
+}
+
 async function listStudentReportResults({ studentId, filters = {} }) {
+  const { where, params } = buildStudentReportResultFilterClause(filters);
   return db.all(
     `SELECT
         submission.id AS submission_id,
@@ -13,9 +42,9 @@ async function listStudentReportResults({ studentId, filters = {} }) {
        FROM report_submissions AS submission
        LEFT JOIN supervisor_review_feedback AS feedback
          ON feedback.submission_id = submission.id
-      WHERE submission.student_id = ?
-      ORDER BY submission.created_at DESC`,
-    [studentId],
+      WHERE ${where}
+      ORDER BY datetime(submission.created_at) DESC, submission.created_at DESC, submission.id DESC`,
+    [studentId, ...params],
   );
 }
 
@@ -44,7 +73,7 @@ async function getStudentReportResult({ studentId, submissionId }) {
 }
 
 async function markStudentFeedbackViewed({ studentId, submissionId }) {
-  await db.run(
+  const result = await db.run(
     `UPDATE report_submissions
         SET status = 'student_viewed_feedback'
       WHERE id = ?
@@ -52,6 +81,7 @@ async function markStudentFeedbackViewed({ studentId, submissionId }) {
         AND status = 'review_completed_feedback'`,
     [submissionId, studentId],
   );
+  return result.changes > 0;
 }
 
 module.exports = {
