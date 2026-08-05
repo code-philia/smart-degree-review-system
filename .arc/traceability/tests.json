@@ -1529,6 +1529,69 @@
     "first_line": "1",
     "scenario_id": null
   },
+  "FEAT-REPORT-SUPERVISOR-QUEUE:E2E:SCENARIO:001": {
+    "test_id": "FEAT-REPORT-SUPERVISOR-QUEUE:E2E:SCENARIO:001",
+    "req_id": "FEAT-REPORT-SUPERVISOR-QUEUE",
+    "interface_ids": [
+      "UI-FEAT-REPORT-SUPERVISOR-QUEUE-PAGE",
+      "API-FEAT-REPORT-SUPERVISOR-QUEUE-CLIENT",
+      "API-FEAT-REPORT-SUPERVISOR-QUEUE-EXPRESS-ROUTES",
+      "FUNC-FEAT-REPORT-SUPERVISOR-QUEUE-SERVICE",
+      "DB-FEAT-REPORT-SUPERVISOR-QUEUE-REPOSITORY",
+      "DB-FEAT-REPORT-STUDENT-SUBMIT-SCHEMA",
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+      "API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT"
+    ],
+    "type": "E2E",
+    "file_path": "backend/test-e2e/report-supervisor-queue.spec.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-REPORT-SUPERVISOR-QUEUE:INTEGRATION:API-DB:001": {
+    "test_id": "FEAT-REPORT-SUPERVISOR-QUEUE:INTEGRATION:API-DB:001",
+    "req_id": "FEAT-REPORT-SUPERVISOR-QUEUE",
+    "interface_ids": [
+      "API-FEAT-REPORT-SUPERVISOR-QUEUE-EXPRESS-ROUTES",
+      "FUNC-FEAT-REPORT-SUPERVISOR-QUEUE-SERVICE",
+      "DB-FEAT-REPORT-SUPERVISOR-QUEUE-REPOSITORY",
+      "DB-FEAT-REPORT-STUDENT-SUBMIT-SCHEMA",
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+      "API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/report-supervisor-queue.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-REPORT-SUPERVISOR-QUEUE:INTEGRATION:UI-CLIENT:001": {
+    "test_id": "FEAT-REPORT-SUPERVISOR-QUEUE:INTEGRATION:UI-CLIENT:001",
+    "req_id": "FEAT-REPORT-SUPERVISOR-QUEUE",
+    "interface_ids": [
+      "UI-FEAT-REPORT-SUPERVISOR-QUEUE-PAGE",
+      "API-FEAT-REPORT-SUPERVISOR-QUEUE-CLIENT"
+    ],
+    "type": "Integration",
+    "file_path": "frontend/tests/report-supervisor-queue.test.tsx",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-REPORT-SUPERVISOR-QUEUE:UNIT:SERVICE:001": {
+    "test_id": "FEAT-REPORT-SUPERVISOR-QUEUE:UNIT:SERVICE:001",
+    "req_id": "FEAT-REPORT-SUPERVISOR-QUEUE",
+    "interface_ids": [
+      "FUNC-FEAT-REPORT-SUPERVISOR-QUEUE-SERVICE",
+      "DB-FEAT-REPORT-SUPERVISOR-QUEUE-REPOSITORY",
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES"
+    ],
+    "type": "Unit",
+    "file_path": "backend/tests/report-supervisor-queue.unit.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
   "FEAT-RULE-TEMPLATE-UPLOAD:E2E:SCENARIOS:001": {
     "test_id": "FEAT-RULE-TEMPLATE-UPLOAD:E2E:SCENARIOS:001",
     "req_id": "FEAT-RULE-TEMPLATE-UPLOAD",

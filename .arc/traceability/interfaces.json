@@ -195,15 +195,16 @@
       "FEAT-AI-REVIEW-RUBRICS",
       "FEAT-AI-REVIEW-RUN",
       "FEAT-AI-REVIEW-RESULT",
-      "FEAT-REPORT-STUDENT-SUBMIT"
+      "FEAT-REPORT-STUDENT-SUBMIT",
+      "FEAT-REPORT-SUPERVISOR-QUEUE"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"req_id\": \"FEAT-REPORT-STUDENT-SUBMIT\", \"type\": \"API\", \"name\": \"Existing auth/session authorization boundary\", \"file_path\": \"backend/src/auth/authRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse cookie-backed authentication and requireAuth authorization before report submission state changes occur.\", \"specification\": \"The submission route relies on existing requireAuth/session behavior. This node does not mutate auth state, but server authorization is mandatory. Allowed role is STUDENT only; declared denied roles are SUPERVISOR, SCHOOL_ADMIN, and COLLEGE_ADMIN; anonymous users are denied by session middleware before service writes. Resource scope is per authenticated student: selected reports must be completed and owned by the current student.\", \"inputs\": [\"Cookie-backed session\", \"Allowed roles ['STUDENT']\"], \"outputs\": [\"req.user for authenticated student requests\", \"401/403 before state mutation when unauthorized\"], \"callers\": [\"API-FEAT-REPORT-STUDENT-SUBMIT-EXPRESS-ROUTE\"], \"callees\": [\"backend/src/auth/sessionService.js\", \"DB-FEAT-AUTH-SESSION-SCHEMA\"], \"test_focus\": \"Assert authorization occurs before creating submission records or todos.\"}",
+    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"req_id\": \"FEAT-REPORT-SUPERVISOR-QUEUE\", \"type\": \"API\", \"name\": \"Existing auth/session authorization boundary\", \"file_path\": \"backend/src/auth/authRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse cookie-backed authentication and requireAuth authorization before supervisor queue records or counts are returned.\", \"specification\": \"The supervisor queue routes rely on existing requireAuth/session behavior and do not mutate auth state. Allowed role is SUPERVISOR only; declared denied roles are STUDENT, SCHOOL_ADMIN, and COLLEGE_ADMIN. Anonymous users are denied before service access. Resource scope is per authenticated supervisor: records and badge counts must use the current user id as in_app_todos.assignee_id.\", \"inputs\": [\"Cookie-backed session\", \"Allowed roles ['SUPERVISOR']\"], \"outputs\": [\"req.user for authenticated supervisor requests\", \"401/403 before queue data is returned\"], \"callers\": [\"API-FEAT-REPORT-SUPERVISOR-QUEUE-EXPRESS-ROUTES\"], \"callees\": [\"backend/src/auth/sessionService.js\", \"DB-FEAT-AUTH-SESSION-SCHEMA\"], \"test_focus\": \"Assert authorization occurs before listing queue rows or badge counts.\"}",
     "file_path": "backend/src/auth/authRoutes.js",
     "first_line": "1",
     "implemented": true,
     "callers": [
-      "API-FEAT-REPORT-STUDENT-SUBMIT-EXPRESS-ROUTE"
+      "API-FEAT-REPORT-SUPERVISOR-QUEUE-EXPRESS-ROUTES"
     ],
     "callees": [
       "backend/src/auth/sessionService.js",
@@ -523,19 +524,20 @@
       "FEAT-DUPLICATION-HISTORY",
       "FEAT-POLISH-WHOLE",
       "FEAT-AI-REVIEW-RUBRICS",
-      "FEAT-REPORT-STUDENT-SUBMIT"
+      "FEAT-REPORT-STUDENT-SUBMIT",
+      "FEAT-REPORT-SUPERVISOR-QUEUE"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT\", \"req_id\": \"FEAT-REPORT-STUDENT-SUBMIT\", \"type\": \"API\", \"name\": \"Existing /api/normative mount\", \"file_path\": \"backend/src/app.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse the existing backend-hosted /api/normative route tree so student report submission runs on the single Express origin.\", \"specification\": \"The current node extends the existing normative route family rather than introducing a parallel server or route tree. backend/src/normative/normativeRoutes.js now mounts reportSubmissionRoutes at /report-submissions under the app-level /api/normative prefix.\", \"inputs\": [\"Express app routing\"], \"outputs\": [\"/api/normative/report-submissions available on backend-hosted origin\"], \"callers\": [\"backend/src/index.js server startup\", \"API-FEAT-REPORT-STUDENT-SUBMIT-CLIENT\"], \"callees\": [\"API-FEAT-REPORT-STUDENT-SUBMIT-EXPRESS-ROUTE\"], \"test_focus\": \"Verify the route is reachable through /api/normative/report-submissions on the backend-hosted origin.\"}",
+    "content": "{\"interface_id\": \"API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT\", \"req_id\": \"FEAT-REPORT-SUPERVISOR-QUEUE\", \"type\": \"API\", \"name\": \"Existing /api/normative mount\", \"file_path\": \"backend/src/app.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse the existing backend-hosted /api/normative route tree so the supervisor queue runs on the single Express origin.\", \"specification\": \"The current node extends the existing normative route family rather than introducing a parallel server or route tree. backend/src/normative/normativeRoutes.js mounts reportSupervisorQueueRoutes at /supervisor-review-queue under the app-level /api/normative prefix.\", \"inputs\": [\"Express app routing\"], \"outputs\": [\"/api/normative/supervisor-review-queue available on backend-hosted origin\", \"/api/normative/supervisor-review-queue/badge available on backend-hosted origin\"], \"callers\": [\"backend/src/index.js server startup\", \"API-FEAT-REPORT-SUPERVISOR-QUEUE-CLIENT\"], \"callees\": [\"API-FEAT-REPORT-SUPERVISOR-QUEUE-EXPRESS-ROUTES\"], \"test_focus\": \"Verify both queue endpoints are reachable through /api/normative on the backend-hosted origin.\"}",
     "file_path": "backend/src/app.js",
     "first_line": "1",
     "implemented": true,
     "callers": [
       "backend/src/index.js server startup",
-      "API-FEAT-REPORT-STUDENT-SUBMIT-CLIENT"
+      "API-FEAT-REPORT-SUPERVISOR-QUEUE-CLIENT"
     ],
     "callees": [
-      "API-FEAT-REPORT-STUDENT-SUBMIT-EXPRESS-ROUTE"
+      "API-FEAT-REPORT-SUPERVISOR-QUEUE-EXPRESS-ROUTES"
     ]
   },
   "API-FEAT-NORMATIVE-FORMAT-RULES-CLIENT": {
@@ -808,6 +810,45 @@
     "callees": [
       "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
       "FUNC-FEAT-REPORT-STUDENT-SUBMIT-SERVICE"
+    ]
+  },
+  "API-FEAT-REPORT-SUPERVISOR-QUEUE-CLIENT": {
+    "interface_id": "API-FEAT-REPORT-SUPERVISOR-QUEUE-CLIENT",
+    "req_ids": [
+      "FEAT-REPORT-SUPERVISOR-QUEUE"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-REPORT-SUPERVISOR-QUEUE-CLIENT\", \"req_id\": \"FEAT-REPORT-SUPERVISOR-QUEUE\", \"type\": \"API\", \"name\": \"reportSupervisorQueue client\", \"file_path\": \"frontend/src/api/reportSupervisorQueue.ts\", \"first_line\": \"1\", \"responsibility\": \"Expose typed same-origin Axios calls for supervisors to list their review queue and fetch the incomplete-task badge count through the shared frontend API client and interceptors.\", \"specification\": \"Defines SupervisorReviewTodoStatus, SupervisorReviewQueueFilters, SupervisorReviewQueueItem, SupervisorReviewQueueResponse, and SupervisorReviewQueueBadgeResponse. fetchSupervisorReviewQueue(filters) calls GET /api/normative/supervisor-review-queue with query params. fetchSupervisorReviewQueueBadge() calls GET /api/normative/supervisor-review-queue/badge. Both use frontend/src/api/index.ts rather than a separate HTTP client.\", \"inputs\": [\"SupervisorReviewQueueFilters: { student_id?, source_type?, status? }\"], \"outputs\": [\"SupervisorReviewQueueResponse: { records, unread_count }\", \"SupervisorReviewQueueBadgeResponse: { unread_count }\"], \"callers\": [\"UI-FEAT-REPORT-SUPERVISOR-QUEUE-PAGE\", \"future supervisor navigation badge\"], \"callees\": [\"frontend/src/api/index.ts shared Axios client\", \"API-FEAT-REPORT-SUPERVISOR-QUEUE-EXPRESS-ROUTES\"], \"test_focus\": \"Verify GET paths, query serialization, response typing, and shared Axios client usage.\"}",
+    "file_path": "frontend/src/api/reportSupervisorQueue.ts",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "UI-FEAT-REPORT-SUPERVISOR-QUEUE-PAGE",
+      "future supervisor navigation badge"
+    ],
+    "callees": [
+      "frontend/src/api/index.ts shared Axios client",
+      "API-FEAT-REPORT-SUPERVISOR-QUEUE-EXPRESS-ROUTES"
+    ]
+  },
+  "API-FEAT-REPORT-SUPERVISOR-QUEUE-EXPRESS-ROUTES": {
+    "interface_id": "API-FEAT-REPORT-SUPERVISOR-QUEUE-EXPRESS-ROUTES",
+    "req_ids": [
+      "FEAT-REPORT-SUPERVISOR-QUEUE"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-REPORT-SUPERVISOR-QUEUE-EXPRESS-ROUTES\", \"req_id\": \"FEAT-REPORT-SUPERVISOR-QUEUE\", \"type\": \"API\", \"name\": \"GET /api/normative/supervisor-review-queue\", \"file_path\": \"backend/src/normative/reportSupervisorQueueRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Provide the protected backend HTTP boundary for supervisors to list their assigned review todos and retrieve the incomplete todo badge count.\", \"specification\": \"Mounted under the existing /api/normative route tree at /supervisor-review-queue. GET / requires requireAuth({ allowedRoles: ['SUPERVISOR'] }) before service access and returns { records, unread_count }. GET /badge uses the same authorization and returns { unread_count }. Anonymous requests are denied by session middleware; STUDENT, SCHOOL_ADMIN, and COLLEGE_ADMIN are denied with 403. Data scope is mandatory: returned records and counts must be based only on in_app_todos.assignee_id matching the authenticated supervisor id.\", \"inputs\": [\"Cookie-backed authenticated req.user\", \"Query params { student_id?, source_type?, status? }\"], \"outputs\": [\"200 SupervisorReviewQueueResponse\", \"200 SupervisorReviewQueueBadgeResponse\", \"401 anonymous/session failure\", \"403 non-supervisor role\", \"400 invalid filter values after implementation\"], \"callers\": [\"backend/src/normative/normativeRoutes.js /supervisor-review-queue mount\", \"API-FEAT-REPORT-SUPERVISOR-QUEUE-CLIENT\", \"backend Supertest integration tests\"], \"callees\": [\"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"FUNC-FEAT-REPORT-SUPERVISOR-QUEUE-SERVICE\"], \"test_focus\": \"Assert supervisor01 only receives todos assigned to supervisor01, other supervisor todos are excluded from records and unread_count, non-supervisor roles are forbidden, anonymous access is denied, and filters are passed to the service.\"}",
+    "file_path": "backend/src/normative/reportSupervisorQueueRoutes.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "backend/src/normative/normativeRoutes.js /supervisor-review-queue mount",
+      "API-FEAT-REPORT-SUPERVISOR-QUEUE-CLIENT",
+      "backend Supertest integration tests"
+    ],
+    "callees": [
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+      "FUNC-FEAT-REPORT-SUPERVISOR-QUEUE-SERVICE"
     ]
   },
   "API-FEAT-RULE-TEMPLATE-UPLOAD-CLIENT": {
@@ -1434,20 +1475,39 @@
   "DB-FEAT-REPORT-STUDENT-SUBMIT-SCHEMA": {
     "interface_id": "DB-FEAT-REPORT-STUDENT-SUBMIT-SCHEMA",
     "req_ids": [
-      "FEAT-REPORT-STUDENT-SUBMIT"
+      "FEAT-REPORT-STUDENT-SUBMIT",
+      "FEAT-REPORT-SUPERVISOR-QUEUE"
     ],
     "type": "DB",
-    "content": "{\"interface_id\": \"DB-FEAT-REPORT-STUDENT-SUBMIT-SCHEMA\", \"req_id\": \"FEAT-REPORT-STUDENT-SUBMIT\", \"type\": \"DB\", \"name\": \"report_submissions and in_app_todos schema\", \"file_path\": \"backend/src/database/init_db.js\", \"first_line\": \"258\", \"responsibility\": \"Centralize durable schema for student report submissions and supervisor in-app todos in the shared SQLite bootstrap lifecycle.\", \"specification\": \"Adds idempotent CREATE TABLE IF NOT EXISTS statements for report_submissions and in_app_todos. report_submissions stores id, batch_id, student_id, supervisor_id, source_type constrained to normative/duplication/innovation/ai_review, report_id, status constrained to submitted_pending_review, and created_at. in_app_todos stores id, submission_id, assignee_id, actor_id, status constrained to pending/done, title, and created_at. Foreign keys link students, supervisors, todo assignees/actors, and submissions through auth_users/report_submissions.\", \"inputs\": [\"initializeDatabase lifecycle\"], \"outputs\": [\"SQLite tables report_submissions and in_app_todos available to repository code\"], \"callers\": [\"backend/src/database/initializeDatabase\", \"DB-FEAT-REPORT-STUDENT-SUBMIT-REPOSITORY\"], \"callees\": [\"backend/src/database/db_runtime.js\", \"DB-FEAT-AUTH-SESSION-SCHEMA\"], \"test_focus\": \"Initialize an isolated database and assert tables, status/source constraints, and foreign-key behavior support submission and todo persistence.\"}",
+    "content": "{\"interface_id\": \"DB-FEAT-REPORT-STUDENT-SUBMIT-SCHEMA\", \"req_id\": \"FEAT-REPORT-SUPERVISOR-QUEUE\", \"type\": \"DB\", \"name\": \"report_submissions and in_app_todos schema\", \"file_path\": \"backend/src/database/init_db.js\", \"first_line\": \"258\", \"responsibility\": \"Reuse the dependency-owned durable schema for student report submissions and supervisor in-app todos as the source tables for the supervisor review queue.\", \"specification\": \"The current node does not create parallel tables. It reads report_submissions and in_app_todos created by FEAT-REPORT-STUDENT-SUBMIT. report_submissions provides student_id, supervisor_id, source_type, report_id, submission status, and created_at. in_app_todos provides assignee_id, actor_id, todo status, title, and created_at. Queue reads must respect the existing foreign keys and status/source constraints.\", \"inputs\": [\"initializeDatabase lifecycle\", \"Rows created by DB-FEAT-REPORT-STUDENT-SUBMIT-REPOSITORY\"], \"outputs\": [\"SQLite tables report_submissions and in_app_todos available for scoped queue reads\"], \"callers\": [\"DB-FEAT-REPORT-SUPERVISOR-QUEUE-REPOSITORY\", \"backend/src/database/initializeDatabase\"], \"callees\": [\"backend/src/database/db_runtime.js\", \"DB-FEAT-AUTH-SESSION-SCHEMA\"], \"test_focus\": \"Initialize isolated DB and verify the existing schema supports assignee-scoped queue joins and incomplete todo counting.\"}",
     "file_path": "backend/src/database/init_db.js",
     "first_line": "258",
     "implemented": true,
     "callers": [
-      "backend/src/database/initializeDatabase",
-      "DB-FEAT-REPORT-STUDENT-SUBMIT-REPOSITORY"
+      "DB-FEAT-REPORT-SUPERVISOR-QUEUE-REPOSITORY",
+      "backend/src/database/initializeDatabase"
     ],
     "callees": [
       "backend/src/database/db_runtime.js",
       "DB-FEAT-AUTH-SESSION-SCHEMA"
+    ]
+  },
+  "DB-FEAT-REPORT-SUPERVISOR-QUEUE-REPOSITORY": {
+    "interface_id": "DB-FEAT-REPORT-SUPERVISOR-QUEUE-REPOSITORY",
+    "req_ids": [
+      "FEAT-REPORT-SUPERVISOR-QUEUE"
+    ],
+    "type": "DB",
+    "content": "{\"interface_id\": \"DB-FEAT-REPORT-SUPERVISOR-QUEUE-REPOSITORY\", \"req_id\": \"FEAT-REPORT-SUPERVISOR-QUEUE\", \"type\": \"DB\", \"name\": \"reportSupervisorQueueRepository\", \"file_path\": \"backend/src/normative/reportSupervisorQueueRepository.js\", \"first_line\": \"1\", \"responsibility\": \"Read supervisor-assigned in-app review todos from the shared SQLite runtime without creating a separate database connection.\", \"specification\": \"Exports listSupervisorReviewTodos({ supervisorId, filters }) and countIncompleteSupervisorReviewTodos({ supervisorId }). Implementation must query in_app_todos joined to report_submissions, constrain in_app_todos.assignee_id = supervisorId, optionally filter by report_submissions.student_id, report_submissions.source_type, and in_app_todos.status, order pending todos before done todos and then by in_app_todos.created_at DESC, and compute unread_count from status != 'done' for the same assignee scope. Uses backend/src/database/db_runtime.js helpers only.\", \"inputs\": [\"supervisorId from FUNC-FEAT-REPORT-SUPERVISOR-QUEUE-SERVICE\", \"filters { student_id?, source_type?, status? }\"], \"outputs\": [\"SupervisorReviewQueueResponse: { records, unread_count }\", \"SupervisorReviewQueueBadgeResponse: { unread_count }\"], \"callers\": [\"FUNC-FEAT-REPORT-SUPERVISOR-QUEUE-SERVICE\"], \"callees\": [\"DB-FEAT-REPORT-STUDENT-SUBMIT-SCHEMA\", \"backend/src/database/db_runtime.js\"], \"test_focus\": \"Use isolated test DB scaffold to seed todos for supervisor01 and another supervisor; assert assignee scoping, pending-first ordering, created_at descending ordering, filters, and unread_count from incomplete records only.\"}",
+    "file_path": "backend/src/normative/reportSupervisorQueueRepository.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "FUNC-FEAT-REPORT-SUPERVISOR-QUEUE-SERVICE"
+    ],
+    "callees": [
+      "DB-FEAT-REPORT-STUDENT-SUBMIT-SCHEMA",
+      "backend/src/database/db_runtime.js"
     ]
   },
   "DB-FEAT-RULE-TEMPLATE-UPLOAD-DRAFT-REPOSITORY": {
@@ -1923,6 +1983,24 @@
       "API-FEAT-DUPLICATION-HISTORY-EXPRESS-ROUTES",
       "API-FEAT-INNOVATION-HISTORY-EXPRESS-ROUTES",
       "API-FEAT-AI-REVIEW-HISTORY-EXPRESS-ROUTE"
+    ]
+  },
+  "FUNC-FEAT-REPORT-SUPERVISOR-QUEUE-SERVICE": {
+    "interface_id": "FUNC-FEAT-REPORT-SUPERVISOR-QUEUE-SERVICE",
+    "req_ids": [
+      "FEAT-REPORT-SUPERVISOR-QUEUE"
+    ],
+    "type": "FUNC",
+    "content": "{\"interface_id\": \"FUNC-FEAT-REPORT-SUPERVISOR-QUEUE-SERVICE\", \"req_id\": \"FEAT-REPORT-SUPERVISOR-QUEUE\", \"type\": \"FUNC\", \"name\": \"listSupervisorReviewQueue\", \"file_path\": \"backend/src/normative/reportSupervisorQueueService.js\", \"first_line\": \"1\", \"responsibility\": \"Own the supervisor queue business boundary for actor validation, filter normalization, assignee scoping, and badge-count orchestration.\", \"specification\": \"Exports ALLOWED_REPORT_SUPERVISOR_QUEUE_ROLES = ['SUPERVISOR'], REPORT_SUPERVISOR_QUEUE_STATUSES = ['pending','done'], ensureSupervisorQueueActor(user), normalizeSupervisorQueueFilters(query), listSupervisorReviewQueue(user, query), and getSupervisorReviewQueueBadge(user). The service derives supervisorId from the authenticated user id/username, rejects missing session with 401, rejects roles other than SUPERVISOR with 403, normalizes student_id/source_type/status filters, and delegates to the repository with supervisorId so assignee scoping cannot be supplied by the client.\", \"inputs\": [\"Authenticated user\", \"Query filters { student_id?, source_type?, status? }\"], \"outputs\": [\"SupervisorReviewQueueResponse from repository\", \"SupervisorReviewQueueBadgeResponse from repository\", \"Http errors with status 401 or 403\"], \"callers\": [\"API-FEAT-REPORT-SUPERVISOR-QUEUE-EXPRESS-ROUTES\"], \"callees\": [\"DB-FEAT-REPORT-SUPERVISOR-QUEUE-REPOSITORY\", \"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\"], \"test_focus\": \"Unit-test role denial, anonymous denial, current supervisor id derivation, filter normalization, and that repository calls always include the authenticated supervisorId rather than a client-supplied assignee.\"}",
+    "file_path": "backend/src/normative/reportSupervisorQueueService.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "API-FEAT-REPORT-SUPERVISOR-QUEUE-EXPRESS-ROUTES"
+    ],
+    "callees": [
+      "DB-FEAT-REPORT-SUPERVISOR-QUEUE-REPOSITORY",
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES"
     ]
   },
   "FUNC-FEAT-RULE-TEMPLATE-UPLOAD-IMPORT-SERVICE": {
@@ -2692,6 +2770,23 @@
       "API-FEAT-DUPLICATION-HISTORY-CLIENT",
       "API-FEAT-INNOVATION-HISTORY-CLIENT",
       "API-FEAT-AI-REVIEW-HISTORY-CLIENT"
+    ]
+  },
+  "UI-FEAT-REPORT-SUPERVISOR-QUEUE-PAGE": {
+    "interface_id": "UI-FEAT-REPORT-SUPERVISOR-QUEUE-PAGE",
+    "req_ids": [
+      "FEAT-REPORT-SUPERVISOR-QUEUE"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-REPORT-SUPERVISOR-QUEUE-PAGE\", \"req_id\": \"FEAT-REPORT-SUPERVISOR-QUEUE\", \"type\": \"UI\", \"name\": \"SupervisorReviewQueuePage\", \"file_path\": \"frontend/src/pages/SupervisorReviewQueuePage.tsx\", \"first_line\": \"1\", \"responsibility\": \"Render the supervisor-facing in-app pending review queue using runtime data only, with filters, unread badge, and explicit loading/empty/error states.\", \"specification\": \"Mounted at /supervisor-review-queue through frontend/src/App.tsx. On load and whenever filters change, calls fetchSupervisorReviewQueue(filters). Renders unread_count as a red badge, filter controls for student_id, source_type, and status, and a table of records sorted by the backend contract. Does not include hardcoded sample rows or fallback arrays. Empty and error states are shown when the real API path returns no records or fails.\", \"inputs\": [\"Authenticated supervisor session supplied by existing app auth/session provider\", \"SupervisorReviewQueueFilters: { student_id?, source_type?, status? }\", \"SupervisorReviewQueueResponse from API-FEAT-REPORT-SUPERVISOR-QUEUE-CLIENT\"], \"outputs\": [\"Supervisor queue page at /supervisor-review-queue\", \"Unread red-dot count from unread_count\", \"Filtered queue table\", \"Loading, empty, and error states\"], \"callers\": [\"frontend/src/App.tsx route /supervisor-review-queue\"], \"callees\": [\"API-FEAT-REPORT-SUPERVISOR-QUEUE-CLIENT\"], \"test_focus\": \"Render loading, empty, error, filter controls, unread badge, and table rows from mocked real API responses; verify changing filters calls the typed client and no fake records are rendered.\"}",
+    "file_path": "frontend/src/pages/SupervisorReviewQueuePage.tsx",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "frontend/src/App.tsx route /supervisor-review-queue"
+    ],
+    "callees": [
+      "API-FEAT-REPORT-SUPERVISOR-QUEUE-CLIENT"
     ]
   },
   "UI-FEAT-RULE-TEMPLATE-UPLOAD-DRAFT-IMPORT-PANEL": {

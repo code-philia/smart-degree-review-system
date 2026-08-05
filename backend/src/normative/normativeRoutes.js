@@ -92,11 +92,13 @@ const {
 } = require('./aiReviewHistoryService');
 const ledgerRecordsRoutes = require('./ledgerRecordsRoutes');
 const reportSubmissionRoutes = require('./reportSubmissionRoutes');
+const reportSupervisorQueueRoutes = require('./reportSupervisorQueueRoutes');
 
 const router = express.Router();
 
 router.use('/ledger-records', ledgerRecordsRoutes);
 router.use('/report-submissions', reportSubmissionRoutes);
+router.use('/supervisor-review-queue', reportSupervisorQueueRoutes);
 
 function sendRuleConfigError(error, res, next) {
   if (error?.type === 'entity.too.large') {
