@@ -133,9 +133,9 @@
   },
   "FEAT-QUALITY-DASHBOARD": {
     "req_id": "FEAT-QUALITY-DASHBOARD",
-    "state": "DESIGNED",
-    "phase": "design",
-    "updated_at": "2026-08-05 05:42:36"
+    "state": "PASSED",
+    "phase": "test",
+    "updated_at": "2026-08-05 05:46:24"
   },
   "FEAT-REPORT-STUDENT-RESULTS": {
     "req_id": "FEAT-REPORT-STUDENT-RESULTS",

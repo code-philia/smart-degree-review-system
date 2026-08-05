@@ -108,12 +108,12 @@ describe('FEAT-QUALITY-DASHBOARD quality dashboard UI contract', () => {
       ['原创参考分', '73.0'],
       ['创新参考分', '88.0'],
     ] as const) {
-      const metricCard = screen.getByText(label).closest('article');
+      const metricCard = screen.getAllByText(label)[0].closest('article');
       expect(metricCard).not.toBeNull();
       expect(within(metricCard as HTMLElement).getByText(value)).toBeInTheDocument();
     }
 
-    const reviewMetricCard = screen.getByText('评阅基础分').closest('article');
+    const reviewMetricCard = screen.getAllByText('评阅基础分')[0].closest('article');
     expect(reviewMetricCard).not.toBeNull();
     expect(within(reviewMetricCard as HTMLElement).getByText('暂无数据')).toBeInTheDocument();
     expect(within(reviewMetricCard as HTMLElement).getByText('有效 0，缺失 1')).toBeInTheDocument();

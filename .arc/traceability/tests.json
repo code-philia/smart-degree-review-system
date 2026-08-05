@@ -1353,7 +1353,7 @@
     ],
     "type": "Integration",
     "file_path": "backend/tests/quality-dashboard.integration.test.js",
-    "passed": null,
+    "passed": true,
     "first_line": "1",
     "scenario_id": null
   },
@@ -1368,7 +1368,7 @@
     ],
     "type": "Integration",
     "file_path": "backend/tests/quality-dashboard.integration.test.js",
-    "passed": null,
+    "passed": true,
     "first_line": "1",
     "scenario_id": null
   },
@@ -1382,7 +1382,7 @@
     ],
     "type": "Integration",
     "file_path": "backend/tests/quality-dashboard.integration.test.js",
-    "passed": null,
+    "passed": true,
     "first_line": "1",
     "scenario_id": null
   },
@@ -1412,7 +1412,7 @@
     ],
     "type": "Integration",
     "file_path": "frontend/tests/quality-dashboard.test.tsx",
-    "passed": null,
+    "passed": true,
     "first_line": "1",
     "scenario_id": null
   },
@@ -1426,7 +1426,7 @@
     ],
     "type": "Integration",
     "file_path": "frontend/tests/quality-dashboard.test.tsx",
-    "passed": null,
+    "passed": true,
     "first_line": "1",
     "scenario_id": null
   },
@@ -1439,7 +1439,7 @@
     ],
     "type": "Integration",
     "file_path": "frontend/tests/quality-dashboard.test.tsx",
-    "passed": null,
+    "passed": true,
     "first_line": "1",
     "scenario_id": null
   },
@@ -1452,7 +1452,7 @@
     ],
     "type": "Integration",
     "file_path": "frontend/tests/quality-dashboard.test.tsx",
-    "passed": null,
+    "passed": true,
     "first_line": "1",
     "scenario_id": null
   },
