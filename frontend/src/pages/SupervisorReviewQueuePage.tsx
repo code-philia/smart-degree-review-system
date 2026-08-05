@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   fetchSupervisorReviewQueue,
   type SupervisorReviewQueueFilters,
@@ -126,6 +127,7 @@ export default function SupervisorReviewQueuePage() {
                   <th className="border border-[#173a62] px-4 py-3">报告编号</th>
                   <th className="border border-[#173a62] px-4 py-3">标题</th>
                   <th className="border border-[#173a62] px-4 py-3">提交时间</th>
+                  <th className="border border-[#173a62] px-4 py-3">操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -137,6 +139,14 @@ export default function SupervisorReviewQueuePage() {
                     <td className="border border-slate-200 px-4 py-3 font-mono text-xs">{record.report_id}</td>
                     <td className="border border-slate-200 px-4 py-3">{record.title}</td>
                     <td className="border border-slate-200 px-4 py-3">{formatDateTime(record.created_at)}</td>
+                    <td className="border border-slate-200 px-4 py-3 text-center">
+                      <Link
+                        className={record.todo_status === 'pending' ? 'rounded bg-[#ff8a2a] px-3 py-2 text-xs font-bold text-white' : 'text-sm font-semibold text-[#2f80ed]'}
+                        to={`/supervisor-review-queue/${record.submission_id}`}
+                      >
+                        {record.todo_status === 'pending' ? '批阅' : '查看记录'}
+                      </Link>
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -196,15 +196,16 @@
       "FEAT-AI-REVIEW-RUN",
       "FEAT-AI-REVIEW-RESULT",
       "FEAT-REPORT-STUDENT-SUBMIT",
-      "FEAT-REPORT-SUPERVISOR-QUEUE"
+      "FEAT-REPORT-SUPERVISOR-QUEUE",
+      "FEAT-REPORT-SUPERVISOR-REVIEW"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"req_id\": \"FEAT-REPORT-SUPERVISOR-QUEUE\", \"type\": \"API\", \"name\": \"Existing auth/session authorization boundary\", \"file_path\": \"backend/src/auth/authRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse cookie-backed authentication and requireAuth authorization before supervisor queue records or counts are returned.\", \"specification\": \"The supervisor queue routes rely on existing requireAuth/session behavior and do not mutate auth state. Allowed role is SUPERVISOR only; declared denied roles are STUDENT, SCHOOL_ADMIN, and COLLEGE_ADMIN. Anonymous users are denied before service access. Resource scope is per authenticated supervisor: records and badge counts must use the current user id as in_app_todos.assignee_id.\", \"inputs\": [\"Cookie-backed session\", \"Allowed roles ['SUPERVISOR']\"], \"outputs\": [\"req.user for authenticated supervisor requests\", \"401/403 before queue data is returned\"], \"callers\": [\"API-FEAT-REPORT-SUPERVISOR-QUEUE-EXPRESS-ROUTES\"], \"callees\": [\"backend/src/auth/sessionService.js\", \"DB-FEAT-AUTH-SESSION-SCHEMA\"], \"test_focus\": \"Assert authorization occurs before listing queue rows or badge counts.\"}",
+    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"req_id\": \"FEAT-REPORT-SUPERVISOR-REVIEW\", \"type\": \"API\", \"name\": \"Reused cookie-backed auth and authorization middleware\", \"file_path\": \"backend/src/auth/authRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse existing authenticated session recovery and requireAuth role enforcement before review data is returned or submitted.\", \"specification\": \"Review routes rely on requireAuth({ allowedRoles: ['SUPERVISOR'] }) through the existing auth middleware/session stack. Anonymous access is denied by session absence. STUDENT, SCHOOL_ADMIN, and COLLEGE_ADMIN are denied by role. Resource scope is additionally enforced by the review service/repository assignee_id check.\", \"inputs\": {\"session_cookie\": \"existing auth session cookie\"}, \"outputs\": {\"req.user\": \"authenticated user for SUPERVISOR requests\", \"401_or_403\": \"denied anonymous or unauthorized role requests\"}, \"callers\": [\"API-FEAT-REPORT-SUPERVISOR-REVIEW-EXPRESS-ROUTES\"], \"callees\": [\"backend/src/auth/sessionService.js\", \"DB-FEAT-AUTH-SESSION-SCHEMA\"], \"test_focus\": [\"Anonymous and declared denied roles cannot read report detail or submit review.\", \"SUPERVISOR identity is available for assignee scope enforcement.\"]}",
     "file_path": "backend/src/auth/authRoutes.js",
     "first_line": "1",
     "implemented": true,
     "callers": [
-      "API-FEAT-REPORT-SUPERVISOR-QUEUE-EXPRESS-ROUTES"
+      "API-FEAT-REPORT-SUPERVISOR-REVIEW-EXPRESS-ROUTES"
     ],
     "callees": [
       "backend/src/auth/sessionService.js",
@@ -834,21 +835,59 @@
   "API-FEAT-REPORT-SUPERVISOR-QUEUE-EXPRESS-ROUTES": {
     "interface_id": "API-FEAT-REPORT-SUPERVISOR-QUEUE-EXPRESS-ROUTES",
     "req_ids": [
-      "FEAT-REPORT-SUPERVISOR-QUEUE"
+      "FEAT-REPORT-SUPERVISOR-QUEUE",
+      "FEAT-REPORT-SUPERVISOR-REVIEW"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-REPORT-SUPERVISOR-QUEUE-EXPRESS-ROUTES\", \"req_id\": \"FEAT-REPORT-SUPERVISOR-QUEUE\", \"type\": \"API\", \"name\": \"GET /api/normative/supervisor-review-queue\", \"file_path\": \"backend/src/normative/reportSupervisorQueueRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Provide the protected backend HTTP boundary for supervisors to list their assigned review todos and retrieve the incomplete todo badge count.\", \"specification\": \"Mounted under the existing /api/normative route tree at /supervisor-review-queue. GET / requires requireAuth({ allowedRoles: ['SUPERVISOR'] }) before service access and returns { records, unread_count }. GET /badge uses the same authorization and returns { unread_count }. Anonymous requests are denied by session middleware; STUDENT, SCHOOL_ADMIN, and COLLEGE_ADMIN are denied with 403. Data scope is mandatory: returned records and counts must be based only on in_app_todos.assignee_id matching the authenticated supervisor id.\", \"inputs\": [\"Cookie-backed authenticated req.user\", \"Query params { student_id?, source_type?, status? }\"], \"outputs\": [\"200 SupervisorReviewQueueResponse\", \"200 SupervisorReviewQueueBadgeResponse\", \"401 anonymous/session failure\", \"403 non-supervisor role\", \"400 invalid filter values after implementation\"], \"callers\": [\"backend/src/normative/normativeRoutes.js /supervisor-review-queue mount\", \"API-FEAT-REPORT-SUPERVISOR-QUEUE-CLIENT\", \"backend Supertest integration tests\"], \"callees\": [\"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"FUNC-FEAT-REPORT-SUPERVISOR-QUEUE-SERVICE\"], \"test_focus\": \"Assert supervisor01 only receives todos assigned to supervisor01, other supervisor todos are excluded from records and unread_count, non-supervisor roles are forbidden, anonymous access is denied, and filters are passed to the service.\"}",
+    "content": "{\"interface_id\": \"API-FEAT-REPORT-SUPERVISOR-QUEUE-EXPRESS-ROUTES\", \"req_id\": \"FEAT-REPORT-SUPERVISOR-REVIEW\", \"type\": \"API\", \"name\": \"Reused supervisor queue Express mount\", \"file_path\": \"backend/src/normative/reportSupervisorQueueRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse and extend the dependency-owned supervisor queue route module as the route neighborhood for review detail and submission endpoints.\", \"specification\": \"The current feature does not create a parallel route tree. It extends the existing /api/normative/supervisor-review-queue mount that already lists queue records and badge counts for SUPERVISOR users. Review detail and submit routes share the same auth/session and error handling pattern.\", \"inputs\": {\"mount\": \"/api/normative/supervisor-review-queue\"}, \"outputs\": {\"connected_routes\": [\"GET /\", \"GET /badge\", \"GET /:submissionId\", \"POST /:submissionId/review\"]}, \"callers\": [\"backend/src/normative/normativeRoutes.js\", \"API-FEAT-REPORT-SUPERVISOR-REVIEW-EXPRESS-ROUTES\"], \"callees\": [\"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"FUNC-FEAT-REPORT-SUPERVISOR-QUEUE-SERVICE\", \"FUNC-FEAT-REPORT-SUPERVISOR-REVIEW-SERVICE\"], \"test_focus\": [\"Review endpoints remain under the existing normative queue route family.\", \"List/badge behavior remains compatible with the new completed status vocabulary.\"]}",
     "file_path": "backend/src/normative/reportSupervisorQueueRoutes.js",
     "first_line": "1",
     "implemented": true,
     "callers": [
-      "backend/src/normative/normativeRoutes.js /supervisor-review-queue mount",
-      "API-FEAT-REPORT-SUPERVISOR-QUEUE-CLIENT",
-      "backend Supertest integration tests"
+      "backend/src/normative/normativeRoutes.js",
+      "API-FEAT-REPORT-SUPERVISOR-REVIEW-EXPRESS-ROUTES"
     ],
     "callees": [
       "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
-      "FUNC-FEAT-REPORT-SUPERVISOR-QUEUE-SERVICE"
+      "FUNC-FEAT-REPORT-SUPERVISOR-QUEUE-SERVICE",
+      "FUNC-FEAT-REPORT-SUPERVISOR-REVIEW-SERVICE"
+    ]
+  },
+  "API-FEAT-REPORT-SUPERVISOR-REVIEW-CLIENT": {
+    "interface_id": "API-FEAT-REPORT-SUPERVISOR-REVIEW-CLIENT",
+    "req_ids": [
+      "FEAT-REPORT-SUPERVISOR-REVIEW"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-REPORT-SUPERVISOR-REVIEW-CLIENT\", \"req_id\": \"FEAT-REPORT-SUPERVISOR-REVIEW\", \"type\": \"API\", \"name\": \"reportSupervisorReview frontend client\", \"file_path\": \"frontend/src/api/reportSupervisorReview.ts\", \"first_line\": \"1\", \"responsibility\": \"Expose typed same-origin Axios calls and DTOs for loading an assigned submission review detail and submitting locked supervisor feedback.\", \"specification\": \"Defines SupervisorReviewDetailResponse, SupervisorReviewFinding, SupervisorReviewAnnotation, SubmitSupervisorReviewRequest, and SubmitSupervisorReviewResponse. fetchSupervisorReviewDetail(submissionId) calls GET /api/normative/supervisor-review-queue/:submissionId through the shared Axios client. submitSupervisorReview(submissionId, payload) calls POST /api/normative/supervisor-review-queue/:submissionId/review. The shared apiClient preserves cookie-backed auth and global interceptors.\", \"inputs\": {\"fetchSupervisorReviewDetail\": {\"submissionId\": \"string\"}, \"submitSupervisorReview\": {\"submissionId\": \"string\", \"payload\": {\"annotations\": \"Array<{ finding_id: string; comment: string }>\", \"overall_evaluation\": \"string\", \"improvement_suggestions\": \"string | undefined\"}}}, \"outputs\": {\"fetchSupervisorReviewDetail\": \"SupervisorReviewDetailResponse\", \"submitSupervisorReview\": \"SubmitSupervisorReviewResponse\"}, \"callers\": [\"UI-FEAT-REPORT-SUPERVISOR-REVIEW-PAGE\"], \"callees\": [\"frontend/src/api/index.ts shared Axios client\", \"API-FEAT-REPORT-SUPERVISOR-REVIEW-EXPRESS-ROUTES\"], \"test_focus\": [\"Serializes submissionId safely into the existing normative supervisor-review-queue route.\", \"Posts annotations, required overall_evaluation, and optional improvement_suggestions through shared Axios.\"]}",
+    "file_path": "frontend/src/api/reportSupervisorReview.ts",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "UI-FEAT-REPORT-SUPERVISOR-REVIEW-PAGE"
+    ],
+    "callees": [
+      "frontend/src/api/index.ts shared Axios client",
+      "API-FEAT-REPORT-SUPERVISOR-REVIEW-EXPRESS-ROUTES"
+    ]
+  },
+  "API-FEAT-REPORT-SUPERVISOR-REVIEW-EXPRESS-ROUTES": {
+    "interface_id": "API-FEAT-REPORT-SUPERVISOR-REVIEW-EXPRESS-ROUTES",
+    "req_ids": [
+      "FEAT-REPORT-SUPERVISOR-REVIEW"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-REPORT-SUPERVISOR-REVIEW-EXPRESS-ROUTES\", \"req_id\": \"FEAT-REPORT-SUPERVISOR-REVIEW\", \"type\": \"API\", \"name\": \"Supervisor review Express endpoints\", \"file_path\": \"backend/src/normative/reportSupervisorQueueRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Provide protected backend HTTP boundaries for reading one assigned report submission and submitting supervisor feedback under the existing /api/normative/supervisor-review-queue mount.\", \"specification\": \"Adds GET /api/normative/supervisor-review-queue/:submissionId and POST /api/normative/supervisor-review-queue/:submissionId/review beside the dependency-owned list/badge routes. Both call requireAuth({ allowedRoles: ['SUPERVISOR'] }) before returning data or changing state. Anonymous users are denied by requireAuth. STUDENT, SCHOOL_ADMIN, and COLLEGE_ADMIN are denied by role. Data scope is enforced downstream by requiring todo.assignee_id/current supervisor to match the requested submission; non-assigned submissions return 403 and do not expose report data or mutate status.\", \"inputs\": {\"GET\": {\"params\": {\"submissionId\": \"string\"}, \"auth\": \"cookie-backed SUPERVISOR session\"}, \"POST\": {\"params\": {\"submissionId\": \"string\"}, \"body\": \"SubmitSupervisorReviewRequest\", \"auth\": \"cookie-backed SUPERVISOR session\"}}, \"outputs\": {\"GET_200\": \"SupervisorReviewDetailResponse\", \"POST_201\": \"SubmitSupervisorReviewResponse\", \"400\": \"missing overall evaluation\", \"401\": \"anonymous session denied\", \"403\": \"role or assignee scope denied\", \"409\": \"review already locked\"}, \"callers\": [\"API-FEAT-REPORT-SUPERVISOR-REVIEW-CLIENT\", \"backend/src/normative/normativeRoutes.js /supervisor-review-queue mount\"], \"callees\": [\"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"FUNC-FEAT-REPORT-SUPERVISOR-REVIEW-SERVICE\"], \"test_focus\": [\"SUPERVISOR can GET only assigned submissions.\", \"STUDENT, SCHOOL_ADMIN, COLLEGE_ADMIN, and anonymous users are rejected before data is returned.\", \"POST without overall_evaluation returns 400.\", \"POST for non-assigned submission returns 403 and leaves submission/todo unchanged.\"]}",
+    "file_path": "backend/src/normative/reportSupervisorQueueRoutes.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "API-FEAT-REPORT-SUPERVISOR-REVIEW-CLIENT",
+      "backend/src/normative/normativeRoutes.js /supervisor-review-queue mount"
+    ],
+    "callees": [
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+      "FUNC-FEAT-REPORT-SUPERVISOR-REVIEW-SERVICE"
     ]
   },
   "API-FEAT-RULE-TEMPLATE-UPLOAD-CLIENT": {
@@ -1510,6 +1549,43 @@
       "backend/src/database/db_runtime.js"
     ]
   },
+  "DB-FEAT-REPORT-SUPERVISOR-REVIEW-REPOSITORY": {
+    "interface_id": "DB-FEAT-REPORT-SUPERVISOR-REVIEW-REPOSITORY",
+    "req_ids": [
+      "FEAT-REPORT-SUPERVISOR-REVIEW"
+    ],
+    "type": "DB",
+    "content": "{\"interface_id\": \"DB-FEAT-REPORT-SUPERVISOR-REVIEW-REPOSITORY\", \"req_id\": \"FEAT-REPORT-SUPERVISOR-REVIEW\", \"type\": \"DB\", \"name\": \"reportSupervisorReviewRepository\", \"file_path\": \"backend/src/normative/reportSupervisorReviewRepository.js\", \"first_line\": \"1\", \"responsibility\": \"Provide SQLite-backed persistence operations for assignee-scoped review detail lookup and atomic final feedback submission using the shared database runtime.\", \"specification\": \"getSupervisorReviewSubmission({ submissionId, supervisorId }) joins report_submissions with in_app_todos and filters by todo.assignee_id to enforce resource scope at the data access layer. getSupervisorReviewFeedback({ submissionId }) reads locked feedback. saveSupervisorReviewFeedback(...) runs in db.withTransaction, inserts one supervisor_review_feedback row, updates report_submissions.status to review_completed_feedback, and marks the matching in_app_todos row done. It reuses backend/src/database/db_runtime.js and does not create one-off DB connections.\", \"inputs\": {\"submissionId\": \"string\", \"supervisorId\": \"string\", \"annotations\": \"SupervisorReviewAnnotation[]\", \"overallEvaluation\": \"string\", \"improvementSuggestions\": \"string | null\", \"submittedAt\": \"ISO timestamp\"}, \"outputs\": {\"submission_row\": \"assignee-scoped joined row or null\", \"feedback_row\": \"supervisor_review_feedback row or null\", \"transaction\": \"insert feedback + update submission + complete todo\"}, \"callers\": [\"FUNC-FEAT-REPORT-SUPERVISOR-REVIEW-SERVICE\"], \"callees\": [\"DB-FEAT-REPORT-SUPERVISOR-REVIEW-SCHEMA\", \"backend/src/database/db_runtime.js\"], \"test_focus\": [\"Lookup returns null for a submission assigned to another supervisor.\", \"Save transaction creates feedback and updates both durable status fields.\", \"Uses isolated test DB harness via shared scaffold in DB-using tests.\"]}",
+    "file_path": "backend/src/normative/reportSupervisorReviewRepository.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "FUNC-FEAT-REPORT-SUPERVISOR-REVIEW-SERVICE"
+    ],
+    "callees": [
+      "DB-FEAT-REPORT-SUPERVISOR-REVIEW-SCHEMA",
+      "backend/src/database/db_runtime.js"
+    ]
+  },
+  "DB-FEAT-REPORT-SUPERVISOR-REVIEW-SCHEMA": {
+    "interface_id": "DB-FEAT-REPORT-SUPERVISOR-REVIEW-SCHEMA",
+    "req_ids": [
+      "FEAT-REPORT-SUPERVISOR-REVIEW"
+    ],
+    "type": "DB",
+    "content": "{\"interface_id\": \"DB-FEAT-REPORT-SUPERVISOR-REVIEW-SCHEMA\", \"req_id\": \"FEAT-REPORT-SUPERVISOR-REVIEW\", \"type\": \"DB\", \"name\": \"Supervisor review feedback schema\", \"file_path\": \"backend/src/database/init_db.js\", \"first_line\": \"270\", \"responsibility\": \"Centralize durable schema support for locked supervisor feedback and the final review_completed_feedback submission state.\", \"specification\": \"Extends the shared database bootstrap rather than creating feature-local DB helpers. Adds supervisor_review_feedback with id, unique submission_id, supervisor_id, annotations_json, required overall_evaluation, optional improvement_suggestions, locked_at, and created_at. Allows report_submissions.status to represent both submitted_pending_review and review_completed_feedback so the review service can persist the final feedback status. Existing in_app_todos.status remains pending/done for todo completion.\", \"inputs\": {\"bootstrap\": \"initializeDatabase()\"}, \"outputs\": {\"tables\": [\"report_submissions with review_completed_feedback vocabulary\", \"supervisor_review_feedback\", \"in_app_todos pending/done reuse\"]}, \"callers\": [\"backend/src/database/index.js\", \"DB-FEAT-REPORT-SUPERVISOR-REVIEW-REPOSITORY\", \"backend/src/database/test_harness.js\"], \"callees\": [\"sqlite3 runtime database\"], \"test_focus\": [\"Schema initializes in isolated test databases.\", \"Feedback table enforces one locked review per submission.\", \"Final status and todo completion can be persisted together.\"]}",
+    "file_path": "backend/src/database/init_db.js",
+    "first_line": "270",
+    "implemented": false,
+    "callers": [
+      "backend/src/database/index.js",
+      "DB-FEAT-REPORT-SUPERVISOR-REVIEW-REPOSITORY",
+      "backend/src/database/test_harness.js"
+    ],
+    "callees": [
+      "sqlite3 runtime database"
+    ]
+  },
   "DB-FEAT-RULE-TEMPLATE-UPLOAD-DRAFT-REPOSITORY": {
     "interface_id": "DB-FEAT-RULE-TEMPLATE-UPLOAD-DRAFT-REPOSITORY",
     "req_ids": [
@@ -2001,6 +2077,24 @@
     "callees": [
       "DB-FEAT-REPORT-SUPERVISOR-QUEUE-REPOSITORY",
       "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES"
+    ]
+  },
+  "FUNC-FEAT-REPORT-SUPERVISOR-REVIEW-SERVICE": {
+    "interface_id": "FUNC-FEAT-REPORT-SUPERVISOR-REVIEW-SERVICE",
+    "req_ids": [
+      "FEAT-REPORT-SUPERVISOR-REVIEW"
+    ],
+    "type": "FUNC",
+    "content": "{\"interface_id\": \"FUNC-FEAT-REPORT-SUPERVISOR-REVIEW-SERVICE\", \"req_id\": \"FEAT-REPORT-SUPERVISOR-REVIEW\", \"type\": \"FUNC\", \"name\": \"reportSupervisorReviewService\", \"file_path\": \"backend/src/normative/reportSupervisorReviewService.js\", \"first_line\": \"1\", \"responsibility\": \"Own supervisor review authorization scope, payload normalization, required overall evaluation validation, lock detection, and final review submission workflow.\", \"specification\": \"Exports ALLOWED_REPORT_SUPERVISOR_REVIEW_ROLES = ['SUPERVISOR'], getSupervisorReviewDetail(user, submissionId), submitSupervisorReview(user, submissionId, payload), and requireOverallEvaluation(value). Reuses ensureSupervisorQueueActor from the dependency queue service for role/current-user consistency. Reads the submission by submissionId plus supervisorId, returns 403 when the authenticated supervisor is not the assignee, rejects blank overall_evaluation with 400, rejects already completed/locked rounds with 409, normalizes finding_id annotations, persists feedback, updates report_submissions.status to review_completed_feedback, updates in_app_todos.status to done, and returns the locked detail.\", \"inputs\": {\"user\": \"authenticated session user\", \"submissionId\": \"string\", \"payload\": {\"annotations\": \"unknown[]\", \"overall_evaluation\": \"unknown\", \"improvement_suggestions\": \"unknown\"}}, \"outputs\": {\"detail\": \"SupervisorReviewDetailResponse-shaped object\", \"errors\": [\"400 missing overall evaluation\", \"401 missing user\", \"403 non-supervisor or non-assignee\", \"409 already locked\"]}, \"callers\": [\"API-FEAT-REPORT-SUPERVISOR-REVIEW-EXPRESS-ROUTES\"], \"callees\": [\"FUNC-FEAT-REPORT-SUPERVISOR-QUEUE-SERVICE\", \"DB-FEAT-REPORT-SUPERVISOR-REVIEW-REPOSITORY\"], \"test_focus\": [\"Uses supervisor actor from shared queue service rather than duplicate auth parsing.\", \"Requires overall_evaluation while allowing zero or more finding annotations.\", \"Completes the review atomically through repository save and returns locked state.\", \"Never calls persistence mutation when assignee lookup fails.\"]}",
+    "file_path": "backend/src/normative/reportSupervisorReviewService.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "API-FEAT-REPORT-SUPERVISOR-REVIEW-EXPRESS-ROUTES"
+    ],
+    "callees": [
+      "FUNC-FEAT-REPORT-SUPERVISOR-QUEUE-SERVICE",
+      "DB-FEAT-REPORT-SUPERVISOR-REVIEW-REPOSITORY"
     ]
   },
   "FUNC-FEAT-RULE-TEMPLATE-UPLOAD-IMPORT-SERVICE": {
@@ -2786,6 +2880,42 @@
       "frontend/src/App.tsx route /supervisor-review-queue"
     ],
     "callees": [
+      "API-FEAT-REPORT-SUPERVISOR-QUEUE-CLIENT"
+    ]
+  },
+  "UI-FEAT-REPORT-SUPERVISOR-REVIEW-PAGE": {
+    "interface_id": "UI-FEAT-REPORT-SUPERVISOR-REVIEW-PAGE",
+    "req_ids": [
+      "FEAT-REPORT-SUPERVISOR-REVIEW"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-REPORT-SUPERVISOR-REVIEW-PAGE\", \"req_id\": \"FEAT-REPORT-SUPERVISOR-REVIEW\", \"type\": \"UI\", \"name\": \"SupervisorReviewPage\", \"file_path\": \"frontend/src/pages/SupervisorReviewPage.tsx\", \"first_line\": \"1\", \"responsibility\": \"Render the导师在线批阅 split-pane experience for one assigned submission, allowing finding_id-specific annotations, required overall evaluation, optional整改建议, and final submit through runtime APIs.\", \"specification\": \"Route /supervisor-review-queue/:submissionId loads real review detail with fetchSupervisorReviewDetail, shows loading and authorization/load error states instead of hardcoded report data, groups runtime findings by category in the left report panel, and edits annotations plus required overall_evaluation in the right panel. Submit calls submitSupervisorReview and treats locked returned reviews as read-only. Styling follows the visual reference with dark navy header, dense split panels, blue section bars, pale yellow annotation area, semantic severity badges, and prominent blue submit button.\", \"inputs\": {\"route_params\": {\"submissionId\": \"string\"}, \"api_data\": \"SupervisorReviewDetailResponse\", \"form_state\": {\"annotations\": \"SupervisorReviewAnnotation[]\", \"selectedFindingId\": \"string\", \"comment\": \"string\", \"overallEvaluation\": \"string\", \"improvementSuggestions\": \"string\"}}, \"outputs\": {\"rendered_states\": [\"loading\", \"authorization/load error\", \"empty findings\", \"editable pending review\", \"locked submitted review\"], \"api_calls\": [\"fetchSupervisorReviewDetail(submissionId)\", \"submitSupervisorReview(submissionId, payload)\"]}, \"callers\": [\"frontend/src/App.tsx route /supervisor-review-queue/:submissionId\", \"UI-FEAT-REPORT-SUPERVISOR-REVIEW-QUEUE-ENTRY\"], \"callees\": [\"API-FEAT-REPORT-SUPERVISOR-REVIEW-CLIENT\"], \"test_focus\": [\"Loads detail by submissionId and renders runtime report/finding data without fallback rows.\", \"Allows adding a finding_id annotation and blocks submit when overall evaluation is blank.\", \"After successful submit, renders locked state and disables editing.\", \"Shows authorization/load failure when backend returns 403.\"]}",
+    "file_path": "frontend/src/pages/SupervisorReviewPage.tsx",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "frontend/src/App.tsx route /supervisor-review-queue/:submissionId",
+      "UI-FEAT-REPORT-SUPERVISOR-REVIEW-QUEUE-ENTRY"
+    ],
+    "callees": [
+      "API-FEAT-REPORT-SUPERVISOR-REVIEW-CLIENT"
+    ]
+  },
+  "UI-FEAT-REPORT-SUPERVISOR-REVIEW-QUEUE-ENTRY": {
+    "interface_id": "UI-FEAT-REPORT-SUPERVISOR-REVIEW-QUEUE-ENTRY",
+    "req_ids": [
+      "FEAT-REPORT-SUPERVISOR-REVIEW"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-REPORT-SUPERVISOR-REVIEW-QUEUE-ENTRY\", \"req_id\": \"FEAT-REPORT-SUPERVISOR-REVIEW\", \"type\": \"UI\", \"name\": \"SupervisorReviewQueuePage review entry extension\", \"file_path\": \"frontend/src/pages/SupervisorReviewQueuePage.tsx\", \"first_line\": \"1\", \"responsibility\": \"Extend the dependency-owned supervisor queue table with row-level navigation into the online review page while preserving runtime-driven queue records.\", \"specification\": \"Adds an 操作 column. Pending rows link to /supervisor-review-queue/:submission_id with an orange 批阅 action; completed rows link to the same detail route with a blue 查看记录 action. Availability and labels are driven by record.todo_status from fetchSupervisorReviewQueue rather than screenshot sample data.\", \"inputs\": {\"record\": \"SupervisorReviewQueueItem\"}, \"outputs\": {\"navigation\": \"/supervisor-review-queue/:submission_id\"}, \"callers\": [\"frontend/src/App.tsx route /supervisor-review-queue\"], \"callees\": [\"UI-FEAT-REPORT-SUPERVISOR-REVIEW-PAGE\", \"API-FEAT-REPORT-SUPERVISOR-QUEUE-CLIENT\"], \"test_focus\": [\"Pending records expose 批阅 link to the submission review route.\", \"Completed records expose 查看记录 link without mutating queue state.\"]}",
+    "file_path": "frontend/src/pages/SupervisorReviewQueuePage.tsx",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "frontend/src/App.tsx route /supervisor-review-queue"
+    ],
+    "callees": [
+      "UI-FEAT-REPORT-SUPERVISOR-REVIEW-PAGE",
       "API-FEAT-REPORT-SUPERVISOR-QUEUE-CLIENT"
     ]
   },

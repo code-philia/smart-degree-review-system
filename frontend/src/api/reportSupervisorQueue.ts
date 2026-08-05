@@ -16,7 +16,7 @@ export type SupervisorReviewQueueItem = {
   assignee_id: string;
   source_type: ReportSubmissionSourceType;
   report_id: string;
-  submission_status: 'submitted_pending_review';
+  submission_status: 'submitted_pending_review' | 'review_completed_feedback';
   todo_status: SupervisorReviewTodoStatus;
   title: string;
   created_at: string;

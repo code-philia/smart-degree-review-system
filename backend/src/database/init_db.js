@@ -267,9 +267,25 @@ async function initializeDatabase(options = {}) {
         supervisor_id TEXT NOT NULL,
         source_type TEXT NOT NULL CHECK (source_type IN ('normative', 'duplication', 'innovation', 'ai_review')),
         report_id TEXT NOT NULL,
-        status TEXT NOT NULL CHECK (status IN ('submitted_pending_review')),
+        status TEXT NOT NULL,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (student_id) REFERENCES auth_users(id) ON DELETE CASCADE,
+        FOREIGN KEY (supervisor_id) REFERENCES auth_users(id) ON DELETE RESTRICT
+      );`,
+    );
+
+    await runStatement(
+      database,
+      `CREATE TABLE IF NOT EXISTS supervisor_review_feedback (
+        id TEXT PRIMARY KEY,
+        submission_id TEXT NOT NULL UNIQUE,
+        supervisor_id TEXT NOT NULL,
+        annotations_json TEXT NOT NULL,
+        overall_evaluation TEXT NOT NULL,
+        improvement_suggestions TEXT,
+        locked_at TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (submission_id) REFERENCES report_submissions(id) ON DELETE CASCADE,
         FOREIGN KEY (supervisor_id) REFERENCES auth_users(id) ON DELETE RESTRICT
       );`,
     );

@@ -1592,6 +1592,40 @@
     "first_line": "1",
     "scenario_id": null
   },
+  "FEAT-REPORT-SUPERVISOR-REVIEW:E2E:SCENARIOS-001-002": {
+    "test_id": "FEAT-REPORT-SUPERVISOR-REVIEW:E2E:SCENARIOS-001-002",
+    "req_id": "FEAT-REPORT-SUPERVISOR-REVIEW",
+    "interface_ids": [
+      "UI-FEAT-REPORT-SUPERVISOR-REVIEW-PAGE",
+      "UI-FEAT-REPORT-SUPERVISOR-REVIEW-QUEUE-ENTRY",
+      "API-FEAT-REPORT-SUPERVISOR-REVIEW-CLIENT",
+      "API-FEAT-REPORT-SUPERVISOR-REVIEW-EXPRESS-ROUTES",
+      "FUNC-FEAT-REPORT-SUPERVISOR-REVIEW-SERVICE",
+      "DB-FEAT-REPORT-SUPERVISOR-REVIEW-REPOSITORY"
+    ],
+    "type": "E2E",
+    "file_path": "backend/test-e2e/report-supervisor-review.spec.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-REPORT-SUPERVISOR-REVIEW:INTEGRATION:API-PERSISTENCE-AUTHZ": {
+    "test_id": "FEAT-REPORT-SUPERVISOR-REVIEW:INTEGRATION:API-PERSISTENCE-AUTHZ",
+    "req_id": "FEAT-REPORT-SUPERVISOR-REVIEW",
+    "interface_ids": [
+      "API-FEAT-REPORT-SUPERVISOR-REVIEW-EXPRESS-ROUTES",
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+      "FUNC-FEAT-REPORT-SUPERVISOR-REVIEW-SERVICE",
+      "DB-FEAT-REPORT-SUPERVISOR-REVIEW-REPOSITORY",
+      "DB-FEAT-REPORT-SUPERVISOR-REVIEW-SCHEMA",
+      "API-FEAT-REPORT-SUPERVISOR-QUEUE-EXPRESS-ROUTES"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/report-supervisor-review.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
   "FEAT-RULE-TEMPLATE-UPLOAD:E2E:SCENARIOS:001": {
     "test_id": "FEAT-RULE-TEMPLATE-UPLOAD:E2E:SCENARIOS:001",
     "req_id": "FEAT-RULE-TEMPLATE-UPLOAD",

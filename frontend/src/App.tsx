@@ -23,6 +23,7 @@ import QualityDashboardPage from './pages/QualityDashboardPage';
 import StudentQualityPortraitPage from './pages/StudentQualityPortraitPage';
 import StudentReportSubmissionPage from './pages/StudentReportSubmissionPage';
 import SupervisorReviewQueuePage from './pages/SupervisorReviewQueuePage';
+import SupervisorReviewPage from './pages/SupervisorReviewPage';
 import RuleConfigPage from './pages/RuleConfigPage';
 import WholePolishPage from './pages/WholePolishPage';
 
@@ -40,6 +41,7 @@ function App() {
       <Route path="/student-quality-portrait/:studentId" element={<StudentQualityPortraitPage />} />
       <Route path="/student-report-submissions" element={<StudentReportSubmissionPage />} />
       <Route path="/supervisor-review-queue" element={<SupervisorReviewQueuePage />} />
+      <Route path="/supervisor-review-queue/:submissionId" element={<SupervisorReviewPage />} />
       <Route path="/rule-config" element={<RuleConfigPage />} />
       <Route path="/duplication-corpus" element={<DuplicationCorpusPage />} />
       <Route path="/duplication-detect" element={<DuplicationDetectPage />} />

@@ -5,6 +5,11 @@ const {
   getSupervisorReviewQueueBadge,
   listSupervisorReviewQueue,
 } = require('./reportSupervisorQueueService');
+const {
+  ALLOWED_REPORT_SUPERVISOR_REVIEW_ROLES,
+  getSupervisorReviewDetail,
+  submitSupervisorReview,
+} = require('./reportSupervisorReviewService');
 
 const router = express.Router();
 
@@ -36,6 +41,33 @@ router.get(
     try {
       const result = await getSupervisorReviewQueueBadge(req.user);
       res.json(result);
+    } catch (error) {
+      sendSupervisorQueueError(error, res, next);
+    }
+  },
+);
+
+router.get(
+  '/:submissionId',
+  requireAuth({ allowedRoles: ALLOWED_REPORT_SUPERVISOR_REVIEW_ROLES }),
+  async (req, res, next) => {
+    try {
+      const result = await getSupervisorReviewDetail(req.user, req.params.submissionId);
+      res.json(result);
+    } catch (error) {
+      sendSupervisorQueueError(error, res, next);
+    }
+  },
+);
+
+router.post(
+  '/:submissionId/review',
+  requireAuth({ allowedRoles: ALLOWED_REPORT_SUPERVISOR_REVIEW_ROLES }),
+  express.json({ limit: '128kb' }),
+  async (req, res, next) => {
+    try {
+      const result = await submitSupervisorReview(req.user, req.params.submissionId, req.body || {});
+      res.status(201).json(result);
     } catch (error) {
       sendSupervisorQueueError(error, res, next);
     }
