@@ -143,12 +143,18 @@ export type DetectionLedgerTypeStat = {
   detection_type_label: string;
   record_count: number;
   student_count: number;
+  total_records?: number;
+  total_students?: number;
   today_count: number;
 };
 
 export type DetectionLedgerTrendPoint = {
   date: string;
   count: number;
+  record_count?: number;
+  student_count?: number;
+  total_records?: number;
+  total_students?: number;
 };
 
 export type DetectionLedgerFilteredStats = {

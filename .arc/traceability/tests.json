@@ -930,7 +930,7 @@
     ],
     "type": "Integration",
     "file_path": "backend/tests/ledger-filtered-stats.integration.test.js",
-    "passed": null,
+    "passed": true,
     "first_line": "267",
     "scenario_id": null
   },
@@ -942,7 +942,7 @@
     ],
     "type": "Integration",
     "file_path": "backend/tests/ledger-filtered-stats.integration.test.js",
-    "passed": null,
+    "passed": true,
     "first_line": "144",
     "scenario_id": null
   },
@@ -956,7 +956,7 @@
     ],
     "type": "Integration",
     "file_path": "backend/tests/ledger-filtered-stats.integration.test.js",
-    "passed": null,
+    "passed": true,
     "first_line": "171",
     "scenario_id": null
   },
@@ -970,7 +970,7 @@
     ],
     "type": "Integration",
     "file_path": "backend/tests/ledger-filtered-stats.integration.test.js",
-    "passed": null,
+    "passed": true,
     "first_line": "234",
     "scenario_id": null
   },

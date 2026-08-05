@@ -106,11 +106,12 @@ function LedgerFilteredStatsPage() {
           {status === 'loading' && <p className="py-16 text-center text-[#536476]">统计加载中...</p>}
           {status === 'error' && <p className="py-16 text-center text-red-600">{errorMessage}</p>}
           {status === 'idle' && !stats && <p className="py-16 text-center text-[#536476]">请选择筛选条件后手动刷新生成图表</p>}
-          {stats && <div className="flex h-44 items-end gap-4 border-l border-b border-[#d6d6d6] px-4">{stats.by_type.map((item) => <div key={item.detection_type} className="flex flex-1 flex-col items-center gap-2"><div className="w-full bg-[#3b86ee]" style={{ height: `${Math.max(item.record_count, 1) * 8}px` }} /><span className="text-xs text-[#536476]">{item.detection_type_label}</span></div>)}</div>}
+          {stats && stats.by_type.length === 0 && <p className="py-16 text-center text-[#536476]">当前筛选条件下暂无统计数据</p>}
+          {stats && stats.by_type.length > 0 && <div className="flex h-44 items-end gap-4 border-l border-b border-[#d6d6d6] px-4">{stats.by_type.map((item) => <div key={item.detection_type} className="flex flex-1 flex-col items-center gap-2"><div className="w-full bg-[#3b86ee]" style={{ height: `${Math.max(item.record_count || item.total_records || 0, 1) * 8}px` }} /><span className="text-xs text-[#536476]">{item.detection_type_label}</span></div>)}</div>}
         </article>
         <article className="min-h-[280px] rounded-sm border border-[#d6d6d6] bg-white p-5">
           <h3 className="mb-4 text-[18px] font-bold text-[#1f3f63]">每日趋势折线图</h3>
-          {stats ? <svg className="h-44 w-full border-l border-b border-[#d6d6d6]" role="img" aria-label="每日趋势折线图" /> : <p className="py-16 text-center text-[#536476]">暂无趋势数据</p>}
+          {stats && stats.daily_trend.length > 0 ? <svg className="h-44 w-full border-l border-b border-[#d6d6d6]" role="img" aria-label="每日趋势折线图"><polyline fill="none" stroke="#3b86ee" strokeWidth="3" points={stats.daily_trend.map((point, index) => `${20 + index * 60},${150 - Math.min(point.count || point.record_count || point.total_records || 0, 10) * 12}`).join(' ')} /></svg> : <p className="py-16 text-center text-[#536476]">暂无趋势数据</p>}
         </article>
       </section>
     </main>

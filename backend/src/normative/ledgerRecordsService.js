@@ -16,10 +16,10 @@ function buildLedgerAccessScope(user) {
     throw createLedgerRecordsError(403, '当前角色无权查看检测台账');
   }
   if (user.role === 'SUPERVISOR') {
-    return { role: user.role, supervisor_id: user.id || user.username };
+    return { role: user.role, supervisor_id: user.id || user.username || user.supervisorId || user.supervisor_id };
   }
   if (user.role === 'COLLEGE_ADMIN') {
-    return { role: user.role, college_id: user.college_id };
+    return { role: user.role, college_id: user.college_id || user.collegeId };
   }
   return { role: user.role };
 }

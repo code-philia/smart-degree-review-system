@@ -85,9 +85,9 @@
   },
   "FEAT-LEDGER-FILTERED-STATS": {
     "req_id": "FEAT-LEDGER-FILTERED-STATS",
-    "state": "DESIGNED",
-    "phase": "design",
-    "updated_at": "2026-08-05 05:30:56"
+    "state": "PASSED",
+    "phase": "test",
+    "updated_at": "2026-08-05 05:34:05"
   },
   "FEAT-LEDGER-RECORDS": {
     "req_id": "FEAT-LEDGER-RECORDS",
