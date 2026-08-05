@@ -181,9 +181,9 @@
   },
   "MOD-AI-REVIEW": {
     "req_id": "MOD-AI-REVIEW",
-    "state": "UNSEEN",
-    "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "state": "DESIGNED",
+    "phase": "design",
+    "updated_at": "2026-08-05 03:17:48"
   },
   "MOD-AUTH": {
     "req_id": "MOD-AUTH",
