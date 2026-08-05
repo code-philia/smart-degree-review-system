@@ -7,6 +7,7 @@ import DuplicationDetectPage from './pages/DuplicationDetectPage';
 import DuplicationHistoryPage from './pages/DuplicationHistoryPage';
 import HomePage from './pages/HomePage';
 import InnovationAssessmentPage from './pages/InnovationAssessmentPage';
+import InnovationReportPage from './pages/InnovationReportPage';
 import InnovationScoringPage from './pages/InnovationScoringPage';
 import LocalPolishPage from './pages/LocalPolishPage';
 import NormativeCheckPage from './pages/NormativeCheckPage';
@@ -28,6 +29,7 @@ function App() {
       <Route path="/duplication-history" element={<DuplicationHistoryPage />} />
       <Route path="/duplication-history/:reportId" element={<DuplicationHistoryPage />} />
       <Route path="/innovation-assessment" element={<InnovationAssessmentPage />} />
+      <Route path="/innovation-assessments/:reportId" element={<InnovationReportPage />} />
       <Route path="/innovation-scoring" element={<InnovationScoringPage />} />
       <Route path="/whole-polish" element={<WholePolishPage />} />
       <Route path="/whole-polish/:resultId" element={<WholePolishPage />} />

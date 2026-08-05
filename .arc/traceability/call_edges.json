@@ -311,6 +311,166 @@
     "edge_type": "cross_req",
     "created_at": "2026-08-05 02:44:32"
   },
+  "FEAT-INNOVATION-REPORT::FEAT-AUTH-PASSWORD::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES::DB-FEAT-AUTH-SESSION-REPOSITORY": {
+    "source_req_id": "FEAT-INNOVATION-REPORT",
+    "target_req_id": "FEAT-AUTH-PASSWORD",
+    "from_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "to_interface_id": "DB-FEAT-AUTH-SESSION-REPOSITORY",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 02:55:52"
+  },
+  "FEAT-INNOVATION-REPORT::FEAT-AUTH-PASSWORD::API-FEAT-INNOVATION-REPORT-EXPRESS-ROUTES::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES": {
+    "source_req_id": "FEAT-INNOVATION-REPORT",
+    "target_req_id": "FEAT-AUTH-PASSWORD",
+    "from_interface_id": "API-FEAT-INNOVATION-REPORT-EXPRESS-ROUTES",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 02:55:52"
+  },
+  "FEAT-INNOVATION-REPORT::FEAT-AUTH-PASSWORD::UI-FEAT-INNOVATION-REPORT-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-INNOVATION-REPORT",
+    "target_req_id": "FEAT-AUTH-PASSWORD",
+    "from_interface_id": "UI-FEAT-INNOVATION-REPORT-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 02:55:52"
+  },
+  "FEAT-INNOVATION-REPORT::FEAT-AUTH-SESSION::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES::DB-FEAT-AUTH-SESSION-REPOSITORY": {
+    "source_req_id": "FEAT-INNOVATION-REPORT",
+    "target_req_id": "FEAT-AUTH-SESSION",
+    "from_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "to_interface_id": "DB-FEAT-AUTH-SESSION-REPOSITORY",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 02:55:52"
+  },
+  "FEAT-INNOVATION-REPORT::FEAT-AUTH-SESSION::API-FEAT-INNOVATION-REPORT-EXPRESS-ROUTES::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES": {
+    "source_req_id": "FEAT-INNOVATION-REPORT",
+    "target_req_id": "FEAT-AUTH-SESSION",
+    "from_interface_id": "API-FEAT-INNOVATION-REPORT-EXPRESS-ROUTES",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 02:55:52"
+  },
+  "FEAT-INNOVATION-REPORT::FEAT-AUTH-SESSION::UI-FEAT-INNOVATION-REPORT-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-INNOVATION-REPORT",
+    "target_req_id": "FEAT-AUTH-SESSION",
+    "from_interface_id": "UI-FEAT-INNOVATION-REPORT-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 02:55:52"
+  },
+  "FEAT-INNOVATION-REPORT::FEAT-DUPLICATION-CORPUS::UI-FEAT-INNOVATION-REPORT-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-INNOVATION-REPORT",
+    "target_req_id": "FEAT-DUPLICATION-CORPUS",
+    "from_interface_id": "UI-FEAT-INNOVATION-REPORT-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 02:55:52"
+  },
+  "FEAT-INNOVATION-REPORT::FEAT-INNOVATION-ANALYZE::API-FEAT-INNOVATION-ANALYZE-EXPRESS-ROUTE::FUNC-FEAT-INNOVATION-ANALYZE-SERVICE": {
+    "source_req_id": "FEAT-INNOVATION-REPORT",
+    "target_req_id": "FEAT-INNOVATION-ANALYZE",
+    "from_interface_id": "API-FEAT-INNOVATION-ANALYZE-EXPRESS-ROUTE",
+    "to_interface_id": "FUNC-FEAT-INNOVATION-ANALYZE-SERVICE",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 02:55:52"
+  },
+  "FEAT-INNOVATION-REPORT::FEAT-INNOVATION-ANALYZE::API-FEAT-INNOVATION-REPORT-EXPRESS-ROUTES::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES": {
+    "source_req_id": "FEAT-INNOVATION-REPORT",
+    "target_req_id": "FEAT-INNOVATION-ANALYZE",
+    "from_interface_id": "API-FEAT-INNOVATION-REPORT-EXPRESS-ROUTES",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 02:55:52"
+  },
+  "FEAT-INNOVATION-REPORT::FEAT-INNOVATION-ANALYZE::FUNC-FEAT-INNOVATION-REPORT-SERVICE::FUNC-FEAT-INNOVATION-ANALYZE-SERVICE": {
+    "source_req_id": "FEAT-INNOVATION-REPORT",
+    "target_req_id": "FEAT-INNOVATION-ANALYZE",
+    "from_interface_id": "FUNC-FEAT-INNOVATION-REPORT-SERVICE",
+    "to_interface_id": "FUNC-FEAT-INNOVATION-ANALYZE-SERVICE",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 02:55:52"
+  },
+  "FEAT-INNOVATION-REPORT::FEAT-INNOVATION-ANALYZE::UI-FEAT-INNOVATION-REPORT-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-INNOVATION-REPORT",
+    "target_req_id": "FEAT-INNOVATION-ANALYZE",
+    "from_interface_id": "UI-FEAT-INNOVATION-REPORT-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 02:55:52"
+  },
+  "FEAT-INNOVATION-REPORT::FEAT-INNOVATION-SCORING-MODEL::API-FEAT-INNOVATION-REPORT-EXPRESS-ROUTES::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES": {
+    "source_req_id": "FEAT-INNOVATION-REPORT",
+    "target_req_id": "FEAT-INNOVATION-SCORING-MODEL",
+    "from_interface_id": "API-FEAT-INNOVATION-REPORT-EXPRESS-ROUTES",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 02:55:52"
+  },
+  "FEAT-INNOVATION-REPORT::FEAT-INNOVATION-SCORING-MODEL::UI-FEAT-INNOVATION-REPORT-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-INNOVATION-REPORT",
+    "target_req_id": "FEAT-INNOVATION-SCORING-MODEL",
+    "from_interface_id": "UI-FEAT-INNOVATION-REPORT-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 02:55:52"
+  },
+  "FEAT-INNOVATION-REPORT::FEAT-NORMATIVE-FORMAT-RULES::UI-FEAT-INNOVATION-REPORT-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-INNOVATION-REPORT",
+    "target_req_id": "FEAT-NORMATIVE-FORMAT-RULES",
+    "from_interface_id": "UI-FEAT-INNOVATION-REPORT-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 02:55:52"
+  },
+  "FEAT-INNOVATION-REPORT::FEAT-POLISH-HISTORY::API-FEAT-INNOVATION-REPORT-EXPRESS-ROUTES::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES": {
+    "source_req_id": "FEAT-INNOVATION-REPORT",
+    "target_req_id": "FEAT-POLISH-HISTORY",
+    "from_interface_id": "API-FEAT-INNOVATION-REPORT-EXPRESS-ROUTES",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 02:55:52"
+  },
+  "FEAT-INNOVATION-REPORT::FEAT-POLISH-HISTORY::UI-FEAT-INNOVATION-REPORT-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-INNOVATION-REPORT",
+    "target_req_id": "FEAT-POLISH-HISTORY",
+    "from_interface_id": "UI-FEAT-INNOVATION-REPORT-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 02:55:52"
+  },
+  "FEAT-INNOVATION-REPORT::FEAT-POLISH-LOCAL::API-FEAT-INNOVATION-REPORT-EXPRESS-ROUTES::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES": {
+    "source_req_id": "FEAT-INNOVATION-REPORT",
+    "target_req_id": "FEAT-POLISH-LOCAL",
+    "from_interface_id": "API-FEAT-INNOVATION-REPORT-EXPRESS-ROUTES",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 02:55:52"
+  },
+  "FEAT-INNOVATION-REPORT::FEAT-POLISH-LOCAL::UI-FEAT-INNOVATION-REPORT-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-INNOVATION-REPORT",
+    "target_req_id": "FEAT-POLISH-LOCAL",
+    "from_interface_id": "UI-FEAT-INNOVATION-REPORT-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 02:55:52"
+  },
+  "FEAT-INNOVATION-REPORT::FEAT-POLISH-WHOLE::API-FEAT-INNOVATION-REPORT-EXPRESS-ROUTES::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES": {
+    "source_req_id": "FEAT-INNOVATION-REPORT",
+    "target_req_id": "FEAT-POLISH-WHOLE",
+    "from_interface_id": "API-FEAT-INNOVATION-REPORT-EXPRESS-ROUTES",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 02:55:52"
+  },
+  "FEAT-INNOVATION-REPORT::FEAT-POLISH-WHOLE::UI-FEAT-INNOVATION-REPORT-PAGE::API-FEAT-AUTH-SESSION-CLIENT": {
+    "source_req_id": "FEAT-INNOVATION-REPORT",
+    "target_req_id": "FEAT-POLISH-WHOLE",
+    "from_interface_id": "UI-FEAT-INNOVATION-REPORT-PAGE",
+    "to_interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
+    "edge_type": "cross_req",
+    "created_at": "2026-08-05 02:55:52"
+  },
   "FEAT-INNOVATION-SCORING-MODEL::FEAT-AUTH-PASSWORD::API-FEAT-AUTH-SESSION-EXPRESS-ROUTES::DB-FEAT-AUTH-SESSION-REPOSITORY": {
     "source_req_id": "FEAT-INNOVATION-SCORING-MODEL",
     "target_req_id": "FEAT-AUTH-PASSWORD",

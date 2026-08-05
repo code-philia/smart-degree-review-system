@@ -10,15 +10,16 @@
       "FEAT-POLISH-LOCAL",
       "FEAT-POLISH-HISTORY",
       "FEAT-INNOVATION-SCORING-MODEL",
-      "FEAT-INNOVATION-ANALYZE"
+      "FEAT-INNOVATION-ANALYZE",
+      "FEAT-INNOVATION-REPORT"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-CLIENT\", \"req_id\": \"FEAT-INNOVATION-ANALYZE\", \"type\": \"API\", \"name\": \"Reused current session frontend state\", \"file_path\": \"frontend/src/api/authSession.ts\", \"first_line\": \"1\", \"responsibility\": \"Reuse current-session recovery and authenticated UI state before an innovation assessment is submitted.\", \"specification\": \"InnovationAssessmentPage consumes useAuthSession through the existing AuthSessionProvider path. This feature does not mutate auth state. Loading and anonymous states are handled before invoking the assessment API; backend authorization remains authoritative.\", \"inputs\": [\"Cookie-backed session\"], \"outputs\": [\"status\", \"user\"], \"callers\": [\"frontend/src/pages/InnovationAssessmentPage.tsx\"], \"callees\": [\"backend/src/auth/authRoutes.js mounted at /api/auth\"], \"test_focus\": [\"Anonymous UI prompts for login rather than submitting\", \"Authenticated UI displays the assessment form\"]}",
+    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-CLIENT\", \"req_id\": \"FEAT-INNOVATION-REPORT\", \"type\": \"API\", \"name\": \"Reused authenticated UI session client\", \"file_path\": \"frontend/src/api/authSession.ts\", \"first_line\": \"1\", \"responsibility\": \"Reuse current-session recovery and authenticated UI state before the innovation report page requests protected report data.\", \"specification\": \"InnovationReportPage consumes useAuthSession through the existing AuthSessionProvider path. This feature does not mutate auth state. Loading and anonymous states are handled before invoking the report API; backend authorization remains authoritative.\", \"inputs\": {\"cookies\": \"existing auth/session cookie state\"}, \"outputs\": {\"session_state\": \"loading, authenticated user, or anonymous\"}, \"callers\": [\"UI-FEAT-INNOVATION-REPORT-PAGE\"], \"callees\": [\"backend/src/auth/authRoutes.js mounted at /api/auth\"], \"test_focus\": [\"Report fetch waits for authenticated session\", \"Anonymous users see login prompt rather than fake report data\"]}",
     "file_path": "frontend/src/api/authSession.ts",
     "first_line": "1",
     "implemented": true,
     "callers": [
-      "frontend/src/pages/InnovationAssessmentPage.tsx"
+      "UI-FEAT-INNOVATION-REPORT-PAGE"
     ],
     "callees": [
       "backend/src/auth/authRoutes.js mounted at /api/auth"
@@ -33,15 +34,16 @@
       "FEAT-POLISH-LOCAL",
       "FEAT-POLISH-HISTORY",
       "FEAT-INNOVATION-SCORING-MODEL",
-      "FEAT-INNOVATION-ANALYZE"
+      "FEAT-INNOVATION-ANALYZE",
+      "FEAT-INNOVATION-REPORT"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"req_id\": \"FEAT-INNOVATION-ANALYZE\", \"type\": \"API\", \"name\": \"Reused backend auth/session authorization boundary\", \"file_path\": \"backend/src/auth/authRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse cookie-backed authentication and requireAuth middleware for server-side innovation assessment authorization.\", \"specification\": \"The innovation assessment route uses the existing requireAuth middleware to deny anonymous access and attach req.user before any validation, scoring, or persistence. Allowed roles for this node are STUDENT, SUPERVISOR, SCHOOL_ADMIN, and COLLEGE_ADMIN; no declared role is excluded. Resource scope is user-owned snapshot creation: the created row stores req.user.id.\", \"inputs\": [\"Session cookie\", \"Allowed role list\"], \"outputs\": [\"req.user for authenticated allowed roles\", \"401/403 before state changes\"], \"callers\": [\"API-FEAT-INNOVATION-ANALYZE-EXPRESS-ROUTE\"], \"callees\": [\"backend/src/auth/sessionService.js\", \"DB-FEAT-AUTH-SESSION-REPOSITORY\"], \"test_focus\": [\"Anonymous requests to POST /api/normative/innovation-assessments do not persist\", \"Allowed roles can reach the assessment service\"]}",
+    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"req_id\": \"FEAT-INNOVATION-REPORT\", \"type\": \"API\", \"name\": \"Reused Express authentication and authorization boundary\", \"file_path\": \"backend/src/auth/authRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse cookie-backed authentication and requireAuth middleware for server-side innovation report authorization before any report data is returned.\", \"specification\": \"The report routes use the existing requireAuth middleware to deny anonymous access and attach req.user. Allowed roles are STUDENT, SUPERVISOR, SCHOOL_ADMIN, and COLLEGE_ADMIN. UI visibility is supplementary; backend route/service checks are the permission boundary.\", \"inputs\": {\"request_cookie\": \"session cookie\"}, \"outputs\": {\"req.user\": \"authenticated user object or 401/403 response\"}, \"callers\": [\"API-FEAT-INNOVATION-REPORT-EXPRESS-ROUTES\"], \"callees\": [\"backend/src/auth/sessionService.js\", \"DB-FEAT-AUTH-SESSION-REPOSITORY\"], \"test_focus\": [\"Anonymous access denied at API\", \"Allowed role request reaches report service with req.user\"]}",
     "file_path": "backend/src/auth/authRoutes.js",
     "first_line": "1",
     "implemented": true,
     "callers": [
-      "API-FEAT-INNOVATION-ANALYZE-EXPRESS-ROUTE"
+      "API-FEAT-INNOVATION-REPORT-EXPRESS-ROUTES"
     ],
     "callees": [
       "backend/src/auth/sessionService.js",
@@ -182,21 +184,59 @@
   "API-FEAT-INNOVATION-ANALYZE-EXPRESS-ROUTE": {
     "interface_id": "API-FEAT-INNOVATION-ANALYZE-EXPRESS-ROUTE",
     "req_ids": [
-      "FEAT-INNOVATION-ANALYZE"
+      "FEAT-INNOVATION-ANALYZE",
+      "FEAT-INNOVATION-REPORT"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-INNOVATION-ANALYZE-EXPRESS-ROUTE\", \"req_id\": \"FEAT-INNOVATION-ANALYZE\", \"type\": \"API\", \"name\": \"POST /api/normative/innovation-assessments\", \"file_path\": \"backend/src/normative/normativeRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Provide the protected backend HTTP boundary for creating and saving an innovation self-assessment snapshot under the existing normative route tree.\", \"specification\": \"Adds POST /api/normative/innovation-assessments beside the dependency-owned /innovation-scores route. The route is mounted by backend/src/app.js under /api/normative and uses requireAuth({ allowedRoles: ALLOWED_INNOVATION_ASSESSMENT_ROLES }) before reading request body or changing state. Allowed roles are STUDENT, SUPERVISOR, SCHOOL_ADMIN, and COLLEGE_ADMIN per permission_contract; there are no declared denied roles. Anonymous requests are denied because scenarios require a named logged-in student and persistence is user-owned. The route parses JSON with MAX_INNOVATION_ASSESSMENT_JSON_BYTES, calls createInnovationAssessment(req.user, req.body || {}), returns 201 with the persisted assessment, returns 413 for oversized JSON, and returns structured { code, message, errors } validation responses without writing snapshots.\", \"inputs\": [\"Authenticated req.user\", \"InnovationAssessmentRequest JSON body\"], \"outputs\": [\"201 InnovationAssessmentResponse\", \"401 for anonymous users via requireAuth\", \"403 for roles outside allowed role set\", \"400 validation errors with field paths\", \"413 for oversized payloads\"], \"callers\": [\"backend/src/app.js /api/normative mount\", \"frontend/src/api/normativeRules.ts createInnovationAssessment\", \"backend integration tests via Supertest\"], \"callees\": [\"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"FUNC-FEAT-INNOVATION-ANALYZE-SERVICE\"], \"test_focus\": [\"Rejects anonymous requests before service execution\", \"Accepts allowed authenticated role and returns 201 with saved snapshot id\", \"Returns validation errors and does not persist when research_method evidence is under 20 characters\", \"Uses existing /api/normative mount and shared auth middleware\"]}",
+    "content": "{\"interface_id\": \"API-FEAT-INNOVATION-ANALYZE-EXPRESS-ROUTE\", \"req_id\": \"FEAT-INNOVATION-REPORT\", \"type\": \"API\", \"name\": \"Reused innovation assessment creation route as report producer\", \"file_path\": \"backend/src/normative/normativeRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse the dependency-owned POST /api/normative/innovation-assessments route as the producer of completed persisted assessments that this report feature reads.\", \"specification\": \"FEAT-INNOVATION-REPORT does not redefine assessment creation or scoring. It depends on completed assessment snapshots inserted by FEAT-INNOVATION-ANALYZE and reads them through new report detail/download GET boundaries. The producer and report reader share the same route tree and allowed role set.\", \"inputs\": {\"assessment_payload\": \"InnovationAssessmentRequest submitted by dependency feature\"}, \"outputs\": {\"persisted_snapshot\": \"innovation_assessment_snapshots row with scoring/input snapshots\"}, \"callers\": [\"frontend/src/pages/InnovationAssessmentPage.tsx\", \"tests preparing completed reports\"], \"callees\": [\"FUNC-FEAT-INNOVATION-ANALYZE-SERVICE\", \"DB-FEAT-INNOVATION-REPORT-REPOSITORY\"], \"test_focus\": [\"A completed assessment can be opened as a report\", \"Report values match the created assessment scoring snapshot\"]}",
     "file_path": "backend/src/normative/normativeRoutes.js",
     "first_line": "1",
     "implemented": true,
     "callers": [
+      "frontend/src/pages/InnovationAssessmentPage.tsx",
+      "tests preparing completed reports"
+    ],
+    "callees": [
+      "FUNC-FEAT-INNOVATION-ANALYZE-SERVICE",
+      "DB-FEAT-INNOVATION-REPORT-REPOSITORY"
+    ]
+  },
+  "API-FEAT-INNOVATION-REPORT-CLIENT": {
+    "interface_id": "API-FEAT-INNOVATION-REPORT-CLIENT",
+    "req_ids": [
+      "FEAT-INNOVATION-REPORT"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-INNOVATION-REPORT-CLIENT\", \"req_id\": \"FEAT-INNOVATION-REPORT\", \"type\": \"API\", \"name\": \"Innovation report same-origin client\", \"file_path\": \"frontend/src/api/normativeRules.ts\", \"first_line\": \"1\", \"responsibility\": \"Expose typed same-origin Axios calls for reading a persisted innovation assessment report and downloading it as UTF-8 JSON through the existing shared API client and interceptors.\", \"specification\": \"Extends the existing normativeRules client module instead of creating a parallel HTTP layer. Reuses InnovationAssessmentResponse produced by FEAT-INNOVATION-ANALYZE. fetchInnovationReport(reportId) calls GET /api/normative/innovation-assessments/:reportId and returns the full persisted assessment report. downloadInnovationReportJson(reportId) calls GET /api/normative/innovation-assessments/:reportId/download with responseType blob and Accept application/json. All calls use frontend/src/api/index.ts so auth cookies and global error handling interceptors remain active.\", \"inputs\": {\"reportId\": \"string persisted innovation assessment snapshot id\"}, \"outputs\": {\"fetchInnovationReport\": \"Promise<InnovationAssessmentResponse>\", \"downloadInnovationReportJson\": \"Promise<Blob> containing JSON report\"}, \"callers\": [\"UI-FEAT-INNOVATION-REPORT-PAGE\"], \"callees\": [\"frontend/src/api/index.ts shared Axios client\", \"API-FEAT-INNOVATION-REPORT-EXPRESS-ROUTES\"], \"test_focus\": [\"Uses same-origin /api/normative paths\", \"Preserves global Axios interceptor behavior\", \"Returns typed report DTO without fallback arrays or mock records\", \"Download request asks for JSON blob\"]}",
+    "file_path": "frontend/src/api/normativeRules.ts",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "UI-FEAT-INNOVATION-REPORT-PAGE"
+    ],
+    "callees": [
+      "frontend/src/api/index.ts shared Axios client",
+      "API-FEAT-INNOVATION-REPORT-EXPRESS-ROUTES"
+    ]
+  },
+  "API-FEAT-INNOVATION-REPORT-EXPRESS-ROUTES": {
+    "interface_id": "API-FEAT-INNOVATION-REPORT-EXPRESS-ROUTES",
+    "req_ids": [
+      "FEAT-INNOVATION-REPORT"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-INNOVATION-REPORT-EXPRESS-ROUTES\", \"req_id\": \"FEAT-INNOVATION-REPORT\", \"type\": \"API\", \"name\": \"Innovation report Express routes\", \"file_path\": \"backend/src/normative/normativeRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Provide protected backend HTTP boundaries for reading one owned innovation report and downloading it as UTF-8 JSON under the existing /api/normative route tree.\", \"specification\": \"Adds GET /api/normative/innovation-assessments/:reportId and GET /api/normative/innovation-assessments/:reportId/download beside the existing innovation assessment creation route. Each endpoint calls requireAuth({ allowedRoles: ALLOWED_INNOVATION_REPORT_ROLES }) before any data is returned. Allowed actors are STUDENT, SUPERVISOR, SCHOOL_ADMIN, and COLLEGE_ADMIN; no declared role is excluded. Anonymous users are denied by requireAuth because the scenario requires student01 to have a completed assessment. Data scope is owner-scoped: the service/repository must return only reports whose user_id matches req.user.id unless a later requirement explicitly expands administrative scope. Download endpoint sends application/json; charset=utf-8 with an attachment filename innovation-report-{id}.json.\", \"inputs\": {\"params\": {\"reportId\": \"string\"}, \"auth\": \"req.user from requireAuth\"}, \"outputs\": {\"detail\": \"InnovationAssessmentResponse JSON\", \"download\": \"UTF-8 JSON attachment\", \"errors\": [\"401 anonymous\", \"403 disallowed role\", \"404 report not found or outside scope\"]}, \"callers\": [\"backend/src/app.js /api/normative mount\", \"API-FEAT-INNOVATION-REPORT-CLIENT\", \"backend integration tests via Supertest\"], \"callees\": [\"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"FUNC-FEAT-INNOVATION-REPORT-SERVICE\"], \"test_focus\": [\"Anonymous request is rejected before repository access\", \"Allowed roles can request their own report\", \"Report id owned by another user returns not found/forbidden-safe behavior\", \"Download response is JSON attachment with consistent values\"]}",
+    "file_path": "backend/src/normative/normativeRoutes.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
       "backend/src/app.js /api/normative mount",
-      "frontend/src/api/normativeRules.ts createInnovationAssessment",
+      "API-FEAT-INNOVATION-REPORT-CLIENT",
       "backend integration tests via Supertest"
     ],
     "callees": [
       "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
-      "FUNC-FEAT-INNOVATION-ANALYZE-SERVICE"
+      "FUNC-FEAT-INNOVATION-REPORT-SERVICE"
     ]
   },
   "API-FEAT-INNOVATION-SCORING-MODEL-CLIENT": {
@@ -741,6 +781,43 @@
       "DB-FEAT-AUTH-SESSION-SCHEMA"
     ]
   },
+  "DB-FEAT-INNOVATION-ANALYZE-SNAPSHOT-TABLE": {
+    "interface_id": "DB-FEAT-INNOVATION-ANALYZE-SNAPSHOT-TABLE",
+    "req_ids": [
+      "FEAT-INNOVATION-REPORT"
+    ],
+    "type": "DB",
+    "content": "{\"interface_id\": \"DB-FEAT-INNOVATION-ANALYZE-SNAPSHOT-TABLE\", \"req_id\": \"FEAT-INNOVATION-REPORT\", \"type\": \"DB\", \"name\": \"Reused innovation assessment snapshot table\", \"file_path\": \"backend/src/database/init_db.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse the dependency-owned durable SQLite storage for completed innovation assessments as the source of report data.\", \"specification\": \"The current feature does not create a new report table. It reads the existing innovation_assessment_snapshots table with id, user_id, thesis_title, degree_type, primary_discipline, secondary_discipline, research_direction, input_snapshot_json, scoring_snapshot_json, and created_at. Schema lifecycle remains centralized in init_db.js and tests must allocate isolated databases through the provided scaffold. Report ownership is enforced by querying user_id with the authenticated user.\", \"inputs\": {\"persisted_rows\": \"Completed assessments created by FEAT-INNOVATION-ANALYZE\"}, \"outputs\": {\"durable_report_source\": \"innovation_assessment_snapshots rows\"}, \"callers\": [\"DB-FEAT-INNOVATION-REPORT-REPOSITORY\", \"backend/src/database/test_harness.js in tests\"], \"callees\": [\"SQLite via backend/src/database/db_runtime.js\"], \"test_focus\": [\"No parallel persistence layer\", \"Existing completed assessments can be read as reports\", \"Owner user_id is available for authorization scope\"]}",
+    "file_path": "backend/src/database/init_db.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "DB-FEAT-INNOVATION-REPORT-REPOSITORY",
+      "backend/src/database/test_harness.js in tests"
+    ],
+    "callees": [
+      "SQLite via backend/src/database/db_runtime.js"
+    ]
+  },
+  "DB-FEAT-INNOVATION-REPORT-REPOSITORY": {
+    "interface_id": "DB-FEAT-INNOVATION-REPORT-REPOSITORY",
+    "req_ids": [
+      "FEAT-INNOVATION-REPORT"
+    ],
+    "type": "DB",
+    "content": "{\"interface_id\": \"DB-FEAT-INNOVATION-REPORT-REPOSITORY\", \"req_id\": \"FEAT-INNOVATION-REPORT\", \"type\": \"DB\", \"name\": \"Innovation assessment report repository read model\", \"file_path\": \"backend/src/normative/innovationAssessmentRepository.js\", \"first_line\": \"1\", \"responsibility\": \"Read persisted innovation assessment snapshots for the authenticated owner and reconstruct the report DTO consumed by the UI and JSON download path.\", \"specification\": \"Extends the dependency-owned innovationAssessmentRepository instead of adding a second table or connection helper. getInnovationAssessmentReportForUser(user, reportId) selects from innovation_assessment_snapshots where id = reportId and user_id = user.id, parses input_snapshot_json and scoring_snapshot_json, and maps persisted data into the same InnovationAssessmentResponse shape used after assessment creation. buildInnovationAssessmentDownloadPayload(report) returns a JSON-serializable export payload derived from that same DTO. The repository must use the shared database barrel/runtime helpers and the centralized schema from backend/src/database/init_db.js.\", \"inputs\": {\"user.id\": \"authenticated owner id\", \"reportId\": \"snapshot id\"}, \"outputs\": {\"report_fields\": [\"id\", \"user_id\", \"thesis_title\", \"degree_type\", \"primary_discipline\", \"secondary_discipline\", \"research_direction\", \"input_snapshot\", \"scoring_snapshot\", \"total_score\", \"grade_label\", \"formula\", \"dimensions\", \"input\", \"disclaimer\", \"created_at\"], \"not_found\": \"throws 404 when no owner-scoped row exists\"}, \"callers\": [\"FUNC-FEAT-INNOVATION-REPORT-SERVICE\", \"FUNC-FEAT-INNOVATION-ANALYZE-SERVICE for existing inserts\"], \"callees\": [\"DB-FEAT-INNOVATION-ANALYZE-SNAPSHOT-TABLE\", \"backend/src/database/index.js shared helpers\"], \"test_focus\": [\"Uses isolated test DB scaffold\", \"Returns only owner-scoped snapshot rows\", \"Parses stored scoring/input JSON without losing score/dimension consistency\", \"Does not create one-off DB connections\"]}",
+    "file_path": "backend/src/normative/innovationAssessmentRepository.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "FUNC-FEAT-INNOVATION-REPORT-SERVICE",
+      "FUNC-FEAT-INNOVATION-ANALYZE-SERVICE for existing inserts"
+    ],
+    "callees": [
+      "DB-FEAT-INNOVATION-ANALYZE-SNAPSHOT-TABLE",
+      "backend/src/database/index.js shared helpers"
+    ]
+  },
   "DB-FEAT-NORMATIVE-DETECT-TASK-REPOSITORY": {
     "interface_id": "DB-FEAT-NORMATIVE-DETECT-TASK-REPOSITORY",
     "req_ids": [
@@ -1094,6 +1171,24 @@
     "callees": [
       "FUNC-FEAT-INNOVATION-SCORING-MODEL-SERVICE",
       "DB-FEAT-INNOVATION-ANALYZE-REPOSITORY"
+    ]
+  },
+  "FUNC-FEAT-INNOVATION-REPORT-SERVICE": {
+    "interface_id": "FUNC-FEAT-INNOVATION-REPORT-SERVICE",
+    "req_ids": [
+      "FEAT-INNOVATION-REPORT"
+    ],
+    "type": "FUNC",
+    "content": "{\"interface_id\": \"FUNC-FEAT-INNOVATION-REPORT-SERVICE\", \"req_id\": \"FEAT-INNOVATION-REPORT\", \"type\": \"FUNC\", \"name\": \"Innovation report service\", \"file_path\": \"backend/src/normative/innovationReportService.js\", \"first_line\": \"1\", \"responsibility\": \"Coordinate authorization-aware report retrieval and JSON download payload creation from persisted innovation assessment snapshots.\", \"specification\": \"Exports ALLOWED_INNOVATION_REPORT_ROLES, getInnovationReportForUser(user, reportId), and buildInnovationReportDownloadPayload(report). Role set reuses ALLOWED_INNOVATION_ASSESSMENT_ROLES from the dependency-owned assessment/scoring model to keep create/read semantics consistent. getInnovationReportForUser rejects missing users with 401, rejects roles outside STUDENT/SUPERVISOR/SCHOOL_ADMIN/COLLEGE_ADMIN with 403, then delegates owner-scoped lookup to the repository. The returned report must preserve consistent values across text fields and visualization-ready dimensions: metadata, input_snapshot, scoring_snapshot, dimensions, formula, total_score, grade_label, disclaimer, and created_at. Download payload is derived from the same report object to prevent mismatch between on-screen values and JSON.\", \"inputs\": {\"user\": \"authenticated user with id and role\", \"reportId\": \"persisted snapshot id\", \"report\": \"InnovationAssessmentResponse for download building\"}, \"outputs\": {\"report\": \"owner-scoped innovation report DTO\", \"download_payload\": \"JSON-serializable report payload\"}, \"callers\": [\"API-FEAT-INNOVATION-REPORT-EXPRESS-ROUTES\"], \"callees\": [\"DB-FEAT-INNOVATION-REPORT-REPOSITORY\", \"FUNC-FEAT-INNOVATION-ANALYZE-SERVICE\"], \"test_focus\": [\"Role allow list matches declared permissions\", \"Missing user and disallowed roles fail before retrieval\", \"Download payload reuses the exact fetched report values\", \"No hardcoded report records are fabricated\"]}",
+    "file_path": "backend/src/normative/innovationReportService.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "API-FEAT-INNOVATION-REPORT-EXPRESS-ROUTES"
+    ],
+    "callees": [
+      "DB-FEAT-INNOVATION-REPORT-REPOSITORY",
+      "FUNC-FEAT-INNOVATION-ANALYZE-SERVICE"
     ]
   },
   "FUNC-FEAT-INNOVATION-SCORING-MODEL-SERVICE": {
@@ -1472,6 +1567,43 @@
     "callees": [
       "API-FEAT-AUTH-SESSION-CLIENT",
       "API-FEAT-INNOVATION-ANALYZE-CLIENT"
+    ]
+  },
+  "UI-FEAT-INNOVATION-REPORT-APP-ROUTE": {
+    "interface_id": "UI-FEAT-INNOVATION-REPORT-APP-ROUTE",
+    "req_ids": [
+      "FEAT-INNOVATION-REPORT"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-INNOVATION-REPORT-APP-ROUTE\", \"req_id\": \"FEAT-INNOVATION-REPORT\", \"type\": \"UI\", \"name\": \"Innovation report frontend route registration\", \"file_path\": \"frontend/src/App.tsx\", \"first_line\": \"1\", \"responsibility\": \"Wire the report page into the existing React route tree without introducing a separate frontend entrypoint or dev-server-only route.\", \"specification\": \"Adds /innovation-assessments/:reportId to the existing Routes component and renders InnovationReportPage. Keeps the backend-hosted single-origin runtime model; the route is served from frontend/dist by the Express backend.\", \"inputs\": {\"path\": \"/innovation-assessments/:reportId\"}, \"outputs\": {\"element\": \"InnovationReportPage\"}, \"callers\": [\"React Router browser navigation\", \"links from assessment/report history features\"], \"callees\": [\"UI-FEAT-INNOVATION-REPORT-PAGE\"], \"test_focus\": [\"Route resolves to report page under built frontend\", \"No duplicate router tree or isolated app shell is introduced\"]}",
+    "file_path": "frontend/src/App.tsx",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "React Router browser navigation",
+      "links from assessment/report history features"
+    ],
+    "callees": [
+      "UI-FEAT-INNOVATION-REPORT-PAGE"
+    ]
+  },
+  "UI-FEAT-INNOVATION-REPORT-PAGE": {
+    "interface_id": "UI-FEAT-INNOVATION-REPORT-PAGE",
+    "req_ids": [
+      "FEAT-INNOVATION-REPORT"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-INNOVATION-REPORT-PAGE\", \"req_id\": \"FEAT-INNOVATION-REPORT\", \"type\": \"UI\", \"name\": \"InnovationReportPage\", \"file_path\": \"frontend/src/pages/InnovationReportPage.tsx\", \"first_line\": \"1\", \"responsibility\": \"Render the authenticated innovation analysis report page with runtime-driven metadata, section tabs, loading/empty/error states, JSON download, and browser print controls using local React/Tailwind/SVG-or-CSS-ready surfaces rather than external chart services.\", \"specification\": \"Route page for /innovation-assessments/:reportId. Uses useAuthSession before fetching data, redirects anonymous users to /auth, calls fetchInnovationReport(reportId), and exposes report navigation tabs: 基本信息, 核心指标雷达图, 子指标热力图, 分项评价, 综合评价与建议. Visual shell preserves the reference: deep navy centered header, equal-width tabs, light section heading strip, near-white background, runtime-bound data surfaces, JSON download button, and window.print button. Final implementation must bind basic information, five-dimension radar visualization, five-dimension heat/rating matrix, evidence, improvement plans, formula, score, and disclaimer from the fetched report without hardcoded sample values.\", \"inputs\": {\"route_params\": [\"reportId\"], \"session\": \"AuthSessionProvider current user/status\", \"api_data\": \"InnovationAssessmentResponse from fetchInnovationReport\"}, \"outputs\": {\"ui_states\": [\"auth loading\", \"anonymous prompt\", \"report loading\", \"error alert\", \"empty state\", \"report content\"], \"interactions\": [\"tab switching\", \"download JSON\", \"browser print\"]}, \"callers\": [\"frontend/src/App.tsx route /innovation-assessments/:reportId\", \"backend-hosted frontend dist on port 3000\"], \"callees\": [\"API-FEAT-AUTH-SESSION-CLIENT\", \"API-FEAT-INNOVATION-REPORT-CLIENT\"], \"test_focus\": [\"Requires login state before data fetch\", \"Does not render screenshot-specific hardcoded business data\", \"Shows reference-style header/tabs/basic report shell\", \"Displays loading, empty, and API error states\", \"Download button calls JSON download only when a report is loaded\", \"Print button invokes browser print\"]}",
+    "file_path": "frontend/src/pages/InnovationReportPage.tsx",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "frontend/src/App.tsx route /innovation-assessments/:reportId",
+      "backend-hosted frontend dist on port 3000"
+    ],
+    "callees": [
+      "API-FEAT-AUTH-SESSION-CLIENT",
+      "API-FEAT-INNOVATION-REPORT-CLIENT"
     ]
   },
   "UI-FEAT-INNOVATION-SCORING-MODEL-APP-ROUTE": {

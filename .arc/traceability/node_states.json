@@ -73,9 +73,9 @@
   },
   "FEAT-INNOVATION-REPORT": {
     "req_id": "FEAT-INNOVATION-REPORT",
-    "state": "UNSEEN",
-    "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "state": "DESIGNED",
+    "phase": "design",
+    "updated_at": "2026-08-05 02:55:52"
   },
   "FEAT-INNOVATION-SCORING-MODEL": {
     "req_id": "FEAT-INNOVATION-SCORING-MODEL",

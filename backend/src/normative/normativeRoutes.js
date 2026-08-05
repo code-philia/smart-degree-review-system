@@ -63,6 +63,11 @@ const {
   MAX_INNOVATION_ASSESSMENT_JSON_BYTES,
   createInnovationAssessment,
 } = require('./innovationAssessmentService');
+const {
+  ALLOWED_INNOVATION_REPORT_ROLES,
+  buildInnovationReportDownloadPayload,
+  getInnovationReportForUser,
+} = require('./innovationReportService');
 
 const router = express.Router();
 
@@ -427,6 +432,43 @@ router.post(
           body.errors = error.errors;
         }
         res.status(error.status).json(body);
+        return;
+      }
+      next(error);
+    }
+  },
+);
+
+router.get(
+  '/innovation-assessments/:reportId',
+  requireAuth({ allowedRoles: ALLOWED_INNOVATION_REPORT_ROLES }),
+  async (req, res, next) => {
+    try {
+      const report = await getInnovationReportForUser(req.user, req.params.reportId);
+      res.json(report);
+    } catch (error) {
+      if (error?.status) {
+        res.status(error.status).json({ code: error.status, message: error.message });
+        return;
+      }
+      next(error);
+    }
+  },
+);
+
+router.get(
+  '/innovation-assessments/:reportId/download',
+  requireAuth({ allowedRoles: ALLOWED_INNOVATION_REPORT_ROLES }),
+  async (req, res, next) => {
+    try {
+      const report = await getInnovationReportForUser(req.user, req.params.reportId);
+      res
+        .type('application/json; charset=utf-8')
+        .attachment(`innovation-report-${report.id}.json`)
+        .send(JSON.stringify(buildInnovationReportDownloadPayload(report), null, 2));
+    } catch (error) {
+      if (error?.status) {
+        res.status(error.status).json({ code: error.status, message: error.message });
         return;
       }
       next(error);

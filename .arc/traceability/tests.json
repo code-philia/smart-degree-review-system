@@ -368,6 +368,71 @@
     "first_line": "1",
     "scenario_id": null
   },
+  "FEAT-INNOVATION-REPORT:E2E:SCENARIO:001": {
+    "test_id": "FEAT-INNOVATION-REPORT:E2E:SCENARIO:001",
+    "req_id": "FEAT-INNOVATION-REPORT",
+    "interface_ids": [
+      "UI-FEAT-INNOVATION-REPORT-PAGE",
+      "UI-FEAT-INNOVATION-REPORT-APP-ROUTE",
+      "API-FEAT-INNOVATION-REPORT-CLIENT",
+      "API-FEAT-INNOVATION-REPORT-EXPRESS-ROUTES",
+      "FUNC-FEAT-INNOVATION-REPORT-SERVICE",
+      "DB-FEAT-INNOVATION-REPORT-REPOSITORY",
+      "DB-FEAT-INNOVATION-ANALYZE-SNAPSHOT-TABLE",
+      "API-FEAT-AUTH-SESSION-CLIENT",
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+      "API-FEAT-INNOVATION-ANALYZE-EXPRESS-ROUTE"
+    ],
+    "type": "E2E",
+    "file_path": "backend/test-e2e/innovation-report.spec.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-INNOVATION-REPORT:INTEGRATION:API-DB-AUTHZ:001": {
+    "test_id": "FEAT-INNOVATION-REPORT:INTEGRATION:API-DB-AUTHZ:001",
+    "req_id": "FEAT-INNOVATION-REPORT",
+    "interface_ids": [
+      "API-FEAT-INNOVATION-REPORT-EXPRESS-ROUTES",
+      "FUNC-FEAT-INNOVATION-REPORT-SERVICE",
+      "DB-FEAT-INNOVATION-REPORT-REPOSITORY",
+      "DB-FEAT-INNOVATION-ANALYZE-SNAPSHOT-TABLE",
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+      "API-FEAT-INNOVATION-ANALYZE-EXPRESS-ROUTE"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/innovation-report.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-INNOVATION-REPORT:INTEGRATION:UI-CLIENT-ROUTE:001": {
+    "test_id": "FEAT-INNOVATION-REPORT:INTEGRATION:UI-CLIENT-ROUTE:001",
+    "req_id": "FEAT-INNOVATION-REPORT",
+    "interface_ids": [
+      "UI-FEAT-INNOVATION-REPORT-PAGE",
+      "UI-FEAT-INNOVATION-REPORT-APP-ROUTE",
+      "API-FEAT-INNOVATION-REPORT-CLIENT",
+      "API-FEAT-AUTH-SESSION-CLIENT"
+    ],
+    "type": "Integration",
+    "file_path": "frontend/tests/innovation-report.test.tsx",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-INNOVATION-REPORT:UNIT:AUTHZ-DOWNLOAD:001": {
+    "test_id": "FEAT-INNOVATION-REPORT:UNIT:AUTHZ-DOWNLOAD:001",
+    "req_id": "FEAT-INNOVATION-REPORT",
+    "interface_ids": [
+      "FUNC-FEAT-INNOVATION-REPORT-SERVICE"
+    ],
+    "type": "Unit",
+    "file_path": "backend/tests/innovation-report.unit.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
   "FEAT-INNOVATION-SCORING-MODEL:E2E:SCENARIO:001:MASTER-WEIGHTS": {
     "test_id": "FEAT-INNOVATION-SCORING-MODEL:E2E:SCENARIO:001:MASTER-WEIGHTS",
     "req_id": "FEAT-INNOVATION-SCORING-MODEL",

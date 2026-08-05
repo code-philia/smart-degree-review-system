@@ -333,6 +333,19 @@ export async function createInnovationAssessment(
   return response.data;
 }
 
+export async function fetchInnovationReport(reportId: string): Promise<InnovationAssessmentResponse> {
+  const response = await apiClient.get<InnovationAssessmentResponse>(`/normative/innovation-assessments/${reportId}`);
+  return response.data;
+}
+
+export async function downloadInnovationReportJson(reportId: string): Promise<Blob> {
+  const response = await apiClient.get(`/normative/innovation-assessments/${reportId}/download`, {
+    responseType: 'blob',
+    headers: { Accept: 'application/json' },
+  });
+  return response.data;
+}
+
 export async function fetchPolishHistory(): Promise<PolishHistoryRecord[]> {
   const response = await apiClient.get<{ records: PolishHistoryRecord[] }>('/normative/polish-history');
   return response.data.records;
