@@ -217,6 +217,23 @@ async function initializeDatabase(options = {}) {
       );`,
     );
 
+    await runStatement(
+      database,
+      `CREATE TABLE IF NOT EXISTS innovation_assessment_snapshots (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        thesis_title TEXT NOT NULL,
+        degree_type TEXT NOT NULL CHECK (degree_type IN ('doctoral', 'master')),
+        primary_discipline TEXT NOT NULL,
+        secondary_discipline TEXT NOT NULL,
+        research_direction TEXT NOT NULL,
+        input_snapshot_json TEXT NOT NULL,
+        scoring_snapshot_json TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE
+      );`,
+    );
+
     return database;
 
     /**

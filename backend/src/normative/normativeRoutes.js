@@ -58,6 +58,11 @@ const {
   MAX_INNOVATION_SCORING_JSON_BYTES,
   calculateInnovationScore,
 } = require('./innovationScoringService');
+const {
+  ALLOWED_INNOVATION_ASSESSMENT_ROLES,
+  MAX_INNOVATION_ASSESSMENT_JSON_BYTES,
+  createInnovationAssessment,
+} = require('./innovationAssessmentService');
 
 const router = express.Router();
 
@@ -396,6 +401,32 @@ router.post(
       }
       if (error?.code === 'INNOVATION_SCORING_SERVICE_NOT_IMPLEMENTED') {
         res.status(501).json({ code: 501, message: error.message });
+        return;
+      }
+      next(error);
+    }
+  },
+);
+
+router.post(
+  '/innovation-assessments',
+  requireAuth({ allowedRoles: ALLOWED_INNOVATION_ASSESSMENT_ROLES }),
+  express.json({ limit: MAX_INNOVATION_ASSESSMENT_JSON_BYTES }),
+  async (req, res, next) => {
+    try {
+      const result = await createInnovationAssessment(req.user, req.body || {});
+      res.status(201).json(result);
+    } catch (error) {
+      if (error?.type === 'entity.too.large') {
+        res.status(413).json({ code: 413, message: '评估输入不能超过 32 KB' });
+        return;
+      }
+      if (error?.status) {
+        const body = { code: error.status, message: error.message };
+        if (Array.isArray(error.errors)) {
+          body.errors = error.errors;
+        }
+        res.status(error.status).json(body);
         return;
       }
       next(error);

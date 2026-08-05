@@ -9,15 +9,16 @@
       "FEAT-POLISH-WHOLE",
       "FEAT-POLISH-LOCAL",
       "FEAT-POLISH-HISTORY",
-      "FEAT-INNOVATION-SCORING-MODEL"
+      "FEAT-INNOVATION-SCORING-MODEL",
+      "FEAT-INNOVATION-ANALYZE"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-CLIENT\", \"req_id\": \"FEAT-INNOVATION-SCORING-MODEL\", \"type\": \"API\", \"name\": \"Reused frontend auth session state\", \"file_path\": \"frontend/src/api/authSession.ts\", \"first_line\": \"1\", \"responsibility\": \"Reuse current-session recovery and shared authenticated UI state before innovation scoring is submitted.\", \"specification\": \"InnovationScoringPage consumes useAuthSession through the existing AuthSessionProvider path. This feature does not change authenticated state. Loading and anonymous states are handled in the UI before invoking scoring API calls.\", \"inputs\": {\"browser_session_cookie\": \"existing auth session cookie\"}, \"outputs\": {\"status\": \"loading | authenticated | anonymous\", \"user\": \"current authenticated user or null\"}, \"callers\": [\"frontend/src/pages/InnovationScoringPage.tsx\"], \"callees\": [\"backend/src/auth/authRoutes.js mounted at /api/auth\"], \"test_focus\": [\"page waits for session loading\", \"anonymous users see login prompt and do not submit scoring requests\"]}",
+    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-CLIENT\", \"req_id\": \"FEAT-INNOVATION-ANALYZE\", \"type\": \"API\", \"name\": \"Reused current session frontend state\", \"file_path\": \"frontend/src/api/authSession.ts\", \"first_line\": \"1\", \"responsibility\": \"Reuse current-session recovery and authenticated UI state before an innovation assessment is submitted.\", \"specification\": \"InnovationAssessmentPage consumes useAuthSession through the existing AuthSessionProvider path. This feature does not mutate auth state. Loading and anonymous states are handled before invoking the assessment API; backend authorization remains authoritative.\", \"inputs\": [\"Cookie-backed session\"], \"outputs\": [\"status\", \"user\"], \"callers\": [\"frontend/src/pages/InnovationAssessmentPage.tsx\"], \"callees\": [\"backend/src/auth/authRoutes.js mounted at /api/auth\"], \"test_focus\": [\"Anonymous UI prompts for login rather than submitting\", \"Authenticated UI displays the assessment form\"]}",
     "file_path": "frontend/src/api/authSession.ts",
     "first_line": "1",
     "implemented": true,
     "callers": [
-      "frontend/src/pages/InnovationScoringPage.tsx"
+      "frontend/src/pages/InnovationAssessmentPage.tsx"
     ],
     "callees": [
       "backend/src/auth/authRoutes.js mounted at /api/auth"
@@ -31,15 +32,16 @@
       "FEAT-POLISH-WHOLE",
       "FEAT-POLISH-LOCAL",
       "FEAT-POLISH-HISTORY",
-      "FEAT-INNOVATION-SCORING-MODEL"
+      "FEAT-INNOVATION-SCORING-MODEL",
+      "FEAT-INNOVATION-ANALYZE"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"req_id\": \"FEAT-INNOVATION-SCORING-MODEL\", \"type\": \"API\", \"name\": \"Reused backend auth middleware/session boundary\", \"file_path\": \"backend/src/auth/authRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse cookie-backed authentication and requireAuth middleware for server-side innovation scoring authorization.\", \"specification\": \"The innovation scoring route uses the existing requireAuth middleware to deny anonymous access and attach req.user before any scoring service call. Allowed roles are STUDENT, SUPERVISOR, SCHOOL_ADMIN, and COLLEGE_ADMIN; there are no excluded declared roles for this requirement. The feature has no resource ownership scope because it computes from only the submitted current input and does not read or mutate durable user-owned data.\", \"inputs\": {\"session_cookie\": \"auth session id\", \"allowed_roles\": [\"STUDENT\", \"SUPERVISOR\", \"SCHOOL_ADMIN\", \"COLLEGE_ADMIN\"]}, \"outputs\": {\"req.user\": \"authenticated user attached before route handler\", \"401\": \"anonymous denied\", \"403\": \"disallowed role denied\"}, \"callers\": [\"backend/src/normative/normativeRoutes.js POST /innovation-scores\"], \"callees\": [\"backend/src/auth/sessionService.js\", \"DB-FEAT-AUTH-SESSION-REPOSITORY\"], \"test_focus\": [\"anonymous requests never call scoring service\", \"declared allowed roles pass authorization\"]}",
+    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"req_id\": \"FEAT-INNOVATION-ANALYZE\", \"type\": \"API\", \"name\": \"Reused backend auth/session authorization boundary\", \"file_path\": \"backend/src/auth/authRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse cookie-backed authentication and requireAuth middleware for server-side innovation assessment authorization.\", \"specification\": \"The innovation assessment route uses the existing requireAuth middleware to deny anonymous access and attach req.user before any validation, scoring, or persistence. Allowed roles for this node are STUDENT, SUPERVISOR, SCHOOL_ADMIN, and COLLEGE_ADMIN; no declared role is excluded. Resource scope is user-owned snapshot creation: the created row stores req.user.id.\", \"inputs\": [\"Session cookie\", \"Allowed role list\"], \"outputs\": [\"req.user for authenticated allowed roles\", \"401/403 before state changes\"], \"callers\": [\"API-FEAT-INNOVATION-ANALYZE-EXPRESS-ROUTE\"], \"callees\": [\"backend/src/auth/sessionService.js\", \"DB-FEAT-AUTH-SESSION-REPOSITORY\"], \"test_focus\": [\"Anonymous requests to POST /api/normative/innovation-assessments do not persist\", \"Allowed roles can reach the assessment service\"]}",
     "file_path": "backend/src/auth/authRoutes.js",
     "first_line": "1",
     "implemented": true,
     "callers": [
-      "backend/src/normative/normativeRoutes.js POST /innovation-scores"
+      "API-FEAT-INNOVATION-ANALYZE-EXPRESS-ROUTE"
     ],
     "callees": [
       "backend/src/auth/sessionService.js",
@@ -159,42 +161,80 @@
       "FUNC-FEAT-DUPLICATION-HISTORY-SERVICE"
     ]
   },
-  "API-FEAT-INNOVATION-SCORING-MODEL-CLIENT": {
-    "interface_id": "API-FEAT-INNOVATION-SCORING-MODEL-CLIENT",
+  "API-FEAT-INNOVATION-ANALYZE-CLIENT": {
+    "interface_id": "API-FEAT-INNOVATION-ANALYZE-CLIENT",
     "req_ids": [
-      "FEAT-INNOVATION-SCORING-MODEL"
+      "FEAT-INNOVATION-ANALYZE"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-INNOVATION-SCORING-MODEL-CLIENT\", \"req_id\": \"FEAT-INNOVATION-SCORING-MODEL\", \"type\": \"API\", \"name\": \"calculateInnovationScore client\", \"file_path\": \"frontend/src/api/normativeRules.ts\", \"first_line\": \"181\", \"responsibility\": \"Expose typed same-origin Axios DTOs and POST call for innovation scoring through the existing shared frontend API client.\", \"specification\": \"Defines InnovationDegreeType, InnovationScoreDimensionKey, InnovationScoreRequest, InnovationScoreDimensionReport, and InnovationScoreResponse. calculateInnovationScore(payload) posts to /api/normative/innovation-scores via frontend/src/api/index.ts, preserving cookie-backed auth and global Axios interceptors. The response contract includes degree_type, total_score, grade_label, formula, dimensions, and input so the report can display both the formula and this submission.\", \"inputs\": {\"payload\": {\"degree_type\": \"doctoral | master\", \"levels\": {\"research_topic\": \"number 1..5\", \"research_method\": \"number 1..5\", \"research_content\": \"number 1..5\", \"research_conclusion\": \"number 1..5\", \"application_value\": \"number 1..5\"}}}, \"outputs\": {\"degree_type\": \"doctoral | master\", \"total_score\": \"number\", \"grade_label\": \"优秀 | 良好 | 一般 | 待提升\", \"formula\": \"string\", \"dimensions\": \"InnovationScoreDimensionReport[]\", \"input\": \"InnovationScoreRequest\"}, \"callers\": [\"frontend/src/pages/InnovationScoringPage.tsx\"], \"callees\": [\"frontend/src/api/index.ts shared Axios client\", \"API-FEAT-INNOVATION-SCORING-MODEL-EXPRESS-ROUTE\"], \"test_focus\": [\"posts the exact payload to /normative/innovation-scores\", \"uses the shared Axios client rather than a standalone fetch client\", \"types expose all fields needed for transparent report rendering\"]}",
+    "content": "{\"interface_id\": \"API-FEAT-INNOVATION-ANALYZE-CLIENT\", \"req_id\": \"FEAT-INNOVATION-ANALYZE\", \"type\": \"API\", \"name\": \"createInnovationAssessment frontend API client\", \"file_path\": \"frontend/src/api/normativeRules.ts\", \"first_line\": \"1\", \"responsibility\": \"Expose typed same-origin Axios DTOs and POST call for creating persisted innovation assessment snapshots.\", \"specification\": \"Extends the existing normativeRules client module rather than creating another HTTP layer. Defines and reuses InnovationAssessmentDimensionInput, InnovationAssessmentRequest, and InnovationAssessmentResponse. createInnovationAssessment(payload) posts to /api/normative/innovation-assessments through the shared Axios instance so cookie-backed auth and global interceptors remain active. The payload contains thesis_title, degree_type, primary_discipline, secondary_discipline, research_direction, and dimensions keyed by research_topic, research_method, research_content, research_conclusion, and application_value. The response includes persisted id, user_id, input_snapshot, scoring_snapshot, total_score, grade_label, formula/dimension scoring details, disclaimer, and created_at.\", \"inputs\": [\"InnovationAssessmentRequest\"], \"outputs\": [\"Promise<InnovationAssessmentResponse>\", \"Axios/global interceptor errors for authorization and validation failures\"], \"callers\": [\"frontend/src/pages/InnovationAssessmentPage.tsx\"], \"callees\": [\"frontend/src/api/index.ts shared Axios client\", \"API-FEAT-INNOVATION-ANALYZE-EXPRESS-ROUTE\"], \"test_focus\": [\"Posts to /normative/innovation-assessments using shared apiClient\", \"Preserves full typed dimension evidence and improvement_plan payload\", \"Returns persisted assessment response without fallback data\"]}",
     "file_path": "frontend/src/api/normativeRules.ts",
-    "first_line": "181",
-    "implemented": true,
+    "first_line": "1",
+    "implemented": false,
     "callers": [
-      "frontend/src/pages/InnovationScoringPage.tsx"
+      "frontend/src/pages/InnovationAssessmentPage.tsx"
     ],
     "callees": [
       "frontend/src/api/index.ts shared Axios client",
-      "API-FEAT-INNOVATION-SCORING-MODEL-EXPRESS-ROUTE"
+      "API-FEAT-INNOVATION-ANALYZE-EXPRESS-ROUTE"
+    ]
+  },
+  "API-FEAT-INNOVATION-ANALYZE-EXPRESS-ROUTE": {
+    "interface_id": "API-FEAT-INNOVATION-ANALYZE-EXPRESS-ROUTE",
+    "req_ids": [
+      "FEAT-INNOVATION-ANALYZE"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-INNOVATION-ANALYZE-EXPRESS-ROUTE\", \"req_id\": \"FEAT-INNOVATION-ANALYZE\", \"type\": \"API\", \"name\": \"POST /api/normative/innovation-assessments\", \"file_path\": \"backend/src/normative/normativeRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Provide the protected backend HTTP boundary for creating and saving an innovation self-assessment snapshot under the existing normative route tree.\", \"specification\": \"Adds POST /api/normative/innovation-assessments beside the dependency-owned /innovation-scores route. The route is mounted by backend/src/app.js under /api/normative and uses requireAuth({ allowedRoles: ALLOWED_INNOVATION_ASSESSMENT_ROLES }) before reading request body or changing state. Allowed roles are STUDENT, SUPERVISOR, SCHOOL_ADMIN, and COLLEGE_ADMIN per permission_contract; there are no declared denied roles. Anonymous requests are denied because scenarios require a named logged-in student and persistence is user-owned. The route parses JSON with MAX_INNOVATION_ASSESSMENT_JSON_BYTES, calls createInnovationAssessment(req.user, req.body || {}), returns 201 with the persisted assessment, returns 413 for oversized JSON, and returns structured { code, message, errors } validation responses without writing snapshots.\", \"inputs\": [\"Authenticated req.user\", \"InnovationAssessmentRequest JSON body\"], \"outputs\": [\"201 InnovationAssessmentResponse\", \"401 for anonymous users via requireAuth\", \"403 for roles outside allowed role set\", \"400 validation errors with field paths\", \"413 for oversized payloads\"], \"callers\": [\"backend/src/app.js /api/normative mount\", \"frontend/src/api/normativeRules.ts createInnovationAssessment\", \"backend integration tests via Supertest\"], \"callees\": [\"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"FUNC-FEAT-INNOVATION-ANALYZE-SERVICE\"], \"test_focus\": [\"Rejects anonymous requests before service execution\", \"Accepts allowed authenticated role and returns 201 with saved snapshot id\", \"Returns validation errors and does not persist when research_method evidence is under 20 characters\", \"Uses existing /api/normative mount and shared auth middleware\"]}",
+    "file_path": "backend/src/normative/normativeRoutes.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "backend/src/app.js /api/normative mount",
+      "frontend/src/api/normativeRules.ts createInnovationAssessment",
+      "backend integration tests via Supertest"
+    ],
+    "callees": [
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+      "FUNC-FEAT-INNOVATION-ANALYZE-SERVICE"
+    ]
+  },
+  "API-FEAT-INNOVATION-SCORING-MODEL-CLIENT": {
+    "interface_id": "API-FEAT-INNOVATION-SCORING-MODEL-CLIENT",
+    "req_ids": [
+      "FEAT-INNOVATION-SCORING-MODEL",
+      "FEAT-INNOVATION-ANALYZE"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-INNOVATION-SCORING-MODEL-CLIENT\", \"req_id\": \"FEAT-INNOVATION-ANALYZE\", \"type\": \"API\", \"name\": \"Reused innovation scoring frontend DTO contract\", \"file_path\": \"frontend/src/api/normativeRules.ts\", \"first_line\": \"1\", \"responsibility\": \"Reuse scoring DTO vocabulary for degree type, five dimension keys, and scoring response consumed by the assessment workflow.\", \"specification\": \"The assessment client reuses InnovationDegreeType, InnovationScoreDimensionKey, InnovationScoreDimensionReport, and InnovationScoreResponse so saved assessment responses remain compatible with the dependency-owned scoring model. The current node extends the same module with assessment request/response types and createInnovationAssessment rather than duplicating scoring DTOs.\", \"inputs\": [\"Innovation scoring model type exports\"], \"outputs\": [\"Shared score response shape embedded in InnovationAssessmentResponse\"], \"callers\": [\"API-FEAT-INNOVATION-ANALYZE-CLIENT\", \"UI-FEAT-INNOVATION-ANALYZE-PAGE\"], \"callees\": [\"frontend/src/api/index.ts shared Axios client\"], \"test_focus\": [\"Assessment response embeds the same score fields as scoring model response\", \"No duplicate dimension key vocabulary is introduced\"]}",
+    "file_path": "frontend/src/api/normativeRules.ts",
+    "first_line": "1",
+    "implemented": true,
+    "callers": [
+      "API-FEAT-INNOVATION-ANALYZE-CLIENT",
+      "UI-FEAT-INNOVATION-ANALYZE-PAGE"
+    ],
+    "callees": [
+      "frontend/src/api/index.ts shared Axios client"
     ]
   },
   "API-FEAT-INNOVATION-SCORING-MODEL-EXPRESS-ROUTE": {
     "interface_id": "API-FEAT-INNOVATION-SCORING-MODEL-EXPRESS-ROUTE",
     "req_ids": [
-      "FEAT-INNOVATION-SCORING-MODEL"
+      "FEAT-INNOVATION-SCORING-MODEL",
+      "FEAT-INNOVATION-ANALYZE"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-INNOVATION-SCORING-MODEL-EXPRESS-ROUTE\", \"req_id\": \"FEAT-INNOVATION-SCORING-MODEL\", \"type\": \"API\", \"name\": \"POST /api/normative/innovation-scores\", \"file_path\": \"backend/src/normative/normativeRoutes.js\", \"first_line\": \"381\", \"responsibility\": \"Provide the protected backend HTTP boundary for calculating innovation scores under the existing /api/normative route tree.\", \"specification\": \"Adds POST /api/normative/innovation-scores to the existing normative router mounted by backend/src/app.js. The route must call requireAuth({ allowedRoles: ALLOWED_INNOVATION_SCORING_ROLES }) before reading or calculating data, denying anonymous users through the reused auth middleware and allowing STUDENT, SUPERVISOR, SCHOOL_ADMIN, and COLLEGE_ADMIN. It accepts JSON up to MAX_INNOVATION_SCORING_JSON_BYTES and delegates all validation and calculation semantics to calculateInnovationScore. It maps oversized JSON to 413, service validation/status errors to their status, and unimplemented skeleton state to 501 during design.\", \"inputs\": {\"method\": \"POST\", \"path\": \"/api/normative/innovation-scores\", \"body\": \"InnovationScoreRequest\", \"auth\": \"cookie-backed authenticated user with allowed role\"}, \"outputs\": {\"201\": \"InnovationScoreResponse\", \"401\": \"anonymous denied by requireAuth\", \"403\": \"role denied by requireAuth if role not allowed\", \"400\": \"invalid scoring payload from service\", \"413\": \"payload too large\"}, \"callers\": [\"backend/src/app.js /api/normative mount\", \"frontend/src/api/normativeRules.ts calculateInnovationScore\", \"backend integration tests via Supertest\"], \"callees\": [\"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"FUNC-FEAT-INNOVATION-SCORING-MODEL-SERVICE\"], \"test_focus\": [\"anonymous request is denied before calculation\", \"all four declared roles can calculate\", \"master scenario payload returns 201 with 80 and 良好 after service implementation\", \"response includes formula and submitted input\"]}",
+    "content": "{\"interface_id\": \"API-FEAT-INNOVATION-SCORING-MODEL-EXPRESS-ROUTE\", \"req_id\": \"FEAT-INNOVATION-ANALYZE\", \"type\": \"API\", \"name\": \"Reused innovation scoring backend calculation boundary\", \"file_path\": \"backend/src/normative/normativeRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse the dependency-owned protected scoring route and role set as the source of fixed scoring semantics for assessment creation.\", \"specification\": \"FEAT-INNOVATION-ANALYZE does not redefine the scoring formula. Its owned /innovation-assessments route uses the same ALLOWED_INNOVATION_SCORING_ROLES through ALLOWED_INNOVATION_ASSESSMENT_ROLES and calls the dependency scoring service with extracted levels. The existing /innovation-scores route remains available for pure score calculation.\", \"inputs\": [\"Authenticated user role\", \"Degree type and five levels\"], \"outputs\": [\"InnovationScoreResponse semantics reused in assessment snapshot\"], \"callers\": [\"FUNC-FEAT-INNOVATION-ANALYZE-SERVICE\"], \"callees\": [\"FUNC-FEAT-INNOVATION-SCORING-MODEL-SERVICE\", \"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\"], \"test_focus\": [\"Assessment scoring totals and grade match the dependency scoring formula for the same degree and levels\"]}",
     "file_path": "backend/src/normative/normativeRoutes.js",
-    "first_line": "381",
+    "first_line": "1",
     "implemented": true,
     "callers": [
-      "backend/src/app.js /api/normative mount",
-      "frontend/src/api/normativeRules.ts calculateInnovationScore",
-      "backend integration tests via Supertest"
+      "FUNC-FEAT-INNOVATION-ANALYZE-SERVICE"
     ],
     "callees": [
-      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
-      "FUNC-FEAT-INNOVATION-SCORING-MODEL-SERVICE"
+      "FUNC-FEAT-INNOVATION-SCORING-MODEL-SERVICE",
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES"
     ]
   },
   "API-FEAT-NORMATIVE-DETECT-CLIENT": {
@@ -663,6 +703,44 @@
       "sqlite3 via centralized runStatement"
     ]
   },
+  "DB-FEAT-INNOVATION-ANALYZE-REPOSITORY": {
+    "interface_id": "DB-FEAT-INNOVATION-ANALYZE-REPOSITORY",
+    "req_ids": [
+      "FEAT-INNOVATION-ANALYZE"
+    ],
+    "type": "DB",
+    "content": "{\"interface_id\": \"DB-FEAT-INNOVATION-ANALYZE-REPOSITORY\", \"req_id\": \"FEAT-INNOVATION-ANALYZE\", \"type\": \"DB\", \"name\": \"innovationAssessmentRepository\", \"file_path\": \"backend/src/normative/innovationAssessmentRepository.js\", \"first_line\": \"1\", \"responsibility\": \"Persist immutable innovation assessment snapshots through the shared SQLite runtime helpers.\", \"specification\": \"Provides insertInnovationAssessmentSnapshot(snapshot), using backend/src/database shared run helper rather than opening a feature-local SQLite connection. Inserts id, user_id, thesis_title, degree_type, primary_discipline, secondary_discipline, research_direction, input_snapshot_json, scoring_snapshot_json, and created_at into innovation_assessment_snapshots. JSON columns store the normalized assessment input and scoring snapshot, including weights, sub-scores, composite score, and grade. The repository returns the inserted id/result metadata and does not perform request validation or scoring.\", \"inputs\": [\"Snapshot object from buildInnovationAssessmentSnapshot\"], \"outputs\": [\"Insert result with snapshot id\"], \"callers\": [\"FUNC-FEAT-INNOVATION-ANALYZE-SERVICE\"], \"callees\": [\"backend/src/database/index.js shared run helper\", \"DB-FEAT-INNOVATION-ANALYZE-SCHEMA\"], \"test_focus\": [\"Uses the shared database scaffold\", \"Stores input_snapshot_json and scoring_snapshot_json without losing evidence/improvement_plan or scoring details\", \"Associates records with authenticated user_id\"]}",
+    "file_path": "backend/src/normative/innovationAssessmentRepository.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "FUNC-FEAT-INNOVATION-ANALYZE-SERVICE"
+    ],
+    "callees": [
+      "backend/src/database/index.js shared run helper",
+      "DB-FEAT-INNOVATION-ANALYZE-SCHEMA"
+    ]
+  },
+  "DB-FEAT-INNOVATION-ANALYZE-SCHEMA": {
+    "interface_id": "DB-FEAT-INNOVATION-ANALYZE-SCHEMA",
+    "req_ids": [
+      "FEAT-INNOVATION-ANALYZE"
+    ],
+    "type": "DB",
+    "content": "{\"interface_id\": \"DB-FEAT-INNOVATION-ANALYZE-SCHEMA\", \"req_id\": \"FEAT-INNOVATION-ANALYZE\", \"type\": \"DB\", \"name\": \"innovation_assessment_snapshots schema\", \"file_path\": \"backend/src/database/init_db.js\", \"first_line\": \"1\", \"responsibility\": \"Create the SQLite table that stores user-owned innovation assessment input and scoring snapshots.\", \"specification\": \"Extends the centralized database lifecycle with CREATE TABLE IF NOT EXISTS innovation_assessment_snapshots. The table has id primary key, user_id foreign key to auth_users with ON DELETE CASCADE, thesis_title, degree_type constrained to doctoral/master, primary_discipline, secondary_discipline, research_direction, input_snapshot_json, scoring_snapshot_json, and created_at. This is the durable source for saved self-assessment snapshots; no feature-local database bootstrap is allowed.\", \"inputs\": [\"Database initialization through backend/src/database/index.js\", \"Optional isolated test DB path from database test harness\"], \"outputs\": [\"innovation_assessment_snapshots table available to repository\"], \"callers\": [\"backend/src/database/index.js\", \"backend/src/database/test_harness.js\", \"DB-FEAT-INNOVATION-ANALYZE-REPOSITORY\"], \"callees\": [\"sqlite3 database via shared runStatement/exec helpers\", \"DB-FEAT-AUTH-SESSION-SCHEMA\"], \"test_focus\": [\"Table is created in isolated test DB initialization\", \"degree_type constraint rejects unsupported degree values\", \"Foreign key ties snapshots to auth_users\"]}",
+    "file_path": "backend/src/database/init_db.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "backend/src/database/index.js",
+      "backend/src/database/test_harness.js",
+      "DB-FEAT-INNOVATION-ANALYZE-REPOSITORY"
+    ],
+    "callees": [
+      "sqlite3 database via shared runStatement/exec helpers",
+      "DB-FEAT-AUTH-SESSION-SCHEMA"
+    ]
+  },
   "DB-FEAT-NORMATIVE-DETECT-TASK-REPOSITORY": {
     "interface_id": "DB-FEAT-NORMATIVE-DETECT-TASK-REPOSITORY",
     "req_ids": [
@@ -998,6 +1076,24 @@
     ],
     "callees": [
       "DB-FEAT-DUPLICATION-HISTORY-REPOSITORY"
+    ]
+  },
+  "FUNC-FEAT-INNOVATION-ANALYZE-SERVICE": {
+    "interface_id": "FUNC-FEAT-INNOVATION-ANALYZE-SERVICE",
+    "req_ids": [
+      "FEAT-INNOVATION-ANALYZE"
+    ],
+    "type": "FUNC",
+    "content": "{\"interface_id\": \"FUNC-FEAT-INNOVATION-ANALYZE-SERVICE\", \"req_id\": \"FEAT-INNOVATION-ANALYZE\", \"type\": \"FUNC\", \"name\": \"createInnovationAssessment service\", \"file_path\": \"backend/src/normative/innovationAssessmentService.js\", \"first_line\": \"1\", \"responsibility\": \"Validate the full assessment input, invoke the fixed innovation scoring formula, build the immutable assessment snapshot, and delegate persistence.\", \"specification\": \"Exports ALLOWED_INNOVATION_ASSESSMENT_ROLES, INNOVATION_ASSESSMENT_DIMENSIONS, INNOVATION_ASSESSMENT_DISCLAIMER, MIN_INNOVATION_ASSESSMENT_TEXT_LENGTH, buildInnovationAssessmentSnapshot, and createInnovationAssessment. createInnovationAssessment(user, payload) enforces user presence and allowed role defense-in-depth, normalizes required scalar fields, requires all five dimensions, requires level integers from 1 to 5, requires evidence and improvement_plan text to be at least 20 characters after trimming for each dimension, calls the dependency scoring service with { degree_type, levels }, builds a snapshot containing the normalized input, weight/sub-score/composite/grade scoring snapshot, disclaimer, and created_at, and persists it through insertInnovationAssessmentSnapshot. Validation failure raises status 400 with field-addressed errors and must occur before DB writes.\", \"inputs\": [\"Authenticated user object with id and role\", \"InnovationAssessmentRequest payload\"], \"outputs\": [\"InnovationAssessmentResponse including persisted id and scoring details\", \"Status errors for authz and validation\"], \"callers\": [\"API-FEAT-INNOVATION-ANALYZE-EXPRESS-ROUTE\"], \"callees\": [\"FUNC-FEAT-INNOVATION-SCORING-MODEL-SERVICE\", \"DB-FEAT-INNOVATION-ANALYZE-REPOSITORY\"], \"test_focus\": [\"Builds scoring levels from the five dimension inputs and preserves evidence/improvement_plan in input_snapshot\", \"Rejects any missing scalar field\", \"Rejects research_method evidence shorter than 20 characters and does not call repository\", \"Persists snapshot with scoring_snapshot containing weights, sub-scores, total score, and grade label\", \"Includes exact disclaimer text in response\"]}",
+    "file_path": "backend/src/normative/innovationAssessmentService.js",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "API-FEAT-INNOVATION-ANALYZE-EXPRESS-ROUTE"
+    ],
+    "callees": [
+      "FUNC-FEAT-INNOVATION-SCORING-MODEL-SERVICE",
+      "DB-FEAT-INNOVATION-ANALYZE-REPOSITORY"
     ]
   },
   "FUNC-FEAT-INNOVATION-SCORING-MODEL-SERVICE": {
@@ -1340,6 +1436,42 @@
     ],
     "callees": [
       "UI-FEAT-DUPLICATION-HISTORY-PAGE"
+    ]
+  },
+  "UI-FEAT-INNOVATION-ANALYZE-APP-ROUTE": {
+    "interface_id": "UI-FEAT-INNOVATION-ANALYZE-APP-ROUTE",
+    "req_ids": [
+      "FEAT-INNOVATION-ANALYZE"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-INNOVATION-ANALYZE-APP-ROUTE\", \"req_id\": \"FEAT-INNOVATION-ANALYZE\", \"type\": \"UI\", \"name\": \"Innovation assessment route registration\", \"file_path\": \"frontend/src/App.tsx\", \"first_line\": \"1\", \"responsibility\": \"Mount the current-node assessment page in the existing React route tree without creating a parallel frontend entrypoint.\", \"specification\": \"Imports InnovationAssessmentPage and adds Route path='/innovation-assessment'. The existing /innovation-scoring dependency page remains unchanged for the scoring-model feature. The route must work in the backend-hosted built frontend on the single origin.\", \"inputs\": [\"Browser navigation to /innovation-assessment\"], \"outputs\": [\"Rendered InnovationAssessmentPage\"], \"callers\": [\"React Router runtime\", \"backend-served frontend dist\"], \"callees\": [\"UI-FEAT-INNOVATION-ANALYZE-PAGE\"], \"test_focus\": [\"The route renders the innovation assessment page under the app router\", \"No separate frontend server or detached route tree is required\"]}",
+    "file_path": "frontend/src/App.tsx",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "React Router runtime",
+      "backend-served frontend dist"
+    ],
+    "callees": [
+      "UI-FEAT-INNOVATION-ANALYZE-PAGE"
+    ]
+  },
+  "UI-FEAT-INNOVATION-ANALYZE-PAGE": {
+    "interface_id": "UI-FEAT-INNOVATION-ANALYZE-PAGE",
+    "req_ids": [
+      "FEAT-INNOVATION-ANALYZE"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-INNOVATION-ANALYZE-PAGE\", \"req_id\": \"FEAT-INNOVATION-ANALYZE\", \"type\": \"UI\", \"name\": \"InnovationAssessmentPage\", \"file_path\": \"frontend/src/pages/InnovationAssessmentPage.tsx\", \"first_line\": \"1\", \"responsibility\": \"Render the student-facing innovation self-assessment workflow: thesis metadata, five dimension level/evidence/improvement inputs, processing progress, saved result summary, and required disclaimer.\", \"specification\": \"Provides a backend-connected React page at /innovation-assessment. It uses AuthSessionProvider state to show loading and anonymous login prompts, then renders a navy upload-style header/form inspired by the visual references without copying screenshot business data. It collects thesis_title, degree_type, primary_discipline, secondary_discipline, research_direction, and all five dimensions. Each dimension exposes a 1-5 level selector, evidence textarea, and improvement_plan textarea. On submit it calls createInnovationAssessment, maps server validation errors to inline field errors, disables the submit button while saving, displays progress state from real form/result state, and renders the returned total_score, grade_label, created_at, thesis_title, and exact disclaimer text. It must not present fake saved success; completion state appears only after the API returns a persisted assessment id.\", \"inputs\": [\"Authenticated session state from useAuthSession\", \"User-entered thesis metadata\", \"Five dimension levels, evidence, and improvement plans\", \"Server validation and persistence response\"], \"outputs\": [\"POST /api/normative/innovation-assessments request through API-FEAT-INNOVATION-ANALYZE-CLIENT\", \"Inline validation messages\", \"Runtime-driven progress and persisted assessment result summary\"], \"callers\": [\"frontend/src/App.tsx route /innovation-assessment\"], \"callees\": [\"API-FEAT-AUTH-SESSION-CLIENT\", \"API-FEAT-INNOVATION-ANALYZE-CLIENT\"], \"test_focus\": [\"Renders authenticated assessment form with required disclaimer\", \"Submits all five dimensions with evidence and improvement plans to the API client\", \"Displays server error for dimensions.research_method.evidence when evidence is shorter than 20 characters\", \"Does not show completed result metadata until a persisted response is returned\"]}",
+    "file_path": "frontend/src/pages/InnovationAssessmentPage.tsx",
+    "first_line": "1",
+    "implemented": false,
+    "callers": [
+      "frontend/src/App.tsx route /innovation-assessment"
+    ],
+    "callees": [
+      "API-FEAT-AUTH-SESSION-CLIENT",
+      "API-FEAT-INNOVATION-ANALYZE-CLIENT"
     ]
   },
   "UI-FEAT-INNOVATION-SCORING-MODEL-APP-ROUTE": {

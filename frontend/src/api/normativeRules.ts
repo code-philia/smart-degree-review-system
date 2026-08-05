@@ -185,6 +185,21 @@ export type InnovationScoreRequest = {
   levels: Record<InnovationScoreDimensionKey, number>;
 };
 
+export type InnovationAssessmentDimensionInput = {
+  level: number;
+  evidence: string;
+  improvement_plan: string;
+};
+
+export type InnovationAssessmentRequest = {
+  thesis_title: string;
+  degree_type: InnovationDegreeType;
+  primary_discipline: string;
+  secondary_discipline: string;
+  research_direction: string;
+  dimensions: Record<InnovationScoreDimensionKey, InnovationAssessmentDimensionInput>;
+};
+
 export type InnovationScoreDimensionReport = {
   key: InnovationScoreDimensionKey;
   label: string;
@@ -201,6 +216,19 @@ export type InnovationScoreResponse = {
   formula: string;
   dimensions: InnovationScoreDimensionReport[];
   input: InnovationScoreRequest;
+};
+
+export type InnovationAssessmentResponse = InnovationScoreResponse & {
+  id: string;
+  user_id: string;
+  thesis_title: string;
+  primary_discipline: string;
+  secondary_discipline: string;
+  research_direction: string;
+  input_snapshot: InnovationAssessmentRequest;
+  scoring_snapshot: InnovationScoreResponse;
+  disclaimer: string;
+  created_at: string;
 };
 
 export type PolishHistoryRecord = {
@@ -295,6 +323,13 @@ export async function downloadWholePolishText(resultId: string): Promise<Blob> {
 
 export async function calculateInnovationScore(payload: InnovationScoreRequest): Promise<InnovationScoreResponse> {
   const response = await apiClient.post<InnovationScoreResponse>('/normative/innovation-scores', payload);
+  return response.data;
+}
+
+export async function createInnovationAssessment(
+  payload: InnovationAssessmentRequest,
+): Promise<InnovationAssessmentResponse> {
+  const response = await apiClient.post<InnovationAssessmentResponse>('/normative/innovation-assessments', payload);
   return response.data;
 }
 
