@@ -205,9 +205,9 @@
   },
   "MOD-LEDGER": {
     "req_id": "MOD-LEDGER",
-    "state": "UNSEEN",
-    "phase": null,
-    "updated_at": "2026-08-05 04:10:31"
+    "state": "DESIGNED",
+    "phase": "design",
+    "updated_at": "2026-08-05 04:41:29"
   },
   "MOD-NORMATIVE-DETECTION": {
     "req_id": "MOD-NORMATIVE-DETECTION",
