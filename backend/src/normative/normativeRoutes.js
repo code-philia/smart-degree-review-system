@@ -68,6 +68,10 @@ const {
   buildInnovationReportDownloadPayload,
   getInnovationReportForUser,
 } = require('./innovationReportService');
+const {
+  ALLOWED_INNOVATION_HISTORY_ROLES,
+  listInnovationHistoryForUser,
+} = require('./innovationHistoryService');
 
 const router = express.Router();
 
@@ -432,6 +436,23 @@ router.post(
           body.errors = error.errors;
         }
         res.status(error.status).json(body);
+        return;
+      }
+      next(error);
+    }
+  },
+);
+
+router.get(
+  '/innovation-assessments',
+  requireAuth({ allowedRoles: ALLOWED_INNOVATION_HISTORY_ROLES }),
+  async (req, res, next) => {
+    try {
+      const records = await listInnovationHistoryForUser(req.user);
+      res.json({ records });
+    } catch (error) {
+      if (error?.status) {
+        res.status(error.status).json({ code: error.status, message: error.message });
         return;
       }
       next(error);

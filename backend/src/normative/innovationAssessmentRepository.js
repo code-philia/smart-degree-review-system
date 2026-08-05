@@ -1,4 +1,4 @@
-const { get, run } = require('../database');
+const { all, get, run } = require('../database');
 
 async function insertInnovationAssessmentSnapshot(snapshot) {
   const result = await run(
@@ -29,6 +29,35 @@ async function insertInnovationAssessmentSnapshot(snapshot) {
   );
 
   return { ...result, id: snapshot.id };
+}
+
+async function listInnovationAssessmentHistoryForUser(user) {
+  const rows = await all(
+    `SELECT
+      id,
+      user_id,
+      thesis_title,
+      degree_type,
+      scoring_snapshot_json,
+      created_at
+    FROM innovation_assessment_snapshots
+    WHERE user_id = ?
+    ORDER BY datetime(created_at) DESC, created_at DESC;`,
+    [user.id],
+  );
+
+  return rows.map((row) => {
+    const scoringSnapshot = JSON.parse(row.scoring_snapshot_json);
+    return {
+      id: row.id,
+      user_id: row.user_id,
+      thesis_title: row.thesis_title,
+      degree_type: row.degree_type,
+      total_score: scoringSnapshot.total_score,
+      grade_label: scoringSnapshot.grade_label,
+      created_at: row.created_at,
+    };
+  });
 }
 
 async function getInnovationAssessmentReportForUser(user, reportId) {
@@ -89,4 +118,5 @@ module.exports = {
   buildInnovationAssessmentDownloadPayload,
   getInnovationAssessmentReportForUser,
   insertInnovationAssessmentSnapshot,
+  listInnovationAssessmentHistoryForUser,
 };

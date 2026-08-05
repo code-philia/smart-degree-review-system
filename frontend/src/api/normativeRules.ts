@@ -231,6 +231,16 @@ export type InnovationAssessmentResponse = InnovationScoreResponse & {
   created_at: string;
 };
 
+export type InnovationHistoryRecord = {
+  id: string;
+  user_id: string;
+  thesis_title: string;
+  degree_type: InnovationDegreeType;
+  total_score: number;
+  grade_label: InnovationScoreResponse['grade_label'];
+  created_at: string;
+};
+
 export type PolishHistoryRecord = {
   id: string;
   user_id: string;
@@ -331,6 +341,11 @@ export async function createInnovationAssessment(
 ): Promise<InnovationAssessmentResponse> {
   const response = await apiClient.post<InnovationAssessmentResponse>('/normative/innovation-assessments', payload);
   return response.data;
+}
+
+export async function fetchInnovationHistory(): Promise<InnovationHistoryRecord[]> {
+  const response = await apiClient.get<{ records: InnovationHistoryRecord[] }>('/normative/innovation-assessments');
+  return response.data.records;
 }
 
 export async function fetchInnovationReport(reportId: string): Promise<InnovationAssessmentResponse> {

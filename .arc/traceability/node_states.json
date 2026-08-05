@@ -67,9 +67,9 @@
   },
   "FEAT-INNOVATION-HISTORY": {
     "req_id": "FEAT-INNOVATION-HISTORY",
-    "state": "UNSEEN",
-    "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "state": "FAILED",
+    "phase": "design",
+    "updated_at": "2026-08-05 03:17:45"
   },
   "FEAT-INNOVATION-REPORT": {
     "req_id": "FEAT-INNOVATION-REPORT",
