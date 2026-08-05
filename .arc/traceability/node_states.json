@@ -13,9 +13,9 @@
   },
   "FEAT-AI-REVIEW-RUBRICS": {
     "req_id": "FEAT-AI-REVIEW-RUBRICS",
-    "state": "UNSEEN",
-    "phase": null,
-    "updated_at": "2026-08-05 02:35:06"
+    "state": "DESIGNED",
+    "phase": "design",
+    "updated_at": "2026-08-05 03:24:27"
   },
   "FEAT-AI-REVIEW-RUN": {
     "req_id": "FEAT-AI-REVIEW-RUN",

@@ -1,4 +1,63 @@
 {
+  "FEAT-AI-REVIEW-RUBRICS:E2E:SCENARIO-001-DISPLAY-FIVE-TEMPLATES": {
+    "test_id": "FEAT-AI-REVIEW-RUBRICS:E2E:SCENARIO-001-DISPLAY-FIVE-TEMPLATES",
+    "req_id": "FEAT-AI-REVIEW-RUBRICS",
+    "interface_ids": [
+      "UI-FEAT-AI-REVIEW-RUBRICS-SELECTOR",
+      "UI-FEAT-AI-REVIEW-RUBRICS-NORMATIVE-CHECK-PAGE",
+      "API-FEAT-AI-REVIEW-RUBRICS-CLIENT",
+      "API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE",
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+      "API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT",
+      "FUNC-FEAT-AI-REVIEW-RUBRICS-SERVICE"
+    ],
+    "type": "E2E",
+    "file_path": "backend/test-e2e/review-rubrics.spec.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-AI-REVIEW-RUBRICS:INTEGRATION:FRONTEND-RUBRIC-SELECTOR": {
+    "test_id": "FEAT-AI-REVIEW-RUBRICS:INTEGRATION:FRONTEND-RUBRIC-SELECTOR",
+    "req_id": "FEAT-AI-REVIEW-RUBRICS",
+    "interface_ids": [
+      "UI-FEAT-AI-REVIEW-RUBRICS-SELECTOR",
+      "UI-FEAT-AI-REVIEW-RUBRICS-NORMATIVE-CHECK-PAGE",
+      "API-FEAT-AI-REVIEW-RUBRICS-CLIENT"
+    ],
+    "type": "Integration",
+    "file_path": "frontend/tests/review-rubrics.test.tsx",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-AI-REVIEW-RUBRICS:INTEGRATION:REVIEW-RUBRIC-API-AUTHZ": {
+    "test_id": "FEAT-AI-REVIEW-RUBRICS:INTEGRATION:REVIEW-RUBRIC-API-AUTHZ",
+    "req_id": "FEAT-AI-REVIEW-RUBRICS",
+    "interface_ids": [
+      "API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE",
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+      "API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT",
+      "FUNC-FEAT-AI-REVIEW-RUBRICS-SERVICE"
+    ],
+    "type": "Integration",
+    "file_path": "backend/tests/review-rubrics.integration.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
+  "FEAT-AI-REVIEW-RUBRICS:UNIT:REVIEW-RUBRIC-SERVICE-CATALOG": {
+    "test_id": "FEAT-AI-REVIEW-RUBRICS:UNIT:REVIEW-RUBRIC-SERVICE-CATALOG",
+    "req_id": "FEAT-AI-REVIEW-RUBRICS",
+    "interface_ids": [
+      "FUNC-FEAT-AI-REVIEW-RUBRICS-SERVICE"
+    ],
+    "type": "Unit",
+    "file_path": "backend/tests/review-rubrics.unit.test.js",
+    "passed": null,
+    "first_line": "1",
+    "scenario_id": null
+  },
   "FEAT-AUTH-HELP:TEST:001": {
     "test_id": "FEAT-AUTH-HELP:TEST:001",
     "req_id": "FEAT-AUTH-HELP",

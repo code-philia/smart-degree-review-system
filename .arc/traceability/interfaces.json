@@ -1,4 +1,41 @@
 {
+  "API-FEAT-AI-REVIEW-RUBRICS-CLIENT": {
+    "interface_id": "API-FEAT-AI-REVIEW-RUBRICS-CLIENT",
+    "req_ids": [
+      "FEAT-AI-REVIEW-RUBRICS"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-AI-REVIEW-RUBRICS-CLIENT\", \"req_id\": \"FEAT-AI-REVIEW-RUBRICS\", \"type\": \"API\", \"name\": \"fetchReviewRubrics\", \"file_path\": \"frontend/src/api/normativeRules.ts\", \"first_line\": \"347\", \"responsibility\": \"Expose typed same-origin Axios access to the protected review rubric endpoint using the existing shared API client and interceptors.\", \"specification\": \"Defines `ReviewRubricTemplate`, `ReviewRubricScoreItem`, `ReviewRubricPassingRule`, and `ReviewRubricsResponse`. `fetchReviewRubrics()` calls `GET /api/normative/review-rubrics` through `apiClient`, preserving cookie-backed auth, same-origin `/api` routing, and global error interception.\", \"inputs\": {\"request\": \"no body; authenticated session cookie supplied by shared Axios client\"}, \"outputs\": {\"response\": \"ReviewRubricsResponse with templates, shared_score_items, and passing_rule\"}, \"callers\": [\"UI-FEAT-AI-REVIEW-RUBRICS-SELECTOR\"], \"callees\": [\"frontend/src/api/index.ts shared Axios client\", \"API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE\"], \"test_focus\": [\"Uses the existing shared Axios client rather than a new HTTP layer.\", \"Requests `/normative/review-rubrics` and returns typed backend data.\", \"Propagates intercepted API errors to the selector error state.\"]}",
+    "file_path": "frontend/src/api/normativeRules.ts",
+    "first_line": "347",
+    "implemented": false,
+    "callers": [
+      "UI-FEAT-AI-REVIEW-RUBRICS-SELECTOR"
+    ],
+    "callees": [
+      "frontend/src/api/index.ts shared Axios client",
+      "API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE"
+    ]
+  },
+  "API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE": {
+    "interface_id": "API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE",
+    "req_ids": [
+      "FEAT-AI-REVIEW-RUBRICS"
+    ],
+    "type": "API",
+    "content": "{\"interface_id\": \"API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE\", \"req_id\": \"FEAT-AI-REVIEW-RUBRICS\", \"type\": \"API\", \"name\": \"GET /api/normative/review-rubrics\", \"file_path\": \"backend/src/normative/normativeRoutes.js\", \"first_line\": \"106\", \"responsibility\": \"Provide the protected backend HTTP boundary for listing built-in AI review rubric templates under the existing normative route tree.\", \"specification\": \"Adds `GET /review-rubrics` to `backend/src/normative/normativeRoutes.js`, mounted by the existing `/api/normative` app route. The route calls `requireAuth({ allowedRoles: REVIEW_RUBRIC_ALLOWED_ROLES })` before returning data. Allowed roles are `STUDENT`, `SUPERVISOR`, `SCHOOL_ADMIN`, and `COLLEGE_ADMIN`; anonymous access is denied by `requireAuth`; there is no resource owner scope because the data is shared built-in configuration.\", \"inputs\": {\"auth\": \"authenticated session with role STUDENT, SUPERVISOR, SCHOOL_ADMIN, or COLLEGE_ADMIN\"}, \"outputs\": {\"200\": \"ReviewRubricsResponse\", \"401_or_403\": \"auth middleware denial for anonymous or disallowed role\"}, \"callers\": [\"API-FEAT-AI-REVIEW-RUBRICS-CLIENT\", \"backend/src/app.js /api/normative mount\"], \"callees\": [\"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"FUNC-FEAT-AI-REVIEW-RUBRICS-SERVICE\"], \"test_focus\": [\"Rejects anonymous requests at the backend boundary.\", \"Allows STUDENT, SUPERVISOR, SCHOOL_ADMIN, and COLLEGE_ADMIN roles.\", \"Returns five templates and shared objective scoring semantics from the service.\"]}",
+    "file_path": "backend/src/normative/normativeRoutes.js",
+    "first_line": "106",
+    "implemented": false,
+    "callers": [
+      "API-FEAT-AI-REVIEW-RUBRICS-CLIENT",
+      "backend/src/app.js /api/normative mount"
+    ],
+    "callees": [
+      "API-FEAT-AUTH-SESSION-EXPRESS-ROUTES",
+      "FUNC-FEAT-AI-REVIEW-RUBRICS-SERVICE"
+    ]
+  },
   "API-FEAT-AUTH-SESSION-CLIENT": {
     "interface_id": "API-FEAT-AUTH-SESSION-CLIENT",
     "req_ids": [
@@ -35,15 +72,16 @@
       "FEAT-POLISH-HISTORY",
       "FEAT-INNOVATION-SCORING-MODEL",
       "FEAT-INNOVATION-ANALYZE",
-      "FEAT-INNOVATION-REPORT"
+      "FEAT-INNOVATION-REPORT",
+      "FEAT-AI-REVIEW-RUBRICS"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"req_id\": \"FEAT-INNOVATION-REPORT\", \"type\": \"API\", \"name\": \"Reused Express authentication and authorization boundary\", \"file_path\": \"backend/src/auth/authRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse cookie-backed authentication and requireAuth middleware for server-side innovation report authorization before any report data is returned.\", \"specification\": \"The report routes use the existing requireAuth middleware to deny anonymous access and attach req.user. Allowed roles are STUDENT, SUPERVISOR, SCHOOL_ADMIN, and COLLEGE_ADMIN. UI visibility is supplementary; backend route/service checks are the permission boundary.\", \"inputs\": {\"request_cookie\": \"session cookie\"}, \"outputs\": {\"req.user\": \"authenticated user object or 401/403 response\"}, \"callers\": [\"API-FEAT-INNOVATION-REPORT-EXPRESS-ROUTES\"], \"callees\": [\"backend/src/auth/sessionService.js\", \"DB-FEAT-AUTH-SESSION-REPOSITORY\"], \"test_focus\": [\"Anonymous access denied at API\", \"Allowed role request reaches report service with req.user\"]}",
+    "content": "{\"interface_id\": \"API-FEAT-AUTH-SESSION-EXPRESS-ROUTES\", \"req_id\": \"FEAT-AI-REVIEW-RUBRICS\", \"type\": \"API\", \"name\": \"Reused auth/session authorization boundary\", \"file_path\": \"backend/src/auth/authRoutes.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse the existing cookie-backed authentication and authorization middleware path before rubric data is returned.\", \"specification\": \"The rubric route relies on the existing `requireAuth` middleware from the auth/session dependency. This feature does not mutate auth state. Backend authorization is the enforcement boundary; frontend visibility is supplementary only.\", \"inputs\": {\"session\": \"cookie-backed authenticated request\"}, \"outputs\": {\"req.user\": \"authenticated user attached for allowed roles\", \"denial\": \"anonymous or unauthorized requests rejected before service access\"}, \"callers\": [\"API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE\"], \"callees\": [\"backend/src/auth/sessionService.js\", \"DB-FEAT-AUTH-SESSION-REPOSITORY\"], \"test_focus\": [\"Rubric API authorization is enforced server-side with the declared role set.\"]}",
     "file_path": "backend/src/auth/authRoutes.js",
     "first_line": "1",
     "implemented": true,
     "callers": [
-      "API-FEAT-INNOVATION-REPORT-EXPRESS-ROUTES"
+      "API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE"
     ],
     "callees": [
       "backend/src/auth/sessionService.js",
@@ -323,19 +361,20 @@
       "FEAT-DUPLICATION-CORPUS",
       "FEAT-DUPLICATION-DETECT",
       "FEAT-DUPLICATION-HISTORY",
-      "FEAT-POLISH-WHOLE"
+      "FEAT-POLISH-WHOLE",
+      "FEAT-AI-REVIEW-RUBRICS"
     ],
     "type": "API",
-    "content": "{\"interface_id\": \"API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT\", \"req_id\": \"FEAT-POLISH-WHOLE\", \"type\": \"API\", \"name\": \"Reused Normative Backend Mount\", \"file_path\": \"backend/src/app.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse the existing /api/normative Express mount so whole-text polishing is served by the single backend-hosted runtime.\", \"specification\": \"The current node extends backend/src/normative/normativeRoutes.js under the existing app.use('/api/normative', normativeRoutes) mount. It introduces no parallel server, route tree, or frontend dev-server dependency and remains compatible with the backend-hosted frontend dist runtime on port 3000.\", \"inputs\": {\"http_origin\": \"http://localhost:3000\", \"api_path\": \"/api/normative/whole-polish-results...\"}, \"outputs\": {\"mounted_routes\": \"whole-polish endpoints reachable under /api/normative\"}, \"callers\": [\"backend/src/index.js server startup\", \"frontend/src/api/normativeRules.ts\"], \"callees\": [\"API-FEAT-POLISH-WHOLE-EXPRESS-ROUTES\"], \"test_focus\": [\"Whole polish endpoints are reachable through the existing backend app mount.\"]}",
+    "content": "{\"interface_id\": \"API-FEAT-NORMATIVE-FORMAT-RULES-BACKEND-MOUNT\", \"req_id\": \"FEAT-AI-REVIEW-RUBRICS\", \"type\": \"API\", \"name\": \"Reused normative backend mount\", \"file_path\": \"backend/src/app.js\", \"first_line\": \"1\", \"responsibility\": \"Reuse the existing `/api/normative` Express mount so rubric data is served through the single backend-hosted runtime.\", \"specification\": \"The current node extends `backend/src/normative/normativeRoutes.js` under the existing `app.use('/api/normative', normativeRoutes)` mount. It introduces no parallel server, route tree, or frontend dev-server dependency.\", \"inputs\": {\"http\": \"same-origin request under /api/normative\"}, \"outputs\": {\"routing\": \"request delegated to normativeRoutes rubric endpoint\"}, \"callers\": [\"backend/src/index.js server startup\", \"API-FEAT-AI-REVIEW-RUBRICS-CLIENT\"], \"callees\": [\"API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE\"], \"test_focus\": [\"Rubric endpoint is reachable through backend-hosted `/api/normative/review-rubrics`.\"]}",
     "file_path": "backend/src/app.js",
     "first_line": "1",
     "implemented": true,
     "callers": [
       "backend/src/index.js server startup",
-      "frontend/src/api/normativeRules.ts"
+      "API-FEAT-AI-REVIEW-RUBRICS-CLIENT"
     ],
     "callees": [
-      "API-FEAT-POLISH-WHOLE-EXPRESS-ROUTES"
+      "API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE"
     ]
   },
   "API-FEAT-NORMATIVE-FORMAT-RULES-CLIENT": {
@@ -1056,6 +1095,21 @@
       "sqlite3 via centralized runStatement"
     ]
   },
+  "FUNC-FEAT-AI-REVIEW-RUBRICS-SERVICE": {
+    "interface_id": "FUNC-FEAT-AI-REVIEW-RUBRICS-SERVICE",
+    "req_ids": [
+      "FEAT-AI-REVIEW-RUBRICS"
+    ],
+    "type": "FUNC",
+    "content": "{\"interface_id\": \"FUNC-FEAT-AI-REVIEW-RUBRICS-SERVICE\", \"req_id\": \"FEAT-AI-REVIEW-RUBRICS\", \"type\": \"FUNC\", \"name\": \"listReviewRubrics\", \"file_path\": \"backend/src/normative/reviewRubricService.js\", \"first_line\": \"44\", \"responsibility\": \"Own the built-in rubric template catalog and shared objective scoring contract for auxiliary AI review.\", \"specification\": \"Exports immutable `REVIEW_RUBRIC_TEMPLATES`, `SHARED_OBJECTIVE_SCORE_ITEMS`, `REVIEW_RUBRIC_ALLOWED_ROLES`, and `listReviewRubrics()`. The service defines exactly five templates: 学术型博士自然科学、学术型博士人文社科、专业型博士、学术型硕士、专业型硕士. Each template includes required sections and `minimum_reference_count`. Shared score items are section completeness 30, reference count and numbering 20, methodology section 20, conclusion section 20, and normative detection result 10. The passing rule states objective score >= 80 and no required section missing yields `基础检查通过`, otherwise `需修改`.\", \"inputs\": {\"parameters\": \"none\"}, \"outputs\": {\"rubrics\": \"fresh serializable object containing templates, shared_score_items, and passing_rule\"}, \"callers\": [\"API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE\"], \"callees\": [], \"test_focus\": [\"Service returns exactly five required template categories.\", \"Each template has non-empty required sections and a minimum reference count.\", \"Shared score item point values match 30/20/20/20/10.\", \"Passing rule labels and threshold match the requirement.\"]}",
+    "file_path": "backend/src/normative/reviewRubricService.js",
+    "first_line": "44",
+    "implemented": false,
+    "callers": [
+      "API-FEAT-AI-REVIEW-RUBRICS-EXPRESS-ROUTE"
+    ],
+    "callees": []
+  },
   "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE": {
     "interface_id": "FUNC-FEAT-AUTH-SESSION-AUTHZ-MIDDLEWARE",
     "req_ids": [
@@ -1349,6 +1403,41 @@
     "callees": [
       "backend/src/normative/ruleConfigRepository.js",
       "backend/src/normative/normativeService.js DEFAULT_NORMATIVE_RULES"
+    ]
+  },
+  "UI-FEAT-AI-REVIEW-RUBRICS-NORMATIVE-CHECK-PAGE": {
+    "interface_id": "UI-FEAT-AI-REVIEW-RUBRICS-NORMATIVE-CHECK-PAGE",
+    "req_ids": [
+      "FEAT-AI-REVIEW-RUBRICS"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-AI-REVIEW-RUBRICS-NORMATIVE-CHECK-PAGE\", \"req_id\": \"FEAT-AI-REVIEW-RUBRICS\", \"type\": \"UI\", \"name\": \"NormativeCheckPage rubric selector entry\", \"file_path\": \"frontend/src/pages/NormativeCheckPage.tsx\", \"first_line\": \"159\", \"responsibility\": \"Reuse the authenticated auxiliary review/normative check page as the user-facing entry where students open the rubric template selector.\", \"specification\": \"The existing page continues to gate anonymous users through `useAuthSession` and the login prompt. For authenticated users, it provides an `打开模板选择器` / `收起模板选择器` button and mounts `ReviewRubricSelector` inside the existing document upload workflow without replacing normative detection behavior.\", \"inputs\": {\"auth_state\": \"useAuthSession status and user\", \"user_action\": \"click template selector toggle\"}, \"outputs\": {\"ui\": \"authenticated page section that opens or closes the rubric selector\"}, \"callers\": [\"React Router page route for normative/auxiliary review workflow\"], \"callees\": [\"UI-FEAT-AI-REVIEW-RUBRICS-SELECTOR\", \"API-FEAT-AUTH-SESSION-CLIENT\"], \"test_focus\": [\"Anonymous users are prompted to log in before using the review page.\", \"Authenticated users can open the selector from the auxiliary review page.\", \"Existing normative detection rule snapshot behavior remains available below the rubric selector.\"]}",
+    "file_path": "frontend/src/pages/NormativeCheckPage.tsx",
+    "first_line": "159",
+    "implemented": false,
+    "callers": [
+      "React Router page route for normative/auxiliary review workflow"
+    ],
+    "callees": [
+      "UI-FEAT-AI-REVIEW-RUBRICS-SELECTOR",
+      "API-FEAT-AUTH-SESSION-CLIENT"
+    ]
+  },
+  "UI-FEAT-AI-REVIEW-RUBRICS-SELECTOR": {
+    "interface_id": "UI-FEAT-AI-REVIEW-RUBRICS-SELECTOR",
+    "req_ids": [
+      "FEAT-AI-REVIEW-RUBRICS"
+    ],
+    "type": "UI",
+    "content": "{\"interface_id\": \"UI-FEAT-AI-REVIEW-RUBRICS-SELECTOR\", \"req_id\": \"FEAT-AI-REVIEW-RUBRICS\", \"type\": \"UI\", \"name\": \"ReviewRubricSelector\", \"file_path\": \"frontend/src/components/ReviewRubricSelector.tsx\", \"first_line\": \"8\", \"responsibility\": \"Render the auxiliary review template selector with backend-loaded five rubric templates, required sections, minimum reference counts, shared objective score items, and pass/revise rule.\", \"specification\": \"When `isOpen` is true, the component calls `fetchReviewRubrics()` through the shared Axios client. It renders explicit loading and error states and does not provide hardcoded fallback records if the backend request fails. Successful data displays the five built-in templates, each template's `required_sections` and `minimum_reference_count`, the shared score items totaling 100 points, and the result rule: objective score >= 80 and no missing required sections means `基础检查通过`, otherwise `需修改`.\", \"inputs\": {\"props\": {\"isOpen\": \"boolean controlling whether the selector is mounted and fetches data\"}, \"api_data\": \"ReviewRubricsResponse from GET /api/normative/review-rubrics\"}, \"outputs\": {\"visible_states\": [\"closed\", \"loading\", \"error\", \"template list with shared scoring summary\"]}, \"callers\": [\"UI-FEAT-AI-REVIEW-RUBRICS-NORMATIVE-CHECK-PAGE\"], \"callees\": [\"API-FEAT-AI-REVIEW-RUBRICS-CLIENT\"], \"test_focus\": [\"Opening the selector fetches rubric data instead of using local fallback arrays.\", \"Displays all five template names with required sections and minimum reference counts.\", \"Displays shared objective scoring items and pass/revise threshold copy.\", \"Displays loading and error states for pending or failed API calls.\"]}",
+    "file_path": "frontend/src/components/ReviewRubricSelector.tsx",
+    "first_line": "8",
+    "implemented": false,
+    "callers": [
+      "UI-FEAT-AI-REVIEW-RUBRICS-NORMATIVE-CHECK-PAGE"
+    ],
+    "callees": [
+      "API-FEAT-AI-REVIEW-RUBRICS-CLIENT"
     ]
   },
   "UI-FEAT-AUTH-HELP-AUTH-ROUTE-CONNECTOR": {

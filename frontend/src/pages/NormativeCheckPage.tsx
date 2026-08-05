@@ -1,5 +1,6 @@
 import { ChangeEvent, FormEvent, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import ReviewRubricSelector from '../components/ReviewRubricSelector';
 import { useAuthSession } from '../auth/AuthSessionProvider';
 import {
   createNormativeDetectionTask,
@@ -38,6 +39,7 @@ function NormativeCheckPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [touched, setTouched] = useState(false);
+  const [rubricSelectorOpen, setRubricSelectorOpen] = useState(false);
 
   const hasIssues = issues.length > 0;
   const ruleOptions = useMemo<RuleOption[]>(() => {
@@ -140,13 +142,24 @@ function NormativeCheckPage() {
 
         <form className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm" onSubmit={handleSubmit}>
           <div>
-            <div className="flex items-center justify-between gap-4">
-              <h2 className="text-base font-bold text-slate-900">请选择检测模板</h2>
-              <span className="text-xs font-semibold text-slate-500">使用当前账号生效的学校/学院规则</span>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h2 className="text-base font-bold text-slate-900">辅助评阅模板</h2>
+                <p className="mt-1 text-xs font-semibold text-slate-500">展示内置五类评阅模板、必需章节、最低文献数和共享计分项</p>
+              </div>
+              <button
+                className="h-10 rounded-lg border border-blue-200 px-4 text-sm font-bold text-blue-700 transition hover:border-blue-500 hover:bg-blue-50"
+                type="button"
+                onClick={() => setRubricSelectorOpen((open) => !open)}
+              >
+                {rubricSelectorOpen ? '收起模板选择器' : '打开模板选择器'}
+              </button>
             </div>
 
+            <ReviewRubricSelector isOpen={rubricSelectorOpen} />
+
             {ruleOptions.length > 0 ? (
-              <div className="mt-4 divide-y divide-slate-100 rounded-2xl border border-slate-200">
+              <div className="mt-6 divide-y divide-slate-100 rounded-2xl border border-slate-200">
                 {ruleOptions.map((rule) => (
                   <label key={rule.rule_id} className="flex items-center gap-3 px-4 py-3 text-sm text-slate-700">
                     <input checked readOnly type="checkbox" className="h-4 w-4 accent-blue-600" />
@@ -156,8 +169,8 @@ function NormativeCheckPage() {
                 ))}
               </div>
             ) : (
-              <p className="mt-4 rounded-2xl border border-dashed border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-                发起检测后将从后端返回当次规则快照；页面不展示硬编码模板。
+              <p className="mt-6 rounded-2xl border border-dashed border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                发起检测后将从后端返回当次规则快照；页面不展示硬编码规范检测规则。
               </p>
             )}
           </div>

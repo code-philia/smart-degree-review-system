@@ -25,6 +25,32 @@ export type AnalyzeNormativeTextRequest = {
   text: string;
 };
 
+export type ReviewRubricTemplate = {
+  template_id: string;
+  name: string;
+  required_sections: string[];
+  minimum_reference_count: number;
+};
+
+export type ReviewRubricScoreItem = {
+  key: string;
+  label: string;
+  points: number;
+};
+
+export type ReviewRubricPassingRule = {
+  minimum_objective_score: number;
+  no_required_section_missing: boolean;
+  pass_label: string;
+  revise_label: string;
+};
+
+export type ReviewRubricsResponse = {
+  templates: ReviewRubricTemplate[];
+  shared_score_items: ReviewRubricScoreItem[];
+  passing_rule: ReviewRubricPassingRule;
+};
+
 export type DetectionTaskStatus = 'pending' | 'running' | 'completed';
 
 export type CreateDetectionTaskRequest = {
@@ -315,6 +341,11 @@ export async function createLocalPolishResult(payload: LocalPolishRequest): Prom
 
 export async function fetchLocalPolishResult(resultId: string): Promise<LocalPolishResult> {
   const response = await apiClient.get<LocalPolishResult>(`/normative/local-polish-results/${resultId}`);
+  return response.data;
+}
+
+export async function fetchReviewRubrics(): Promise<ReviewRubricsResponse> {
+  const response = await apiClient.get<ReviewRubricsResponse>('/normative/review-rubrics');
   return response.data;
 }
 

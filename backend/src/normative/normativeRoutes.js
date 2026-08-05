@@ -72,6 +72,10 @@ const {
   ALLOWED_INNOVATION_HISTORY_ROLES,
   listInnovationHistoryForUser,
 } = require('./innovationHistoryService');
+const {
+  REVIEW_RUBRIC_ALLOWED_ROLES,
+  listReviewRubrics,
+} = require('./reviewRubricService');
 
 const router = express.Router();
 
@@ -97,6 +101,10 @@ function sendRuleConfigError(error, res, next) {
 
 router.get('/rules', requireAuth(), (req, res) => {
   res.json({ rules: DEFAULT_NORMATIVE_RULES });
+});
+
+router.get('/review-rubrics', requireAuth({ allowedRoles: REVIEW_RUBRIC_ALLOWED_ROLES }), (req, res) => {
+  res.json(listReviewRubrics());
 });
 
 router.get(
