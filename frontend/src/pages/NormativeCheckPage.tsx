@@ -1,297 +1,365 @@
-import { ChangeEvent, FormEvent, useMemo, useState } from 'react';
-import ReviewRubricSelector from '../components/ReviewRubricSelector';
+import axios from 'axios';
+import { FileCheck2, FileText, LoaderCircle, Play, Upload, X } from 'lucide-react';
+import { useEffect, useMemo, useState, type DragEvent } from 'react';
 import { useAuthSession } from '../auth/AuthSessionProvider';
-import { Card, LinkButton, LoadingState } from '../components/ui';
-import { createNormativeDetectionTask, type DetectionTaskResponse, type NormativeIssue } from '../api/normativeRules';
-import { extractThesisFileText, THESIS_FILE_ACCEPT } from '../utils/thesisFileText';
+import {
+  fetchReviewPilotPaperLintRules,
+  runReviewPilotPaperLint,
+  type PaperLintCatalogResponse,
+  type PaperLintRunResponse,
+  type PaperLintRule,
+} from '../api/paperLint';
+import { PaperLintWorkspace } from '../components/paperLint/Workspace';
+import { flattenPaperLintFindings } from '../components/paperLint/model';
+import { Button, Card, ErrorState, LinkButton, LoadingState, PageHeader, StatusBadge } from '../components/ui';
 
-type RuleOption = {
-  rule_id: string;
-  title?: string;
-  category?: string;
-  source?: string;
+const MAX_PDF_BYTES = 50 * 1024 * 1024;
+
+function errorMessage(error: unknown, fallback: string) {
+  if (axios.isAxiosError(error)) {
+    const message = error.response?.data?.message;
+    if (typeof message === 'string' && message.trim()) return message;
+    if (error.code === 'ECONNABORTED') return '规则审查运行超时，请减少规则后重试';
+  }
+  return error instanceof Error && error.message ? error.message : fallback;
+}
+
+function validatePdf(file: File) {
+  if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') {
+    throw new Error('仅支持上传 PDF 文件');
+  }
+  if (file.size > MAX_PDF_BYTES) throw new Error('PDF 文件大小不能超过 50 MB');
+  if (file.size === 0) throw new Error('PDF 文件不能为空');
+}
+
+function fileSizeLabel(size: number) {
+  return size >= 1024 * 1024 ? `${(size / 1024 / 1024).toFixed(1)} MB` : `${Math.ceil(size / 1024)} KB`;
+}
+
+const outcomeLabels = {
+  passed: '通过',
+  issues_found: '发现问题',
+  inconclusive: '无法判定',
+  not_applicable: '不适用',
 };
 
-function countBySeverity(issues: NormativeIssue[]) {
-  return issues.reduce<Record<string, number>>((counts, issue) => {
-    counts[issue.severity] = (counts[issue.severity] || 0) + 1;
-    return counts;
-  }, {});
-}
+const outcomeTones = {
+  passed: 'success',
+  issues_found: 'warning',
+  inconclusive: 'neutral',
+  not_applicable: 'neutral',
+} as const;
 
 function NormativeCheckPage() {
   const { status, user } = useAuthSession();
-  const [text, setText] = useState('');
-  const [issues, setIssues] = useState<NormativeIssue[]>([]);
-  const [task, setTask] = useState<DetectionTaskResponse | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [readingFile, setReadingFile] = useState(false);
-  const [touched, setTouched] = useState(false);
-  const [rubricSelectorOpen, setRubricSelectorOpen] = useState(false);
+  const [catalog, setCatalog] = useState<PaperLintCatalogResponse | null>(null);
+  const [selectedRuleIds, setSelectedRuleIds] = useState<string[]>([]);
+  const [file, setFile] = useState<File | null>(null);
+  const [resultFile, setResultFile] = useState<File | null>(null);
+  const [response, setResponse] = useState<PaperLintRunResponse | null>(null);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [runError, setRunError] = useState<string | null>(null);
 
-  const hasIssues = issues.length > 0;
-  const ruleOptions = useMemo<RuleOption[]>(() => {
-    return (task?.rule_snapshot || [])
-      .map((rule) => ({
-        rule_id: String(rule.rule_id || ''),
-        title: typeof rule.title === 'string' ? rule.title : undefined,
-        category: typeof rule.category === 'string' ? rule.category : undefined,
-        source: typeof rule.source === 'string' ? rule.source : undefined,
-      }))
-      .filter((rule) => rule.rule_id);
-  }, [task]);
-  const severityCounts = task?.severity_counts || countBySeverity(issues);
-  const resultLabel = useMemo(() => {
-    if (!touched) {
-      return '待检测：选择当前生效规则后粘贴文本或上传文件。';
+  const loadCatalog = async () => {
+    setCatalogLoading(true);
+    setCatalogError(null);
+    try {
+      const nextCatalog = await fetchReviewPilotPaperLintRules();
+      setCatalog(nextCatalog);
+      setSelectedRuleIds(nextCatalog.rules.filter((rule) => rule.default_enabled).map((rule) => rule.rule_id));
+    } catch (error) {
+      setCatalog(null);
+      setCatalogError(errorMessage(error, '规则目录加载失败'));
+    } finally {
+      setCatalogLoading(false);
     }
-    if (submitting) {
-      return '检测中：后端正在同一请求内完成检测。';
-    }
-    if (task) {
-      return '已完成：任务、规则快照和问题列表已保存。';
-    }
-    return '待检测：尚未创建检测任务。';
-  }, [submitting, task, touched]);
+  };
 
-  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0] || null;
-    setErrorMessage(null);
-    setSelectedFile(file);
+  useEffect(() => {
+    if (user) void loadCatalog();
+  }, [user?.id]);
 
-    if (!file) {
+  const rulesById = useMemo(() => new Map((catalog?.rules || []).map((rule) => [rule.rule_id, rule])), [catalog]);
+  const findings = useMemo(() => (response ? flattenPaperLintFindings(response.result) : []), [response]);
+
+  function chooseFile(nextFile: File | null) {
+    setRunError(null);
+    setResponse(null);
+    setResultFile(null);
+    if (!nextFile) {
+      setFile(null);
       return;
     }
-
-    setReadingFile(true);
     try {
-      const result = await extractThesisFileText(file);
-      setText(result.text);
+      validatePdf(nextFile);
+      setFile(nextFile);
     } catch (error) {
-      setSelectedFile(null);
-      setText('');
-      setErrorMessage(error instanceof Error ? error.message : '文件解析失败');
-    } finally {
-      setReadingFile(false);
+      setFile(null);
+      setRunError(errorMessage(error, 'PDF 文件无效'));
     }
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function handleDrop(event: DragEvent<HTMLLabelElement>) {
     event.preventDefault();
-    setTouched(true);
-    setErrorMessage(null);
-    setSubmitting(true);
+    setDragging(false);
+    chooseFile(event.dataTransfer.files?.[0] || null);
+  }
 
+  function toggleRule(ruleId: string) {
+    setSelectedRuleIds((current) =>
+      current.includes(ruleId) ? current.filter((id) => id !== ruleId) : [...current, ruleId],
+    );
+    setResponse(null);
+    setResultFile(null);
+  }
+
+  function replaceSelectedRules(ruleIds: string[]) {
+    setSelectedRuleIds(ruleIds);
+    setResponse(null);
+    setResultFile(null);
+    setRunError(null);
+  }
+
+  async function runReview() {
+    if (!file) {
+      setRunError('请先选择 PDF 文件');
+      return;
+    }
+    if (selectedRuleIds.length === 0) {
+      setRunError('请至少选择一条审查规则');
+      return;
+    }
+    setRunning(true);
+    setRunError(null);
+    setResponse(null);
+    setResultFile(null);
     try {
-      const response = await createNormativeDetectionTask({
-        text,
-        source_type: selectedFile ? 'file' : 'paste',
-        source_filename: selectedFile?.name || null,
-      });
-      setTask(response);
-      setIssues(response.issues);
+      const nextResponse = await runReviewPilotPaperLint(file, selectedRuleIds);
+      setResponse(nextResponse);
+      setResultFile(file);
     } catch (error) {
-      const message = error instanceof Error ? error.message : '规范检测任务创建失败';
-      setErrorMessage(message);
-      setTask(null);
-      setIssues([]);
+      setRunError(errorMessage(error, '规则审查运行失败'));
     } finally {
-      setSubmitting(false);
+      setRunning(false);
     }
   }
 
-  if (status === 'loading') {
-    return <LoadingState label="正在加载登录状态…" />;
-  }
+  if (status === 'loading') return <LoadingState label="正在加载登录状态…" />;
 
   if (!user) {
     return (
-      <div className="mx-auto max-w-4xl">
-        <Card>
-          <h1 className="text-2xl font-black text-slate-900">发起规范检测</h1>
-          <p className="mt-3 text-sm leading-6 text-slate-600">请先登录后选择当前生效规则并创建规范检测任务。</p>
-          <LinkButton className="mt-5" to="/auth">
-            前往登录
-          </LinkButton>
-        </Card>
-      </div>
+      <Card>
+        <h1 className="text-2xl font-black text-slate-900">PDF 论文规则审查</h1>
+        <p className="mt-3 text-sm leading-6 text-slate-600">请先登录后上传论文并运行规则审查。</p>
+        <LinkButton className="mt-5" to="/auth">
+          前往登录
+        </LinkButton>
+      </Card>
     );
   }
 
   return (
-    <div>
-      <section>
-        <h1 className="text-3xl font-black text-slate-950">文档上传</h1>
+    <div className="space-y-6">
+      <PageHeader
+        title="PDF 论文规则审查"
+        description="上传 PDF，选择 review-pilot 确定性规则，查看带页码和坐标高亮的真实审查结果。"
+        breadcrumbs={[{ label: '首页', to: '/' }, { label: '规范性检测' }]}
+        actions={<StatusBadge tone="info">PDF-only</StatusBadge>}
+      />
 
-        <form className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm" onSubmit={handleSubmit}>
-          <div>
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <h2 className="text-base font-bold text-slate-900">辅助评阅模板</h2>
-                <p className="mt-1 text-xs font-semibold text-slate-500">
-                  展示内置五类评阅模板、必需章节、最低文献数和共享计分项
-                </p>
-              </div>
-              <button
-                className="h-10 rounded-lg border border-blue-200 px-4 text-sm font-bold text-blue-700 transition hover:border-blue-500 hover:bg-blue-50"
-                type="button"
-                onClick={() => setRubricSelectorOpen((open) => !open)}
-              >
-                {rubricSelectorOpen ? '收起模板选择器' : '打开模板选择器'}
-              </button>
-            </div>
-
-            <ReviewRubricSelector isOpen={rubricSelectorOpen} />
-
-            {ruleOptions.length > 0 ? (
-              <div className="mt-6 divide-y divide-slate-100 rounded-2xl border border-slate-200">
-                {ruleOptions.map((rule) => (
-                  <label key={rule.rule_id} className="flex items-center gap-3 px-4 py-3 text-sm text-slate-700">
-                    <input checked readOnly type="checkbox" className="h-4 w-4 accent-blue-600" />
-                    <span className="min-w-0 flex-1 truncate font-semibold">{rule.title || rule.rule_id}</span>
-                    <span className="text-xs text-slate-400">{rule.source || rule.category || '当前生效'}</span>
-                  </label>
-                ))}
-              </div>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,.85fr)_minmax(440px,1.15fr)]">
+        <Card title="1. 上传论文" description="仅处理 PDF，文件在后端临时运行后删除，不写入当前 SQLite。">
+          <label
+            className={`flex min-h-64 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 text-center transition ${
+              dragging
+                ? 'border-brand-500 bg-brand-50'
+                : 'border-slate-300 bg-slate-50 hover:border-brand-500 hover:bg-brand-50/50'
+            }`}
+            onDragEnter={(event) => {
+              event.preventDefault();
+              setDragging(true);
+            }}
+            onDragOver={(event) => event.preventDefault()}
+            onDragLeave={() => setDragging(false)}
+            onDrop={handleDrop}
+          >
+            <input
+              className="sr-only"
+              type="file"
+              accept=".pdf,application/pdf"
+              aria-label="上传待审查 PDF"
+              onChange={(event) => chooseFile(event.target.files?.[0] || null)}
+            />
+            {file ? (
+              <>
+                <FileText className="size-10 text-brand-500" />
+                <span className="mt-3 max-w-full truncate text-sm font-bold text-slate-900">{file.name}</span>
+                <span className="mt-1 text-xs text-slate-500">{fileSizeLabel(file.size)}</span>
+                <Button
+                  className="mt-4"
+                  size="sm"
+                  variant="ghost"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    chooseFile(null);
+                  }}
+                >
+                  <X className="size-4" />
+                  移除文件
+                </Button>
+              </>
             ) : (
-              <p className="mt-6 rounded-2xl border border-dashed border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-                发起检测后将展示本次实际生效的规则清单。
-              </p>
+              <>
+                <span className="flex size-14 items-center justify-center rounded-full bg-brand-100 text-brand-600">
+                  <Upload className="size-7" />
+                </span>
+                <span className="mt-4 text-sm font-bold text-slate-900">拖拽 PDF 到此处，或点击选择文件</span>
+                <span className="mt-2 text-xs text-slate-500">最大 50 MB；扫描版可能无法完成部分文字与版式规则</span>
+              </>
             )}
-          </div>
+          </label>
+        </Card>
 
-          <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-slate-700">论文文本</span>
-              <textarea
-                className="min-h-[280px] w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm leading-7 outline-none focus:border-blue-500"
-                value={text}
-                onChange={(event) => setText(event.target.value)}
-                placeholder="粘贴摘要、关键词、引言、结论和参考文献等论文文本。"
-              />
-            </label>
-
-            <aside className="space-y-4">
-              <label className="flex min-h-[220px] cursor-pointer flex-col items-center justify-center rounded-3xl border border-dashed border-blue-200 bg-blue-50/60 px-5 text-center transition hover:border-blue-500 hover:bg-blue-50">
-                <span
-                  className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 text-2xl text-blue-600"
-                  aria-hidden="true"
+        <Card
+          title="2. 选择审查规则"
+          description="第一版仅开放不调用外部模型的确定性规则。"
+          actions={
+            catalog ? (
+              <div className="flex gap-1">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => replaceSelectedRules(catalog.rules.map((rule) => rule.rule_id))}
                 >
-                  📄
-                </span>
-                <span className="mt-4 text-sm font-bold text-slate-900">拖拽或点击上传论文文件</span>
-                <span className="mt-2 text-xs leading-5 text-slate-500">
-                  文本文件最大 5 MB，可搜索文本 PDF 最大 50 MB（提取文本最大 5 MB）
-                </span>
-                <input className="sr-only" type="file" accept={THESIS_FILE_ACCEPT} onChange={handleFileChange} />
-                {selectedFile ? (
-                  <span className="mt-3 text-xs font-semibold text-blue-700">{selectedFile.name}</span>
-                ) : null}
-              </label>
-
-              <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <h2 className="text-base font-bold text-slate-900">执行状态</h2>
-                <p className="mt-2 text-sm leading-6 text-slate-600">{resultLabel}</p>
-                {errorMessage ? <p className="mt-2 text-sm font-semibold text-red-600">{errorMessage}</p> : null}
-                <button
-                  className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-xl bg-blue-600 px-4 font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
-                  type="submit"
-                  disabled={submitting || readingFile}
-                >
-                  {readingFile ? '解析中…' : submitting ? '检测中…' : '发起检测'}
-                </button>
-              </section>
-            </aside>
-          </div>
-        </form>
-
-        {task ? (
-          <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
-              <div className="flex items-center justify-center">
-                <div className="flex h-48 w-48 items-center justify-center rounded-full border-[18px] border-blue-500 bg-blue-50 text-center">
-                  <div>
-                    <p className="text-4xl font-black text-blue-700">100%</p>
-                    <p className="mt-1 text-sm font-semibold text-blue-700">已完成</p>
-                  </div>
-                </div>
+                  全选
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => replaceSelectedRules([])}>
+                  清空
+                </Button>
               </div>
-              <div className="rounded-2xl border border-dashed border-blue-300 p-5">
-                <h2 className="text-lg font-black text-slate-900">检测报告摘要</h2>
-                <dl className="mt-4 grid gap-3 text-sm text-slate-700 sm:grid-cols-2">
-                  <div>
-                    <dt className="font-semibold">任务状态</dt>
-                    <dd>{task.status}</dd>
-                  </div>
-                  <div>
-                    <dt className="font-semibold">创建时间</dt>
-                    <dd>{task.created_at}</dd>
-                  </div>
-                  <div>
-                    <dt className="font-semibold">问题总数</dt>
-                    <dd>{issues.length}</dd>
-                  </div>
-                  <div>
-                    <dt className="font-semibold">规则快照</dt>
-                    <dd>{task.rule_snapshot.length} 条</dd>
-                  </div>
-                </dl>
-              </div>
+            ) : undefined
+          }
+        >
+          {catalogLoading ? <LoadingState label="正在读取 review-pilot 规则目录…" /> : null}
+          {catalogError ? <ErrorState message={catalogError} onRetry={() => void loadCatalog()} /> : null}
+          {catalog ? (
+            <div className="grid max-h-80 gap-2 overflow-y-auto pr-1 md:grid-cols-2">
+              {catalog.rules.map((rule: PaperLintRule) => {
+                const checked = selectedRuleIds.includes(rule.rule_id);
+                return (
+                  <label
+                    key={rule.rule_id}
+                    className={`flex cursor-pointer gap-3 rounded-lg border p-3 transition ${
+                      checked ? 'border-brand-500 bg-brand-50' : 'border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <input
+                      className="mt-0.5 size-4 accent-brand-500"
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleRule(rule.rule_id)}
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-bold text-slate-900">{rule.title}</span>
+                      <span className="mt-1 block text-xs leading-5 text-slate-500">{rule.description}</span>
+                      <span className="mt-1 block truncate font-mono text-[10px] text-slate-400">{rule.rule_id}</span>
+                    </span>
+                  </label>
+                );
+              })}
             </div>
+          ) : null}
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+            <p className="text-sm text-slate-600">
+              已选择 <strong className="text-slate-900">{selectedRuleIds.length}</strong> 条规则
+            </p>
+            <Button
+              disabled={!file || !catalog || selectedRuleIds.length === 0 || running}
+              onClick={() => void runReview()}
+            >
+              {running ? <LoaderCircle className="size-4 animate-spin" /> : <Play className="size-4" />}
+              {running ? '正在审查…' : '开始规则审查'}
+            </Button>
+          </div>
+        </Card>
+      </div>
 
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
-              {Object.entries(severityCounts).map(([severity, count]) => (
-                <div key={severity} className="rounded-2xl border border-slate-200 p-4">
-                  <p className="text-sm font-semibold text-slate-500">{severity}</p>
-                  <p className="mt-2 text-2xl font-black text-blue-700">{count}</p>
+      {runError ? <ErrorState title="审查未完成" message={runError} /> : null}
+
+      {running ? (
+        <Card>
+          <div className="flex items-center gap-4 py-5">
+            <span className="flex size-11 items-center justify-center rounded-full bg-brand-100 text-brand-600">
+              <LoaderCircle className="size-5 animate-spin" />
+            </span>
+            <div>
+              <p className="font-bold text-slate-900">review-pilot 正在解析 PDF 并逐条执行规则</p>
+              <p className="mt-1 text-sm text-slate-500">页面不会显示虚构百分比，完成后将直接展示真实结果。</p>
+            </div>
+          </div>
+        </Card>
+      ) : null}
+
+      {response && resultFile ? (
+        <>
+          <Card
+            title="审查结果"
+            description={`${response.result.paper_title} · ${new Date(response.processed_at).toLocaleString('zh-CN')}`}
+            actions={
+              <StatusBadge tone={response.result.summary.finding_count ? 'warning' : 'success'}>
+                {response.result.summary.finding_count
+                  ? `发现 ${response.result.summary.finding_count} 项问题`
+                  : '未发现问题'}
+              </StatusBadge>
+            }
+          >
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              {[
+                ['执行规则', response.result.summary.rule_count],
+                ['完成规则', response.result.summary.completed_rule_count],
+                ['发现问题的规则', response.result.summary.issue_rule_count],
+                ['问题总数', response.result.summary.finding_count],
+                [
+                  '不适用/失败',
+                  response.result.summary.unsupported_rule_count + response.result.summary.error_rule_count,
+                ],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs text-slate-500">{label}</p>
+                  <p className="mt-1 text-2xl font-black text-slate-900">{value}</p>
                 </div>
               ))}
             </div>
-          </section>
-        ) : null}
+            <details className="mt-4 rounded-lg border border-slate-200">
+              <summary className="cursor-pointer px-4 py-3 text-sm font-bold text-slate-800">
+                查看各规则执行状态
+              </summary>
+              <div className="grid gap-2 border-t border-slate-200 p-3 md:grid-cols-2">
+                {response.result.rule_runs.map((run) => (
+                  <div
+                    key={run.rule_run_id}
+                    className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2"
+                  >
+                    <span className="truncate text-sm text-slate-700">
+                      {rulesById.get(run.rule_id)?.title || run.rule_id}
+                    </span>
+                    <StatusBadge tone={outcomeTones[run.outcome]}>{outcomeLabels[run.outcome]}</StatusBadge>
+                  </div>
+                ))}
+              </div>
+            </details>
+          </Card>
 
-        <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="text-lg font-black text-slate-900">检测问题</h2>
-          {hasIssues ? (
-            <div className="mt-4 overflow-x-auto">
-              <table className="min-w-full border-separate border-spacing-y-2 text-left text-sm">
-                <thead className="text-slate-500">
-                  <tr>
-                    <th className="px-2 py-1">rule_id</th>
-                    <th className="px-2 py-1">类别</th>
-                    <th className="px-2 py-1">严重程度</th>
-                    <th className="px-2 py-1">行号</th>
-                    <th className="px-2 py-1">列号</th>
-                    <th className="px-2 py-1">原文片段</th>
-                    <th className="px-2 py-1">问题说明</th>
-                    <th className="px-2 py-1">修改建议</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {issues.map((issue, index) => (
-                    <tr key={`${issue.rule_id}-${index}`} className="align-top text-slate-800">
-                      <td className="px-2 py-2 font-mono text-xs">{issue.rule_id}</td>
-                      <td className="px-2 py-2">{issue.category}</td>
-                      <td className="px-2 py-2">{issue.severity}</td>
-                      <td className="px-2 py-2">{issue.line}</td>
-                      <td className="px-2 py-2">{issue.column}</td>
-                      <td className="px-2 py-2">{issue.excerpt}</td>
-                      <td className="px-2 py-2">{issue.message}</td>
-                      <td className="px-2 py-2">{issue.suggestion}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="mt-3 text-sm leading-6 text-slate-600">
-              {touched ? '本次检测未返回问题。' : '尚未检测任何文本。'}
-            </p>
-          )}
-        </section>
-      </section>
+          <div className="flex items-center gap-2">
+            <FileCheck2 className="size-5 text-brand-600" />
+            <h2 className="text-lg font-black text-slate-900">PDF 定位与问题联动</h2>
+          </div>
+          <PaperLintWorkspace file={resultFile} findings={findings} rules={catalog?.rules || []} />
+        </>
+      ) : null}
     </div>
   );
 }

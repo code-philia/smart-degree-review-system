@@ -1,4 +1,5 @@
 const express = require('express');
+const reviewPilotPaperLintRoutes = require('./reviewPilotPaperLintRoutes');
 const { requireAuth } = require('../auth/authMiddleware');
 const { DEFAULT_NORMATIVE_RULES, analyzeDefaultNormativeRules } = require('./normativeService');
 const {
@@ -97,6 +98,7 @@ const reportStudentResultsRoutes = require('./reportStudentResultsRoutes');
 
 const router = express.Router();
 
+router.use('/paper-lint', reviewPilotPaperLintRoutes);
 router.use('/ledger-records', ledgerRecordsRoutes);
 router.use('/report-submissions', reportSubmissionRoutes);
 router.use('/supervisor-review-queue', reportSupervisorQueueRoutes);

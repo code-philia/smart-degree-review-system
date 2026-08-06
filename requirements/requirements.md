@@ -74,11 +74,12 @@ Actor: STUDENT.
 
 ## MOD-NORMATIVE-DETECTION 论文规则化规范检测
 
-对纯文本论文执行可解释、可重复的规则检测。系统支持 .txt、.md、含可搜索文字层的 PDF 文件或直接粘贴文本；文本文件不超过 5 MB，PDF 原文件不超过 50 MB、500 页，提取后的纯文本不超过 5 MB。PDF 在浏览器中提取为纯文本后进入现有检测链路，不保存原始 PDF。
-检测范围包括章节完整性、标点配对、连续重复标点、数字与日期的有限规则、参考文献顺序编码、禁用词典、重复词和过长句。不支持扫描版或加密 PDF，不检测 Word/PDF 的字体、页边距、页码、页眉页脚或页面坐标。
+模块保留原有纯文本规范检测与历史报告能力，同时在 `/normative-check` 提供 review-pilot PDF 规则审查试点入口。PDF 入口把原文件临时交给同机规则引擎，返回可解释的规则状态、问题和页面坐标，并在浏览器中显示原 PDF 与高亮；原始 PDF 和本次快速审查结果不写入当前 SQLite，处理完成后删除后端临时文件。
+第一版 PDF 入口只开放 11 条不调用外部大模型的确定性规则，覆盖中英文题名、摘要长度、关键词、正文标题、标题编号、首末章和目录格式。原有纯文本规则、学校/学院规则发布及检测台账保持独立，不自动作用于 review-pilot 规则目录。
 Permissions: ALL.
 ### Included chapters
 - `FEAT-NORMATIVE-FORMAT-RULES` 默认规范检测规则
+- `FEAT-REVIEW-PILOT-PDF-LINT` review-pilot PDF 规则审查
 - `FLOW-RULE-PUBLISH` 学校与学院规则配置
 - `FEAT-RULE-TEMPLATE-UPLOAD` JSON 规则集导入
 - `FEAT-NORMATIVE-DETECT` 发起规范检测
@@ -102,6 +103,24 @@ Actor: STUDENT.
 - **GIVEN (STUDENT)** 文本包含未配对括号、“。。”和一个超过 120 字符的句子。
 - **WHEN (STUDENT)** 学生对该文本运行默认规则。
 - **THEN** 系统分别返回配对、重复标点和过长句问题，且每条问题包含行列位置。
+
+### FEAT-REVIEW-PILOT-PDF-LINT review-pilot PDF 规则审查
+
+所有已登录角色可在 `/normative-check` 上传不超过 50 MB 的 PDF，从部署环境提供的 review-pilot 确定性规则目录中选择规则并同步运行。后端校验 PDF 文件头，以权限受限的临时文件调用同机 Python 规则引擎，限制并发数和单次运行时间，并在成功或失败后删除临时文件。
+结果展示论文标题、规则执行状态和问题汇总；存在页面坐标的问题在内嵌 PDF 中高亮，点击问题或证据锚点时联动定位。第一版不调用 review-pilot 语义模型规则，不保存原始 PDF、审查任务或结果，不进入现有检测历史、统计和师生批阅闭环。扫描版、加密 PDF 或缺少规则所需结构时，规则可返回不适用、无法判定或可理解的错误。
+Permissions: ALL.
+Depends on: `FEAT-AUTH-SESSION`.
+### Acceptance scenarios
+#### 运行 PDF 规则并联动定位
+Actor: STUDENT.
+- **GIVEN (STUDENT)** student01 已登录，选择一份有效 PDF 和至少一条确定性规则。
+- **WHEN (STUDENT)** 学生发起规则审查。
+- **THEN** 系统返回真实规则执行状态和问题；带 PDF 坐标的问题可在原文中高亮并通过问题列表定位。
+#### 拒绝无效输入且不保留临时文件
+Actor: STUDENT.
+- **GIVEN (STUDENT)** 上传内容不是 PDF、超过 50 MB，或没有选择规则。
+- **WHEN (STUDENT)** 学生发起规则审查。
+- **THEN** 系统返回可理解的校验错误，不生成虚假结果，也不在 SQLite 或临时目录中保留审查记录。
 
 ### FLOW-RULE-PUBLISH 学校与学院规则配置
 

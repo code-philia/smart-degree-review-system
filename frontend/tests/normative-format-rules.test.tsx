@@ -1,31 +1,32 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../src/App';
-import { AuthSessionProvider } from '../src/auth/AuthSessionProvider';
-import { fetchCurrentSession, type AuthenticatedUser } from '../src/api/authSession';
-import { analyzeDefaultNormativeText, type NormativeIssue } from '../src/api/normativeRules';
 import apiClient from '../src/api';
+import { fetchCurrentSession, type AuthenticatedUser } from '../src/api/authSession';
+import { fetchReviewPilotPaperLintRules, runReviewPilotPaperLint } from '../src/api/paperLint';
+import { AuthSessionProvider } from '../src/auth/AuthSessionProvider';
 
 vi.mock('../src/api/authSession', async () => {
   const actual = await vi.importActual<typeof import('../src/api/authSession')>('../src/api/authSession');
+  return { ...actual, fetchCurrentSession: vi.fn() };
+});
+
+vi.mock('../src/api/paperLint', async () => {
+  const actual = await vi.importActual<typeof import('../src/api/paperLint')>('../src/api/paperLint');
   return {
     ...actual,
-    fetchCurrentSession: vi.fn(),
+    fetchReviewPilotPaperLintRules: vi.fn(),
+    runReviewPilotPaperLint: vi.fn(),
   };
 });
 
-vi.mock('../src/api/normativeRules', async () => {
-  const actual = await vi.importActual<typeof import('../src/api/normativeRules')>('../src/api/normativeRules');
-  return {
-    ...actual,
-    analyzeDefaultNormativeText: vi.fn(),
-  };
-});
-
-const reqId = 'FEAT-NORMATIVE-FORMAT-RULES';
-void reqId;
+vi.mock('../src/components/paperLint/Workspace', () => ({
+  PaperLintWorkspace: ({ findings }: { findings: Array<{ finding: { message: string } }> }) => (
+    <div data-testid="paper-lint-workspace">{findings.map((item) => item.finding.message).join('；')}</div>
+  ),
+}));
 
 const studentUser: AuthenticatedUser = {
   id: 'student01',
@@ -36,42 +37,85 @@ const studentUser: AuthenticatedUser = {
   scope: 'COLLEGE',
 };
 
-const scenarioIssues: NormativeIssue[] = [
-  {
-    rule_id: 'NORM-002',
-    category: '标点配对',
-    severity: 'high',
-    line: 4,
-    column: 9,
-    excerpt: '未配对（括号',
-    message: '圆括号未成对',
-    suggestion: '补全或删除未配对的括号',
-  },
-  {
-    rule_id: 'NORM-003',
-    category: '重复标点',
-    severity: 'medium',
-    line: 4,
-    column: 15,
-    excerpt: '。。',
-    message: '存在重复标点',
-    suggestion: '保留一个句号',
-  },
-  {
-    rule_id: 'NORM-006',
-    category: '文本质量',
-    severity: 'medium',
-    line: 4,
-    column: 17,
-    excerpt: '这是一个超过一百二十字符的句子',
-    message: '句子超过 120 个字符',
-    suggestion: '拆分为更短的句子',
-  },
-];
+const catalog = {
+  engine: 'review-pilot',
+  mode: 'deterministic',
+  rules: [
+    {
+      rule_id: 'chinese_title_format_check',
+      title: '中文论文题名格式',
+      description: '检查中文论文题名页版式。',
+      default_severity: 'warning' as const,
+      default_enabled: true,
+    },
+    {
+      rule_id: 'toc_format_check',
+      title: '目录格式',
+      description: '检查目录标题、条目、缩进和页码对齐。',
+      default_severity: 'warning' as const,
+      default_enabled: true,
+    },
+  ],
+};
 
-function renderRoute(initialPath = '/normative-check') {
+const completedResponse = {
+  source_filename: '论文.pdf',
+  selected_rule_ids: catalog.rules.map((rule) => rule.rule_id),
+  processed_at: '2026-08-06T08:00:00.000Z',
+  result: {
+    type: 'paper_lint' as const,
+    paper_title: '测试论文',
+    ruleset: {
+      id: 'review-pilot-deterministic',
+      name: 'review-pilot 确定性规则',
+      version_number: 1,
+      version_label: '当前部署版本',
+    },
+    rule_runs: [
+      {
+        rule_run_id: 'run-1',
+        rule_id: 'chinese_title_format_check',
+        severity: 'warning' as const,
+        execution_status: 'completed' as const,
+        evidence_mode: 'derived' as const,
+        outcome: 'issues_found' as const,
+        message: null,
+        findings: [
+          {
+            finding_id: 'finding-1',
+            rule_id: 'chinese_title_format_check',
+            message: '中文论文标题应居中。',
+            suggestion: '将标题水平居中。',
+            location: {
+              type: 'pdf_bbox' as const,
+              page_number: 1,
+              bounding_rect: { x1: 10, y1: 20, x2: 100, y2: 40, width: 595, height: 842, page_number: 1 },
+              rects: [],
+              text_excerpt: '测试论文',
+            },
+            anchors: [],
+          },
+        ],
+      },
+    ],
+    summary: {
+      rule_count: 2,
+      completed_rule_count: 2,
+      unsupported_rule_count: 0,
+      error_rule_count: 0,
+      issue_rule_count: 1,
+      finding_count: 1,
+      error_finding_count: 0,
+      warning_finding_count: 1,
+      info_finding_count: 0,
+      derived_rule_count: 2,
+    },
+  },
+};
+
+function renderRoute() {
   return render(
-    <MemoryRouter initialEntries={[initialPath]}>
+    <MemoryRouter initialEntries={['/normative-check']}>
       <AuthSessionProvider>
         <App />
       </AuthSessionProvider>
@@ -79,86 +123,61 @@ function renderRoute(initialPath = '/normative-check') {
   );
 }
 
-describe('FEAT-NORMATIVE-FORMAT-RULES frontend route and page contract', () => {
+describe('review-pilot PDF rules review route', () => {
   beforeEach(() => {
     vi.mocked(fetchCurrentSession).mockReset();
-    vi.mocked(analyzeDefaultNormativeText).mockReset();
+    vi.mocked(fetchReviewPilotPaperLintRules).mockReset();
+    vi.mocked(runReviewPilotPaperLint).mockReset();
   });
 
-  it('renders /normative-check under the shared auth provider and submits authenticated text through the API client', async () => {
+  it('loads deterministic rules, uploads a PDF and renders the real API result', async () => {
     vi.mocked(fetchCurrentSession).mockResolvedValue({ user: studentUser });
-    vi.mocked(analyzeDefaultNormativeText).mockResolvedValue({ issues: scenarioIssues });
+    vi.mocked(fetchReviewPilotPaperLintRules).mockResolvedValue(catalog);
+    vi.mocked(runReviewPilotPaperLint).mockResolvedValue(completedResponse);
     const user = userEvent.setup();
-    const scenarioText = [
-      '摘要',
-      '关键词',
-      '引言',
-      `学生文本包含未配对（括号。。${'问题'.repeat(70)}。`,
-      '结论',
-      '参考文献',
-      '[1] 示例文献',
-    ].join('\n');
+    const pdf = new File(['%PDF-1.7\n'], '论文.pdf', { type: 'application/pdf' });
 
     renderRoute();
 
-    expect(await screen.findByRole('heading', { name: '默认规范检测规则' })).toBeInTheDocument();
-    expect(screen.getByText(/当前登录用户：student01（STUDENT）/)).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'PDF 论文规则审查' })).toBeInTheDocument();
+    expect(await screen.findByText('中文论文题名格式')).toBeInTheDocument();
+    expect(screen.getByText('目录格式')).toBeInTheDocument();
+    await user.upload(screen.getByLabelText('上传待审查 PDF'), pdf);
+    await user.click(screen.getByRole('button', { name: '开始规则审查' }));
 
-    await user.click(screen.getByLabelText('待检测文本'));
-    await user.paste(scenarioText);
-    await user.click(screen.getByRole('button', { name: '运行默认规则' }));
-
-    await waitFor(() => expect(analyzeDefaultNormativeText).toHaveBeenCalledWith({ text: scenarioText }));
-    expect(await screen.findByText('已返回 3 条问题。')).toBeInTheDocument();
-
-    const table = screen.getByRole('table');
-    for (const issue of scenarioIssues) {
-      const row = within(table).getByText(issue.rule_id).closest('tr');
-      expect(row).toBeTruthy();
-      expect(within(row as HTMLTableRowElement).getByText(issue.category)).toBeInTheDocument();
-      expect(within(row as HTMLTableRowElement).getByText(String(issue.line))).toBeInTheDocument();
-      expect(within(row as HTMLTableRowElement).getByText(String(issue.column))).toBeInTheDocument();
-      expect(within(row as HTMLTableRowElement).getByText(issue.message)).toBeInTheDocument();
-      expect(within(row as HTMLTableRowElement).getByText(issue.suggestion)).toBeInTheDocument();
-    }
+    await waitFor(() =>
+      expect(runReviewPilotPaperLint).toHaveBeenCalledWith(pdf, ['chinese_title_format_check', 'toc_format_check']),
+    );
+    expect(await screen.findByText('发现 1 项问题')).toBeInTheDocument();
+    expect(screen.getByTestId('paper-lint-workspace')).toHaveTextContent('中文论文标题应居中。');
   });
 
-  it('renders login-required state for anonymous users and does not run fake local analysis', async () => {
+  it('requires login and never loads the engine catalog for an anonymous user', async () => {
     vi.mocked(fetchCurrentSession).mockRejectedValue({ response: { status: 401 } });
 
     renderRoute();
 
-    expect(await screen.findByRole('heading', { name: '默认规范检测' })).toBeInTheDocument();
-    expect(screen.getByText(/请先登录后运行/)).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'PDF 论文规则审查' })).toBeInTheDocument();
+    expect(screen.getByText(/请先登录后上传论文/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '前往登录' })).toHaveAttribute('href', '/auth');
-    expect(screen.queryByRole('button', { name: '运行默认规则' })).not.toBeInTheDocument();
-    expect(analyzeDefaultNormativeText).not.toHaveBeenCalled();
+    expect(fetchReviewPilotPaperLintRules).not.toHaveBeenCalled();
   });
 
-  it('shows an explicit error state and clears stale results when backend analysis fails', async () => {
+  it('rejects non-PDF input in the page before invoking the backend', async () => {
     vi.mocked(fetchCurrentSession).mockResolvedValue({ user: studentUser });
-    vi.mocked(analyzeDefaultNormativeText)
-      .mockResolvedValueOnce({ issues: scenarioIssues })
-      .mockRejectedValueOnce(new Error('服务暂不可用'));
-    const user = userEvent.setup();
+    vi.mocked(fetchReviewPilotPaperLintRules).mockResolvedValue(catalog);
 
     renderRoute();
+    await screen.findByText('中文论文题名格式');
+    fireEvent.change(screen.getByLabelText('上传待审查 PDF'), {
+      target: { files: [new File(['plain text'], '论文.txt', { type: 'text/plain' })] },
+    });
 
-    await user.type(
-      await screen.findByLabelText('待检测文本'),
-      '摘要\n关键词\n引言\n问题。。\n结论\n参考文献\n[1] 示例文献',
-    );
-    await user.click(screen.getByRole('button', { name: '运行默认规则' }));
-    expect(await screen.findByText('已返回 3 条问题。')).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: '运行默认规则' }));
-
-    expect(await screen.findByText('服务暂不可用')).toBeInTheDocument();
-    expect(screen.getByText('本次检测未返回问题。')).toBeInTheDocument();
-    expect(screen.queryByText('NORM-002')).not.toBeInTheDocument();
+    expect(await screen.findByText('仅支持上传 PDF 文件')).toBeInTheDocument();
+    expect(runReviewPilotPaperLint).not.toHaveBeenCalled();
   });
 
-  it('uses the shared interceptor-enabled Axios client for normative API calls', () => {
+  it('uses the shared interceptor-enabled Axios client', () => {
     expect(apiClient.defaults.withCredentials).toBe(true);
     expect(apiClient.defaults.baseURL).toBe('/api');
     expect(apiClient.interceptors.response).toBeDefined();

@@ -6,7 +6,7 @@
 ## 核心特性
 
 - 本地账号密码登录、会话恢复、退出登录
-- 规范性检测：章节顺序、标点配对、重复标点、日期格式、参考文献、禁用词、长句
+- 规范性检测：review-pilot PDF 版式规则、页内高亮，以及原有纯文本规则与历史报告
 - 本地文本相似度与写作风险：样本库比对、Jaccard 相似度、相似片段、风险启发式评分
 - 创新性量表评估：硕士/博士五维评分、证据与改进计划、评估快照
 - 规则化辅助评阅：模板选择、章节检查、参考文献检查、规范问题与客观分
@@ -27,7 +27,7 @@
 | 模块 | 说明 |
 | --- | --- |
 | 本地身份认证 | 四个演示账号，HttpOnly 会话，显式幂等 seed |
-| 规范性检测 | `normative-check` / `normative-reports` |
+| 规范性检测 | `normative-check`（PDF 快速审查）/ `normative-reports`（原有检测历史） |
 | 本地相似度检测 | `duplication-detect` / `duplication-history` / `duplication-corpus` |
 | 创新性量表 | `innovation-assessment` / `innovation-scoring` / `innovation-history` |
 | 规则化辅助评阅 | `ai-review` / `ai-review/history` / `ai-review/results/:reviewRunId` |
@@ -90,6 +90,16 @@ npm run dev
 cd ../frontend
 npm run dev
 ```
+
+## review-pilot PDF 规则引擎
+
+`/normative-check` 通过同机 Python 进程调用 review-pilot 的确定性规则。部署环境需要配置：
+
+- `REVIEW_PILOT_BACKEND_DIR`：review-pilot 仓库的 `backend` 绝对路径；
+- `REVIEW_PILOT_PYTHON`：可选，已安装 review-pilot 依赖的 Python 可执行文件绝对路径；未配置时优先使用该 backend 下的 `.venv/bin/python`；
+- `REVIEW_PILOT_MAX_CONCURRENT_RUNS`：可选，并发运行上限，默认 `2`。
+
+第一版不调用外部模型规则。上传的 PDF 只写入权限受限的系统临时目录，规则运行结束后删除；结果不写入当前 SQLite 或规范检测历史。
 
 ## 测试
 
