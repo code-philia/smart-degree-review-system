@@ -38,13 +38,20 @@ describe('searchable PDF text extraction', () => {
       promise: Promise.resolve({ getPage, numPages: 2 }),
     });
     const progress = vi.fn();
+    const pdfFile = new File(['%PDF-1.7'], '论文.pdf', { type: 'application/pdf' });
+    Object.defineProperty(pdfFile, 'size', { value: 5 * 1024 * 1024 + 1 });
 
-    await expect(
-      extractThesisFileText(new File(['%PDF-1.7'], '论文.pdf', { type: 'application/pdf' }), progress),
-    ).resolves.toEqual({ text: '摘要\n研究内容\n\n结论', pageCount: 2 });
+    await expect(extractThesisFileText(pdfFile, progress)).resolves.toEqual({
+      text: '摘要\n研究内容\n\n结论',
+      pageCount: 2,
+    });
     expect(progress).toHaveBeenNthCalledWith(1, { currentPage: 1, totalPages: 2 });
     expect(progress).toHaveBeenNthCalledWith(2, { currentPage: 2, totalPages: 2 });
     expect(mocks.destroy).toHaveBeenCalledOnce();
+
+    const oversizedPdf = new File(['%PDF-1.7'], '超大论文.pdf', { type: 'application/pdf' });
+    Object.defineProperty(oversizedPdf, 'size', { value: 50 * 1024 * 1024 + 1 });
+    await expect(extractThesisFileText(oversizedPdf)).rejects.toThrow('PDF 文件大小不能超过 50 MB');
   });
 
   it('rejects a PDF without a searchable text layer', async () => {

@@ -1,4 +1,5 @@
-const MAX_FILE_BYTES = 5 * 1024 * 1024;
+const MAX_TEXT_FILE_BYTES = 5 * 1024 * 1024;
+const MAX_PDF_FILE_BYTES = 50 * 1024 * 1024;
 const MAX_EXTRACTED_TEXT_BYTES = 5 * 1024 * 1024;
 const MAX_PDF_PAGES = 500;
 
@@ -124,17 +125,19 @@ export async function extractThesisFileText(
   file: File,
   onProgress?: (progress: ThesisFileExtractionProgress) => void,
 ): Promise<ThesisFileText> {
-  if (file.size > MAX_FILE_BYTES) {
-    throw new Error('文件大小不能超过 5 MB');
-  }
-
   const extension = getFileExtension(file.name);
   if (extension === '.txt' || extension === '.md') {
+    if (file.size > MAX_TEXT_FILE_BYTES) {
+      throw new Error('文本文件大小不能超过 5 MB');
+    }
     const text = await readUtf8TextFile(file);
     assertTextSize(text);
     return { text, pageCount: null };
   }
   if (extension === '.pdf') {
+    if (file.size > MAX_PDF_FILE_BYTES) {
+      throw new Error('PDF 文件大小不能超过 50 MB');
+    }
     return extractPdfText(file, onProgress);
   }
 

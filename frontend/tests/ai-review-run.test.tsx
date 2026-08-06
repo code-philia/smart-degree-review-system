@@ -259,7 +259,7 @@ describe('FEAT-AI-REVIEW-RUN frontend route and workflow contract', () => {
       fileInput as HTMLInputElement,
       new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'oversize.md', { type: 'text/markdown' }),
     );
-    expect(await screen.findByText('文件大小不能超过 5 MB')).toBeInTheDocument();
+    expect(await screen.findByText('文本文件大小不能超过 5 MB')).toBeInTheDocument();
     expect(createAiReviewRun).not.toHaveBeenCalled();
   });
 

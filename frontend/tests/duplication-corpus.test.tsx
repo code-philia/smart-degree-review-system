@@ -137,7 +137,7 @@ describe('FEAT-DUPLICATION-CORPUS frontend corpus page and API client contract',
     expect(screen.getByText(/法学 · 2022 · 粘贴文本/)).toBeInTheDocument();
   });
 
-  it('FEAT-DUPLICATION-CORPUS:UI:FILE:001 reads accepted UTF-8 .txt/.md files and rejects unsupported or over-5MB files before API calls', async () => {
+  it('FEAT-DUPLICATION-CORPUS:UI:FILE:001 reads accepted UTF-8 .txt/.md files and rejects unsupported or oversized text files before API calls', async () => {
     vi.mocked(fetchCurrentSession).mockResolvedValue({ user: schoolAdmin });
     vi.mocked(fetchDuplicationCorpusSamples).mockResolvedValue([]);
     const user = userEvent.setup();
@@ -162,7 +162,7 @@ describe('FEAT-DUPLICATION-CORPUS frontend corpus page and API client contract',
 
     const oversizedFile = new File(['x'.repeat(5 * 1024 * 1024 + 1)], 'oversized.txt', { type: 'text/plain' });
     await user.upload(fileInput(container), oversizedFile);
-    expect(screen.getByText('文件大小不能超过 5 MB')).toBeInTheDocument();
+    expect(screen.getByText('文本文件大小不能超过 5 MB')).toBeInTheDocument();
     expect(createDuplicationCorpusSample).not.toHaveBeenCalled();
   });
 

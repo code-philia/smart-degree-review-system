@@ -109,7 +109,7 @@ children:
   - id: MOD-NORMATIVE-DETECTION
     name: '论文规则化规范检测'
     type: MODULE
-    description: '对纯文本论文执行可解释、可重复的规则检测。系统支持 .txt、.md、含可搜索文字层的 PDF 文件或直接粘贴文本，单份文件不超过 5 MB，PDF 不超过 500 页。PDF 在浏览器中提取为纯文本后进入现有检测链路，不保存原始 PDF。\n检测范围包括章节完整性、标点配对、连续重复标点、数字与日期的有限规则、参考文献顺序编码、禁用词典、重复词和过长句。不支持扫描版或加密 PDF，不检测 Word/PDF 的字体、页边距、页码、页眉页脚或页面坐标。'
+    description: '对纯文本论文执行可解释、可重复的规则检测。系统支持 .txt、.md、含可搜索文字层的 PDF 文件或直接粘贴文本；文本文件不超过 5 MB，PDF 原文件不超过 50 MB、500 页，提取后的纯文本不超过 5 MB。PDF 在浏览器中提取为纯文本后进入现有检测链路，不保存原始 PDF。\n检测范围包括章节完整性、标点配对、连续重复标点、数字与日期的有限规则、参考文献顺序编码、禁用词典、重复词和过长句。不支持扫描版或加密 PDF，不检测 Word/PDF 的字体、页边距、页码、页眉页脚或页面坐标。'
     permissions: ALL
     dependencies: []
     children:
@@ -230,7 +230,7 @@ children:
             steps:
               - keyword: GIVEN
                 actor: 'STUDENT'
-                content: '文件超过 5 MB、文本文件无法按 UTF-8 解码，或 PDF 不含可搜索文字层。'
+                content: '文本文件超过 5 MB、PDF 原文件超过 50 MB、PDF 提取文本超过 5 MB、文本文件无法按 UTF-8 解码，或 PDF 不含可搜索文字层。'
               - keyword: WHEN
                 actor: 'STUDENT'
                 content: '学生上传文件。'

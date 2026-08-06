@@ -96,7 +96,7 @@ function DuplicationDetectPage() {
               {selectedFile ? selectedFile.name : '点击或将文件拖拽至此处上传'}
             </span>
             <span className="mt-3 text-sm font-bold text-slate-500">
-              支持 txt、md、可搜索文本 PDF，也可在下方粘贴文本
+              文本文件最大 5 MB，可搜索文本 PDF 最大 50 MB（提取文本最大 5 MB），也可在下方粘贴文本
             </span>
             <input className="sr-only" type="file" accept={THESIS_FILE_ACCEPT} onChange={handleFileChange} />
           </label>

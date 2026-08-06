@@ -163,7 +163,7 @@ function WholePolishPage() {
           </span>
           <span className="mt-5 text-2xl font-black">拖拽或点击上传文档</span>
           <span className="mt-3 text-lg text-slate-500">
-            支持 .txt / .md / 可搜索文本 PDF，也可以在下方直接粘贴文本
+            文本文件最大 5 MB，可搜索文本 PDF 最大 50 MB（提取文本最大 5 MB），也可在下方直接粘贴文本
           </span>
           <input className="sr-only" type="file" accept={THESIS_FILE_ACCEPT} onChange={handleFileChange} />
         </label>
