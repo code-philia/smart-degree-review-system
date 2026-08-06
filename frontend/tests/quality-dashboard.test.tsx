@@ -5,10 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../src/App';
 import { AuthSessionProvider } from '../src/auth/AuthSessionProvider';
 import QualityDashboardPage from '../src/pages/QualityDashboardPage';
-import {
-  fetchQualityDashboard,
-  type QualityDashboardResponse,
-} from '../src/api/normativeRules';
+import { fetchQualityDashboard, type QualityDashboardResponse } from '../src/api/normativeRules';
 
 vi.mock('../src/api/normativeRules', async () => {
   const actual = await vi.importActual<typeof import('../src/api/normativeRules')>('../src/api/normativeRules');
@@ -25,10 +22,38 @@ const scenarioDashboard: QualityDashboardResponse = {
   filters: { from: '2026-08-04', to: '2026-08-04', latest_only: false },
   sample_count: 1,
   metrics: [
-    { key: 'normative', label: '规范分', average_score: 79, sample_count: 1, missing_count: 0, distribution: [{ range: '70-79', count: 1 }] },
-    { key: 'originality', label: '原创参考分', average_score: 73, sample_count: 1, missing_count: 0, distribution: [{ range: '70-79', count: 1 }] },
-    { key: 'innovation', label: '创新参考分', average_score: 88, sample_count: 1, missing_count: 0, distribution: [{ range: '80-89', count: 1 }] },
-    { key: 'review_base', label: '评阅基础分', average_score: null, sample_count: 0, missing_count: 1, distribution: [] },
+    {
+      key: 'normative',
+      label: '规范分',
+      average_score: 79,
+      sample_count: 1,
+      missing_count: 0,
+      distribution: [{ range: '70-79', count: 1 }],
+    },
+    {
+      key: 'originality',
+      label: '原创参考分',
+      average_score: 73,
+      sample_count: 1,
+      missing_count: 0,
+      distribution: [{ range: '70-79', count: 1 }],
+    },
+    {
+      key: 'innovation',
+      label: '创新参考分',
+      average_score: 88,
+      sample_count: 1,
+      missing_count: 0,
+      distribution: [{ range: '80-89', count: 1 }],
+    },
+    {
+      key: 'review_base',
+      label: '评阅基础分',
+      average_score: null,
+      sample_count: 0,
+      missing_count: 1,
+      distribution: [],
+    },
   ],
   students: [
     {

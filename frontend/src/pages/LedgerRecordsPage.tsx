@@ -63,7 +63,12 @@ function LedgerRecordsPage() {
 
       <section className="flex gap-3 py-3">
         <button className="h-12 rounded-[5px] bg-[#1f3f63] px-10 text-[22px] font-bold text-white">检测记录台账</button>
-        <a className="h-12 rounded-[5px] border border-[#d6d6d6] bg-white px-10 py-2.5 text-[22px] font-bold text-[#7c8792]" href="/ledger-stats">检测数据统计</a>
+        <a
+          className="h-12 rounded-[5px] border border-[#d6d6d6] bg-white px-10 py-2.5 text-[22px] font-bold text-[#7c8792]"
+          href="/ledger-stats"
+        >
+          检测数据统计
+        </a>
       </section>
 
       <section className="grid grid-cols-2 gap-3 pb-3 md:grid-cols-6">
@@ -81,7 +86,11 @@ function LedgerRecordsPage() {
       <section className="grid gap-4 py-4 md:grid-cols-4">
         <label className="grid gap-2 text-[16px] font-semibold text-[#1f3f63]">
           学生
-          <input className="h-11 border border-[#d6d6d6] bg-white px-3 font-normal" value={filters.student || ''} onChange={(event) => setFilters((current) => ({ ...current, student: event.target.value }))} />
+          <input
+            className="h-11 border border-[#d6d6d6] bg-white px-3 font-normal"
+            value={filters.student || ''}
+            onChange={(event) => setFilters((current) => ({ ...current, student: event.target.value }))}
+          />
         </label>
         <label className="grid gap-2 text-[16px] font-semibold text-[#1f3f63]">
           检测类型
@@ -89,32 +98,66 @@ function LedgerRecordsPage() {
         </label>
         <label className="grid gap-2 text-[16px] font-semibold text-[#1f3f63]">
           开始时间
-          <input className="h-11 border border-[#d6d6d6] bg-white px-3 font-normal" type="date" value={filters.from || ''} onChange={(event) => setFilters((current) => ({ ...current, from: event.target.value }))} />
+          <input
+            className="h-11 border border-[#d6d6d6] bg-white px-3 font-normal"
+            type="date"
+            value={filters.from || ''}
+            onChange={(event) => setFilters((current) => ({ ...current, from: event.target.value }))}
+          />
         </label>
         <label className="grid gap-2 text-[16px] font-semibold text-[#1f3f63]">
           结束时间
-          <input className="h-11 border border-[#d6d6d6] bg-white px-3 font-normal" type="date" value={filters.to || ''} onChange={(event) => setFilters((current) => ({ ...current, to: event.target.value }))} />
+          <input
+            className="h-11 border border-[#d6d6d6] bg-white px-3 font-normal"
+            type="date"
+            value={filters.to || ''}
+            onChange={(event) => setFilters((current) => ({ ...current, to: event.target.value }))}
+          />
         </label>
         <label className="flex items-center gap-2 text-[16px] font-semibold text-[#1f3f63]">
-          <input type="checkbox" checked={Boolean(filters.latest_only)} onChange={(event) => setFilters((current) => ({ ...current, latest_only: event.target.checked }))} />
+          <input
+            type="checkbox"
+            checked={Boolean(filters.latest_only)}
+            onChange={(event) => setFilters((current) => ({ ...current, latest_only: event.target.checked }))}
+          />
           最新检测
         </label>
         <div className="flex gap-3 md:col-span-3 md:justify-end">
-          <button className="h-11 bg-[#3b86ee] px-10 font-bold text-white" onClick={() => void loadRecords()}>查询</button>
-          <button className="h-11 border border-[#d6d6d6] bg-white px-10 font-bold text-[#303b45]" onClick={() => { setFilters(initialFilters); void loadRecords(initialFilters); }}>重置</button>
+          <button className="h-11 bg-[#3b86ee] px-10 font-bold text-white" onClick={() => void loadRecords()}>
+            查询
+          </button>
+          <button
+            className="h-11 border border-[#d6d6d6] bg-white px-10 font-bold text-[#303b45]"
+            onClick={() => {
+              setFilters(initialFilters);
+              void loadRecords(initialFilters);
+            }}
+          >
+            重置
+          </button>
         </div>
       </section>
 
       <section className="flex items-center justify-between border-y border-[#e5e5e5] bg-white py-3">
-        <p className="text-[#536476]">共 {records.length} 条记录，已选择 {selectedIds.length} 条</p>
-        <button className="h-12 bg-[#46c33f] px-12 font-bold text-white" onClick={() => void handleExport()}>导出</button>
+        <p className="text-[#536476]">
+          共 {records.length} 条记录，已选择 {selectedIds.length} 条
+        </p>
+        <button className="h-12 bg-[#46c33f] px-12 font-bold text-white" onClick={() => void handleExport()}>
+          导出
+        </button>
       </section>
 
       <section className="overflow-x-auto bg-white pb-8">
         <table className="min-w-[1180px] table-fixed border-collapse text-[15px]">
           <thead className="bg-[#1f3f63] text-white">
             <tr>
-              <th className="w-12 border border-[#e5e5e5] py-3"><input type="checkbox" checked={allSelected} onChange={(event) => setSelectedIds(event.target.checked ? records.map((record) => record.id) : [])} /></th>
+              <th className="w-12 border border-[#e5e5e5] py-3">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={(event) => setSelectedIds(event.target.checked ? records.map((record) => record.id) : [])}
+                />
+              </th>
               <th className="w-28 border border-[#e5e5e5]">学院</th>
               <th className="w-28 border border-[#e5e5e5]">学号</th>
               <th className="w-24 border border-[#e5e5e5]">姓名</th>
@@ -129,12 +172,40 @@ function LedgerRecordsPage() {
             </tr>
           </thead>
           <tbody>
-            {status === 'loading' && <tr><td className="border border-[#e5e5e5] py-8" colSpan={12}><LoadingState compact label="加载中..." /></td></tr>}
-            {status === 'error' && <tr><td className="border border-[#e5e5e5] py-8" colSpan={12}><ErrorState message={errorMessage} onRetry={() => void loadRecords()} /></td></tr>}
-            {status === 'idle' && records.length === 0 && <tr><td className="border border-[#e5e5e5] py-8" colSpan={12}><EmptyState title="暂无符合条件的台账记录" /></td></tr>}
+            {status === 'loading' && (
+              <tr>
+                <td className="border border-[#e5e5e5] py-8" colSpan={12}>
+                  <LoadingState compact label="加载中..." />
+                </td>
+              </tr>
+            )}
+            {status === 'error' && (
+              <tr>
+                <td className="border border-[#e5e5e5] py-8" colSpan={12}>
+                  <ErrorState message={errorMessage} onRetry={() => void loadRecords()} />
+                </td>
+              </tr>
+            )}
+            {status === 'idle' && records.length === 0 && (
+              <tr>
+                <td className="border border-[#e5e5e5] py-8" colSpan={12}>
+                  <EmptyState title="暂无符合条件的台账记录" />
+                </td>
+              </tr>
+            )}
             {records.map((record) => (
               <tr key={record.id} className="h-[74px]">
-                <td className="border border-[#e5e5e5] text-center"><input type="checkbox" checked={selectedIds.includes(record.id)} onChange={(event) => setSelectedIds((current) => event.target.checked ? [...current, record.id] : current.filter((id) => id !== record.id))} /></td>
+                <td className="border border-[#e5e5e5] text-center">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(record.id)}
+                    onChange={(event) =>
+                      setSelectedIds((current) =>
+                        event.target.checked ? [...current, record.id] : current.filter((id) => id !== record.id),
+                      )
+                    }
+                  />
+                </td>
                 <td className="border border-[#e5e5e5] text-center">{record.college_name}</td>
                 <td className="border border-[#e5e5e5] text-center">{record.student_number}</td>
                 <td className="border border-[#e5e5e5] text-center">{record.student_name}</td>
@@ -143,8 +214,14 @@ function LedgerRecordsPage() {
                 <td className="border border-[#e5e5e5] px-3">{record.thesis_title}</td>
                 <td className="border border-[#e5e5e5] text-center">{record.detection_type_label}</td>
                 <td className="border border-[#e5e5e5] text-center">{record.template_name}</td>
-                <td className="border border-[#e5e5e5] text-center font-semibold text-[#e98332]">{record.core_result}</td>
-                <td className="border border-[#e5e5e5] text-center"><a className="text-[#3b86ee]" href={record.detail_url}>详情</a></td>
+                <td className="border border-[#e5e5e5] text-center font-semibold text-[#e98332]">
+                  {record.core_result}
+                </td>
+                <td className="border border-[#e5e5e5] text-center">
+                  <a className="text-[#3b86ee]" href={record.detail_url}>
+                    详情
+                  </a>
+                </td>
                 <td className="border border-[#e5e5e5] text-center">{record.created_at}</td>
               </tr>
             ))}

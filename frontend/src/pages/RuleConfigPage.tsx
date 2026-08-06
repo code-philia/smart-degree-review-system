@@ -26,7 +26,9 @@ function RuleConfigPage() {
 
     setLoadingRules(true);
     setErrorMessage(null);
-    fetchRuleConfigurations(user?.role === 'COLLEGE_ADMIN' ? { level: 'college', college_id: user.collegeId } : { level: 'school' })
+    fetchRuleConfigurations(
+      user?.role === 'COLLEGE_ADMIN' ? { level: 'college', college_id: user.collegeId } : { level: 'school' },
+    )
       .then((response) => setRules(response.rules))
       .catch((error) => setErrorMessage(error instanceof Error ? error.message : '规则配置加载失败'))
       .finally(() => setLoadingRules(false));
@@ -63,7 +65,10 @@ function RuleConfigPage() {
 
   return (
     <div className="text-slate-900">
-      <PageHeader title="规范性检测规则配置" actions={<span className="rounded-full bg-[#3D8BFF] px-4 py-2 text-sm font-bold text-white">{roleLabel}</span>} />
+      <PageHeader
+        title="规范性检测规则配置"
+        actions={<span className="rounded-full bg-[#3D8BFF] px-4 py-2 text-sm font-bold text-white">{roleLabel}</span>}
+      />
       <section className="mx-auto max-w-7xl overflow-hidden rounded-2xl border border-[#D8DDE6] shadow-sm">
         <section>
           <div className="bg-[#243E66] px-5 py-3 text-lg font-bold text-white">可视化显性规则配置</div>
@@ -89,7 +94,10 @@ function RuleConfigPage() {
                   </thead>
                   <tbody>
                     {rules.map((rule) => (
-                      <tr key={`${rule.source}-${rule.college_id || 'school'}-${rule.rule_id}`} className="border-b border-[#D8DDE6]">
+                      <tr
+                        key={`${rule.source}-${rule.college_id || 'school'}-${rule.rule_id}`}
+                        className="border-b border-[#D8DDE6]"
+                      >
                         <td className="px-3 py-3 font-mono text-xs">{rule.rule_id}</td>
                         <td className="px-3 py-3 font-semibold">{rule.title}</td>
                         <td className="px-3 py-3">{rule.category}</td>
@@ -109,9 +117,7 @@ function RuleConfigPage() {
         <RuleDraftImportPanel />
 
         <footer className="flex flex-wrap gap-3 border-t border-[#D8DDE6] bg-slate-50 p-5">
-          <Button onClick={() => void publishRuleConfiguration}>
-            提交生效
-          </Button>
+          <Button onClick={() => void publishRuleConfiguration}>提交生效</Button>
           <Button variant="secondary" onClick={() => void resetCollegeRuleConfiguration}>
             学院重置继承学校值
           </Button>

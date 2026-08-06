@@ -11,8 +11,7 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
     'border border-slate-300 bg-white text-slate-700 hover:border-brand-500 hover:text-brand-600 focus-visible:ring-brand-500 disabled:border-slate-200 disabled:text-slate-400',
   danger:
     'bg-danger-600 text-white hover:bg-red-700 focus-visible:ring-danger-600 disabled:bg-slate-300 disabled:text-slate-500',
-  ghost:
-    'text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:ring-brand-500 disabled:text-slate-300',
+  ghost: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:ring-brand-500 disabled:text-slate-300',
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {

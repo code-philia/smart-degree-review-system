@@ -84,7 +84,10 @@ function StudentQualityPortraitPage() {
           >
             查询
           </button>
-          <a className="h-10 rounded border border-[#d9e1ea] bg-white px-5 pt-2 text-[14px] font-bold text-[#1f3f63]" href="/quality-dashboard">
+          <a
+            className="h-10 rounded border border-[#d9e1ea] bg-white px-5 pt-2 text-[14px] font-bold text-[#1f3f63]"
+            href="/quality-dashboard"
+          >
             返回群体仪表盘
           </a>
         </div>
@@ -102,11 +105,26 @@ function StudentQualityPortraitPage() {
           <div className="grid gap-5 p-5 xl:grid-cols-[1.1fr_0.9fr]">
             <div className="space-y-4">
               <div className="grid gap-3 rounded border border-[#d9e1ea] bg-[#eaf4ff] p-4 md:grid-cols-3">
-                <p><span className="text-[#536476]">学号：</span><strong>{portrait.student.student_number}</strong></p>
-                <p><span className="text-[#536476]">姓名：</span><strong>{portrait.student.student_name}</strong></p>
-                <p><span className="text-[#536476]">学院：</span><strong>{portrait.student.college_name}</strong></p>
-                <p><span className="text-[#536476]">导师：</span><strong>{portrait.student.supervisor_name || '暂无'}</strong></p>
-                <p className="md:col-span-2"><span className="text-[#536476]">论文题目：</span><strong>{portrait.student.thesis_title || '暂无最新论文题目'}</strong></p>
+                <p>
+                  <span className="text-[#536476]">学号：</span>
+                  <strong>{portrait.student.student_number}</strong>
+                </p>
+                <p>
+                  <span className="text-[#536476]">姓名：</span>
+                  <strong>{portrait.student.student_name}</strong>
+                </p>
+                <p>
+                  <span className="text-[#536476]">学院：</span>
+                  <strong>{portrait.student.college_name}</strong>
+                </p>
+                <p>
+                  <span className="text-[#536476]">导师：</span>
+                  <strong>{portrait.student.supervisor_name || '暂无'}</strong>
+                </p>
+                <p className="md:col-span-2">
+                  <span className="text-[#536476]">论文题目：</span>
+                  <strong>{portrait.student.thesis_title || '暂无最新论文题目'}</strong>
+                </p>
               </div>
 
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -130,7 +148,9 @@ function StudentQualityPortraitPage() {
               <article className="rounded border border-[#d9e1ea] bg-[#f8fafc] p-4">
                 <p className="text-[14px] text-[#536476]">综合分</p>
                 <div className="mt-2 flex items-end gap-1">
-                  <strong className={`text-[30px] font-bold ${portrait.completeness.complete ? 'text-[#19a85b]' : 'text-[#f39a2e]'}`}>
+                  <strong
+                    className={`text-[30px] font-bold ${portrait.completeness.complete ? 'text-[#19a85b]' : 'text-[#f39a2e]'}`}
+                  >
                     {overallScoreLabel}
                   </strong>
                 </div>

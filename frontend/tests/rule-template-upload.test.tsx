@@ -57,19 +57,23 @@ function renderRuleConfigRoute() {
 }
 
 function jsonFile(name = 'rules.json', sizePadding = '') {
-  return new File([
-    JSON.stringify([
-      {
-        rule_id: 'UPLOAD-001',
-        title: '标题完整性',
-        category: '结构规范',
-        severity: '严重',
-        enabled: true,
-        message: '标题必须完整',
-      },
-    ]),
-    sizePadding,
-  ], name, { type: 'application/json' });
+  return new File(
+    [
+      JSON.stringify([
+        {
+          rule_id: 'UPLOAD-001',
+          title: '标题完整性',
+          category: '结构规范',
+          severity: '严重',
+          enabled: true,
+          message: '标题必须完整',
+        },
+      ]),
+      sizePadding,
+    ],
+    name,
+    { type: 'application/json' },
+  );
 }
 
 function ruleDraftFileInput(container: HTMLElement) {
@@ -155,7 +159,9 @@ describe('FEAT-RULE-TEMPLATE-UPLOAD frontend route and import panel contract', (
 
   it('FEAT-RULE-TEMPLATE-UPLOAD:SCENARIO:002 displays backend item-index validation text and does not show fake success', async () => {
     vi.mocked(fetchCurrentSession).mockResolvedValue({ user: schoolAdmin });
-    vi.mocked(importRuleDraftTemplate).mockRejectedValue(new Error('第 0 项 rule_id 缺失；第 1 项 severity 必须为严重、一般、轻微'));
+    vi.mocked(importRuleDraftTemplate).mockRejectedValue(
+      new Error('第 0 项 rule_id 缺失；第 1 项 severity 必须为严重、一般、轻微'),
+    );
     const user = userEvent.setup();
 
     const { container } = renderRuleConfigRoute();
@@ -164,7 +170,9 @@ describe('FEAT-RULE-TEMPLATE-UPLOAD frontend route and import panel contract', (
     await user.upload(ruleDraftFileInput(container), jsonFile('invalid-rules.json'));
     await user.click(screen.getByRole('button', { name: '导入规则草稿' }));
 
-    expect(await screen.findByText('第 0 项 rule_id 缺失；第 1 项 severity 必须为严重、一般、轻微')).toBeInTheDocument();
+    expect(
+      await screen.findByText('第 0 项 rule_id 缺失；第 1 项 severity 必须为严重、一般、轻微'),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/已创建 .* 条规则草稿/)).not.toBeInTheDocument();
   });
 
@@ -172,7 +180,8 @@ describe('FEAT-RULE-TEMPLATE-UPLOAD frontend route and import panel contract', (
     const postSpy = vi.spyOn(apiClient, 'post').mockResolvedValueOnce({
       data: { scope: { level: 'school' }, imported_count: 1, draft_batch_id: 'batch-client', drafts: [] },
     });
-    const { importRuleDraftTemplate: realImportRuleDraftTemplate } = await vi.importActual<typeof import('../src/api/ruleConfig')>('../src/api/ruleConfig');
+    const { importRuleDraftTemplate: realImportRuleDraftTemplate } =
+      await vi.importActual<typeof import('../src/api/ruleConfig')>('../src/api/ruleConfig');
     const file = jsonFile('client-rules.json');
 
     await realImportRuleDraftTemplate(file);

@@ -87,7 +87,17 @@ function StudentTodoPanel() {
   if (loading) return <LoadingState compact label="正在加载待处理事项…" />;
   if (error) return <ErrorState message={error} onRetry={() => void load()} />;
   if (!results || results.length === 0) {
-    return <EmptyState title="暂无提交记录" description="完成一次检测或评估后，可在此提交报告给导师批阅。" action={<LinkButton to="/student-report-submissions" size="sm">去提交报告</LinkButton>} />;
+    return (
+      <EmptyState
+        title="暂无提交记录"
+        description="完成一次检测或评估后，可在此提交报告给导师批阅。"
+        action={
+          <LinkButton to="/student-report-submissions" size="sm">
+            去提交报告
+          </LinkButton>
+        }
+      />
+    );
   }
 
   const awaitingView = results.filter((item) => item.status === 'review_completed_feedback');
@@ -97,7 +107,9 @@ function StudentTodoPanel() {
     <div>
       <p className="text-sm leading-6 text-slate-600">
         {awaitingView.length > 0 ? (
-          <>有 <span className="font-black text-brand-600">{awaitingView.length}</span> 份报告已收到导师反馈，尚未查看。</>
+          <>
+            有 <span className="font-black text-brand-600">{awaitingView.length}</span> 份报告已收到导师反馈，尚未查看。
+          </>
         ) : (
           '当前没有待查看的导师反馈。'
         )}
@@ -105,12 +117,29 @@ function StudentTodoPanel() {
       <ul className="mt-4 divide-y divide-slate-100">
         {recent.map((item) => (
           <li key={item.submission_id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-            <span className="text-slate-600">提交批次 {item.batch_id.slice(0, 8)} · {item.submitted_at}</span>
+            <span className="text-slate-600">
+              提交批次 {item.batch_id.slice(0, 8)} · {item.submitted_at}
+            </span>
             <div className="flex items-center gap-2">
-              <StatusBadge tone={item.status === 'review_completed_feedback' ? 'info' : item.status === 'student_viewed_feedback' ? 'success' : 'neutral'}>
-                {item.status === 'submitted_pending_review' ? '待批阅' : item.status === 'review_completed_feedback' ? '已反馈' : '已查看'}
+              <StatusBadge
+                tone={
+                  item.status === 'review_completed_feedback'
+                    ? 'info'
+                    : item.status === 'student_viewed_feedback'
+                      ? 'success'
+                      : 'neutral'
+                }
+              >
+                {item.status === 'submitted_pending_review'
+                  ? '待批阅'
+                  : item.status === 'review_completed_feedback'
+                    ? '已反馈'
+                    : '已查看'}
               </StatusBadge>
-              <Link className="font-semibold text-brand-600 hover:underline" to={`/student-report-results/${item.submission_id}`}>
+              <Link
+                className="font-semibold text-brand-600 hover:underline"
+                to={`/student-report-results/${item.submission_id}`}
+              >
                 查看
               </Link>
             </div>
@@ -157,8 +186,13 @@ function SupervisorTodoPanel() {
       <ul className="mt-4 divide-y divide-slate-100">
         {records.slice(0, 5).map((item) => (
           <li key={item.todo_id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-            <span className="truncate text-slate-600">{item.title || item.submission_id} · {item.created_at}</span>
-            <Link className="shrink-0 font-semibold text-brand-600 hover:underline" to={`/supervisor-review-queue/${item.submission_id}`}>
+            <span className="truncate text-slate-600">
+              {item.title || item.submission_id} · {item.created_at}
+            </span>
+            <Link
+              className="shrink-0 font-semibold text-brand-600 hover:underline"
+              to={`/supervisor-review-queue/${item.submission_id}`}
+            >
               去批阅
             </Link>
           </li>
@@ -204,7 +238,9 @@ function AdminOverviewPanel({ role }: { role: 'COLLEGE_ADMIN' | 'SCHOOL_ADMIN' }
       <div className="grid grid-cols-3 gap-3">
         <div className="rounded-lg bg-brand-50 p-3 text-center">
           <p className="text-2xl font-black text-brand-700">{stats.total_records}</p>
-          <p className="mt-1 text-xs font-semibold text-slate-500">{role === 'SCHOOL_ADMIN' ? '全校记录数' : '学院记录数'}</p>
+          <p className="mt-1 text-xs font-semibold text-slate-500">
+            {role === 'SCHOOL_ADMIN' ? '全校记录数' : '学院记录数'}
+          </p>
         </div>
         <div className="rounded-lg bg-brand-50 p-3 text-center">
           <p className="text-2xl font-black text-brand-700">{stats.total_students}</p>
@@ -224,7 +260,9 @@ function AdminOverviewPanel({ role }: { role: 'COLLEGE_ADMIN' | 'SCHOOL_ADMIN' }
         <ul className="mt-4 divide-y divide-slate-100">
           {records.slice(0, 5).map((record) => (
             <li key={record.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-              <span className="min-w-0 flex-1 truncate text-slate-600">{record.thesis_title || record.student_name}</span>
+              <span className="min-w-0 flex-1 truncate text-slate-600">
+                {record.thesis_title || record.student_name}
+              </span>
               <StatusBadge tone="neutral">{record.detection_type_label}</StatusBadge>
               <Link className="shrink-0 font-semibold text-brand-600 hover:underline" to={record.detail_url}>
                 详情
@@ -249,7 +287,10 @@ function AnonymousLanding() {
         <LinkButton to="/auth" size="lg">
           登录系统
         </LinkButton>
-        <Link className="inline-flex h-11 items-center rounded-lg border border-slate-300 px-5 text-sm font-bold text-slate-600" to="/about">
+        <Link
+          className="inline-flex h-11 items-center rounded-lg border border-slate-300 px-5 text-sm font-bold text-slate-600"
+          to="/about"
+        >
           了解系统说明
         </Link>
       </div>
@@ -293,10 +334,19 @@ function HomePage() {
         <Card title={user.role === 'STUDENT' ? '待处理事项' : user.role === 'SUPERVISOR' ? '待批阅任务' : '数据概览'}>
           {user.role === 'STUDENT' ? <StudentTodoPanel /> : null}
           {user.role === 'SUPERVISOR' ? <SupervisorTodoPanel /> : null}
-          {(user.role === 'COLLEGE_ADMIN' || user.role === 'SCHOOL_ADMIN') ? <AdminOverviewPanel role={user.role} /> : null}
+          {user.role === 'COLLEGE_ADMIN' || user.role === 'SCHOOL_ADMIN' ? (
+            <AdminOverviewPanel role={user.role} />
+          ) : null}
         </Card>
 
-        <Card title="能力概览" actions={<Link className="text-sm font-bold text-brand-600 hover:underline" to="/about">系统说明</Link>}>
+        <Card
+          title="能力概览"
+          actions={
+            <Link className="text-sm font-bold text-brand-600 hover:underline" to="/about">
+              系统说明
+            </Link>
+          }
+        >
           <ul className="space-y-2.5 text-sm leading-6 text-slate-600">
             <li>规范性检测按当前生效规则定位问题到具体行列。</li>
             <li>相似度检测覆盖试点样本库，给出相似片段和风险提示。</li>

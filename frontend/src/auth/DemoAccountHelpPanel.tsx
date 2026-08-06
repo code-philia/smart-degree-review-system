@@ -34,7 +34,8 @@ function DemoAccountHelpPanel() {
       </summary>
 
       <p className="mt-3 text-sm leading-6 text-slate-600">
-        试点版本目前仅支持账号密码方式登录。默认演示密码为 ArcDemo123!，四个账号分别对应不同角色，可用于体验登录后的界面与操作。
+        试点版本目前仅支持账号密码方式登录。默认演示密码为
+        ArcDemo123!，四个账号分别对应不同角色，可用于体验登录后的界面与操作。
       </p>
 
       <div className="mt-4 grid gap-3" id="roles" aria-label="四类演示账号">

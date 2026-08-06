@@ -38,11 +38,36 @@ const studentUser: AuthenticatedUser = {
 
 const reviewRubricsResponse = {
   templates: [
-    { template_id: 'academic_phd_natural_science', name: '学术型博士自然科学', required_sections: ['摘要', '关键词', '引言', '研究方法', '实验与结果', '结论', '参考文献'], minimum_reference_count: 80 },
-    { template_id: 'academic_phd_humanities_social_science', name: '学术型博士人文社科', required_sections: ['摘要', '关键词', '引言', '文献综述', '研究方法', '主体论证', '结论', '参考文献'], minimum_reference_count: 100 },
-    { template_id: 'professional_phd', name: '专业型博士', required_sections: ['摘要', '关键词', '引言', '实践问题', '研究方法', '应用方案', '结论', '参考文献'], minimum_reference_count: 60 },
-    { template_id: 'academic_master', name: '学术型硕士', required_sections: ['摘要', '关键词', '引言', '研究方法', '分析与讨论', '结论', '参考文献'], minimum_reference_count: 50 },
-    { template_id: 'professional_master', name: '专业型硕士', required_sections: ['摘要', '关键词', '引言', '实践背景', '方法与方案', '结论', '参考文献'], minimum_reference_count: 30 },
+    {
+      template_id: 'academic_phd_natural_science',
+      name: '学术型博士自然科学',
+      required_sections: ['摘要', '关键词', '引言', '研究方法', '实验与结果', '结论', '参考文献'],
+      minimum_reference_count: 80,
+    },
+    {
+      template_id: 'academic_phd_humanities_social_science',
+      name: '学术型博士人文社科',
+      required_sections: ['摘要', '关键词', '引言', '文献综述', '研究方法', '主体论证', '结论', '参考文献'],
+      minimum_reference_count: 100,
+    },
+    {
+      template_id: 'professional_phd',
+      name: '专业型博士',
+      required_sections: ['摘要', '关键词', '引言', '实践问题', '研究方法', '应用方案', '结论', '参考文献'],
+      minimum_reference_count: 60,
+    },
+    {
+      template_id: 'academic_master',
+      name: '学术型硕士',
+      required_sections: ['摘要', '关键词', '引言', '研究方法', '分析与讨论', '结论', '参考文献'],
+      minimum_reference_count: 50,
+    },
+    {
+      template_id: 'professional_master',
+      name: '专业型硕士',
+      required_sections: ['摘要', '关键词', '引言', '实践背景', '方法与方案', '结论', '参考文献'],
+      minimum_reference_count: 30,
+    },
   ],
   shared_score_items: [
     { key: 'section_completeness', label: '章节完整性', points: 30 },
@@ -64,15 +89,9 @@ function buildReferenceLines(count: number) {
 }
 
 function buildMissingConclusionText(referenceCount = 50) {
-  return [
-    '摘要',
-    '关键词',
-    '引言',
-    '研究方法',
-    '分析与讨论',
-    '参考文献',
-    buildReferenceLines(referenceCount),
-  ].join('\n');
+  return ['摘要', '关键词', '引言', '研究方法', '分析与讨论', '参考文献', buildReferenceLines(referenceCount)].join(
+    '\n',
+  );
 }
 
 function renderRoute(initialPath = '/ai-review') {
@@ -145,14 +164,35 @@ describe('FEAT-AI-REVIEW-RUN frontend route and workflow contract', () => {
       reference_count: 50,
       character_count: Array.from(buildMissingConclusionText()).length,
       normative_issues: [
-        { rule_id: 'NORM-001', category: '章节顺序', severity: 'high', line: 6, column: 1, excerpt: '结论', message: '缺少必需章节：结论', suggestion: '补充“结论”并按规定顺序排列' },
+        {
+          rule_id: 'NORM-001',
+          category: '章节顺序',
+          severity: 'high',
+          line: 6,
+          column: 1,
+          excerpt: '结论',
+          message: '缺少必需章节：结论',
+          suggestion: '补充“结论”并按规定顺序排列',
+        },
       ],
       score_items: [
         { key: 'section_completeness', label: '章节完整性', points: 30, score: 0, findings: ['结论'] },
-        { key: 'reference_count_and_numbering', label: '参考文献数量与编号', points: 20, score: 20, findings: ['参考文献条目：50/50'] },
+        {
+          key: 'reference_count_and_numbering',
+          label: '参考文献数量与编号',
+          points: 20,
+          score: 20,
+          findings: ['参考文献条目：50/50'],
+        },
         { key: 'methodology_section', label: '研究方法章节', points: 20, score: 20, findings: [] },
         { key: 'conclusion_section', label: '结论章节', points: 20, score: 0, findings: ['缺少结论章节'] },
-        { key: 'normative_detection_result', label: '规范检测结果', points: 10, score: 0, findings: ['缺少必需章节：结论'] },
+        {
+          key: 'normative_detection_result',
+          label: '规范检测结果',
+          points: 10,
+          score: 0,
+          findings: ['缺少必需章节：结论'],
+        },
       ],
       total_score: 40,
       result_label: '需修改',
@@ -174,13 +214,15 @@ describe('FEAT-AI-REVIEW-RUN frontend route and workflow contract', () => {
     fireEvent.change(screen.getByLabelText('论文文本'), { target: { value: buildMissingConclusionText() } });
     await user.click(screen.getByRole('button', { name: '智能评阅' }));
 
-    await waitFor(() => expect(createAiReviewRun).toHaveBeenCalledWith({
-      thesis_title: '高校数字治理平台评阅研究',
-      template_id: 'academic_master',
-      text: buildMissingConclusionText(),
-      source_type: 'paste',
-      source_filename: null,
-    }));
+    await waitFor(() =>
+      expect(createAiReviewRun).toHaveBeenCalledWith({
+        thesis_title: '高校数字治理平台评阅研究',
+        template_id: 'academic_master',
+        text: buildMissingConclusionText(),
+        source_type: 'paste',
+        source_filename: null,
+      }),
+    );
     expect(await screen.findByRole('heading', { name: '评阅结果' })).toBeInTheDocument();
     expect(screen.getByText('40 分 · 需修改')).toBeInTheDocument();
     expect(screen.getByText('缺失章节：结论')).toBeInTheDocument();

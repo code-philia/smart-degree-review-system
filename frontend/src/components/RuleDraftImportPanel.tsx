@@ -54,8 +54,16 @@ function RuleDraftImportPanel() {
           type="file"
         />
         {errorMessage ? <p className="text-sm font-semibold text-red-600">{errorMessage}</p> : null}
-        {result ? <p className="text-sm font-semibold text-green-700">已创建 {result.imported_count} 条规则草稿，未改变已生效规则。</p> : null}
-        <button className="rounded-lg bg-[#3D8BFF] px-5 py-2 text-sm font-bold text-white disabled:opacity-50" disabled={isImporting} type="submit">
+        {result ? (
+          <p className="text-sm font-semibold text-green-700">
+            已创建 {result.imported_count} 条规则草稿，未改变已生效规则。
+          </p>
+        ) : null}
+        <button
+          className="rounded-lg bg-[#3D8BFF] px-5 py-2 text-sm font-bold text-white disabled:opacity-50"
+          disabled={isImporting}
+          type="submit"
+        >
           {isImporting ? '正在导入…' : '导入规则草稿'}
         </button>
       </form>

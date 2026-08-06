@@ -91,7 +91,9 @@ function DuplicationDetectPage() {
         <Card>
           <h1 className="text-2xl font-black text-slate-900">发起论文相似度检测</h1>
           <p className="mt-3 text-sm leading-6 text-slate-600">请先登录后发起相似度与写作风险检测。</p>
-          <LinkButton className="mt-5" to="/auth">前往登录</LinkButton>
+          <LinkButton className="mt-5" to="/auth">
+            前往登录
+          </LinkButton>
         </Card>
       </div>
     );
@@ -102,7 +104,9 @@ function DuplicationDetectPage() {
       <section className="mx-auto max-w-5xl">
         <form className="rounded-[28px] border border-[#B8B8B8] bg-white p-8" onSubmit={handleSubmit}>
           <div className="flex items-center gap-3 text-3xl font-black text-[#111111]">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full border-4 border-black text-sm">◎</span>
+            <span className="flex h-8 w-8 items-center justify-center rounded-full border-4 border-black text-sm">
+              ◎
+            </span>
             文档上传
           </div>
 
@@ -111,8 +115,15 @@ function DuplicationDetectPage() {
             <span className="mt-5 text-2xl font-black text-[#111111]">
               {selectedFile ? selectedFile.name : '点击或将文件拖拽至此处上传'}
             </span>
-            <span className="mt-3 text-sm font-bold text-slate-500">支持 txt、md 类型文件上传检测，也可在下方粘贴文本</span>
-            <input className="sr-only" type="file" accept=".txt,.md,text/plain,text/markdown" onChange={handleFileChange} />
+            <span className="mt-3 text-sm font-bold text-slate-500">
+              支持 txt、md 类型文件上传检测，也可在下方粘贴文本
+            </span>
+            <input
+              className="sr-only"
+              type="file"
+              accept=".txt,.md,text/plain,text/markdown"
+              onChange={handleFileChange}
+            />
           </label>
 
           <textarea
@@ -129,7 +140,9 @@ function DuplicationDetectPage() {
               onChange={(event) => setSelectedType(event.target.value)}
             >
               {DETECTION_TYPES.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
               ))}
             </select>
             <button
@@ -143,19 +156,26 @@ function DuplicationDetectPage() {
           {errorMessage ? <p className="mt-5 text-center text-sm font-semibold text-red-600">{errorMessage}</p> : null}
         </form>
 
-        {(submitting || report) ? (
+        {submitting || report ? (
           <section className="mt-8 rounded-[28px] border border-[#9A9A9A] bg-white p-8">
             <div className="flex items-center gap-3 text-2xl font-black text-[#111111]">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-sm text-white">●</span>
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-sm text-white">
+                ●
+              </span>
               检测进度
             </div>
             <div className="mt-8 flex flex-col items-center">
               <div className="flex h-44 w-44 items-center justify-center rounded-full border-[18px] border-blue-600 bg-white text-4xl font-black text-blue-700">
                 {progress}%
               </div>
-              <p className="mt-5 text-lg font-black text-[#111111]">{submitting ? '检测进行中，请稍后' : '检测已完成'}</p>
+              <p className="mt-5 text-lg font-black text-[#111111]">
+                {submitting ? '检测进行中，请稍后' : '检测已完成'}
+              </p>
               <div className="mt-5 h-3 w-full rounded-full bg-[#DCEBFA]">
-                <div className="h-3 rounded-full bg-gradient-to-r from-[#294FE0] to-[#1F43C8]" style={{ width: `${progress}%` }} />
+                <div
+                  className="h-3 rounded-full bg-gradient-to-r from-[#294FE0] to-[#1F43C8]"
+                  style={{ width: `${progress}%` }}
+                />
               </div>
             </div>
 
@@ -171,13 +191,17 @@ function DuplicationDetectPage() {
                   <div>风险分：{Math.round(report.risk.score)}</div>
                 </dl>
                 {report.status === 'no_samples' ? (
-                  <p className="rounded-2xl border border-dashed border-slate-300 px-4 py-3 text-sm font-semibold text-slate-600">无可用样本，未伪造比对结果。</p>
+                  <p className="rounded-2xl border border-dashed border-slate-300 px-4 py-3 text-sm font-semibold text-slate-600">
+                    无可用样本，未伪造比对结果。
+                  </p>
                 ) : null}
                 <div className="space-y-3">
                   {report.top_matches.map((match) => (
                     <article key={match.sample_id} className="rounded-2xl border border-slate-200 p-4">
                       <h2 className="font-black text-slate-900">{match.title}</h2>
-                      <p className="mt-1 text-sm text-slate-500">Jaccard：{match.jaccard_score.toFixed(3)} · 命中字符：{match.matched_character_count}</p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Jaccard：{match.jaccard_score.toFixed(3)} · 命中字符：{match.matched_character_count}
+                      </p>
                       <div className="mt-3 space-y-2">
                         {match.segments.map((segment) => (
                           <blockquote

@@ -149,7 +149,9 @@ function DuplicationCorpusPage() {
         <Card>
           <h1 className="text-2xl font-black text-slate-900">本地比对样本库</h1>
           <p className="mt-3 text-sm leading-6 text-slate-600">请先登录学校管理人员账号后管理比对样本。</p>
-          <LinkButton className="mt-5" to="/auth">前往登录</LinkButton>
+          <LinkButton className="mt-5" to="/auth">
+            前往登录
+          </LinkButton>
         </Card>
       </div>
     );
@@ -180,29 +182,54 @@ function DuplicationCorpusPage() {
             <div className="grid gap-4 sm:grid-cols-3">
               <label className="block text-sm font-semibold text-slate-700">
                 标题
-                <input className="mt-2 h-11 w-full rounded-xl border border-slate-300 px-3 outline-none focus:border-brand-500" value={title} onChange={(event) => setTitle(event.target.value)} />
+                <input
+                  className="mt-2 h-11 w-full rounded-xl border border-slate-300 px-3 outline-none focus:border-brand-500"
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                />
               </label>
               <label className="block text-sm font-semibold text-slate-700">
                 学科
-                <input className="mt-2 h-11 w-full rounded-xl border border-slate-300 px-3 outline-none focus:border-brand-500" value={subject} onChange={(event) => setSubject(event.target.value)} />
+                <input
+                  className="mt-2 h-11 w-full rounded-xl border border-slate-300 px-3 outline-none focus:border-brand-500"
+                  value={subject}
+                  onChange={(event) => setSubject(event.target.value)}
+                />
               </label>
               <label className="block text-sm font-semibold text-slate-700">
                 年份
-                <input className="mt-2 h-11 w-full rounded-xl border border-slate-300 px-3 outline-none focus:border-brand-500" value={year} onChange={(event) => setYear(event.target.value)} inputMode="numeric" />
+                <input
+                  className="mt-2 h-11 w-full rounded-xl border border-slate-300 px-3 outline-none focus:border-brand-500"
+                  value={year}
+                  onChange={(event) => setYear(event.target.value)}
+                  inputMode="numeric"
+                />
               </label>
             </div>
 
             <label className="mt-5 block text-sm font-semibold text-slate-700">
               样本文本
-              <textarea className="mt-2 min-h-[260px] w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm leading-7 outline-none focus:border-brand-500" value={content} onChange={(event) => setContent(event.target.value)} placeholder="粘贴非空 UTF-8 文本，或上传 .txt/.md 文件后自动填充。" />
+              <textarea
+                className="mt-2 min-h-[260px] w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm leading-7 outline-none focus:border-brand-500"
+                value={content}
+                onChange={(event) => setContent(event.target.value)}
+                placeholder="粘贴非空 UTF-8 文本，或上传 .txt/.md 文件后自动填充。"
+              />
             </label>
 
             <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <label className="inline-flex h-11 cursor-pointer items-center justify-center rounded-xl border border-brand-100 bg-brand-50 px-4 text-sm font-semibold text-brand-700">
                 上传 .txt / .md
-                <input className="sr-only" type="file" accept=".txt,.md,text/plain,text/markdown" onChange={handleFileChange} />
+                <input
+                  className="sr-only"
+                  type="file"
+                  accept=".txt,.md,text/plain,text/markdown"
+                  onChange={handleFileChange}
+                />
               </label>
-              {selectedFileName ? <span className="text-sm font-semibold text-brand-700">已选择：{selectedFileName}</span> : null}
+              {selectedFileName ? (
+                <span className="text-sm font-semibold text-brand-700">已选择：{selectedFileName}</span>
+              ) : null}
               <Button type="submit" disabled={submitting}>
                 {submitting ? '保存中…' : '保存样本'}
               </Button>
@@ -223,8 +250,15 @@ function DuplicationCorpusPage() {
             {samples.map((sample) => (
               <article key={sample.id} className="rounded-2xl border border-slate-200 p-4">
                 <h3 className="font-bold text-slate-900">{sample.title}</h3>
-                <p className="mt-1 text-xs text-slate-500">{sample.subject} · {sample.year} · {sample.source_type === 'file' ? sample.source_filename : '粘贴文本'}</p>
-                <button className="mt-3 text-sm font-semibold text-danger-600" type="button" onClick={() => handleDelete(sample.id)}>
+                <p className="mt-1 text-xs text-slate-500">
+                  {sample.subject} · {sample.year} ·{' '}
+                  {sample.source_type === 'file' ? sample.source_filename : '粘贴文本'}
+                </p>
+                <button
+                  className="mt-3 text-sm font-semibold text-danger-600"
+                  type="button"
+                  onClick={() => handleDelete(sample.id)}
+                >
                   删除样本
                 </button>
               </article>

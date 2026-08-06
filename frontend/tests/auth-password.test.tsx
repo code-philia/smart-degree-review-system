@@ -5,11 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthSessionProvider } from '../src/auth/AuthSessionProvider';
 import LocalAccountLoginForm from '../src/auth/LocalAccountLoginForm';
 import RoleAwareHomeMenu from '../src/auth/RoleAwareHomeMenu';
-import {
-  fetchCurrentSession,
-  loginWithLocalAccount,
-  type AuthenticatedUser,
-} from '../src/api/authSession';
+import { fetchCurrentSession, loginWithLocalAccount, type AuthenticatedUser } from '../src/api/authSession';
 
 vi.mock('../src/api/authSession', async () => {
   const actual = await vi.importActual<typeof import('../src/api/authSession')>('../src/api/authSession');

@@ -5,10 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../src/App';
 import { AuthSessionProvider } from '../src/auth/AuthSessionProvider';
 import StudentQualityPortraitPage from '../src/pages/StudentQualityPortraitPage';
-import {
-  fetchStudentQualityPortrait,
-  type StudentQualityPortraitResponse,
-} from '../src/api/normativeRules';
+import { fetchStudentQualityPortrait, type StudentQualityPortraitResponse } from '../src/api/normativeRules';
 
 vi.mock('../src/api/normativeRules', async () => {
   const actual = await vi.importActual<typeof import('../src/api/normativeRules')>('../src/api/normativeRules');
@@ -34,10 +31,46 @@ const completePortrait: StudentQualityPortraitResponse = {
     thesis_title: '单学生本地质量画像研究',
   },
   metrics: [
-    { key: 'normative', label: '规范分', score: 80, source_record_id: 'normative-latest', source_type: 'normative', source_label: '最新规范性检测', source_created_at: '2026-08-04T10:00:00.000Z', detail_url: '/normative-reports/normative-latest' },
-    { key: 'originality', label: '原创参考分', score: 90, source_record_id: 'duplication-latest', source_type: 'duplication', source_label: '最新论文查重', source_created_at: '2026-08-04T10:30:00.000Z', detail_url: '/duplication-history/duplication-latest' },
-    { key: 'innovation', label: '创新参考分', score: 70, source_record_id: 'innovation-latest', source_type: 'innovation', source_label: '最新创新性评价', source_created_at: '2026-08-04T11:00:00.000Z', detail_url: '/innovation-assessments/innovation-latest' },
-    { key: 'review_base', label: '评阅基础分', score: 80, source_record_id: 'review-latest', source_type: 'ai_review', source_label: '最新 AI 智能评阅', source_created_at: '2026-08-04T11:30:00.000Z', detail_url: '/ai-review/results/review-latest' },
+    {
+      key: 'normative',
+      label: '规范分',
+      score: 80,
+      source_record_id: 'normative-latest',
+      source_type: 'normative',
+      source_label: '最新规范性检测',
+      source_created_at: '2026-08-04T10:00:00.000Z',
+      detail_url: '/normative-reports/normative-latest',
+    },
+    {
+      key: 'originality',
+      label: '原创参考分',
+      score: 90,
+      source_record_id: 'duplication-latest',
+      source_type: 'duplication',
+      source_label: '最新论文查重',
+      source_created_at: '2026-08-04T10:30:00.000Z',
+      detail_url: '/duplication-history/duplication-latest',
+    },
+    {
+      key: 'innovation',
+      label: '创新参考分',
+      score: 70,
+      source_record_id: 'innovation-latest',
+      source_type: 'innovation',
+      source_label: '最新创新性评价',
+      source_created_at: '2026-08-04T11:00:00.000Z',
+      detail_url: '/innovation-assessments/innovation-latest',
+    },
+    {
+      key: 'review_base',
+      label: '评阅基础分',
+      score: 80,
+      source_record_id: 'review-latest',
+      source_type: 'ai_review',
+      source_label: '最新 AI 智能评阅',
+      source_created_at: '2026-08-04T11:30:00.000Z',
+      detail_url: '/ai-review/results/review-latest',
+    },
   ],
   overall_score: 80,
   completeness: { complete: true, missing_metric_keys: [], missing_metric_labels: [] },
@@ -46,11 +79,11 @@ const completePortrait: StudentQualityPortraitResponse = {
 
 const incompletePortrait: StudentQualityPortraitResponse = {
   ...completePortrait,
-  metrics: completePortrait.metrics.map((metric) => (
+  metrics: completePortrait.metrics.map((metric) =>
     metric.key === 'review_base'
       ? { ...metric, score: null, source_record_id: null, source_created_at: null, detail_url: null }
-      : metric
-  )),
+      : metric,
+  ),
   overall_score: null,
   completeness: { complete: false, missing_metric_keys: ['review_base'], missing_metric_labels: ['评阅基础分'] },
 };
@@ -107,7 +140,10 @@ describe('FEAT-STUDENT-QUALITY-PORTRAIT UI portrait contract', () => {
       expect(metricCard).not.toBeNull();
       expect(within(metricCard as HTMLElement).getByText(`${metric.score?.toFixed(1)}`)).toBeInTheDocument();
       expect(within(metricCard as HTMLElement).getByText(metric.source_created_at as string)).toBeInTheDocument();
-      expect(within(metricCard as HTMLElement).getByRole('link', { name: '查看详情' })).toHaveAttribute('href', metric.detail_url);
+      expect(within(metricCard as HTMLElement).getByRole('link', { name: '查看详情' })).toHaveAttribute(
+        'href',
+        metric.detail_url,
+      );
     }
   });
 

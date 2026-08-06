@@ -43,7 +43,9 @@ describe('FEAT-AUTH-HELP local login help', () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('说明：试点版本尚未接入 jAccount、短信验证码或扫码登录；如需登录，请直接使用上方试用账号与密码。'),
+      screen.getByText(
+        '说明：试点版本尚未接入 jAccount、短信验证码或扫码登录；如需登录，请直接使用上方试用账号与密码。',
+      ),
     ).toBeInTheDocument();
   });
 });

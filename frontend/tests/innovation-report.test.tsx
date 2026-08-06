@@ -198,7 +198,10 @@ describe('FEAT-INNOVATION-REPORT frontend page, route, and client contract', () 
     await user.click(screen.getByRole('button', { name: '子指标热力图' }));
     const heatmap = screen.getByRole('table', { name: '五维评级热力矩阵' });
     expect(heatmap).toBeInTheDocument();
-    expect(screen.getByTestId('innovation-report-heatmap-dimension-research_method')).toHaveAttribute('data-weighted-score', '16');
+    expect(screen.getByTestId('innovation-report-heatmap-dimension-research_method')).toHaveAttribute(
+      'data-weighted-score',
+      '16',
+    );
 
     await user.click(screen.getByRole('button', { name: '分项评价' }));
     const methodText = screen.getByTestId('innovation-report-dimension-text-research_method');
@@ -219,7 +222,9 @@ describe('FEAT-INNOVATION-REPORT frontend page, route, and client contract', () 
   it('FEAT-INNOVATION-REPORT:UI:003 downloads JSON only from a loaded report and invokes browser print from the report page', async () => {
     vi.mocked(fetchCurrentSession).mockResolvedValue({ user: studentUser });
     vi.mocked(fetchInnovationReport).mockResolvedValue(reportRecord);
-    vi.mocked(downloadInnovationReportJson).mockResolvedValue(new Blob([JSON.stringify(reportRecord)], { type: 'application/json;charset=utf-8' }));
+    vi.mocked(downloadInnovationReportJson).mockResolvedValue(
+      new Blob([JSON.stringify(reportRecord)], { type: 'application/json;charset=utf-8' }),
+    );
     const user = userEvent.setup();
 
     renderRoute();

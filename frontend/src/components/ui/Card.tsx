@@ -9,10 +9,7 @@ type CardProps = HTMLAttributes<HTMLDivElement> & {
 
 function Card({ title, description, actions, children, className = '', ...rest }: CardProps) {
   return (
-    <section
-      className={`rounded-xl border border-slate-200 bg-white p-5 shadow-sm ${className}`}
-      {...rest}
-    >
+    <section className={`rounded-xl border border-slate-200 bg-white p-5 shadow-sm ${className}`} {...rest}>
       {title || actions ? (
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>

@@ -1,4 +1,48 @@
-@import "tailwindcss";
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+}
 
 @theme {
   --color-brand-950: #0d1f33;
@@ -20,9 +64,81 @@
   --color-danger-600: #dc2626;
   --color-danger-100: #fee2e2;
 
-  --font-app: 'Microsoft YaHei', 'PingFang SC', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  --font-app:
+    'Microsoft YaHei', 'PingFang SC', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
 }
 
-body {
-  font-family: var(--font-app);
+:root {
+  --radius: 0.625rem;
+  --background: #f6f8fb;
+  --foreground: #172033;
+  --card: #ffffff;
+  --card-foreground: #172033;
+  --popover: #ffffff;
+  --popover-foreground: #172033;
+  --primary: #1f3f63;
+  --primary-foreground: #ffffff;
+  --secondary: #eef3f8;
+  --secondary-foreground: #24364a;
+  --muted: #eef2f6;
+  --muted-foreground: #64748b;
+  --accent: #f6ecee;
+  --accent-foreground: #7c1f2b;
+  --destructive: #dc2626;
+  --border: #dbe3ec;
+  --input: #d3dde8;
+  --ring: #2f80ed;
+  --chart-1: #1f3f63;
+  --chart-2: #2f80ed;
+  --chart-3: #7c1f2b;
+  --chart-4: #b45309;
+  --chart-5: #16a34a;
+  --sidebar: #142f4c;
+  --sidebar-foreground: #f8fafc;
+  --sidebar-primary: #ffffff;
+  --sidebar-primary-foreground: #142f4c;
+  --sidebar-accent: #1f3f63;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgb(255 255 255 / 12%);
+  --sidebar-ring: #75a7ee;
+}
+
+.dark {
+  --background: #101827;
+  --foreground: #eef4fb;
+  --card: #172235;
+  --card-foreground: #eef4fb;
+  --popover: #172235;
+  --popover-foreground: #eef4fb;
+  --primary: #89b4ef;
+  --primary-foreground: #10233a;
+  --secondary: #223149;
+  --secondary-foreground: #eef4fb;
+  --muted: #223149;
+  --muted-foreground: #a8b6c8;
+  --accent: #4a2730;
+  --accent-foreground: #ffd8de;
+  --destructive: #f87171;
+  --border: rgb(255 255 255 / 12%);
+  --input: rgb(255 255 255 / 16%);
+  --ring: #89b4ef;
+  --sidebar: #0d1f33;
+  --sidebar-foreground: #f8fafc;
+  --sidebar-primary: #89b4ef;
+  --sidebar-primary-foreground: #10233a;
+  --sidebar-accent: #1a3454;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgb(255 255 255 / 12%);
+  --sidebar-ring: #89b4ef;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-app);
+  }
 }

@@ -91,7 +91,9 @@ function NormativeReportPage() {
         <Card>
           <h1 className="text-2xl font-black text-slate-900">历史检测记录</h1>
           <p className="mt-3 text-sm leading-6 text-slate-600">请先登录后查看本人检测历史和报告。</p>
-          <LinkButton className="mt-5" to="/auth">前往登录</LinkButton>
+          <LinkButton className="mt-5" to="/auth">
+            前往登录
+          </LinkButton>
         </Card>
       </div>
     );
@@ -102,7 +104,11 @@ function NormativeReportPage() {
       <div>
         <PageHeader
           title="检测报告"
-          breadcrumbs={[{ label: '首页', to: '/' }, { label: '历史检测记录', to: '/normative-reports' }, { label: '检测报告' }]}
+          breadcrumbs={[
+            { label: '首页', to: '/' },
+            { label: '历史检测记录', to: '/normative-reports' },
+            { label: '检测报告' },
+          ]}
           actions={
             <>
               <Button type="button" disabled={!report} onClick={() => report && handleDownloadJson(report.id)}>
@@ -125,7 +131,13 @@ function NormativeReportPage() {
                 const lineNumber = index + 1;
                 const isActive = activeIssue?.issue.line === lineNumber;
                 return (
-                  <div key={lineNumber} ref={(element) => { lineRefs.current[lineNumber] = element; }} className={`grid grid-cols-[64px_minmax(0,1fr)] border-b border-slate-100 ${isActive ? 'bg-yellow-100' : ''}`}>
+                  <div
+                    key={lineNumber}
+                    ref={(element) => {
+                      lineRefs.current[lineNumber] = element;
+                    }}
+                    className={`grid grid-cols-[64px_minmax(0,1fr)] border-b border-slate-100 ${isActive ? 'bg-yellow-100' : ''}`}
+                  >
                     <span className="select-none bg-slate-50 px-3 text-right text-slate-400">{lineNumber}</span>
                     <span className="whitespace-pre-wrap px-4">{line || ' '}</span>
                   </div>
@@ -137,9 +149,17 @@ function NormativeReportPage() {
               <h2 className="text-xl font-black text-[#1F3760]">问题列表</h2>
               <div className="mt-4 space-y-3">
                 {report.issues.map((issue, index) => (
-                  <button key={`${issue.rule_id}-${index}`} aria-label={`${issue.severity} 第 ${issue.line} 行，第 ${issue.column} 列`} className={`w-full rounded-xl border p-4 text-left text-sm ${activeIssue?.index === index ? 'border-[#D62020] bg-red-50' : 'border-slate-200 bg-white'}`} type="button" onClick={() => handleIssueClick(issue, index)}>
+                  <button
+                    key={`${issue.rule_id}-${index}`}
+                    aria-label={`${issue.severity} 第 ${issue.line} 行，第 ${issue.column} 列`}
+                    className={`w-full rounded-xl border p-4 text-left text-sm ${activeIssue?.index === index ? 'border-[#D62020] bg-red-50' : 'border-slate-200 bg-white'}`}
+                    type="button"
+                    onClick={() => handleIssueClick(issue, index)}
+                  >
                     <span className="font-black text-[#D62020]">{issue.severity}</span>
-                    <span className="ml-2 text-slate-500">第 {issue.line} 行，第 {issue.column} 列</span>
+                    <span className="ml-2 text-slate-500">
+                      第 {issue.line} 行，第 {issue.column} 列
+                    </span>
                     <p className="mt-2 font-semibold text-slate-900">{issue.message}</p>
                     <p className="mt-1 text-slate-600">{issue.excerpt}</p>
                   </button>
@@ -157,7 +177,9 @@ function NormativeReportPage() {
       <PageHeader title="历史检测记录" />
       {loading ? <LoadingState label="正在加载历史记录…" /> : null}
       {errorMessage ? <ErrorState message={errorMessage} /> : null}
-      {!loading && !errorMessage && history.length === 0 ? <EmptyState title="暂无检测记录" description="完成一次规范性检测后，报告会出现在这里。" /> : null}
+      {!loading && !errorMessage && history.length === 0 ? (
+        <EmptyState title="暂无检测记录" description="完成一次规范性检测后，报告会出现在这里。" />
+      ) : null}
       {history.length > 0 ? (
         <div className="overflow-hidden rounded-2xl border border-[#E1E7EF] bg-white shadow-sm">
           <table className="min-w-full text-left text-sm">
@@ -175,12 +197,23 @@ function NormativeReportPage() {
                 <tr key={record.id} className={index % 2 === 0 ? 'bg-white' : 'bg-[#F5F9FC]'}>
                   <td className="px-6 py-6 font-bold text-slate-900">📄 {record.source_filename || '粘贴文本检测'}</td>
                   <td className="px-6 py-6 font-black text-[#D62020]">{record.issues.length}</td>
-                  <td className="px-6 py-6 text-slate-700">{record.severity_counts.high || 0} / {record.severity_counts.medium || 0} / {record.severity_counts.low || 0}</td>
+                  <td className="px-6 py-6 text-slate-700">
+                    {record.severity_counts.high || 0} / {record.severity_counts.medium || 0} /{' '}
+                    {record.severity_counts.low || 0}
+                  </td>
                   <td className="px-6 py-6 text-slate-700">{record.created_at}</td>
                   <td className="px-6 py-6">
                     <div className="flex flex-wrap gap-2">
-                      <button className="rounded-lg bg-[#1F3760] px-3 py-2 font-bold text-white" type="button" onClick={() => handleDownloadJson(record.id)}>报告下载</button>
-                      <LinkButton size="sm" to={`/normative-reports/${record.id}`}>报告预览</LinkButton>
+                      <button
+                        className="rounded-lg bg-[#1F3760] px-3 py-2 font-bold text-white"
+                        type="button"
+                        onClick={() => handleDownloadJson(record.id)}
+                      >
+                        报告下载
+                      </button>
+                      <LinkButton size="sm" to={`/normative-reports/${record.id}`}>
+                        报告预览
+                      </LinkButton>
                     </div>
                   </td>
                 </tr>

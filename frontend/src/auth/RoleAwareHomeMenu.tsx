@@ -19,9 +19,14 @@ function RoleAwareHomeMenu() {
   }
 
   return (
-    <section className="rounded-2xl border border-blue-100 bg-blue-50 px-5 py-4 text-slate-800" aria-label="当前角色菜单">
+    <section
+      className="rounded-2xl border border-blue-100 bg-blue-50 px-5 py-4 text-slate-800"
+      aria-label="当前角色菜单"
+    >
       <h2 className="text-lg font-black text-blue-900">{roleMenuLabels[user.role]}</h2>
-      <p className="mt-2 text-sm font-semibold text-blue-700">数据范围：{user.scope === 'SCHOOL' ? '全校' : '本学院'}</p>
+      <p className="mt-2 text-sm font-semibold text-blue-700">
+        数据范围：{user.scope === 'SCHOOL' ? '全校' : '本学院'}
+      </p>
     </section>
   );
 }

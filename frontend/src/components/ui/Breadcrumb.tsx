@@ -1,4 +1,13 @@
+import { Fragment } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  Breadcrumb as ShadcnBreadcrumb,
+  BreadcrumbItem as ShadcnBreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '../shadcn/breadcrumb';
 
 export type BreadcrumbItem = {
   label: string;
@@ -11,23 +20,30 @@ function Breadcrumb({ items }: { items: BreadcrumbItem[] }) {
   }
 
   return (
-    <nav aria-label="面包屑导航" className="mb-2 flex flex-wrap items-center gap-1.5 text-xs font-semibold text-slate-500">
-      {items.map((item, index) => {
-        const isLast = index === items.length - 1;
-        return (
-          <span key={`${item.label}-${index}`} className="flex items-center gap-1.5">
-            {item.to && !isLast ? (
-              <Link className="hover:text-brand-600" to={item.to}>
-                {item.label}
-              </Link>
-            ) : (
-              <span className={isLast ? 'text-slate-800' : ''}>{item.label}</span>
-            )}
-            {!isLast ? <span aria-hidden="true" className="text-slate-300">/</span> : null}
-          </span>
-        );
-      })}
-    </nav>
+    <ShadcnBreadcrumb aria-label="面包屑导航" className="mb-2">
+      <BreadcrumbList className="text-xs font-medium">
+        {items.map((item, index) => {
+          const isLast = index === items.length - 1;
+
+          return (
+            <Fragment key={`${item.label}-${index}`}>
+              <ShadcnBreadcrumbItem>
+                {item.to && !isLast ? (
+                  <BreadcrumbLink asChild>
+                    <Link to={item.to}>{item.label}</Link>
+                  </BreadcrumbLink>
+                ) : isLast ? (
+                  <BreadcrumbPage className="font-medium">{item.label}</BreadcrumbPage>
+                ) : (
+                  <span>{item.label}</span>
+                )}
+              </ShadcnBreadcrumbItem>
+              {!isLast ? <BreadcrumbSeparator /> : null}
+            </Fragment>
+          );
+        })}
+      </BreadcrumbList>
+    </ShadcnBreadcrumb>
   );
 }
 

@@ -163,13 +163,15 @@ describe('FEAT-DUPLICATION-CORPUS frontend corpus page and API client contract',
   it('FEAT-DUPLICATION-CORPUS:SCENARIO:001 submits title, subject, year, UTF-8 content, and displays the persisted sample', async () => {
     vi.mocked(fetchCurrentSession).mockResolvedValue({ user: schoolAdmin });
     vi.mocked(fetchDuplicationCorpusSamples).mockResolvedValue([]);
-    vi.mocked(createDuplicationCorpusSample).mockResolvedValue(sample({
-      id: 'created-sample-001',
-      title: '人工智能课程论文样本',
-      subject: '计算机科学',
-      year: 2024,
-      content: '这是一份非空 UTF-8 样本文本。',
-    }));
+    vi.mocked(createDuplicationCorpusSample).mockResolvedValue(
+      sample({
+        id: 'created-sample-001',
+        title: '人工智能课程论文样本',
+        subject: '计算机科学',
+        year: 2024,
+        content: '这是一份非空 UTF-8 样本文本。',
+      }),
+    );
     const user = userEvent.setup();
 
     renderCorpusRoute();
@@ -181,14 +183,16 @@ describe('FEAT-DUPLICATION-CORPUS frontend corpus page and API client contract',
     await user.type(screen.getByLabelText('样本文本'), '这是一份非空 UTF-8 样本文本。');
     await user.click(screen.getByRole('button', { name: '保存样本' }));
 
-    await waitFor(() => expect(createDuplicationCorpusSample).toHaveBeenCalledWith({
-      title: '人工智能课程论文样本',
-      subject: '计算机科学',
-      year: 2024,
-      content: '这是一份非空 UTF-8 样本文本。',
-      source_type: 'paste',
-      source_filename: null,
-    }));
+    await waitFor(() =>
+      expect(createDuplicationCorpusSample).toHaveBeenCalledWith({
+        title: '人工智能课程论文样本',
+        subject: '计算机科学',
+        year: 2024,
+        content: '这是一份非空 UTF-8 样本文本。',
+        source_type: 'paste',
+        source_filename: null,
+      }),
+    );
     expect(await screen.findByRole('heading', { name: '人工智能课程论文样本' })).toBeInTheDocument();
     expect(screen.getByText(/不表示已接入真实校内论文库/)).toBeInTheDocument();
   });
@@ -217,7 +221,8 @@ describe('FEAT-DUPLICATION-CORPUS frontend corpus page and API client contract',
     const getSpy = vi.spyOn(apiClient, 'get').mockResolvedValueOnce({ data: { samples: [sample()] } });
     const postSpy = vi.spyOn(apiClient, 'post').mockResolvedValueOnce({ data: sample({ id: 'client-created' }) });
     const deleteSpy = vi.spyOn(apiClient, 'delete').mockResolvedValueOnce({});
-    const realApi = await vi.importActual<typeof import('../src/api/duplicationCorpus')>('../src/api/duplicationCorpus');
+    const realApi =
+      await vi.importActual<typeof import('../src/api/duplicationCorpus')>('../src/api/duplicationCorpus');
     const payload = {
       title: '客户端样本',
       subject: '管理学',

@@ -1,10 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import {
-  downloadAiReviewResultJson,
-  fetchAiReviewResult,
-  type AiReviewResultResponse,
-} from '../api/normativeRules';
+import { downloadAiReviewResultJson, fetchAiReviewResult, type AiReviewResultResponse } from '../api/normativeRules';
 import { useAuthSession } from '../auth/AuthSessionProvider';
 import { Card, EmptyState, ErrorState, LinkButton, LoadingState, PageHeader } from '../components/ui';
 
@@ -99,7 +95,9 @@ function AiReviewResultPage() {
 
       <section className="grid min-h-[70vh] grid-cols-[40%_60%] border border-[#D8D8D8] shadow-sm">
         <aside className="flex min-h-0 flex-col border-r border-[#D8D8D8] bg-[#F2F2F2]">
-          <h2 className="flex h-[45px] items-center justify-center bg-[#203B5A] text-[17px] font-black text-white">📄 论文预览</h2>
+          <h2 className="flex h-[45px] items-center justify-center bg-[#203B5A] text-[17px] font-black text-white">
+            📄 论文预览
+          </h2>
           <div className="flex h-11 items-center justify-center border-b border-[#D8D8D8] bg-white px-4 text-sm font-bold">
             {result?.source_filename || result?.thesis_title || '—'}
           </div>
@@ -107,16 +105,22 @@ function AiReviewResultPage() {
             <pre className="min-h-full whitespace-pre-wrap border border-[#D8D8D8] bg-white p-5 text-[13px] leading-6 text-slate-800">
               {previewLines.map((line) => (
                 <span key={line.lineNumber} className="block">
-                  <span className="mr-4 inline-block w-10 select-none border-r border-[#E3E3E3] pr-3 text-right text-slate-400">{line.lineNumber}</span>
+                  <span className="mr-4 inline-block w-10 select-none border-r border-[#E3E3E3] pr-3 text-right text-slate-400">
+                    {line.lineNumber}
+                  </span>
                   <span>{line.text}</span>
                 </span>
               ))}
             </pre>
           </div>
           <div className="flex h-12 items-center justify-center gap-2 border-t border-[#D8D8D8] bg-white text-xs text-slate-600 print:hidden">
-            <button className="rounded border border-[#D8D8D8] px-3 py-1" type="button" disabled>−</button>
+            <button className="rounded border border-[#D8D8D8] px-3 py-1" type="button" disabled>
+              −
+            </button>
             <span className="rounded border border-[#D8D8D8] px-3 py-1">100%</span>
-            <button className="rounded border border-[#D8D8D8] px-3 py-1" type="button" disabled>＋</button>
+            <button className="rounded border border-[#D8D8D8] px-3 py-1" type="button" disabled>
+              ＋
+            </button>
             <span className="mx-2 h-5 border-l border-[#D8D8D8]" />
             <span className="rounded border border-[#D8D8D8] px-3 py-1">纯文本预览</span>
           </div>
@@ -124,8 +128,21 @@ function AiReviewResultPage() {
 
         <section className="min-h-0 overflow-y-auto bg-white p-4">
           <div className="mb-4 flex justify-end gap-3 print:hidden">
-            <button className="rounded bg-[#42B35A] px-5 py-3 text-sm font-black text-white disabled:opacity-50" type="button" disabled={!result} onClick={handleDownloadJson}>下载 JSON</button>
-            <button className="rounded border border-[#203B5A] px-5 py-3 text-sm font-black text-[#203B5A]" type="button" onClick={() => window.print()}>浏览器打印</button>
+            <button
+              className="rounded bg-[#42B35A] px-5 py-3 text-sm font-black text-white disabled:opacity-50"
+              type="button"
+              disabled={!result}
+              onClick={handleDownloadJson}
+            >
+              下载 JSON
+            </button>
+            <button
+              className="rounded border border-[#203B5A] px-5 py-3 text-sm font-black text-[#203B5A]"
+              type="button"
+              onClick={() => window.print()}
+            >
+              浏览器打印
+            </button>
           </div>
 
           {loading ? <LoadingState label="正在加载辅助评阅结果…" /> : null}
@@ -171,29 +188,42 @@ function AiReviewResultPage() {
                       <tr key={item.key}>
                         <td className="border border-[#E3E3E3] px-2 py-2 font-bold">{item.label}</td>
                         <td className="border border-[#E3E3E3] px-2 py-2 text-center">{item.points}</td>
-                        <td className="border border-[#E3E3E3] bg-[#EAF8EC] px-2 py-2 text-center text-lg font-black text-[#278A3E]">{item.score}</td>
-                        <td className="border border-[#E3E3E3] px-2 py-2">{item.findings.length ? item.findings.join('；') : '未发现扣分项'}</td>
+                        <td className="border border-[#E3E3E3] bg-[#EAF8EC] px-2 py-2 text-center text-lg font-black text-[#278A3E]">
+                          {item.score}
+                        </td>
+                        <td className="border border-[#E3E3E3] px-2 py-2">
+                          {item.findings.length ? item.findings.join('；') : '未发现扣分项'}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
                 <div className="border-t border-[#D8D8D8] bg-[#EAF8EC] px-4 py-3 text-center font-bold text-[#278A3E]">
-                  五项得分合计 <span className="text-2xl">{scoreSum}</span> / 系统总分 <span className="text-2xl">{result.total_score}</span> · 结论：{result.result_label}
+                  五项得分合计 <span className="text-2xl">{scoreSum}</span> / 系统总分{' '}
+                  <span className="text-2xl">{result.total_score}</span> · 结论：{result.result_label}
                 </div>
               </section>
 
               <section className="border border-[#D8D8D8]">
-                <h2 className="bg-[#203B5A] py-2 text-center text-[17px] font-black text-white">三、规范问题与人工确认</h2>
+                <h2 className="bg-[#203B5A] py-2 text-center text-[17px] font-black text-white">
+                  三、规范问题与人工确认
+                </h2>
                 <div className="grid gap-3 p-3">
                   <div className="rounded border border-[#F28C28] bg-[#FFF4EA] p-3">
                     <h3 className="font-black text-[#B85F00]">规范问题</h3>
-                    <p className="mt-2">{result.normative_issues.length ? result.normative_issues.map((issue) => issue.message).join('；') : '未发现规范问题'}</p>
+                    <p className="mt-2">
+                      {result.normative_issues.length
+                        ? result.normative_issues.map((issue) => issue.message).join('；')
+                        : '未发现规范问题'}
+                    </p>
                   </div>
                   <div className="rounded border border-[#2F86F6] bg-[#EEF6FF] p-3">
                     <h3 className="font-black text-[#1D65C1]">主观学术维度</h3>
                     <ul className="mt-2 grid gap-1">
                       {result.subjective_confirmation_items.map((item) => (
-                        <li key={item.key}>{item.label}：<span className="font-black">{item.status}</span></li>
+                        <li key={item.key}>
+                          {item.label}：<span className="font-black">{item.status}</span>
+                        </li>
                       ))}
                     </ul>
                   </div>

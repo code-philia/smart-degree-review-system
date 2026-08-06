@@ -6,6 +6,21 @@ if (!HTMLElement.prototype.scrollIntoView) {
   HTMLElement.prototype.scrollIntoView = () => undefined;
 }
 
+if (!globalThis.ResizeObserver) {
+  class ResizeObserverMock {
+    observe() {}
+
+    unobserve() {}
+
+    disconnect() {}
+  }
+
+  Object.defineProperty(globalThis, 'ResizeObserver', {
+    configurable: true,
+    value: ResizeObserverMock,
+  });
+}
+
 afterEach(() => {
   cleanup();
 });

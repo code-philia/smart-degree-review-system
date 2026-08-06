@@ -125,7 +125,11 @@ function InnovationHistoryPage() {
                 }
               }}
             />
-            <button className="h-10 rounded bg-[#2F80ED] px-6 text-[15px] font-bold text-white" type="button" onClick={handleSearch}>
+            <button
+              className="h-10 rounded bg-[#2F80ED] px-6 text-[15px] font-bold text-white"
+              type="button"
+              onClick={handleSearch}
+            >
               搜索
             </button>
           </div>
@@ -153,16 +157,32 @@ function InnovationHistoryPage() {
             </thead>
             <tbody>
               {visibleRecords.map((record, index) => (
-                <tr key={record.id} className={`h-[58px] border-b border-[#E5E7EB] ${index % 2 === 0 ? 'bg-white' : 'bg-[#F8FAFC]'}`}>
-                  <td className="truncate px-6 py-4 text-left font-bold text-slate-900" title={record.thesis_title}>{record.thesis_title}</td>
+                <tr
+                  key={record.id}
+                  className={`h-[58px] border-b border-[#E5E7EB] ${index % 2 === 0 ? 'bg-white' : 'bg-[#F8FAFC]'}`}
+                >
+                  <td className="truncate px-6 py-4 text-left font-bold text-slate-900" title={record.thesis_title}>
+                    {record.thesis_title}
+                  </td>
                   <td className="px-6 py-4 font-semibold text-slate-700">{degreeLabel(record.degree_type)}</td>
                   <td className="px-6 py-4 font-black text-[#1F3F63]">{formatScore(record.total_score)}</td>
                   <td className="px-6 py-4 font-black text-[#22B14C]">{record.grade_label}</td>
                   <td className="px-6 py-4 text-slate-700">{formatTimestamp(record.created_at)}</td>
                   <td className="px-6 py-4">
                     <div className="flex flex-nowrap justify-center gap-2">
-                      <Link className="inline-flex h-8 items-center rounded border border-[#2F80ED] px-3 text-sm font-bold text-[#2F80ED]" to={`/innovation-assessments/${record.id}`}>报告预览</Link>
-                      <button className="h-8 rounded border border-[#22B14C] px-3 text-sm font-bold text-[#22B14C]" type="button" onClick={() => handleDownloadJson(record.id)}>报告下载</button>
+                      <Link
+                        className="inline-flex h-8 items-center rounded border border-[#2F80ED] px-3 text-sm font-bold text-[#2F80ED]"
+                        to={`/innovation-assessments/${record.id}`}
+                      >
+                        报告预览
+                      </Link>
+                      <button
+                        className="h-8 rounded border border-[#22B14C] px-3 text-sm font-bold text-[#22B14C]"
+                        type="button"
+                        onClick={() => handleDownloadJson(record.id)}
+                      >
+                        报告下载
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -170,7 +190,9 @@ function InnovationHistoryPage() {
             </tbody>
           </table>
           <div className="flex h-[70px] items-center justify-center gap-4 bg-white text-[15px]">
-            <span className="font-semibold text-slate-700">第 {page} / {totalPages} 页</span>
+            <span className="font-semibold text-slate-700">
+              第 {page} / {totalPages} 页
+            </span>
             <button
               className="h-9 rounded border border-[#CFD3D8] px-5 font-semibold text-slate-600 disabled:text-[#CFD3D8]"
               type="button"

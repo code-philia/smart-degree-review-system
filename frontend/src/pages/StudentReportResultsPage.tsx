@@ -92,7 +92,10 @@ export default function StudentReportResultsPage() {
     }
   }
 
-  function updateFilter<K extends keyof StudentReportResultListFilters>(key: K, value: StudentReportResultListFilters[K] | '') {
+  function updateFilter<K extends keyof StudentReportResultListFilters>(
+    key: K,
+    value: StudentReportResultListFilters[K] | '',
+  ) {
     setFilters((current) => {
       const next = { ...current };
       if (value === '' || value === undefined) {
@@ -114,7 +117,9 @@ export default function StudentReportResultsPage() {
         <Card>
           <h1 className="text-2xl font-semibold text-slate-900">我的批阅结果</h1>
           <p className="mt-3 text-sm text-slate-500">请先登录学生账号后查看批阅结果。</p>
-          <LinkButton className="mt-5" to="/auth">前往登录</LinkButton>
+          <LinkButton className="mt-5" to="/auth">
+            前往登录
+          </LinkButton>
         </Card>
       </div>
     );
@@ -131,7 +136,9 @@ export default function StudentReportResultsPage() {
   if (detail) {
     return (
       <div className="space-y-6">
-        <Link className="text-sm text-blue-600" to="/student-report-results">返回结果列表</Link>
+        <Link className="text-sm text-blue-600" to="/student-report-results">
+          返回结果列表
+        </Link>
         <section className="rounded-2xl border bg-white p-6 shadow-sm">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -142,17 +149,24 @@ export default function StudentReportResultsPage() {
               下载 JSON
             </button>
           </div>
-          <pre className="mt-6 whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-sm text-slate-700">{detail.report.original_text}</pre>
+          <pre className="mt-6 whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-sm text-slate-700">
+            {detail.report.original_text}
+          </pre>
           {downloadMessage ? <p className="mt-4 text-sm text-emerald-700">{downloadMessage}</p> : null}
         </section>
         <section className="grid gap-4 lg:grid-cols-2">
           <article className="rounded-2xl border bg-white p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-slate-900">Finding 批注</h2>
-            {detail.review.annotations.length === 0 ? <p className="mt-3 text-sm text-slate-500">暂无逐条批注。</p> : null}
+            {detail.review.annotations.length === 0 ? (
+              <p className="mt-3 text-sm text-slate-500">暂无逐条批注。</p>
+            ) : null}
             {detail.review.annotations.length > 0 ? (
               <ul className="mt-3 space-y-3">
                 {detail.review.annotations.map((annotation, index) => (
-                  <li key={`${annotation.finding_id}-${index}`} className="rounded-lg border bg-slate-50 p-3 text-sm text-slate-700">
+                  <li
+                    key={`${annotation.finding_id}-${index}`}
+                    className="rounded-lg border bg-slate-50 p-3 text-sm text-slate-700"
+                  >
                     <p className="font-medium text-slate-900">{annotation.finding_id}</p>
                     <p className="mt-1">{annotation.comment}</p>
                   </li>
@@ -173,7 +187,9 @@ export default function StudentReportResultsPage() {
               <li key={round.submission_id} className="flex items-center justify-between py-3 text-sm">
                 <div>
                   <p className="font-medium text-slate-900">{round.report_id}</p>
-                  <p className="text-slate-500">{formatTimestamp(round.submitted_at)} · {round.source_type}</p>
+                  <p className="text-slate-500">
+                    {formatTimestamp(round.submitted_at)} · {round.source_type}
+                  </p>
                 </div>
                 <span className="text-slate-600">{round.status}</span>
               </li>
@@ -190,25 +206,53 @@ export default function StudentReportResultsPage() {
       <section className="grid gap-3 rounded-2xl border bg-white p-4 shadow-sm md:grid-cols-4">
         <label className="text-sm text-slate-700">
           <span className="mb-1 block font-medium">开始时间</span>
-          <input aria-label="开始时间" className="w-full rounded-md border px-3 py-2" type="date" value={filters.from || ''} onChange={(event) => updateFilter('from', event.target.value)} />
+          <input
+            aria-label="开始时间"
+            className="w-full rounded-md border px-3 py-2"
+            type="date"
+            value={filters.from || ''}
+            onChange={(event) => updateFilter('from', event.target.value)}
+          />
         </label>
         <label className="text-sm text-slate-700">
           <span className="mb-1 block font-medium">结束时间</span>
-          <input aria-label="结束时间" className="w-full rounded-md border px-3 py-2" type="date" value={filters.to || ''} onChange={(event) => updateFilter('to', event.target.value)} />
+          <input
+            aria-label="结束时间"
+            className="w-full rounded-md border px-3 py-2"
+            type="date"
+            value={filters.to || ''}
+            onChange={(event) => updateFilter('to', event.target.value)}
+          />
         </label>
         <label className="text-sm text-slate-700">
           <span className="mb-1 block font-medium">报告类型</span>
-          <select aria-label="报告类型" className="w-full rounded-md border px-3 py-2" value={filters.source_type || ''} onChange={(event) => updateFilter('source_type', event.target.value as StudentReportResultListFilters['source_type'] | '')}>
+          <select
+            aria-label="报告类型"
+            className="w-full rounded-md border px-3 py-2"
+            value={filters.source_type || ''}
+            onChange={(event) =>
+              updateFilter('source_type', event.target.value as StudentReportResultListFilters['source_type'] | '')
+            }
+          >
             {SOURCE_TYPE_OPTIONS.map((option) => (
-              <option key={option.label} value={option.value}>{option.label}</option>
+              <option key={option.label} value={option.value}>
+                {option.label}
+              </option>
             ))}
           </select>
         </label>
         <label className="text-sm text-slate-700">
           <span className="mb-1 block font-medium">状态</span>
-          <select aria-label="状态" className="w-full rounded-md border px-3 py-2" value={filters.status || ''} onChange={(event) => updateFilter('status', event.target.value as StudentReportResultStatus | '')}>
+          <select
+            aria-label="状态"
+            className="w-full rounded-md border px-3 py-2"
+            value={filters.status || ''}
+            onChange={(event) => updateFilter('status', event.target.value as StudentReportResultStatus | '')}
+          >
             {STATUS_OPTIONS.map((option) => (
-              <option key={option.label} value={option.value}>{option.label}</option>
+              <option key={option.label} value={option.value}>
+                {option.label}
+              </option>
             ))}
           </select>
         </label>
@@ -226,9 +270,13 @@ export default function StudentReportResultsPage() {
             <li className="flex items-center justify-between gap-4 py-4" key={item.submission_id}>
               <div>
                 <p className="font-medium text-slate-900">{item.report_id}</p>
-                <p className="text-sm text-slate-500">{item.source_type} · {item.status} · {formatTimestamp(item.feedback_at)}</p>
+                <p className="text-sm text-slate-500">
+                  {item.source_type} · {item.status} · {formatTimestamp(item.feedback_at)}
+                </p>
               </div>
-              <Link className="text-blue-600" to={`/student-report-results/${item.submission_id}`}>查看详情</Link>
+              <Link className="text-blue-600" to={`/student-report-results/${item.submission_id}`}>
+                查看详情
+              </Link>
             </li>
           ))}
         </ul>

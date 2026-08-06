@@ -149,9 +149,7 @@ function InnovationReportPage() {
           <h1 className="text-center text-[26px] font-black text-[#1F3F63]">学位论文创新性分析报告</h1>
           <p className="mt-4 text-center text-[15px] text-slate-600">请先登录后查看已完成的创新性量表报告。</p>
           <div className="mt-6 flex justify-center">
-            <LinkButton to="/auth">
-              前往登录
-            </LinkButton>
+            <LinkButton to="/auth">前往登录</LinkButton>
           </div>
         </Card>
       </div>
@@ -162,7 +160,10 @@ function InnovationReportPage() {
     <div className="font-['Microsoft_YaHei','PingFang_SC','Noto_Sans_SC',Arial,sans-serif] text-[#1F2D3D]">
       <h1 className="text-center text-[28px] font-black tracking-wide text-[#1F3F63]">学位论文创新性分析报告</h1>
 
-      <nav className="mt-6 grid h-10 grid-cols-5 divide-x divide-white overflow-hidden rounded-lg" aria-label="创新性报告章节">
+      <nav
+        className="mt-6 grid h-10 grid-cols-5 divide-x divide-white overflow-hidden rounded-lg"
+        aria-label="创新性报告章节"
+      >
         {REPORT_TABS.map((tab) => (
           <button
             key={tab.key}
@@ -201,55 +202,72 @@ function InnovationReportPage() {
 
         {errorMessage ? <ErrorState message={errorMessage} /> : null}
 
-        {!loading && !errorMessage && !report ? (
-          <EmptyState title="暂无可展示的创新性量表报告。" />
-        ) : null}
+        {!loading && !errorMessage && !report ? <EmptyState title="暂无可展示的创新性量表报告。" /> : null}
 
         {report ? (
           <div className="space-y-5">
-            <section className="rounded-xl border border-[#E5E8EC] bg-white p-6" data-testid="innovation-report-basic-info">
+            <section
+              className="rounded-xl border border-[#E5E8EC] bg-white p-6"
+              data-testid="innovation-report-basic-info"
+            >
               <div className="grid gap-0 divide-y divide-[#E5E8EC] text-[15px]">
                 <div className="grid gap-4 py-4 lg:grid-cols-[1.4fr_0.9fr]">
                   <div className="min-w-0">
                     <div className="text-[#8A8F98]">论文题目</div>
-                    <div className="truncate font-bold text-[#1F2D3D]" title={report.thesis_title}>{report.thesis_title}</div>
+                    <div className="truncate font-bold text-[#1F2D3D]" title={report.thesis_title}>
+                      {report.thesis_title}
+                    </div>
                   </div>
                   <div className="min-w-0">
                     <div className="text-[#8A8F98]">报告编号</div>
-                    <div className="truncate font-bold text-[#1F2D3D]" title={report.id}>{report.id}</div>
+                    <div className="truncate font-bold text-[#1F2D3D]" title={report.id}>
+                      {report.id}
+                    </div>
                   </div>
                 </div>
 
                 <div className="grid gap-4 py-4 lg:grid-cols-[1.4fr_0.9fr]">
                   <div className="min-w-0">
                     <div className="text-[#8A8F98]">一级学科</div>
-                    <div className="truncate font-bold text-[#1F2D3D]" title={report.primary_discipline}>{report.primary_discipline}</div>
+                    <div className="truncate font-bold text-[#1F2D3D]" title={report.primary_discipline}>
+                      {report.primary_discipline}
+                    </div>
                   </div>
                   <div className="min-w-0">
                     <div className="text-[#8A8F98]">学位类型</div>
-                    <div className="truncate font-bold text-[#1F2D3D]">{report.degree_type === 'doctoral' ? '博士' : '硕士'}</div>
+                    <div className="truncate font-bold text-[#1F2D3D]">
+                      {report.degree_type === 'doctoral' ? '博士' : '硕士'}
+                    </div>
                   </div>
                 </div>
 
                 <div className="grid gap-4 py-4 lg:grid-cols-[1.4fr_0.9fr]">
                   <div className="min-w-0">
                     <div className="text-[#8A8F98]">二级学科</div>
-                    <div className="truncate font-bold text-[#1F2D3D]" title={report.secondary_discipline}>{report.secondary_discipline}</div>
+                    <div className="truncate font-bold text-[#1F2D3D]" title={report.secondary_discipline}>
+                      {report.secondary_discipline}
+                    </div>
                   </div>
                   <div className="min-w-0">
                     <div className="text-[#8A8F98]">学生编号</div>
-                    <div className="truncate font-bold text-[#1F2D3D]" title={report.user_id}>{report.user_id}</div>
+                    <div className="truncate font-bold text-[#1F2D3D]" title={report.user_id}>
+                      {report.user_id}
+                    </div>
                   </div>
                 </div>
 
                 <div className="grid gap-4 py-4 lg:grid-cols-[1.4fr_0.9fr]">
                   <div className="min-w-0">
                     <div className="text-[#8A8F98]">研究方向</div>
-                    <div className="truncate font-bold text-[#1F2D3D]" title={report.research_direction}>{report.research_direction}</div>
+                    <div className="truncate font-bold text-[#1F2D3D]" title={report.research_direction}>
+                      {report.research_direction}
+                    </div>
                   </div>
                   <div className="min-w-0">
                     <div className="text-[#8A8F98]">报告生成时间</div>
-                    <div className="truncate font-bold text-[#1F2D3D]" title={report.created_at}>{formatTimestamp(report.created_at)}</div>
+                    <div className="truncate font-bold text-[#1F2D3D]" title={report.created_at}>
+                      {formatTimestamp(report.created_at)}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -298,7 +316,15 @@ function InnovationReportPage() {
                     <circle key={radius} cx="160" cy="160" r={radius} fill="none" stroke="#DDE6F0" strokeWidth="1" />
                   ))}
                   {radarPoints.map((dimension) => (
-                    <line key={`${dimension.key}-axis`} x1="160" y1="160" x2={dimension.axisX} y2={dimension.axisY} stroke="#DDE6F0" strokeWidth="1" />
+                    <line
+                      key={`${dimension.key}-axis`}
+                      x1="160"
+                      y1="160"
+                      x2={dimension.axisX}
+                      y2={dimension.axisY}
+                      stroke="#DDE6F0"
+                      strokeWidth="1"
+                    />
                   ))}
                   <polygon
                     points={radarPoints.map((dimension) => `${dimension.x},${dimension.y}`).join(' ')}
@@ -307,9 +333,22 @@ function InnovationReportPage() {
                     strokeWidth="3"
                   />
                   {radarPoints.map((dimension) => (
-                    <g key={dimension.key} data-testid={`innovation-report-radar-dimension-${dimension.key}`} data-level={dimension.level} data-weighted-score={dimension.weighted_score}>
+                    <g
+                      key={dimension.key}
+                      data-testid={`innovation-report-radar-dimension-${dimension.key}`}
+                      data-level={dimension.level}
+                      data-weighted-score={dimension.weighted_score}
+                    >
                       <circle cx={dimension.x} cy={dimension.y} r="5" fill="#2F86F6" />
-                      <text x={dimension.axisX} y={dimension.axisY} fill="#1F2D3D" fontSize="13" fontWeight="700" textAnchor="middle" dominantBaseline="middle">
+                      <text
+                        x={dimension.axisX}
+                        y={dimension.axisY}
+                        fill="#1F2D3D"
+                        fontSize="13"
+                        fontWeight="700"
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                      >
                         {dimension.label}
                       </text>
                     </g>
@@ -351,11 +390,15 @@ function InnovationReportPage() {
                           >
                             <td className="px-4 py-3 font-bold text-[#1F2D3D]">{dimension.label}</td>
                             <td className="px-4 py-3">
-                              <span className={`inline-flex rounded px-2 py-1 text-sm font-bold ${tone}`}>{dimension.level}</span>
+                              <span className={`inline-flex rounded px-2 py-1 text-sm font-bold ${tone}`}>
+                                {dimension.level}
+                              </span>
                             </td>
                             <td className="px-4 py-3">{dimension.raw_score}</td>
                             <td className="px-4 py-3">{formatPercent(dimension.weight)}</td>
-                            <td className="px-4 py-3 font-bold text-[#2F86F6]">{formatScore(dimension.weighted_score)}</td>
+                            <td className="px-4 py-3 font-bold text-[#2F86F6]">
+                              {formatScore(dimension.weighted_score)}
+                            </td>
                           </tr>
                         );
                       })}
@@ -371,11 +414,16 @@ function InnovationReportPage() {
                 {report.dimensions.map((dimension) => {
                   const input = report.input_snapshot.dimensions[dimension.key];
                   return (
-                    <article key={dimension.key} className="rounded-lg border border-[#E5E8EC] bg-[#FAFBFC] p-4" data-testid={`innovation-report-dimension-text-${dimension.key}`}>
+                    <article
+                      key={dimension.key}
+                      className="rounded-lg border border-[#E5E8EC] bg-[#FAFBFC] p-4"
+                      data-testid={`innovation-report-dimension-text-${dimension.key}`}
+                    >
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <h3 className="text-[16px] font-black text-[#1F2D3D]">{dimension.label}</h3>
                         <div className="text-sm font-bold text-[#1F3F63]">
-                          等级 {dimension.level} · 权重 {formatPercent(dimension.weight)} · 加权分 {formatScore(dimension.weighted_score)}
+                          等级 {dimension.level} · 权重 {formatPercent(dimension.weight)} · 加权分{' '}
+                          {formatScore(dimension.weighted_score)}
                         </div>
                       </div>
                       <div className="mt-3 grid gap-3 text-[15px] leading-7 text-[#374151] lg:grid-cols-2">
@@ -407,11 +455,17 @@ function InnovationReportPage() {
                   <div className="rounded-xl border border-[#E5E8EC] bg-[#FAFBFC] p-4">
                     <div className="text-sm font-bold text-[#8A8F98]">综合结果</div>
                     <div className="mt-3 flex flex-wrap items-center gap-4">
-                      <span className={`inline-flex rounded-[8px] px-5 py-2 text-[20px] font-black ${gradeTone(report.grade_label)}`} data-testid="innovation-report-summary-grade">
+                      <span
+                        className={`inline-flex rounded-[8px] px-5 py-2 text-[20px] font-black ${gradeTone(report.grade_label)}`}
+                        data-testid="innovation-report-summary-grade"
+                      >
                         {report.grade_label}
                       </span>
                       <span className="text-[#2F86F6]">
-                        <span className="text-[36px] font-black leading-none" data-testid="innovation-report-summary-score">
+                        <span
+                          className="text-[36px] font-black leading-none"
+                          data-testid="innovation-report-summary-score"
+                        >
                           {formatScore(report.total_score)}
                         </span>
                         <span className="ml-1 text-[16px] font-bold">/100 分</span>
@@ -432,7 +486,10 @@ function InnovationReportPage() {
                   </ul>
                 </div>
 
-                <div className="rounded-xl border border-[#E5E8EC] bg-[#FAFBFC] p-4 text-[14px] leading-7 text-[#6B7280]" data-testid="innovation-report-disclaimer">
+                <div
+                  className="rounded-xl border border-[#E5E8EC] bg-[#FAFBFC] p-4 text-[14px] leading-7 text-[#6B7280]"
+                  data-testid="innovation-report-disclaimer"
+                >
                   {report.disclaimer}
                 </div>
               </section>
@@ -441,7 +498,9 @@ function InnovationReportPage() {
             {activeSection === 'basic' ? (
               <section className="rounded-xl border border-[#E5E8EC] bg-white p-6">
                 <div className="text-[18px] font-black text-[#1F3F63]">报告说明</div>
-                <p className="mt-3 text-[15px] leading-7 text-[#374151]">本页内容全部来自运行时获取的创新性评估报告，支持图表、矩阵、证据与建议的同步查看。</p>
+                <p className="mt-3 text-[15px] leading-7 text-[#374151]">
+                  本页内容全部来自运行时获取的创新性评估报告，支持图表、矩阵、证据与建议的同步查看。
+                </p>
               </section>
             ) : null}
           </div>

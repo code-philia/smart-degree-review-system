@@ -2,11 +2,7 @@ import { ChangeEvent, FormEvent, useMemo, useState } from 'react';
 import ReviewRubricSelector from '../components/ReviewRubricSelector';
 import { useAuthSession } from '../auth/AuthSessionProvider';
 import { Card, LinkButton, LoadingState } from '../components/ui';
-import {
-  createNormativeDetectionTask,
-  type DetectionTaskResponse,
-  type NormativeIssue,
-} from '../api/normativeRules';
+import { createNormativeDetectionTask, type DetectionTaskResponse, type NormativeIssue } from '../api/normativeRules';
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_FILE_EXTENSIONS = ['.txt', '.md'];
@@ -43,12 +39,14 @@ function NormativeCheckPage() {
 
   const hasIssues = issues.length > 0;
   const ruleOptions = useMemo<RuleOption[]>(() => {
-    return (task?.rule_snapshot || []).map((rule) => ({
-      rule_id: String(rule.rule_id || ''),
-      title: typeof rule.title === 'string' ? rule.title : undefined,
-      category: typeof rule.category === 'string' ? rule.category : undefined,
-      source: typeof rule.source === 'string' ? rule.source : undefined,
-    })).filter((rule) => rule.rule_id);
+    return (task?.rule_snapshot || [])
+      .map((rule) => ({
+        rule_id: String(rule.rule_id || ''),
+        title: typeof rule.title === 'string' ? rule.title : undefined,
+        category: typeof rule.category === 'string' ? rule.category : undefined,
+        source: typeof rule.source === 'string' ? rule.source : undefined,
+      }))
+      .filter((rule) => rule.rule_id);
   }, [task]);
   const severityCounts = task?.severity_counts || countBySeverity(issues);
   const resultLabel = useMemo(() => {
@@ -127,7 +125,9 @@ function NormativeCheckPage() {
         <Card>
           <h1 className="text-2xl font-black text-slate-900">发起规范检测</h1>
           <p className="mt-3 text-sm leading-6 text-slate-600">请先登录后选择当前生效规则并创建规范检测任务。</p>
-          <LinkButton className="mt-5" to="/auth">前往登录</LinkButton>
+          <LinkButton className="mt-5" to="/auth">
+            前往登录
+          </LinkButton>
         </Card>
       </div>
     );
@@ -143,7 +143,9 @@ function NormativeCheckPage() {
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <h2 className="text-base font-bold text-slate-900">辅助评阅模板</h2>
-                <p className="mt-1 text-xs font-semibold text-slate-500">展示内置五类评阅模板、必需章节、最低文献数和共享计分项</p>
+                <p className="mt-1 text-xs font-semibold text-slate-500">
+                  展示内置五类评阅模板、必需章节、最低文献数和共享计分项
+                </p>
               </div>
               <button
                 className="h-10 rounded-lg border border-blue-200 px-4 text-sm font-bold text-blue-700 transition hover:border-blue-500 hover:bg-blue-50"
@@ -186,11 +188,23 @@ function NormativeCheckPage() {
 
             <aside className="space-y-4">
               <label className="flex min-h-[220px] cursor-pointer flex-col items-center justify-center rounded-3xl border border-dashed border-blue-200 bg-blue-50/60 px-5 text-center transition hover:border-blue-500 hover:bg-blue-50">
-                <span className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 text-2xl text-blue-600" aria-hidden="true">📄</span>
+                <span
+                  className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 text-2xl text-blue-600"
+                  aria-hidden="true"
+                >
+                  📄
+                </span>
                 <span className="mt-4 text-sm font-bold text-slate-900">拖拽或点击上传论文文件</span>
                 <span className="mt-2 text-xs leading-5 text-slate-500">支持 .txt / .md，UTF-8 编码，最大 5 MB</span>
-                <input className="sr-only" type="file" accept=".txt,.md,text/plain,text/markdown" onChange={handleFileChange} />
-                {selectedFile ? <span className="mt-3 text-xs font-semibold text-blue-700">{selectedFile.name}</span> : null}
+                <input
+                  className="sr-only"
+                  type="file"
+                  accept=".txt,.md,text/plain,text/markdown"
+                  onChange={handleFileChange}
+                />
+                {selectedFile ? (
+                  <span className="mt-3 text-xs font-semibold text-blue-700">{selectedFile.name}</span>
+                ) : null}
               </label>
 
               <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -223,10 +237,22 @@ function NormativeCheckPage() {
               <div className="rounded-2xl border border-dashed border-blue-300 p-5">
                 <h2 className="text-lg font-black text-slate-900">检测报告摘要</h2>
                 <dl className="mt-4 grid gap-3 text-sm text-slate-700 sm:grid-cols-2">
-                  <div><dt className="font-semibold">任务状态</dt><dd>{task.status}</dd></div>
-                  <div><dt className="font-semibold">创建时间</dt><dd>{task.created_at}</dd></div>
-                  <div><dt className="font-semibold">问题总数</dt><dd>{issues.length}</dd></div>
-                  <div><dt className="font-semibold">规则快照</dt><dd>{task.rule_snapshot.length} 条</dd></div>
+                  <div>
+                    <dt className="font-semibold">任务状态</dt>
+                    <dd>{task.status}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-semibold">创建时间</dt>
+                    <dd>{task.created_at}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-semibold">问题总数</dt>
+                    <dd>{issues.length}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-semibold">规则快照</dt>
+                    <dd>{task.rule_snapshot.length} 条</dd>
+                  </div>
                 </dl>
               </div>
             </div>
@@ -276,7 +302,9 @@ function NormativeCheckPage() {
               </table>
             </div>
           ) : (
-            <p className="mt-3 text-sm leading-6 text-slate-600">{touched ? '本次检测未返回问题。' : '尚未检测任何文本。'}</p>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              {touched ? '本次检测未返回问题。' : '尚未检测任何文本。'}
+            </p>
           )}
         </section>
       </section>

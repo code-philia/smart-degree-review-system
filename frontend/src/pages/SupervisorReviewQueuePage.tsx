@@ -65,12 +65,12 @@ export default function SupervisorReviewQueuePage() {
       <PageHeader
         title="待批阅任务"
         description="导师站内批阅中心，按待批阅优先、提交时间倒序展示本人待办。"
-        actions={(
+        actions={
           <div className="relative rounded-xl bg-[#173a62] px-5 py-3 text-sm font-bold text-white">
             未完成待办
             <span className="ml-3 rounded-full bg-red-500 px-3 py-1 text-white">{data.unread_count}</span>
           </div>
-        )}
+        }
       />
 
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -93,7 +93,9 @@ export default function SupervisorReviewQueuePage() {
             >
               <option value="">全部</option>
               {Object.entries(sourceLabels).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
+                <option key={value} value={value}>
+                  {label}
+                </option>
               ))}
             </select>
           </label>
@@ -133,7 +135,9 @@ export default function SupervisorReviewQueuePage() {
               <tbody>
                 {data.records.map((record: SupervisorReviewQueueItem) => (
                   <tr key={record.todo_id} className="odd:bg-white even:bg-slate-50">
-                    <td className="border border-slate-200 px-4 py-3 font-semibold text-[#ff8f2a]">{statusLabels[record.todo_status]}</td>
+                    <td className="border border-slate-200 px-4 py-3 font-semibold text-[#ff8f2a]">
+                      {statusLabels[record.todo_status]}
+                    </td>
                     <td className="border border-slate-200 px-4 py-3">{record.student_id}</td>
                     <td className="border border-slate-200 px-4 py-3">{sourceLabels[record.source_type]}</td>
                     <td className="border border-slate-200 px-4 py-3 font-mono text-xs">{record.report_id}</td>
@@ -141,7 +145,11 @@ export default function SupervisorReviewQueuePage() {
                     <td className="border border-slate-200 px-4 py-3">{formatDateTime(record.created_at)}</td>
                     <td className="border border-slate-200 px-4 py-3 text-center">
                       <Link
-                        className={record.todo_status === 'pending' ? 'rounded bg-[#ff8a2a] px-3 py-2 text-xs font-bold text-white' : 'text-sm font-semibold text-[#2f80ed]'}
+                        className={
+                          record.todo_status === 'pending'
+                            ? 'rounded bg-[#ff8a2a] px-3 py-2 text-xs font-bold text-white'
+                            : 'text-sm font-semibold text-[#2f80ed]'
+                        }
                         to={`/supervisor-review-queue/${record.submission_id}`}
                       >
                         {record.todo_status === 'pending' ? '批阅' : '查看记录'}

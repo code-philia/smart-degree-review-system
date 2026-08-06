@@ -39,11 +39,23 @@ describe('FEAT-LEDGER-RECORDS API client contract', () => {
     getSpy.mockResolvedValueOnce({ data: new Blob(['csv'], { type: 'text/csv' }) });
 
     await expect(
-      fetchDetectionLedgerRecords({ student: 'student01', detection_type: 'normative', from: '2026-08-01', to: '2026-08-31', latest_only: true }),
+      fetchDetectionLedgerRecords({
+        student: 'student01',
+        detection_type: 'normative',
+        from: '2026-08-01',
+        to: '2026-08-31',
+        latest_only: true,
+      }),
     ).resolves.toEqual([record]);
     await expect(fetchDetectionLedgerRecord('ledger-client-001')).resolves.toEqual(record);
     await expect(
-      downloadDetectionLedgerCsv({ student: 'student01', detection_type: 'normative', from: '2026-08-01', to: '2026-08-31', latest_only: true }),
+      downloadDetectionLedgerCsv({
+        student: 'student01',
+        detection_type: 'normative',
+        from: '2026-08-01',
+        to: '2026-08-31',
+        latest_only: true,
+      }),
     ).resolves.toBeInstanceOf(Blob);
 
     expect(getSpy).toHaveBeenNthCalledWith(1, '/normative/ledger-records', {

@@ -50,7 +50,9 @@ function QualityRadarChart({ metrics }: { metrics: RadarMetric[] }) {
 
         {metrics.map((_, index) => {
           const outer = pointAt(index, total, 1);
-          return <line key={index} x1={CENTER} y1={CENTER} x2={outer.x} y2={outer.y} stroke="#d9e1ea" strokeWidth={1} />;
+          return (
+            <line key={index} x1={CENTER} y1={CENTER} x2={outer.x} y2={outer.y} stroke="#d9e1ea" strokeWidth={1} />
+          );
         })}
 
         {hasAnyScore ? (

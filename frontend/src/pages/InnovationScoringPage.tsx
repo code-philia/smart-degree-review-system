@@ -64,7 +64,9 @@ function InnovationScoringPage() {
       <div className="mx-auto max-w-4xl">
         <Card>
           <h1 className="text-2xl font-black text-slate-900">创新性评分</h1>
-          <p className="mt-3 text-sm leading-6 text-slate-600">请先登录后计算创新性分数，系统将按当前账号权限调用后台评分服务。</p>
+          <p className="mt-3 text-sm leading-6 text-slate-600">
+            请先登录后计算创新性分数，系统将按当前账号权限调用后台评分服务。
+          </p>
           <LinkButton className="mt-5" to="/auth">
             前往登录
           </LinkButton>
@@ -77,7 +79,9 @@ function InnovationScoringPage() {
     <div className="mx-auto max-w-5xl">
       <Card>
         <h1 className="text-3xl font-black text-[#111111]">创新性评分</h1>
-        <p className="mt-3 text-sm font-semibold text-slate-600">当前登录用户：{user.username}（{user.role}）</p>
+        <p className="mt-3 text-sm font-semibold text-slate-600">
+          当前登录用户：{user.username}（{user.role}）
+        </p>
         <p className="mt-2 text-sm font-semibold text-slate-600">选择博士或硕士权重，并为五个维度选择 1-5 级。</p>
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
@@ -95,14 +99,23 @@ function InnovationScoringPage() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             {DIMENSIONS.map((dimension) => (
-              <label key={dimension.key} className="block rounded-2xl border border-slate-200 p-4 text-sm font-black text-slate-800">
+              <label
+                key={dimension.key}
+                className="block rounded-2xl border border-slate-200 p-4 text-sm font-black text-slate-800"
+              >
                 {dimension.label}等级
                 <select
                   className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-4 text-sm font-semibold outline-none focus:border-blue-500"
                   value={levels[dimension.key]}
-                  onChange={(event) => setLevels((current) => ({ ...current, [dimension.key]: Number(event.target.value) }))}
+                  onChange={(event) =>
+                    setLevels((current) => ({ ...current, [dimension.key]: Number(event.target.value) }))
+                  }
                 >
-                  {[1, 2, 3, 4, 5].map((level) => <option key={level} value={level}>{level} 级</option>)}
+                  {[1, 2, 3, 4, 5].map((level) => (
+                    <option key={level} value={level}>
+                      {level} 级
+                    </option>
+                  ))}
                 </select>
               </label>
             ))}
@@ -119,16 +132,23 @@ function InnovationScoringPage() {
         </form>
 
         {report ? (
-          <section className="mt-8 rounded-2xl border border-blue-100 bg-blue-50 p-5" aria-labelledby="innovation-score-report-heading">
+          <section
+            className="mt-8 rounded-2xl border border-blue-100 bg-blue-50 p-5"
+            aria-labelledby="innovation-score-report-heading"
+          >
             <div className="flex flex-wrap items-end gap-4">
-              <h2 id="innovation-score-report-heading" className="text-2xl font-black text-blue-950">创新性评分报告</h2>
+              <h2 id="innovation-score-report-heading" className="text-2xl font-black text-blue-950">
+                创新性评分报告
+              </h2>
               <p className="text-3xl font-black text-blue-700">{report.total_score} 分</p>
               <p className="rounded-full bg-white px-4 py-2 text-base font-black text-blue-900">{report.grade_label}</p>
             </div>
             <p className="mt-4 text-sm font-bold text-blue-900">公式：{report.formula}</p>
             <p className="mt-2 text-sm font-semibold text-slate-700">
               本次输入：{report.degree_type === 'master' ? '硕士' : '博士'}；
-              {report.dimensions.map((dimension) => `${dimension.label}${report.input.levels[dimension.key]}级`).join('，')}
+              {report.dimensions
+                .map((dimension) => `${dimension.label}${report.input.levels[dimension.key]}级`)
+                .join('，')}
             </p>
             <div className="mt-5 overflow-x-auto">
               <table className="w-full border-collapse text-left text-sm" aria-label="创新性评分明细">

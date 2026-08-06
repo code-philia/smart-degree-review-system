@@ -25,10 +25,13 @@ const EMPTY_DIMENSION: InnovationAssessmentDimensionInput = {
 };
 
 function buildEmptyDimensions(): InnovationAssessmentRequest['dimensions'] {
-  return DIMENSIONS.reduce((accumulator, dimension) => {
-    accumulator[dimension.key] = { ...EMPTY_DIMENSION };
-    return accumulator;
-  }, {} as InnovationAssessmentRequest['dimensions']);
+  return DIMENSIONS.reduce(
+    (accumulator, dimension) => {
+      accumulator[dimension.key] = { ...EMPTY_DIMENSION };
+      return accumulator;
+    },
+    {} as InnovationAssessmentRequest['dimensions'],
+  );
 }
 
 function InnovationAssessmentPage() {
@@ -44,12 +47,21 @@ function InnovationAssessmentPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  const progressSteps = useMemo(() => [
-    { name: '填写信息', complete: Boolean(thesisTitle && primaryDiscipline && secondaryDiscipline && researchDirection) },
-    { name: '五维度自评', complete: DIMENSIONS.every((dimension) => dimensions[dimension.key].evidence.trim().length >= 20) },
-    { name: '计算量表分', complete: Boolean(assessment) },
-    { name: '保存快照', complete: Boolean(assessment?.id) },
-  ], [assessment, dimensions, primaryDiscipline, researchDirection, secondaryDiscipline, thesisTitle]);
+  const progressSteps = useMemo(
+    () => [
+      {
+        name: '填写信息',
+        complete: Boolean(thesisTitle && primaryDiscipline && secondaryDiscipline && researchDirection),
+      },
+      {
+        name: '五维度自评',
+        complete: DIMENSIONS.every((dimension) => dimensions[dimension.key].evidence.trim().length >= 20),
+      },
+      { name: '计算量表分', complete: Boolean(assessment) },
+      { name: '保存快照', complete: Boolean(assessment?.id) },
+    ],
+    [assessment, dimensions, primaryDiscipline, researchDirection, secondaryDiscipline, thesisTitle],
+  );
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -69,7 +81,8 @@ function InnovationAssessmentPage() {
       });
       setAssessment(result);
     } catch (error) {
-      const maybeErrors = (error as { response?: { data?: { errors?: Array<{ field: string; message: string }> } } })?.response?.data?.errors;
+      const maybeErrors = (error as { response?: { data?: { errors?: Array<{ field: string; message: string }> } } })
+        ?.response?.data?.errors;
       if (Array.isArray(maybeErrors)) {
         setFieldErrors(Object.fromEntries(maybeErrors.map((item) => [item.field, item.message])));
       }
@@ -89,7 +102,9 @@ function InnovationAssessmentPage() {
         <Card>
           <h1 className="text-2xl font-black text-[#1F3B5D]">发起创新性量表评估</h1>
           <p className="mt-4 text-slate-600">请先登录后提交量表自评，后台会在保存前执行角色授权。</p>
-          <LinkButton className="mt-6" to="/auth">前往登录</LinkButton>
+          <LinkButton className="mt-6" to="/auth">
+            前往登录
+          </LinkButton>
         </Card>
       </div>
     );
@@ -101,7 +116,9 @@ function InnovationAssessmentPage() {
 
       <form onSubmit={handleSubmit}>
         <section className="rounded-[24px] border-2 border-dashed border-[#B7CAE6] px-8 py-8 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border-2 border-[#B7CAE6] text-2xl font-black text-[#3D8BF2]">↑</div>
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border-2 border-[#B7CAE6] text-2xl font-black text-[#3D8BF2]">
+            ↑
+          </div>
           <p className="mt-3 text-lg font-black text-[#333333]">填写论文题目与评估信息</p>
           <p className="mt-1 text-sm text-slate-500">无需上传样例文件；所有评估内容将以当前账号保存为输入快照。</p>
         </section>
@@ -109,30 +126,56 @@ function InnovationAssessmentPage() {
         <section className="mt-8 grid gap-x-12 gap-y-6 lg:grid-cols-2">
           <label className="grid gap-2 text-base font-bold text-[#333333]">
             论文题目
-            <input className="h-12 rounded border border-[#DADADA] px-4 outline-none focus:border-[#3D8BF2]" value={thesisTitle} onChange={(event) => setThesisTitle(event.target.value)} />
+            <input
+              className="h-12 rounded border border-[#DADADA] px-4 outline-none focus:border-[#3D8BF2]"
+              value={thesisTitle}
+              onChange={(event) => setThesisTitle(event.target.value)}
+            />
             {fieldErrors.thesis_title ? <span className="text-sm text-red-600">{fieldErrors.thesis_title}</span> : null}
           </label>
           <label className="grid gap-2 text-base font-bold text-[#333333]">
             学历层次
-            <select className="h-12 rounded border border-[#DADADA] px-4 outline-none focus:border-[#3D8BF2]" value={degreeType} onChange={(event) => setDegreeType(event.target.value as InnovationDegreeType)}>
+            <select
+              className="h-12 rounded border border-[#DADADA] px-4 outline-none focus:border-[#3D8BF2]"
+              value={degreeType}
+              onChange={(event) => setDegreeType(event.target.value as InnovationDegreeType)}
+            >
               <option value="master">硕士</option>
               <option value="doctoral">博士</option>
             </select>
           </label>
           <label className="grid gap-2 text-base font-bold text-[#333333]">
             一级学科
-            <input className="h-12 rounded border border-[#DADADA] px-4 outline-none focus:border-[#3D8BF2]" value={primaryDiscipline} onChange={(event) => setPrimaryDiscipline(event.target.value)} />
-            {fieldErrors.primary_discipline ? <span className="text-sm text-red-600">{fieldErrors.primary_discipline}</span> : null}
+            <input
+              className="h-12 rounded border border-[#DADADA] px-4 outline-none focus:border-[#3D8BF2]"
+              value={primaryDiscipline}
+              onChange={(event) => setPrimaryDiscipline(event.target.value)}
+            />
+            {fieldErrors.primary_discipline ? (
+              <span className="text-sm text-red-600">{fieldErrors.primary_discipline}</span>
+            ) : null}
           </label>
           <label className="grid gap-2 text-base font-bold text-[#333333]">
             二级学科
-            <input className="h-12 rounded border border-[#DADADA] px-4 outline-none focus:border-[#3D8BF2]" value={secondaryDiscipline} onChange={(event) => setSecondaryDiscipline(event.target.value)} />
-            {fieldErrors.secondary_discipline ? <span className="text-sm text-red-600">{fieldErrors.secondary_discipline}</span> : null}
+            <input
+              className="h-12 rounded border border-[#DADADA] px-4 outline-none focus:border-[#3D8BF2]"
+              value={secondaryDiscipline}
+              onChange={(event) => setSecondaryDiscipline(event.target.value)}
+            />
+            {fieldErrors.secondary_discipline ? (
+              <span className="text-sm text-red-600">{fieldErrors.secondary_discipline}</span>
+            ) : null}
           </label>
           <label className="grid gap-2 text-base font-bold text-[#333333] lg:col-span-2">
             研究方向
-            <input className="h-12 rounded border border-[#DADADA] px-4 outline-none focus:border-[#3D8BF2]" value={researchDirection} onChange={(event) => setResearchDirection(event.target.value)} />
-            {fieldErrors.research_direction ? <span className="text-sm text-red-600">{fieldErrors.research_direction}</span> : null}
+            <input
+              className="h-12 rounded border border-[#DADADA] px-4 outline-none focus:border-[#3D8BF2]"
+              value={researchDirection}
+              onChange={(event) => setResearchDirection(event.target.value)}
+            />
+            {fieldErrors.research_direction ? (
+              <span className="text-sm text-red-600">{fieldErrors.research_direction}</span>
+            ) : null}
           </label>
         </section>
 
@@ -142,41 +185,100 @@ function InnovationAssessmentPage() {
               <legend className="px-2 text-lg font-black text-[#1F3B5D]">{dimension.label}</legend>
               <label className="mt-3 block text-sm font-bold text-slate-700">
                 等级
-                <select className="mt-2 h-11 w-full rounded border border-[#DADADA] px-3" value={dimensions[dimension.key].level} onChange={(event) => setDimensions((current) => ({ ...current, [dimension.key]: { ...current[dimension.key], level: Number(event.target.value) } }))}>
-                  {[1, 2, 3, 4, 5].map((level) => <option key={level} value={level}>{level} 级</option>)}
+                <select
+                  className="mt-2 h-11 w-full rounded border border-[#DADADA] px-3"
+                  value={dimensions[dimension.key].level}
+                  onChange={(event) =>
+                    setDimensions((current) => ({
+                      ...current,
+                      [dimension.key]: { ...current[dimension.key], level: Number(event.target.value) },
+                    }))
+                  }
+                >
+                  {[1, 2, 3, 4, 5].map((level) => (
+                    <option key={level} value={level}>
+                      {level} 级
+                    </option>
+                  ))}
                 </select>
               </label>
               <label className="mt-3 block text-sm font-bold text-slate-700">
                 证据（不少于 20 个字符）
-                <textarea className="mt-2 min-h-24 w-full rounded border border-[#DADADA] p-3" value={dimensions[dimension.key].evidence} onChange={(event) => setDimensions((current) => ({ ...current, [dimension.key]: { ...current[dimension.key], evidence: event.target.value } }))} />
-                {fieldErrors[`dimensions.${dimension.key}.evidence`] ? <span className="text-sm text-red-600">{fieldErrors[`dimensions.${dimension.key}.evidence`]}</span> : null}
+                <textarea
+                  className="mt-2 min-h-24 w-full rounded border border-[#DADADA] p-3"
+                  value={dimensions[dimension.key].evidence}
+                  onChange={(event) =>
+                    setDimensions((current) => ({
+                      ...current,
+                      [dimension.key]: { ...current[dimension.key], evidence: event.target.value },
+                    }))
+                  }
+                />
+                {fieldErrors[`dimensions.${dimension.key}.evidence`] ? (
+                  <span className="text-sm text-red-600">{fieldErrors[`dimensions.${dimension.key}.evidence`]}</span>
+                ) : null}
               </label>
               <label className="mt-3 block text-sm font-bold text-slate-700">
                 改进计划（不少于 20 个字符）
-                <textarea className="mt-2 min-h-24 w-full rounded border border-[#DADADA] p-3" value={dimensions[dimension.key].improvement_plan} onChange={(event) => setDimensions((current) => ({ ...current, [dimension.key]: { ...current[dimension.key], improvement_plan: event.target.value } }))} />
-                {fieldErrors[`dimensions.${dimension.key}.improvement_plan`] ? <span className="text-sm text-red-600">{fieldErrors[`dimensions.${dimension.key}.improvement_plan`]}</span> : null}
+                <textarea
+                  className="mt-2 min-h-24 w-full rounded border border-[#DADADA] p-3"
+                  value={dimensions[dimension.key].improvement_plan}
+                  onChange={(event) =>
+                    setDimensions((current) => ({
+                      ...current,
+                      [dimension.key]: { ...current[dimension.key], improvement_plan: event.target.value },
+                    }))
+                  }
+                />
+                {fieldErrors[`dimensions.${dimension.key}.improvement_plan`] ? (
+                  <span className="text-sm text-red-600">
+                    {fieldErrors[`dimensions.${dimension.key}.improvement_plan`]}
+                  </span>
+                ) : null}
               </label>
             </fieldset>
           ))}
         </section>
 
-        <p className="mt-6 rounded-lg bg-amber-50 p-4 font-bold text-amber-800">本结果为量表自评，不代替专家评审或文献查新</p>
-        <Button className="mt-6 h-14 w-full text-xl" size="lg" type="submit" disabled={submitting}>{submitting ? '保存评估中…' : 'AI 创新性分析'}</Button>
-        {errorMessage ? <p className="mt-4 text-sm font-bold text-red-600" role="alert">{errorMessage}</p> : null}
+        <p className="mt-6 rounded-lg bg-amber-50 p-4 font-bold text-amber-800">
+          本结果为量表自评，不代替专家评审或文献查新
+        </p>
+        <Button className="mt-6 h-14 w-full text-xl" size="lg" type="submit" disabled={submitting}>
+          {submitting ? '保存评估中…' : 'AI 创新性分析'}
+        </Button>
+        {errorMessage ? (
+          <p className="mt-4 text-sm font-bold text-red-600" role="alert">
+            {errorMessage}
+          </p>
+        ) : null}
       </form>
 
       <section className="mt-8" aria-label="创新性分析处理进度">
         <h2 className="text-2xl font-black text-[#0b3768]">处理进度</h2>
         <div className="mt-4 flex flex-wrap gap-3">
-          {progressSteps.map((step, index) => <span key={step.name} className={`rounded-lg border px-4 py-2 font-bold ${step.complete ? 'border-[#43c63a] bg-[#edf9ef] text-[#1f7a1f]' : 'border-slate-300 bg-white text-slate-500'}`}>{index + 1}. {step.name}</span>)}
+          {progressSteps.map((step, index) => (
+            <span
+              key={step.name}
+              className={`rounded-lg border px-4 py-2 font-bold ${step.complete ? 'border-[#43c63a] bg-[#edf9ef] text-[#1f7a1f]' : 'border-slate-300 bg-white text-slate-500'}`}
+            >
+              {index + 1}. {step.name}
+            </span>
+          ))}
         </div>
       </section>
 
       {assessment ? (
-        <section className="mt-8 border-t border-slate-200 bg-[#fafafa] px-6 py-8" aria-labelledby="innovation-assessment-result-heading">
-          <h2 id="innovation-assessment-result-heading" className="text-2xl font-black text-[#0b3768]">分析结果</h2>
+        <section
+          className="mt-8 border-t border-slate-200 bg-[#fafafa] px-6 py-8"
+          aria-labelledby="innovation-assessment-result-heading"
+        >
+          <h2 id="innovation-assessment-result-heading" className="text-2xl font-black text-[#0b3768]">
+            分析结果
+          </h2>
           <div className="mt-5 rounded-lg border border-[#e0e0e0] bg-white p-8">
-            <p className="text-3xl font-black text-[#3b86f4]">{assessment.total_score} 分 · {assessment.grade_label}</p>
+            <p className="text-3xl font-black text-[#3b86f4]">
+              {assessment.total_score} 分 · {assessment.grade_label}
+            </p>
             <p className="mt-3 font-bold text-slate-700">论文题目：{assessment.thesis_title}</p>
             <p className="mt-2 font-bold text-slate-700">完成时间：{assessment.created_at}</p>
             <p className="mt-2 font-bold text-amber-700">{assessment.disclaimer}</p>

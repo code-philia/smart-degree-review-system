@@ -5,10 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../src/App';
 import { AuthSessionProvider } from '../src/auth/AuthSessionProvider';
 import { fetchCurrentSession, type AuthenticatedUser } from '../src/api/authSession';
-import {
-  createReportSubmissions,
-  type CreateReportSubmissionResponse,
-} from '../src/api/reportSubmissions';
+import { createReportSubmissions, type CreateReportSubmissionResponse } from '../src/api/reportSubmissions';
 import {
   fetchAiReviewHistory,
   fetchDuplicationHistory,
@@ -146,9 +143,11 @@ describe('FEAT-REPORT-STUDENT-SUBMIT frontend page and client contract', () => {
     await user.click(reportCheckbox);
     await user.click(screen.getByRole('button', { name: '推送报告' }));
 
-    await waitFor(() => expect(createReportSubmissions).toHaveBeenCalledWith({
-      reports: [{ source_type: 'normative', report_id: 'normative-ui-001' }],
-    }));
+    await waitFor(() =>
+      expect(createReportSubmissions).toHaveBeenCalledWith({
+        reports: [{ source_type: 'normative', report_id: 'normative-ui-001' }],
+      }),
+    );
     expect(await screen.findByText(/已创建批次 batch-ui-001/)).toBeInTheDocument();
     expect(screen.getByText(/待批阅记录 1 条/)).toBeInTheDocument();
   });
@@ -173,9 +172,11 @@ describe('FEAT-REPORT-STUDENT-SUBMIT frontend page and client contract', () => {
     postSpy.mockResolvedValueOnce({ data: submissionResponse });
 
     const actual = await vi.importActual<typeof import('../src/api/reportSubmissions')>('../src/api/reportSubmissions');
-    await expect(actual.createReportSubmissions({
-      reports: [{ source_type: 'normative', report_id: 'normative-ui-001' }],
-    })).resolves.toEqual(submissionResponse);
+    await expect(
+      actual.createReportSubmissions({
+        reports: [{ source_type: 'normative', report_id: 'normative-ui-001' }],
+      }),
+    ).resolves.toEqual(submissionResponse);
 
     expect(postSpy).toHaveBeenCalledWith('/normative/report-submissions', {
       reports: [{ source_type: 'normative', report_id: 'normative-ui-001' }],

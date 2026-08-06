@@ -104,14 +104,20 @@ describe('FEAT-AI-REVIEW-HISTORY frontend history route and client contract', ()
     expect(within(newestRow).getByText('92')).toBeInTheDocument();
     expect(within(newestRow).getByText('基础检查通过')).toBeInTheDocument();
     expect(within(newestRow).getByText('2026-03-02 10:30:00.000')).toBeInTheDocument();
-    expect(within(newestRow).getByRole('link', { name: '查看结果' })).toHaveAttribute('href', '/ai-review/results/review-history-newest');
+    expect(within(newestRow).getByRole('link', { name: '查看结果' })).toHaveAttribute(
+      'href',
+      '/ai-review/results/review-history-newest',
+    );
 
     expect(within(olderRow).getByText('2')).toBeInTheDocument();
     expect(within(olderRow).getByText('student01 较早辅助评阅论文')).toBeInTheDocument();
     expect(within(olderRow).getByText('professional_master')).toBeInTheDocument();
     expect(within(olderRow).getByText('40')).toBeInTheDocument();
     expect(within(olderRow).getByText('需修改')).toBeInTheDocument();
-    expect(within(olderRow).getByRole('link', { name: '查看结果' })).toHaveAttribute('href', '/ai-review/results/review-history-older');
+    expect(within(olderRow).getByRole('link', { name: '查看结果' })).toHaveAttribute(
+      'href',
+      '/ai-review/results/review-history-older',
+    );
     expect(screen.queryByText('截图示例论文')).not.toBeInTheDocument();
   });
 

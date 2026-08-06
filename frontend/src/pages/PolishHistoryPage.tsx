@@ -53,9 +53,10 @@ function PolishHistoryPage() {
     setLoading(true);
     setErrorMessage(null);
 
-    const request = isDetail && resultId
-      ? fetchPolishHistoryRecord(polishType as PolishHistoryRecord['polish_type'], resultId)
-      : fetchPolishHistory();
+    const request =
+      isDetail && resultId
+        ? fetchPolishHistoryRecord(polishType as PolishHistoryRecord['polish_type'], resultId)
+        : fetchPolishHistory();
 
     request
       .then((response) => {
@@ -106,7 +107,9 @@ function PolishHistoryPage() {
         <Card>
           <h1 className="text-2xl font-black text-[#1F3D62]">润色记录</h1>
           <p className="mt-3 text-sm leading-6 text-slate-600">请先登录后查看本人全文与局部润色记录。</p>
-          <LinkButton className="mt-5" to="/auth">前往登录</LinkButton>
+          <LinkButton className="mt-5" to="/auth">
+            前往登录
+          </LinkButton>
         </Card>
       </div>
     );
@@ -117,7 +120,9 @@ function PolishHistoryPage() {
       <div className="text-slate-900">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <Link className="text-base font-semibold text-brand-600 hover:underline" to="/polish-history">返回润色记录</Link>
+            <Link className="text-base font-semibold text-brand-600 hover:underline" to="/polish-history">
+              返回润色记录
+            </Link>
             <h1 className="mt-2 text-[28px] font-black text-[#1F3D62]">差异查看</h1>
           </div>
           {record ? <span className="text-lg font-semibold text-slate-500">{getModeLabel(record)}</span> : null}
@@ -135,7 +140,11 @@ function PolishHistoryPage() {
               <div className="border border-[#DADDE1] bg-white">
                 <div className="flex items-center justify-between border-b border-[#DADDE1] px-6 py-4">
                   <h2 className="text-xl font-black">润色结果</h2>
-                  <button className="font-bold text-[#2F7BFF] hover:underline" type="button" onClick={() => handleDownload(record)}>
+                  <button
+                    className="font-bold text-[#2F7BFF] hover:underline"
+                    type="button"
+                    onClick={() => handleDownload(record)}
+                  >
                     下载 .txt
                   </button>
                 </div>
@@ -166,16 +175,32 @@ function PolishHistoryPage() {
           </thead>
           <tbody>
             {records.map((item, index) => (
-              <tr key={`${item.polish_type}-${item.id}`} className={`border-b border-[#DADDE1] ${index % 2 === 0 ? 'bg-white' : 'bg-[#F6F7F9]'}`}>
+              <tr
+                key={`${item.polish_type}-${item.id}`}
+                className={`border-b border-[#DADDE1] ${index % 2 === 0 ? 'bg-white' : 'bg-[#F6F7F9]'}`}
+              >
                 <td className="border-r border-[#DADDE1] px-6 py-9 font-medium">{index + 1}</td>
                 <td className="border-r border-[#DADDE1] px-6 py-9 text-left font-semibold">{item.document_name}</td>
                 <td className="border-r border-[#DADDE1] px-6 py-9">{getModeLabel(item)}</td>
-                <td className={`border-r border-[#DADDE1] px-6 py-9 font-black ${getLevelClass(item.level)}`}>{LEVEL_LABELS[item.level]}</td>
+                <td className={`border-r border-[#DADDE1] px-6 py-9 font-black ${getLevelClass(item.level)}`}>
+                  {LEVEL_LABELS[item.level]}
+                </td>
                 <td className="border-r border-[#DADDE1] px-6 py-9 text-lg">{item.created_at}</td>
                 <td className="px-6 py-9">
                   <div className="flex flex-nowrap justify-center gap-5 text-lg font-bold text-[#2F7BFF]">
-                    <Link className="hover:underline focus:outline-none focus:ring-2 focus:ring-[#2F7BFF]" to={`/polish-history/${item.polish_type}/${item.id}`}>查看差异</Link>
-                    <button className="hover:underline focus:outline-none focus:ring-2 focus:ring-[#2F7BFF]" type="button" onClick={() => handleDownload(item)}>下载结果</button>
+                    <Link
+                      className="hover:underline focus:outline-none focus:ring-2 focus:ring-[#2F7BFF]"
+                      to={`/polish-history/${item.polish_type}/${item.id}`}
+                    >
+                      查看差异
+                    </Link>
+                    <button
+                      className="hover:underline focus:outline-none focus:ring-2 focus:ring-[#2F7BFF]"
+                      type="button"
+                      onClick={() => handleDownload(item)}
+                    >
+                      下载结果
+                    </button>
                   </div>
                 </td>
               </tr>

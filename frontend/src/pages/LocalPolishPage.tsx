@@ -1,11 +1,7 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { useAuthSession } from '../auth/AuthSessionProvider';
 import { Button, Card, LinkButton, LoadingState } from '../components/ui';
-import {
-  createLocalPolishResult,
-  type LocalPolishLevel,
-  type LocalPolishResult,
-} from '../api/normativeRules';
+import { createLocalPolishResult, type LocalPolishLevel, type LocalPolishResult } from '../api/normativeRules';
 
 const LEVEL_OPTIONS: Array<{ level: LocalPolishLevel; title: string; summary: string; recommended?: boolean }> = [
   { level: 'basic', title: 'AI 校准', summary: '修正空白、重复标点与基础表达' },
@@ -142,10 +138,14 @@ function LocalPolishPage() {
           <article className="overflow-hidden border border-[#D9DDE3] bg-white">
             <div className="flex items-center justify-between bg-slate-100 px-6 py-4 text-xl font-black">
               <span>AI 润色结果</span>
-              <span className="text-base font-bold text-[#22B573]">{submitting ? '处理中' : result ? '润色完成' : '等待处理'}</span>
+              <span className="text-base font-bold text-[#22B573]">
+                {submitting ? '处理中' : result ? '润色完成' : '等待处理'}
+              </span>
             </div>
             <div className="min-h-[460px] px-8 py-8 text-2xl leading-relaxed">
-              <div data-testid="local-polish-result-id" className="sr-only">{result?.id || ''}</div>
+              <div data-testid="local-polish-result-id" className="sr-only">
+                {result?.id || ''}
+              </div>
               <div data-testid="local-polish-result-text">{result?.polished_text || ''}</div>
               <div data-testid="local-polish-diff-segments">{renderResultText(result)}</div>
             </div>
@@ -163,9 +163,13 @@ function LocalPolishPage() {
                 className={`relative flex min-w-40 items-center gap-3 rounded-xl border px-5 py-3 text-lg font-black ${selected ? 'border-[#F07E2E] bg-orange-50 text-[#F07E2E]' : 'border-[#D9DDE3] bg-white text-slate-700'}`}
                 onClick={() => setLevel(option.level)}
               >
-                <span className={`h-4 w-4 rounded-full border ${selected ? 'border-[#F07E2E] bg-[#F07E2E]' : 'border-slate-300'}`} />
+                <span
+                  className={`h-4 w-4 rounded-full border ${selected ? 'border-[#F07E2E] bg-[#F07E2E]' : 'border-slate-300'}`}
+                />
                 {option.title}
-                {option.recommended ? <span className="rounded-full bg-[#F07E2E] px-2 py-0.5 text-xs text-white">推荐</span> : null}
+                {option.recommended ? (
+                  <span className="rounded-full bg-[#F07E2E] px-2 py-0.5 text-xs text-white">推荐</span>
+                ) : null}
               </button>
             );
           })}
@@ -181,10 +185,20 @@ function LocalPolishPage() {
             </Button>
           </div>
           <div className="flex gap-4">
-            <button className="rounded-xl bg-[#22B573] px-8 py-4 text-2xl font-black text-white disabled:opacity-50" type="button" disabled={!result} onClick={handleCopy}>
+            <button
+              className="rounded-xl bg-[#22B573] px-8 py-4 text-2xl font-black text-white disabled:opacity-50"
+              type="button"
+              disabled={!result}
+              onClick={handleCopy}
+            >
               复制文本
             </button>
-            <button className="rounded-xl border border-[#3B82F6] bg-white px-8 py-4 text-2xl font-black text-[#3B82F6] disabled:opacity-50" type="button" disabled={!result || submitting} onClick={handleRetry}>
+            <button
+              className="rounded-xl border border-[#3B82F6] bg-white px-8 py-4 text-2xl font-black text-[#3B82F6] disabled:opacity-50"
+              type="button"
+              disabled={!result || submitting}
+              onClick={handleRetry}
+            >
               重新润色
             </button>
           </div>
@@ -195,8 +209,12 @@ function LocalPolishPage() {
           <p>相同原文、档位和规则版本下重新润色应返回完全一致的结果与变更列表。</p>
         </section>
 
-        {errorMessage ? <p className="mt-5 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">{errorMessage}</p> : null}
-        {copyMessage ? <p className="mt-5 rounded-xl bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">{copyMessage}</p> : null}
+        {errorMessage ? (
+          <p className="mt-5 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">{errorMessage}</p>
+        ) : null}
+        {copyMessage ? (
+          <p className="mt-5 rounded-xl bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">{copyMessage}</p>
+        ) : null}
       </form>
 
       <footer className="mt-6 rounded-xl border border-[#D9DDE3] bg-slate-100 px-8 py-5 text-sm font-semibold text-slate-600">

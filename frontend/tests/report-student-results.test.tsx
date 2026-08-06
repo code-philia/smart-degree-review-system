@@ -23,7 +23,9 @@ vi.mock('../src/api/authSession', async () => {
 });
 
 vi.mock('../src/api/reportStudentResults', async () => {
-  const actual = await vi.importActual<typeof import('../src/api/reportStudentResults')>('../src/api/reportStudentResults');
+  const actual = await vi.importActual<typeof import('../src/api/reportStudentResults')>(
+    '../src/api/reportStudentResults',
+  );
   return {
     ...actual,
     downloadStudentReportResultJson: vi.fn(),
@@ -122,12 +124,14 @@ describe('FEAT-REPORT-STUDENT-RESULTS frontend page and client contract', () => 
     await user.selectOptions(screen.getByLabelText('报告类型'), 'normative');
     await user.selectOptions(screen.getByLabelText('状态'), 'review_completed_feedback');
 
-    await waitFor(() => expect(fetchStudentReportResults).toHaveBeenLastCalledWith({
-      from: '2026-08-05',
-      to: '2026-08-06',
-      source_type: 'normative',
-      status: 'review_completed_feedback',
-    }));
+    await waitFor(() =>
+      expect(fetchStudentReportResults).toHaveBeenLastCalledWith({
+        from: '2026-08-05',
+        to: '2026-08-06',
+        source_type: 'normative',
+        status: 'review_completed_feedback',
+      }),
+    );
   });
 
   it('FEAT-REPORT-STUDENT-RESULTS:UI:SCENARIO:001 renders original report, annotations, overall evaluation, suggestions, history, and viewed status from detail open', async () => {
@@ -171,19 +175,30 @@ describe('FEAT-REPORT-STUDENT-RESULTS frontend page and client contract', () => 
     getSpy
       .mockResolvedValueOnce({ data: { results: listResults } })
       .mockResolvedValueOnce({ data: detailResult })
-      .mockResolvedValueOnce({ data: {
-        submission_id: 'student result/newer',
-        report_summary: listResults[0],
-        annotations: detailResult.review.annotations,
-        overall_evaluation: detailResult.review.overall_evaluation,
-        improvement_suggestions: detailResult.review.improvement_suggestions,
-      } });
+      .mockResolvedValueOnce({
+        data: {
+          submission_id: 'student result/newer',
+          report_summary: listResults[0],
+          annotations: detailResult.review.annotations,
+          overall_evaluation: detailResult.review.overall_evaluation,
+          improvement_suggestions: detailResult.review.improvement_suggestions,
+        },
+      });
 
-    const actual = await vi.importActual<typeof import('../src/api/reportStudentResults')>('../src/api/reportStudentResults');
-    await expect(actual.fetchStudentReportResults({ from: '2026-08-05', source_type: 'normative', status: 'review_completed_feedback' }))
-      .resolves.toEqual({ results: listResults });
+    const actual = await vi.importActual<typeof import('../src/api/reportStudentResults')>(
+      '../src/api/reportStudentResults',
+    );
+    await expect(
+      actual.fetchStudentReportResults({
+        from: '2026-08-05',
+        source_type: 'normative',
+        status: 'review_completed_feedback',
+      }),
+    ).resolves.toEqual({ results: listResults });
     await expect(actual.fetchStudentReportResultDetail('student result/newer')).resolves.toEqual(detailResult);
-    await expect(actual.downloadStudentReportResultJson('student result/newer')).resolves.toMatchObject({ submission_id: 'student result/newer' });
+    await expect(actual.downloadStudentReportResultJson('student result/newer')).resolves.toMatchObject({
+      submission_id: 'student result/newer',
+    });
 
     expect(getSpy).toHaveBeenNthCalledWith(1, '/normative/student-report-results', {
       params: { from: '2026-08-05', source_type: 'normative', status: 'review_completed_feedback' },

@@ -38,11 +38,36 @@ const studentUser: AuthenticatedUser = {
 
 const reviewRubricsResponse = {
   templates: [
-    { template_id: 'academic_phd_natural_science', name: '学术型博士自然科学', required_sections: ['摘要', '引言', '研究方法', '结论', '参考文献'], minimum_reference_count: 80 },
-    { template_id: 'academic_phd_humanities_social_science', name: '学术型博士人文社科', required_sections: ['摘要', '文献综述', '研究方法', '结论', '参考文献'], minimum_reference_count: 100 },
-    { template_id: 'professional_phd', name: '专业型博士', required_sections: ['摘要', '实践问题', '研究方法', '结论', '参考文献'], minimum_reference_count: 60 },
-    { template_id: 'academic_master', name: '学术型硕士', required_sections: ['摘要', '研究方法', '分析与讨论', '结论', '参考文献'], minimum_reference_count: 50 },
-    { template_id: 'professional_master', name: '专业型硕士', required_sections: ['摘要', '实践背景', '方法与方案', '结论', '参考文献'], minimum_reference_count: 30 },
+    {
+      template_id: 'academic_phd_natural_science',
+      name: '学术型博士自然科学',
+      required_sections: ['摘要', '引言', '研究方法', '结论', '参考文献'],
+      minimum_reference_count: 80,
+    },
+    {
+      template_id: 'academic_phd_humanities_social_science',
+      name: '学术型博士人文社科',
+      required_sections: ['摘要', '文献综述', '研究方法', '结论', '参考文献'],
+      minimum_reference_count: 100,
+    },
+    {
+      template_id: 'professional_phd',
+      name: '专业型博士',
+      required_sections: ['摘要', '实践问题', '研究方法', '结论', '参考文献'],
+      minimum_reference_count: 60,
+    },
+    {
+      template_id: 'academic_master',
+      name: '学术型硕士',
+      required_sections: ['摘要', '研究方法', '分析与讨论', '结论', '参考文献'],
+      minimum_reference_count: 50,
+    },
+    {
+      template_id: 'professional_master',
+      name: '专业型硕士',
+      required_sections: ['摘要', '实践背景', '方法与方案', '结论', '参考文献'],
+      minimum_reference_count: 30,
+    },
   ],
   shared_score_items: [
     { key: 'section_completeness', label: '章节完整性', points: 30 },

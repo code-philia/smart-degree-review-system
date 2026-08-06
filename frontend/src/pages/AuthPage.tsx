@@ -16,7 +16,9 @@ function HeroPanel() {
       </div>
       <div className="relative z-10 flex w-full flex-col items-center justify-start text-center">
         <img src="/brand-mark.jpg" alt="" className="h-16 w-16 rounded-full object-cover ring-4 ring-white/30" />
-        <p className="mt-6 text-sm font-semibold tracking-[0.3em] text-cyan-100">智慧学位 AI 评阅辅助系统 · 试点验证版 V0.9</p>
+        <p className="mt-6 text-sm font-semibold tracking-[0.3em] text-cyan-100">
+          智慧学位 AI 评阅辅助系统 · 试点验证版 V0.9
+        </p>
         <h1 className="mt-4 text-4xl font-black leading-tight tracking-wide md:text-5xl">统一身份认证</h1>
         <p className="mt-5 max-w-md text-lg leading-8 text-blue-50">
           面向学生、导师、学院管理人员和学校管理人员的账号登录入口。
@@ -44,11 +46,15 @@ function DefaultAccountSlot() {
   return (
     <div className="space-y-4" aria-label="账号登录表单">
       <div className="flex h-14 items-center border border-[#D6D6D6] px-4 text-slate-400">
-        <span className="mr-3 text-lg" aria-hidden="true">👤</span>
+        <span className="mr-3 text-lg" aria-hidden="true">
+          👤
+        </span>
         <span>请输入账号</span>
       </div>
       <div className="flex h-14 items-center border border-[#D6D6D6] px-4 text-slate-400">
-        <span className="mr-3 text-lg" aria-hidden="true">🔒</span>
+        <span className="mr-3 text-lg" aria-hidden="true">
+          🔒
+        </span>
         <span>请输入密码</span>
       </div>
     </div>
@@ -70,10 +76,17 @@ function AuthPage({ accountFormSlot, helpSlot }: AuthPageProps) {
             <h2 className="text-2xl font-black text-slate-900">登录本地账号</h2>
             <div className="mt-6">{accountFormSlot ?? <DefaultAccountSlot />}</div>
             <div className="mt-5 flex justify-between text-base font-semibold text-[#4A75E8]">
-              <a className="hover:underline focus:underline" href="#password">忘记密码/用户名</a>
-              <a className="hover:underline focus:underline" href="#roles">试用账号说明</a>
+              <a className="hover:underline focus:underline" href="#password">
+                忘记密码/用户名
+              </a>
+              <a className="hover:underline focus:underline" href="#roles">
+                试用账号说明
+              </a>
             </div>
-            <p id="password" className="mt-4 rounded border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600">
+            <p
+              id="password"
+              className="mt-4 rounded border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600"
+            >
               如忘记账号或密码，请联系系统管理员重置。试点阶段可直接使用下方试用账号登录体验。
             </p>
             <div className="mt-4 text-center text-sm text-slate-500 underline underline-offset-4">

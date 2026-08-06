@@ -11,7 +11,10 @@ function NotFoundPage() {
       </p>
       <div className="mt-2 flex gap-3">
         <LinkButton to="/">返回工作台</LinkButton>
-        <Link className="inline-flex h-10 items-center rounded-lg border border-slate-300 px-4 text-sm font-bold text-slate-600" to="/about">
+        <Link
+          className="inline-flex h-10 items-center rounded-lg border border-slate-300 px-4 text-sm font-bold text-slate-600"
+          to="/about"
+        >
           查看系统说明
         </Link>
       </div>

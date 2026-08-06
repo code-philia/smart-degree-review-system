@@ -21,7 +21,9 @@ vi.mock('../src/api/authSession', async () => {
 });
 
 vi.mock('../src/api/reportSupervisorQueue', async () => {
-  const actual = await vi.importActual<typeof import('../src/api/reportSupervisorQueue')>('../src/api/reportSupervisorQueue');
+  const actual = await vi.importActual<typeof import('../src/api/reportSupervisorQueue')>(
+    '../src/api/reportSupervisorQueue',
+  );
   return {
     ...actual,
     fetchSupervisorReviewQueue: vi.fn(),
@@ -116,11 +118,13 @@ describe('FEAT-REPORT-SUPERVISOR-QUEUE frontend page and client contract', () =>
     await user.selectOptions(screen.getByLabelText('报告类型'), 'normative');
     await user.selectOptions(screen.getByLabelText('状态'), 'pending');
 
-    await waitFor(() => expect(fetchSupervisorReviewQueue).toHaveBeenLastCalledWith({
-      student_id: 'student01',
-      source_type: 'normative',
-      status: 'pending',
-    }));
+    await waitFor(() =>
+      expect(fetchSupervisorReviewQueue).toHaveBeenLastCalledWith({
+        student_id: 'student01',
+        source_type: 'normative',
+        status: 'pending',
+      }),
+    );
   });
 
   it('FEAT-REPORT-SUPERVISOR-QUEUE:UI:EMPTY-ERROR:001 renders explicit empty and error states from the real API path', async () => {
@@ -141,13 +145,14 @@ describe('FEAT-REPORT-SUPERVISOR-QUEUE frontend page and client contract', () =>
 
   it('FEAT-REPORT-SUPERVISOR-QUEUE:API-CLIENT:001 uses the shared Axios client for queue and badge endpoints with query params', async () => {
     const getSpy = vi.spyOn(apiClient, 'get');
-    getSpy
-      .mockResolvedValueOnce({ data: queueResponse })
-      .mockResolvedValueOnce({ data: { unread_count: 2 } });
+    getSpy.mockResolvedValueOnce({ data: queueResponse }).mockResolvedValueOnce({ data: { unread_count: 2 } });
 
-    const actual = await vi.importActual<typeof import('../src/api/reportSupervisorQueue')>('../src/api/reportSupervisorQueue');
-    await expect(actual.fetchSupervisorReviewQueue({ student_id: 'student01', source_type: 'normative', status: 'pending' }))
-      .resolves.toEqual(queueResponse);
+    const actual = await vi.importActual<typeof import('../src/api/reportSupervisorQueue')>(
+      '../src/api/reportSupervisorQueue',
+    );
+    await expect(
+      actual.fetchSupervisorReviewQueue({ student_id: 'student01', source_type: 'normative', status: 'pending' }),
+    ).resolves.toEqual(queueResponse);
     await expect(actual.fetchSupervisorReviewQueueBadge()).resolves.toEqual({ unread_count: 2 });
 
     expect(getSpy).toHaveBeenNthCalledWith(1, '/normative/supervisor-review-queue', {

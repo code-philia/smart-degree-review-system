@@ -13,9 +13,21 @@ import {
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_FILE_EXTENSIONS = ['.txt', '.md'];
 
-const LEVEL_OPTIONS: Array<{ level: WholePolishLevel; title: string; summary: string; accent: string; recommended?: boolean }> = [
+const LEVEL_OPTIONS: Array<{
+  level: WholePolishLevel;
+  title: string;
+  summary: string;
+  accent: string;
+  recommended?: boolean;
+}> = [
   { level: 'basic', title: '基础校准', summary: '空白、重复标点与连续重复词校准', accent: 'text-blue-600' },
-  { level: 'standard', title: '标准优化', summary: '叠加管理员维护的短语替换映射', accent: 'text-orange-600', recommended: true },
+  {
+    level: 'standard',
+    title: '标准优化',
+    summary: '叠加管理员维护的短语替换映射',
+    accent: 'text-orange-600',
+    recommended: true,
+  },
   { level: 'enhanced', title: '增强优化', summary: '进一步拆分过长且含合法分隔符的句子', accent: 'text-red-500' },
 ];
 
@@ -138,7 +150,9 @@ function WholePolishPage() {
       <div className="mx-auto max-w-4xl">
         <Card>
           <h1 className="text-2xl font-black text-slate-900">全文规则润色</h1>
-          <p className="mt-3 text-sm leading-6 text-slate-600">请先登录后粘贴文本或上传文档，系统会保存可追溯润色结果。</p>
+          <p className="mt-3 text-sm leading-6 text-slate-600">
+            请先登录后粘贴文本或上传文档，系统会保存可追溯润色结果。
+          </p>
           <LinkButton className="mt-5" to="/auth">
             前往登录
           </LinkButton>
@@ -153,10 +167,20 @@ function WholePolishPage() {
 
       <form className="mx-auto mt-6 max-w-6xl" onSubmit={handleSubmit}>
         <label className="flex min-h-[320px] cursor-pointer flex-col items-center justify-center rounded-[40px] border-2 border-dashed border-[#AFC2DD] bg-white px-6 text-center transition hover:border-blue-500 hover:bg-blue-50/40">
-          <span className="flex h-20 w-20 items-center justify-center rounded-full bg-blue-100 text-2xl text-blue-600" aria-hidden="true">📄</span>
+          <span
+            className="flex h-20 w-20 items-center justify-center rounded-full bg-blue-100 text-2xl text-blue-600"
+            aria-hidden="true"
+          >
+            📄
+          </span>
           <span className="mt-5 text-2xl font-black">拖拽或点击上传文档</span>
           <span className="mt-3 text-lg text-slate-500">支持 .txt / .md，也可以在下方直接粘贴文本</span>
-          <input className="sr-only" type="file" accept=".txt,.md,text/plain,text/markdown" onChange={handleFileChange} />
+          <input
+            className="sr-only"
+            type="file"
+            accept=".txt,.md,text/plain,text/markdown"
+            onChange={handleFileChange}
+          />
         </label>
 
         <label className="mt-6 block text-sm font-bold text-slate-700" htmlFor="whole-polish-textarea">
@@ -182,9 +206,13 @@ function WholePolishPage() {
                 onClick={() => setLevel(option.level)}
               >
                 <span className="flex items-center gap-3">
-                  <span className={`h-5 w-5 rounded-full border ${selected ? 'border-orange-500 bg-orange-500' : 'border-slate-300'}`} />
+                  <span
+                    className={`h-5 w-5 rounded-full border ${selected ? 'border-orange-500 bg-orange-500' : 'border-slate-300'}`}
+                  />
                   <span className={`text-2xl font-black ${option.accent}`}>{option.title}</span>
-                  {option.recommended ? <span className="rounded-full bg-orange-500 px-3 py-1 text-xs font-bold text-white">推荐</span> : null}
+                  {option.recommended ? (
+                    <span className="rounded-full bg-orange-500 px-3 py-1 text-xs font-bold text-white">推荐</span>
+                  ) : null}
                 </span>
                 <span className="mt-4 block text-base leading-7 text-slate-600">{option.summary}</span>
               </button>
@@ -192,7 +220,9 @@ function WholePolishPage() {
           })}
         </div>
 
-        {errorMessage ? <p className="mt-5 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">{errorMessage}</p> : null}
+        {errorMessage ? (
+          <p className="mt-5 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">{errorMessage}</p>
+        ) : null}
 
         <Button
           className="mx-auto mt-10 flex h-20 w-full max-w-md text-2xl"
@@ -215,34 +245,79 @@ function WholePolishPage() {
                 <span className="mt-2 font-black">润色完成</span>
               </div>
               <div className="space-y-3 text-sm">
-                <p><span className="text-slate-500">结果编号：</span><strong data-testid="whole-polish-result-id">{result.id}</strong></p>
-                <p><span className="text-slate-500">文档名称：</span><strong>{result.source_filename || '粘贴文本'}</strong></p>
-                <p><span className="text-slate-500">润色档位：</span><strong className="text-orange-600">{result.level === 'standard' ? '标准优化' : result.level === 'enhanced' ? '增强优化' : '基础校准'}</strong></p>
-                <p><span className="text-slate-500">变更数量：</span><strong>{result.changes.length}</strong></p>
-                <p><span className="text-slate-500">完成时间：</span><strong>{result.created_at}</strong></p>
+                <p>
+                  <span className="text-slate-500">结果编号：</span>
+                  <strong data-testid="whole-polish-result-id">{result.id}</strong>
+                </p>
+                <p>
+                  <span className="text-slate-500">文档名称：</span>
+                  <strong>{result.source_filename || '粘贴文本'}</strong>
+                </p>
+                <p>
+                  <span className="text-slate-500">润色档位：</span>
+                  <strong className="text-orange-600">
+                    {result.level === 'standard' ? '标准优化' : result.level === 'enhanced' ? '增强优化' : '基础校准'}
+                  </strong>
+                </p>
+                <p>
+                  <span className="text-slate-500">变更数量：</span>
+                  <strong>{result.changes.length}</strong>
+                </p>
+                <p>
+                  <span className="text-slate-500">完成时间：</span>
+                  <strong>{result.created_at}</strong>
+                </p>
               </div>
             </div>
             <div className="mt-6 rounded-2xl bg-white p-5">
               <h2 className="text-xl font-black text-slate-900">润色结果</h2>
-              <p className="mt-3 whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-sm leading-7 text-slate-800">{result.polished_text}</p>
+              <p className="mt-3 whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-sm leading-7 text-slate-800">
+                {result.polished_text}
+              </p>
             </div>
             <div className="mt-6 rounded-2xl bg-white p-5">
               <h2 className="text-xl font-black text-slate-900">变更明细</h2>
               <ul className="mt-3 space-y-3" aria-label="变更列表">
                 {result.changes.map((change, index) => (
-                  <li key={`${change.position}-${index}`} className="rounded-xl border border-slate-200 p-4 text-sm leading-6">
-                    <p><span className="font-bold text-slate-500">原文：</span>{change.original_text}</p>
-                    <p><span className="font-bold text-slate-500">新文：</span>{change.new_text}</p>
-                    <p><span className="font-bold text-slate-500">位置：</span>{change.position}</p>
-                    <p><span className="font-bold text-slate-500">规则：</span>{change.rule}</p>
-                    {change.reason ? <p><span className="font-bold text-slate-500">原因：</span>{change.reason}</p> : null}
+                  <li
+                    key={`${change.position}-${index}`}
+                    className="rounded-xl border border-slate-200 p-4 text-sm leading-6"
+                  >
+                    <p>
+                      <span className="font-bold text-slate-500">原文：</span>
+                      {change.original_text}
+                    </p>
+                    <p>
+                      <span className="font-bold text-slate-500">新文：</span>
+                      {change.new_text}
+                    </p>
+                    <p>
+                      <span className="font-bold text-slate-500">位置：</span>
+                      {change.position}
+                    </p>
+                    <p>
+                      <span className="font-bold text-slate-500">规则：</span>
+                      {change.rule}
+                    </p>
+                    {change.reason ? (
+                      <p>
+                        <span className="font-bold text-slate-500">原因：</span>
+                        {change.reason}
+                      </p>
+                    ) : null}
                   </li>
                 ))}
               </ul>
             </div>
             <div className="mt-6 flex flex-wrap justify-center gap-4">
               <LinkButton to={`/whole-polish/${result.id}`}>查看结果</LinkButton>
-              <button className="rounded-lg bg-green-500 px-8 py-3 font-bold text-white" type="button" onClick={handleDownload}>下载 UTF-8 TXT</button>
+              <button
+                className="rounded-lg bg-green-500 px-8 py-3 font-bold text-white"
+                type="button"
+                onClick={handleDownload}
+              >
+                下载 UTF-8 TXT
+              </button>
             </div>
           </div>
         </section>

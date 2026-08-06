@@ -2,7 +2,8 @@ import apiClient from './index';
 import type { ReportSubmissionSourceType } from './reportSubmissions';
 import type { SupervisorReviewAnnotation, SupervisorReviewFinding } from './reportSupervisorReview';
 
-export type StudentReportResultStatus = 'submitted_pending_review' | 'review_completed_feedback' | 'student_viewed_feedback';
+export type StudentReportResultStatus =
+  'submitted_pending_review' | 'review_completed_feedback' | 'student_viewed_feedback';
 
 export type StudentReportResultListFilters = {
   from?: string;

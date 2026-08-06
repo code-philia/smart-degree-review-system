@@ -121,9 +121,18 @@ describe('FEAT-NORMATIVE-REPORT frontend route, page, and client contract', () =
     vi.mocked(fetchCurrentSession).mockResolvedValue({ user: studentUser });
     vi.mocked(fetchNormativeDetectionHistory).mockResolvedValue([
       reportRecord,
-      { ...reportRecord, id: 'report-ui-000', source_filename: null, issues: [], severity_counts: { high: 0, medium: 0, low: 0 }, created_at: '2026-08-03T10:00:00.000Z' },
+      {
+        ...reportRecord,
+        id: 'report-ui-000',
+        source_filename: null,
+        issues: [],
+        severity_counts: { high: 0, medium: 0, low: 0 },
+        created_at: '2026-08-03T10:00:00.000Z',
+      },
     ]);
-    vi.mocked(downloadNormativeReportJson).mockResolvedValue(new Blob(['{}'], { type: 'application/json;charset=utf-8' }));
+    vi.mocked(downloadNormativeReportJson).mockResolvedValue(
+      new Blob(['{}'], { type: 'application/json;charset=utf-8' }),
+    );
     const user = userEvent.setup();
 
     renderRoute('/normative-reports');
@@ -140,13 +149,20 @@ describe('FEAT-NORMATIVE-REPORT frontend route, page, and client contract', () =
 
     await user.click(within(rows[1]).getByRole('button', { name: '报告下载' }));
     expect(downloadNormativeReportJson).toHaveBeenCalledWith('report-ui-001');
-    expect(within(rows[1]).getByRole('link', { name: '报告预览' })).toHaveAttribute('href', '/normative-reports/report-ui-001');
+    expect(within(rows[1]).getByRole('link', { name: '报告预览' })).toHaveAttribute(
+      'href',
+      '/normative-reports/report-ui-001',
+    );
   });
 
   it('FEAT-NORMATIVE-REPORT:UI:003 clicks an issue to scroll and highlight its line, then downloads JSON and prints', async () => {
     vi.mocked(fetchCurrentSession).mockResolvedValue({ user: studentUser });
     vi.mocked(fetchNormativeDetectionReport).mockResolvedValue(reportRecord);
-    vi.mocked(downloadNormativeReportJson).mockResolvedValue(new Blob([JSON.stringify({ rule_snapshot: reportRecord.rule_snapshot, issues: reportRecord.issues })], { type: 'application/json;charset=utf-8' }));
+    vi.mocked(downloadNormativeReportJson).mockResolvedValue(
+      new Blob([JSON.stringify({ rule_snapshot: reportRecord.rule_snapshot, issues: reportRecord.issues })], {
+        type: 'application/json;charset=utf-8',
+      }),
+    );
     const user = userEvent.setup();
 
     renderRoute('/normative-reports/report-ui-001');

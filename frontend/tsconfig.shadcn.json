@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "src/vite-env.d.ts",
+    "src/lib/**/*.ts",
+    "src/hooks/**/*.ts",
+    "src/components/shadcn/**/*.tsx",
+    "src/components/ui/Breadcrumb.tsx",
+    "src/components/ui/PageHeader.tsx",
+    "src/layout/AppShell.tsx",
+    "src/auth/AuthSessionProvider.tsx",
+    "src/api/authSession.ts",
+    "src/api/index.ts",
+    "src/nav/navigationConfig.ts"
+  ]
+}

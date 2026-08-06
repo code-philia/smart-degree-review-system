@@ -39,29 +39,44 @@ function formatDateTime(value: string) {
   return date.toLocaleString('zh-CN', { hour12: false });
 }
 
-function makeRow(sourceType: ReportSubmissionSourceType, report: {
-  id: string;
-  created_at: string;
-  source_filename?: string | null;
-  thesis_title?: string;
-  status?: string;
-  severity_counts?: Record<string, number>;
-  total_similarity_rate?: number;
-  total_score?: number;
-  grade_label?: string;
-  result_label?: string;
-}): RuntimeReportRow | null {
+function makeRow(
+  sourceType: ReportSubmissionSourceType,
+  report: {
+    id: string;
+    created_at: string;
+    source_filename?: string | null;
+    thesis_title?: string;
+    status?: string;
+    severity_counts?: Record<string, number>;
+    total_similarity_rate?: number;
+    total_score?: number;
+    grade_label?: string;
+    result_label?: string;
+  },
+): RuntimeReportRow | null {
   if (sourceType === 'normative' && report.status !== 'completed') {
     return null;
   }
 
   const typeLabel = sourceLabels[sourceType];
-  const issueCount = Object.values(report.severity_counts || {}).reduce((total, count) => total + Number(count || 0), 0);
+  const issueCount = Object.values(report.severity_counts || {}).reduce(
+    (total, count) => total + Number(count || 0),
+    0,
+  );
   const summaries: Record<ReportSubmissionSourceType, string> = {
     normative: `规范问题 ${issueCount} 项`,
-    duplication: typeof report.total_similarity_rate === 'number' ? `相似度 ${(report.total_similarity_rate * 100).toFixed(1)}%` : '相似度报告已完成',
-    innovation: typeof report.total_score === 'number' ? `创新评分 ${report.total_score}${report.grade_label ? ` · ${report.grade_label}` : ''}` : '创新性报告已完成',
-    ai_review: typeof report.total_score === 'number' ? `AI 评分 ${report.total_score}${report.result_label ? ` · ${report.result_label}` : ''}` : 'AI 评阅报告已完成',
+    duplication:
+      typeof report.total_similarity_rate === 'number'
+        ? `相似度 ${(report.total_similarity_rate * 100).toFixed(1)}%`
+        : '相似度报告已完成',
+    innovation:
+      typeof report.total_score === 'number'
+        ? `创新评分 ${report.total_score}${report.grade_label ? ` · ${report.grade_label}` : ''}`
+        : '创新性报告已完成',
+    ai_review:
+      typeof report.total_score === 'number'
+        ? `AI 评分 ${report.total_score}${report.result_label ? ` · ${report.result_label}` : ''}`
+        : 'AI 评阅报告已完成',
   };
 
   return {
@@ -126,9 +141,13 @@ export default function StudentReportSubmissionPage() {
     };
   }, []);
 
-  const selectedReports = useMemo<ReportSubmissionRequestItem[]>(() => reports
-    .filter((report) => selectedKeys.includes(report.key))
-    .map(({ source_type, report_id }) => ({ source_type, report_id })), [reports, selectedKeys]);
+  const selectedReports = useMemo<ReportSubmissionRequestItem[]>(
+    () =>
+      reports
+        .filter((report) => selectedKeys.includes(report.key))
+        .map(({ source_type, report_id }) => ({ source_type, report_id })),
+    [reports, selectedKeys],
+  );
 
   function toggleReport(row: RuntimeReportRow) {
     setResult(null);
@@ -201,7 +220,10 @@ export default function StudentReportSubmissionPage() {
           {loading ? (
             <LoadingState label="正在加载可提交报告…" />
           ) : reports.length === 0 ? (
-            <EmptyState title="暂无已加载的可提交报告" description="完成规范检测、查重、创新性评价或 AI 评阅后，报告会出现在这里。" />
+            <EmptyState
+              title="暂无已加载的可提交报告"
+              description="完成规范检测、查重、创新性评价或 AI 评阅后，报告会出现在这里。"
+            />
           ) : (
             <table className="w-full border-collapse overflow-hidden rounded-lg text-sm">
               <thead className="bg-[#1f3f67] text-white">

@@ -142,7 +142,9 @@ describe('FEAT-DUPLICATION-DETECT frontend page route and API client contract', 
 
   it('FEAT-DUPLICATION-DETECT:UI:FILE:001 reads accepted UTF-8 files, rejects unsupported files, and submits file metadata through the API', async () => {
     vi.mocked(fetchCurrentSession).mockResolvedValue({ user: student });
-    vi.mocked(createDuplicationDetection).mockResolvedValue(report({ source_type: 'file', source_filename: 'paper.md' }));
+    vi.mocked(createDuplicationDetection).mockResolvedValue(
+      report({ source_type: 'file', source_filename: 'paper.md' }),
+    );
     const user = userEvent.setup();
     const { container } = renderDetectRoute();
 
@@ -153,15 +155,20 @@ describe('FEAT-DUPLICATION-DETECT frontend page route and API client contract', 
     expect(screen.getByText('仅支持上传 .txt 或 .md 文件')).toBeInTheDocument();
     expect(createDuplicationDetection).not.toHaveBeenCalled();
 
-    await user.upload(fileInput(container), new File(['高校数字治理平台的建设效果进行分析'], 'paper.md', { type: 'text/markdown' }));
+    await user.upload(
+      fileInput(container),
+      new File(['高校数字治理平台的建设效果进行分析'], 'paper.md', { type: 'text/markdown' }),
+    );
     await waitFor(() => expect(screen.getByDisplayValue('高校数字治理平台的建设效果进行分析')).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: '检测' }));
 
-    await waitFor(() => expect(createDuplicationDetection).toHaveBeenCalledWith({
-      text: '高校数字治理平台的建设效果进行分析',
-      source_type: 'file',
-      source_filename: 'paper.md',
-    }));
+    await waitFor(() =>
+      expect(createDuplicationDetection).toHaveBeenCalledWith({
+        text: '高校数字治理平台的建设效果进行分析',
+        source_type: 'file',
+        source_filename: 'paper.md',
+      }),
+    );
   });
 
   it('FEAT-DUPLICATION-DETECT:SCENARIO:001 submits pasted text and displays sample hit, Jaccard score, total similarity rate, and heuristic-risk disclaimer', async () => {
@@ -174,11 +181,13 @@ describe('FEAT-DUPLICATION-DETECT frontend page route and API client contract', 
     await user.type(await screen.findByPlaceholderText(/粘贴待检测论文文本/), '高校数字治理平台的建设效果进行分析');
     await user.click(screen.getByRole('button', { name: '检测' }));
 
-    await waitFor(() => expect(createDuplicationDetection).toHaveBeenCalledWith({
-      text: '高校数字治理平台的建设效果进行分析',
-      source_type: 'paste',
-      source_filename: null,
-    }));
+    await waitFor(() =>
+      expect(createDuplicationDetection).toHaveBeenCalledWith({
+        text: '高校数字治理平台的建设效果进行分析',
+        source_type: 'paste',
+        source_filename: null,
+      }),
+    );
     expect(await screen.findByText(/写作风险分为启发式风险提示，并非 AI 真伪结论/)).toBeInTheDocument();
     expect(screen.getByText('比对样本数：1')).toBeInTheDocument();
     expect(screen.getByText('总相似率：42%')).toBeInTheDocument();
@@ -189,13 +198,15 @@ describe('FEAT-DUPLICATION-DETECT frontend page route and API client contract', 
 
   it('FEAT-DUPLICATION-DETECT:SCENARIO:002 renders no_samples explicitly without fabricated match rows while still showing writing risk', async () => {
     vi.mocked(fetchCurrentSession).mockResolvedValue({ user: student });
-    vi.mocked(createDuplicationDetection).mockResolvedValue(report({
-      status: 'no_samples',
-      sample_count: 0,
-      total_similarity_rate: 0,
-      top_matches: [],
-      risk: { ...report().risk, score: 28 },
-    }));
+    vi.mocked(createDuplicationDetection).mockResolvedValue(
+      report({
+        status: 'no_samples',
+        sample_count: 0,
+        total_similarity_rate: 0,
+        top_matches: [],
+        risk: { ...report().risk, score: 28 },
+      }),
+    );
     const user = userEvent.setup();
 
     renderDetectRoute();
@@ -211,7 +222,9 @@ describe('FEAT-DUPLICATION-DETECT frontend page route and API client contract', 
   });
 
   it('FEAT-DUPLICATION-DETECT:API-CLIENT:001 posts through the shared same-origin Axios client to the duplication detection endpoint', async () => {
-    const postSpy = vi.spyOn(apiClient, 'post').mockResolvedValueOnce({ data: report({ status: 'no_samples', sample_count: 0, top_matches: [] }) });
+    const postSpy = vi
+      .spyOn(apiClient, 'post')
+      .mockResolvedValueOnce({ data: report({ status: 'no_samples', sample_count: 0, top_matches: [] }) });
     const realApi = await vi.importActual<typeof import('../src/api/normativeRules')>('../src/api/normativeRules');
     const payload = {
       text: '客户端提交待检文本',

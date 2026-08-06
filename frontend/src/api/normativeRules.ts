@@ -1,12 +1,6 @@
 import apiClient from './index';
 
-export type NormativeRuleCategory =
-  | '章节顺序'
-  | '标点配对'
-  | '重复标点'
-  | '日期格式'
-  | '参考文献'
-  | '文本质量';
+export type NormativeRuleCategory = '章节顺序' | '标点配对' | '重复标点' | '日期格式' | '参考文献' | '文本质量';
 
 export type NormativeSeverity = 'low' | 'medium' | 'high';
 
@@ -374,11 +368,7 @@ export type LocalPolishResult = {
 export type InnovationDegreeType = 'doctoral' | 'master';
 
 export type InnovationScoreDimensionKey =
-  | 'research_topic'
-  | 'research_method'
-  | 'research_content'
-  | 'research_conclusion'
-  | 'application_value';
+  'research_topic' | 'research_method' | 'research_content' | 'research_conclusion' | 'application_value';
 
 export type InnovationScoreRequest = {
   degree_type: InnovationDegreeType;
@@ -486,12 +476,16 @@ export async function createDuplicationDetection(
 }
 
 export async function fetchDuplicationDetectionHistory(): Promise<DuplicationHistoryRecord[]> {
-  const response = await apiClient.get<{ records: DuplicationHistoryRecord[] }>('/normative/duplication-detection-reports');
+  const response = await apiClient.get<{ records: DuplicationHistoryRecord[] }>(
+    '/normative/duplication-detection-reports',
+  );
   return response.data.records;
 }
 
 export async function fetchDuplicationDetectionReport(reportId: string): Promise<DuplicationHistoryRecord> {
-  const response = await apiClient.get<DuplicationHistoryRecord>(`/normative/duplication-detection-reports/${reportId}`);
+  const response = await apiClient.get<DuplicationHistoryRecord>(
+    `/normative/duplication-detection-reports/${reportId}`,
+  );
   return response.data;
 }
 
@@ -589,12 +583,18 @@ export async function fetchPolishHistory(): Promise<PolishHistoryRecord[]> {
   return response.data.records;
 }
 
-export async function fetchPolishHistoryRecord(polishType: PolishHistoryRecord['polish_type'], resultId: string): Promise<PolishHistoryRecord> {
+export async function fetchPolishHistoryRecord(
+  polishType: PolishHistoryRecord['polish_type'],
+  resultId: string,
+): Promise<PolishHistoryRecord> {
   const response = await apiClient.get<PolishHistoryRecord>(`/normative/polish-history/${polishType}/${resultId}`);
   return response.data;
 }
 
-export async function downloadPolishResultText(polishType: PolishHistoryRecord['polish_type'], resultId: string): Promise<Blob> {
+export async function downloadPolishResultText(
+  polishType: PolishHistoryRecord['polish_type'],
+  resultId: string,
+): Promise<Blob> {
   const response = await apiClient.get(`/normative/polish-history/${polishType}/${resultId}/download`, {
     responseType: 'blob',
     headers: { Accept: 'text/plain' },

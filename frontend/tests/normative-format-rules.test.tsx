@@ -89,7 +89,15 @@ describe('FEAT-NORMATIVE-FORMAT-RULES frontend route and page contract', () => {
     vi.mocked(fetchCurrentSession).mockResolvedValue({ user: studentUser });
     vi.mocked(analyzeDefaultNormativeText).mockResolvedValue({ issues: scenarioIssues });
     const user = userEvent.setup();
-    const scenarioText = ['摘要', '关键词', '引言', `学生文本包含未配对（括号。。${'问题'.repeat(70)}。`, '结论', '参考文献', '[1] 示例文献'].join('\n');
+    const scenarioText = [
+      '摘要',
+      '关键词',
+      '引言',
+      `学生文本包含未配对（括号。。${'问题'.repeat(70)}。`,
+      '结论',
+      '参考文献',
+      '[1] 示例文献',
+    ].join('\n');
 
     renderRoute();
 
@@ -136,7 +144,10 @@ describe('FEAT-NORMATIVE-FORMAT-RULES frontend route and page contract', () => {
 
     renderRoute();
 
-    await user.type(await screen.findByLabelText('待检测文本'), '摘要\n关键词\n引言\n问题。。\n结论\n参考文献\n[1] 示例文献');
+    await user.type(
+      await screen.findByLabelText('待检测文本'),
+      '摘要\n关键词\n引言\n问题。。\n结论\n参考文献\n[1] 示例文献',
+    );
     await user.click(screen.getByRole('button', { name: '运行默认规则' }));
     expect(await screen.findByText('已返回 3 条问题。')).toBeInTheDocument();
 
