@@ -1,7 +1,7 @@
 import { ChangeEvent, FormEvent, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import ReviewRubricSelector from '../components/ReviewRubricSelector';
 import { useAuthSession } from '../auth/AuthSessionProvider';
+import { Card, LinkButton, LoadingState } from '../components/ui';
 import {
   createNormativeDetectionTask,
   type DetectionTaskResponse,
@@ -118,26 +118,24 @@ function NormativeCheckPage() {
   }
 
   if (status === 'loading') {
-    return <main className="px-6 py-12 text-sm font-semibold text-slate-500">正在加载登录状态…</main>;
+    return <LoadingState label="正在加载登录状态…" />;
   }
 
   if (!user) {
     return (
-      <main className="mx-auto max-w-4xl px-6 py-12">
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mx-auto max-w-4xl">
+        <Card>
           <h1 className="text-2xl font-black text-slate-900">发起规范检测</h1>
           <p className="mt-3 text-sm leading-6 text-slate-600">请先登录后选择当前生效规则并创建规范检测任务。</p>
-          <Link className="mt-5 inline-flex h-11 items-center rounded bg-blue-600 px-4 font-semibold text-white" to="/auth">
-            前往登录
-          </Link>
-        </section>
-      </main>
+          <LinkButton className="mt-5" to="/auth">前往登录</LinkButton>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#F5FAFF] px-6 py-10">
-      <section className="mx-auto max-w-6xl">
+    <div>
+      <section>
         <h1 className="text-3xl font-black text-slate-950">文档上传</h1>
 
         <form className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm" onSubmit={handleSubmit}>
@@ -170,7 +168,7 @@ function NormativeCheckPage() {
               </div>
             ) : (
               <p className="mt-6 rounded-2xl border border-dashed border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-                发起检测后将从后端返回当次规则快照；页面不展示硬编码规范检测规则。
+                发起检测后将展示本次实际生效的规则清单。
               </p>
             )}
           </div>
@@ -188,7 +186,7 @@ function NormativeCheckPage() {
 
             <aside className="space-y-4">
               <label className="flex min-h-[220px] cursor-pointer flex-col items-center justify-center rounded-3xl border border-dashed border-blue-200 bg-blue-50/60 px-5 text-center transition hover:border-blue-500 hover:bg-blue-50">
-                <span className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 text-sm font-black text-blue-600">UPLOAD</span>
+                <span className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 text-2xl text-blue-600" aria-hidden="true">📄</span>
                 <span className="mt-4 text-sm font-bold text-slate-900">拖拽或点击上传论文文件</span>
                 <span className="mt-2 text-xs leading-5 text-slate-500">支持 .txt / .md，UTF-8 编码，最大 5 MB</span>
                 <input className="sr-only" type="file" accept=".txt,.md,text/plain,text/markdown" onChange={handleFileChange} />
@@ -282,7 +280,7 @@ function NormativeCheckPage() {
           )}
         </section>
       </section>
-    </main>
+    </div>
   );
 }
 

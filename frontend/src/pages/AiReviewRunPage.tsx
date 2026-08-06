@@ -8,6 +8,7 @@ import {
   type ReviewRubricTemplate,
   type ReviewRubricsResponse,
 } from '../api/normativeRules';
+import { Card, ErrorState, LinkButton, LoadingState, PageHeader } from '../components/ui';
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_FILE_EXTENSIONS = ['.txt', '.md'];
@@ -135,24 +136,24 @@ function AiReviewRunPage() {
   }
 
   if (status === 'loading') {
-    return <main className="min-h-screen bg-white p-8 text-slate-700">正在加载登录状态…</main>;
+    return <LoadingState label="正在加载登录状态…" />;
   }
 
   if (!user) {
     return (
-      <main className="min-h-screen bg-white p-8">
-        <h1 className="text-3xl font-black text-[#1f3f63]">AI 智能评阅</h1>
-        <p className="mt-4 text-slate-600">请先登录后选择模板并发起辅助评阅，后台会在生成结果前执行角色授权。</p>
-        <Link className="mt-6 inline-flex rounded bg-[#3b86f6] px-5 py-3 font-bold text-white" to="/auth">前往登录</Link>
-      </main>
+      <div className="mx-auto max-w-4xl">
+        <Card>
+          <h1 className="text-3xl font-black text-[#1f3f63]">AI 智能评阅</h1>
+          <p className="mt-4 text-slate-600">请先登录后选择模板并发起辅助评阅，后台会在生成结果前执行角色授权。</p>
+          <LinkButton className="mt-6" to="/auth">前往登录</LinkButton>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#f5f6f8] font-sans text-slate-900">
-      <header className="flex h-24 items-center bg-[#1f3f63] px-7">
-        <h1 className="text-4xl font-black text-white">AI 智能评阅</h1>
-      </header>
+    <div className="font-sans text-slate-900">
+      <PageHeader title="AI 智能评阅" />
 
       <nav className="grid h-20 grid-cols-2 text-3xl font-black" aria-label="AI 智能评阅导航">
         <button className={activeTab === 'upload' ? 'bg-[#3b86f6] text-white' : 'bg-[#f2f3f5] text-slate-600'} type="button">论文上传</button>
@@ -210,8 +211,8 @@ function AiReviewRunPage() {
 
           <section className="mt-10" aria-labelledby="review-template-heading">
             <h2 id="review-template-heading" className="text-2xl font-black text-[#1f3f63]">选择评阅模板</h2>
-            {loadingRubrics ? <p className="mt-4 rounded-lg bg-blue-50 p-4 font-bold text-blue-700">正在加载评阅模板…</p> : null}
-            {rubricError ? <p className="mt-4 rounded-lg bg-red-50 p-4 font-bold text-red-700">{rubricError}</p> : null}
+            {loadingRubrics ? <LoadingState label="正在加载评阅模板…" compact /> : null}
+            {rubricError ? <ErrorState message={rubricError} /> : null}
             {rubrics ? (
               <div className="mt-5 grid gap-5 lg:grid-cols-5">
                 {rubrics.templates.map((template, index) => {
@@ -231,7 +232,7 @@ function AiReviewRunPage() {
           </section>
 
           {rubrics ? <button className="mx-auto mt-12 flex h-20 w-full max-w-2xl items-center justify-center rounded-md bg-[#28ae6f] text-3xl font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300" type="submit" disabled={!canSubmit}>{submitting ? '智能评阅中…' : '智能评阅'}</button> : null}
-          {errorMessage ? <p className="mt-4 text-center text-sm font-bold text-red-600" role="alert">{errorMessage}</p> : null}
+          {errorMessage ? <ErrorState title="提交失败" message={errorMessage} /> : null}
         </form>
       )}
 
@@ -249,7 +250,7 @@ function AiReviewRunPage() {
           </div>
         </section>
       ) : null}
-    </main>
+    </div>
   );
 }
 

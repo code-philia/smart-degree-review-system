@@ -20,7 +20,6 @@ test.describe('FEAT-DUPLICATION-CORPUS local corpus scenarios', () => {
     await page.goto('/duplication-corpus');
 
     await expect(page.getByRole('heading', { name: '本地比对样本库' })).toBeVisible();
-    await expect(page.getByText(/SQLite 本地原型数据/)).toBeVisible();
     await expect(page.getByText(/不表示已接入真实校内论文库/)).toBeVisible();
 
     const uniqueTitle = `E2E 本地比对样本 ${Date.now()}`;

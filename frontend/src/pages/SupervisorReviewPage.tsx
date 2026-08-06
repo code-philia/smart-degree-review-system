@@ -6,6 +6,7 @@ import {
   type SupervisorReviewAnnotation,
   type SupervisorReviewDetailResponse,
 } from '../api/reportSupervisorReview';
+import { EmptyState, ErrorState, LoadingState } from '../components/ui';
 
 const severityLabels: Record<string, string> = {
   high: '高风险',
@@ -95,20 +96,20 @@ export default function SupervisorReviewPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f5f7fa] p-6 text-slate-900">
-      <header className="mb-4 flex items-center justify-between bg-[#173a5e] px-5 py-4 text-white shadow-sm">
+    <div className="text-slate-900">
+      <div className="mb-4 flex items-center justify-between">
         <div>
-          <p className="text-xs font-semibold text-blue-100">导师在线批阅</p>
-          <h1 className="text-lg font-bold">原报告批注与整体反馈</h1>
+          <Link className="text-xs font-semibold text-brand-600 hover:underline" to="/supervisor-review-queue">待批阅任务</Link>
+          <h1 className="mt-1 text-lg font-bold text-[#173a5e]">原报告批注与整体反馈</h1>
         </div>
-        <Link className="rounded bg-white/10 px-3 py-2 text-sm font-semibold hover:bg-white/20" to="/supervisor-review-queue">
+        <Link className="rounded border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100" to="/supervisor-review-queue">
           返回待办中心
         </Link>
-      </header>
+      </div>
 
-      {error ? <div className="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+      {error ? <ErrorState message={error} /> : null}
       {loading ? (
-        <div className="rounded border border-dashed border-slate-300 bg-white px-4 py-12 text-center text-slate-500">正在加载原报告...</div>
+        <LoadingState label="正在加载原报告…" />
       ) : detail ? (
         <section className="grid gap-4 lg:grid-cols-[3fr_2fr]">
           <article className="overflow-hidden rounded border border-slate-200 bg-white">
@@ -117,7 +118,7 @@ export default function SupervisorReviewPage() {
             </div>
             <div className="max-h-[70vh] overflow-auto p-4 text-sm">
               {groupedFindings.length === 0 ? (
-                <div className="rounded border border-dashed border-slate-300 px-4 py-10 text-center text-slate-500">暂无可批注问题项。</div>
+                <EmptyState title="暂无可批注问题项" />
               ) : groupedFindings.map(([category, findings]) => (
                 <div key={category} className="mb-4 overflow-hidden rounded border border-slate-200">
                   <div className="bg-[#e9f7ff] px-3 py-2 font-bold text-[#1f436a]">{category}（{findings.length}）</div>
@@ -180,6 +181,6 @@ export default function SupervisorReviewPage() {
           </aside>
         </section>
       ) : null}
-    </main>
+    </div>
   );
 }

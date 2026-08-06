@@ -6,6 +6,7 @@ import {
   type InnovationHistoryRecord,
 } from '../api/normativeRules';
 import { useAuthSession } from '../auth/AuthSessionProvider';
+import { Card, EmptyState, ErrorState, LinkButton, LoadingState, PageHeader } from '../components/ui';
 
 const PAGE_SIZE = 8;
 
@@ -88,30 +89,28 @@ function InnovationHistoryPage() {
   }
 
   if (status === 'loading') {
-    return <main className="min-h-screen bg-[#F5F7FA] px-7 py-12 text-sm font-semibold text-slate-500">正在加载登录状态…</main>;
+    return <LoadingState label="正在加载登录状态…" />;
   }
 
   if (!user) {
     return (
-      <main className="min-h-screen bg-[#F5F7FA] px-7 py-12 font-['Microsoft_YaHei','PingFang_SC','Noto_Sans_SC',Arial,sans-serif]">
-        <section className="mx-auto max-w-4xl rounded-xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
+      <div className="mx-auto max-w-4xl font-['Microsoft_YaHei','PingFang_SC','Noto_Sans_SC',Arial,sans-serif]">
+        <Card>
           <h1 className="text-2xl font-black text-[#1F3F63]">创新性分析历史记录</h1>
           <p className="mt-3 text-sm leading-6 text-slate-600">请先登录后查看本人创新性评估历史。</p>
-          <Link className="mt-5 inline-flex h-11 items-center rounded bg-[#2F80ED] px-4 font-semibold text-white" to="/auth">
+          <LinkButton className="mt-5" to="/auth">
             前往登录
-          </Link>
-        </section>
-      </main>
+          </LinkButton>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#F5F7FA] font-['Microsoft_YaHei','PingFang_SC','Noto_Sans_SC',Arial,sans-serif] text-[#1F2D3D]">
-      <header className="flex h-11 items-center bg-[#1F3F63] px-3">
-        <h1 className="text-[23px] font-black tracking-wide text-white">创新性分析历史记录</h1>
-      </header>
+    <div className="font-['Microsoft_YaHei','PingFang_SC','Noto_Sans_SC',Arial,sans-serif] text-[#1F2D3D]">
+      <PageHeader title="创新性分析历史记录" />
 
-      <section className="bg-white px-7 py-5">
+      <section className="rounded-xl border border-[#E5E7EB] bg-white px-7 py-5">
         <div className="flex min-h-12 flex-wrap items-center justify-between gap-4">
           <p className="text-[16px] font-semibold text-slate-700">共 {filteredRecords.length} 条记录</p>
           <div className="flex items-center gap-2">
@@ -133,14 +132,14 @@ function InnovationHistoryPage() {
         </div>
       </section>
 
-      {loading ? <p className="px-7 py-6 text-sm font-semibold text-slate-500">正在加载历史记录…</p> : null}
-      {errorMessage ? <p className="px-7 py-6 text-sm font-semibold text-red-600">{errorMessage}</p> : null}
+      {loading ? <LoadingState label="正在加载历史记录…" /> : null}
+      {errorMessage ? <ErrorState message={errorMessage} /> : null}
       {!loading && !errorMessage && filteredRecords.length === 0 ? (
-        <p className="mx-7 mt-6 rounded-xl border border-dashed border-[#E5E7EB] bg-white p-6 text-sm text-slate-600">暂无创新性评估历史记录。</p>
+        <EmptyState title="暂无创新性评估历史记录。" />
       ) : null}
 
       {filteredRecords.length > 0 ? (
-        <section className="overflow-x-auto bg-white">
+        <section className="mt-6 overflow-x-auto rounded-xl border border-[#E5E7EB] bg-white">
           <table className="min-w-full table-fixed text-center text-[15px]">
             <thead className="bg-[#1F3F63] text-[16px] font-bold text-white">
               <tr>
@@ -191,7 +190,7 @@ function InnovationHistoryPage() {
           </div>
         </section>
       ) : null}
-    </main>
+    </div>
   );
 }
 

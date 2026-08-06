@@ -124,7 +124,7 @@ describe('FEAT-DUPLICATION-DETECT frontend page route and API client contract', 
 
     renderDetectRoute();
 
-    expect(await screen.findByText(/请先登录后发起本地样本库相似度与写作风险检测/)).toBeInTheDocument();
+    expect(await screen.findByText(/请先登录后发起相似度与写作风险检测/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '前往登录' })).toHaveAttribute('href', '/auth');
     expect(screen.queryByRole('button', { name: '检测' })).not.toBeInTheDocument();
   });

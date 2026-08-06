@@ -7,6 +7,7 @@ import {
   type PolishHistoryRecord,
 } from '../api/normativeRules';
 import { useAuthSession } from '../auth/AuthSessionProvider';
+import { Card, EmptyState, ErrorState, LinkButton, LoadingState, PageHeader } from '../components/ui';
 
 const LEVEL_LABELS: Record<PolishHistoryRecord['level'], string> = {
   basic: 'AI 校准',
@@ -96,37 +97,35 @@ function PolishHistoryPage() {
   }
 
   if (status === 'loading') {
-    return <main className="px-8 py-12 text-sm font-semibold text-slate-500">正在加载登录状态…</main>;
+    return <LoadingState label="正在加载登录状态…" />;
   }
 
   if (!user) {
     return (
-      <main className="mx-auto max-w-4xl px-6 py-12">
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mx-auto max-w-4xl">
+        <Card>
           <h1 className="text-2xl font-black text-[#1F3D62]">润色记录</h1>
           <p className="mt-3 text-sm leading-6 text-slate-600">请先登录后查看本人全文与局部润色记录。</p>
-          <Link className="mt-5 inline-flex h-11 items-center rounded bg-[#2F7BFF] px-4 font-semibold text-white" to="/auth">
-            前往登录
-          </Link>
-        </section>
-      </main>
+          <LinkButton className="mt-5" to="/auth">前往登录</LinkButton>
+        </Card>
+      </div>
     );
   }
 
   if (isDetail) {
     return (
-      <main className="min-h-screen bg-[#F6F7F9] text-slate-900">
-        <header className="flex min-h-[90px] items-center justify-between bg-[#1F3D62] px-8 text-white">
+      <div className="text-slate-900">
+        <div className="mb-4 flex items-center justify-between">
           <div>
-            <Link className="text-base font-semibold text-blue-100 hover:underline" to="/polish-history">返回润色记录</Link>
-            <h1 className="mt-2 text-[32px] font-black">差异查看</h1>
+            <Link className="text-base font-semibold text-brand-600 hover:underline" to="/polish-history">返回润色记录</Link>
+            <h1 className="mt-2 text-[28px] font-black text-[#1F3D62]">差异查看</h1>
           </div>
-          {record ? <span className="text-lg font-semibold text-blue-100">{getModeLabel(record)}</span> : null}
-        </header>
+          {record ? <span className="text-lg font-semibold text-slate-500">{getModeLabel(record)}</span> : null}
+        </div>
 
-        <section className="px-8 py-8">
-          {loading ? <p className="font-semibold text-slate-500">正在加载润色差异…</p> : null}
-          {errorMessage ? <p className="font-semibold text-red-600">{errorMessage}</p> : null}
+        <section>
+          {loading ? <LoadingState label="正在加载润色差异…" /> : null}
+          {errorMessage ? <ErrorState message={errorMessage} /> : null}
           {record ? (
             <article className="grid gap-5 lg:grid-cols-2">
               <div className="border border-[#DADDE1] bg-white">
@@ -145,16 +144,13 @@ function PolishHistoryPage() {
             </article>
           ) : null}
         </section>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-white text-slate-900">
-      <header className="flex min-h-[90px] items-center justify-between bg-[#1F3D62] px-8 text-white">
-        <h1 className="text-[32px] font-black">润色记录</h1>
-        <span className="text-xl font-semibold text-blue-100">共 {totalCount} 条记录</span>
-      </header>
+    <div className="text-slate-900">
+      <PageHeader title="润色记录" description={`共 ${totalCount} 条记录`} />
 
       <section className="overflow-x-auto">
         <table className="min-w-[1120px] w-full border-collapse text-center text-[20px]">
@@ -188,10 +184,12 @@ function PolishHistoryPage() {
         </table>
       </section>
 
-      {loading ? <p className="px-8 py-6 text-sm font-semibold text-slate-500">正在加载润色记录…</p> : null}
-      {errorMessage ? <p className="px-8 py-6 text-sm font-semibold text-red-600">{errorMessage}</p> : null}
-      {!loading && !errorMessage && records.length === 0 ? <p className="mx-8 mt-6 border border-dashed border-[#DADDE1] bg-[#F6F7F9] p-6 text-base text-slate-600">暂无润色记录。</p> : null}
-    </main>
+      {loading ? <LoadingState label="正在加载润色记录…" /> : null}
+      {errorMessage ? <ErrorState message={errorMessage} /> : null}
+      {!loading && !errorMessage && records.length === 0 ? (
+        <EmptyState title="暂无润色记录" description="完成一次全文或局部润色后，记录会展示在这里。" />
+      ) : null}
+    </div>
   );
 }
 

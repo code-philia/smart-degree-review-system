@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import {
   downloadInnovationReportJson,
   fetchInnovationReport,
@@ -7,6 +7,7 @@ import {
   type InnovationScoreDimensionReport,
 } from '../api/normativeRules';
 import { useAuthSession } from '../auth/AuthSessionProvider';
+import { Card, EmptyState, ErrorState, LinkButton, LoadingState } from '../components/ui';
 
 type InnovationReportSection = 'basic' | 'radar' | 'heatmap' | 'dimensions' | 'summary';
 
@@ -138,34 +139,30 @@ function InnovationReportPage() {
   }
 
   if (status === 'loading') {
-    return (
-      <main className="min-h-screen bg-[#F7F9FB] p-8 text-slate-700">
-        <div className="mx-auto max-w-6xl rounded-xl border border-[#E5E8EC] bg-white p-6">正在加载登录状态…</div>
-      </main>
-    );
+    return <LoadingState label="正在加载登录状态…" />;
   }
 
   if (!user) {
     return (
-      <main className="min-h-screen bg-[#F7F9FB] p-8 font-['Microsoft_YaHei','PingFang_SC','Noto_Sans_SC',Arial,sans-serif] text-[#1F2D3D]">
-        <h1 className="text-center text-[30px] font-black text-[#1F3F63]">学位论文创新性分析报告</h1>
-        <p className="mt-4 text-center text-[15px] text-slate-600">请先登录后查看已完成的创新性量表报告。</p>
-        <div className="mt-6 flex justify-center">
-          <Link className="inline-flex rounded bg-[#2F86F6] px-5 py-3 font-bold text-white" to="/auth">
-            前往登录
-          </Link>
-        </div>
-      </main>
+      <div className="mx-auto max-w-4xl font-['Microsoft_YaHei','PingFang_SC','Noto_Sans_SC',Arial,sans-serif] text-[#1F2D3D]">
+        <Card>
+          <h1 className="text-center text-[26px] font-black text-[#1F3F63]">学位论文创新性分析报告</h1>
+          <p className="mt-4 text-center text-[15px] text-slate-600">请先登录后查看已完成的创新性量表报告。</p>
+          <div className="mt-6 flex justify-center">
+            <LinkButton to="/auth">
+              前往登录
+            </LinkButton>
+          </div>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#F7F9FB] font-['Microsoft_YaHei','PingFang_SC','Noto_Sans_SC',Arial,sans-serif] text-[#1F2D3D]">
-      <header className="flex h-16 items-center justify-center bg-[#1F3F63] px-6">
-        <h1 className="text-center text-[30px] font-black tracking-wide text-white">学位论文创新性分析报告</h1>
-      </header>
+    <div className="font-['Microsoft_YaHei','PingFang_SC','Noto_Sans_SC',Arial,sans-serif] text-[#1F2D3D]">
+      <h1 className="text-center text-[28px] font-black tracking-wide text-[#1F3F63]">学位论文创新性分析报告</h1>
 
-      <nav className="grid h-10 grid-cols-5 divide-x divide-white" aria-label="创新性报告章节">
+      <nav className="mt-6 grid h-10 grid-cols-5 divide-x divide-white overflow-hidden rounded-lg" aria-label="创新性报告章节">
         {REPORT_TABS.map((tab) => (
           <button
             key={tab.key}
@@ -178,7 +175,7 @@ function InnovationReportPage() {
         ))}
       </nav>
 
-      <section className="flex min-h-[52px] items-center justify-between bg-[#EEF3F8] px-5">
+      <section className="mt-3 flex min-h-[52px] items-center justify-between rounded-lg bg-[#EEF3F8] px-5">
         <h2 className="text-lg font-black text-[#1F3F63]">{activeTab.heading}</h2>
         <div className="flex gap-3 print:hidden">
           <button
@@ -199,22 +196,13 @@ function InnovationReportPage() {
         </div>
       </section>
 
-      <section className="px-6 py-5">
-        {loading ? (
-          <div className="space-y-4">
-            <div className="h-48 animate-pulse rounded-xl border border-[#E5E8EC] bg-white" />
-            <div className="h-24 animate-pulse rounded-xl border border-[#E5E8EC] bg-white" />
-          </div>
-        ) : null}
+      <section className="py-5">
+        {loading ? <LoadingState label="正在加载创新性量表报告…" /> : null}
 
-        {errorMessage ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-6 font-bold text-red-700" role="alert">
-            {errorMessage}
-          </div>
-        ) : null}
+        {errorMessage ? <ErrorState message={errorMessage} /> : null}
 
         {!loading && !errorMessage && !report ? (
-          <div className="rounded-xl border border-[#E5E8EC] bg-white p-6 text-slate-500">暂无可展示的创新性量表报告。</div>
+          <EmptyState title="暂无可展示的创新性量表报告。" />
         ) : null}
 
         {report ? (
@@ -459,7 +447,7 @@ function InnovationReportPage() {
           </div>
         ) : null}
       </section>
-    </main>
+    </div>
   );
 }
 

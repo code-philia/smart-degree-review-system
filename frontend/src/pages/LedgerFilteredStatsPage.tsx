@@ -5,6 +5,7 @@ import {
   LedgerRecordFilters,
   fetchDetectionLedgerFilteredStats,
 } from '../api/normativeRules';
+import { EmptyState, ErrorState, LoadingState, PageHeader } from '../components/ui';
 
 const detectionTypeTabs: Array<{ value: DetectionLedgerType | ''; label: string }> = [
   { value: 'normative', label: '规范性检测' },
@@ -45,17 +46,15 @@ function LedgerFilteredStatsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#eef3f8] text-[#1f2d3d]">
-      <header className="flex h-[72px] items-center justify-center bg-[#1f3f63] text-[28px] font-bold text-white">
-        学位论文检测台账管理
-      </header>
+    <div>
+      <PageHeader title="筛选统计与本地图表" description="按检测类型、时间范围等条件筛选台账记录，并生成统计图表。" />
 
-      <section className="flex gap-3 px-7 py-3">
+      <section className="flex gap-3 py-3">
         <a className="h-12 rounded-[5px] border border-[#d6d6d6] bg-white px-10 py-2.5 text-[22px] font-bold text-[#7c8792]" href="/ledger-records">检测记录台账</a>
         <button className="h-12 rounded-[5px] bg-[#1f3f63] px-10 text-[22px] font-bold text-white">检测数据统计</button>
       </section>
 
-      <section className="flex flex-wrap items-center justify-between gap-3 px-7 pb-3">
+      <section className="flex flex-wrap items-center justify-between gap-3 pb-3">
         <div className="flex flex-wrap gap-3">
           <button className="h-11 rounded-sm border border-[#3b86ee] bg-[#3b86ee] px-8 text-[17px] font-semibold text-white">筛选统计</button>
           <button className="h-11 rounded-sm border border-[#d6d6d6] bg-white px-8 text-[17px] font-semibold text-[#303b45]">每日趋势</button>
@@ -64,7 +63,7 @@ function LedgerFilteredStatsPage() {
         <button className="h-11 bg-[#46c33f] px-10 font-bold text-white" type="button">导出报表</button>
       </section>
 
-      <section className="mx-7 overflow-hidden rounded-sm border border-[#d6d6d6] bg-white">
+      <section className="overflow-hidden rounded-sm border border-[#d6d6d6] bg-white">
         <h2 className="bg-[#1f3f63] px-5 py-3 text-[18px] font-bold text-white">筛选条件配置</h2>
         <div className="grid gap-4 bg-[#f8fafc] p-5 md:grid-cols-4">
           <label className="grid gap-2 text-[15px] font-semibold text-[#1f3f63]">
@@ -93,28 +92,28 @@ function LedgerFilteredStatsPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 px-7 py-5 md:grid-cols-4">
+      <section className="grid gap-4 py-5 md:grid-cols-4">
         <article className="rounded-sm border border-[#d6d6d6] bg-white p-5"><p className="text-[#536476]">记录数</p><strong className="text-[30px] text-[#1f3f63]">{stats?.total_records ?? 0}</strong></article>
         <article className="rounded-sm border border-[#d6d6d6] bg-white p-5"><p className="text-[#536476]">参与学生数</p><strong className="text-[30px] text-[#1f3f63]">{stats?.total_students ?? 0}</strong></article>
         <article className="rounded-sm border border-[#d6d6d6] bg-white p-5"><p className="text-[#536476]">今日数量</p><strong className="text-[30px] text-[#1f3f63]">{stats?.today_count ?? 0}</strong></article>
         <article className="rounded-sm border border-[#d6d6d6] bg-white p-5"><p className="text-[#536476]">当前类型</p><strong className="text-[22px] text-[#1f3f63]">{activeTypeLabel}</strong></article>
       </section>
 
-      <section className="grid gap-5 px-7 pb-8 lg:grid-cols-2">
+      <section className="grid gap-5 pb-8 lg:grid-cols-2">
         <article className="min-h-[280px] rounded-sm border border-[#d6d6d6] bg-white p-5">
           <h3 className="mb-4 text-[18px] font-bold text-[#1f3f63]">任务类型柱状图</h3>
-          {status === 'loading' && <p className="py-16 text-center text-[#536476]">统计加载中...</p>}
-          {status === 'error' && <p className="py-16 text-center text-red-600">{errorMessage}</p>}
-          {status === 'idle' && !stats && <p className="py-16 text-center text-[#536476]">请选择筛选条件后手动刷新生成图表</p>}
-          {stats && stats.by_type.length === 0 && <p className="py-16 text-center text-[#536476]">当前筛选条件下暂无统计数据</p>}
+          {status === 'loading' && <LoadingState compact label="统计加载中..." />}
+          {status === 'error' && <ErrorState message={errorMessage} onRetry={() => void refreshStats()} />}
+          {status === 'idle' && !stats && <EmptyState title="请选择筛选条件后手动刷新生成图表" />}
+          {stats && stats.by_type.length === 0 && <EmptyState title="当前筛选条件下暂无统计数据" />}
           {stats && stats.by_type.length > 0 && <div className="flex h-44 items-end gap-4 border-l border-b border-[#d6d6d6] px-4">{stats.by_type.map((item) => <div key={item.detection_type} className="flex flex-1 flex-col items-center gap-2"><div className="w-full bg-[#3b86ee]" style={{ height: `${Math.max(item.record_count || item.total_records || 0, 1) * 8}px` }} /><span className="text-xs text-[#536476]">{item.detection_type_label}</span></div>)}</div>}
         </article>
         <article className="min-h-[280px] rounded-sm border border-[#d6d6d6] bg-white p-5">
           <h3 className="mb-4 text-[18px] font-bold text-[#1f3f63]">每日趋势折线图</h3>
-          {stats && stats.daily_trend.length > 0 ? <svg className="h-44 w-full border-l border-b border-[#d6d6d6]" role="img" aria-label="每日趋势折线图"><polyline fill="none" stroke="#3b86ee" strokeWidth="3" points={stats.daily_trend.map((point, index) => `${20 + index * 60},${150 - Math.min(point.count || point.record_count || point.total_records || 0, 10) * 12}`).join(' ')} /></svg> : <p className="py-16 text-center text-[#536476]">暂无趋势数据</p>}
+          {stats && stats.daily_trend.length > 0 ? <svg className="h-44 w-full border-l border-b border-[#d6d6d6]" role="img" aria-label="每日趋势折线图"><polyline fill="none" stroke="#3b86ee" strokeWidth="3" points={stats.daily_trend.map((point, index) => `${20 + index * 60},${150 - Math.min(point.count || point.record_count || point.total_records || 0, 10) * 12}`).join(' ')} /></svg> : <EmptyState title="暂无趋势数据" />}
         </article>
       </section>
-    </main>
+    </div>
   );
 }
 

@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import {
   downloadAiReviewResultJson,
   fetchAiReviewResult,
   type AiReviewResultResponse,
 } from '../api/normativeRules';
 import { useAuthSession } from '../auth/AuthSessionProvider';
+import { Card, EmptyState, ErrorState, LinkButton, LoadingState, PageHeader } from '../components/ui';
 
 function formatTimestamp(value: string) {
   return value ? value.replace('T', ' ').replace('Z', '') : '—';
@@ -75,28 +76,28 @@ function AiReviewResultPage() {
   }
 
   if (status === 'loading') {
-    return <main className="min-h-screen bg-[#F2F2F2] p-8 text-slate-700">正在加载登录状态…</main>;
+    return <LoadingState label="正在加载登录状态…" />;
   }
 
   if (!user) {
     return (
-      <main className="min-h-screen bg-[#F2F2F2] p-8 font-['Microsoft_YaHei','PingFang_SC','Noto_Sans_SC',Arial,sans-serif] text-[#1F2D3D]">
-        <h1 className="text-center text-[28px] font-black text-[#1F3D5F]">AI 智能评阅报告</h1>
-        <p className="mt-4 text-center text-slate-600">请先登录后查看已完成的辅助评阅结果。</p>
-        <div className="mt-6 flex justify-center">
-          <Link className="rounded bg-[#2F86F6] px-5 py-3 font-bold text-white" to="/auth">前往登录</Link>
-        </div>
-      </main>
+      <div className="mx-auto max-w-4xl">
+        <Card>
+          <h1 className="text-center text-[28px] font-black text-[#1F3D5F]">AI 智能评阅报告</h1>
+          <p className="mt-4 text-center text-slate-600">请先登录后查看已完成的辅助评阅结果。</p>
+          <div className="mt-6 flex justify-center">
+            <LinkButton to="/auth">前往登录</LinkButton>
+          </div>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#F2F2F2] font-['Microsoft_YaHei','PingFang_SC','Noto_Sans_SC',Arial,sans-serif] text-[#1F2D3D]">
-      <header className="flex h-[70px] items-center justify-center bg-[#203B5A] px-6">
-        <h1 className="text-[28px] font-black tracking-wide text-white">AI 智能评阅报告</h1>
-      </header>
+    <div className="font-['Microsoft_YaHei','PingFang_SC','Noto_Sans_SC',Arial,sans-serif] text-[#1F2D3D]">
+      <PageHeader title="AI 智能评阅报告" />
 
-      <section className="grid min-h-[calc(100vh-70px)] grid-cols-[40%_60%] border border-[#D8D8D8] shadow-sm">
+      <section className="grid min-h-[70vh] grid-cols-[40%_60%] border border-[#D8D8D8] shadow-sm">
         <aside className="flex min-h-0 flex-col border-r border-[#D8D8D8] bg-[#F2F2F2]">
           <h2 className="flex h-[45px] items-center justify-center bg-[#203B5A] text-[17px] font-black text-white">📄 论文预览</h2>
           <div className="flex h-11 items-center justify-center border-b border-[#D8D8D8] bg-white px-4 text-sm font-bold">
@@ -127,9 +128,9 @@ function AiReviewResultPage() {
             <button className="rounded border border-[#203B5A] px-5 py-3 text-sm font-black text-[#203B5A]" type="button" onClick={() => window.print()}>浏览器打印</button>
           </div>
 
-          {loading ? <div className="border border-[#D8D8D8] bg-white p-6 text-slate-600">正在加载辅助评阅结果…</div> : null}
-          {errorMessage ? <div className="border border-red-200 bg-red-50 p-6 font-bold text-red-700" role="alert">{errorMessage}</div> : null}
-          {!loading && !errorMessage && !result ? <div className="border border-[#D8D8D8] bg-white p-6 text-slate-500">暂无可展示的辅助评阅结果。</div> : null}
+          {loading ? <LoadingState label="正在加载辅助评阅结果…" /> : null}
+          {errorMessage ? <ErrorState message={errorMessage} /> : null}
+          {!loading && !errorMessage && !result ? <EmptyState title="暂无可展示的辅助评阅结果。" /> : null}
 
           {result ? (
             <div className="space-y-4 text-[13px]">
@@ -202,7 +203,7 @@ function AiReviewResultPage() {
           ) : null}
         </section>
       </section>
-    </main>
+    </div>
   );
 }
 

@@ -5,6 +5,8 @@ import {
   type StudentQualityPortraitMetric,
   type StudentQualityPortraitResponse,
 } from '../api/normativeRules';
+import QualityRadarChart from '../components/QualityRadarChart';
+import { EmptyState, ErrorState, LoadingState } from '../components/ui';
 
 function formatScore(score: number | null) {
   return score === null ? '缺失' : score.toFixed(1);
@@ -62,12 +64,8 @@ function StudentQualityPortraitPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f5f8fb] font-['Microsoft_YaHei','PingFang_SC','Noto_Sans_SC',Arial,sans-serif] text-[#1f2d3d]">
-      <header role="banner" className="flex h-[58px] items-center justify-center bg-[#1f3f63] px-6 text-[22px] font-bold text-white">
-        单学生本地质量画像
-      </header>
-
-      <section className="mx-7 mt-4 border border-[#d9e1ea] bg-[#eef5fb] px-4 py-3">
+    <div className="text-[#1f2d3d]">
+      <section className="mt-1 border border-[#d9e1ea] bg-[#eef5fb] px-4 py-3">
         <div className="flex flex-wrap items-end gap-3">
           <label className="grid gap-2 text-[14px] font-semibold text-[#1f3f63]">
             学生画像 ID
@@ -92,14 +90,14 @@ function StudentQualityPortraitPage() {
         </div>
       </section>
 
-      {loading ? <p className="py-14 text-center text-[#536476]">质量画像加载中...</p> : null}
-      {!loading && errorMessage ? <p className="py-14 text-center text-red-600">{errorMessage}</p> : null}
+      {loading ? <LoadingState label="质量画像加载中…" /> : null}
+      {!loading && errorMessage ? <ErrorState message={errorMessage} onRetry={() => void handleQuery()} /> : null}
       {!loading && !errorMessage && !portrait ? (
-        <p className="py-14 text-center text-[#536476]">请输入学生 ID 后查看该学生最新完成记录画像</p>
+        <EmptyState title="请输入学生 ID 后查询" description="查看该学生最新完成记录画像。" />
       ) : null}
 
       {portrait ? (
-        <section className="mx-7 my-5 overflow-hidden border border-[#d9e1ea] bg-white shadow-sm">
+        <section className="my-5 overflow-hidden border border-[#d9e1ea] bg-white shadow-sm">
           <h2 className="bg-[#1f3f63] px-5 py-3 text-[18px] font-bold text-white">单学生论文全景质量画像</h2>
           <div className="grid gap-5 p-5 xl:grid-cols-[1.1fr_0.9fr]">
             <div className="space-y-4">
@@ -147,11 +145,10 @@ function StudentQualityPortraitPage() {
             <div className="space-y-4">
               <article className="rounded border border-[#d9e1ea] bg-white p-5">
                 <h3 className="mb-4 text-[18px] font-bold text-[#1f3f63]">四指标雷达图</h3>
-                <div className="grid min-h-[260px] place-items-center rounded border border-dashed border-[#c8d3df] bg-[#f8fbff] px-4 text-center text-[#536476]">
-                  <div>
-                    <p className="font-semibold">雷达图占位区</p>
-                    <p className="mt-2 text-[13px]">运行时将根据四项指标数据绘制质量雷达图。</p>
-                  </div>
+                <div className="grid min-h-[260px] place-items-center rounded bg-[#f8fbff] px-4">
+                  <QualityRadarChart
+                    metrics={portrait.metrics.map((metric) => ({ label: metric.label, score: metric.score }))}
+                  />
                 </div>
               </article>
 
@@ -168,7 +165,7 @@ function StudentQualityPortraitPage() {
           </div>
         </section>
       ) : null}
-    </main>
+    </div>
   );
 }
 

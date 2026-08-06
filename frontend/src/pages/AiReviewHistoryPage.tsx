@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchAiReviewHistory, type AiReviewHistoryRecord } from '../api/normativeRules';
 import { useAuthSession } from '../auth/AuthSessionProvider';
+import { Card, EmptyState, ErrorState, LinkButton, LoadingState, PageHeader } from '../components/ui';
 
 function formatTimestamp(value: string) {
   return value ? value.replace('T', ' ').replace('Z', '') : '—';
@@ -45,24 +46,24 @@ function AiReviewHistoryPage() {
   }, [status, user]);
 
   if (status === 'loading') {
-    return <main className="min-h-screen bg-white p-8 text-slate-700">正在加载登录状态…</main>;
+    return <LoadingState label="正在加载登录状态…" />;
   }
 
   if (!user) {
     return (
-      <main className="min-h-screen bg-white p-8 font-['Microsoft_YaHei','PingFang_SC','Noto_Sans_SC',Arial,sans-serif]">
-        <h1 className="text-3xl font-black text-[#1F3F66]">AI 智能评阅</h1>
-        <p className="mt-4 text-slate-600">请先登录后查看本人辅助评阅历史记录。</p>
-        <Link className="mt-6 inline-flex bg-[#3A86F4] px-5 py-3 font-bold text-white" to="/auth">前往登录</Link>
-      </main>
+      <div className="mx-auto max-w-4xl">
+        <Card>
+          <h1 className="text-3xl font-black text-[#1F3F66]">AI 智能评阅</h1>
+          <p className="mt-4 text-slate-600">请先登录后查看本人辅助评阅历史记录。</p>
+          <LinkButton className="mt-6" to="/auth">前往登录</LinkButton>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-white font-['Microsoft_YaHei','PingFang_SC','Noto_Sans_SC',Arial,sans-serif] text-[#1F2D3D]">
-      <header className="flex h-20 items-center justify-center bg-[#1F3F66] px-8">
-        <h1 className="text-[34px] font-black text-white">AI 智能评阅</h1>
-      </header>
+    <div className="font-['Microsoft_YaHei','PingFang_SC','Noto_Sans_SC',Arial,sans-serif] text-[#1F2D3D]">
+      <PageHeader title="AI 智能评阅" />
       <nav className="grid h-20 grid-cols-2 text-2xl font-black" aria-label="AI 智能评阅导航">
         <Link className="flex items-center justify-center bg-[#F1F4F8] text-slate-700" to="/ai-review">论文上传</Link>
         <span className="flex items-center justify-center bg-[#3A86F4] text-white">评阅记录</span>
@@ -83,9 +84,11 @@ function AiReviewHistoryPage() {
           <button className="h-11 border border-[#D6DCE5] bg-white px-7 font-black text-slate-600" type="button" disabled>重置</button>
         </div>
 
-        {loading ? <p className="mt-6 border border-[#E0E0E0] p-6 text-slate-600">正在加载评阅记录…</p> : null}
-        {errorMessage ? <p className="mt-6 border border-red-200 bg-red-50 p-6 font-bold text-red-700" role="alert">{errorMessage}</p> : null}
-        {!loading && !errorMessage && records.length === 0 ? <p className="mt-6 border border-[#E0E0E0] p-6 text-slate-500">暂无辅助评阅历史记录。</p> : null}
+        {loading ? <LoadingState label="正在加载评阅记录…" /> : null}
+        {errorMessage ? <ErrorState message={errorMessage} /> : null}
+        {!loading && !errorMessage && records.length === 0 ? (
+          <EmptyState title="暂无辅助评阅历史记录。" description="完成一次 AI 智能评阅后，记录会展示在这里。" />
+        ) : null}
 
         {records.length > 0 ? (
           <table className="mt-6 w-full border-collapse border border-[#E0E0E0] text-center text-[15px]">
@@ -118,7 +121,7 @@ function AiReviewHistoryPage() {
           </table>
         ) : null}
       </section>
-    </main>
+    </div>
   );
 }
 

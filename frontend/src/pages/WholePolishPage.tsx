@@ -1,6 +1,7 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useAuthSession } from '../auth/AuthSessionProvider';
+import { Button, Card, LinkButton, LoadingState } from '../components/ui';
 import {
   createWholePolishResult,
   downloadWholePolishText,
@@ -129,33 +130,30 @@ function WholePolishPage() {
   }
 
   if (status === 'loading') {
-    return <main className="px-6 py-12 text-sm font-semibold text-slate-500">正在加载登录状态…</main>;
+    return <LoadingState label="正在加载登录状态…" />;
   }
 
   if (!user) {
     return (
-      <main className="mx-auto max-w-4xl px-6 py-12">
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mx-auto max-w-4xl">
+        <Card>
           <h1 className="text-2xl font-black text-slate-900">全文规则润色</h1>
           <p className="mt-3 text-sm leading-6 text-slate-600">请先登录后粘贴文本或上传文档，系统会保存可追溯润色结果。</p>
-          <Link className="mt-5 inline-flex h-11 items-center rounded bg-blue-600 px-4 font-semibold text-white" to="/auth">
+          <LinkButton className="mt-5" to="/auth">
             前往登录
-          </Link>
-        </section>
-      </main>
+          </LinkButton>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-white text-slate-900">
-      <header className="flex h-24 items-center justify-between bg-[#1F3D60] px-10 text-white">
-        <h1 className="text-3xl font-black">全文文润色</h1>
-        <span className="text-lg font-semibold text-blue-100">文档上传</span>
-      </header>
+    <div className="text-slate-900">
+      <h1 className="text-3xl font-black text-[#1F3D60]">全文润色</h1>
 
-      <form className="mx-auto max-w-6xl px-6 py-10" onSubmit={handleSubmit}>
+      <form className="mx-auto mt-6 max-w-6xl" onSubmit={handleSubmit}>
         <label className="flex min-h-[320px] cursor-pointer flex-col items-center justify-center rounded-[40px] border-2 border-dashed border-[#AFC2DD] bg-white px-6 text-center transition hover:border-blue-500 hover:bg-blue-50/40">
-          <span className="flex h-20 w-20 items-center justify-center rounded-full bg-blue-100 text-sm font-black text-blue-600">UPLOAD</span>
+          <span className="flex h-20 w-20 items-center justify-center rounded-full bg-blue-100 text-2xl text-blue-600" aria-hidden="true">📄</span>
           <span className="mt-5 text-2xl font-black">拖拽或点击上传文档</span>
           <span className="mt-3 text-lg text-slate-500">支持 .txt / .md，也可以在下方直接粘贴文本</span>
           <input className="sr-only" type="file" accept=".txt,.md,text/plain,text/markdown" onChange={handleFileChange} />
@@ -196,16 +194,17 @@ function WholePolishPage() {
 
         {errorMessage ? <p className="mt-5 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">{errorMessage}</p> : null}
 
-        <button
-          className="mx-auto mt-10 flex h-20 w-full max-w-md items-center justify-center rounded-2xl bg-blue-500 text-2xl font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
+        <Button
+          className="mx-auto mt-10 flex h-20 w-full max-w-md text-2xl"
+          size="lg"
           type="submit"
           disabled={!canSubmit}
         >
           {submitting ? '润色中…' : '智能润色'}
-        </button>
+        </Button>
       </form>
 
-      {loadingResult ? <p className="mx-auto max-w-6xl px-6 pb-6 text-sm font-semibold text-slate-500">正在加载润色结果…</p> : null}
+      {loadingResult ? <LoadingState label="正在加载润色结果…" /> : null}
 
       {result ? (
         <section className="mx-auto max-w-6xl px-6 pb-12">
@@ -242,13 +241,13 @@ function WholePolishPage() {
               </ul>
             </div>
             <div className="mt-6 flex flex-wrap justify-center gap-4">
-              <Link className="rounded-lg bg-blue-500 px-8 py-3 font-bold text-white" to={`/whole-polish/${result.id}`}>查看结果</Link>
+              <LinkButton to={`/whole-polish/${result.id}`}>查看结果</LinkButton>
               <button className="rounded-lg bg-green-500 px-8 py-3 font-bold text-white" type="button" onClick={handleDownload}>下载 UTF-8 TXT</button>
             </div>
           </div>
         </section>
       ) : null}
-    </main>
+    </div>
   );
 }
 

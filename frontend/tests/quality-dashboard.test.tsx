@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../src/App';
+import { AuthSessionProvider } from '../src/auth/AuthSessionProvider';
 import QualityDashboardPage from '../src/pages/QualityDashboardPage';
 import {
   fetchQualityDashboard,
@@ -56,7 +57,9 @@ describe('FEAT-QUALITY-DASHBOARD quality dashboard UI contract', () => {
   it('FEAT-QUALITY-DASHBOARD:UI:ROUTE:001 mounts /quality-dashboard through the existing App route tree', () => {
     render(
       <MemoryRouter initialEntries={['/quality-dashboard']}>
-        <App />
+        <AuthSessionProvider>
+          <App />
+        </AuthSessionProvider>
       </MemoryRouter>,
     );
 

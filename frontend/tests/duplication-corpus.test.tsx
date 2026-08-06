@@ -105,7 +105,7 @@ describe('FEAT-DUPLICATION-CORPUS frontend corpus page and API client contract',
   it('FEAT-DUPLICATION-CORPUS:UI:AUTHZ:001 renders shared-session anonymous and denied-role states without corpus controls', async () => {
     vi.mocked(fetchCurrentSession).mockRejectedValueOnce({ response: { status: 401 } });
     const anonymousRender = renderCorpusRoute();
-    expect(await screen.findByText(/请先登录学校管理人员账号后管理本地原型比对样本/)).toBeInTheDocument();
+    expect(await screen.findByText(/请先登录学校管理人员账号后管理比对样本/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '前往登录' })).toHaveAttribute('href', '/auth');
     expect(screen.queryByRole('button', { name: '保存样本' })).not.toBeInTheDocument();
     anonymousRender.unmount();
@@ -121,7 +121,8 @@ describe('FEAT-DUPLICATION-CORPUS frontend corpus page and API client contract',
     vi.mocked(fetchDuplicationCorpusSamples).mockResolvedValueOnce([]);
     const emptyRender = renderCorpusRoute();
 
-    expect(await screen.findByText(/暂无样本。新增后将从后端 SQLite 读取展示/)).toBeInTheDocument();
+    expect(await screen.findByText('暂无样本')).toBeInTheDocument();
+    expect(screen.getByText(/新增样本后将出现在这里/)).toBeInTheDocument();
     expect(screen.queryByText('硬编码样本')).not.toBeInTheDocument();
     expect(fetchDuplicationCorpusSamples).toHaveBeenCalledTimes(1);
     emptyRender.unmount();
@@ -189,7 +190,7 @@ describe('FEAT-DUPLICATION-CORPUS frontend corpus page and API client contract',
       source_filename: null,
     }));
     expect(await screen.findByRole('heading', { name: '人工智能课程论文样本' })).toBeInTheDocument();
-    expect(screen.getByText(/样本仅用于本地原型相似度检测，不表示已接入真实校内论文库/)).toBeInTheDocument();
+    expect(screen.getByText(/不表示已接入真实校内论文库/)).toBeInTheDocument();
   });
 
   it('FEAT-DUPLICATION-CORPUS:UI:DELETE:001 removes a sample from the list only after delete API success', async () => {

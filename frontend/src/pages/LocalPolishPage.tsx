@@ -1,6 +1,6 @@
 import { FormEvent, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useAuthSession } from '../auth/AuthSessionProvider';
+import { Button, Card, LinkButton, LoadingState } from '../components/ui';
 import {
   createLocalPolishResult,
   type LocalPolishLevel,
@@ -102,30 +102,28 @@ function LocalPolishPage() {
   }
 
   if (status === 'loading') {
-    return <main className="px-6 py-12 text-sm font-semibold text-slate-500">正在加载登录状态…</main>;
+    return <LoadingState label="正在加载登录状态…" />;
   }
 
   if (!user) {
     return (
-      <main className="mx-auto max-w-4xl px-6 py-12">
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mx-auto max-w-4xl">
+        <Card>
           <h1 className="text-2xl font-black text-slate-900">局部文本润色</h1>
           <p className="mt-3 text-sm leading-6 text-slate-600">请先登录后使用局部文本润色与差异对比。</p>
-          <Link className="mt-5 inline-flex h-11 items-center rounded bg-blue-600 px-4 font-semibold text-white" to="/auth">
+          <LinkButton className="mt-5" to="/auth">
             前往登录
-          </Link>
-        </section>
-      </main>
+          </LinkButton>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#F5F6F8] text-slate-900">
-      <header className="flex h-[70px] items-center bg-[#213C5E] px-8 text-white">
-        <h1 className="text-3xl font-black">局部文本润色与差异对比</h1>
-      </header>
+    <div className="text-slate-900">
+      <h1 className="text-3xl font-black text-[#213C5E]">局部文本润色与差异对比</h1>
 
-      <form className="px-8 py-8" onSubmit={handleSubmit}>
+      <form className="mt-6" onSubmit={handleSubmit}>
         <section className="grid gap-5 lg:grid-cols-2">
           <article className="overflow-hidden border border-[#D9DDE3] bg-white">
             <div className="flex items-center justify-between bg-slate-100 px-6 py-4 text-xl font-black">
@@ -175,12 +173,12 @@ function LocalPolishPage() {
 
         <section className="mt-7 flex flex-wrap items-center justify-between gap-5">
           <div className="flex gap-4">
-            <button className="rounded-xl bg-[#3B82F6] px-8 py-4 text-2xl font-black text-white disabled:opacity-50" type="submit" disabled={!canSubmit}>
+            <Button className="px-8 py-4 text-2xl" size="lg" type="submit" disabled={!canSubmit}>
               {submitting ? '润色中…' : '智能润色'}
-            </button>
-            <button className="rounded-xl border border-slate-300 bg-white px-8 py-4 text-2xl font-black text-slate-600" type="button" onClick={handleReset}>
+            </Button>
+            <Button className="px-8 py-4 text-2xl" size="lg" variant="secondary" type="button" onClick={handleReset}>
               清除输入
-            </button>
+            </Button>
           </div>
           <div className="flex gap-4">
             <button className="rounded-xl bg-[#22B573] px-8 py-4 text-2xl font-black text-white disabled:opacity-50" type="button" disabled={!result} onClick={handleCopy}>
@@ -201,7 +199,7 @@ function LocalPolishPage() {
         {copyMessage ? <p className="mt-5 rounded-xl bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">{copyMessage}</p> : null}
       </form>
 
-      <footer className="border-t border-[#D9DDE3] bg-slate-100 px-8 py-5 text-sm font-semibold text-slate-600">
+      <footer className="mt-6 rounded-xl border border-[#D9DDE3] bg-slate-100 px-8 py-5 text-sm font-semibold text-slate-600">
         <div className="grid gap-3 lg:grid-cols-4">
           <span className="text-[#E74C3C]">删除内容</span>
           <span className="text-[#22B573]">新增内容</span>
@@ -209,7 +207,7 @@ function LocalPolishPage() {
           <span className="bg-slate-200 px-2 text-slate-700">浅灰底纹</span>
         </div>
       </footer>
-    </main>
+    </div>
   );
 }
 

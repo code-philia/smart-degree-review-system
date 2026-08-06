@@ -1,11 +1,11 @@
 import { ChangeEvent, FormEvent, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { createDuplicationDetection, type DuplicationDetectionResponse } from '../api/normativeRules';
 import { useAuthSession } from '../auth/AuthSessionProvider';
+import { Card, LinkButton, LoadingState } from '../components/ui';
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_FILE_EXTENSIONS = ['.txt', '.md'];
-const DETECTION_TYPES = [{ value: 'local-similarity', label: '本地相似度检测' }];
+const DETECTION_TYPES = [{ value: 'local-similarity', label: '论文相似度检测' }];
 
 function getFileExtension(fileName: string) {
   const dotIndex = fileName.lastIndexOf('.');
@@ -82,25 +82,23 @@ function DuplicationDetectPage() {
   }
 
   if (status === 'loading') {
-    return <main className="px-6 py-12 text-sm font-semibold text-slate-500">正在加载登录状态…</main>;
+    return <LoadingState label="正在加载登录状态…" />;
   }
 
   if (!user) {
     return (
-      <main className="mx-auto max-w-4xl px-6 py-12">
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h1 className="text-2xl font-black text-slate-900">发起本地相似度检测</h1>
-          <p className="mt-3 text-sm leading-6 text-slate-600">请先登录后发起本地样本库相似度与写作风险检测。</p>
-          <Link className="mt-5 inline-flex h-11 items-center rounded bg-blue-600 px-4 font-semibold text-white" to="/auth">
-            前往登录
-          </Link>
-        </section>
-      </main>
+      <div className="mx-auto max-w-4xl">
+        <Card>
+          <h1 className="text-2xl font-black text-slate-900">发起论文相似度检测</h1>
+          <p className="mt-3 text-sm leading-6 text-slate-600">请先登录后发起相似度与写作风险检测。</p>
+          <LinkButton className="mt-5" to="/auth">前往登录</LinkButton>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#FEFDFB] px-6 py-10">
+    <div>
       <section className="mx-auto max-w-5xl">
         <form className="rounded-[28px] border border-[#B8B8B8] bg-white p-8" onSubmit={handleSubmit}>
           <div className="flex items-center gap-3 text-3xl font-black text-[#111111]">
@@ -121,7 +119,7 @@ function DuplicationDetectPage() {
             className="mt-5 min-h-[160px] w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm leading-7 outline-none focus:border-blue-500"
             value={text}
             onChange={(event) => setText(event.target.value)}
-            placeholder="粘贴待检测论文文本。后端将使用本地样本库计算字符 5-gram Jaccard 相似度。"
+            placeholder="粘贴待检测论文文本，系统将与试点样本库比对相似片段。"
           />
 
           <div className="mt-6 flex flex-col items-center justify-center gap-5 sm:flex-row">
@@ -198,7 +196,7 @@ function DuplicationDetectPage() {
           </section>
         ) : null}
       </section>
-    </main>
+    </div>
   );
 }
 

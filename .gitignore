@@ -10,3 +10,5 @@ frontend/dist-ssr/
 !.arc/traceability/
 !.arc/traceability/**
 # <<< arcbench-agent-runtime <<<
+
+*.docx

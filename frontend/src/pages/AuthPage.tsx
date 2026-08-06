@@ -15,10 +15,11 @@ function HeroPanel() {
         <div className="absolute bottom-0 left-1/3 h-2/3 w-2/3 -rotate-6 border-t border-blue-100/40" />
       </div>
       <div className="relative z-10 flex w-full flex-col items-center justify-start text-center">
-        <p className="text-sm font-semibold tracking-[0.45em] text-cyan-100">LOCAL IDENTITY PORTAL</p>
-        <h1 className="mt-8 text-4xl font-black leading-tight tracking-wide md:text-5xl">统一身份认证</h1>
+        <img src="/brand-mark.jpg" alt="" className="h-16 w-16 rounded-full object-cover ring-4 ring-white/30" />
+        <p className="mt-6 text-sm font-semibold tracking-[0.3em] text-cyan-100">智慧学位 AI 评阅辅助系统 · 试点验证版 V0.9</p>
+        <h1 className="mt-4 text-4xl font-black leading-tight tracking-wide md:text-5xl">统一身份认证</h1>
         <p className="mt-5 max-w-md text-lg leading-8 text-blue-50">
-          面向学生、导师、学院管理人员和学校管理人员的本地账号登录入口。
+          面向学生、导师、学院管理人员和学校管理人员的账号登录入口。
         </p>
       </div>
     </section>
@@ -28,34 +29,27 @@ function HeroPanel() {
 function UnsupportedQrColumn() {
   return (
     <section className="flex w-56 flex-col items-center text-center" aria-label="扫码登录说明">
-      <h2 className="text-xl font-bold text-slate-800">
-        <span className="text-[#4F7FF0]">本地版</span> 登录说明
-      </h2>
+      <h2 className="text-xl font-bold text-slate-800">其他登录方式</h2>
       <div className="mt-6 flex h-44 w-44 items-center justify-center border border-dashed border-slate-300 bg-slate-50 text-sm font-semibold leading-6 text-slate-500">
-        微信扫码、交我办与短信验证码
+        微信扫码、交我办与短信验证码登录
         <br />
-        不在本版本范围
+        试点版本暂未开放
       </div>
-      <p className="mt-5 text-sm leading-6 text-slate-500">
-        请使用右侧由子功能提供的本地账号密码认证入口。
-      </p>
+      <p className="mt-5 text-sm leading-6 text-slate-500">请使用右侧账号密码方式登录。</p>
     </section>
   );
 }
 
 function DefaultAccountSlot() {
   return (
-    <div className="space-y-4" aria-label="本地账号登录挂载点">
+    <div className="space-y-4" aria-label="账号登录表单">
       <div className="flex h-14 items-center border border-[#D6D6D6] px-4 text-slate-400">
         <span className="mr-3 text-lg" aria-hidden="true">👤</span>
-        <span>账号输入由会话子功能接入</span>
+        <span>请输入账号</span>
       </div>
       <div className="flex h-14 items-center border border-[#D6D6D6] px-4 text-slate-400">
         <span className="mr-3 text-lg" aria-hidden="true">🔒</span>
-        <span>密码验证由密码子功能接入</span>
-      </div>
-      <div className="rounded border border-blue-100 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-700">
-        当前模块仅提供认证页面的视觉与组合边界；登录提交、会话加载和服务端授权由子功能实现。
+        <span>请输入密码</span>
       </div>
     </div>
   );
@@ -69,16 +63,19 @@ function AuthPage({ accountFormSlot, helpSlot }: AuthPageProps) {
           <HeroPanel />
         </div>
 
-        <section className="flex flex-1 flex-col gap-10 pt-2 lg:flex-row lg:items-start" aria-label="本地身份认证组合区">
+        <section className="flex flex-1 flex-col gap-10 pt-2 lg:flex-row lg:items-start" aria-label="身份认证区域">
           <UnsupportedQrColumn />
 
-          <section className="w-full max-w-[370px]" aria-label="本地账号密码登录区域">
+          <section className="w-full max-w-[370px]" aria-label="账号密码登录区域">
             <h2 className="text-2xl font-black text-slate-900">登录本地账号</h2>
             <div className="mt-6">{accountFormSlot ?? <DefaultAccountSlot />}</div>
             <div className="mt-5 flex justify-between text-base font-semibold text-[#4A75E8]">
-              <a className="hover:underline focus:underline" href="/auth/help#password">忘记密码/用户名</a>
-              <a className="hover:underline focus:underline" href="/auth/help#roles">测试账号说明</a>
+              <a className="hover:underline focus:underline" href="#password">忘记密码/用户名</a>
+              <a className="hover:underline focus:underline" href="#roles">试用账号说明</a>
             </div>
+            <p id="password" className="mt-4 rounded border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600">
+              如忘记账号或密码，请联系系统管理员重置。试点阶段可直接使用下方试用账号登录体验。
+            </p>
             <div className="mt-4 text-center text-sm text-slate-500 underline underline-offset-4">
               短信验证码登录不属于本版本实现范围
             </div>

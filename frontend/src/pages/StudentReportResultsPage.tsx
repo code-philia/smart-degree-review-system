@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuthSession } from '../auth/AuthSessionProvider';
+import { Card, EmptyState, ErrorState, LinkButton, LoadingState, PageHeader } from '../components/ui';
 import {
   downloadStudentReportResultJson,
   fetchStudentReportResultDetail,
@@ -104,30 +105,32 @@ export default function StudentReportResultsPage() {
   }
 
   if (sessionStatus === 'loading') {
-    return <main className="p-8 text-slate-600">正在加载登录状态...</main>;
+    return <LoadingState label="正在加载登录状态…" />;
   }
 
   if (!user) {
     return (
-      <main className="space-y-4 p-8">
-        <h1 className="text-2xl font-semibold text-slate-900">我的批阅结果</h1>
-        <p className="text-sm text-slate-500">请先登录学生账号后查看批阅结果。</p>
-        <Link className="text-blue-600" to="/auth">前往登录</Link>
-      </main>
+      <div className="mx-auto max-w-4xl">
+        <Card>
+          <h1 className="text-2xl font-semibold text-slate-900">我的批阅结果</h1>
+          <p className="mt-3 text-sm text-slate-500">请先登录学生账号后查看批阅结果。</p>
+          <LinkButton className="mt-5" to="/auth">前往登录</LinkButton>
+        </Card>
+      </div>
     );
   }
 
   if (loading) {
-    return <main className="p-8 text-slate-600">正在加载批阅结果...</main>;
+    return <LoadingState label="正在加载批阅结果…" />;
   }
 
   if (errorMessage) {
-    return <main className="p-8 text-red-600" role="alert">{errorMessage}</main>;
+    return <ErrorState message={errorMessage} />;
   }
 
   if (detail) {
     return (
-      <main className="space-y-6 p-8">
+      <div className="space-y-6">
         <Link className="text-sm text-blue-600" to="/student-report-results">返回结果列表</Link>
         <section className="rounded-2xl border bg-white p-6 shadow-sm">
           <div className="flex items-start justify-between gap-4">
@@ -177,16 +180,13 @@ export default function StudentReportResultsPage() {
             ))}
           </ul>
         </section>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="space-y-6 p-8">
-      <header>
-        <h1 className="text-2xl font-semibold text-slate-900">我的批阅结果</h1>
-        <p className="mt-2 text-sm text-slate-500">按时间、报告类型和状态筛选本人所有提交轮次。</p>
-      </header>
+    <div className="space-y-6">
+      <PageHeader title="我的批阅结果" description="按时间、报告类型和状态筛选本人所有提交轮次。" />
       <section className="grid gap-3 rounded-2xl border bg-white p-4 shadow-sm md:grid-cols-4">
         <label className="text-sm text-slate-700">
           <span className="mb-1 block font-medium">开始时间</span>
@@ -218,7 +218,9 @@ export default function StudentReportResultsPage() {
           <h2 className="text-lg font-semibold text-slate-900">批阅结果列表</h2>
           <p className="text-sm text-slate-500">共 {listCount} 条</p>
         </div>
-        {results.length === 0 ? <p className="mt-4 text-sm text-slate-500">暂无批阅结果。</p> : null}
+        {results.length === 0 ? (
+          <EmptyState title="暂无批阅结果" description="导师完成批阅并反馈后，结果会展示在这里。" />
+        ) : null}
         <ul className="mt-4 divide-y" aria-label="批阅结果列表">
           {results.map((item) => (
             <li className="flex items-center justify-between gap-4 py-4" key={item.submission_id}>
@@ -231,6 +233,6 @@ export default function StudentReportResultsPage() {
           ))}
         </ul>
       </section>
-    </main>
+    </div>
   );
 }

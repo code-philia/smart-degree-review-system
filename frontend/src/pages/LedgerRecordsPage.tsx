@@ -6,6 +6,7 @@ import {
   downloadDetectionLedgerCsv,
   fetchDetectionLedgerRecords,
 } from '../api/normativeRules';
+import { EmptyState, ErrorState, LoadingState } from '../components/ui';
 
 const detectionTypeTabs: Array<{ value: DetectionLedgerType | ''; label: string }> = [
   { value: 'normative', label: '规范性检测' },
@@ -57,17 +58,15 @@ function LedgerRecordsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#eef3f8] text-[#1f2d3d]">
-      <header className="flex h-[72px] items-center justify-center bg-[#1f3f63] text-[28px] font-bold text-white">
-        学位论文检测台账管理
-      </header>
+    <div>
+      <p className="mb-4 text-2xl font-black text-[#1f3f63]">学位论文检测台账管理</p>
 
-      <section className="flex gap-3 px-7 py-3">
+      <section className="flex gap-3 py-3">
         <button className="h-12 rounded-[5px] bg-[#1f3f63] px-10 text-[22px] font-bold text-white">检测记录台账</button>
         <a className="h-12 rounded-[5px] border border-[#d6d6d6] bg-white px-10 py-2.5 text-[22px] font-bold text-[#7c8792]" href="/ledger-stats">检测数据统计</a>
       </section>
 
-      <section className="grid grid-cols-2 gap-3 px-7 pb-3 md:grid-cols-6">
+      <section className="grid grid-cols-2 gap-3 pb-3 md:grid-cols-6">
         {detectionTypeTabs.map((tab) => (
           <button
             key={tab.label}
@@ -79,7 +78,7 @@ function LedgerRecordsPage() {
         ))}
       </section>
 
-      <section className="grid gap-4 px-7 py-4 md:grid-cols-4">
+      <section className="grid gap-4 py-4 md:grid-cols-4">
         <label className="grid gap-2 text-[16px] font-semibold text-[#1f3f63]">
           学生
           <input className="h-11 border border-[#d6d6d6] bg-white px-3 font-normal" value={filters.student || ''} onChange={(event) => setFilters((current) => ({ ...current, student: event.target.value }))} />
@@ -106,12 +105,12 @@ function LedgerRecordsPage() {
         </div>
       </section>
 
-      <section className="flex items-center justify-between border-y border-[#e5e5e5] bg-white px-7 py-3">
+      <section className="flex items-center justify-between border-y border-[#e5e5e5] bg-white py-3">
         <p className="text-[#536476]">共 {records.length} 条记录，已选择 {selectedIds.length} 条</p>
         <button className="h-12 bg-[#46c33f] px-12 font-bold text-white" onClick={() => void handleExport()}>导出</button>
       </section>
 
-      <section className="overflow-x-auto bg-white px-7 pb-8">
+      <section className="overflow-x-auto bg-white pb-8">
         <table className="min-w-[1180px] table-fixed border-collapse text-[15px]">
           <thead className="bg-[#1f3f63] text-white">
             <tr>
@@ -130,9 +129,9 @@ function LedgerRecordsPage() {
             </tr>
           </thead>
           <tbody>
-            {status === 'loading' && <tr><td className="border border-[#e5e5e5] py-8 text-center" colSpan={12}>加载中...</td></tr>}
-            {status === 'error' && <tr><td className="border border-[#e5e5e5] py-8 text-center text-red-600" colSpan={12}>{errorMessage}</td></tr>}
-            {status === 'idle' && records.length === 0 && <tr><td className="border border-[#e5e5e5] py-8 text-center" colSpan={12}>暂无符合条件的台账记录</td></tr>}
+            {status === 'loading' && <tr><td className="border border-[#e5e5e5] py-8" colSpan={12}><LoadingState compact label="加载中..." /></td></tr>}
+            {status === 'error' && <tr><td className="border border-[#e5e5e5] py-8" colSpan={12}><ErrorState message={errorMessage} onRetry={() => void loadRecords()} /></td></tr>}
+            {status === 'idle' && records.length === 0 && <tr><td className="border border-[#e5e5e5] py-8" colSpan={12}><EmptyState title="暂无符合条件的台账记录" /></td></tr>}
             {records.map((record) => (
               <tr key={record.id} className="h-[74px]">
                 <td className="border border-[#e5e5e5] text-center"><input type="checkbox" checked={selectedIds.includes(record.id)} onChange={(event) => setSelectedIds((current) => event.target.checked ? [...current, record.id] : current.filter((id) => id !== record.id))} /></td>
@@ -152,7 +151,7 @@ function LedgerRecordsPage() {
           </tbody>
         </table>
       </section>
-    </main>
+    </div>
   );
 }
 

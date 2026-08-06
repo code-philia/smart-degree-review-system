@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../src/App';
+import { AuthSessionProvider } from '../src/auth/AuthSessionProvider';
 import StudentQualityPortraitPage from '../src/pages/StudentQualityPortraitPage';
 import {
   fetchStudentQualityPortrait,
@@ -66,22 +67,26 @@ describe('FEAT-STUDENT-QUALITY-PORTRAIT UI portrait contract', () => {
   it('FEAT-STUDENT-QUALITY-PORTRAIT:UI:ROUTE:001 mounts both portrait routes through the existing App route tree without fetching fake records', () => {
     const { unmount } = render(
       <MemoryRouter initialEntries={['/student-quality-portrait']}>
-        <App />
+        <AuthSessionProvider>
+          <App />
+        </AuthSessionProvider>
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('banner')).toHaveTextContent('单学生本地质量画像');
-    expect(screen.getByText('请输入学生 ID 后查看该学生最新完成记录画像')).toBeInTheDocument();
+    expect(screen.getByRole('banner')).toHaveTextContent('单学生质量画像');
+    expect(screen.getByText('请输入学生 ID 后查询')).toBeInTheDocument();
     expect(fetchStudentQualityPortrait).not.toHaveBeenCalled();
     unmount();
 
     render(
       <MemoryRouter initialEntries={['/student-quality-portrait/student01']}>
-        <App />
+        <AuthSessionProvider>
+          <App />
+        </AuthSessionProvider>
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('banner')).toHaveTextContent('单学生本地质量画像');
+    expect(screen.getByRole('banner')).toHaveTextContent('单学生质量画像');
     expect(screen.getByLabelText('学生画像 ID')).toHaveValue('student01');
   });
 

@@ -1,5 +1,4 @@
 import { FormEvent, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import {
   createInnovationAssessment,
   type InnovationAssessmentDimensionInput,
@@ -9,6 +8,7 @@ import {
   type InnovationScoreDimensionKey,
 } from '../api/normativeRules';
 import { useAuthSession } from '../auth/AuthSessionProvider';
+import { Button, Card, LinkButton, LoadingState, PageHeader } from '../components/ui';
 
 const DIMENSIONS: Array<{ key: InnovationScoreDimensionKey; label: string }> = [
   { key: 'research_topic', label: '研究选题' },
@@ -80,26 +80,26 @@ function InnovationAssessmentPage() {
   }
 
   if (status === 'loading') {
-    return <main className="min-h-screen bg-white p-8 text-slate-700">正在加载登录状态…</main>;
+    return <LoadingState label="正在加载登录状态…" />;
   }
 
   if (!user) {
     return (
-      <main className="min-h-screen bg-white p-8">
-        <h1 className="text-2xl font-black text-[#1F3B5D]">发起创新性量表评估</h1>
-        <p className="mt-4 text-slate-600">请先登录后提交量表自评，后台会在保存前执行角色授权。</p>
-        <Link className="mt-6 inline-flex rounded bg-[#3D8BF2] px-5 py-3 font-bold text-white" to="/auth">前往登录</Link>
-      </main>
+      <div className="mx-auto max-w-4xl">
+        <Card>
+          <h1 className="text-2xl font-black text-[#1F3B5D]">发起创新性量表评估</h1>
+          <p className="mt-4 text-slate-600">请先登录后提交量表自评，后台会在保存前执行角色授权。</p>
+          <LinkButton className="mt-6" to="/auth">前往登录</LinkButton>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-white">
-      <header className="flex h-16 items-center bg-[#1F3B5D] px-8">
-        <h1 className="text-2xl font-black text-white">发起创新性量表评估</h1>
-      </header>
+    <div>
+      <PageHeader title="发起创新性量表评估" />
 
-      <form className="px-9 py-8" onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit}>
         <section className="rounded-[24px] border-2 border-dashed border-[#B7CAE6] px-8 py-8 text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border-2 border-[#B7CAE6] text-2xl font-black text-[#3D8BF2]">↑</div>
           <p className="mt-3 text-lg font-black text-[#333333]">填写论文题目与评估信息</p>
@@ -161,11 +161,11 @@ function InnovationAssessmentPage() {
         </section>
 
         <p className="mt-6 rounded-lg bg-amber-50 p-4 font-bold text-amber-800">本结果为量表自评，不代替专家评审或文献查新</p>
-        <button className="mt-6 h-14 w-full rounded-lg bg-[#3D8BF2] text-xl font-black text-white disabled:opacity-60" type="submit" disabled={submitting}>{submitting ? '保存评估中…' : 'AI 创新性分析'}</button>
+        <Button className="mt-6 h-14 w-full text-xl" size="lg" type="submit" disabled={submitting}>{submitting ? '保存评估中…' : 'AI 创新性分析'}</Button>
         {errorMessage ? <p className="mt-4 text-sm font-bold text-red-600" role="alert">{errorMessage}</p> : null}
       </form>
 
-      <section className="px-9 pb-8" aria-label="创新性分析处理进度">
+      <section className="mt-8" aria-label="创新性分析处理进度">
         <h2 className="text-2xl font-black text-[#0b3768]">处理进度</h2>
         <div className="mt-4 flex flex-wrap gap-3">
           {progressSteps.map((step, index) => <span key={step.name} className={`rounded-lg border px-4 py-2 font-bold ${step.complete ? 'border-[#43c63a] bg-[#edf9ef] text-[#1f7a1f]' : 'border-slate-300 bg-white text-slate-500'}`}>{index + 1}. {step.name}</span>)}
@@ -173,7 +173,7 @@ function InnovationAssessmentPage() {
       </section>
 
       {assessment ? (
-        <section className="border-t bg-[#fafafa] px-9 py-8" aria-labelledby="innovation-assessment-result-heading">
+        <section className="mt-8 border-t border-slate-200 bg-[#fafafa] px-6 py-8" aria-labelledby="innovation-assessment-result-heading">
           <h2 id="innovation-assessment-result-heading" className="text-2xl font-black text-[#0b3768]">分析结果</h2>
           <div className="mt-5 rounded-lg border border-[#e0e0e0] bg-white p-8">
             <p className="text-3xl font-black text-[#3b86f4]">{assessment.total_score} 分 · {assessment.grade_label}</p>
@@ -183,7 +183,7 @@ function InnovationAssessmentPage() {
           </div>
         </section>
       ) : null}
-    </main>
+    </div>
   );
 }
 

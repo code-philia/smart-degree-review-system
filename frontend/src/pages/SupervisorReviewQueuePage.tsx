@@ -7,6 +7,7 @@ import {
   type SupervisorReviewQueueResponse,
 } from '../api/reportSupervisorQueue';
 import type { ReportSubmissionSourceType } from '../api/reportSubmissions';
+import { EmptyState, ErrorState, LoadingState, PageHeader } from '../components/ui';
 
 const sourceLabels: Record<ReportSubmissionSourceType, string> = {
   normative: '规范检测',
@@ -60,19 +61,19 @@ export default function SupervisorReviewQueuePage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f5f7fa] text-slate-900">
-      <header className="flex h-[72px] items-center justify-between bg-[#1f3f67] px-8 text-white">
-        <div>
-          <p className="text-sm font-semibold text-blue-100">导师站内批阅中心</p>
-          <h1 className="text-2xl font-bold">待批阅任务</h1>
-        </div>
-        <div className="relative rounded-xl bg-[#173a62] px-5 py-3 text-sm font-bold">
-          未完成待办
-          <span className="ml-3 rounded-full bg-red-500 px-3 py-1 text-white">{data.unread_count}</span>
-        </div>
-      </header>
+    <div className="text-slate-900">
+      <PageHeader
+        title="待批阅任务"
+        description="导师站内批阅中心，按待批阅优先、提交时间倒序展示本人待办。"
+        actions={(
+          <div className="relative rounded-xl bg-[#173a62] px-5 py-3 text-sm font-bold text-white">
+            未完成待办
+            <span className="ml-3 rounded-full bg-red-500 px-3 py-1 text-white">{data.unread_count}</span>
+          </div>
+        )}
+      />
 
-      <section className="m-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 px-5 py-4 text-sm">
           <label className="font-semibold text-slate-700">
             学生
@@ -108,15 +109,14 @@ export default function SupervisorReviewQueuePage() {
               <option value="done">已完成</option>
             </select>
           </label>
-          <span className="ml-auto text-slate-500">按待批阅优先、提交时间倒序展示本人待办。</span>
         </div>
 
         <div className="p-5">
-          {error ? <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+          {error ? <ErrorState message={error} /> : null}
           {loading ? (
-            <div className="rounded-lg border border-dashed border-slate-300 px-4 py-12 text-center text-slate-500">正在加载待批阅任务...</div>
+            <LoadingState label="正在加载待批阅任务…" />
           ) : data.records.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-slate-300 px-4 py-12 text-center text-slate-500">暂无待批阅任务。</div>
+            <EmptyState title="暂无待批阅任务。" description="学生推送报告后，待办会展示在这里。" />
           ) : (
             <table className="w-full border-collapse overflow-hidden rounded-lg text-sm">
               <thead className="bg-[#1f3f67] text-white">
@@ -154,6 +154,6 @@ export default function SupervisorReviewQueuePage() {
           )}
         </div>
       </section>
-    </main>
+    </div>
   );
 }

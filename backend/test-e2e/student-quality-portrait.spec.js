@@ -114,7 +114,7 @@ test.describe('FEAT-STUDENT-QUALITY-PORTRAIT scenarios', () => {
     await loginAs(page, 'student01');
 
     await page.goto('/student-quality-portrait/student01');
-    await expect(page.getByRole('banner')).toContainText('单学生本地质量画像');
+    await expect(page.getByRole('banner')).toContainText('单学生质量画像');
     await page.getByRole('button', { name: '查询' }).click();
 
     await expect(page.getByText('单学生论文全景质量画像')).toBeVisible();

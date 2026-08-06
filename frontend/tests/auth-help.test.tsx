@@ -39,11 +39,11 @@ describe('FEAT-AUTH-HELP local login help', () => {
     expect(screen.getByLabelText('演示账号与登录帮助')).toBeInTheDocument();
     expect(
       screen.getByText(
-        '本地原型仅提供账号密码登录验证。默认演示密码为 ArcDemo123!，四个账号均可用于查看不同角色的登录后界面。',
+        '试点版本目前仅支持账号密码方式登录。默认演示密码为 ArcDemo123!，四个账号分别对应不同角色，可用于体验登录后的界面与操作。',
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('说明：当前版本未接入 jAccount、短信验证码或扫码登录；如需登录，请直接使用本地演示账号与密码。'),
+      screen.getByText('说明：试点版本尚未接入 jAccount、短信验证码或扫码登录；如需登录，请直接使用上方试用账号与密码。'),
     ).toBeInTheDocument();
   });
 });

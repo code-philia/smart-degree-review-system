@@ -1,5 +1,4 @@
 import { FormEvent, useState } from 'react';
-import { Link } from 'react-router-dom';
 import {
   calculateInnovationScore,
   type InnovationDegreeType,
@@ -7,6 +6,7 @@ import {
   type InnovationScoreResponse,
 } from '../api/normativeRules';
 import { useAuthSession } from '../auth/AuthSessionProvider';
+import { Card, ErrorState, LinkButton, LoadingState } from '../components/ui';
 
 const DIMENSIONS: Array<{ key: InnovationScoreDimensionKey; label: string }> = [
   { key: 'research_topic', label: '研究选题' },
@@ -50,32 +50,32 @@ function InnovationScoringPage() {
 
   if (status === 'loading') {
     return (
-      <main className="min-h-screen bg-[#FEFDFB] px-6 py-12">
-        <section className="mx-auto max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mx-auto max-w-4xl">
+        <Card>
           <h1 className="text-2xl font-black text-slate-900">创新性评分</h1>
-          <p className="mt-3 text-sm font-semibold text-slate-500">正在加载登录状态…</p>
-        </section>
-      </main>
+          <LoadingState label="正在加载登录状态…" compact />
+        </Card>
+      </div>
     );
   }
 
   if (!user) {
     return (
-      <main className="min-h-screen bg-[#FEFDFB] px-6 py-12">
-        <section className="mx-auto max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mx-auto max-w-4xl">
+        <Card>
           <h1 className="text-2xl font-black text-slate-900">创新性评分</h1>
           <p className="mt-3 text-sm leading-6 text-slate-600">请先登录后计算创新性分数，系统将按当前账号权限调用后台评分服务。</p>
-          <Link className="mt-5 inline-flex h-11 items-center rounded bg-blue-600 px-4 font-semibold text-white" to="/auth">
+          <LinkButton className="mt-5" to="/auth">
             前往登录
-          </Link>
-        </section>
-      </main>
+          </LinkButton>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#FEFDFB] px-6 py-10">
-      <section className="mx-auto max-w-5xl rounded-[28px] border border-[#B8B8B8] bg-white p-8 shadow-sm">
+    <div className="mx-auto max-w-5xl">
+      <Card>
         <h1 className="text-3xl font-black text-[#111111]">创新性评分</h1>
         <p className="mt-3 text-sm font-semibold text-slate-600">当前登录用户：{user.username}（{user.role}）</p>
         <p className="mt-2 text-sm font-semibold text-slate-600">选择博士或硕士权重，并为五个维度选择 1-5 级。</p>
@@ -115,7 +115,7 @@ function InnovationScoringPage() {
           >
             {submitting ? '计算中…' : '计算创新性分数'}
           </button>
-          {errorMessage ? <p className="text-sm font-semibold text-red-600" role="alert">{errorMessage}</p> : null}
+          {errorMessage ? <ErrorState title="计算失败" message={errorMessage} /> : null}
         </form>
 
         {report ? (
@@ -156,8 +156,8 @@ function InnovationScoringPage() {
             </div>
           </section>
         ) : null}
-      </section>
-    </main>
+      </Card>
+    </div>
   );
 }
 

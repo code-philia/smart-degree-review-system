@@ -33,12 +33,8 @@ function QualityDashboardPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#eef3f8] text-[#1f2d3d]">
-      <header className="flex h-[72px] items-center justify-center bg-[#1f3f63] text-[28px] font-bold text-white">
-        群体质量仪表盘
-      </header>
-
-      <section className="mx-7 my-5 overflow-hidden rounded-sm border border-[#d6d6d6] bg-white">
+    <div className="text-[#1f2d3d]">
+      <section className="mb-5 overflow-hidden rounded-lg border border-[#d6d6d6] bg-white">
         <h2 className="bg-[#1f3f63] px-5 py-3 text-[18px] font-bold text-white">筛选条件</h2>
         <div className="grid gap-4 bg-[#f8fafc] p-5 md:grid-cols-4">
           <label className="grid gap-2 text-[15px] font-semibold text-[#1f3f63]">
@@ -94,7 +90,7 @@ function QualityDashboardPage() {
           </section>
         </>
       )}
-    </main>
+    </div>
   );
 }
 
