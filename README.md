@@ -26,7 +26,7 @@
 
 | 模块 | 说明 |
 | --- | --- |
-| 本地身份认证 | 四个演示账号，HttpOnly 会话，启动时幂等 seed |
+| 本地身份认证 | 四个演示账号，HttpOnly 会话，显式幂等 seed |
 | 规范性检测 | `normative-check` / `normative-reports` |
 | 本地相似度检测 | `duplication-detect` / `duplication-history` / `duplication-corpus` |
 | 创新性量表 | `innovation-assessment` / `innovation-scoring` / `innovation-history` |
@@ -50,7 +50,7 @@
 - `frontend/`：React、Vite、Tailwind、前端测试
 - `backend/`：Express、SQLite、Vitest、Playwright
 - `backend/src/app.js`：API 与静态站点托管
-- `backend/src/index.js`：后端启动入口，启动时自动建表并 seed 演示账号
+- `backend/src/index.js`：后端启动入口，启动时自动初始化表结构
 
 ## 本地启动
 
@@ -62,6 +62,13 @@ npm install
 
 cd ../frontend
 npm install
+```
+
+首次在本地使用演示账号时，显式创建缺失的演示用户：
+
+```bash
+cd backend
+npm run db:seed
 ```
 
 构建前端并启动后端：
@@ -105,5 +112,6 @@ npm run test:e2e
 
 - 默认数据库文件：`backend/database.db`
 - 可通过 `ARC_DB_FILE` 或 `DATABASE_FILE` 覆盖
-- 运行时会自动创建演示账号和基础表结构
+- 运行时只自动创建基础表结构，不创建或修改演示账号
+- `npm run db:seed` 仅创建缺失的演示账号，不覆盖已有账号或密码
 - 测试会使用隔离的 SQLite 文件

@@ -29,6 +29,11 @@ describe('FEAT-AUTH-SESSION backend auth session contract', () => {
   });
 
   it('seeds exactly four demo accounts idempotently with bcrypt hashes and required relationships', async () => {
+    const originalStudent = await get(
+      `SELECT password_hash AS passwordHash
+         FROM auth_users
+        WHERE username = 'student01'`,
+    );
     await seedDatabase();
 
     const users = await get(
@@ -54,6 +59,7 @@ describe('FEAT-AUTH-SESSION backend auth session contract', () => {
       scope: 'COLLEGE',
     });
     expect(student.passwordHash).toMatch(/^\$2[aby]\$/);
+    expect(student.passwordHash).toBe(originalStudent.passwordHash);
   });
 
   it('logs in student01 with a HttpOnly SameSite=Lax cookie and restores the full session user', async () => {

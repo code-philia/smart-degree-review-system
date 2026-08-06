@@ -20,12 +20,7 @@ async function seedDatabase() {
       await run(
         `INSERT INTO auth_users (id, username, password_hash, role, college_id, supervisor_id, scope)
          VALUES (?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(username) DO UPDATE SET
-           password_hash = excluded.password_hash,
-           role = excluded.role,
-           college_id = excluded.college_id,
-           supervisor_id = excluded.supervisor_id,
-           scope = excluded.scope`,
+         ON CONFLICT(username) DO NOTHING`,
         user,
       );
     }
