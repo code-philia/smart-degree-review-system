@@ -109,7 +109,7 @@ children:
   - id: MOD-NORMATIVE-DETECTION
     name: '论文规则化规范检测'
     type: MODULE
-    description: '对 UTF-8 纯文本论文执行可解释、可重复的规则检测。系统支持 .txt 和 .md 文件或直接粘贴文本，单份内容不超过 5 MB。\n检测范围包括章节完整性、标点配对、连续重复标点、数字与日期的有限规则、参考文献顺序编码、禁用词典、重复词和过长句。不检测 Word/PDF 的字体、页边距、页码或页眉页脚。'
+    description: '对纯文本论文执行可解释、可重复的规则检测。系统支持 .txt、.md、含可搜索文字层的 PDF 文件或直接粘贴文本，单份文件不超过 5 MB，PDF 不超过 500 页。PDF 在浏览器中提取为纯文本后进入现有检测链路，不保存原始 PDF。\n检测范围包括章节完整性、标点配对、连续重复标点、数字与日期的有限规则、参考文献顺序编码、禁用词典、重复词和过长句。不支持扫描版或加密 PDF，不检测 Word/PDF 的字体、页边距、页码、页眉页脚或页面坐标。'
     permissions: ALL
     dependencies: []
     children:
@@ -202,7 +202,7 @@ children:
       - id: FEAT-NORMATIVE-DETECT
         name: '发起规范检测'
         type: FEATURE
-        description: '学生可粘贴论文文本或上传 .txt/.md 文件，选择当前生效的学校/学院规则后发起检测。\n任务状态按“待检测→检测中→已完成”流转，检测在同一后端请求内完成，不伪造百分比进度。系统保存原文、规则快照、问题列表、各级别计数和创建时间。'
+        description: '学生可粘贴论文文本或上传 .txt/.md/含可搜索文字层的 PDF 文件，选择当前生效的学校/学院规则后发起检测。\n任务状态按“待检测→检测中→已完成”流转，检测在同一后端请求内完成，不伪造百分比进度。系统保存提取后的原文、原文件名、规则快照、问题列表、各级别计数和创建时间，不保存原始 PDF。'
         images:
           - label: '规范性检测文件上传与规则选择界面'
             path: './reference/image-004.png'
@@ -225,12 +225,12 @@ children:
                 content: '学生发起检测。'
               - keyword: THEN
                 content: '系统保存已完成任务、当次规则快照和带行列位置的问题列表。'
-          - name: '拒绝超限或非 UTF-8 文件'
+          - name: '拒绝超限或不可提取文件'
             actor: 'STUDENT'
             steps:
               - keyword: GIVEN
                 actor: 'STUDENT'
-                content: '文件超过 5 MB 或无法按 UTF-8 解码。'
+                content: '文件超过 5 MB、文本文件无法按 UTF-8 解码，或 PDF 不含可搜索文字层。'
               - keyword: WHEN
                 actor: 'STUDENT'
                 content: '学生上传文件。'
@@ -268,7 +268,7 @@ children:
       - id: FEAT-DUPLICATION-CORPUS
         name: '本地比对样本库'
         type: FEATURE
-        description: '学校管理人员可通过粘贴文本或上传 .txt/.md 文件新增样本，填写标题、学科和年份，并可查看或删除样本。\n样本保存于 SQLite，仅作为本地原型比对数据，不表示已接入真实校内论文库。'
+        description: '学校管理人员可通过粘贴文本或上传 .txt/.md/含可搜索文字层的 PDF 文件新增样本，填写标题、学科和年份，并可查看或删除样本。\n样本保存于 SQLite，仅保存提取后的文本和原文件名，不保存原始 PDF，也不表示已接入真实校内论文库。'
         permissions:
           - 'SCHOOL_ADMIN'
         dependencies:
@@ -353,7 +353,7 @@ children:
       - id: FEAT-POLISH-WHOLE
         name: '全文规则润色'
         type: FEATURE
-        description: '支持粘贴文本或上传 .txt/.md，提供三档可解释处理：\n- 基础校准：去除行尾空格、归一化连续空白、修复重复标点和连续重复词。\n- 标准优化：在基础校准上，应用管理员维护的“原短语→替换短语”映射。\n- 增强优化：在标准优化上，对超过 120 字符且包含分号或逗号的句子按首个合法分隔位置拆分，并记录拆分原因。\n结果保存原文、新文、档位和变更列表，可下载 UTF-8 .txt 结果。'
+        description: '支持粘贴文本或上传 .txt/.md/含可搜索文字层的 PDF，提供三档可解释处理：\n- 基础校准：去除行尾空格、归一化连续空白、修复重复标点和连续重复词。\n- 标准优化：在基础校准上，应用管理员维护的“原短语→替换短语”映射。\n- 增强优化：在标准优化上，对超过 120 字符且包含分号或逗号的句子按首个合法分隔位置拆分，并记录拆分原因。\n结果保存原文、新文、档位和变更列表，可下载 UTF-8 .txt 结果。'
         images:
           - label: '全文润色文档上传与三档等级选择'
             path: './reference/image-018.png'
@@ -557,7 +557,7 @@ children:
       - id: FEAT-AI-REVIEW-RUN
         name: '发起规则化辅助评阅'
         type: FEATURE
-        description: '用户选择评阅模板，填写论文题目，并粘贴或上传 .txt/.md 论文文本。系统按标题行和关键词识别章节，统计字符数与参考文献条目，复用规范检测规则，并按模板公式生成结果。'
+        description: '用户选择评阅模板，填写论文题目，并粘贴或上传 .txt/.md/含可搜索文字层的 PDF 论文文本。系统按标题行和关键词识别章节，统计字符数与参考文献条目，复用规范检测规则，并按模板公式生成结果。PDF 仅保存提取后的文本和原文件名。'
         images:
           - label: 'AI 智能评阅模板选择与论文上传'
             path: './reference/image-032.png'

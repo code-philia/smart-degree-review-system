@@ -8,27 +8,7 @@ import {
 } from '../api/duplicationCorpus';
 import { useAuthSession } from '../auth/AuthSessionProvider';
 import { Button, Card, EmptyState, ErrorState, LoadingState, LinkButton, PageHeader } from '../components/ui';
-
-const MAX_FILE_BYTES = 5 * 1024 * 1024;
-const ACCEPTED_FILE_EXTENSIONS = ['.txt', '.md'];
-
-function getFileExtension(fileName: string) {
-  const dotIndex = fileName.lastIndexOf('.');
-  return dotIndex === -1 ? '' : fileName.slice(dotIndex).toLowerCase();
-}
-
-function readTextFile(file: File): Promise<string> {
-  if (typeof file.text === 'function') {
-    return file.text();
-  }
-
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
-    reader.onerror = () => reject(reader.error || new Error('file-read-failed'));
-    reader.readAsText(file, 'utf-8');
-  });
-}
+import { extractThesisFileText, THESIS_FILE_ACCEPT } from '../utils/thesisFileText';
 
 function DuplicationCorpusPage() {
   const { status, user } = useAuthSession();
@@ -40,6 +20,7 @@ function DuplicationCorpusPage() {
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [readingFile, setReadingFile] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [listError, setListError] = useState<string | null>(null);
 
@@ -86,20 +67,16 @@ function DuplicationCorpusPage() {
     if (!file) {
       return;
     }
-    if (!ACCEPTED_FILE_EXTENSIONS.includes(getFileExtension(file.name))) {
-      setErrorMessage('仅支持上传 .txt 或 .md 文件');
-      return;
-    }
-    if (file.size > MAX_FILE_BYTES) {
-      setErrorMessage('文件大小不能超过 5 MB');
-      return;
-    }
 
+    setReadingFile(true);
     try {
-      setContent(await readTextFile(file));
+      const result = await extractThesisFileText(file);
+      setContent(result.text);
       setSelectedFileName(file.name);
-    } catch {
-      setErrorMessage('文件读取失败，请确认文件为 UTF-8 文本');
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : '文件解析失败');
+    } finally {
+      setReadingFile(false);
     }
   }
 
@@ -213,25 +190,20 @@ function DuplicationCorpusPage() {
                 className="mt-2 min-h-[260px] w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm leading-7 outline-none focus:border-brand-500"
                 value={content}
                 onChange={(event) => setContent(event.target.value)}
-                placeholder="粘贴非空 UTF-8 文本，或上传 .txt/.md 文件后自动填充。"
+                placeholder="粘贴非空 UTF-8 文本，或上传 .txt/.md/可搜索文本 PDF 后自动填充。"
               />
             </label>
 
             <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <label className="inline-flex h-11 cursor-pointer items-center justify-center rounded-xl border border-brand-100 bg-brand-50 px-4 text-sm font-semibold text-brand-700">
-                上传 .txt / .md
-                <input
-                  className="sr-only"
-                  type="file"
-                  accept=".txt,.md,text/plain,text/markdown"
-                  onChange={handleFileChange}
-                />
+                上传 .txt / .md / PDF
+                <input className="sr-only" type="file" accept={THESIS_FILE_ACCEPT} onChange={handleFileChange} />
               </label>
               {selectedFileName ? (
                 <span className="text-sm font-semibold text-brand-700">已选择：{selectedFileName}</span>
               ) : null}
-              <Button type="submit" disabled={submitting}>
-                {submitting ? '保存中…' : '保存样本'}
+              <Button type="submit" disabled={submitting || readingFile}>
+                {readingFile ? '解析中…' : submitting ? '保存中…' : '保存样本'}
               </Button>
             </div>
             {errorMessage ? <p className="mt-4 text-sm font-semibold text-danger-600">{errorMessage}</p> : null}

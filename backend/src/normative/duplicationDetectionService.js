@@ -1,6 +1,7 @@
 const { listCorpusSamples } = require('./duplicationCorpusRepository');
 
 const MAX_DUPLICATION_DETECTION_TEXT_BYTES = 5 * 1024 * 1024;
+const ALLOWED_DUPLICATION_DETECTION_FILE_EXTENSIONS = Object.freeze(['.txt', '.md', '.pdf']);
 const DEFAULT_DUPLICATION_MATCH_THRESHOLD = 0.65;
 const ALLOWED_DUPLICATION_DETECTION_ROLES = ['STUDENT', 'SUPERVISOR', 'SCHOOL_ADMIN', 'COLLEGE_ADMIN'];
 const RISK_WEIGHTS = {
@@ -53,6 +54,11 @@ function ensureAuthorizedUser(user) {
   }
 }
 
+function getFileExtension(fileName) {
+  const dotIndex = fileName.lastIndexOf('.');
+  return dotIndex === -1 ? '' : fileName.slice(dotIndex).toLowerCase();
+}
+
 function validateDetectionPayload(payload = {}) {
   const text = typeof payload.text === 'string' ? payload.text.trim() : '';
   if (!text) {
@@ -65,13 +71,24 @@ function validateDetectionPayload(payload = {}) {
   const threshold = Number.isFinite(Number(payload.threshold))
     ? Math.min(1, Math.max(0, Number(payload.threshold)))
     : DEFAULT_DUPLICATION_MATCH_THRESHOLD;
+  const sourceType = payload.source_type === 'file' ? 'file' : 'paste';
+  const sourceFilename = typeof payload.source_filename === 'string' && payload.source_filename.trim()
+    ? payload.source_filename.trim()
+    : null;
+
+  if (sourceType === 'file') {
+    if (!sourceFilename) {
+      throw serviceError(400, '文件检测需要提供文件名');
+    }
+    if (!ALLOWED_DUPLICATION_DETECTION_FILE_EXTENSIONS.includes(getFileExtension(sourceFilename))) {
+      throw serviceError(400, '仅支持上传 .txt、.md 或 .pdf 文件');
+    }
+  }
 
   return {
     text,
-    source_type: payload.source_type === 'file' ? 'file' : 'paste',
-    source_filename: typeof payload.source_filename === 'string' && payload.source_filename.trim()
-      ? payload.source_filename.trim()
-      : null,
+    source_type: sourceType,
+    source_filename: sourceType === 'file' ? sourceFilename : null,
     threshold,
   };
 }

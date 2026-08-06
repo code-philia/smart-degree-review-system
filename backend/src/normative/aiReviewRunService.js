@@ -10,7 +10,7 @@ const aiReviewRunRepository = require('./aiReviewRunRepository');
 
 const ALLOWED_AI_REVIEW_RUN_ROLES = REVIEW_RUBRIC_ALLOWED_ROLES;
 const MAX_AI_REVIEW_TEXT_BYTES = '5mb';
-const ALLOWED_AI_REVIEW_FILE_EXTENSIONS = Object.freeze(['.txt', '.md']);
+const ALLOWED_AI_REVIEW_FILE_EXTENSIONS = Object.freeze(['.txt', '.md', '.pdf']);
 
 function createReviewRunError(status, message, errors) {
   const error = new Error(message);
@@ -19,6 +19,11 @@ function createReviewRunError(status, message, errors) {
     error.errors = errors;
   }
   return error;
+}
+
+function getFileExtension(fileName) {
+  const dotIndex = fileName.lastIndexOf('.');
+  return dotIndex === -1 ? '' : fileName.slice(dotIndex).toLowerCase();
 }
 
 function normalizeAiReviewRunPayload(payload = {}) {
@@ -42,6 +47,8 @@ function normalizeAiReviewRunPayload(payload = {}) {
   }
   if (sourceType === 'file' && !sourceFilename) {
     errors.push({ field: 'source_filename', message: '上传文件需要提供文件名' });
+  } else if (sourceType === 'file' && !ALLOWED_AI_REVIEW_FILE_EXTENSIONS.includes(getFileExtension(sourceFilename))) {
+    errors.push({ field: 'source_filename', message: '仅支持上传 .txt、.md 或 .pdf 文件' });
   }
 
   if (errors.length > 0) {

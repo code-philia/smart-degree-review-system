@@ -3,7 +3,7 @@ const { resolveRulesForAnalysis } = require('./ruleConfigService');
 const detectionTaskRepository = require('./detectionTaskRepository');
 
 const MAX_DETECTION_TEXT_BYTES = 5 * 1024 * 1024;
-const ALLOWED_DETECTION_FILE_EXTENSIONS = Object.freeze(['.txt', '.md']);
+const ALLOWED_DETECTION_FILE_EXTENSIONS = Object.freeze(['.txt', '.md', '.pdf']);
 const DETECTION_STATUSES = Object.freeze(['pending', 'running', 'completed']);
 
 function createHttpError(status, message) {
@@ -32,7 +32,7 @@ function validateSource(payload) {
       throw createHttpError(400, '文件检测需要提供文件名');
     }
     if (!ALLOWED_DETECTION_FILE_EXTENSIONS.includes(getFileExtension(sourceFilename))) {
-      throw createHttpError(400, '仅支持上传 .txt 或 .md 文件');
+      throw createHttpError(400, '仅支持上传 .txt、.md 或 .pdf 文件');
     }
   }
 

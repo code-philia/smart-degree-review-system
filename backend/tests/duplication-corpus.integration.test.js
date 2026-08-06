@@ -154,7 +154,7 @@ describe('FEAT-DUPLICATION-CORPUS backend corpus API and SQLite contract', () =>
       validSamplePayload({ content: '   ' }),
       validSamplePayload({ year: '二零二四' }),
       validSamplePayload({ year: 1799 }),
-      validSamplePayload({ source_type: 'file', source_filename: 'sample.pdf' }),
+      validSamplePayload({ source_type: 'file', source_filename: 'sample.docx' }),
       validSamplePayload({ source_type: 'clipboard' }),
     ];
 

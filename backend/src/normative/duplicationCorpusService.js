@@ -5,7 +5,7 @@ const {
 } = require('./duplicationCorpusRepository');
 
 const MAX_CORPUS_SAMPLE_BYTES = 5 * 1024 * 1024;
-const ALLOWED_CORPUS_FILE_EXTENSIONS = ['.txt', '.md'];
+const ALLOWED_CORPUS_FILE_EXTENSIONS = ['.txt', '.md', '.pdf'];
 
 function serviceError(status, message) {
   const error = new Error(message);
@@ -48,7 +48,7 @@ function validateSourceMetadata(sourceType, sourceFilename) {
   if (sourceType === 'file') {
     const fileName = normalizeText(sourceFilename);
     if (!fileName || !ALLOWED_CORPUS_FILE_EXTENSIONS.includes(getFileExtension(fileName))) {
-      throw serviceError(400, '仅支持 .txt 或 .md 文件样本');
+      throw serviceError(400, '仅支持 .txt、.md 或 .pdf 文件样本');
     }
     return fileName;
   }

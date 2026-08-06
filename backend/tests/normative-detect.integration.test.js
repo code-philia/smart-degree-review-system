@@ -105,22 +105,22 @@ describe('FEAT-NORMATIVE-DETECT protected task creation contract', () => {
     }
   });
 
-  it('FEAT-NORMATIVE-DETECT:SCENARIO:001 saves completed pasted-text task with rule snapshot, issue positions, severity counts, and created time', async () => {
+  it('FEAT-NORMATIVE-DETECT:SCENARIO:001 saves completed extracted-PDF text with rule snapshot and issue positions', async () => {
     const cookie = await login('student01');
     const text = scenarioText();
 
     const response = await request(app)
       .post('/api/normative/detection-tasks')
       .set('Cookie', cookie)
-      .send({ text, source_type: 'paste' })
+      .send({ text, source_type: 'file', source_filename: '学位论文.pdf' })
       .expect(201);
 
     const task = response.body;
     expect(task).toMatchObject({
       user_id: 'student01',
       status: 'completed',
-      source_type: 'paste',
-      source_filename: null,
+      source_type: 'file',
+      source_filename: '学位论文.pdf',
       original_text: text,
       created_at: expect.any(String),
     });
@@ -139,7 +139,7 @@ describe('FEAT-NORMATIVE-DETECT protected task creation contract', () => {
     expect(task.severity_counts).toEqual(countedIssues);
 
     const persisted = await get(
-      `SELECT status, source_type AS sourceType, original_text AS originalText,
+      `SELECT status, source_type AS sourceType, source_filename AS sourceFilename, original_text AS originalText,
               rule_snapshot_json AS ruleSnapshotJson, issues_json AS issuesJson,
               severity_counts_json AS severityCountsJson, created_at AS createdAt
          FROM normative_detection_tasks
@@ -148,7 +148,8 @@ describe('FEAT-NORMATIVE-DETECT protected task creation contract', () => {
     );
     expect(persisted).toMatchObject({
       status: 'completed',
-      sourceType: 'paste',
+      sourceType: 'file',
+      sourceFilename: '学位论文.pdf',
       originalText: text,
       createdAt: task.created_at,
     });

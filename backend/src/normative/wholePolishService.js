@@ -5,11 +5,17 @@ const wholePolishRepository = require('./wholePolishRepository');
 const ALLOWED_WHOLE_POLISH_ROLES = Object.freeze(['STUDENT', 'SUPERVISOR', 'SCHOOL_ADMIN', 'COLLEGE_ADMIN']);
 const MAX_WHOLE_POLISH_TEXT_BYTES = '5mb';
 const WHOLE_POLISH_LEVELS = Object.freeze(['basic', 'standard', 'enhanced']);
+const ALLOWED_WHOLE_POLISH_FILE_EXTENSIONS = Object.freeze(['.txt', '.md', '.pdf']);
 
 function createHttpError(status, message) {
   const error = new Error(message);
   error.status = status;
   return error;
+}
+
+function getFileExtension(fileName) {
+  const dotIndex = fileName.lastIndexOf('.');
+  return dotIndex === -1 ? '' : fileName.slice(dotIndex).toLowerCase();
 }
 
 function normalizePayload(payload = {}) {
@@ -23,11 +29,24 @@ function normalizePayload(payload = {}) {
     throw createHttpError(400, '润色档位无效');
   }
 
+  const sourceType = payload.source_type === 'file' ? 'file' : 'paste';
+  const sourceFilename = typeof payload.source_filename === 'string' && payload.source_filename.trim()
+    ? payload.source_filename.trim()
+    : null;
+  if (sourceType === 'file') {
+    if (!sourceFilename) {
+      throw createHttpError(400, '上传文件需要提供文件名');
+    }
+    if (!ALLOWED_WHOLE_POLISH_FILE_EXTENSIONS.includes(getFileExtension(sourceFilename))) {
+      throw createHttpError(400, '仅支持上传 .txt、.md 或 .pdf 文件');
+    }
+  }
+
   return {
     text,
     level,
-    source_type: payload.source_type === 'file' ? 'file' : 'paste',
-    source_filename: typeof payload.source_filename === 'string' ? payload.source_filename : null,
+    source_type: sourceType,
+    source_filename: sourceType === 'file' ? sourceFilename : null,
   };
 }
 

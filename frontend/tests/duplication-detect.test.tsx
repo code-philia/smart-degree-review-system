@@ -150,9 +150,9 @@ describe('FEAT-DUPLICATION-DETECT frontend page route and API client contract', 
 
     await screen.findByText('文档上传');
     fireEvent.change(fileInput(container), {
-      target: { files: testFileList(new File(['PDF'], 'paper.pdf', { type: 'application/pdf' })) },
+      target: { files: testFileList(new File(['DOCX'], 'paper.docx')) },
     });
-    expect(screen.getByText('仅支持上传 .txt 或 .md 文件')).toBeInTheDocument();
+    expect(await screen.findByText('仅支持上传 .txt、.md 或 .pdf 文件')).toBeInTheDocument();
     expect(createDuplicationDetection).not.toHaveBeenCalled();
 
     await user.upload(

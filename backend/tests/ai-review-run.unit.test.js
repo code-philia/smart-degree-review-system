@@ -47,7 +47,7 @@ describe('FEAT-AI-REVIEW-RUN service review-run scoring contract', () => {
 
   it('rejects incomplete payloads, unknown templates, and unauthorized roles before persistence', async () => {
     expect(ALLOWED_AI_REVIEW_RUN_ROLES).toEqual(['STUDENT', 'SUPERVISOR', 'SCHOOL_ADMIN', 'COLLEGE_ADMIN']);
-    expect(ALLOWED_AI_REVIEW_FILE_EXTENSIONS).toEqual(['.txt', '.md']);
+    expect(ALLOWED_AI_REVIEW_FILE_EXTENSIONS).toEqual(['.txt', '.md', '.pdf']);
     expect(MAX_AI_REVIEW_TEXT_BYTES).toBe('5mb');
 
     await expect(createAiReviewRun(null, {})).rejects.toMatchObject({ status: 401 });

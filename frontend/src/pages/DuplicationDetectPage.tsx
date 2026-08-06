@@ -2,15 +2,9 @@ import { ChangeEvent, FormEvent, useMemo, useState } from 'react';
 import { createDuplicationDetection, type DuplicationDetectionResponse } from '../api/normativeRules';
 import { useAuthSession } from '../auth/AuthSessionProvider';
 import { Card, LinkButton, LoadingState } from '../components/ui';
+import { extractThesisFileText, THESIS_FILE_ACCEPT } from '../utils/thesisFileText';
 
-const MAX_FILE_BYTES = 5 * 1024 * 1024;
-const ACCEPTED_FILE_EXTENSIONS = ['.txt', '.md'];
 const DETECTION_TYPES = [{ value: 'local-similarity', label: '论文相似度检测' }];
-
-function getFileExtension(fileName: string) {
-  const dotIndex = fileName.lastIndexOf('.');
-  return dotIndex === -1 ? '' : fileName.slice(dotIndex).toLowerCase();
-}
 
 function DuplicationDetectPage() {
   const { status, user } = useAuthSession();
@@ -19,28 +13,10 @@ function DuplicationDetectPage() {
   const [selectedType, setSelectedType] = useState(DETECTION_TYPES[0].value);
   const [report, setReport] = useState<DuplicationDetectionResponse | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [readingFile, setReadingFile] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const progress = useMemo(() => (submitting ? 68 : report ? 100 : 0), [report, submitting]);
-
-  function readSelectedFile(file: File): Promise<string> {
-    if (!ACCEPTED_FILE_EXTENSIONS.includes(getFileExtension(file.name))) {
-      throw new Error('仅支持上传 .txt 或 .md 文件');
-    }
-    if (file.size > MAX_FILE_BYTES) {
-      throw new Error('文件大小不能超过 5 MB');
-    }
-    if (typeof file.text === 'function') {
-      return file.text();
-    }
-
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
-      reader.onerror = () => reject(reader.error || new Error('file-read-failed'));
-      reader.readAsText(file, 'utf-8');
-    });
-  }
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] || null;
@@ -51,12 +27,16 @@ function DuplicationDetectPage() {
       return;
     }
 
+    setReadingFile(true);
     try {
-      setText(await readSelectedFile(file));
+      const result = await extractThesisFileText(file);
+      setText(result.text);
     } catch (error) {
       setSelectedFile(null);
       setText('');
-      setErrorMessage(error instanceof Error ? error.message : '文件读取失败，请确认文件为 UTF-8 文本');
+      setErrorMessage(error instanceof Error ? error.message : '文件解析失败');
+    } finally {
+      setReadingFile(false);
     }
   }
 
@@ -116,14 +96,9 @@ function DuplicationDetectPage() {
               {selectedFile ? selectedFile.name : '点击或将文件拖拽至此处上传'}
             </span>
             <span className="mt-3 text-sm font-bold text-slate-500">
-              支持 txt、md 类型文件上传检测，也可在下方粘贴文本
+              支持 txt、md、可搜索文本 PDF，也可在下方粘贴文本
             </span>
-            <input
-              className="sr-only"
-              type="file"
-              accept=".txt,.md,text/plain,text/markdown"
-              onChange={handleFileChange}
-            />
+            <input className="sr-only" type="file" accept={THESIS_FILE_ACCEPT} onChange={handleFileChange} />
           </label>
 
           <textarea
@@ -148,9 +123,9 @@ function DuplicationDetectPage() {
             <button
               className="h-16 rounded-full bg-[#2448E8] px-16 text-xl font-black text-white shadow-[0_5px_0_#1736C8] disabled:cursor-not-allowed disabled:opacity-50"
               type="submit"
-              disabled={submitting || !text.trim() || selectedType !== 'local-similarity'}
+              disabled={readingFile || submitting || !text.trim() || selectedType !== 'local-similarity'}
             >
-              {submitting ? '检测中…' : '检测'}
+              {readingFile ? '解析中…' : submitting ? '检测中…' : '检测'}
             </button>
           </div>
           {errorMessage ? <p className="mt-5 text-center text-sm font-semibold text-red-600">{errorMessage}</p> : null}

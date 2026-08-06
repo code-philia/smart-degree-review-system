@@ -108,6 +108,17 @@ function reviewTemplateCard(name: string) {
   return screen.getByRole('button', { name });
 }
 
+function testFileList(file: File): FileList {
+  return {
+    0: file,
+    length: 1,
+    item: (index: number) => (index === 0 ? file : null),
+    [Symbol.iterator]: function* iterateFiles() {
+      yield file;
+    },
+  } as FileList;
+}
+
 describe('FEAT-AI-REVIEW-RUN frontend route and workflow contract', () => {
   beforeEach(() => {
     vi.mocked(fetchCurrentSession).mockReset();
@@ -238,8 +249,10 @@ describe('FEAT-AI-REVIEW-RUN frontend route and workflow contract', () => {
     const fileInput = container.querySelector('input[type="file"]');
     expect(fileInput).toBeInstanceOf(HTMLInputElement);
 
-    await user.upload(fileInput as HTMLInputElement, new File(['PDF'], 'paper.pdf', { type: 'application/pdf' }));
-    expect(await screen.findByText('仅支持上传 .txt 或 .md 文件')).toBeInTheDocument();
+    fireEvent.change(fileInput as HTMLInputElement, {
+      target: { files: testFileList(new File(['DOCX'], 'paper.docx')) },
+    });
+    expect(await screen.findByText('仅支持上传 .txt、.md 或 .pdf 文件')).toBeInTheDocument();
     expect(createAiReviewRun).not.toHaveBeenCalled();
 
     await user.upload(

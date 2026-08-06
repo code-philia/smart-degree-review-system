@@ -9,26 +9,10 @@ import {
   type ReviewRubricsResponse,
 } from '../api/normativeRules';
 import { Card, ErrorState, LinkButton, LoadingState, PageHeader } from '../components/ui';
+import { extractThesisFileText, THESIS_FILE_ACCEPT } from '../utils/thesisFileText';
 
-const MAX_FILE_BYTES = 5 * 1024 * 1024;
-const ACCEPTED_FILE_EXTENSIONS = ['.txt', '.md'];
 const STEPS = ['论文上传', '模板选择', '智能评阅'];
 const TEMPLATE_ICON_COLORS = ['bg-[#3b86f6]', 'bg-[#28ae6f]', 'bg-[#f59e0b]', 'bg-[#8b5cf6]', 'bg-[#ef4444]'];
-
-function getFileExtension(fileName: string) {
-  const dotIndex = fileName.lastIndexOf('.');
-  return dotIndex === -1 ? '' : fileName.slice(dotIndex).toLowerCase();
-}
-
-async function readSelectedFile(file: File) {
-  if (!ACCEPTED_FILE_EXTENSIONS.includes(getFileExtension(file.name))) {
-    throw new Error('仅支持上传 .txt 或 .md 文件');
-  }
-  if (file.size > MAX_FILE_BYTES) {
-    throw new Error('文件大小不能超过 5 MB');
-  }
-  return file.text();
-}
 
 function AiReviewRunPage() {
   const { status, user } = useAuthSession();
@@ -42,6 +26,7 @@ function AiReviewRunPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [readingFile, setReadingFile] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [result, setResult] = useState<AiReviewRunResponse | null>(null);
@@ -89,7 +74,9 @@ function AiReviewRunPage() {
     return rubrics?.templates.find((template) => template.template_id === selectedTemplateId) || null;
   }, [rubrics, selectedTemplateId]);
 
-  const canSubmit = Boolean(user && thesisTitle.trim() && text.trim() && selectedTemplateId && !submitting);
+  const canSubmit = Boolean(
+    user && thesisTitle.trim() && text.trim() && selectedTemplateId && !submitting && !readingFile,
+  );
 
   async function applyFile(file: File | null) {
     setErrorMessage(null);
@@ -100,13 +87,16 @@ function AiReviewRunPage() {
       return;
     }
 
+    setReadingFile(true);
     try {
-      const fileText = await readSelectedFile(file);
-      setText(fileText);
+      const result = await extractThesisFileText(file);
+      setText(result.text);
     } catch (error) {
       setSelectedFile(null);
       setText('');
-      setErrorMessage(error instanceof Error ? error.message : '文件读取失败，请确认文件为 UTF-8 文本');
+      setErrorMessage(error instanceof Error ? error.message : '文件解析失败');
+    } finally {
+      setReadingFile(false);
     }
   }
 
@@ -236,9 +226,9 @@ function AiReviewRunPage() {
             </span>
             <span className="mt-4 text-3xl font-black text-slate-900">拖拽或点击上传论文</span>
             <span className="mt-2 text-lg text-slate-500">
-              支持 .txt / .md，UTF-8 编码，最大 5 MB；也可在下方直接粘贴文本
+              支持 .txt / .md / 可搜索文本 PDF，最大 5 MB；也可在下方直接粘贴文本
             </span>
-            <input className="sr-only" type="file" onChange={handleFileChange} />
+            <input className="sr-only" type="file" accept={THESIS_FILE_ACCEPT} onChange={handleFileChange} />
             {selectedFile ? <span className="mt-3 text-base font-bold text-[#3b86f6]">{selectedFile.name}</span> : null}
           </label>
 
@@ -306,7 +296,7 @@ function AiReviewRunPage() {
               type="submit"
               disabled={!canSubmit}
             >
-              {submitting ? '智能评阅中…' : '智能评阅'}
+              {readingFile ? '解析中…' : submitting ? '智能评阅中…' : '智能评阅'}
             </button>
           ) : null}
           {errorMessage ? <ErrorState title="提交失败" message={errorMessage} /> : null}

@@ -149,9 +149,15 @@ describe('FEAT-DUPLICATION-CORPUS frontend corpus page and API client contract',
     expect(screen.getByText('已选择：sample.md')).toBeInTheDocument();
 
     fireEvent.change(fileInput(container), {
-      target: { files: testFileList(new File(['PDF'], 'sample.pdf', { type: 'application/pdf' })) },
+      target: {
+        files: testFileList(
+          new File(['DOCX'], 'sample.docx', {
+            type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          }),
+        ),
+      },
     });
-    expect(screen.getByText('仅支持上传 .txt 或 .md 文件')).toBeInTheDocument();
+    expect(await screen.findByText('仅支持上传 .txt、.md 或 .pdf 文件')).toBeInTheDocument();
     expect(createDuplicationCorpusSample).not.toHaveBeenCalled();
 
     const oversizedFile = new File(['x'.repeat(5 * 1024 * 1024 + 1)], 'oversized.txt', { type: 'text/plain' });

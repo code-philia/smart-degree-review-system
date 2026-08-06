@@ -9,9 +9,7 @@ import {
   type WholePolishLevel,
   type WholePolishResult,
 } from '../api/normativeRules';
-
-const MAX_FILE_BYTES = 5 * 1024 * 1024;
-const ACCEPTED_FILE_EXTENSIONS = ['.txt', '.md'];
+import { extractThesisFileText, THESIS_FILE_ACCEPT } from '../utils/thesisFileText';
 
 const LEVEL_OPTIONS: Array<{
   level: WholePolishLevel;
@@ -31,11 +29,6 @@ const LEVEL_OPTIONS: Array<{
   { level: 'enhanced', title: '增强优化', summary: '进一步拆分过长且含合法分隔符的句子', accent: 'text-red-500' },
 ];
 
-function getFileExtension(fileName: string) {
-  const dotIndex = fileName.lastIndexOf('.');
-  return dotIndex === -1 ? '' : fileName.slice(dotIndex).toLowerCase();
-}
-
 function WholePolishPage() {
   const { resultId } = useParams();
   const { status, user } = useAuthSession();
@@ -45,9 +38,10 @@ function WholePolishPage() {
   const [result, setResult] = useState<WholePolishResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [readingFile, setReadingFile] = useState(false);
   const [loadingResult, setLoadingResult] = useState(false);
 
-  const canSubmit = useMemo(() => Boolean(text.trim()) && !submitting, [text, submitting]);
+  const canSubmit = useMemo(() => Boolean(text.trim()) && !submitting && !readingFile, [readingFile, text, submitting]);
 
   useEffect(() => {
     if (!resultId || !user) {
@@ -79,16 +73,6 @@ function WholePolishPage() {
     };
   }, [resultId, user]);
 
-  async function readSelectedFile(file: File) {
-    if (!ACCEPTED_FILE_EXTENSIONS.includes(getFileExtension(file.name))) {
-      throw new Error('仅支持上传 .txt 或 .md 文件');
-    }
-    if (file.size > MAX_FILE_BYTES) {
-      throw new Error('文件大小不能超过 5 MB');
-    }
-    return file.text();
-  }
-
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] || null;
     setErrorMessage(null);
@@ -98,12 +82,16 @@ function WholePolishPage() {
       return;
     }
 
+    setReadingFile(true);
     try {
-      setText(await readSelectedFile(file));
+      const result = await extractThesisFileText(file);
+      setText(result.text);
     } catch (error) {
       setSelectedFile(null);
       setText('');
-      setErrorMessage(error instanceof Error ? error.message : '文件读取失败，请确认文件为 UTF-8 文本');
+      setErrorMessage(error instanceof Error ? error.message : '文件解析失败');
+    } finally {
+      setReadingFile(false);
     }
   }
 
@@ -174,13 +162,10 @@ function WholePolishPage() {
             📄
           </span>
           <span className="mt-5 text-2xl font-black">拖拽或点击上传文档</span>
-          <span className="mt-3 text-lg text-slate-500">支持 .txt / .md，也可以在下方直接粘贴文本</span>
-          <input
-            className="sr-only"
-            type="file"
-            accept=".txt,.md,text/plain,text/markdown"
-            onChange={handleFileChange}
-          />
+          <span className="mt-3 text-lg text-slate-500">
+            支持 .txt / .md / 可搜索文本 PDF，也可以在下方直接粘贴文本
+          </span>
+          <input className="sr-only" type="file" accept={THESIS_FILE_ACCEPT} onChange={handleFileChange} />
         </label>
 
         <label className="mt-6 block text-sm font-bold text-slate-700" htmlFor="whole-polish-textarea">
@@ -230,7 +215,7 @@ function WholePolishPage() {
           type="submit"
           disabled={!canSubmit}
         >
-          {submitting ? '润色中…' : '智能润色'}
+          {readingFile ? '解析中…' : submitting ? '润色中…' : '智能润色'}
         </Button>
       </form>
 
