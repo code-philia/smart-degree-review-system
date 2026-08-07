@@ -38,6 +38,8 @@ function createReviewPilotPaperLintRouter(service = defaultService) {
         const { result, selectedRuleIds: normalizedRuleIds } = await service.runPaperLint({
           pdfBuffer: req.body,
           selectedRuleIds,
+          externalProcessingConsent:
+            req.get('x-paper-lint-external-processing-consent') === 'confirmed',
         });
         res.json({
           source_filename: typeof req.query.filename === 'string' ? req.query.filename.slice(0, 255) : '论文.pdf',

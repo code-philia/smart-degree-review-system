@@ -11,20 +11,36 @@ const { createTestDatabaseHarness } = require('../src/database');
 
 const catalog = {
   engine: 'review-pilot',
-  mode: 'deterministic',
-  rules: [{
-    rule_id: 'chinese_title_format_check',
-    title: '中文论文题名格式',
-    description: '检查中文论文题名页版式。',
-    default_severity: 'warning',
-    default_enabled: true,
-  }],
+  mode: 'pdf_lint',
+  semantic_model: 'deepseek-v4-flash',
+  rules: [
+    {
+      rule_id: 'chinese_title_format_check',
+      title: '中文论文题名格式',
+      description: '检查中文论文题名页版式。',
+      default_severity: 'warning',
+      default_enabled: true,
+      execution_mode: 'deterministic',
+      uses_external_model: false,
+      available: true,
+    },
+    {
+      rule_id: 'bilingual_abstract_consistency_check',
+      title: '中英文摘要内容一致性',
+      description: '使用 DeepSeek 检查摘要内容。',
+      default_severity: 'warning',
+      default_enabled: false,
+      execution_mode: 'semantic',
+      uses_external_model: true,
+      available: false,
+    },
+  ],
 };
 
 const runResult = {
   type: 'paper_lint',
   paper_title: '测试论文',
-  ruleset: { id: 'review-pilot-deterministic', name: 'review-pilot 确定性规则', version_number: 1, version_label: '当前部署版本' },
+  ruleset: { id: 'review-pilot-pdf-lint', name: 'review-pilot PDF 规则', version_number: 1, version_label: '当前部署版本' },
   rule_runs: [],
   summary: {
     rule_count: 1,
@@ -75,7 +91,7 @@ describe('review-pilot paper-lint HTTP bridge', () => {
     expect(fakeService.getPaperLintCatalog).not.toHaveBeenCalled();
   });
 
-  it('returns the deterministic rule catalog to every declared authenticated role', async () => {
+  it('returns the PDF rule catalog to every declared authenticated role', async () => {
     for (const cookie of Object.values(cookies)) {
       await request(app)
         .get('/api/normative/paper-lint/rules')
@@ -98,6 +114,7 @@ describe('review-pilot paper-lint HTTP bridge', () => {
     expect(fakeService.runPaperLint).toHaveBeenCalledWith({
       pdfBuffer: expect.any(Buffer),
       selectedRuleIds: ['chinese_title_format_check'],
+      externalProcessingConsent: false,
     });
     expect(fakeService.runPaperLint.mock.calls.at(-1)[0].pdfBuffer.equals(pdf)).toBe(true);
     expect(response.body).toMatchObject({
@@ -107,6 +124,24 @@ describe('review-pilot paper-lint HTTP bridge', () => {
       result: runResult,
     });
   });
+
+  it('passes explicit external-processing consent to the service', async () => {
+    const pdf = Buffer.from('%PDF-1.7\nsemantic test bytes');
+    await request(app)
+      .post('/api/normative/paper-lint/run')
+      .set('Cookie', cookies.student01)
+      .set('Content-Type', 'application/pdf')
+      .set('X-Paper-Lint-Rule-Ids', 'bilingual_abstract_consistency_check')
+      .set('X-Paper-Lint-External-Processing-Consent', 'confirmed')
+      .send(pdf)
+      .expect(200);
+
+    expect(fakeService.runPaperLint).toHaveBeenLastCalledWith({
+      pdfBuffer: expect.any(Buffer),
+      selectedRuleIds: ['bilingual_abstract_consistency_check'],
+      externalProcessingConsent: true,
+    });
+  });
 });
 
 describe('review-pilot PDF validation', () => {
@@ -114,5 +149,32 @@ describe('review-pilot PDF validation', () => {
     expect(() => paperLintService.validatePdf(Buffer.from('%PDF-1.7\n'))).not.toThrow();
     expect(() => paperLintService.validatePdf(Buffer.alloc(0))).toThrow(/请选择/);
     expect(() => paperLintService.validatePdf(Buffer.from('not a pdf'))).toThrow(/有效的 PDF/);
+  });
+
+  it('rejects a semantic rule when the server has no model credential', () => {
+    expect(() =>
+      paperLintService.validateSelectedRuleIds(catalog, ['bilingual_abstract_consistency_check']),
+    ).toThrow(/暂不可用/);
+  });
+
+  it('requires explicit external-processing consent for an available semantic rule', () => {
+    const availableCatalog = {
+      ...catalog,
+      rules: catalog.rules.map((rule) => ({ ...rule, available: true })),
+    };
+    expect(() =>
+      paperLintService.validateExternalProcessingConsent(
+        availableCatalog,
+        ['bilingual_abstract_consistency_check'],
+        false,
+      ),
+    ).toThrow(/请先确认/);
+    expect(() =>
+      paperLintService.validateExternalProcessingConsent(
+        availableCatalog,
+        ['bilingual_abstract_consistency_check'],
+        true,
+      ),
+    ).not.toThrow();
   });
 });

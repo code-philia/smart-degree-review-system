@@ -1,7 +1,7 @@
 id: SYS-DEGREE-AI-REVIEW
 name: '智慧学位 AI 评阅辅助系统（ARC 可实现版）'
 type: MODULE
-description: '面向学生、导师、学院管理人员和学校管理人员，建设一个可在当前 ARC Web 模板中完整生成、运行和测试的学位论文辅助系统。\n系统采用单端口 B/S 架构，前端使用 React，后端使用 Express，业务数据使用 SQLite 持久化。系统在本地单实例中运行，不承诺微服务拆分、校内私有云部署、高并发或弹性扩容。\n所有核心结果必须由本地可解释的规则、公式和持久化数据产生，不依赖 jAccount、短信、微信、外部大模型、校外文献库或未提供的校内论文库。'
+description: '面向学生、导师、学院管理人员和学校管理人员，建设一个可在当前 ARC Web 模板中完整生成、运行和测试的学位论文辅助系统。\n系统采用单端口 B/S 架构，前端使用 React，后端使用 Express，业务数据使用 SQLite 持久化。系统在本地单实例中运行，不承诺微服务拆分、校内私有云部署、高并发或弹性扩容。\n除明确标注的 review-pilot PDF 语义规则外，核心结果由本地可解释的规则、公式和持久化数据产生，不依赖 jAccount、短信、微信、外部大模型、校外文献库或未提供的校内论文库。语义规则固定调用 DeepSeek 官方 API，只处理规则选中的摘要、论点和候选论据文本，其结果属于需人工复核的辅助判断。'
 images:
   - label: '系统图标'
     path: './reference/image-001.jpeg'
@@ -109,7 +109,7 @@ children:
   - id: MOD-NORMATIVE-DETECTION
     name: '论文规则化规范检测'
     type: MODULE
-    description: '模块保留原有纯文本规范检测与历史报告能力，同时在 `/normative-check` 提供 review-pilot PDF 规则审查试点入口。PDF 入口把原文件临时交给同机规则引擎，返回可解释的规则状态、问题和页面坐标，并在浏览器中显示原 PDF 与高亮；原始 PDF 和本次快速审查结果不写入当前 SQLite，处理完成后删除后端临时文件。\n第一版 PDF 入口只开放 11 条不调用外部大模型的确定性规则，覆盖中英文题名、摘要长度、关键词、正文标题、标题编号、首末章和目录格式。原有纯文本规则、学校/学院规则发布及检测台账保持独立，不自动作用于 review-pilot 规则目录。'
+    description: '模块保留原有纯文本规范检测与历史报告能力，同时在 `/normative-check` 提供 review-pilot PDF 规则审查试点入口。PDF 入口把原文件临时交给同机规则引擎，返回可解释的规则状态、问题和页面坐标，并在浏览器中显示原 PDF 与高亮；原始 PDF 和本次快速审查结果不写入当前 SQLite，处理完成后删除后端临时文件。\nPDF 入口默认启用 11 条不调用外部模型的确定性规则，并提供 3 条默认不勾选的 DeepSeek 语义规则；语义规则只发送规则选中的相关文本，结果必须人工复核。原有纯文本规则、学校/学院规则发布及检测台账保持独立，不自动作用于 review-pilot 规则目录。'
     permissions: ALL
     dependencies: []
     children:
@@ -135,7 +135,7 @@ children:
       - id: FEAT-REVIEW-PILOT-PDF-LINT
         name: 'review-pilot PDF 规则审查'
         type: FEATURE
-        description: '所有已登录角色可在 `/normative-check` 上传不超过 50 MB 的 PDF，从部署环境提供的 review-pilot 确定性规则目录中选择规则并同步运行。后端校验 PDF 文件头，以权限受限的临时文件调用同机 Python 规则引擎，限制并发数和单次运行时间，并在成功或失败后删除临时文件。\n结果展示论文标题、规则执行状态和问题汇总；存在页面坐标的问题在内嵌 PDF 中高亮，点击问题或证据锚点时联动定位。第一版不调用 review-pilot 语义模型规则，不保存原始 PDF、审查任务或结果，不进入现有检测历史、统计和师生批阅闭环。扫描版、加密 PDF 或缺少规则所需结构时，规则可返回不适用、无法判定或可理解的错误。'
+        description: '所有已登录角色可在 `/normative-check` 上传不超过 50 MB 的 PDF，从部署环境提供的 review-pilot 规则目录中选择规则并同步运行。后端校验 PDF 文件头，以权限受限的临时文件调用同机 Python 规则引擎，限制并发数和单次运行时间，并在成功或失败后删除临时文件。\n结果展示论文标题、规则执行状态和问题汇总；存在页面坐标的问题在内嵌 PDF 中高亮，点击问题或证据锚点时联动定位。系统默认启用 11 条确定性规则，并提供 3 条默认不勾选的语义规则：中英文摘要内容一致性、论点与论据一致性、强论断支撑检查。语义规则固定使用 DeepSeek 官方 `deepseek-v4-flash` 非思考模式，不提供模型选择或应用层重试；运行前明确提示相关摘要、论点和候选论据文本会发送至外部 API，用户不得上传不允许外发的论文。模型密钥未配置时语义规则显示为不可用。\n原始 PDF 和本次快速审查结果不写入当前 SQLite，处理完成后删除后端临时文件，不进入现有检测历史、统计和师生批阅闭环。语义模型输出可能不稳定或无法判定，不得表述为专家结论，必须由人工复核。扫描版、加密 PDF 或缺少规则所需结构时，规则可返回不适用、无法判定或可理解的错误。'
         permissions: ALL
         dependencies:
           - 'FEAT-AUTH-SESSION'
@@ -162,6 +162,28 @@ children:
                 content: '学生发起规则审查。'
               - keyword: THEN
                 content: '系统返回可理解的校验错误，不生成虚假结果，也不在 SQLite 或临时目录中保留审查记录。'
+          - name: '按需运行语义规则并说明外部处理边界'
+            actor: 'STUDENT'
+            steps:
+              - keyword: GIVEN
+                actor: 'STUDENT'
+                content: 'DeepSeek 官方 API Key 已由服务器安全配置，学生选择至少一条标记为“DeepSeek 语义”的规则。'
+              - keyword: WHEN
+                actor: 'STUDENT'
+                content: '学生确认论文允许外发并发起审查。'
+              - keyword: THEN
+                content: '系统只把该规则选中的摘要、论点和候选论据文本发送至固定模型，返回真实的通过、问题、无法判定或执行失败状态，并提示结果需要人工复核。'
+          - name: '密钥未配置时不伪造语义结果'
+            actor: 'SCHOOL_ADMIN'
+            steps:
+              - keyword: GIVEN
+                actor: 'SCHOOL_ADMIN'
+                content: '服务器没有配置 DeepSeek 官方 API Key。'
+              - keyword: WHEN
+                actor: 'SCHOOL_ADMIN'
+                content: '管理员查看规则目录或尝试选择语义规则。'
+              - keyword: THEN
+                content: '语义规则明确显示为尚未配置且不可选择，确定性规则仍可正常运行，系统不使用假密钥或伪造语义结果。'
       - id: FLOW-RULE-PUBLISH
         name: '学校与学院规则配置'
         type: WORKFLOW

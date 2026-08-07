@@ -10,11 +10,15 @@ export type PaperLintRule = {
   description: string;
   default_severity: PaperLintSeverity;
   default_enabled: boolean;
+  execution_mode: 'deterministic' | 'semantic';
+  uses_external_model: boolean;
+  available: boolean;
 };
 
 export type PaperLintCatalogResponse = {
   engine: 'review-pilot';
-  mode: 'deterministic';
+  mode: 'pdf_lint';
+  semantic_model: 'deepseek-v4-flash';
   rules: PaperLintRule[];
 };
 
@@ -113,12 +117,17 @@ export async function fetchReviewPilotPaperLintRules(): Promise<PaperLintCatalog
   return response.data;
 }
 
-export async function runReviewPilotPaperLint(file: File, selectedRuleIds: string[]): Promise<PaperLintRunResponse> {
+export async function runReviewPilotPaperLint(
+  file: File,
+  selectedRuleIds: string[],
+  externalProcessingConsent = false,
+): Promise<PaperLintRunResponse> {
   const response = await apiClient.post<PaperLintRunResponse>('/normative/paper-lint/run', file, {
     params: { filename: file.name },
     headers: {
       'Content-Type': 'application/pdf',
       'X-Paper-Lint-Rule-Ids': selectedRuleIds.join(','),
+      ...(externalProcessingConsent ? { 'X-Paper-Lint-External-Processing-Consent': 'confirmed' } : {}),
     },
     timeout: 310_000,
   });

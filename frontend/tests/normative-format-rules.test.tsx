@@ -39,7 +39,8 @@ const studentUser: AuthenticatedUser = {
 
 const catalog = {
   engine: 'review-pilot',
-  mode: 'deterministic',
+  mode: 'pdf_lint',
+  semantic_model: 'deepseek-v4-flash',
   rules: [
     {
       rule_id: 'chinese_title_format_check',
@@ -47,6 +48,9 @@ const catalog = {
       description: '检查中文论文题名页版式。',
       default_severity: 'warning' as const,
       default_enabled: true,
+      execution_mode: 'deterministic' as const,
+      uses_external_model: false,
+      available: true,
     },
     {
       rule_id: 'toc_format_check',
@@ -54,6 +58,19 @@ const catalog = {
       description: '检查目录标题、条目、缩进和页码对齐。',
       default_severity: 'warning' as const,
       default_enabled: true,
+      execution_mode: 'deterministic' as const,
+      uses_external_model: false,
+      available: true,
+    },
+    {
+      rule_id: 'bilingual_abstract_consistency_check',
+      title: '中英文摘要内容一致性',
+      description: '使用 DeepSeek 检查摘要内容。',
+      default_severity: 'warning' as const,
+      default_enabled: false,
+      execution_mode: 'semantic' as const,
+      uses_external_model: true,
+      available: true,
     },
   ],
 };
@@ -66,8 +83,8 @@ const completedResponse = {
     type: 'paper_lint' as const,
     paper_title: '测试论文',
     ruleset: {
-      id: 'review-pilot-deterministic',
-      name: 'review-pilot 确定性规则',
+      id: 'review-pilot-pdf-lint',
+      name: 'review-pilot PDF 规则',
       version_number: 1,
       version_label: '当前部署版本',
     },
@@ -130,7 +147,7 @@ describe('review-pilot PDF rules review route', () => {
     vi.mocked(runReviewPilotPaperLint).mockReset();
   });
 
-  it('loads deterministic rules, uploads a PDF and renders the real API result', async () => {
+  it('loads default rules, uploads a PDF and renders the real API result', async () => {
     vi.mocked(fetchCurrentSession).mockResolvedValue({ user: studentUser });
     vi.mocked(fetchReviewPilotPaperLintRules).mockResolvedValue(catalog);
     vi.mocked(runReviewPilotPaperLint).mockResolvedValue(completedResponse);
@@ -146,10 +163,41 @@ describe('review-pilot PDF rules review route', () => {
     await user.click(screen.getByRole('button', { name: '开始规则审查' }));
 
     await waitFor(() =>
-      expect(runReviewPilotPaperLint).toHaveBeenCalledWith(pdf, ['chinese_title_format_check', 'toc_format_check']),
+      expect(runReviewPilotPaperLint).toHaveBeenCalledWith(
+        pdf,
+        ['chinese_title_format_check', 'toc_format_check'],
+        false,
+      ),
     );
     expect(await screen.findByText('发现 1 项问题')).toBeInTheDocument();
     expect(screen.getByTestId('paper-lint-workspace')).toHaveTextContent('中文论文标题应居中。');
+  });
+
+  it('warns before sending selected semantic evidence to DeepSeek', async () => {
+    vi.mocked(fetchCurrentSession).mockResolvedValue({ user: studentUser });
+    vi.mocked(fetchReviewPilotPaperLintRules).mockResolvedValue(catalog);
+    vi.mocked(runReviewPilotPaperLint).mockResolvedValue(completedResponse);
+    const user = userEvent.setup();
+    const pdf = new File(['%PDF-1.7\n'], '论文.pdf', { type: 'application/pdf' });
+
+    renderRoute();
+
+    const semanticRule = await screen.findByRole('checkbox', { name: /中英文摘要内容一致性/ });
+    await user.upload(screen.getByLabelText('上传待审查 PDF'), pdf);
+    await user.click(semanticRule);
+
+    expect(screen.getByRole('note')).toHaveTextContent('发送到 DeepSeek 官方 API');
+    expect(screen.getByRole('button', { name: '开始规则审查' })).toBeDisabled();
+    await user.click(screen.getByRole('checkbox', { name: /我确认该论文相关文本允许发送/ }));
+    expect(screen.getByRole('button', { name: '开始规则审查' })).toBeEnabled();
+    await user.click(screen.getByRole('button', { name: '开始规则审查' }));
+    await waitFor(() =>
+      expect(runReviewPilotPaperLint).toHaveBeenCalledWith(
+        pdf,
+        ['chinese_title_format_check', 'toc_format_check', 'bilingual_abstract_consistency_check'],
+        true,
+      ),
+    );
   });
 
   it('requires login and never loads the engine catalog for an anonymous user', async () => {

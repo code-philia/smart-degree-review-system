@@ -1,7 +1,9 @@
-"""Run the approved deterministic review-pilot paper-lint rules.
+"""Run approved PDF-only review-pilot rules for the Node backend.
 
-This process is a JSON bridge for the Node backend. It intentionally imports
-neither semantic rules nor review-pilot's task/database stack.
+Deterministic rules run locally. Selected semantic rules use one fixed
+DeepSeek Official model through its OpenAI-compatible API. This bridge does
+not import review-pilot's task/database stack and never accepts model choices
+from browser input.
 """
 
 from __future__ import annotations
@@ -11,9 +13,22 @@ import asyncio
 import contextlib
 import io
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
+
+
+FIXED_DEEPSEEK_MODEL = "deepseek-v4-flash"
+FIXED_DEEPSEEK_BASE_URL = "https://api.deepseek.com"
+DEEPSEEK_API_KEY_ENV = "REVIEW_PILOT_DEEPSEEK_API_KEY"
+SEMANTIC_RULE_IDS = frozenset(
+    {
+        "bilingual_abstract_consistency_check",
+        "claim_evidence_inconsistency_check",
+        "strong_claim_without_evidence_check",
+    }
+)
 
 
 RULE_METADATA: dict[str, tuple[str, str]] = {
@@ -43,6 +58,18 @@ RULE_METADATA: dict[str, tuple[str, str]] = {
         "检查最后一个编号正文章是否为总结或结论类章节。",
     ),
     "toc_format_check": ("目录格式", "检查目录标题、条目、缩进和页码对齐。"),
+    "bilingual_abstract_consistency_check": (
+        "中英文摘要内容一致性",
+        "使用 DeepSeek 检查中英文摘要的研究对象、方法、结果和结论是否实质一致。",
+    ),
+    "claim_evidence_inconsistency_check": (
+        "论点与论据一致性",
+        "使用 DeepSeek 检查论文中的数值论点与候选实验论据是否矛盾。",
+    ),
+    "strong_claim_without_evidence_check": (
+        "强论断支撑检查（试验性）",
+        "使用 DeepSeek 查找缺少可追溯证据的作者强论断；结果需要人工复核。",
+    ),
 }
 
 
@@ -55,7 +82,23 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def load_engine(backend_dir: Path) -> dict[str, Any]:
+def semantic_rules_requested(rule_ids: list[str]) -> bool:
+    return bool(SEMANTIC_RULE_IDS.intersection(rule_ids))
+
+
+def require_deepseek_api_key() -> str:
+    api_key = os.environ.get(DEEPSEEK_API_KEY_ENV, "").strip()
+    if not api_key:
+        raise RuntimeError("语义规则尚未配置 DeepSeek 官方 API Key")
+    return api_key
+
+
+def load_engine(
+    backend_dir: Path,
+    requested_rule_ids: list[str],
+    *,
+    deepseek_api_key: str | None,
+) -> dict[str, Any]:
     resolved = backend_dir.resolve()
     if not (resolved / "novref" / "domain" / "paper_lint").is_dir():
         raise RuntimeError(f"review-pilot backend is unavailable: {resolved}")
@@ -80,19 +123,104 @@ def load_engine(backend_dir: Path) -> dict[str, Any]:
     from novref.domain.paper_lint.rules.last_body_chapter_summary_check import LastBodyChapterSummaryRule
     from novref.domain.paper_lint.rules.toc_format_check import TocFormatRule
 
-    rule_types = [
-        ChineseTitleFormatRule,
-        EnglishTitleFormatRule,
-        ChineseAbstractLengthRule,
-        EnglishAbstractLengthRule,
-        ChineseKeywordsFormatRule,
-        EnglishKeywordsFormatRule,
-        BodyHeadingFormatRule,
-        HeadingNumberingHierarchyRule,
-        FirstBodyChapterIntroRule,
-        LastBodyChapterSummaryRule,
-        TocFormatRule,
-    ]
+    rule_factories = {
+        rule_type.rule_id: rule_type
+        for rule_type in [
+            ChineseTitleFormatRule,
+            EnglishTitleFormatRule,
+            ChineseAbstractLengthRule,
+            EnglishAbstractLengthRule,
+            ChineseKeywordsFormatRule,
+            EnglishKeywordsFormatRule,
+            BodyHeadingFormatRule,
+            HeadingNumberingHierarchyRule,
+            FirstBodyChapterIntroRule,
+            LastBodyChapterSummaryRule,
+            TocFormatRule,
+        ]
+    }
+
+    if semantic_rules_requested(requested_rule_ids):
+        if deepseek_api_key is None:
+            raise RuntimeError("语义规则尚未配置 DeepSeek 官方 API Key")
+
+        from openai import AsyncOpenAI
+
+        from novref.domain.paper_lint.rules.bilingual_abstract_consistency_check import (
+            BilingualAbstractConsistencyRule,
+        )
+        from novref.domain.paper_lint.rules.claim_evidence_inconsistency_check import (
+            ClaimEvidenceInconsistencyRule,
+        )
+        from novref.domain.paper_lint.rules.semantic_atomic import SemanticCheckResponse
+        from novref.domain.paper_lint.rules.strong_claim_without_evidence_check import (
+            StrongClaimWithoutEvidenceRule,
+        )
+
+        deepseek = AsyncOpenAI(
+            api_key=deepseek_api_key,
+            base_url=FIXED_DEEPSEEK_BASE_URL,
+            max_retries=0,
+            timeout=120.0,
+        )
+
+        async def invoke_deepseek_json(messages):
+            role_by_type = {
+                "system": "system",
+                "human": "user",
+                "ai": "assistant",
+            }
+            request_messages = []
+            for message in messages:
+                role = role_by_type.get(message.type)
+                if role is None:
+                    raise ValueError(f"unsupported DeepSeek message type: {message.type}")
+                request_messages.append({"role": role, "content": str(message.content)})
+            request_messages.append(
+                {
+                    "role": "system",
+                    "content": (
+                        "Return exactly one valid JSON object. Do not include markdown "
+                        "fences or any text outside the JSON object."
+                    ),
+                }
+            )
+            response = await deepseek.chat.completions.create(
+                model=FIXED_DEEPSEEK_MODEL,
+                messages=request_messages,
+                temperature=0,
+                max_tokens=8192,
+                response_format={"type": "json_object"},
+                extra_body={"thinking": {"type": "disabled"}},
+            )
+            content = response.choices[0].message.content
+            if not content or not content.strip():
+                raise ValueError("DeepSeek returned empty JSON content")
+            return content
+
+        async def invoke_semantic_check(messages):
+            content = await invoke_deepseek_json(messages)
+            return SemanticCheckResponse.model_validate_json(content)
+
+        if "bilingual_abstract_consistency_check" in requested_rule_ids:
+            rule_factories["bilingual_abstract_consistency_check"] = (
+                lambda: BilingualAbstractConsistencyRule(
+                    ainvoke=invoke_semantic_check,
+                )
+            )
+        if "claim_evidence_inconsistency_check" in requested_rule_ids:
+            rule_factories["claim_evidence_inconsistency_check"] = (
+                lambda: ClaimEvidenceInconsistencyRule(
+                    ainvoke=invoke_deepseek_json,
+                )
+            )
+        if "strong_claim_without_evidence_check" in requested_rule_ids:
+            rule_factories["strong_claim_without_evidence_check"] = (
+                lambda: StrongClaimWithoutEvidenceRule(
+                    ainvoke=invoke_deepseek_json,
+                )
+            )
+
     return {
         "PaperLintContext": PaperLintContext,
         "PaperLintResultRuleset": PaperLintResultRuleset,
@@ -100,33 +228,45 @@ def load_engine(backend_dir: Path) -> dict[str, Any]:
         "PaperLintTaskResult": PaperLintTaskResult,
         "RuleExecutionEntry": RuleExecutionEntry,
         "execute": execute_rule_entries,
-        "rule_types": {rule_type.rule_id: rule_type for rule_type in rule_types},
+        "rule_factories": rule_factories,
     }
 
 
 class SelectedRuleCatalog:
-    def __init__(self, rule_types: dict[str, type]) -> None:
-        self.rule_types = rule_types
+    def __init__(self, rule_factories: dict[str, Any]) -> None:
+        self.rule_factories = rule_factories
 
     def create(self, rule_id: str):
-        rule_type = self.rule_types.get(rule_id)
-        return rule_type() if rule_type else None
+        factory = self.rule_factories.get(rule_id)
+        return factory() if factory else None
 
 
 def catalog_payload(engine: dict[str, Any]) -> dict[str, Any]:
     rules = []
-    for rule_id, rule_type in engine["rule_types"].items():
-        title, description = RULE_METADATA[rule_id]
+    semantic_available = bool(os.environ.get(DEEPSEEK_API_KEY_ENV, "").strip())
+    for rule_id, (title, description) in RULE_METADATA.items():
+        is_semantic = rule_id in SEMANTIC_RULE_IDS
+        rule_factory = engine["rule_factories"].get(rule_id)
         rules.append(
             {
                 "rule_id": rule_id,
                 "title": title,
                 "description": description,
-                "default_severity": rule_type.default_severity,
-                "default_enabled": True,
+                "default_severity": (
+                    getattr(rule_factory, "default_severity", "warning")
+                ),
+                "default_enabled": not is_semantic,
+                "execution_mode": "semantic" if is_semantic else "deterministic",
+                "uses_external_model": is_semantic,
+                "available": semantic_available if is_semantic else True,
             }
         )
-    return {"engine": "review-pilot", "mode": "deterministic", "rules": rules}
+    return {
+        "engine": "review-pilot",
+        "mode": "pdf_lint",
+        "semantic_model": FIXED_DEEPSEEK_MODEL,
+        "rules": rules,
+    }
 
 
 def build_summary(engine: dict[str, Any], rule_runs: list[Any]):
@@ -151,14 +291,18 @@ async def run_lint(engine: dict[str, Any], pdf_path: Path, rule_ids: list[str]) 
         raise RuntimeError("PDF input is missing")
     if not rule_ids:
         raise RuntimeError("At least one rule must be selected")
-    unknown = [rule_id for rule_id in rule_ids if rule_id not in engine["rule_types"]]
+    unknown = [rule_id for rule_id in rule_ids if rule_id not in engine["rule_factories"]]
     if unknown:
-        raise RuntimeError(f"Unknown deterministic rule: {unknown[0]}")
+        raise RuntimeError(f"Unknown paper-lint rule: {unknown[0]}")
 
     entries = [
         engine["RuleExecutionEntry"](
             rule_id=rule_id,
-            severity=engine["rule_types"][rule_id].default_severity,
+            severity=getattr(
+                engine["rule_factories"][rule_id],
+                "default_severity",
+                "warning",
+            ),
             params=None,
             display_order=index,
         )
@@ -171,7 +315,7 @@ async def run_lint(engine: dict[str, Any], pdf_path: Path, rule_ids: list[str]) 
     rule_runs = await engine["execute"](
         context,
         entries,
-        SelectedRuleCatalog(engine["rule_types"]),
+        SelectedRuleCatalog(engine["rule_factories"]),
     )
     paper_title = "未识别论文标题"
     for line in context.raw.lines[:80]:
@@ -183,8 +327,8 @@ async def run_lint(engine: dict[str, Any], pdf_path: Path, rule_ids: list[str]) 
     result = engine["PaperLintTaskResult"](
         paper_title=paper_title,
         ruleset=engine["PaperLintResultRuleset"](
-            id="review-pilot-deterministic",
-            name="review-pilot 确定性规则",
+            id="review-pilot-pdf-lint",
+            name="review-pilot PDF 规则",
             version_number=1,
             version_label="当前部署版本",
         ),
@@ -196,9 +340,19 @@ async def run_lint(engine: dict[str, Any], pdf_path: Path, rule_ids: list[str]) 
 
 def main() -> int:
     args = parse_args()
+    unknown = [rule_id for rule_id in args.rule if rule_id not in RULE_METADATA]
+    if unknown:
+        raise RuntimeError(f"Unknown paper-lint rule: {unknown[0]}")
+    deepseek_api_key = (
+        require_deepseek_api_key() if semantic_rules_requested(args.rule) else None
+    )
     captured_stdout = io.StringIO()
     with contextlib.redirect_stdout(captured_stdout):
-        engine = load_engine(args.backend_dir)
+        engine = load_engine(
+            args.backend_dir,
+            args.rule,
+            deepseek_api_key=deepseek_api_key,
+        )
         if args.catalog:
             payload = catalog_payload(engine)
         else:

@@ -42,7 +42,14 @@ function assertEngineAvailable(backendDir) {
 
 function childEnvironment() {
   const env = { ...process.env };
-  for (const key of ['ALL_PROXY', 'all_proxy']) {
+  for (const key of [
+    'ALL_PROXY',
+    'all_proxy',
+    'HTTP_PROXY',
+    'http_proxy',
+    'HTTPS_PROXY',
+    'https_proxy',
+  ]) {
     if (typeof env[key] === 'string' && /^socks/i.test(env[key])) {
       delete env[key];
     }
@@ -61,6 +68,18 @@ function parseLastEngineError(stderr) {
     }
   }
   return null;
+}
+
+function parseLastEnginePayload(stdout) {
+  const lines = stdout.trim().split('\n').filter(Boolean);
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    try {
+      return JSON.parse(lines[index]);
+    } catch {
+      // Continue past structured initialization logs emitted by review-pilot.
+    }
+  }
+  throw new Error('missing engine payload');
 }
 
 function runBridge(args, timeoutMs = ENGINE_TIMEOUT_MS) {
@@ -107,7 +126,7 @@ function runBridge(args, timeoutMs = ENGINE_TIMEOUT_MS) {
         return reject(createHttpError(502, parseLastEngineError(stderr) || 'review-pilot 规则审查运行失败'));
       }
       try {
-        resolve(JSON.parse(stdout));
+        resolve(parseLastEnginePayload(stdout));
       } catch {
         reject(createHttpError(502, '规则引擎返回了无法解析的结果'));
       }
@@ -153,8 +172,7 @@ function validatePdf(pdfBuffer) {
   }
 }
 
-async function normalizeSelectedRuleIds(selectedRuleIds) {
-  const catalog = await getPaperLintCatalog();
+function validateSelectedRuleIds(catalog, selectedRuleIds) {
   const knownIds = new Set(catalog.rules.map((rule) => rule.rule_id));
   const normalized = Array.from(
     new Set((selectedRuleIds || []).map((ruleId) => String(ruleId).trim()).filter(Boolean)),
@@ -162,12 +180,34 @@ async function normalizeSelectedRuleIds(selectedRuleIds) {
   if (normalized.length === 0) throw createHttpError(400, '请至少选择一条审查规则');
   const unknown = normalized.find((ruleId) => !knownIds.has(ruleId));
   if (unknown) throw createHttpError(400, `未知的审查规则：${unknown}`);
+  const unavailable = catalog.rules.find(
+    (rule) => normalized.includes(rule.rule_id) && rule.available === false,
+  );
+  if (unavailable) {
+    throw createHttpError(503, `${unavailable.title || unavailable.rule_id}暂不可用，请联系管理员配置语义模型`);
+  }
   return normalized;
 }
 
-async function runPaperLint({ pdfBuffer, selectedRuleIds }) {
+function validateExternalProcessingConsent(catalog, selectedRuleIds, externalProcessingConsent) {
+  const externalRule = catalog.rules.find(
+    (rule) => selectedRuleIds.includes(rule.rule_id) && rule.uses_external_model === true,
+  );
+  if (externalRule && !externalProcessingConsent) {
+    throw createHttpError(400, '运行 DeepSeek 语义规则前，请先确认论文相关文本允许发送至外部 API');
+  }
+}
+
+async function normalizeSelectedRuleIds(selectedRuleIds, externalProcessingConsent) {
+  const catalog = await getPaperLintCatalog();
+  const normalized = validateSelectedRuleIds(catalog, selectedRuleIds);
+  validateExternalProcessingConsent(catalog, normalized, externalProcessingConsent);
+  return normalized;
+}
+
+async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingConsent = false }) {
   validatePdf(pdfBuffer);
-  const normalizedRuleIds = await normalizeSelectedRuleIds(selectedRuleIds);
+  const normalizedRuleIds = await normalizeSelectedRuleIds(selectedRuleIds, externalProcessingConsent);
 
   return withRunSlot(async () => {
     const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'smart-degree-paper-lint-'));
@@ -190,5 +230,7 @@ module.exports = {
   getPaperLintCatalog,
   runPaperLint,
   resolveEngineBackendDir,
+  validateExternalProcessingConsent,
+  validateSelectedRuleIds,
   validatePdf,
 };

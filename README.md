@@ -93,13 +93,16 @@ npm run dev
 
 ## review-pilot PDF 规则引擎
 
-`/normative-check` 通过同机 Python 进程调用 review-pilot 的确定性规则。部署环境需要配置：
+`/normative-check` 通过同机 Python 进程调用 review-pilot 的确定性规则和按需语义规则。部署环境需要配置：
 
 - `REVIEW_PILOT_BACKEND_DIR`：review-pilot 仓库的 `backend` 绝对路径；
 - `REVIEW_PILOT_PYTHON`：可选，已安装 review-pilot 依赖的 Python 可执行文件绝对路径；未配置时优先使用该 backend 下的 `.venv/bin/python`；
 - `REVIEW_PILOT_MAX_CONCURRENT_RUNS`：可选，并发运行上限，默认 `2`。
+- `REVIEW_PILOT_DEEPSEEK_API_KEY`：可选的 DeepSeek 官方 API Key；只从部署环境读取，未配置时 3 条语义规则不可选择，确定性规则不受影响。
 
-第一版不调用外部模型规则。上传的 PDF 只写入权限受限的系统临时目录，规则运行结束后删除；结果不写入当前 SQLite 或规范检测历史。
+语义规则固定使用 DeepSeek 官方 `deepseek-v4-flash` 非思考模式，不提供前端模型选择，也不在 Node 层自动重试。规则只发送其选中的摘要、论点和候选论据文本，不上传原始 PDF；模型输出必须人工复核。不要把 API Key 写入仓库、普通日志或前端代码。
+
+上传的 PDF 只写入权限受限的系统临时目录，规则运行结束后删除；结果不写入当前 SQLite 或规范检测历史。只有用户明确勾选语义规则并确认相关文本允许外发时，后端才接受外部模型调用请求。
 
 ## 测试
 

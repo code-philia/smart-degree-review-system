@@ -62,6 +62,7 @@ function NormativeCheckPage() {
   const [dragging, setDragging] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
+  const [semanticConsent, setSemanticConsent] = useState(false);
 
   const loadCatalog = async () => {
     setCatalogLoading(true);
@@ -70,6 +71,7 @@ function NormativeCheckPage() {
       const nextCatalog = await fetchReviewPilotPaperLintRules();
       setCatalog(nextCatalog);
       setSelectedRuleIds(nextCatalog.rules.filter((rule) => rule.default_enabled).map((rule) => rule.rule_id));
+      setSemanticConsent(false);
     } catch (error) {
       setCatalog(null);
       setCatalogError(errorMessage(error, '规则目录加载失败'));
@@ -83,6 +85,13 @@ function NormativeCheckPage() {
   }, [user?.id]);
 
   const rulesById = useMemo(() => new Map((catalog?.rules || []).map((rule) => [rule.rule_id, rule])), [catalog]);
+  const selectedSemanticRules = useMemo(
+    () =>
+      (catalog?.rules || []).filter(
+        (rule) => rule.execution_mode === 'semantic' && selectedRuleIds.includes(rule.rule_id),
+      ),
+    [catalog, selectedRuleIds],
+  );
   const findings = useMemo(() => (response ? flattenPaperLintFindings(response.result) : []), [response]);
 
   function chooseFile(nextFile: File | null) {
@@ -114,6 +123,7 @@ function NormativeCheckPage() {
     );
     setResponse(null);
     setResultFile(null);
+    setSemanticConsent(false);
   }
 
   function replaceSelectedRules(ruleIds: string[]) {
@@ -121,6 +131,7 @@ function NormativeCheckPage() {
     setResponse(null);
     setResultFile(null);
     setRunError(null);
+    setSemanticConsent(false);
   }
 
   async function runReview() {
@@ -132,12 +143,16 @@ function NormativeCheckPage() {
       setRunError('请至少选择一条审查规则');
       return;
     }
+    if (selectedSemanticRules.length > 0 && !semanticConsent) {
+      setRunError('请先确认论文相关文本允许发送至 DeepSeek 官方 API');
+      return;
+    }
     setRunning(true);
     setRunError(null);
     setResponse(null);
     setResultFile(null);
     try {
-      const nextResponse = await runReviewPilotPaperLint(file, selectedRuleIds);
+      const nextResponse = await runReviewPilotPaperLint(file, selectedRuleIds, semanticConsent);
       setResponse(nextResponse);
       setResultFile(file);
     } catch (error) {
@@ -165,9 +180,9 @@ function NormativeCheckPage() {
     <div className="space-y-6">
       <PageHeader
         title="PDF 论文规则审查"
-        description="上传 PDF，选择 review-pilot 确定性规则，查看带页码和坐标高亮的真实审查结果。"
+        description="上传 PDF，选择 review-pilot 确定性规则或 DeepSeek 语义规则，查看带页码和坐标高亮的真实审查结果。"
         breadcrumbs={[{ label: '首页', to: '/' }, { label: '规范性检测' }]}
-        actions={<StatusBadge tone="info">PDF-only</StatusBadge>}
+        actions={<StatusBadge tone="info">PDF-only · DeepSeek</StatusBadge>}
       />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,.85fr)_minmax(440px,1.15fr)]">
@@ -225,16 +240,18 @@ function NormativeCheckPage() {
 
         <Card
           title="2. 选择审查规则"
-          description="第一版仅开放不调用外部模型的确定性规则。"
+          description="确定性规则默认启用；3 条语义规则按需选择，并使用固定的 DeepSeek V4 Flash。"
           actions={
             catalog ? (
               <div className="flex gap-1">
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() => replaceSelectedRules(catalog.rules.map((rule) => rule.rule_id))}
+                  onClick={() =>
+                    replaceSelectedRules(catalog.rules.filter((rule) => rule.available).map((rule) => rule.rule_id))
+                  }
                 >
-                  全选
+                  全选可用
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => replaceSelectedRules([])}>
                   清空
@@ -252,18 +269,31 @@ function NormativeCheckPage() {
                 return (
                   <label
                     key={rule.rule_id}
-                    className={`flex cursor-pointer gap-3 rounded-lg border p-3 transition ${
-                      checked ? 'border-brand-500 bg-brand-50' : 'border-slate-200 hover:border-slate-300'
-                    }`}
+                    className={`flex gap-3 rounded-lg border p-3 transition ${
+                      rule.available ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'
+                    } ${checked ? 'border-brand-500 bg-brand-50' : 'border-slate-200 hover:border-slate-300'}`}
                   >
                     <input
                       className="mt-0.5 size-4 accent-brand-500"
                       type="checkbox"
                       checked={checked}
+                      disabled={!rule.available}
                       onChange={() => toggleRule(rule.rule_id)}
                     />
                     <span className="min-w-0">
-                      <span className="block text-sm font-bold text-slate-900">{rule.title}</span>
+                      <span className="flex flex-wrap items-center gap-2 text-sm font-bold text-slate-900">
+                        {rule.title}
+                        {rule.execution_mode === 'semantic' ? (
+                          <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] text-violet-700">
+                            DeepSeek 语义
+                          </span>
+                        ) : null}
+                        {!rule.available ? (
+                          <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] text-slate-600">
+                            尚未配置
+                          </span>
+                        ) : null}
+                      </span>
                       <span className="mt-1 block text-xs leading-5 text-slate-500">{rule.description}</span>
                       <span className="mt-1 block truncate font-mono text-[10px] text-slate-400">{rule.rule_id}</span>
                     </span>
@@ -272,12 +302,38 @@ function NormativeCheckPage() {
               })}
             </div>
           ) : null}
+          {selectedSemanticRules.length > 0 ? (
+            <div
+              className="mt-4 rounded-lg border border-violet-200 bg-violet-50 p-3 text-xs leading-5 text-violet-900"
+              role="note"
+            >
+              <p>
+                已选择 {selectedSemanticRules.length} 条语义规则。规则会把相关摘要、论点和候选论据文本发送到 DeepSeek
+                官方 API；请勿上传不允许外发的论文，模型结果必须由人工复核。
+              </p>
+              <label className="mt-2 flex cursor-pointer items-start gap-2 font-semibold">
+                <input
+                  className="mt-0.5 size-4 accent-violet-600"
+                  type="checkbox"
+                  checked={semanticConsent}
+                  onChange={(event) => setSemanticConsent(event.target.checked)}
+                />
+                <span>我确认该论文相关文本允许发送至 DeepSeek 官方 API</span>
+              </label>
+            </div>
+          ) : null}
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
             <p className="text-sm text-slate-600">
               已选择 <strong className="text-slate-900">{selectedRuleIds.length}</strong> 条规则
             </p>
             <Button
-              disabled={!file || !catalog || selectedRuleIds.length === 0 || running}
+              disabled={
+                !file ||
+                !catalog ||
+                selectedRuleIds.length === 0 ||
+                running ||
+                (selectedSemanticRules.length > 0 && !semanticConsent)
+              }
               onClick={() => void runReview()}
             >
               {running ? <LoaderCircle className="size-4 animate-spin" /> : <Play className="size-4" />}
@@ -297,7 +353,9 @@ function NormativeCheckPage() {
             </span>
             <div>
               <p className="font-bold text-slate-900">review-pilot 正在解析 PDF 并逐条执行规则</p>
-              <p className="mt-1 text-sm text-slate-500">页面不会显示虚构百分比，完成后将直接展示真实结果。</p>
+              <p className="mt-1 text-sm text-slate-500">
+                语义规则需要等待 DeepSeek 返回；页面不会显示虚构百分比，完成后直接展示真实结果。
+              </p>
             </div>
           </div>
         </Card>
