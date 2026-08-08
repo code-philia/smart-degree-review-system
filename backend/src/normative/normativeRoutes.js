@@ -98,6 +98,27 @@ const reportStudentResultsRoutes = require('./reportStudentResultsRoutes');
 
 const router = express.Router();
 
+function jsonBodyWithLimit(limit, message) {
+  const encodedJsonLimit = limit * 2 + 64 * 1024;
+  const parser = express.json({ limit: encodedJsonLimit });
+
+  return (req, res, next) => {
+    const declaredLength = Number(req.get('content-length'));
+    if (Number.isFinite(declaredLength) && declaredLength > encodedJsonLimit) {
+      res.status(413).json({ code: 413, message });
+      return;
+    }
+
+    parser(req, res, (error) => {
+      if (error?.type === 'entity.too.large') {
+        res.status(413).json({ code: 413, message });
+        return;
+      }
+      next(error);
+    });
+  };
+}
+
 router.use('/paper-lint', reviewPilotPaperLintRoutes);
 router.use('/ledger-records', ledgerRecordsRoutes);
 router.use('/report-submissions', reportSubmissionRoutes);
@@ -152,14 +173,14 @@ router.get(
 router.post(
   '/duplication-corpus',
   requireAuth({ allowedRoles: ['SCHOOL_ADMIN'] }),
-  express.json({ limit: MAX_CORPUS_SAMPLE_BYTES }),
+  jsonBodyWithLimit(MAX_CORPUS_SAMPLE_BYTES, '样本文本不能超过 50 MB'),
   async (req, res, next) => {
     try {
       const sample = await createDuplicationCorpusSample(req.user, req.body || {});
       res.status(201).json(sample);
     } catch (error) {
       if (error?.type === 'entity.too.large') {
-        res.status(413).json({ code: 413, message: '样本文本不能超过 5 MB' });
+        res.status(413).json({ code: 413, message: '样本文本不能超过 50 MB' });
         return;
       }
       if (error?.status) {
@@ -191,7 +212,7 @@ router.delete(
 router.post(
   '/duplication-detections',
   requireAuth({ allowedRoles: ALLOWED_DUPLICATION_DETECTION_ROLES }),
-  express.json({ limit: MAX_DUPLICATION_DETECTION_TEXT_BYTES }),
+  jsonBodyWithLimit(MAX_DUPLICATION_DETECTION_TEXT_BYTES, '待检文本不能超过 50 MB'),
   async (req, res, next) => {
     try {
       const payload = req.body || {};
@@ -202,7 +223,7 @@ router.post(
       res.status(201).json(result);
     } catch (error) {
       if (error?.type === 'entity.too.large') {
-        res.status(413).json({ code: 413, message: '待检文本不能超过 5 MB' });
+        res.status(413).json({ code: 413, message: '待检文本不能超过 50 MB' });
         return;
       }
       if (error?.status) {
@@ -271,14 +292,14 @@ router.get(
 router.post(
   '/whole-polish-results',
   requireAuth({ allowedRoles: ALLOWED_WHOLE_POLISH_ROLES }),
-  express.json({ limit: MAX_WHOLE_POLISH_TEXT_BYTES }),
+  jsonBodyWithLimit(MAX_WHOLE_POLISH_TEXT_BYTES, '文件或文本不能超过 50 MB'),
   async (req, res, next) => {
     try {
       const result = await createWholePolishResult(req.user, req.body || {});
       res.status(201).json(result);
     } catch (error) {
       if (error?.type === 'entity.too.large') {
-        res.status(413).json({ code: 413, message: '文件或文本不能超过 5 MB' });
+        res.status(413).json({ code: 413, message: '文件或文本不能超过 50 MB' });
         return;
       }
       if (error?.status) {
@@ -330,14 +351,14 @@ router.get(
 router.post(
   '/local-polish-results',
   requireAuth({ allowedRoles: ALLOWED_LOCAL_POLISH_ROLES }),
-  express.json({ limit: MAX_LOCAL_POLISH_TEXT_BYTES }),
+  jsonBodyWithLimit(MAX_LOCAL_POLISH_TEXT_BYTES, '局部润色文本不能超过 50 MB'),
   async (req, res, next) => {
     try {
       const result = await createLocalPolishResult(req.user, req.body || {});
       res.status(201).json(result);
     } catch (error) {
       if (error?.type === 'entity.too.large') {
-        res.status(413).json({ code: 413, message: '局部润色文本不能超过 5 MB' });
+        res.status(413).json({ code: 413, message: '局部润色文本不能超过 50 MB' });
         return;
       }
       if (error?.status) {
@@ -479,14 +500,14 @@ router.post(
 router.post(
   '/ai-review-runs',
   requireAuth({ allowedRoles: ALLOWED_AI_REVIEW_RUN_ROLES }),
-  express.json({ limit: MAX_AI_REVIEW_TEXT_BYTES }),
+  jsonBodyWithLimit(MAX_AI_REVIEW_TEXT_BYTES, '论文文本不能超过 50 MB'),
   async (req, res, next) => {
     try {
       const result = await createAiReviewRun(req.user, req.body || {});
       res.status(201).json(result);
     } catch (error) {
       if (error?.type === 'entity.too.large') {
-        res.status(413).json({ code: 413, message: '论文文本不能超过 5 MB' });
+        res.status(413).json({ code: 413, message: '论文文本不能超过 50 MB' });
         return;
       }
       if (error?.status) {
@@ -630,6 +651,7 @@ router.get(
 router.put(
   '/rule-configs',
   requireAuth({ allowedRoles: ['SCHOOL_ADMIN', 'COLLEGE_ADMIN'] }),
+  express.json({ limit: '128kb' }),
   async (req, res, next) => {
     try {
       const result = await publishRuleConfiguration(req.user, req.body || {});
@@ -643,6 +665,7 @@ router.put(
 router.post(
   '/rule-configs/reset-college',
   requireAuth({ allowedRoles: ['SCHOOL_ADMIN', 'COLLEGE_ADMIN'] }),
+  express.json({ limit: '16kb' }),
   async (req, res, next) => {
     try {
       const result = await resetCollegeRuleConfiguration(req.user, req.body || {});
@@ -728,14 +751,14 @@ router.get(
 router.post(
   '/detection-tasks',
   requireAuth({ allowedRoles: ['STUDENT', 'SUPERVISOR', 'SCHOOL_ADMIN', 'COLLEGE_ADMIN'] }),
-  express.json({ limit: MAX_DETECTION_TEXT_BYTES }),
+  jsonBodyWithLimit(MAX_DETECTION_TEXT_BYTES, '文件或文本不能超过 50 MB'),
   async (req, res, next) => {
     try {
       const result = await createDetectionTask(req.user, req.body || {});
       res.status(201).json(result);
     } catch (error) {
       if (error?.type === 'entity.too.large') {
-        res.status(413).json({ code: 413, message: '文件或文本不能超过 5 MB' });
+        res.status(413).json({ code: 413, message: '文件或文本不能超过 50 MB' });
         return;
       }
       if (error?.status) {
@@ -747,12 +770,16 @@ router.post(
   },
 );
 
-router.post('/analyze', requireAuth(), async (req, res, next) => {
+router.post('/analyze', requireAuth(), jsonBodyWithLimit(MAX_DETECTION_TEXT_BYTES, '文件或文本不能超过 50 MB'), async (req, res, next) => {
   try {
     const text = typeof req.body?.text === 'string' ? req.body.text : '';
 
     if (!text.trim()) {
       res.status(400).json({ code: 400, message: '文本不能为空' });
+      return;
+    }
+    if (Buffer.byteLength(text, 'utf8') > MAX_DETECTION_TEXT_BYTES) {
+      res.status(413).json({ code: 413, message: '文件或文本不能超过 50 MB' });
       return;
     }
 

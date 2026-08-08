@@ -454,24 +454,32 @@ export type AnalyzeNormativeTextResponse = {
   issues: NormativeIssue[];
 };
 
+const LONG_TEXT_REQUEST_TIMEOUT_MS = 310_000;
+
 export async function analyzeDefaultNormativeText(
   payload: AnalyzeNormativeTextRequest,
 ): Promise<AnalyzeNormativeTextResponse> {
-  const response = await apiClient.post<AnalyzeNormativeTextResponse>('/normative/analyze', payload);
+  const response = await apiClient.post<AnalyzeNormativeTextResponse>('/normative/analyze', payload, {
+    timeout: LONG_TEXT_REQUEST_TIMEOUT_MS,
+  });
   return response.data;
 }
 
 export async function createNormativeDetectionTask(
   payload: CreateDetectionTaskRequest,
 ): Promise<DetectionTaskResponse> {
-  const response = await apiClient.post<DetectionTaskResponse>('/normative/detection-tasks', payload);
+  const response = await apiClient.post<DetectionTaskResponse>('/normative/detection-tasks', payload, {
+    timeout: LONG_TEXT_REQUEST_TIMEOUT_MS,
+  });
   return response.data;
 }
 
 export async function createDuplicationDetection(
   payload: DuplicationDetectionRequest,
 ): Promise<DuplicationDetectionResponse> {
-  const response = await apiClient.post<DuplicationDetectionResponse>('/normative/duplication-detections', payload);
+  const response = await apiClient.post<DuplicationDetectionResponse>('/normative/duplication-detections', payload, {
+    timeout: LONG_TEXT_REQUEST_TIMEOUT_MS,
+  });
   return response.data;
 }
 
@@ -498,12 +506,16 @@ export async function downloadDuplicationReportJson(reportId: string): Promise<B
 }
 
 export async function createWholePolishResult(payload: WholePolishRequest): Promise<WholePolishResult> {
-  const response = await apiClient.post<WholePolishResult>('/normative/whole-polish-results', payload);
+  const response = await apiClient.post<WholePolishResult>('/normative/whole-polish-results', payload, {
+    timeout: LONG_TEXT_REQUEST_TIMEOUT_MS,
+  });
   return response.data;
 }
 
 export async function createLocalPolishResult(payload: LocalPolishRequest): Promise<LocalPolishResult> {
-  const response = await apiClient.post<LocalPolishResult>('/normative/local-polish-results', payload);
+  const response = await apiClient.post<LocalPolishResult>('/normative/local-polish-results', payload, {
+    timeout: LONG_TEXT_REQUEST_TIMEOUT_MS,
+  });
   return response.data;
 }
 
@@ -518,7 +530,9 @@ export async function fetchReviewRubrics(): Promise<ReviewRubricsResponse> {
 }
 
 export async function createAiReviewRun(payload: AiReviewRunRequest): Promise<AiReviewRunResponse> {
-  const response = await apiClient.post<AiReviewRunResponse>('/normative/ai-review-runs', payload);
+  const response = await apiClient.post<AiReviewRunResponse>('/normative/ai-review-runs', payload, {
+    timeout: LONG_TEXT_REQUEST_TIMEOUT_MS,
+  });
   return response.data;
 }
 

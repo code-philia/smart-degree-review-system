@@ -3,7 +3,7 @@ const { resolveRulesForAnalysis } = require('./ruleConfigService');
 const wholePolishRepository = require('./wholePolishRepository');
 
 const ALLOWED_WHOLE_POLISH_ROLES = Object.freeze(['STUDENT', 'SUPERVISOR', 'SCHOOL_ADMIN', 'COLLEGE_ADMIN']);
-const MAX_WHOLE_POLISH_TEXT_BYTES = '5mb';
+const MAX_WHOLE_POLISH_TEXT_BYTES = 50 * 1024 * 1024;
 const WHOLE_POLISH_LEVELS = Object.freeze(['basic', 'standard', 'enhanced']);
 const ALLOWED_WHOLE_POLISH_FILE_EXTENSIONS = Object.freeze(['.txt', '.md', '.pdf']);
 
@@ -24,6 +24,9 @@ function normalizePayload(payload = {}) {
 
   if (!text.trim()) {
     throw createHttpError(400, '润色文本不能为空');
+  }
+  if (Buffer.byteLength(text, 'utf8') > MAX_WHOLE_POLISH_TEXT_BYTES) {
+    throw createHttpError(413, '文件或文本不能超过 50 MB');
   }
   if (!WHOLE_POLISH_LEVELS.includes(level)) {
     throw createHttpError(400, '润色档位无效');

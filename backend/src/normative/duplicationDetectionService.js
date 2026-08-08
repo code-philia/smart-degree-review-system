@@ -1,6 +1,6 @@
 const { listCorpusSamples } = require('./duplicationCorpusRepository');
 
-const MAX_DUPLICATION_DETECTION_TEXT_BYTES = 5 * 1024 * 1024;
+const MAX_DUPLICATION_DETECTION_TEXT_BYTES = 50 * 1024 * 1024;
 const ALLOWED_DUPLICATION_DETECTION_FILE_EXTENSIONS = Object.freeze(['.txt', '.md', '.pdf']);
 const DEFAULT_DUPLICATION_MATCH_THRESHOLD = 0.65;
 const ALLOWED_DUPLICATION_DETECTION_ROLES = ['STUDENT', 'SUPERVISOR', 'SCHOOL_ADMIN', 'COLLEGE_ADMIN'];
@@ -65,7 +65,7 @@ function validateDetectionPayload(payload = {}) {
     throw serviceError(400, '待检文本不能为空');
   }
   if (Buffer.byteLength(text, 'utf8') > MAX_DUPLICATION_DETECTION_TEXT_BYTES) {
-    throw serviceError(413, '待检文本不能超过 5 MB');
+    throw serviceError(413, '待检文本不能超过 50 MB');
   }
 
   const threshold = Number.isFinite(Number(payload.threshold))

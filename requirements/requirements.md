@@ -186,7 +186,7 @@ Actor: STUDENT.
 - **THEN** 系统保存已完成任务、当次规则快照和带行列位置的问题列表。
 #### 拒绝超限或不可提取文件
 Actor: STUDENT.
-- **GIVEN (STUDENT)** 文本文件超过 5 MB、PDF 原文件超过 50 MB、PDF 提取文本超过 5 MB、文本文件无法按 UTF-8 解码，或 PDF 不含可搜索文字层。
+- **GIVEN (STUDENT)** 文本文件超过 50 MB、PDF 原文件超过 50 MB、PDF 提取文本超过 50 MB、文本文件无法按 UTF-8 解码，或 PDF 不含可搜索文字层。
 - **WHEN (STUDENT)** 学生上传文件。
 - **THEN** 系统返回可理解的校验错误，不创建检测任务。
 

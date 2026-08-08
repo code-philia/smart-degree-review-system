@@ -4,7 +4,7 @@ const {
   listCorpusSamples,
 } = require('./duplicationCorpusRepository');
 
-const MAX_CORPUS_SAMPLE_BYTES = 5 * 1024 * 1024;
+const MAX_CORPUS_SAMPLE_BYTES = 50 * 1024 * 1024;
 const ALLOWED_CORPUS_FILE_EXTENSIONS = ['.txt', '.md', '.pdf'];
 
 function serviceError(status, message) {
@@ -71,7 +71,7 @@ function validateCreatePayload(payload = {}) {
     throw serviceError(400, '样本文本不能为空');
   }
   if (Buffer.byteLength(content, 'utf8') > MAX_CORPUS_SAMPLE_BYTES) {
-    throw serviceError(413, '样本文本不能超过 5 MB');
+    throw serviceError(413, '样本文本不能超过 50 MB');
   }
 
   const year = validateYear(payload.year);

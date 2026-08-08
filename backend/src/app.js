@@ -11,20 +11,19 @@ const normativeRoutes = require('./normative/normativeRoutes');
 
 // middleware imports
 app.use(cors());
-app.use(bodyParser.json());
 
 // register routes
 app.get('/api/health', (req, res) => {
   res.json({ code: 200, message: 'Backend Ready' });
 });
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', bodyParser.json({ limit: '16kb' }), authRoutes);
 app.use('/api/normative', normativeRoutes);
 
 const frontendDistPath = path.resolve(__dirname, '../../frontend/dist');
 
 app.use((error, req, res, next) => {
   if (error?.type === 'entity.too.large') {
-    res.status(413).json({ code: 413, message: '文件或文本不能超过 5 MB' });
+    res.status(413).json({ code: 413, message: '请求内容过大，请按页面提示缩小文件或文本后重试' });
     return;
   }
   next(error);

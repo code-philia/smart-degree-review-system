@@ -206,9 +206,7 @@ function DuplicationCorpusPage() {
                 {readingFile ? '解析中…' : submitting ? '保存中…' : '保存样本'}
               </Button>
             </div>
-            <p className="mt-3 text-xs text-slate-500">
-              文本文件最大 5 MB；可搜索文本 PDF 最大 50 MB，提取文本最大 5 MB
-            </p>
+            <p className="mt-3 text-xs text-slate-500">文本文件、可搜索文本 PDF 及提取文本最大均为 50 MB</p>
             {errorMessage ? <p className="mt-4 text-sm font-semibold text-danger-600">{errorMessage}</p> : null}
           </form>
         </Card>

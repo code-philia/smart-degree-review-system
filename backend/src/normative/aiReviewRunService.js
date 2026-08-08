@@ -9,7 +9,7 @@ const {
 const aiReviewRunRepository = require('./aiReviewRunRepository');
 
 const ALLOWED_AI_REVIEW_RUN_ROLES = REVIEW_RUBRIC_ALLOWED_ROLES;
-const MAX_AI_REVIEW_TEXT_BYTES = '5mb';
+const MAX_AI_REVIEW_TEXT_BYTES = 50 * 1024 * 1024;
 const ALLOWED_AI_REVIEW_FILE_EXTENSIONS = Object.freeze(['.txt', '.md', '.pdf']);
 
 function createReviewRunError(status, message, errors) {
@@ -35,6 +35,10 @@ function normalizeAiReviewRunPayload(payload = {}) {
   const sourceFilename = typeof payload.source_filename === 'string' && payload.source_filename.trim()
     ? payload.source_filename.trim()
     : null;
+
+  if (Buffer.byteLength(text, 'utf8') > MAX_AI_REVIEW_TEXT_BYTES) {
+    throw createReviewRunError(413, '论文文本不能超过 50 MB');
+  }
 
   if (!thesisTitle) {
     errors.push({ field: 'thesis_title', message: '论文题目不能为空' });

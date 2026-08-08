@@ -255,11 +255,10 @@ describe('FEAT-AI-REVIEW-RUN frontend route and workflow contract', () => {
     expect(await screen.findByText('仅支持上传 .txt、.md 或 .pdf 文件')).toBeInTheDocument();
     expect(createAiReviewRun).not.toHaveBeenCalled();
 
-    await user.upload(
-      fileInput as HTMLInputElement,
-      new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'oversize.md', { type: 'text/markdown' }),
-    );
-    expect(await screen.findByText('文本文件大小不能超过 5 MB')).toBeInTheDocument();
+    const oversizedFile = new File(['oversized'], 'oversize.md', { type: 'text/markdown' });
+    Object.defineProperty(oversizedFile, 'size', { value: 50 * 1024 * 1024 + 1 });
+    await user.upload(fileInput as HTMLInputElement, oversizedFile);
+    expect(await screen.findByText('文本文件大小不能超过 50 MB')).toBeInTheDocument();
     expect(createAiReviewRun).not.toHaveBeenCalled();
   });
 

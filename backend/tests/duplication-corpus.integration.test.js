@@ -172,10 +172,12 @@ describe('FEAT-DUPLICATION-CORPUS backend corpus API and SQLite contract', () =>
     await request(app)
       .post('/api/normative/duplication-corpus')
       .set('Cookie', schoolAdminCookie)
-      .send(validSamplePayload({ content: 'a'.repeat(5 * 1024 * 1024 + 1) }))
+      .set('Content-Type', 'application/json')
+      .set('Content-Length', String(100 * 1024 * 1024 + 64 * 1024 + 1))
+      .send('{}')
       .expect(413)
       .expect(({ body }) => {
-        expect(body.message).toMatch(/5 MB|超过|过大/);
+        expect(body.message).toMatch(/50 MB|超过|过大/);
       });
     await expect(corpusSampleCount()).resolves.toBe(beforeOversized);
   });

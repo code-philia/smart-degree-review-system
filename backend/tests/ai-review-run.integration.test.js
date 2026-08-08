@@ -133,16 +133,13 @@ describe('FEAT-AI-REVIEW-RUN protected AI review run API contract', () => {
     await request(app)
       .post('/api/normative/ai-review-runs')
       .set('Cookie', cookie)
-      .send({
-        thesis_title: '高校数字治理平台评阅研究',
-        template_id: 'academic_master',
-        text: 'a'.repeat(5 * 1024 * 1024 + 1),
-        source_type: 'paste',
-      })
+      .set('Content-Type', 'application/json')
+      .set('Content-Length', String(100 * 1024 * 1024 + 64 * 1024 + 1))
+      .send('{}')
       .expect(413)
       .expect(({ body }) => {
         expect(body).toMatchObject({ code: 413 });
-        expect(body.message).toMatch(/5 MB|超过|过大/);
+        expect(body.message).toMatch(/50 MB|超过|过大/);
         expect(body.id).toBeUndefined();
       });
   });

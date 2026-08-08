@@ -4,7 +4,7 @@ const localPolishRepository = require('./localPolishRepository');
 const ALLOWED_LOCAL_POLISH_ROLES = Object.freeze(['STUDENT', 'SUPERVISOR', 'SCHOOL_ADMIN', 'COLLEGE_ADMIN']);
 const LOCAL_POLISH_LEVELS = Object.freeze(['basic', 'standard', 'enhanced']);
 const LOCAL_POLISH_RULE_VERSION = 'local-polish-v1';
-const MAX_LOCAL_POLISH_TEXT_BYTES = '5mb';
+const MAX_LOCAL_POLISH_TEXT_BYTES = 50 * 1024 * 1024;
 
 function createHttpError(status, message) {
   const error = new Error(message);
@@ -19,6 +19,9 @@ function normalizeLocalPolishPayload(payload = {}) {
 
   if (!text.trim()) {
     throw createHttpError(400, '局部润色文本不能为空');
+  }
+  if (Buffer.byteLength(text, 'utf8') > MAX_LOCAL_POLISH_TEXT_BYTES) {
+    throw createHttpError(413, '局部润色文本不能超过 50 MB');
   }
   if (!LOCAL_POLISH_LEVELS.includes(level)) {
     throw createHttpError(400, '局部润色档位无效');

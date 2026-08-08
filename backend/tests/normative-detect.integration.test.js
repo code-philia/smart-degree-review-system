@@ -165,11 +165,13 @@ describe('FEAT-NORMATIVE-DETECT protected task creation contract', () => {
     await request(app)
       .post('/api/normative/detection-tasks')
       .set('Cookie', cookie)
-      .send({ text: 'a'.repeat(5 * 1024 * 1024 + 1), source_type: 'file', source_filename: 'oversized.txt' })
+      .set('Content-Type', 'application/json')
+      .set('Content-Length', String(100 * 1024 * 1024 + 64 * 1024 + 1))
+      .send('{}')
       .expect(413)
       .expect(({ body }) => {
         expect(body).toMatchObject({ code: 413 });
-        expect(body.message).toMatch(/5 MB|超过|过大/);
+        expect(body.message).toMatch(/50 MB|超过|过大/);
         expect(body.id).toBeUndefined();
       });
 

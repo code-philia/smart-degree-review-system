@@ -160,9 +160,10 @@ describe('FEAT-DUPLICATION-CORPUS frontend corpus page and API client contract',
     expect(await screen.findByText('仅支持上传 .txt、.md 或 .pdf 文件')).toBeInTheDocument();
     expect(createDuplicationCorpusSample).not.toHaveBeenCalled();
 
-    const oversizedFile = new File(['x'.repeat(5 * 1024 * 1024 + 1)], 'oversized.txt', { type: 'text/plain' });
+    const oversizedFile = new File(['oversized'], 'oversized.txt', { type: 'text/plain' });
+    Object.defineProperty(oversizedFile, 'size', { value: 50 * 1024 * 1024 + 1 });
     await user.upload(fileInput(container), oversizedFile);
-    expect(screen.getByText('文本文件大小不能超过 5 MB')).toBeInTheDocument();
+    expect(screen.getByText('文本文件大小不能超过 50 MB')).toBeInTheDocument();
     expect(createDuplicationCorpusSample).not.toHaveBeenCalled();
   });
 
@@ -243,7 +244,7 @@ describe('FEAT-DUPLICATION-CORPUS frontend corpus page and API client contract',
     await expect(realApi.deleteDuplicationCorpusSample('client-created')).resolves.toBeUndefined();
 
     expect(getSpy).toHaveBeenCalledWith('/normative/duplication-corpus');
-    expect(postSpy).toHaveBeenCalledWith('/normative/duplication-corpus', payload);
+    expect(postSpy).toHaveBeenCalledWith('/normative/duplication-corpus', payload, { timeout: 310_000 });
     expect(deleteSpy).toHaveBeenCalledWith('/normative/duplication-corpus/client-created');
     expect(apiClient.defaults.withCredentials).toBe(true);
     expect(apiClient.interceptors.response).toBeDefined();

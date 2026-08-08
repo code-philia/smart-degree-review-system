@@ -31,7 +31,9 @@ export async function fetchDuplicationCorpusSamples(): Promise<DuplicationCorpus
 export async function createDuplicationCorpusSample(
   payload: CreateDuplicationCorpusSampleRequest,
 ): Promise<DuplicationCorpusSample> {
-  const response = await apiClient.post<DuplicationCorpusSample>('/normative/duplication-corpus', payload);
+  const response = await apiClient.post<DuplicationCorpusSample>('/normative/duplication-corpus', payload, {
+    timeout: 310_000,
+  });
   return response.data;
 }
 

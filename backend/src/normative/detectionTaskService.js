@@ -2,7 +2,7 @@ const { analyzeDefaultNormativeRules } = require('./normativeService');
 const { resolveRulesForAnalysis } = require('./ruleConfigService');
 const detectionTaskRepository = require('./detectionTaskRepository');
 
-const MAX_DETECTION_TEXT_BYTES = 5 * 1024 * 1024;
+const MAX_DETECTION_TEXT_BYTES = 50 * 1024 * 1024;
 const ALLOWED_DETECTION_FILE_EXTENSIONS = Object.freeze(['.txt', '.md', '.pdf']);
 const DETECTION_STATUSES = Object.freeze(['pending', 'running', 'completed']);
 
@@ -49,7 +49,7 @@ async function createDetectionTask(user, payload = {}) {
     throw createHttpError(400, '检测文本不能为空');
   }
   if (Buffer.byteLength(text, 'utf8') > MAX_DETECTION_TEXT_BYTES) {
-    throw createHttpError(413, '检测文本或文件内容不能超过 5 MB');
+    throw createHttpError(413, '检测文本或文件内容不能超过 50 MB');
   }
 
   const { sourceType, sourceFilename } = validateSource(payload);

@@ -9,7 +9,18 @@ const apiClient = axios.create({
 
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => Promise.reject(error),
+  (error: unknown) => {
+    if (axios.isAxiosError(error)) {
+      const data: unknown = error.response?.data;
+      if (typeof data === 'object' && data !== null && 'message' in data && typeof data.message === 'string') {
+        const message = data.message.trim();
+        if (message) {
+          error.message = message;
+        }
+      }
+    }
+    return Promise.reject(error);
+  },
 );
 
 export default apiClient;

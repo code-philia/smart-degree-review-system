@@ -156,6 +156,6 @@ describe('FEAT-DUPLICATION-DETECT service similarity and risk rules', () => {
     await expect(runDuplicationDetection(null, { text: '有效文本' })).rejects.toMatchObject({ status: 401 });
     await expect(runDuplicationDetection({ ...student, role: 'GUEST' }, { text: '有效文本' })).rejects.toMatchObject({ status: 403 });
     await expect(runDuplicationDetection(student, { text: '   ' })).rejects.toMatchObject({ status: 400 });
-    await expect(runDuplicationDetection(student, { text: 'a'.repeat(5 * 1024 * 1024 + 1) })).rejects.toMatchObject({ status: 413 });
+    await expect(runDuplicationDetection(student, { text: 'a'.repeat(50 * 1024 * 1024 + 1) })).rejects.toMatchObject({ status: 413 });
   });
 });

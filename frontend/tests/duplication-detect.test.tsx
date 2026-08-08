@@ -235,7 +235,7 @@ describe('FEAT-DUPLICATION-DETECT frontend page route and API client contract', 
 
     await expect(realApi.createDuplicationDetection(payload)).resolves.toMatchObject({ status: 'no_samples' });
 
-    expect(postSpy).toHaveBeenCalledWith('/normative/duplication-detections', payload);
+    expect(postSpy).toHaveBeenCalledWith('/normative/duplication-detections', payload, { timeout: 310_000 });
     expect(apiClient.defaults.withCredentials).toBe(true);
     expect(apiClient.interceptors.response).toBeDefined();
     postSpy.mockRestore();

@@ -282,7 +282,7 @@ children:
             steps:
               - keyword: GIVEN
                 actor: 'STUDENT'
-                content: '文本文件超过 5 MB、PDF 原文件超过 50 MB、PDF 提取文本超过 5 MB、文本文件无法按 UTF-8 解码，或 PDF 不含可搜索文字层。'
+                content: '文本文件超过 50 MB、PDF 原文件超过 50 MB、PDF 提取文本超过 50 MB、文本文件无法按 UTF-8 解码，或 PDF 不含可搜索文字层。'
               - keyword: WHEN
                 actor: 'STUDENT'
                 content: '学生上传文件。'

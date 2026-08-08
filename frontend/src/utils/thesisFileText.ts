@@ -1,6 +1,6 @@
-const MAX_TEXT_FILE_BYTES = 5 * 1024 * 1024;
+const MAX_TEXT_FILE_BYTES = 50 * 1024 * 1024;
 const MAX_PDF_FILE_BYTES = 50 * 1024 * 1024;
-const MAX_EXTRACTED_TEXT_BYTES = 5 * 1024 * 1024;
+const MAX_EXTRACTED_TEXT_BYTES = 50 * 1024 * 1024;
 const MAX_PDF_PAGES = 500;
 
 export const THESIS_FILE_ACCEPT = '.txt,.md,.pdf,text/plain,text/markdown,application/pdf';
@@ -49,7 +49,7 @@ async function readUtf8TextFile(file: File) {
 
 function assertTextSize(text: string) {
   if (new TextEncoder().encode(text).byteLength > MAX_EXTRACTED_TEXT_BYTES) {
-    throw new Error('文件提取后的文本不能超过 5 MB');
+    throw new Error('文件提取后的文本不能超过 50 MB');
   }
 }
 
@@ -128,7 +128,7 @@ export async function extractThesisFileText(
   const extension = getFileExtension(file.name);
   if (extension === '.txt' || extension === '.md') {
     if (file.size > MAX_TEXT_FILE_BYTES) {
-      throw new Error('文本文件大小不能超过 5 MB');
+      throw new Error('文本文件大小不能超过 50 MB');
     }
     const text = await readUtf8TextFile(file);
     assertTextSize(text);
