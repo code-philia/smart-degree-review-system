@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const { resolveRulesForAnalysis } = require('./ruleConfigService');
 const wholePolishRepository = require('./wholePolishRepository');
+const { polishWithDeepseek } = require('./deepseekClient');
 
 const ALLOWED_WHOLE_POLISH_ROLES = Object.freeze(['STUDENT', 'SUPERVISOR', 'SCHOOL_ADMIN', 'COLLEGE_ADMIN']);
 const MAX_WHOLE_POLISH_TEXT_BYTES = 50 * 1024 * 1024;
@@ -179,14 +180,25 @@ function applyEnhancedSplits(text, changes) {
 async function createWholePolishResult(user, payload = {}) {
   const normalized = normalizePayload(payload);
   const effectiveRules = await resolveRulesForAnalysis({ college_id: user?.collegeId || user?.college_id });
-  const changes = [];
-  let polishedText = applyBasicPolish(normalized.text, changes);
+  let changes = [];
+  let polishedText;
 
-  if (normalized.level === 'standard' || normalized.level === 'enhanced') {
-    polishedText = applyPhraseMappings(polishedText, effectiveRules, changes);
-  }
-  if (normalized.level === 'enhanced') {
-    polishedText = applyEnhancedSplits(polishedText, changes);
+  try {
+    const aiText = await polishWithDeepseek(normalized.text, normalized.level);
+    polishedText = aiText;
+    if (aiText !== normalized.text) {
+      changes = [{ original_text: normalized.text, new_text: aiText, position: 0, rule: 'AI 润色' }];
+    }
+  } catch (error) {
+    changes = [];
+    polishedText = applyBasicPolish(normalized.text, changes);
+
+    if (normalized.level === 'standard' || normalized.level === 'enhanced') {
+      polishedText = applyPhraseMappings(polishedText, effectiveRules, changes);
+    }
+    if (normalized.level === 'enhanced') {
+      polishedText = applyEnhancedSplits(polishedText, changes);
+    }
   }
 
   const result = {

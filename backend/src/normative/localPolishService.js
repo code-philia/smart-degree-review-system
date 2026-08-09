@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const localPolishRepository = require('./localPolishRepository');
+const { polishWithDeepseek } = require('./deepseekClient');
 
 const ALLOWED_LOCAL_POLISH_ROLES = Object.freeze(['STUDENT', 'SUPERVISOR', 'SCHOOL_ADMIN', 'COLLEGE_ADMIN']);
 const LOCAL_POLISH_LEVELS = Object.freeze(['basic', 'standard', 'enhanced']);
@@ -145,9 +146,25 @@ function transformLocalText(text, level) {
   return { polished_text: polishedText, changes, diff_segments: segments };
 }
 
+async function generateLocalPolish(text, level) {
+  try {
+    const aiText = await polishWithDeepseek(text, level);
+    if (aiText === text) {
+      return { polished_text: text, changes: [], diff_segments: [{ type: 'unchanged', text, position: 0 }] };
+    }
+    return {
+      polished_text: aiText,
+      changes: [{ original_text: text, new_text: aiText, position: 0, rule: 'AI 润色' }],
+      diff_segments: [{ type: 'format', text: aiText, position: 0, rule: 'AI 润色' }],
+    };
+  } catch (error) {
+    return transformLocalText(text, level);
+  }
+}
+
 async function createLocalPolishResult(user, payload = {}) {
   const normalized = normalizeLocalPolishPayload(payload);
-  const generated = transformLocalText(normalized.text, normalized.level);
+  const generated = await generateLocalPolish(normalized.text, normalized.level);
   const result = {
     id: crypto.randomUUID(),
     user_id: user.id,
