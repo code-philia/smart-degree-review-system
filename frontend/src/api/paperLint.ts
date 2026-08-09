@@ -110,6 +110,21 @@ export type PaperLintRunResponse = {
   result: PaperLintResult;
 };
 
+export type PaperLintBuiltInCaseSummary = {
+  id: string;
+  title: string;
+  description: string;
+  pdf_filename: string;
+  claim_page: number;
+  evidence_page: number;
+  finding_count: number;
+  rule: PaperLintRule;
+};
+
+export type PaperLintBuiltInCase = Omit<PaperLintBuiltInCaseSummary, 'finding_count'> & {
+  result: PaperLintResult;
+};
+
 export async function fetchReviewPilotPaperLintRules(): Promise<PaperLintCatalogResponse> {
   const response = await apiClient.get<PaperLintCatalogResponse>('/normative/paper-lint/rules', {
     timeout: 60_000,
@@ -130,6 +145,23 @@ export async function runReviewPilotPaperLint(
       ...(externalProcessingConsent ? { 'X-Paper-Lint-External-Processing-Consent': 'confirmed' } : {}),
     },
     timeout: 310_000,
+  });
+  return response.data;
+}
+
+export async function fetchPaperLintBuiltInCases(): Promise<{ cases: PaperLintBuiltInCaseSummary[] }> {
+  const response = await apiClient.get<{ cases: PaperLintBuiltInCaseSummary[] }>('/normative/paper-lint/examples');
+  return response.data;
+}
+
+export async function fetchPaperLintBuiltInCase(caseId: string): Promise<PaperLintBuiltInCase> {
+  const response = await apiClient.get<PaperLintBuiltInCase>(`/normative/paper-lint/examples/${caseId}`);
+  return response.data;
+}
+
+export async function fetchPaperLintBuiltInCasePdf(caseId: string): Promise<Blob> {
+  const response = await apiClient.get<Blob>(`/normative/paper-lint/examples/${caseId}/pdf`, {
+    responseType: 'blob',
   });
   return response.data;
 }

@@ -1,6 +1,7 @@
 const express = require('express');
 const { requireAuth } = require('../auth/authMiddleware');
 const defaultService = require('./reviewPilotPaperLintService');
+const defaultExampleService = require('./paperLintExampleService');
 
 const allowedRoles = ['STUDENT', 'SUPERVISOR', 'SCHOOL_ADMIN', 'COLLEGE_ADMIN'];
 
@@ -14,8 +15,35 @@ function sendError(error, res, next) {
   }
 }
 
-function createReviewPilotPaperLintRouter(service = defaultService) {
+function createReviewPilotPaperLintRouter(service = defaultService, exampleService = defaultExampleService) {
   const router = express.Router();
+
+  router.get('/examples', requireAuth({ allowedRoles }), async (_req, res, next) => {
+    try {
+      res.json(await exampleService.listPaperLintExamples());
+    } catch (error) {
+      sendError(error, res, next);
+    }
+  });
+
+  router.get('/examples/:caseId/pdf', requireAuth({ allowedRoles }), async (req, res, next) => {
+    try {
+      const pdf = await exampleService.readPaperLintExamplePdf(req.params.caseId);
+      res.set('Content-Type', 'application/pdf');
+      res.set('Content-Disposition', 'inline; filename="built-in-review-case.pdf"');
+      res.send(pdf.content);
+    } catch (error) {
+      sendError(error, res, next);
+    }
+  });
+
+  router.get('/examples/:caseId', requireAuth({ allowedRoles }), async (req, res, next) => {
+    try {
+      res.json(await exampleService.getPaperLintExample(req.params.caseId));
+    } catch (error) {
+      sendError(error, res, next);
+    }
+  });
 
   router.get('/rules', requireAuth({ allowedRoles }), async (_req, res, next) => {
     try {
@@ -38,8 +66,7 @@ function createReviewPilotPaperLintRouter(service = defaultService) {
         const { result, selectedRuleIds: normalizedRuleIds } = await service.runPaperLint({
           pdfBuffer: req.body,
           selectedRuleIds,
-          externalProcessingConsent:
-            req.get('x-paper-lint-external-processing-consent') === 'confirmed',
+          externalProcessingConsent: req.get('x-paper-lint-external-processing-consent') === 'confirmed',
         });
         res.json({
           source_filename: typeof req.query.filename === 'string' ? req.query.filename.slice(0, 255) : '论文.pdf',

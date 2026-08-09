@@ -30,6 +30,7 @@ import SupervisorReviewQueuePage from './pages/SupervisorReviewQueuePage';
 import SupervisorReviewPage from './pages/SupervisorReviewPage';
 import RuleConfigPage from './pages/RuleConfigPage';
 import WholePolishPage from './pages/WholePolishPage';
+import BuiltInReviewCasesPage from './pages/BuiltInReviewCasesPage';
 
 function App() {
   return (
@@ -43,6 +44,8 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/normative-check" element={<NormativeCheckPage />} />
+        <Route path="/review-cases" element={<BuiltInReviewCasesPage />} />
+        <Route path="/review-cases/:caseId" element={<BuiltInReviewCasesPage />} />
         <Route path="/normative-reports" element={<NormativeReportPage />} />
         <Route path="/normative-reports/:reportId" element={<NormativeReportPage />} />
         <Route path="/ledger-records" element={<LedgerRecordsPage />} />

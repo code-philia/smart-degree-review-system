@@ -7,6 +7,7 @@ const require = createRequire(import.meta.url);
 const authRoutes = require('../src/auth/authRoutes');
 const { createReviewPilotPaperLintRouter } = require('../src/normative/reviewPilotPaperLintRoutes');
 const paperLintService = require('../src/normative/reviewPilotPaperLintService');
+const paperLintExampleService = require('../src/normative/paperLintExampleService');
 const { createTestDatabaseHarness } = require('../src/database');
 
 const catalog = {
@@ -40,7 +41,12 @@ const catalog = {
 const runResult = {
   type: 'paper_lint',
   paper_title: '测试论文',
-  ruleset: { id: 'review-pilot-pdf-lint', name: 'review-pilot PDF 规则', version_number: 1, version_label: '当前部署版本' },
+  ruleset: {
+    id: 'review-pilot-pdf-lint',
+    name: 'review-pilot PDF 规则',
+    version_number: 1,
+    version_label: '当前部署版本',
+  },
   rule_runs: [],
   summary: {
     rule_count: 1,
@@ -62,10 +68,20 @@ const fakeService = {
   runPaperLint: vi.fn(async ({ selectedRuleIds }) => ({ result: runResult, selectedRuleIds })),
 };
 
+const exampleCase = paperLintExampleService.getPaperLintExample(paperLintExampleService.CLAIM_EVIDENCE_CASE_ID);
+const fakeExampleService = {
+  listPaperLintExamples: vi.fn(async () => paperLintExampleService.listPaperLintExamples()),
+  getPaperLintExample: vi.fn(async () => exampleCase),
+  readPaperLintExamplePdf: vi.fn(async () => ({
+    content: Buffer.from('%PDF-1.7\nbuilt-in case'),
+    filename: exampleCase.pdf_filename,
+  })),
+};
+
 const app = express();
 app.use(express.json());
 app.use('/api/auth', authRoutes);
-app.use('/api/normative/paper-lint', createReviewPilotPaperLintRouter(fakeService));
+app.use('/api/normative/paper-lint', createReviewPilotPaperLintRouter(fakeService, fakeExampleService));
 
 let harness;
 const cookies = {};
@@ -75,10 +91,7 @@ describe('review-pilot paper-lint HTTP bridge', () => {
     harness = createTestDatabaseHarness({ label: 'review-pilot-paper-lint', seedDefault: true });
     await harness.setup();
     for (const username of ['student01', 'supervisor01', 'college_admin01', 'school_admin01']) {
-      const login = await request(app)
-        .post('/api/auth/login')
-        .send({ username, password: 'ArcDemo123!' })
-        .expect(200);
+      const login = await request(app).post('/api/auth/login').send({ username, password: 'ArcDemo123!' }).expect(200);
       cookies[username] = login.headers['set-cookie'].find((value) => value.startsWith('arc_session='));
     }
   });
@@ -93,12 +106,58 @@ describe('review-pilot paper-lint HTTP bridge', () => {
 
   it('returns the PDF rule catalog to every declared authenticated role', async () => {
     for (const cookie of Object.values(cookies)) {
-      await request(app)
-        .get('/api/normative/paper-lint/rules')
-        .set('Cookie', cookie)
-        .expect(200)
-        .expect(catalog);
+      await request(app).get('/api/normative/paper-lint/rules').set('Cookie', cookie).expect(200).expect(catalog);
     }
+  });
+
+  it('returns the built-in case catalog to every role and protects all case resources', async () => {
+    fakeExampleService.listPaperLintExamples.mockClear();
+    fakeExampleService.getPaperLintExample.mockClear();
+    fakeExampleService.readPaperLintExamplePdf.mockClear();
+
+    await request(app).get('/api/normative/paper-lint/examples').expect(401);
+    await request(app).get(`/api/normative/paper-lint/examples/${exampleCase.id}`).expect(401);
+    await request(app).get(`/api/normative/paper-lint/examples/${exampleCase.id}/pdf`).expect(401);
+    expect(fakeExampleService.listPaperLintExamples).not.toHaveBeenCalled();
+    expect(fakeExampleService.getPaperLintExample).not.toHaveBeenCalled();
+    expect(fakeExampleService.readPaperLintExamplePdf).not.toHaveBeenCalled();
+
+    for (const cookie of Object.values(cookies)) {
+      const response = await request(app).get('/api/normative/paper-lint/examples').set('Cookie', cookie).expect(200);
+      expect(response.body.cases[0]).toMatchObject({
+        id: exampleCase.id,
+        title: '跨页数值论点与实验论据不一致',
+        claim_page: 22,
+        evidence_page: 57,
+        finding_count: 1,
+      });
+    }
+  });
+
+  it('returns the deterministic case result and its matching PDF bytes', async () => {
+    const detail = await request(app)
+      .get(`/api/normative/paper-lint/examples/${exampleCase.id}`)
+      .set('Cookie', cookies.student01)
+      .expect(200);
+    expect(detail.body.result.rule_runs[0]).toMatchObject({
+      rule_id: 'claim_evidence_inconsistency_check',
+      outcome: 'issues_found',
+      findings: [
+        {
+          anchors: [
+            { role: 'claim', location: { page_number: 22 } },
+            { role: 'evidence', location: { page_number: 57 } },
+          ],
+        },
+      ],
+    });
+
+    const pdf = await request(app)
+      .get(`/api/normative/paper-lint/examples/${exampleCase.id}/pdf`)
+      .set('Cookie', cookies.student01)
+      .expect('Content-Type', /application\/pdf/)
+      .expect(200);
+    expect(pdf.body.subarray(0, 5).toString('ascii')).toBe('%PDF-');
   });
 
   it('passes raw PDF bytes and selected rules through without persisting a fake task', async () => {
@@ -152,9 +211,9 @@ describe('review-pilot PDF validation', () => {
   });
 
   it('rejects a semantic rule when the server has no model credential', () => {
-    expect(() =>
-      paperLintService.validateSelectedRuleIds(catalog, ['bilingual_abstract_consistency_check']),
-    ).toThrow(/暂不可用/);
+    expect(() => paperLintService.validateSelectedRuleIds(catalog, ['bilingual_abstract_consistency_check'])).toThrow(
+      /暂不可用/,
+    );
   });
 
   it('requires explicit external-processing consent for an available semantic rule', () => {
@@ -176,5 +235,10 @@ describe('review-pilot PDF validation', () => {
         true,
       ),
     ).not.toThrow();
+  });
+
+  it('exposes only the declared built-in case id', () => {
+    expect(paperLintExampleService.listPaperLintExamples().cases).toHaveLength(1);
+    expect(() => paperLintExampleService.getPaperLintExample('unknown-case')).toThrow(/不存在/);
   });
 });

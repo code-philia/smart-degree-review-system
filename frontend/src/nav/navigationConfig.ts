@@ -36,6 +36,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: '创新评估历史', to: '/innovation-history', matchPrefix: '/innovation-assessments' },
       { label: '规则化辅助评阅', to: '/ai-review' },
       { label: '辅助评阅历史', to: '/ai-review/history' },
+      { label: '内置审查案例', to: '/review-cases' },
     ],
   },
   {

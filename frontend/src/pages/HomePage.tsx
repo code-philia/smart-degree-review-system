@@ -19,6 +19,7 @@ type QuickAction = { label: string; description: string; to: string };
 const QUICK_ACTIONS: Record<AuthRole, QuickAction[]> = {
   STUDENT: [
     { label: '规范性检测', description: '运行 PDF 版式规则并定位原文问题', to: '/normative-check' },
+    { label: '内置审查案例', description: '查看跨页论点与论据定位示例', to: '/review-cases' },
     { label: '论文相似度检测', description: '与试点样本库比对相似片段', to: '/duplication-detect' },
     { label: '创新性量表评估', description: '五维度量表评估创新参考分', to: '/innovation-assessment' },
     { label: '论文润色', description: '生成整篇或局部改写建议', to: '/whole-polish' },
@@ -27,18 +28,21 @@ const QUICK_ACTIONS: Record<AuthRole, QuickAction[]> = {
   ],
   SUPERVISOR: [
     { label: '导师待批阅中心', description: '处理分配给本人的待办任务', to: '/supervisor-review-queue' },
+    { label: '内置审查案例', description: '查看跨页论点与论据定位示例', to: '/review-cases' },
     { label: '检测记录台账', description: '查看所指导学生的检测记录', to: '/ledger-records' },
     { label: '检测统计', description: '查看数量趋势和类型分布', to: '/ledger-stats' },
     { label: '群体质量仪表盘', description: '查看学生论文质量指标', to: '/quality-dashboard' },
   ],
   COLLEGE_ADMIN: [
     { label: '学院规则配置', description: '维护本学院规则覆盖', to: '/rule-config' },
+    { label: '内置审查案例', description: '查看跨页论点与论据定位示例', to: '/review-cases' },
     { label: '检测记录台账', description: '查看本学院检测记录', to: '/ledger-records' },
     { label: '检测统计', description: '按类型和时间筛选统计', to: '/ledger-stats' },
     { label: '群体质量仪表盘', description: '查看学院质量指标分布', to: '/quality-dashboard' },
   ],
   SCHOOL_ADMIN: [
     { label: '学校规则配置', description: '维护全校默认规则', to: '/rule-config' },
+    { label: '内置审查案例', description: '查看跨页论点与论据定位示例', to: '/review-cases' },
     { label: '比对样本库', description: '维护相似度检测样本', to: '/duplication-corpus' },
     { label: '检测记录台账', description: '查看全校检测记录', to: '/ledger-records' },
     { label: '群体质量仪表盘', description: '查看全校质量指标汇总', to: '/quality-dashboard' },

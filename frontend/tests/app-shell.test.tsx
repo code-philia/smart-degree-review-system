@@ -47,6 +47,7 @@ describe('AppShell shadcn layout', () => {
     const { container } = renderShell();
 
     expect(screen.getByRole('link', { name: '提交报告给导师' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '内置审查案例' })).toHaveAttribute('href', '/review-cases');
     expect(screen.queryByRole('link', { name: '规则配置' })).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '系统说明内容' })).toBeInTheDocument();
 

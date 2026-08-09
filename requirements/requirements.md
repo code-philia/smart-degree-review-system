@@ -80,6 +80,7 @@ Permissions: ALL.
 ### Included chapters
 - `FEAT-NORMATIVE-FORMAT-RULES` 默认规范检测规则
 - `FEAT-REVIEW-PILOT-PDF-LINT` review-pilot PDF 规则审查
+- `FEAT-BUILT-IN-REVIEW-CASES` 内置审查案例
 - `FLOW-RULE-PUBLISH` 学校与学院规则配置
 - `FEAT-RULE-TEMPLATE-UPLOAD` JSON 规则集导入
 - `FEAT-NORMATIVE-DETECT` 发起规范检测
@@ -132,6 +133,23 @@ Actor: SCHOOL_ADMIN.
 - **GIVEN (SCHOOL_ADMIN)** 服务器没有配置 DeepSeek 官方 API Key。
 - **WHEN (SCHOOL_ADMIN)** 管理员查看规则目录或尝试选择语义规则。
 - **THEN** 语义规则明确显示为尚未配置且不可选择，确定性规则仍可正常运行，系统不使用假密钥或伪造语义结果。
+
+### FEAT-BUILT-IN-REVIEW-CASES 内置审查案例
+
+所有已登录角色可从独立的“内置审查案例”模块查看随系统版本提供的固定 PDF 与确定性案例结果。首个案例展示同一论文中 Yandex 准确率 `80.0%` 的论点与实验章节 `60.5%` 的论据冲突，结果包含修改建议，以及分别指向 PDF 第 22 页和第 57 页的论点、论据坐标。案例不写入 SQLite，不进入检测历史、统计或师生批阅闭环。
+Permissions: ALL.
+Depends on: `FEAT-AUTH-SESSION`, `FEAT-REVIEW-PILOT-PDF-LINT`.
+### Acceptance scenarios
+#### 查看固定案例并跨页定位
+Actor: STUDENT.
+- **GIVEN (STUDENT)** student01 已登录并进入内置审查案例模块。
+- **WHEN (STUDENT)** 学生打开“跨页数值论点与实验论据不一致”案例，并分别点击论点和论据锚点。
+- **THEN** 系统展示固定的一项审查问题和修改建议，并将 PDF 依次定位到第 22 页的 `80.0%` 论点与第 57 页的 `60.5%` 论据。
+#### 拒绝匿名读取案例资源
+Actor: STUDENT.
+- **GIVEN (STUDENT)** 浏览器不存在有效会话。
+- **WHEN (STUDENT)** 用户直接请求案例目录、案例详情或案例 PDF。
+- **THEN** 后端返回 401，不返回案例内容或 PDF 文件。
 
 ### FLOW-RULE-PUBLISH 学校与学院规则配置
 
