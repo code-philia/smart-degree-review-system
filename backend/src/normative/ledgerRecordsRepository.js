@@ -33,18 +33,18 @@ function buildScopeWhere(scope, params) {
 
 function buildFilteredLedgerSql(scope, filters = {}, options = {}) {
   const params = [];
-  const where = [buildScopeWhere(scope, params)];
+  const where = ["u.role = 'STUDENT'", buildScopeWhere(scope, params)];
 
   if (filters.detection_type) {
     where.push('ledger.detection_type = ?');
     params.push(filters.detection_type);
   }
   if (filters.from) {
-    where.push("date(ledger.created_at) >= date(?)");
+    where.push('date(ledger.created_at) >= date(?)');
     params.push(filters.from);
   }
   if (filters.to) {
-    where.push("date(ledger.created_at) <= date(?)");
+    where.push('date(ledger.created_at) <= date(?)');
     params.push(filters.to);
   }
   if (filters.student) {
@@ -169,10 +169,14 @@ async function findLedgerRecordById(scope, recordId) {
     return null;
   }
 
-  const allScopedRecords = await listLedgerRecords(scope, { latest_only: false });
-  return allScopedRecords.find((record) => (
-    record.id === normalizedRecordId || record.source_record_id === normalizedRecordId
-  )) || null;
+  const allScopedRecords = await listLedgerRecords(scope, {
+    latest_only: false,
+  });
+  return (
+    allScopedRecords.find(
+      (record) => record.id === normalizedRecordId || record.source_record_id === normalizedRecordId,
+    ) || null
+  );
 }
 
 function uniqueStudentCount(records) {

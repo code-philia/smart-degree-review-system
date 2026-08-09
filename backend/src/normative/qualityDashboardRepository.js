@@ -22,7 +22,7 @@ function buildScopeWhere(scope, params) {
 
 function buildQualityRowsSql(scope, filters) {
   const params = [];
-  const where = [buildScopeWhere(scope, params)];
+  const where = ["u.role = 'STUDENT'", buildScopeWhere(scope, params)];
 
   if (filters.detection_type) {
     where.push('quality.detection_type = ?');

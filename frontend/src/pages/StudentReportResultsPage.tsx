@@ -274,9 +274,13 @@ export default function StudentReportResultsPage() {
                   {item.source_type} · {item.status} · {formatTimestamp(item.feedback_at)}
                 </p>
               </div>
-              <Link className="text-blue-600" to={`/student-report-results/${item.submission_id}`}>
-                查看详情
-              </Link>
+              {item.status === 'submitted_pending_review' ? (
+                <span className="text-sm font-medium text-amber-600">等待导师批阅</span>
+              ) : (
+                <Link className="text-blue-600" to={`/student-report-results/${item.submission_id}`}>
+                  查看详情
+                </Link>
+              )}
             </li>
           ))}
         </ul>

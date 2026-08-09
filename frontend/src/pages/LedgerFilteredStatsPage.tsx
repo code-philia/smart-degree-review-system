@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   DetectionLedgerFilteredStats,
   DetectionLedgerType,
@@ -32,7 +32,7 @@ function LedgerFilteredStatsPage() {
     [filters.detection_type],
   );
 
-  async function refreshStats(nextFilters = filters) {
+  const refreshStats = useCallback(async (nextFilters: LedgerRecordFilters) => {
     setStatus('loading');
     setErrorMessage('');
     try {
@@ -43,7 +43,11 @@ function LedgerFilteredStatsPage() {
       setStatus('error');
       setErrorMessage(error instanceof Error ? error.message : '筛选统计加载失败');
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    void refreshStats(initialFilters);
+  }, [refreshStats]);
 
   return (
     <div>
@@ -136,7 +140,7 @@ function LedgerFilteredStatsPage() {
             >
               重置
             </button>
-            <button className="h-11 bg-[#3b86ee] px-10 font-bold text-white" onClick={() => void refreshStats()}>
+            <button className="h-11 bg-[#3b86ee] px-10 font-bold text-white" onClick={() => void refreshStats(filters)}>
               手动刷新
             </button>
           </div>
@@ -166,7 +170,7 @@ function LedgerFilteredStatsPage() {
         <article className="min-h-[280px] rounded-sm border border-[#d6d6d6] bg-white p-5">
           <h3 className="mb-4 text-[18px] font-bold text-[#1f3f63]">任务类型柱状图</h3>
           {status === 'loading' && <LoadingState compact label="统计加载中..." />}
-          {status === 'error' && <ErrorState message={errorMessage} onRetry={() => void refreshStats()} />}
+          {status === 'error' && <ErrorState message={errorMessage} onRetry={() => void refreshStats(filters)} />}
           {status === 'idle' && !stats && <EmptyState title="请选择筛选条件后手动刷新生成图表" />}
           {stats && stats.by_type.length === 0 && <EmptyState title="当前筛选条件下暂无统计数据" />}
           {stats && stats.by_type.length > 0 && (

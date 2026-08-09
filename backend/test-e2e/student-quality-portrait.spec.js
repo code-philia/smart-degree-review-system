@@ -36,7 +36,11 @@ async function seedNormativeRecord(overrides = {}) {
     original_text: '摘要\n正文存在格式问题。',
     rule_snapshot: [{ rule_id: 'NORM-001', title: '规范检测模板' }],
     issues: [],
-    severity_counts: overrides.severity_counts || { high: 2, medium: 0, low: 0 },
+    severity_counts: overrides.severity_counts || {
+      high: 2,
+      medium: 0,
+      low: 0,
+    },
     created_at: overrides.created_at || '2026-08-04T10:00:00.000Z',
   });
 }
@@ -94,7 +98,9 @@ async function seedAiReviewRecord(overrides = {}) {
     total_score: overrides.total_score ?? 80,
     result_label: '基础检查通过',
     missing_sections: [],
-    rubric_snapshot: { template: { template_id: 'academic_master', name: '学术型硕士' } },
+    rubric_snapshot: {
+      template: { template_id: 'academic_master', name: '学术型硕士' },
+    },
     created_at: overrides.created_at || '2026-08-04T11:30:00.000Z',
   });
 }
@@ -102,20 +108,33 @@ async function seedAiReviewRecord(overrides = {}) {
 async function prepareCompleteScenarioData() {
   await clearStudentQualityPortraitData();
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-  await seedNormativeRecord({ id: `student-quality-portrait-e2e-normative-${suffix}`, severity_counts: { high: 2, medium: 0, low: 0 } });
-  await seedDuplicationRecord({ id: `student-quality-portrait-e2e-duplication-${suffix}`, total_similarity_rate: 0.1 });
-  await seedInnovationRecord({ id: `student-quality-portrait-e2e-innovation-${suffix}`, total_score: 70 });
-  await seedAiReviewRecord({ id: `student-quality-portrait-e2e-review-${suffix}`, total_score: 80 });
+  await seedNormativeRecord({
+    id: `student-quality-portrait-e2e-normative-${suffix}`,
+    severity_counts: { high: 2, medium: 0, low: 0 },
+  });
+  await seedDuplicationRecord({
+    id: `student-quality-portrait-e2e-duplication-${suffix}`,
+    total_similarity_rate: 0.1,
+  });
+  await seedInnovationRecord({
+    id: `student-quality-portrait-e2e-innovation-${suffix}`,
+    total_score: 70,
+  });
+  await seedAiReviewRecord({
+    id: `student-quality-portrait-e2e-review-${suffix}`,
+    total_score: 80,
+  });
 }
 
 test.describe('FEAT-STUDENT-QUALITY-PORTRAIT scenarios', () => {
-  test('FEAT-STUDENT-QUALITY-PORTRAIT:SCENARIO:001 student sees four latest source metrics and 80 comprehensive score', async ({ page }) => {
+  test('FEAT-STUDENT-QUALITY-PORTRAIT:SCENARIO:001 student sees four latest source metrics and 80 comprehensive score', async ({
+    page,
+  }) => {
     await prepareCompleteScenarioData();
     await loginAs(page, 'student01');
 
     await page.goto('/student-quality-portrait/student01');
     await expect(page.getByRole('banner')).toContainText('单学生质量画像');
-    await page.getByRole('button', { name: '查询' }).click();
 
     await expect(page.getByText('单学生论文全景质量画像')).toBeVisible();
     await expect(page.getByText('综合分').locator('..')).toContainText('80.0 分');
@@ -134,15 +153,19 @@ test.describe('FEAT-STUDENT-QUALITY-PORTRAIT scenarios', () => {
     const body = await apiResponse.json();
     expect(body.overall_score).toBe(80);
     expect(body.completeness.complete).toBe(true);
-    expect(body.metrics).toEqual(expect.arrayContaining([
-      expect.objectContaining({ key: 'normative', score: 80 }),
-      expect.objectContaining({ key: 'originality', score: 90 }),
-      expect.objectContaining({ key: 'innovation', score: 70 }),
-      expect.objectContaining({ key: 'review_base', score: 80 }),
-    ]));
+    expect(body.metrics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: 'normative', score: 80 }),
+        expect.objectContaining({ key: 'originality', score: 90 }),
+        expect.objectContaining({ key: 'innovation', score: 70 }),
+        expect.objectContaining({ key: 'review_base', score: 80 }),
+      ]),
+    );
   });
 
-  test('FEAT-STUDENT-QUALITY-PORTRAIT:SCENARIO:002 backend returns 403 and no metrics when student requests another student portrait id', async ({ page }) => {
+  test('FEAT-STUDENT-QUALITY-PORTRAIT:SCENARIO:002 backend returns 403 and no metrics when student requests another student portrait id', async ({
+    page,
+  }) => {
     await prepareCompleteScenarioData();
     await loginAs(page, 'student01');
 

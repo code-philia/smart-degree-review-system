@@ -35,11 +35,42 @@ async function seedNormativeRecord(overrides = {}) {
     original_text: '摘要\n正文存在格式问题。',
     rule_snapshot: [{ rule_id: 'NORM-001', title: '规范检测模板' }],
     issues: [
-      { rule_id: 'NORM-001', category: '结构', severity: 'high', line: 1, column: 1, excerpt: '严重', message: '严重错误', suggestion: '修改' },
-      { rule_id: 'NORM-002', category: '格式', severity: 'medium', line: 2, column: 1, excerpt: '一般', message: '一般错误', suggestion: '修改' },
-      { rule_id: 'NORM-003', category: '标点', severity: 'low', line: 3, column: 1, excerpt: '轻微', message: '轻微错误', suggestion: '修改' },
+      {
+        rule_id: 'NORM-001',
+        category: '结构',
+        severity: 'high',
+        line: 1,
+        column: 1,
+        excerpt: '严重',
+        message: '严重错误',
+        suggestion: '修改',
+      },
+      {
+        rule_id: 'NORM-002',
+        category: '格式',
+        severity: 'medium',
+        line: 2,
+        column: 1,
+        excerpt: '一般',
+        message: '一般错误',
+        suggestion: '修改',
+      },
+      {
+        rule_id: 'NORM-003',
+        category: '标点',
+        severity: 'low',
+        line: 3,
+        column: 1,
+        excerpt: '轻微',
+        message: '轻微错误',
+        suggestion: '修改',
+      },
     ],
-    severity_counts: overrides.severity_counts || { high: 1, medium: 2, low: 3 },
+    severity_counts: overrides.severity_counts || {
+      high: 1,
+      medium: 2,
+      low: 3,
+    },
     created_at: overrides.created_at || '2026-08-04T10:00:00.000Z',
   });
 }
@@ -83,21 +114,26 @@ async function seedInnovationRecord(overrides = {}) {
 async function prepareScenarioData() {
   await clearQualityDashboardData();
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-  await seedNormativeRecord({ id: `quality-dashboard-e2e-normative-${suffix}` });
-  await seedDuplicationRecord({ id: `quality-dashboard-e2e-duplication-${suffix}` });
-  await seedInnovationRecord({ id: `quality-dashboard-e2e-innovation-${suffix}` });
+  await seedNormativeRecord({
+    id: `quality-dashboard-e2e-normative-${suffix}`,
+  });
+  await seedDuplicationRecord({
+    id: `quality-dashboard-e2e-duplication-${suffix}`,
+  });
+  await seedInnovationRecord({
+    id: `quality-dashboard-e2e-innovation-${suffix}`,
+  });
 }
 
 test.describe('FEAT-QUALITY-DASHBOARD scenario', () => {
-  test('FEAT-QUALITY-DASHBOARD:SCENARIO:001 supervisor sees three computed quality scores and missing review base as 暂无数据', async ({ page }) => {
+  test('FEAT-QUALITY-DASHBOARD:SCENARIO:001 supervisor sees three computed quality scores and missing review base as 暂无数据', async ({
+    page,
+  }) => {
     await prepareScenarioData();
     await loginAs(page, 'supervisor01');
 
     await page.goto('/quality-dashboard');
     await expect(page.getByRole('banner')).toContainText('群体质量仪表盘');
-    await expect(page.getByText('请选择筛选条件后生成群体质量仪表盘')).toBeVisible();
-
-    await page.getByRole('button', { name: '生成仪表盘' }).click();
 
     await expect(page.getByText('样本数').locator('..')).toContainText('1');
     await expect(page.getByText('规范分').locator('..')).toContainText('79.0');
@@ -118,12 +154,31 @@ test.describe('FEAT-QUALITY-DASHBOARD scenario', () => {
     expect(apiResponse.status()).toBe(200);
     const body = await apiResponse.json();
     expect(body.sample_count).toBe(1);
-    expect(body.metrics).toEqual(expect.arrayContaining([
-      expect.objectContaining({ key: 'normative', average_score: 79, sample_count: 1 }),
-      expect.objectContaining({ key: 'originality', average_score: 73, sample_count: 1 }),
-      expect.objectContaining({ key: 'innovation', average_score: 88, sample_count: 1 }),
-      expect.objectContaining({ key: 'review_base', average_score: null, sample_count: 0, missing_count: 1 }),
-    ]));
+    expect(body.metrics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'normative',
+          average_score: 79,
+          sample_count: 1,
+        }),
+        expect.objectContaining({
+          key: 'originality',
+          average_score: 73,
+          sample_count: 1,
+        }),
+        expect.objectContaining({
+          key: 'innovation',
+          average_score: 88,
+          sample_count: 1,
+        }),
+        expect.objectContaining({
+          key: 'review_base',
+          average_score: null,
+          sample_count: 0,
+          missing_count: 1,
+        }),
+      ]),
+    );
     expect(body.students[0].scores.review_base).toBeNull();
   });
 });

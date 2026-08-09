@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../src/App';
 import { AuthSessionProvider } from '../src/auth/AuthSessionProvider';
+import { fetchCurrentSession } from '../src/api/authSession';
 import StudentQualityPortraitPage from '../src/pages/StudentQualityPortraitPage';
 import { fetchStudentQualityPortrait, type StudentQualityPortraitResponse } from '../src/api/normativeRules';
 
@@ -12,6 +13,14 @@ vi.mock('../src/api/normativeRules', async () => {
   return {
     ...actual,
     fetchStudentQualityPortrait: vi.fn(),
+  };
+});
+
+vi.mock('../src/api/authSession', async () => {
+  const actual = await vi.importActual<typeof import('../src/api/authSession')>('../src/api/authSession');
+  return {
+    ...actual,
+    fetchCurrentSession: vi.fn(),
   };
 });
 
@@ -89,12 +98,40 @@ const incompletePortrait: StudentQualityPortraitResponse = {
 };
 
 function renderPage() {
-  return render(<StudentQualityPortraitPage />);
+  return render(
+    <MemoryRouter>
+      <AuthSessionProvider>
+        <StudentQualityPortraitPage />
+      </AuthSessionProvider>
+    </MemoryRouter>,
+  );
 }
 
 describe('FEAT-STUDENT-QUALITY-PORTRAIT UI portrait contract', () => {
   beforeEach(() => {
     vi.mocked(fetchStudentQualityPortrait).mockReset();
+    vi.mocked(fetchCurrentSession).mockReset();
+    vi.mocked(fetchCurrentSession).mockRejectedValue(new Error('anonymous'));
+  });
+
+  it('FEAT-STUDENT-QUALITY-PORTRAIT:UI:DEFAULT:001 automatically opens the signed-in student portrait', async () => {
+    vi.mocked(fetchCurrentSession).mockResolvedValueOnce({
+      user: {
+        id: 'student01',
+        username: 'student01',
+        role: 'STUDENT',
+        collegeId: 'college01',
+        supervisorId: 'supervisor01',
+        scope: 'COLLEGE',
+      },
+    });
+    vi.mocked(fetchStudentQualityPortrait).mockResolvedValueOnce(completePortrait);
+
+    renderPage();
+
+    expect(await screen.findByText('单学生论文全景质量画像')).toBeInTheDocument();
+    expect(fetchStudentQualityPortrait).toHaveBeenCalledWith('student01');
+    expect(screen.getByLabelText('学生画像 ID')).toHaveValue('student01');
   });
 
   it('FEAT-STUDENT-QUALITY-PORTRAIT:UI:ROUTE:001 mounts both portrait routes through the existing App route tree without fetching fake records', () => {

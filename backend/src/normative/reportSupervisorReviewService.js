@@ -1,5 +1,6 @@
 const { ensureSupervisorQueueActor } = require('./reportSupervisorQueueService');
 const reportSupervisorReviewRepository = require('./reportSupervisorReviewRepository');
+const { getSourceReportSnapshot } = require('./reportSourceSnapshotService');
 
 const ALLOWED_REPORT_SUPERVISOR_REVIEW_ROLES = ['SUPERVISOR'];
 
@@ -12,7 +13,9 @@ function createHttpError(status, message) {
 function normalizeAnnotations(annotations) {
   if (!Array.isArray(annotations)) return [];
   return annotations
-    .filter((annotation) => annotation && typeof annotation.finding_id === 'string' && typeof annotation.comment === 'string')
+    .filter(
+      (annotation) => annotation && typeof annotation.finding_id === 'string' && typeof annotation.comment === 'string',
+    )
     .map((annotation) => ({
       finding_id: annotation.finding_id.trim(),
       comment: annotation.comment.trim(),
@@ -47,7 +50,7 @@ function parseFeedback(row) {
   };
 }
 
-function buildReviewDetail(submission, feedback) {
+function buildReviewDetail(submission, feedback, report) {
   return {
     submission_id: submission.submission_id,
     todo_id: submission.todo_id,
@@ -57,30 +60,35 @@ function buildReviewDetail(submission, feedback) {
     report_id: submission.report_id,
     status: submission.submission_status,
     todo_status: submission.todo_status,
-    report: {
-      title: submission.report_id,
-      original_text: '',
-      findings: [],
-      severity_counts: {},
-      created_at: submission.submitted_at,
-    },
+    report,
     review: parseFeedback(feedback),
   };
 }
 
 async function getSupervisorReviewDetail(user, submissionId) {
   const { supervisorId } = ensureSupervisorQueueActor(user);
-  const submission = await reportSupervisorReviewRepository.getSupervisorReviewSubmission({ submissionId, supervisorId });
+  const submission = await reportSupervisorReviewRepository.getSupervisorReviewSubmission({
+    submissionId,
+    supervisorId,
+  });
   if (!submission) {
     throw createHttpError(403, '无权查看该提交记录');
   }
-  const feedback = await reportSupervisorReviewRepository.getSupervisorReviewFeedback({ submissionId });
-  return buildReviewDetail(submission, feedback);
+  const [feedback, report] = await Promise.all([
+    reportSupervisorReviewRepository.getSupervisorReviewFeedback({
+      submissionId,
+    }),
+    getSourceReportSnapshot(submission),
+  ]);
+  return buildReviewDetail(submission, feedback, report);
 }
 
 async function submitSupervisorReview(user, submissionId, payload = {}) {
   const { supervisorId } = ensureSupervisorQueueActor(user);
-  const submission = await reportSupervisorReviewRepository.getSupervisorReviewSubmission({ submissionId, supervisorId });
+  const submission = await reportSupervisorReviewRepository.getSupervisorReviewSubmission({
+    submissionId,
+    supervisorId,
+  });
   if (!submission) {
     throw createHttpError(403, '无权批阅该提交记录');
   }
@@ -93,7 +101,8 @@ async function submitSupervisorReview(user, submissionId, payload = {}) {
     supervisorId,
     annotations: normalizeAnnotations(payload.annotations),
     overallEvaluation: requireOverallEvaluation(payload.overall_evaluation),
-    improvementSuggestions: typeof payload.improvement_suggestions === 'string' ? payload.improvement_suggestions.trim() : '',
+    improvementSuggestions:
+      typeof payload.improvement_suggestions === 'string' ? payload.improvement_suggestions.trim() : '',
     submittedAt: new Date().toISOString(),
   });
 

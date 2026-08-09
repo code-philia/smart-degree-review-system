@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
+  fetchDetectionLedgerRecords,
   fetchStudentQualityPortrait,
   type StudentQualityPortraitMetric,
   type StudentQualityPortraitResponse,
 } from '../api/normativeRules';
+import { useAuthSession } from '../auth/AuthSessionProvider';
 import QualityRadarChart from '../components/QualityRadarChart';
 import { EmptyState, ErrorState, LoadingState } from '../components/ui';
 
@@ -31,19 +33,20 @@ function getMetricByKey(metrics: StudentQualityPortraitMetric[], key: StudentQua
 
 function StudentQualityPortraitPage() {
   const { studentId: routeStudentId } = useParams<{ studentId?: string }>();
+  const { status: sessionStatus, user } = useAuthSession();
   const [studentId, setStudentId] = useState(routeStudentId || '');
   const [portrait, setPortrait] = useState<StudentQualityPortraitResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
+  const overallScoreLabel = useMemo(() => buildOverallScoreLabel(portrait), [portrait]);
+
   useEffect(() => {
     setStudentId(routeStudentId || '');
   }, [routeStudentId]);
 
-  const overallScoreLabel = useMemo(() => buildOverallScoreLabel(portrait), [portrait]);
-
-  async function handleQuery() {
-    const normalizedStudentId = studentId.trim();
+  const loadPortrait = useCallback(async (requestedStudentId: string) => {
+    const normalizedStudentId = requestedStudentId.trim();
     if (!normalizedStudentId) {
       setErrorMessage('请输入学生画像 ID');
       setPortrait(null);
@@ -61,6 +64,42 @@ function StudentQualityPortraitPage() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    if (sessionStatus !== 'authenticated' || !user) {
+      return;
+    }
+
+    let cancelled = false;
+    async function loadDefaultPortrait() {
+      let defaultStudentId = routeStudentId || '';
+      if (!defaultStudentId && user.role === 'STUDENT') {
+        defaultStudentId = user.id;
+      }
+      if (!defaultStudentId && user.role !== 'STUDENT') {
+        try {
+          const records = await fetchDetectionLedgerRecords({ latest_only: true });
+          defaultStudentId = records[0]?.student_id || '';
+        } catch {
+          defaultStudentId = '';
+        }
+      }
+      if (cancelled) return;
+      setStudentId(defaultStudentId);
+      if (defaultStudentId) {
+        await loadPortrait(defaultStudentId);
+      }
+    }
+
+    void loadDefaultPortrait();
+    return () => {
+      cancelled = true;
+    };
+  }, [loadPortrait, routeStudentId, sessionStatus, user]);
+
+  async function handleQuery() {
+    await loadPortrait(studentId);
   }
 
   return (

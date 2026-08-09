@@ -151,7 +151,7 @@ async function ensureStudentInScope(scope, studentId) {
       u.college_id,
       u.supervisor_id
      FROM auth_users u
-     WHERE ${scopeWhere} AND ${studentWhere}
+     WHERE u.role = 'STUDENT' AND ${scopeWhere} AND ${studentWhere}
      LIMIT 1;`,
     params,
   );
@@ -167,7 +167,7 @@ async function findLatestSourceRecord(scope, studentId, filters = {}) {
   const normativeParams = [];
   const normativeScopeWhere = buildScopeWhere(scope, normativeParams);
   const normativeStudentWhere = buildStudentWhere(studentId, normativeParams);
-  const normativeClauses = ['task.status = \'completed\'', normativeScopeWhere, normativeStudentWhere];
+  const normativeClauses = ["task.status = 'completed'", normativeScopeWhere, normativeStudentWhere];
   buildDateWhere('task.created_at', filters, normativeParams).forEach((clause) => normativeClauses.push(clause));
   const normativeRow = await get(
     `SELECT task.id, task.source_filename, task.created_at
@@ -179,7 +179,10 @@ async function findLatestSourceRecord(scope, studentId, filters = {}) {
     normativeParams,
   );
   if (normativeRow) {
-    candidates.push({ ...normativeRow, order_created_at: normativeRow.created_at });
+    candidates.push({
+      ...normativeRow,
+      order_created_at: normativeRow.created_at,
+    });
   }
 
   const duplicationParams = [];
@@ -197,14 +200,19 @@ async function findLatestSourceRecord(scope, studentId, filters = {}) {
     duplicationParams,
   );
   if (duplicationRow) {
-    candidates.push({ ...duplicationRow, order_created_at: duplicationRow.created_at });
+    candidates.push({
+      ...duplicationRow,
+      order_created_at: duplicationRow.created_at,
+    });
   }
 
   const innovationParams = [];
   const innovationScopeWhere = buildScopeWhere(scope, innovationParams);
   const innovationStudentWhere = buildStudentWhere(studentId, innovationParams);
   const innovationClauses = [innovationScopeWhere, innovationStudentWhere];
-  buildDateWhere('assessment.created_at', filters, innovationParams).forEach((clause) => innovationClauses.push(clause));
+  buildDateWhere('assessment.created_at', filters, innovationParams).forEach((clause) =>
+    innovationClauses.push(clause),
+  );
   const innovationRow = await get(
     `SELECT assessment.id, assessment.thesis_title, assessment.created_at
      FROM innovation_assessment_snapshots assessment
@@ -215,7 +223,10 @@ async function findLatestSourceRecord(scope, studentId, filters = {}) {
     innovationParams,
   );
   if (innovationRow) {
-    candidates.push({ ...innovationRow, order_created_at: innovationRow.created_at });
+    candidates.push({
+      ...innovationRow,
+      order_created_at: innovationRow.created_at,
+    });
   }
 
   const reviewParams = [];
@@ -258,7 +269,7 @@ async function getNormativeMetric(scope, studentId, filters) {
   const params = [];
   const scopeWhere = buildScopeWhere(scope, params);
   const studentWhere = buildStudentWhere(studentId, params);
-  const clauses = ['task.status = \'completed\'', scopeWhere, studentWhere];
+  const clauses = ["task.status = 'completed'", scopeWhere, studentWhere];
   buildDateWhere('task.created_at', filters, params).forEach((clause) => clauses.push(clause));
   const row = await get(
     `SELECT task.id, task.severity_counts_json, task.created_at
@@ -335,7 +346,14 @@ async function getReviewBaseMetric(scope, studentId, filters) {
   if (!row) {
     return null;
   }
-  return buildMetricResult('review_base', row, scoreReviewBase({ total_score: row.total_score, score_items: row.score_items_json }));
+  return buildMetricResult(
+    'review_base',
+    row,
+    scoreReviewBase({
+      total_score: row.total_score,
+      score_items: row.score_items_json,
+    }),
+  );
 }
 
 function buildCompleteness(metrics) {

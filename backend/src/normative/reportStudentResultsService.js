@@ -1,5 +1,5 @@
-const { get, all } = require('../database/db_runtime');
 const reportStudentResultsRepository = require('./reportStudentResultsRepository');
+const { buildSourceReportFallback, getSourceReportSnapshot, parseJsonValue } = require('./reportSourceSnapshotService');
 
 const ALLOWED_REPORT_STUDENT_RESULTS_ROLES = ['STUDENT'];
 
@@ -19,113 +19,8 @@ function ensureStudentResultsActor(user) {
   return { studentId: user.id };
 }
 
-function parseJsonValue(value, fallback) {
-  if (typeof value !== 'string' || !value.trim()) {
-    return fallback;
-  }
-  try {
-    return JSON.parse(value);
-  } catch {
-    return fallback;
-  }
-}
-
 function normalizeFeedbackAnnotations(row) {
   return parseJsonValue(row.annotations_json, []);
-}
-
-function buildSourceReportFallback(row) {
-  const createdAt = row.submitted_at;
-  return {
-    title: row.report_id,
-    original_text: '',
-    findings: [],
-    severity_counts: {},
-    created_at: createdAt,
-  };
-}
-
-async function getSourceReportSnapshot(row) {
-  if (!row) {
-    return buildSourceReportFallback(row);
-  }
-
-  if (row.source_type === 'normative') {
-    const source = await get(
-      `SELECT original_text, issues_json, severity_counts_json, created_at
-         FROM normative_detection_tasks
-        WHERE id = ? AND user_id = ?`,
-      [row.report_id, row.student_id],
-    );
-    if (source) {
-      return {
-        title: row.report_id,
-        original_text: source.original_text,
-        findings: parseJsonValue(source.issues_json, []),
-        severity_counts: parseJsonValue(source.severity_counts_json, {}),
-        created_at: source.created_at,
-      };
-    }
-  }
-
-  if (row.source_type === 'ai_review') {
-    const source = await get(
-      `SELECT original_text, section_snapshot_json, created_at
-         FROM ai_review_runs
-        WHERE id = ? AND user_id = ?`,
-      [row.report_id, row.student_id],
-    );
-    if (source) {
-      return {
-        title: row.report_id,
-        original_text: source.original_text,
-        findings: parseJsonValue(source.section_snapshot_json, []),
-        severity_counts: {},
-        created_at: source.created_at,
-      };
-    }
-  }
-
-  if (row.source_type === 'duplication') {
-    const source = await get(
-      `SELECT original_text, report_json, created_at
-         FROM duplication_detection_reports
-        WHERE id = ? AND user_id = ?`,
-      [row.report_id, row.student_id],
-    );
-    if (source) {
-      const reportJson = parseJsonValue(source.report_json, {});
-      return {
-        title: row.report_id,
-        original_text: source.original_text,
-        findings: Array.isArray(reportJson.matches) ? reportJson.matches : [],
-        severity_counts: reportJson.severity_counts || {},
-        created_at: source.created_at,
-      };
-    }
-  }
-
-  if (row.source_type === 'innovation') {
-    const source = await get(
-      `SELECT thesis_title, input_snapshot_json, scoring_snapshot_json, created_at
-         FROM innovation_assessment_snapshots
-        WHERE id = ? AND user_id = ?`,
-      [row.report_id, row.student_id],
-    );
-    if (source) {
-      const inputSnapshot = parseJsonValue(source.input_snapshot_json, {});
-      const scoringSnapshot = parseJsonValue(source.scoring_snapshot_json, {});
-      return {
-        title: source.thesis_title || row.report_id,
-        original_text: inputSnapshot?.research_background || inputSnapshot?.text || '',
-        findings: Array.isArray(scoringSnapshot.dimensions) ? scoringSnapshot.dimensions : [],
-        severity_counts: {},
-        created_at: source.created_at,
-      };
-    }
-  }
-
-  return buildSourceReportFallback(row);
 }
 
 function buildStudentReportResultDetail(row, historyRounds = [], report = null) {
@@ -156,16 +51,24 @@ async function listStudentReportResults(user, filters = {}) {
 
 async function getStudentReportResultDetail(user, submissionId) {
   const { studentId } = ensureStudentResultsActor(user);
-  const row = await reportStudentResultsRepository.getStudentReportResult({ studentId, submissionId });
+  const row = await reportStudentResultsRepository.getStudentReportResult({
+    studentId,
+    submissionId,
+  });
   if (!row) {
     throw createHttpError(404, '未找到可查看的批阅结果');
   }
   const report = await getSourceReportSnapshot(row);
   if (row.status === 'review_completed_feedback') {
-    await reportStudentResultsRepository.markStudentFeedbackViewed({ studentId, submissionId });
+    await reportStudentResultsRepository.markStudentFeedbackViewed({
+      studentId,
+      submissionId,
+    });
     row.status = 'student_viewed_feedback';
   }
-  const { results: historyRounds } = await listStudentReportResults(user, { report_id: row.report_id });
+  const { results: historyRounds } = await listStudentReportResults(user, {
+    report_id: row.report_id,
+  });
   return buildStudentReportResultDetail(row, historyRounds, report);
 }
 

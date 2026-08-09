@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { LedgerRecordFilters, QualityDashboardResponse, fetchQualityDashboard } from '../api/normativeRules';
 
 const initialFilters: LedgerRecordFilters = {
@@ -15,7 +15,7 @@ function QualityDashboardPage() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
 
-  async function refreshDashboard(nextFilters = filters) {
+  const refreshDashboard = useCallback(async (nextFilters: LedgerRecordFilters) => {
     setStatus('loading');
     setErrorMessage('');
     try {
@@ -26,7 +26,11 @@ function QualityDashboardPage() {
       setStatus('error');
       setErrorMessage(error instanceof Error ? error.message : '质量仪表盘加载失败');
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    void refreshDashboard(initialFilters);
+  }, [refreshDashboard]);
 
   return (
     <div className="text-[#1f2d3d]">
@@ -93,7 +97,7 @@ function QualityDashboardPage() {
             <button
               className="h-11 bg-[#3b86ee] px-10 font-bold text-white"
               type="button"
-              onClick={() => void refreshDashboard()}
+              onClick={() => void refreshDashboard(filters)}
             >
               生成仪表盘
             </button>

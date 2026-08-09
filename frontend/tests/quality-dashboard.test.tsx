@@ -79,7 +79,8 @@ describe('FEAT-QUALITY-DASHBOARD quality dashboard UI contract', () => {
     vi.mocked(fetchQualityDashboard).mockReset();
   });
 
-  it('FEAT-QUALITY-DASHBOARD:UI:ROUTE:001 mounts /quality-dashboard through the existing App route tree', () => {
+  it('FEAT-QUALITY-DASHBOARD:UI:ROUTE:001 mounts /quality-dashboard and loads the default organization view', async () => {
+    vi.mocked(fetchQualityDashboard).mockResolvedValueOnce(scenarioDashboard);
     render(
       <MemoryRouter initialEntries={['/quality-dashboard']}>
         <AuthSessionProvider>
@@ -90,18 +91,19 @@ describe('FEAT-QUALITY-DASHBOARD quality dashboard UI contract', () => {
 
     expect(screen.getByRole('banner')).toHaveTextContent('群体质量仪表盘');
     expect(screen.getByRole('button', { name: '生成仪表盘' })).toBeInTheDocument();
-    expect(screen.getByText('请选择筛选条件后生成群体质量仪表盘')).toBeInTheDocument();
-    expect(fetchQualityDashboard).not.toHaveBeenCalled();
+    expect(await screen.findByText('样本数')).toBeInTheDocument();
+    expect(fetchQualityDashboard).toHaveBeenCalledWith({ latest_only: true });
   });
 
-  it('FEAT-QUALITY-DASHBOARD:UI:FILTERS:001 starts empty and sends selected ledger filters on manual refresh without fallback rows', async () => {
-    vi.mocked(fetchQualityDashboard).mockResolvedValueOnce({ ...scenarioDashboard, sample_count: 0, students: [] });
+  it('FEAT-QUALITY-DASHBOARD:UI:FILTERS:001 sends selected ledger filters on manual refresh without fallback rows', async () => {
+    vi.mocked(fetchQualityDashboard)
+      .mockResolvedValueOnce(scenarioDashboard)
+      .mockResolvedValueOnce({ ...scenarioDashboard, sample_count: 0, students: [] });
     const user = userEvent.setup();
 
     renderPage();
-
-    expect(screen.getByText('请选择筛选条件后生成群体质量仪表盘')).toBeInTheDocument();
-    expect(screen.queryByText('张三')).not.toBeInTheDocument();
+    await waitFor(() => expect(fetchQualityDashboard).toHaveBeenCalledTimes(1));
+    expect(screen.getByText('张三')).toBeInTheDocument();
 
     const dateInputs = screen.getAllByDisplayValue('');
     await user.type(dateInputs[0], '2026-08-04');
@@ -110,8 +112,8 @@ describe('FEAT-QUALITY-DASHBOARD quality dashboard UI contract', () => {
     await user.selectOptions(screen.getByLabelText('类型'), 'normative');
     await user.click(screen.getByRole('button', { name: '生成仪表盘' }));
 
-    await waitFor(() => expect(fetchQualityDashboard).toHaveBeenCalledTimes(1));
-    expect(fetchQualityDashboard).toHaveBeenCalledWith({
+    await waitFor(() => expect(fetchQualityDashboard).toHaveBeenCalledTimes(2));
+    expect(fetchQualityDashboard).toHaveBeenLastCalledWith({
       from: '2026-08-04',
       to: '2026-08-04',
       student: 'student01',
@@ -123,10 +125,8 @@ describe('FEAT-QUALITY-DASHBOARD quality dashboard UI contract', () => {
 
   it('FEAT-QUALITY-DASHBOARD:UI:SCENARIO:001 renders formula scores and displays missing review base as 暂无数据 instead of zero', async () => {
     vi.mocked(fetchQualityDashboard).mockResolvedValueOnce(scenarioDashboard);
-    const user = userEvent.setup();
 
     renderPage();
-    await user.click(screen.getByRole('button', { name: '生成仪表盘' }));
 
     await waitFor(() => expect(fetchQualityDashboard).toHaveBeenCalledTimes(1));
     expect(screen.getByText('样本数').nextSibling).toHaveTextContent('1');
@@ -159,7 +159,6 @@ describe('FEAT-QUALITY-DASHBOARD quality dashboard UI contract', () => {
     vi.mocked(fetchQualityDashboard).mockRejectedValueOnce(new Error('质量仪表盘加载失败'));
 
     renderPage();
-    await userEvent.click(screen.getByRole('button', { name: '生成仪表盘' }));
 
     expect(await screen.findByText('质量仪表盘加载失败')).toBeInTheDocument();
     expect(screen.queryByText('样本数')).not.toBeInTheDocument();

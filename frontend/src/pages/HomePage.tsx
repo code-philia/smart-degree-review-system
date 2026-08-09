@@ -136,12 +136,16 @@ function StudentTodoPanel() {
                     ? '已反馈'
                     : '已查看'}
               </StatusBadge>
-              <Link
-                className="font-semibold text-brand-600 hover:underline"
-                to={`/student-report-results/${item.submission_id}`}
-              >
-                查看
-              </Link>
+              {item.status === 'submitted_pending_review' ? (
+                <span className="font-semibold text-amber-600">等待批阅</span>
+              ) : (
+                <Link
+                  className="font-semibold text-brand-600 hover:underline"
+                  to={`/student-report-results/${item.submission_id}`}
+                >
+                  查看
+                </Link>
+              )}
             </div>
           </li>
         ))}
