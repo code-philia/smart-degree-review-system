@@ -44,7 +44,92 @@ const QUALITY_STUDENTS = [
     reviewScore: 72,
     severityCounts: { high: 1, medium: 3, low: 3 },
   },
+  {
+    id: 'student05',
+    collegeId: 'college01',
+    supervisorId: 'supervisor01',
+    thesisTitle: '专业学位研究生实践成果评价机制研究',
+    levels: [4, 4, 4, 3, 5],
+    similarityRate: 0.16,
+    reviewScore: 86,
+    severityCounts: { high: 0, medium: 2, low: 3 },
+  },
+  {
+    id: 'student06',
+    collegeId: 'college01',
+    supervisorId: 'supervisor04',
+    thesisTitle: '跨学科研究生培养质量影响因素研究',
+    levels: [4, 5, 4, 4, 4],
+    similarityRate: 0.2,
+    reviewScore: 83,
+    severityCounts: { high: 0, medium: 2, low: 4 },
+  },
+  {
+    id: 'student07',
+    collegeId: 'college02',
+    supervisorId: 'supervisor03',
+    thesisTitle: '科研诚信教育融入研究生培养全过程的路径研究',
+    levels: [5, 4, 4, 4, 5],
+    similarityRate: 0.14,
+    reviewScore: 89,
+    severityCounts: { high: 0, medium: 1, low: 3 },
+  },
+  {
+    id: 'student08',
+    collegeId: 'college03',
+    supervisorId: 'supervisor05',
+    thesisTitle: '学位论文预审环节风险识别与治理研究',
+    levels: [4, 3, 4, 4, 4],
+    similarityRate: 0.27,
+    reviewScore: 76,
+    severityCounts: { high: 1, medium: 2, low: 3 },
+  },
 ];
+
+const STUDENT_HISTORY_ROUNDS = [
+  {
+    key: 'proposal-revision',
+    label: '开题后修订稿',
+    daysAgo: 46,
+    similarityRate: 0.29,
+    reviewScore: 71,
+    levels: [3, 3, 3, 3, 4],
+    severityCounts: { high: 2, medium: 3, low: 3 },
+  },
+  {
+    key: 'chapter-review',
+    label: '章节送审稿',
+    daysAgo: 31,
+    similarityRate: 0.25,
+    reviewScore: 76,
+    levels: [4, 3, 4, 3, 4],
+    severityCounts: { high: 1, medium: 3, low: 3 },
+  },
+  {
+    key: 'midterm-revision',
+    label: '中期检查修订稿',
+    daysAgo: 20,
+    similarityRate: 0.22,
+    reviewScore: 80,
+    levels: [4, 4, 4, 3, 4],
+    severityCounts: { high: 1, medium: 2, low: 3 },
+  },
+  {
+    key: 'pre-defense',
+    label: '预答辩稿',
+    daysAgo: 11,
+    similarityRate: 0.19,
+    reviewScore: 83,
+    levels: [5, 4, 4, 3, 4],
+    severityCounts: { high: 1, medium: 2, low: 2 },
+  },
+];
+
+const ROLE_HISTORY_PROFILES = {
+  supervisor01: '研究生学位论文过程质量评价指标研究',
+  college_admin01: '学院学位论文质量保障流程优化研究',
+  school_admin01: '高校学位论文质量监测体系建设研究',
+};
 
 const DIMENSION_META = [
   ['research_topic', '研究选题', 0.2],
@@ -54,22 +139,29 @@ const DIMENSION_META = [
   ['application_value', '应用价值', 0.15],
 ];
 
-const DEMO_ORIGINAL_TEXT = [
-  '摘要',
-  '本文围绕高校数字治理背景下的学位论文质量保障展开研究，构建可解释的质量评价框架。',
-  '关键词：学位论文；质量评价；数字治理',
-  '引言',
-  '现有质量保障流程存在数据分散、反馈周期较长和评价口径不一致等问题。',
-  '研究方法',
-  '研究综合采用文献分析、案例比较和半结构化访谈方法，对不同学院的论文质量管理流程进行归纳。',
-  '研究结果',
-  '结果表明，统一规则、过程反馈和分角色数据治理能够提升质量管理的透明度与可追溯性。',
-  '结论',
-  '本文提出的评价框架可为校内试点提供参考，但仍需在更大样本范围内持续验证。',
-  '参考文献',
-  '[1] 李明. 高校数字治理研究[J]. 教育信息化研究, 2025(3): 12-20.',
-  '[2] 王芳. 学位论文质量保障机制研究[J]. 研究生教育, 2024(6): 44-50.',
-].join('\n');
+function buildOriginalText(student, revisionLabel = '定稿前检查稿') {
+  return [
+    student.thesisTitle,
+    revisionLabel,
+    '摘要',
+    `本文围绕“${student.thesisTitle}”展开研究，在梳理国内外相关成果的基础上，构建由制度规范、过程管理、反馈机制和质量改进组成的分析框架。`,
+    '关键词：研究生教育；质量保障；过程评价；数字治理',
+    '引言',
+    '现有研究较多关注结果评价，对培养过程中的多主体协同、反馈时效及规则一致性讨论仍显不足。',
+    '研究方法',
+    '研究采用文献分析、案例比较和半结构化访谈方法，选取三所高校的培养管理实践作为案例，并对二十八名导师和研究生开展访谈。',
+    '研究结果',
+    '研究发现，明确评价口径、建立分阶段反馈机制并保留修改证据，能够提升论文质量管理的透明度与可追溯性。',
+    '讨论',
+    '不同学科在成果形态和评价重点上存在差异，统一规则应与学院补充规则结合使用，避免以单一指标替代学术判断。',
+    '结论',
+    '本文提出的过程质量评价框架可为校内质量保障提供参考，但样本范围和跨学科适用性仍需在后续研究中验证。',
+    '参考文献',
+    '[1] 李明. 高校数字治理研究[J]. 教育信息化研究, 2025(3): 12-20.',
+    '[2] 王芳. 学位论文质量保障机制研究[J]. 研究生教育, 2024(6): 44-50.',
+    '[3] 周宁. 研究生培养过程评价的证据链构建[J]. 高等教育研究, 2025(8): 61-69.',
+  ].join('\n');
+}
 
 function isoDaysAgo(days, hour) {
   const date = new Date();
@@ -78,8 +170,8 @@ function isoDaysAgo(days, hour) {
   return date.toISOString();
 }
 
-function buildNormativeIssues() {
-  return [
+function buildNormativeIssues(severityCounts = { high: 1, medium: 2, low: 2 }) {
+  const issues = [
     {
       finding_id: 'finding-norm-001',
       rule_id: 'TEXT-LONG-SENTENCE',
@@ -114,6 +206,94 @@ function buildNormativeIssues() {
       suggestion: '补充研究对象数量和数据时间范围。',
     },
   ];
+
+  const issueBanks = {
+    high: [
+      {
+        rule_id: 'EVIDENCE-NUMERIC-SUPPORT',
+        category: '论据支撑',
+        line: 10,
+        column: 1,
+        excerpt: '能够提升论文质量管理的透明度与可追溯性。',
+        message: '结论包含明确效果判断，但当前段落尚未给出对应统计结果或访谈证据。',
+        suggestion: '补充量化结果、典型访谈编码或案例对比数据，并说明证据来源。',
+      },
+      {
+        rule_id: 'METHOD-SAMPLE-BOUNDARY',
+        category: '研究方法',
+        line: 8,
+        column: 1,
+        excerpt: '选取三所高校的培养管理实践作为案例。',
+        message: '样本选择标准和案例代表性说明不足，可能影响研究结论的适用边界。',
+        suggestion: '说明案例选择依据、学校类型及样本排除标准。',
+      },
+    ],
+    medium: [
+      {
+        rule_id: 'TERM-CONSISTENCY',
+        category: '术语一致性',
+        line: 6,
+        column: 1,
+        excerpt: '多主体协同、反馈时效及规则一致性',
+        message: '“质量评价”“质量监测”和“质量保障”在正文中交替使用，建议明确概念关系。',
+        suggestion: '在绪论中给出核心术语定义，并统一后续章节用词。',
+      },
+      {
+        rule_id: 'ARGUMENT-TRANSITION',
+        category: '论证结构',
+        line: 11,
+        column: 1,
+        excerpt: '不同学科在成果形态和评价重点上存在差异。',
+        message: '研究结果与讨论之间的过渡较快，尚未说明该判断如何由案例材料推导。',
+        suggestion: '增加承上启下段落，概括结果证据并引出学科差异讨论。',
+      },
+    ],
+    low: [
+      {
+        rule_id: 'KEYWORD-CONSISTENCY',
+        category: '摘要与关键词',
+        line: 4,
+        column: 1,
+        excerpt: '研究生教育；质量保障；过程评价；数字治理',
+        message: '关键词“数字治理”在摘要中的对应表述不够突出。',
+        suggestion: '在摘要研究背景或结论中补充数字治理视角的具体体现。',
+      },
+      {
+        rule_id: 'REFERENCE-RECENCY',
+        category: '参考文献',
+        line: 17,
+        column: 1,
+        excerpt: '[3] 周宁. 研究生培养过程评价的证据链构建[J].',
+        message: '参考文献已覆盖近期研究，建议再补充一项国外相关实证成果。',
+        suggestion: '检索近五年同主题外文文献并说明其与本研究的关系。',
+      },
+      {
+        rule_id: 'ABSTRACT-METHOD-DETAIL',
+        category: '摘要',
+        line: 3,
+        column: 1,
+        excerpt: '在梳理国内外相关成果的基础上',
+        message: '摘要对研究方法的交代较概括。',
+        suggestion: '简要写明案例数量、访谈对象及主要分析方法。',
+      },
+    ],
+  };
+
+  const baseCounts = { high: 0, medium: 1, low: 2 };
+  let findingIndex = issues.length + 1;
+  for (const severity of ['high', 'medium', 'low']) {
+    const required = Math.max(0, Number(severityCounts[severity] || 0) - baseCounts[severity]);
+    for (let index = 0; index < required; index += 1) {
+      const template = issueBanks[severity][index % issueBanks[severity].length];
+      issues.push({
+        finding_id: `finding-norm-${String(findingIndex).padStart(3, '0')}`,
+        severity,
+        ...template,
+      });
+      findingIndex += 1;
+    }
+  }
+  return issues;
 }
 
 function buildInnovationSnapshots(student, createdAt) {
@@ -145,7 +325,7 @@ function buildInnovationSnapshots(student, createdAt) {
     primary_discipline: '管理学',
     secondary_discipline: '教育经济与管理',
     research_direction: '高校数字治理与质量保障',
-    research_background: DEMO_ORIGINAL_TEXT,
+    research_background: buildOriginalText(student),
     dimensions: dimensionsInput,
   };
   const scoringSnapshot = {
@@ -181,15 +361,15 @@ function buildAiScoreItems(totalScore) {
   });
 }
 
-function buildDuplicationReport(student) {
+function buildDuplicationReport(student, originalText, sourceFilename) {
   return {
     status: 'completed',
     source_type: 'file',
-    source_filename: `[演示]${student.id}-相似度检测.txt`,
+    source_filename: sourceFilename,
     threshold: 0.3,
-    effective_character_count: DEMO_ORIGINAL_TEXT.length,
+    effective_character_count: originalText.length,
     total_similarity_rate: student.similarityRate,
-    sample_count: 3,
+    sample_count: 5,
     top_matches: [
       {
         sample_id: 'demo-corpus-digital-governance',
@@ -236,6 +416,103 @@ async function insertDemoRow(tx, summary, category, sql, params) {
   summary.by_category[category] = (summary.by_category[category] || 0) + result.changes;
 }
 
+async function updateDemoRows(tx, summary, category, sql, params) {
+  const result = await tx.run(sql, params);
+  summary.updated += result.changes;
+  summary.updated_by_category[category] = (summary.updated_by_category[category] || 0) + result.changes;
+}
+
+async function normalizeLegacyDemoLabels(tx, summary) {
+  const profiles = [
+    ...QUALITY_STUDENTS,
+    ...DEMO_USER_IDS.filter((userId) => userId !== 'student01').map((userId, index) => ({
+      id: userId,
+      thesisTitle: ROLE_HISTORY_PROFILES[userId],
+      levels: [5, 4, 4, 3, 4],
+      similarityRate: 0.21 + (index + 1) * 0.02,
+      reviewScore: 81 - index,
+      severityCounts: { high: 0, medium: 2, low: 3 },
+    })),
+  ];
+
+  for (const profile of profiles) {
+    const sourceFilename = `${profile.thesisTitle}_定稿前检查稿.pdf`;
+    const originalText = buildOriginalText(profile);
+    const issues = buildNormativeIssues(profile.severityCounts);
+    const duplicationReport = buildDuplicationReport(profile, originalText, sourceFilename);
+    const { inputSnapshot, scoringSnapshot } = buildInnovationSnapshots(profile, isoDaysAgo(2, 4));
+
+    await updateDemoRows(
+      tx,
+      summary,
+      'normative',
+      `UPDATE normative_detection_tasks
+          SET source_filename = ?, original_text = ?, issues_json = ?, severity_counts_json = ?
+        WHERE id = ? AND source_filename LIKE '[演示]%'`,
+      [
+        sourceFilename,
+        originalText,
+        JSON.stringify(issues),
+        JSON.stringify(profile.severityCounts),
+        `demo-normative-${profile.id}`,
+      ],
+    );
+    await updateDemoRows(
+      tx,
+      summary,
+      'duplication',
+      `UPDATE duplication_detection_reports
+          SET source_filename = ?, original_text = ?, sample_count = 5, report_json = ?
+        WHERE id = ? AND source_filename LIKE '[演示]%'`,
+      [sourceFilename, originalText, JSON.stringify(duplicationReport), `demo-duplication-${profile.id}`],
+    );
+    await updateDemoRows(
+      tx,
+      summary,
+      'ai_review',
+      `UPDATE ai_review_runs
+          SET thesis_title = ?, source_filename = ?, original_text = ?, character_count = ?, normative_issues_json = ?
+        WHERE id = ? AND (source_filename LIKE '[演示]%' OR thesis_title LIKE '%演示%')`,
+      [
+        profile.thesisTitle,
+        sourceFilename,
+        originalText,
+        originalText.length,
+        JSON.stringify(issues.slice(0, 3)),
+        `demo-ai-review-${profile.id}`,
+      ],
+    );
+    await updateDemoRows(
+      tx,
+      summary,
+      'innovation',
+      `UPDATE innovation_assessment_snapshots
+          SET thesis_title = ?, input_snapshot_json = ?, scoring_snapshot_json = ?
+        WHERE id = ? AND thesis_title LIKE '%演示%'`,
+      [
+        profile.thesisTitle,
+        JSON.stringify(inputSnapshot),
+        JSON.stringify(scoringSnapshot),
+        `demo-innovation-${profile.id}`,
+      ],
+    );
+  }
+
+  for (const userId of DEMO_USER_IDS) {
+    const documentTitle =
+      userId === 'student01' ? QUALITY_STUDENTS[0].thesisTitle : ROLE_HISTORY_PROFILES[userId] || '学位论文质量研究';
+    await updateDemoRows(
+      tx,
+      summary,
+      'whole_polish',
+      `UPDATE whole_polish_results
+          SET source_filename = ?
+        WHERE id = ? AND source_filename LIKE '[演示]%'`,
+      [`${documentTitle}_语言修改稿.docx`, `demo-whole-polish-${userId}`],
+    );
+  }
+}
+
 async function seedHelperStudents(tx, summary) {
   for (const student of QUALITY_STUDENTS.slice(1)) {
     await insertDemoRow(
@@ -276,6 +553,22 @@ async function seedCorpus(tx, summary) {
       year: 2026,
       content: '生成式人工智能可辅助文本检查和过程反馈，但评价结果必须保持可解释性，并由教师对学术内容和结论负责。',
     },
+    {
+      id: 'demo-corpus-process-evaluation',
+      title: '研究生培养过程评价与反馈机制研究',
+      subject: '高等教育管理',
+      year: 2025,
+      content:
+        '培养过程评价应记录选题、开题、中期检查、预答辩和送审等关键节点，以持续反馈替代单一结果评价，并形成可复核的修改证据链。',
+    },
+    {
+      id: 'demo-corpus-research-integrity',
+      title: '高校科研诚信教育实施路径案例',
+      subject: '科研管理',
+      year: 2024,
+      content:
+        '科研诚信教育需要融入研究设计、数据采集、论文写作和成果发布全过程，通过导师指导、规则教育和案例警示提升研究者的责任意识。',
+    },
   ];
   for (const [index, sample] of samples.entries()) {
     await insertDemoRow(
@@ -290,14 +583,23 @@ async function seedCorpus(tx, summary) {
   }
 }
 
-async function seedQualityRecordSet(tx, summary, student, index) {
-  const normativeCreatedAt = isoDaysAgo(3 - Math.min(index, 3), 2);
-  const duplicationCreatedAt = isoDaysAgo(3 - Math.min(index, 3), 3);
-  const innovationCreatedAt = isoDaysAgo(2 - Math.min(index, 2), 4);
-  const reviewCreatedAt = isoDaysAgo(1 - Math.min(index, 1), 5);
-  const normativeIssues = buildNormativeIssues();
-  const duplicationReport = buildDuplicationReport(student);
-  const { inputSnapshot, scoringSnapshot } = buildInnovationSnapshots(student, innovationCreatedAt);
+async function seedQualityRecordSet(tx, summary, student, index, options = {}) {
+  const recordKey = options.recordKey ? `${student.id}-${options.recordKey}` : student.id;
+  const revisionLabel = options.revisionLabel || '定稿前检查稿';
+  const displayTitle = options.recordKey ? `${student.thesisTitle}（${revisionLabel}）` : student.thesisTitle;
+  const sourceFilename = `${student.thesisTitle}_${revisionLabel}.pdf`;
+  const baseDaysAgo = options.daysAgo;
+  const normativeCreatedAt = isoDaysAgo(baseDaysAgo ?? 3 - Math.min(index, 3), 2);
+  const duplicationCreatedAt = isoDaysAgo(baseDaysAgo ?? 3 - Math.min(index, 3), 3);
+  const innovationCreatedAt = isoDaysAgo(baseDaysAgo ?? 2 - Math.min(index, 2), 4);
+  const reviewCreatedAt = isoDaysAgo(baseDaysAgo ?? 1 - Math.min(index, 1), 5);
+  const originalText = buildOriginalText(student, revisionLabel);
+  const normativeIssues = buildNormativeIssues(student.severityCounts);
+  const duplicationReport = buildDuplicationReport(student, originalText, sourceFilename);
+  const { inputSnapshot, scoringSnapshot } = buildInnovationSnapshots(
+    { ...student, thesisTitle: displayTitle },
+    innovationCreatedAt,
+  );
   const aiScoreItems = buildAiScoreItems(student.reviewScore);
 
   await insertDemoRow(
@@ -309,10 +611,10 @@ async function seedQualityRecordSet(tx, summary, student, index) {
        rule_snapshot_json, issues_json, severity_counts_json, created_at
      ) VALUES (?, ?, 'completed', 'file', ?, ?, ?, ?, ?, ?)`,
     [
-      `demo-normative-${student.id}`,
+      `demo-normative-${recordKey}`,
       student.id,
-      `[演示]${student.id}-规范性检测.txt`,
-      DEMO_ORIGINAL_TEXT,
+      sourceFilename,
+      originalText,
       JSON.stringify([
         {
           rule_id: 'TEXT-LONG-SENTENCE',
@@ -343,12 +645,12 @@ async function seedQualityRecordSet(tx, summary, student, index) {
     `INSERT OR IGNORE INTO duplication_detection_reports (
        id, user_id, source_type, source_filename, original_text, total_similarity_rate,
        writing_risk_score, sample_count, report_json, created_at
-     ) VALUES (?, ?, 'file', ?, ?, ?, ?, 3, ?, ?)`,
+     ) VALUES (?, ?, 'file', ?, ?, ?, ?, 5, ?, ?)`,
     [
-      `demo-duplication-${student.id}`,
+      `demo-duplication-${recordKey}`,
       student.id,
-      `[演示]${student.id}-相似度检测.txt`,
-      DEMO_ORIGINAL_TEXT,
+      sourceFilename,
+      originalText,
       student.similarityRate,
       Math.round(student.similarityRate * 100 + 16),
       JSON.stringify(duplicationReport),
@@ -365,9 +667,9 @@ async function seedQualityRecordSet(tx, summary, student, index) {
        research_direction, input_snapshot_json, scoring_snapshot_json, created_at
      ) VALUES (?, ?, ?, 'master', '管理学', '教育经济与管理', '高校数字治理与质量保障', ?, ?, ?)`,
     [
-      `demo-innovation-${student.id}`,
+      `demo-innovation-${recordKey}`,
       student.id,
-      student.thesisTitle,
+      displayTitle,
       JSON.stringify(inputSnapshot),
       JSON.stringify(scoringSnapshot),
       innovationCreatedAt,
@@ -384,11 +686,11 @@ async function seedQualityRecordSet(tx, summary, student, index) {
        score_items_json, total_score, result_label, missing_sections_json, rubric_snapshot_json, created_at
      ) VALUES (?, ?, ?, 'academic_master', 'file', ?, ?, ?, 12, ?, ?, ?, ?, ?, '[]', ?, ?)`,
     [
-      `demo-ai-review-${student.id}`,
+      `demo-ai-review-${recordKey}`,
       student.id,
-      student.thesisTitle,
-      `[演示]${student.id}-辅助评阅.txt`,
-      DEMO_ORIGINAL_TEXT,
+      displayTitle,
+      sourceFilename,
+      originalText,
       JSON.stringify([
         { name: '摘要', present: true },
         { name: '关键词', present: true },
@@ -397,7 +699,7 @@ async function seedQualityRecordSet(tx, summary, student, index) {
         { name: '结论', present: true },
         { name: '参考文献', present: true },
       ]),
-      DEMO_ORIGINAL_TEXT.length,
+      originalText.length,
       JSON.stringify(normativeIssues.slice(0, 2)),
       JSON.stringify(aiScoreItems),
       student.reviewScore,
@@ -417,7 +719,7 @@ async function seedQualityRecordSet(tx, summary, student, index) {
 async function seedRoleHistory(tx, summary, userId, index) {
   const student = {
     id: userId,
-    thesisTitle: `${userId} 演示论文质量评阅记录`,
+    thesisTitle: ROLE_HISTORY_PROFILES[userId],
     levels: [5, 4, 4, 3, 4],
     similarityRate: 0.21 + index * 0.02,
     reviewScore: 82 - index,
@@ -426,7 +728,32 @@ async function seedRoleHistory(tx, summary, userId, index) {
   await seedQualityRecordSet(tx, summary, student, index);
 }
 
+async function seedStudentHistorySeries(tx, summary) {
+  const baseStudent = QUALITY_STUDENTS[0];
+  for (const [index, round] of STUDENT_HISTORY_ROUNDS.entries()) {
+    await seedQualityRecordSet(
+      tx,
+      summary,
+      {
+        ...baseStudent,
+        levels: round.levels,
+        similarityRate: round.similarityRate,
+        reviewScore: round.reviewScore,
+        severityCounts: round.severityCounts,
+      },
+      index,
+      {
+        recordKey: round.key,
+        revisionLabel: round.label,
+        daysAgo: round.daysAgo,
+      },
+    );
+  }
+}
+
 async function seedPolishHistory(tx, summary, userId, index) {
+  const documentTitle =
+    userId === 'student01' ? QUALITY_STUDENTS[0].thesisTitle : ROLE_HISTORY_PROFILES[userId] || '学位论文质量研究';
   const wholeOriginal = '本研究研究围绕高校质量保障展开！！  现有流程存在重复重复表达，需要进一步优化。';
   const wholePolished = '本研究围绕高校质量保障展开！现有流程存在重复表达，需要进一步优化。';
   const wholeChanges = [
@@ -462,7 +789,7 @@ async function seedPolishHistory(tx, summary, userId, index) {
     [
       `demo-whole-polish-${userId}`,
       userId,
-      `[演示]${userId}-全文润色.txt`,
+      `${documentTitle}_语言修改稿.docx`,
       wholeOriginal,
       wholePolished,
       JSON.stringify(wholeChanges),
@@ -524,6 +851,98 @@ async function seedPolishHistory(tx, summary, userId, index) {
   );
 }
 
+async function seedAdditionalStudentPolishHistory(tx, summary) {
+  const title = QUALITY_STUDENTS[0].thesisTitle;
+  const wholeRecords = [
+    {
+      id: 'demo-whole-polish-student01-literature',
+      filename: `${title}_文献综述修订稿.docx`,
+      original: '已有研究从不同不同角度讨论了高校数字治理，因此所以相关成果较为丰富，但对过程质量证据的关注不够。',
+      polished: '已有研究从不同角度讨论了高校数字治理，相关成果较为丰富，但对过程质量证据的关注仍显不足。',
+      level: 'enhanced',
+      daysAgo: 17,
+    },
+    {
+      id: 'demo-whole-polish-student01-conclusion',
+      filename: `${title}_结论章节修改稿.docx`,
+      original: '综上所述，本研究得出了相关相关结论。这个结论是非常重要的，对学校管理具有一定的意义。',
+      polished:
+        '综上，本研究归纳了过程质量评价的关键影响因素，并据此提出分阶段反馈机制，为高校完善论文质量管理提供参考。',
+      level: 'standard',
+      daysAgo: 8,
+    },
+  ];
+  for (const record of wholeRecords) {
+    await insertDemoRow(
+      tx,
+      summary,
+      'whole_polish',
+      `INSERT OR IGNORE INTO whole_polish_results (
+         id, user_id, source_type, source_filename, original_text, polished_text, level, changes_json, created_at
+       ) VALUES (?, 'student01', 'file', ?, ?, ?, ?, ?, ?)`,
+      [
+        record.id,
+        record.filename,
+        record.original,
+        record.polished,
+        record.level,
+        JSON.stringify([
+          {
+            original_text: record.original,
+            new_text: record.polished,
+            position: 0,
+            rule: '学术表达与逻辑衔接优化',
+            reason: '删除重复表达，并将概括性判断改写为与研究结论对应的陈述。',
+          },
+        ]),
+        isoDaysAgo(record.daysAgo, 7),
+      ],
+    );
+  }
+
+  await insertDemoRow(
+    tx,
+    summary,
+    'local_polish',
+    `INSERT OR IGNORE INTO local_polish_results (
+       id, user_id, original_text, polished_text, level, rule_version, changes_json,
+       diff_segments_json, source_result_id, retry_of, created_at
+     ) VALUES ('demo-local-polish-student01-method', 'student01', ?, ?, 'enhanced',
+       'local-polish-rules-v1', ?, ?, NULL, NULL, ?)`,
+    [
+      '本研究一共总计访谈了二十八名访谈对象，并且对访谈资料进行了相关的编码分析。',
+      '本研究共访谈二十八名研究参与者，并对访谈资料进行主题编码分析。',
+      JSON.stringify([
+        {
+          original_text: '一共总计',
+          new_text: '共',
+          position: 3,
+          rule: '语义重复优化',
+        },
+        {
+          original_text: '访谈对象，并且对访谈资料进行了相关的编码分析',
+          new_text: '研究参与者，并对访谈资料进行主题编码分析',
+          position: 11,
+          rule: '学术表达优化',
+        },
+      ]),
+      JSON.stringify([
+        { type: 'unchanged', text: '本研究', position: 0 },
+        { type: 'replacement', original_text: '一共总计', new_text: '共', text: '共', position: 3 },
+        { type: 'unchanged', text: '访谈了二十八名', position: 7 },
+        {
+          type: 'replacement',
+          original_text: '访谈对象，并且对访谈资料进行了相关的编码分析',
+          new_text: '研究参与者，并对访谈资料进行主题编码分析',
+          text: '研究参与者，并对访谈资料进行主题编码分析',
+          position: 14,
+        },
+      ]),
+      isoDaysAgo(5, 7),
+    ],
+  );
+}
+
 async function seedReviewWorkflow(tx, summary) {
   const reportId = 'demo-normative-student01';
   const submissions = [
@@ -579,6 +998,46 @@ async function seedReviewWorkflow(tx, summary) {
         improvementSuggestions: '补充研究设计、样本选择依据和数据处理步骤后再提交下一轮。',
       },
     },
+    {
+      id: 'demo-submission-viewed-method',
+      batchId: 'demo-batch-method-review',
+      status: 'student_viewed_feedback',
+      todoStatus: 'done',
+      title: '《高校数字治理质量评价体系研究》研究方法专项批阅',
+      createdAt: isoDaysAgo(14, 8),
+      feedback: {
+        id: 'demo-feedback-method-review',
+        lockedAt: isoDaysAgo(13, 3),
+        annotations: [
+          {
+            finding_id: 'finding-norm-004',
+            comment: '案例数量已经明确，请进一步交代学校类型、访谈对象构成和编码一致性检验过程。',
+          },
+        ],
+        overallEvaluation: '研究设计基本可行，方法章节已形成完整结构，样本选择与分析过程仍需补足复核信息。',
+        improvementSuggestions: '增加样本结构表和访谈提纲说明，并给出主题编码形成过程及代表性原始材料。',
+      },
+    },
+    {
+      id: 'demo-submission-viewed-literature',
+      batchId: 'demo-batch-literature-review',
+      status: 'student_viewed_feedback',
+      todoStatus: 'done',
+      title: '《高校数字治理质量评价体系研究》文献综述专项批阅',
+      createdAt: isoDaysAgo(29, 8),
+      feedback: {
+        id: 'demo-feedback-literature-review',
+        lockedAt: isoDaysAgo(28, 3),
+        annotations: [
+          {
+            finding_id: 'finding-norm-002',
+            comment: '国内研究梳理较充分，建议增加过程评价和证据链相关的国外实证研究，并形成比较维度。',
+          },
+        ],
+        overallEvaluation: '文献综述已覆盖论文质量保障和数字治理两条研究脉络，但研究缺口的推导还可以更集中。',
+        improvementSuggestions: '以“评价主体、评价节点、证据类型、反馈应用”四个维度重组文献评述，并据此提出研究问题。',
+      },
+    },
   ];
 
   for (const item of submissions) {
@@ -630,20 +1089,23 @@ async function seedDemoDatabase(options = {}) {
 
   await seedDatabase();
   return withTransaction(async (tx) => {
-    const summary = { inserted: 0, by_category: {} };
+    const summary = { inserted: 0, updated: 0, by_category: {}, updated_by_category: {} };
     await seedHelperStudents(tx, summary);
     await seedCorpus(tx, summary);
 
     for (const [index, student] of QUALITY_STUDENTS.entries()) {
       await seedQualityRecordSet(tx, summary, student, index);
     }
+    await seedStudentHistorySeries(tx, summary);
     for (const [index, userId] of DEMO_USER_IDS.entries()) {
       if (userId !== 'student01') {
         await seedRoleHistory(tx, summary, userId, index);
       }
       await seedPolishHistory(tx, summary, userId, index);
     }
+    await seedAdditionalStudentPolishHistory(tx, summary);
     await seedReviewWorkflow(tx, summary);
+    await normalizeLegacyDemoLabels(tx, summary);
 
     const totals = {};
     for (const [label, table] of Object.entries({

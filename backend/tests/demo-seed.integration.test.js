@@ -34,21 +34,22 @@ describe('explicit demo data seed', () => {
     await expect(get('SELECT COUNT(*) AS count FROM auth_users')).resolves.toEqual({ count: 0 });
   });
 
-  it('seeds complete role histories, scoped quality data, and three review workflow states idempotently', async () => {
+  it('seeds five student histories, scoped quality data, and five review workflow rounds idempotently', async () => {
     const first = await seedDemoDatabase({ confirmDemoData: true });
-    expect(first.inserted).toBe(50);
+    expect(first.inserted).toBe(97);
+    expect(first.updated).toBe(0);
     expect(first.totals).toMatchObject({
-      users: 7,
-      normative: 7,
-      duplication: 7,
-      innovation: 7,
-      ai_review: 7,
-      whole_polish: 4,
-      local_polish: 4,
-      corpus: 3,
-      submissions: 3,
-      todos: 3,
-      feedback: 2,
+      users: 11,
+      normative: 15,
+      duplication: 15,
+      innovation: 15,
+      ai_review: 15,
+      whole_polish: 6,
+      local_polish: 5,
+      corpus: 5,
+      submissions: 5,
+      todos: 5,
+      feedback: 4,
     });
 
     for (const username of ['student01', 'supervisor01', 'college_admin01', 'school_admin01']) {
@@ -60,11 +61,13 @@ describe('explicit demo data seed', () => {
         request(app).get('/api/normative/innovation-assessments').set('Cookie', cookie).expect(200),
         request(app).get('/api/normative/ai-review-runs').set('Cookie', cookie).expect(200),
       ]);
-      expect(normative.body.records).toHaveLength(1);
-      expect(duplication.body.records).toHaveLength(1);
-      expect(polish.body.records).toHaveLength(2);
-      expect(innovation.body.records).toHaveLength(1);
-      expect(aiReview.body.records).toHaveLength(1);
+      const expectedHistoryCount = username === 'student01' ? 5 : 1;
+      expect(normative.body.records).toHaveLength(expectedHistoryCount);
+      expect(duplication.body.records).toHaveLength(expectedHistoryCount);
+      expect(polish.body.records).toHaveLength(username === 'student01' ? 5 : 2);
+      expect(innovation.body.records).toHaveLength(expectedHistoryCount);
+      expect(aiReview.body.records).toHaveLength(expectedHistoryCount);
+      expect(normative.body.records.every((record) => !record.source_filename?.includes('[演示]'))).toBe(true);
     }
 
     const supervisorCookie = await login('supervisor01');
@@ -72,7 +75,7 @@ describe('explicit demo data seed', () => {
       .get('/api/normative/supervisor-review-queue')
       .set('Cookie', supervisorCookie)
       .expect(200);
-    expect(queue.body.records).toHaveLength(3);
+    expect(queue.body.records).toHaveLength(5);
     expect(queue.body.unread_count).toBe(1);
     expect(queue.body.records.map((record) => record.todo_status)).toEqual(expect.arrayContaining(['pending', 'done']));
 
@@ -81,7 +84,7 @@ describe('explicit demo data seed', () => {
       .set('Cookie', supervisorCookie)
       .expect(200);
     expect(pendingDetail.body.report.original_text).toContain('高校数字治理');
-    expect(pendingDetail.body.report.findings).toHaveLength(3);
+    expect(pendingDetail.body.report.findings).toHaveLength(5);
     expect(pendingDetail.body.report.findings[0]).toMatchObject({
       finding_id: 'finding-norm-001',
     });
@@ -91,7 +94,7 @@ describe('explicit demo data seed', () => {
       .get('/api/normative/student-report-results')
       .set('Cookie', studentCookie)
       .expect(200);
-    expect(studentResults.body.results).toHaveLength(3);
+    expect(studentResults.body.results).toHaveLength(5);
     expect(studentResults.body.results.map((result) => result.status)).toEqual(
       expect.arrayContaining(['submitted_pending_review', 'review_completed_feedback', 'student_viewed_feedback']),
     );
@@ -105,16 +108,17 @@ describe('explicit demo data seed', () => {
         .expect(200),
       request(app).get('/api/normative/duplication-corpus').set('Cookie', schoolCookie).expect(200),
     ]);
-    expect(ledger.body.records).toHaveLength(12);
+    expect(ledger.body.records).toHaveLength(36);
     expect(new Set(ledger.body.records.map((record) => record.student_id))).toEqual(
-      new Set(['student01', 'student02', 'student03', 'student04']),
+      new Set(['student01', 'student02', 'student03', 'student04', 'student05', 'student06', 'student07', 'student08']),
     );
-    expect(dashboard.body.sample_count).toBe(4);
-    expect(dashboard.body.metrics.every((metric) => metric.sample_count === 4)).toBe(true);
-    expect(corpus.body.samples).toHaveLength(3);
+    expect(dashboard.body.sample_count).toBe(8);
+    expect(dashboard.body.metrics.every((metric) => metric.sample_count === 8)).toBe(true);
+    expect(corpus.body.samples).toHaveLength(5);
 
     const second = await seedDemoDatabase({ confirmDemoData: true });
     expect(second.inserted).toBe(0);
+    expect(second.updated).toBe(0);
     expect(second.totals).toEqual(first.totals);
   });
 });
