@@ -187,7 +187,7 @@ children:
       - id: FEAT-BUILT-IN-REVIEW-CASES
         name: '内置审查案例'
         type: FEATURE
-        description: '所有已登录角色可从独立的“内置审查案例”模块查看随系统版本提供的固定 PDF 与确定性案例结果。首个案例展示同一论文中 Yandex 准确率 `80.0%` 的论点与实验章节 `60.5%` 的论据冲突，结果包含修改建议，以及分别指向 PDF 第 22 页和第 57 页的论点、论据坐标。案例不写入 SQLite，不进入检测历史、统计或师生批阅闭环。'
+        description: '所有已登录角色可从独立的“内置审查案例”模块查看随系统版本提供的固定 PDF 与确定性案例结果。案例包括同一论文中 Yandex 准确率 `80.0%` 的论点与实验章节 `60.5%` 的论据冲突，以及中文摘要遥感影像分割与英文摘要验证码识别的研究内容不一致；结果包含修改建议和 PDF 原文坐标。案例不写入 SQLite，不进入检测历史、统计或师生批阅闭环。'
         permissions: ALL
         dependencies:
           - 'FEAT-AUTH-SESSION'
@@ -204,6 +204,17 @@ children:
                 content: '学生打开“跨页数值论点与实验论据不一致”案例，并分别点击论点和论据锚点。'
               - keyword: THEN
                 content: '系统展示固定的一项审查问题和修改建议，并将 PDF 依次定位到第 22 页的 `80.0%` 论点与第 57 页的 `60.5%` 论据。'
+          - name: '查看中英文摘要内容不一致'
+            actor: 'STUDENT'
+            steps:
+              - keyword: GIVEN
+                actor: 'STUDENT'
+                content: 'student01 已登录并进入内置审查案例模块。'
+              - keyword: WHEN
+                actor: 'STUDENT'
+                content: '学生打开“中英文摘要研究内容不一致”案例，并分别点击中文摘要和英文摘要锚点。'
+              - keyword: THEN
+                content: '系统展示固定的一项摘要内容不一致问题，并将 PDF 定位到第 7 页中文摘要与第 9 页英文摘要。'
           - name: '拒绝匿名读取案例资源'
             actor: 'STUDENT'
             steps:

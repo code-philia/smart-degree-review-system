@@ -135,7 +135,22 @@ describe('built-in review cases module', () => {
   it('opens the deterministic case from the catalog and renders its PDF workspace result', async () => {
     vi.mocked(fetchCurrentSession).mockResolvedValue({ user: studentUser });
     vi.mocked(fetchPaperLintBuiltInCases).mockResolvedValue({
-      cases: [{ ...reviewCase, finding_count: 1 }],
+      cases: [
+        { ...reviewCase, finding_count: 1 },
+        {
+          ...reviewCase,
+          id: 'bilingual-abstract-content-mismatch',
+          title: '中英文摘要研究内容不一致',
+          description: '中文摘要讨论遥感影像分割，英文摘要讨论验证码识别，研究内容明显不一致。',
+          claim_page: 7,
+          evidence_page: 9,
+          rule: {
+            ...reviewCase.rule,
+            rule_id: 'bilingual_abstract_consistency_check',
+            title: '中英文摘要内容一致性',
+          },
+        },
+      ],
     });
     vi.mocked(fetchPaperLintBuiltInCase).mockResolvedValue(reviewCase);
     vi.mocked(fetchPaperLintBuiltInCasePdf).mockResolvedValue(new Blob(['%PDF-1.7\n'], { type: 'application/pdf' }));
@@ -145,9 +160,10 @@ describe('built-in review cases module', () => {
 
     expect(await screen.findByRole('heading', { name: '内置审查案例' })).toBeInTheDocument();
     expect(screen.getByText('跨页数值论点与实验论据不一致')).toBeInTheDocument();
+    expect(screen.getByText('中英文摘要研究内容不一致')).toBeInTheDocument();
     expect(screen.getByText('第 22 页')).toBeInTheDocument();
     expect(screen.getByText('第 57 页')).toBeInTheDocument();
-    await user.click(screen.getByRole('link', { name: '查看案例' }));
+    await user.click(screen.getAllByRole('link', { name: '查看案例' })[0]);
 
     expect(await screen.findByRole('heading', { name: '跨页数值论点与实验论据不一致' })).toBeInTheDocument();
     expect(screen.getByTestId('paper-lint-workspace')).toHaveTextContent('内置案例-论点与论据一致性.pdf');

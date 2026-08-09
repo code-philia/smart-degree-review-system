@@ -50,11 +50,11 @@ function CaseCatalog() {
               <dd className="mt-1 font-bold text-slate-900">{item.rule.title}</dd>
             </div>
             <div className="rounded-lg bg-slate-50 p-3">
-              <dt className="text-xs font-semibold text-slate-500">论点位置</dt>
+              <dt className="text-xs font-semibold text-slate-500">问题定位</dt>
               <dd className="mt-1 font-bold text-slate-900">第 {item.claim_page} 页</dd>
             </div>
             <div className="rounded-lg bg-slate-50 p-3">
-              <dt className="text-xs font-semibold text-slate-500">论据位置</dt>
+              <dt className="text-xs font-semibold text-slate-500">关联定位</dt>
               <dd className="mt-1 font-bold text-slate-900">第 {item.evidence_page} 页</dd>
             </div>
           </dl>
@@ -125,8 +125,8 @@ function CaseDetail({ caseId }: { caseId: string }) {
           <div className="flex items-center gap-3">
             <MapPin className="size-5 text-brand-600" />
             <div>
-              <p className="text-xs font-semibold text-slate-500">论点定位</p>
-              <p className="mt-1 font-bold text-slate-900">第 {reviewCase.claim_page} 页 · 80.0%</p>
+              <p className="text-xs font-semibold text-slate-500">问题定位</p>
+              <p className="mt-1 font-bold text-slate-900">第 {reviewCase.claim_page} 页</p>
             </div>
           </div>
         </Card>
@@ -134,8 +134,8 @@ function CaseDetail({ caseId }: { caseId: string }) {
           <div className="flex items-center gap-3">
             <MapPin className="size-5 text-brand-600" />
             <div>
-              <p className="text-xs font-semibold text-slate-500">论据定位</p>
-              <p className="mt-1 font-bold text-slate-900">第 {reviewCase.evidence_page} 页 · 60.5%</p>
+              <p className="text-xs font-semibold text-slate-500">关联定位</p>
+              <p className="mt-1 font-bold text-slate-900">第 {reviewCase.evidence_page} 页</p>
             </div>
           </div>
         </Card>

@@ -1,10 +1,17 @@
-const fs = require('fs');
-const path = require('path');
-const { resolveEngineBackendDir } = require('./reviewPilotPaperLintService');
+const fs = require("fs");
+const path = require("path");
+const { resolveEngineBackendDir } = require("./reviewPilotPaperLintService");
 
-const CLAIM_EVIDENCE_CASE_ID = 'yandex-accuracy-claim-evidence';
-const PDF_FILENAME = '内置案例-论点与论据一致性.pdf';
-const PDF_RELATIVE_PATH = path.join('novref', 'domain', 'examples', 'assets', 'sjtu-paper-lint-current-rules.pdf');
+const CLAIM_EVIDENCE_CASE_ID = "yandex-accuracy-claim-evidence";
+const BILINGUAL_ABSTRACT_CASE_ID = "bilingual-abstract-content-mismatch";
+const PDF_FILENAME = "内置案例-论点与论据一致性.pdf";
+const PDF_RELATIVE_PATH = path.join(
+  "novref",
+  "domain",
+  "examples",
+  "assets",
+  "sjtu-paper-lint-current-rules.pdf",
+);
 
 function pdfRect({ x1, y1, x2, y2, pageNumber }) {
   return {
@@ -50,56 +57,58 @@ const evidenceRects = [
 ];
 
 const rule = {
-  rule_id: 'claim_evidence_inconsistency_check',
-  title: '论点与论据一致性',
-  description: '检查论文中的数值论点与候选实验论据是否矛盾。',
-  default_severity: 'warning',
+  rule_id: "claim_evidence_inconsistency_check",
+  title: "论点与论据一致性",
+  description: "检查论文中的数值论点与候选实验论据是否矛盾。",
+  default_severity: "warning",
   default_enabled: true,
-  execution_mode: 'semantic',
+  execution_mode: "semantic",
   uses_external_model: true,
   available: true,
 };
 
 const finding = {
-  finding_id: 'f_claim_evidence_inconsistency_check_1',
+  finding_id: "f_claim_evidence_inconsistency_check_1",
   rule_id: rule.rule_id,
   message:
-    '研究内容段落明确声称 Z-Solver 在 Yandex 测试集上的准确率为 80.0%；但实验结果段落报告 Z-Solver 在同一测试集上取得的是 60.5%，并在 Microsoft 和 Wikipedia 数据集上分别达到 79.8% 和 85.4%。该论点与正文后续实验数据中的同一指标不一致。',
+    "研究内容段落明确声称 Z-Solver 在 Yandex 测试集上的准确率为 80.0%；但实验结果段落报告 Z-Solver 在同一测试集上取得的是 60.5%，并在 Microsoft 和 Wikipedia 数据集上分别达到 79.8% 和 85.4%。该论点与正文后续实验数据中的同一指标不一致。",
   suggestion:
-    '将研究内容中的 Yandex 准确率修正为与实验结果一致的 60.5%，或补充能够支持 80.0% 的新实验表格和设置说明；同时检查摘要、正文概述和实验表中的同一指标是否保持一致。',
+    "将研究内容中的 Yandex 准确率修正为与实验结果一致的 60.5%，或补充能够支持 80.0% 的新实验表格和设置说明；同时检查摘要、正文概述和实验表中的同一指标是否保持一致。",
   location: {
-    type: 'pdf_bbox',
+    type: "pdf_bbox",
     page_number: 22,
     bounding_rect: claimRect,
     rects: [claimRect],
-    text_excerpt: '在本研究的量化评测中, 本文测得Z-Solver 在Yandex 测试集上的准确率为80.0%。',
+    text_excerpt:
+      "在本研究的量化评测中, 本文测得Z-Solver 在Yandex 测试集上的准确率为80.0%。",
   },
   anchors: [
     {
-      anchor_id: 'f_claim_evidence_inconsistency_check_1_claim',
-      role: 'claim',
-      label: '论点（第 22 页）',
-      description: '研究内容中对 Yandex 准确率的陈述。',
+      anchor_id: "f_claim_evidence_inconsistency_check_1_claim",
+      role: "claim",
+      label: "论点（第 22 页）",
+      description: "研究内容中对 Yandex 准确率的陈述。",
       location: {
-        type: 'pdf_bbox',
+        type: "pdf_bbox",
         page_number: 22,
         bounding_rect: claimRect,
         rects: [claimRect],
-        text_excerpt: '在本研究的量化评测中, 本文测得Z-Solver 在Yandex 测试集上的准确率为80.0%。',
+        text_excerpt:
+          "在本研究的量化评测中, 本文测得Z-Solver 在Yandex 测试集上的准确率为80.0%。",
       },
     },
     {
-      anchor_id: 'f_claim_evidence_inconsistency_check_1_evidence_1',
-      role: 'evidence',
-      label: '论据（第 57 页）',
-      description: '实验结果段落报告的 Yandex 实测准确率。',
+      anchor_id: "f_claim_evidence_inconsistency_check_1_evidence_1",
+      role: "evidence",
+      label: "论据（第 57 页）",
+      description: "实验结果段落报告的 Yandex 实测准确率。",
       location: {
-        type: 'pdf_bbox',
+        type: "pdf_bbox",
         page_number: 57,
         bounding_rect: evidenceBoundingRect,
         rects: evidenceRects,
         text_excerpt:
-          '相比之下,Z-Solver 在Yandex 测试集上取得了60.5% 的准确率, 并在Microsoft 和 Wikipedia 数据集上分别达到了79.8% 和85.4%。',
+          "相比之下,Z-Solver 在Yandex 测试集上取得了60.5% 的准确率, 并在Microsoft 和 Wikipedia 数据集上分别达到了79.8% 和85.4%。",
       },
     },
   ],
@@ -107,30 +116,30 @@ const finding = {
 
 const builtInCase = {
   id: CLAIM_EVIDENCE_CASE_ID,
-  title: '跨页数值论点与实验论据不一致',
-  description: '研究内容声称 Yandex 准确率为 80.0%，实验结果报告为 60.5%。',
+  title: "跨页数值论点与实验论据不一致",
+  description: "研究内容声称 Yandex 准确率为 80.0%，实验结果报告为 60.5%。",
   pdf_filename: PDF_FILENAME,
   claim_page: 22,
   evidence_page: 57,
   rule,
   result: {
-    type: 'paper_lint',
-    paper_title: '零标注样本的文本验证码识别方法研究',
+    type: "paper_lint",
+    paper_title: "零标注样本的文本验证码识别方法研究",
     ruleset: {
-      id: 'built-in-review-case',
-      name: '内置审查案例',
+      id: "built-in-review-case",
+      name: "内置审查案例",
       version_number: 1,
-      version_label: '案例 1',
+      version_label: "案例 1",
     },
     rule_runs: [
       {
-        rule_run_id: 'run_claim_evidence_inconsistency_check',
+        rule_run_id: "run_claim_evidence_inconsistency_check",
         rule_id: rule.rule_id,
-        severity: 'warning',
+        severity: "warning",
         params: null,
-        execution_status: 'completed',
-        evidence_mode: 'derived',
-        outcome: 'issues_found',
+        execution_status: "completed",
+        evidence_mode: "derived",
+        outcome: "issues_found",
         message: null,
         findings: [finding],
       },
@@ -150,6 +159,125 @@ const builtInCase = {
   },
 };
 
+const chineseAbstractRect = pdfRect({
+  x1: 109.03900146484375,
+  y1: 166.97299194335938,
+  x2: 524.4190063476562,
+  y2: 178.97299194335938,
+  pageNumber: 7,
+});
+const englishAbstractRect = pdfRect({
+  x1: 103.03900146484375,
+  y1: 163.27700805664062,
+  x2: 524.4190673828125,
+  y2: 175.27700805664062,
+  pageNumber: 9,
+});
+
+const bilingualAbstractRule = {
+  rule_id: "bilingual_abstract_consistency_check",
+  title: "中英文摘要内容一致性",
+  description: "检查中英文摘要是否描述同一项研究内容。",
+  default_severity: "warning",
+  default_enabled: false,
+  execution_mode: "semantic",
+  uses_external_model: true,
+  available: true,
+};
+
+const bilingualAbstractFinding = {
+  finding_id: "f_bilingual_abstract_consistency_check_1",
+  rule_id: bilingualAbstractRule.rule_id,
+  message:
+    "中文摘要聚焦遥感影像语义分割，英文摘要则聚焦文本型验证码自动识别；两段摘要的研究对象、方法、数据和结论均不一致。",
+  suggestion:
+    "请确保中英文摘要描述同一项研究内容，并同步核对研究对象、核心方法、实验数据和主要结论。",
+  location: {
+    type: "pdf_bbox",
+    page_number: 7,
+    bounding_rect: chineseAbstractRect,
+    rects: [chineseAbstractRect],
+    text_excerpt: "中文摘要聚焦于遥感影像语义分割。",
+  },
+  anchors: [
+    {
+      anchor_id: "f_bilingual_abstract_consistency_check_1_chinese",
+      role: "chinese_abstract",
+      label: "中文摘要（第 7 页）",
+      description: "中文摘要描述遥感影像语义分割研究。",
+      location: {
+        type: "pdf_bbox",
+        page_number: 7,
+        bounding_rect: chineseAbstractRect,
+        rects: [chineseAbstractRect],
+        text_excerpt: "中文摘要聚焦于遥感影像语义分割。",
+      },
+    },
+    {
+      anchor_id: "f_bilingual_abstract_consistency_check_1_english",
+      role: "english_abstract",
+      label: "英文摘要（第 9 页）",
+      description: "英文摘要描述文本型验证码自动识别研究。",
+      location: {
+        type: "pdf_bbox",
+        page_number: 9,
+        bounding_rect: englishAbstractRect,
+        rects: [englishAbstractRect],
+        text_excerpt:
+          "The English abstract focuses on text CAPTCHA recognition.",
+      },
+    },
+  ],
+};
+
+const bilingualAbstractCase = {
+  id: BILINGUAL_ABSTRACT_CASE_ID,
+  title: "中英文摘要研究内容不一致",
+  description:
+    "中文摘要讨论遥感影像分割，英文摘要讨论验证码识别，研究内容明显不一致。",
+  pdf_filename: PDF_FILENAME,
+  claim_page: 7,
+  evidence_page: 9,
+  rule: bilingualAbstractRule,
+  result: {
+    type: "paper_lint",
+    paper_title: "零标注样本的文本验证码识别方法研究",
+    ruleset: {
+      id: "built-in-review-case",
+      name: "内置审查案例",
+      version_number: 1,
+      version_label: "案例 2",
+    },
+    rule_runs: [
+      {
+        rule_run_id: "run_bilingual_abstract_consistency_check",
+        rule_id: bilingualAbstractRule.rule_id,
+        severity: "warning",
+        params: null,
+        execution_status: "completed",
+        evidence_mode: "derived",
+        outcome: "issues_found",
+        message: null,
+        findings: [bilingualAbstractFinding],
+      },
+    ],
+    summary: {
+      rule_count: 1,
+      completed_rule_count: 1,
+      unsupported_rule_count: 0,
+      error_rule_count: 0,
+      issue_rule_count: 1,
+      finding_count: 1,
+      error_finding_count: 0,
+      warning_finding_count: 1,
+      info_finding_count: 0,
+      derived_rule_count: 1,
+    },
+  },
+};
+
+const builtInCases = [builtInCase, bilingualAbstractCase];
+
 function createHttpError(status, message) {
   const error = new Error(message);
   error.status = status;
@@ -157,15 +285,20 @@ function createHttpError(status, message) {
 }
 
 function listPaperLintExamples() {
-  const { result, ...summary } = builtInCase;
-  return { cases: [{ ...summary, finding_count: result.summary.finding_count }] };
+  return {
+    cases: builtInCases.map(({ result, ...summary }) => ({
+      ...summary,
+      finding_count: result.summary.finding_count,
+    })),
+  };
 }
 
 function getPaperLintExample(caseId) {
-  if (caseId !== CLAIM_EVIDENCE_CASE_ID) {
-    throw createHttpError(404, '内置审查案例不存在');
+  const reviewCase = builtInCases.find((item) => item.id === caseId);
+  if (!reviewCase) {
+    throw createHttpError(404, "内置审查案例不存在");
   }
-  return builtInCase;
+  return reviewCase;
 }
 
 async function readPaperLintExamplePdf(caseId) {
@@ -175,16 +308,18 @@ async function readPaperLintExamplePdf(caseId) {
   try {
     content = await fs.promises.readFile(pdfPath);
   } catch (error) {
-    if (error?.code === 'ENOENT') throw createHttpError(503, '内置案例 PDF 尚未安装');
+    if (error?.code === "ENOENT")
+      throw createHttpError(503, "内置案例 PDF 尚未安装");
     throw error;
   }
-  if (content.subarray(0, 5).toString('ascii') !== '%PDF-') {
-    throw createHttpError(503, '内置案例 PDF 无法读取');
+  if (content.subarray(0, 5).toString("ascii") !== "%PDF-") {
+    throw createHttpError(503, "内置案例 PDF 无法读取");
   }
   return { content, filename: PDF_FILENAME };
 }
 
 module.exports = {
+  BILINGUAL_ABSTRACT_CASE_ID,
   CLAIM_EVIDENCE_CASE_ID,
   getPaperLintExample,
   listPaperLintExamples,
