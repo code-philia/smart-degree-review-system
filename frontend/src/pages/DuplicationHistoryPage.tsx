@@ -8,6 +8,7 @@ import {
   type DuplicationHistoryRecord,
 } from '../api/normativeRules';
 import { useAuthSession } from '../auth/AuthSessionProvider';
+import { formatChinaDateTime } from '../utils/dateTime';
 import {
   Button,
   Card,
@@ -30,11 +31,6 @@ function formatPercent(value: number) {
 
 function getDocumentName(record: DuplicationHistoryRecord) {
   return record.source_filename || '粘贴文本检测';
-}
-
-function formatDateTime(value: string) {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString('zh-CN', { hour12: false });
 }
 
 function getDetectionReport(value: DuplicationHistoryRecord['report_json']): DuplicationDetectionResponse | null {
@@ -142,7 +138,7 @@ function DuplicationHistoryPage() {
       <div>
         <PageHeader
           title="查重检测报告"
-          description={report ? `检测完成于 ${formatDateTime(report.created_at)}` : '查看相似片段与写作风险提示。'}
+          description={report ? `检测完成于 ${formatChinaDateTime(report.created_at)}` : '查看相似片段与写作风险提示。'}
           breadcrumbs={[
             { label: '首页', to: '/' },
             { label: '历史检测记录', to: '/duplication-history' },
@@ -194,7 +190,7 @@ function DuplicationHistoryPage() {
                 </div>
                 <div className="flex justify-between gap-4">
                   <dt className="text-slate-500">报告生成时间</dt>
-                  <dd className="font-semibold text-slate-900">{formatDateTime(report.created_at)}</dd>
+                  <dd className="font-semibold text-slate-900">{formatChinaDateTime(report.created_at)}</dd>
                 </div>
               </dl>
             </Card>
@@ -289,7 +285,7 @@ function DuplicationHistoryPage() {
         ariaLabel="论文相似度检测功能导航"
         items={[
           { label: '发起检测', to: '/duplication-detect', active: false },
-          { label: '历史记录', to: '/duplication-history', active: true, count: history.length },
+          { label: '历史报告', to: '/duplication-history', active: true, count: history.length },
         ]}
       />
       {loading ? <LoadingState label="正在加载历史记录…" /> : null}
@@ -321,7 +317,9 @@ function DuplicationHistoryPage() {
                     ? `写作风险分 ${Math.round(record.writing_risk_score)} · 启发式提示`
                     : `总相似率 ${formatPercent(record.total_similarity_rate)} · 样本 ${record.sample_count}`}
                 </DataTableCell>
-                <DataTableCell className="text-center tabular-nums">{record.created_at}</DataTableCell>
+                <DataTableCell className="text-center tabular-nums">
+                  {formatChinaDateTime(record.created_at)}
+                </DataTableCell>
                 <DataTableCell className="text-center">
                   <div className="flex flex-nowrap justify-center gap-3">
                     <button

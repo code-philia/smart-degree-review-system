@@ -1,6 +1,6 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { useAuthSession } from '../auth/AuthSessionProvider';
-import { Button, Card, LinkButton, LoadingState, PageHeader } from '../components/ui';
+import { Button, Card, LinkButton, LoadingState, ModuleTabs, PageHeader } from '../components/ui';
 import { createLocalPolishResult, type LocalPolishLevel, type LocalPolishResult } from '../api/normativeRules';
 
 const LEVEL_OPTIONS: Array<{ level: LocalPolishLevel; title: string; summary: string; recommended?: boolean }> = [
@@ -117,19 +117,14 @@ function LocalPolishPage() {
 
   return (
     <div className="text-slate-900">
-      <PageHeader
-        title="局部润色"
-        description="输入需要调整的段落，查看润色后的差异对比。"
-        actions={
-          <>
-            <LinkButton size="sm" variant="secondary" to="/whole-polish">
-              整篇润色
-            </LinkButton>
-            <LinkButton size="sm" variant="secondary" to="/polish-history">
-              润色记录
-            </LinkButton>
-          </>
-        }
+      <PageHeader title="论文润色" description="输入需要调整的段落，查看润色后的差异对比。" />
+      <ModuleTabs
+        ariaLabel="论文润色功能导航"
+        items={[
+          { label: '全文润色', to: '/whole-polish', active: false },
+          { label: '局部润色', to: '/local-polish', active: true },
+          { label: '润色记录', to: '/polish-history', active: false },
+        ]}
       />
 
       <form onSubmit={handleSubmit}>

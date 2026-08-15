@@ -2,7 +2,7 @@ import { ChangeEvent, FormEvent, useState } from 'react';
 import { FileText, Upload } from 'lucide-react';
 import { createDuplicationDetection, type DuplicationDetectionResponse } from '../api/normativeRules';
 import { useAuthSession } from '../auth/AuthSessionProvider';
-import { Button, Card, LinkButton, LoadingState, PageHeader, StatusBadge } from '../components/ui';
+import { Button, Card, LinkButton, LoadingState, ModuleTabs, PageHeader, StatusBadge } from '../components/ui';
 import { extractThesisFileText, THESIS_FILE_ACCEPT } from '../utils/thesisFileText';
 
 const DETECTION_TYPES = [
@@ -95,11 +95,13 @@ function DuplicationDetectPage() {
       <PageHeader
         title="论文相似度检测"
         description="选择校内库查重或 AIGC 写作风险检测，上传论文或粘贴文本后获得相应结果。"
-        actions={
-          <LinkButton size="sm" variant="secondary" to="/duplication-history">
-            历史记录
-          </LinkButton>
-        }
+      />
+      <ModuleTabs
+        ariaLabel="论文相似度检测功能导航"
+        items={[
+          { label: '发起检测', to: '/duplication-detect', active: true },
+          { label: '历史报告', to: '/duplication-history', active: false },
+        ]}
       />
       <section className="mx-auto max-w-6xl space-y-6">
         <form className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6" onSubmit={handleSubmit}>

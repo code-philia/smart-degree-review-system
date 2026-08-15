@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuthSession } from '../auth/AuthSessionProvider';
 import { fetchPaperLintReports, type PaperLintReportListItem } from '../api/paperLint';
+import { formatChinaDateTime } from '../utils/dateTime';
 import {
   downloadNormativeReportJson,
   fetchNormativeDetectionHistory,
@@ -193,7 +194,7 @@ function NormativeReportPage() {
       <ModuleTabs
         ariaLabel="规范性检测功能导航"
         items={[
-          { label: '发起审查', to: '/normative-check', active: false },
+          { label: '发起检测', to: '/normative-check', active: false },
           { label: '历史报告', to: '/normative-reports', active: true, count: history.length + pdfReports.length },
         ]}
       />
@@ -222,8 +223,7 @@ function NormativeReportPage() {
                 <div className="min-w-0">
                   <p className="truncate font-semibold text-slate-900">{record.source_filename}</p>
                   <p className="mt-1 text-xs text-slate-500">
-                    {new Date(record.created_at).toLocaleString('zh-CN')} ·{' '}
-                    {record.summary.ruleset_label || '当前规则版本'}
+                    {formatChinaDateTime(record.created_at)} · {record.summary.ruleset_label || '当前规则版本'}
                   </p>
                 </div>
                 <div className="flex items-center gap-3 text-sm">
@@ -273,7 +273,7 @@ function NormativeReportPage() {
                       {record.severity_counts.high || 0} / {record.severity_counts.medium || 0} /{' '}
                       {record.severity_counts.low || 0}
                     </td>
-                    <td className="px-6 py-6 text-slate-700">{record.created_at}</td>
+                    <td className="px-6 py-6 text-slate-700">{formatChinaDateTime(record.created_at)}</td>
                     <td className="px-6 py-6">
                       <div className="flex flex-wrap gap-2">
                         <button

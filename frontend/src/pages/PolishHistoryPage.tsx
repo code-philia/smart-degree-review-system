@@ -7,6 +7,7 @@ import {
   type PolishHistoryRecord,
 } from '../api/normativeRules';
 import { useAuthSession } from '../auth/AuthSessionProvider';
+import { formatChinaDateTime } from '../utils/dateTime';
 import {
   Card,
   DataTable,
@@ -225,7 +226,9 @@ function PolishHistoryPage() {
                       {LEVEL_LABELS[item.level]}
                     </span>
                   </DataTableCell>
-                  <DataTableCell className="text-center tabular-nums text-slate-600">{item.created_at}</DataTableCell>
+                  <DataTableCell className="text-center tabular-nums text-slate-600">
+                    {formatChinaDateTime(item.created_at)}
+                  </DataTableCell>
                   <DataTableCell>
                     <div className="flex flex-nowrap justify-center gap-3">
                       <Link

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { FileCheck2, FileText, History, LoaderCircle, Play, Upload, X } from 'lucide-react';
+import { FileCheck2, FileText, LoaderCircle, Play, Upload, X } from 'lucide-react';
 import { useEffect, useMemo, useState, type DragEvent } from 'react';
 import { useAuthSession } from '../auth/AuthSessionProvider';
 import {
@@ -11,7 +11,16 @@ import {
 } from '../api/paperLint';
 import { PaperLintWorkspace } from '../components/paperLint/Workspace';
 import { flattenPaperLintFindings } from '../components/paperLint/model';
-import { Button, Card, ErrorState, LinkButton, LoadingState, PageHeader, StatusBadge } from '../components/ui';
+import {
+  Button,
+  Card,
+  ErrorState,
+  LinkButton,
+  LoadingState,
+  ModuleTabs,
+  PageHeader,
+  StatusBadge,
+} from '../components/ui';
 
 const MAX_PDF_BYTES = 50 * 1024 * 1024;
 
@@ -182,12 +191,13 @@ function NormativeCheckPage() {
         title="规范性检测"
         description="上传 PDF 论文并选择检查项，生成可定位问题的检查报告。"
         breadcrumbs={[{ label: '检测与生成', to: '/' }, { label: '规范性检测' }]}
-        actions={
-          <LinkButton size="sm" variant="secondary" to="/normative-reports">
-            <History className="size-4" />
-            历史报告
-          </LinkButton>
-        }
+      />
+      <ModuleTabs
+        ariaLabel="规范性检测功能导航"
+        items={[
+          { label: '发起检测', to: '/normative-check', active: true },
+          { label: '历史报告', to: '/normative-reports', active: false },
+        ]}
       />
 
       <section

@@ -138,14 +138,14 @@ describe('FEAT-NORMATIVE-REPORT frontend route, page, and client contract', () =
     renderRoute('/normative-reports');
 
     expect(await screen.findByRole('heading', { name: '规范性检测' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '发起审查' })).toHaveAttribute('href', '/normative-check');
+    expect(screen.getByRole('link', { name: '发起检测' })).toHaveAttribute('href', '/normative-check');
     await waitFor(() => expect(fetchNormativeDetectionHistory).toHaveBeenCalledTimes(1));
     const table = await screen.findByRole('table');
     const rows = within(table).getAllByRole('row');
     expect(rows[1]).toHaveTextContent('论文规范检测.txt');
     expect(rows[1]).toHaveTextContent('2');
     expect(rows[1]).toHaveTextContent('1 / 1 / 0');
-    expect(rows[1]).toHaveTextContent('2026-08-04T10:00:00.000Z');
+    expect(rows[1]).toHaveTextContent('2026-08-04 18:00');
     expect(rows[2]).toHaveTextContent('粘贴文本检测');
 
     await user.click(within(rows[1]).getByRole('button', { name: '报告下载' }));

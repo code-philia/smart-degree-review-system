@@ -1,7 +1,7 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuthSession } from '../auth/AuthSessionProvider';
-import { Button, Card, LinkButton, LoadingState, PageHeader } from '../components/ui';
+import { Button, Card, LinkButton, LoadingState, ModuleTabs, PageHeader } from '../components/ui';
 import {
   createWholePolishResult,
   downloadWholePolishText,
@@ -151,19 +151,14 @@ function WholePolishPage() {
 
   return (
     <div className="text-slate-900">
-      <PageHeader
-        title="论文润色"
-        description="上传论文或粘贴全文，选择润色强度后生成可追溯结果。"
-        actions={
-          <>
-            <LinkButton size="sm" variant="secondary" to="/local-polish">
-              局部润色
-            </LinkButton>
-            <LinkButton size="sm" variant="secondary" to="/polish-history">
-              润色记录
-            </LinkButton>
-          </>
-        }
+      <PageHeader title="论文润色" description="上传论文或粘贴全文，选择润色强度后生成可追溯结果。" />
+      <ModuleTabs
+        ariaLabel="论文润色功能导航"
+        items={[
+          { label: '全文润色', to: '/whole-polish', active: true },
+          { label: '局部润色', to: '/local-polish', active: false },
+          { label: '润色记录', to: '/polish-history', active: false },
+        ]}
       />
 
       <form
