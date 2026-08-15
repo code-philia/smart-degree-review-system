@@ -19,6 +19,10 @@ from novref.domain.paper_lint.rules.executor import RuleExecutionEntry
 from novref.domain.paper_lint.rules.heading_numbering_hierarchy_check import (
     _detect_numbered_heading_candidates,
 )
+from novref.domain.paper_lint.rules.toc_format_check import (
+    _TOC_ENTRY_TRAILER_RE,
+    _find_toc_snapshot,
+)
 
 _REFERENCE_HEADING = re.compile(r"^(参考文献|references|bibliography)$", re.I)
 _NEXT_SECTION = re.compile(r"^(致谢|附录|acknowledg(e)?ments?|appendix)", re.I)
@@ -35,6 +39,8 @@ _OBJECT = re.compile(
     r"^\s*(?P<kind>图|figure|fig\.?|表|table|公式|式|equation)\s*(?P<number>\d+)(?:\s*[-.]\s*(?P<section>\d+))?\b",
     re.I,
 )
+_CITATION = re.compile(r"\[(\d+(?:\s*[,，、-]\s*\d+)*)]")
+_FOOTNOTE = re.compile(r"^(?:注|脚注)\s*(\d+)|^(\d+)\s*[）.)、]")
 
 
 class _Params(BaseModel):
@@ -60,6 +66,10 @@ def _finding(rule_id: str, line, message: str, suggestion: str) -> Finding:
         suggestion=suggestion,
         location=location_from_lines([line], text_excerpt=line.text.strip()),
     )
+
+
+def _compact(text: str) -> str:
+    return re.sub(r"\s+", "", text).lower()
 
 
 class FigureTableFormulaNumberingRule:
@@ -332,6 +342,180 @@ class HeadingNumberingSequenceRule:
             previous[parent] = current
             if len(findings) >= params.max_findings:
                 break
+        return completed_from_findings(
+            entry,
+            findings=findings,
+            evidence_mode="derived",
+            params=params.model_dump(),
+        )
+
+
+class TocBodyHeadingConsistencyRule:
+    rule_id = "toc_body_heading_consistency_check"
+    default_severity = "warning"
+    params_model = _Params
+
+    async def execute(
+        self, context: PaperLintContext, entry: RuleExecutionEntry
+    ) -> RuleRun:
+        params = self.params_model.model_validate(entry.params or {})
+        snapshot = _find_toc_snapshot(context.raw.lines, context.raw.runs)
+        if snapshot is None:
+            return unsupported(entry, message="toc_not_detected")
+        toc_line_ids = {item.line.line_id for item in snapshot.entries}
+        body = {
+            _compact(line.text)
+            for line in _lines(context)
+            if line.line_id not in toc_line_ids
+        }
+        findings = []
+        for item in snapshot.entries:
+            title = _TOC_ENTRY_TRAILER_RE.sub("", item.text).strip()
+            if title and _compact(title) not in body:
+                findings.append(
+                    _finding(
+                        entry.rule_id,
+                        item.line,
+                        f"目录条目“{title}”未在正文中识别到同名标题。",
+                        "请核对目录与正文标题是否一致；如为换行标题，请人工确认。",
+                    )
+                )
+            if len(findings) >= params.max_findings:
+                break
+        return completed_from_findings(
+            entry,
+            findings=findings,
+            evidence_mode="derived",
+            params=params.model_dump(),
+        )
+
+
+class RequiredSectionCompletenessRule:
+    rule_id = "required_section_completeness_check"
+    default_severity = "warning"
+    params_model = _Params
+
+    async def execute(
+        self, context: PaperLintContext, entry: RuleExecutionEntry
+    ) -> RuleRun:
+        params = self.params_model.model_validate(entry.params or {})
+        lines = _lines(context)
+        visible = [_compact(line.text) for line in lines]
+        first_page = _compact(context.raw.pages[0].text) if context.raw.pages else ""
+        required = {
+            "摘要": {"摘要", "abstract"},
+            "关键词": {"关键词", "关键字", "keywords", "key words"},
+            "目录": {"目录", "contents"},
+            "参考文献": {"参考文献", "references", "bibliography"},
+        }
+        findings = []
+        anchor = lines[0] if lines else None
+        if anchor is not None and not any(
+            token in first_page for token in ("学位论文", "硕士论文", "博士论文")
+        ):
+            findings.append(
+                _finding(
+                    entry.rule_id,
+                    anchor,
+                    "首页未识别到学位论文封面标识。",
+                    "请确认封面页包含学位论文类型与题名；非标准模板或扫描件可能无法识别。",
+                )
+            )
+        for label, candidates in required.items():
+            if (
+                not any(
+                    any(item.startswith(value) for item in visible)
+                    for value in candidates
+                )
+                and anchor is not None
+            ):
+                findings.append(
+                    _finding(
+                        entry.rule_id,
+                        anchor,
+                        f"未识别到必备章节“{label}”。",
+                        "请确认论文包含该章节；扫描件或非标准标题可能导致无法识别。",
+                    )
+                )
+        return completed_from_findings(
+            entry,
+            findings=findings[: params.max_findings],
+            evidence_mode="derived",
+            params=params.model_dump(),
+        )
+
+
+class PageNumberSequenceRule:
+    rule_id = "page_number_sequence_check"
+    default_severity = "warning"
+    params_model = _Params
+
+    async def execute(
+        self, context: PaperLintContext, entry: RuleExecutionEntry
+    ) -> RuleRun:
+        params = self.params_model.model_validate(entry.params or {})
+        candidates = []
+        for line in _lines(context):
+            text = line.text.strip()
+            if line.bbox.y2 >= line.bbox.height * 0.85 and text.isdigit():
+                candidates.append((int(text), line))
+        if len(candidates) < 2:
+            return unsupported(entry, message="page_numbers_not_detected")
+        findings = []
+        for (previous, _), (current, line) in zip(candidates, candidates[1:]):
+            if current != previous + 1:
+                findings.append(
+                    _finding(
+                        entry.rule_id,
+                        line,
+                        f"页码不连续：上一页显示 {previous}，当前页显示 {current}。",
+                        "请核对页码起始页、连续性和页码格式。",
+                    )
+                )
+        return completed_from_findings(
+            entry,
+            findings=findings[: params.max_findings],
+            evidence_mode="derived",
+            params=params.model_dump(),
+        )
+
+
+class CitationFootnoteSequenceRule:
+    rule_id = "citation_footnote_sequence_check"
+    default_severity = "warning"
+    params_model = _Params
+
+    async def execute(
+        self, context: PaperLintContext, entry: RuleExecutionEntry
+    ) -> RuleRun:
+        params = self.params_model.model_validate(entry.params or {})
+        findings, seen, expected = [], set(), 1
+        in_references = False
+        for line in _lines(context):
+            text = line.text.strip()
+            if _REFERENCE_HEADING.match(text):
+                in_references = True
+            if in_references:
+                continue
+            for match in _CITATION.finditer(text):
+                for value in re.findall(r"\d+", match.group(1)):
+                    number = int(value)
+                    if number not in seen and number != expected:
+                        findings.append(
+                            _finding(
+                                entry.rule_id,
+                                line,
+                                f"正文首次引用序号应为 [{expected}]，但识别到 [{number}]。",
+                                "请核对正文引注、脚注与参考文献编号的连续性。",
+                            )
+                        )
+                    if number not in seen:
+                        seen.add(number)
+                        expected = max(expected + 1, number + 1)
+            if len(findings) >= params.max_findings:
+                break
+        if not seen:
+            return unsupported(entry, message="citations_not_detected")
         return completed_from_findings(
             entry,
             findings=findings,

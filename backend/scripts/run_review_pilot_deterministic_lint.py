@@ -78,6 +78,10 @@ RULE_METADATA: dict[str, tuple[str, str]] = {
         "标题编号连续性",
         "检查同级章节标题是否存在缺号、重号或错序。",
     ),
+    "toc_body_heading_consistency_check": ("目录正文一致性", "检查目录条目是否能在正文识别到同名标题。"),
+    "required_section_completeness_check": ("核心章节完整性", "检查摘要、关键词、目录和参考文献等核心章节。"),
+    "page_number_sequence_check": ("页码连续性", "检查页面底部可识别页码是否连续。"),
+    "citation_footnote_sequence_check": ("引注编号连续性", "检查正文可识别方括号引注的首次编号顺序。"),
     "bilingual_abstract_consistency_check": (
         "中英文摘要内容一致性",
         "使用 DeepSeek 检查中英文摘要的研究对象、方法、结果和结论是否实质一致。",
@@ -147,6 +151,10 @@ def load_engine(
         ChineseEnglishSymbolMixRule,
         FigureTableFormulaNumberingRule,
         HeadingNumberingSequenceRule,
+        TocBodyHeadingConsistencyRule,
+        RequiredSectionCompletenessRule,
+        PageNumberSequenceRule,
+        CitationFootnoteSequenceRule,
         ReferenceBasicFormatRule,
     )
 
@@ -169,6 +177,10 @@ def load_engine(
             ChineseEnglishSymbolMixRule,
             BilingualKeywordsCorrespondenceRule,
             HeadingNumberingSequenceRule,
+            TocBodyHeadingConsistencyRule,
+            RequiredSectionCompletenessRule,
+            PageNumberSequenceRule,
+            CitationFootnoteSequenceRule,
         ]
     }
 
