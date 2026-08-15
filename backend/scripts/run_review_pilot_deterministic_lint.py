@@ -58,6 +58,26 @@ RULE_METADATA: dict[str, tuple[str, str]] = {
         "检查最后一个编号正文章是否为总结或结论类章节。",
     ),
     "toc_format_check": ("目录格式", "检查目录标题、条目、缩进和页码对齐。"),
+    "figure_table_formula_numbering_check": (
+        "图表公式编号连续性",
+        "检查图、表和公式标签的编号是否从 1 起连续。",
+    ),
+    "reference_basic_format_check": (
+        "参考文献基础著录",
+        "检查参考文献编号、四位年份和文献类型标识等可见基础字段。",
+    ),
+    "chinese_english_symbol_mix_check": (
+        "中英文符号与全半角",
+        "检查中文文本中的英文半角标点及全角英文字母、数字。",
+    ),
+    "bilingual_keywords_correspondence_check": (
+        "中英文关键词对应",
+        "检查已识别中英文关键词的数量是否一致。",
+    ),
+    "heading_numbering_sequence_check": (
+        "标题编号连续性",
+        "检查同级章节标题是否存在缺号、重号或错序。",
+    ),
     "bilingual_abstract_consistency_check": (
         "中英文摘要内容一致性",
         "使用 DeepSeek 检查中英文摘要的研究对象、方法、结果和结论是否实质一致。",
@@ -122,6 +142,13 @@ def load_engine(
     from novref.domain.paper_lint.rules.heading_numbering_hierarchy_check import HeadingNumberingHierarchyRule
     from novref.domain.paper_lint.rules.last_body_chapter_summary_check import LastBodyChapterSummaryRule
     from novref.domain.paper_lint.rules.toc_format_check import TocFormatRule
+    from paper_lint_extended_rules import (
+        BilingualKeywordsCorrespondenceRule,
+        ChineseEnglishSymbolMixRule,
+        FigureTableFormulaNumberingRule,
+        HeadingNumberingSequenceRule,
+        ReferenceBasicFormatRule,
+    )
 
     rule_factories = {
         rule_type.rule_id: rule_type
@@ -137,6 +164,11 @@ def load_engine(
             FirstBodyChapterIntroRule,
             LastBodyChapterSummaryRule,
             TocFormatRule,
+            FigureTableFormulaNumberingRule,
+            ReferenceBasicFormatRule,
+            ChineseEnglishSymbolMixRule,
+            BilingualKeywordsCorrespondenceRule,
+            HeadingNumberingSequenceRule,
         ]
     }
 
