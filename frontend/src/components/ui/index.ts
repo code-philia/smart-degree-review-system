@@ -10,3 +10,4 @@ export { default as ErrorState } from './ErrorState';
 export { default as EmptyState } from './EmptyState';
 export { default as ModuleTabs } from './ModuleTabs';
 export type { ModuleTabItem } from './ModuleTabs';
+export { DataTable, DataTableCell, DataTableHead, DataTableRow } from './DataTable';

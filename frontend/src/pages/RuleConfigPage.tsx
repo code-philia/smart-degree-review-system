@@ -7,7 +7,19 @@ import {
   resetCollegeRuleConfiguration,
   type RuleConfigDto,
 } from '../api/ruleConfig';
-import { Button, Card, EmptyState, ErrorState, LinkButton, LoadingState, PageHeader } from '../components/ui';
+import {
+  Button,
+  Card,
+  DataTable,
+  DataTableCell,
+  DataTableHead,
+  DataTableRow,
+  EmptyState,
+  ErrorState,
+  LinkButton,
+  LoadingState,
+  PageHeader,
+} from '../components/ui';
 
 function RuleConfigPage() {
   const { status, user } = useAuthSession();
@@ -79,37 +91,34 @@ function RuleConfigPage() {
               <EmptyState title="暂无运行时规则配置" description="学校默认值和学院覆盖将在后端接口返回后显示。" />
             ) : null}
             {rules.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-left text-sm">
-                  <thead className="bg-[#213B63] text-white">
-                    <tr>
-                      <th className="px-3 py-3">rule_id</th>
-                      <th className="px-3 py-3">规则标题</th>
-                      <th className="px-3 py-3">类别</th>
-                      <th className="px-3 py-3">严重程度</th>
-                      <th className="px-3 py-3">启用状态</th>
-                      <th className="px-3 py-3">匹配参数</th>
-                      <th className="px-3 py-3">提示文案</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rules.map((rule) => (
-                      <tr
-                        key={`${rule.source}-${rule.college_id || 'school'}-${rule.rule_id}`}
-                        className="border-b border-[#D8DDE6]"
-                      >
-                        <td className="px-3 py-3 font-mono text-xs">{rule.rule_id}</td>
-                        <td className="px-3 py-3 font-semibold">{rule.title}</td>
-                        <td className="px-3 py-3">{rule.category}</td>
-                        <td className="px-3 py-3">{rule.severity}</td>
-                        <td className="px-3 py-3">{rule.enabled ? '启用' : '停用'}</td>
-                        <td className="px-3 py-3 font-mono text-xs">{JSON.stringify(rule.match_params)}</td>
-                        <td className="px-3 py-3">{rule.prompt}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable aria-label="可视化显性规则配置">
+                <thead>
+                  <DataTableRow className="hover:bg-transparent">
+                    <DataTableHead>rule_id</DataTableHead>
+                    <DataTableHead>规则标题</DataTableHead>
+                    <DataTableHead>类别</DataTableHead>
+                    <DataTableHead>严重程度</DataTableHead>
+                    <DataTableHead>启用状态</DataTableHead>
+                    <DataTableHead>匹配参数</DataTableHead>
+                    <DataTableHead>提示文案</DataTableHead>
+                  </DataTableRow>
+                </thead>
+                <tbody>
+                  {rules.map((rule) => (
+                    <DataTableRow key={`${rule.source}-${rule.college_id || 'school'}-${rule.rule_id}`}>
+                      <DataTableCell className="font-mono text-xs text-slate-500">{rule.rule_id}</DataTableCell>
+                      <DataTableCell className="font-semibold text-slate-900">{rule.title}</DataTableCell>
+                      <DataTableCell>{rule.category}</DataTableCell>
+                      <DataTableCell>{rule.severity}</DataTableCell>
+                      <DataTableCell>{rule.enabled ? '启用' : '停用'}</DataTableCell>
+                      <DataTableCell className="font-mono text-xs text-slate-500">
+                        {JSON.stringify(rule.match_params)}
+                      </DataTableCell>
+                      <DataTableCell>{rule.prompt}</DataTableCell>
+                    </DataTableRow>
+                  ))}
+                </tbody>
+              </DataTable>
             ) : null}
           </div>
         </section>

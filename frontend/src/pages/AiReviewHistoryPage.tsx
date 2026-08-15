@@ -2,7 +2,19 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchAiReviewHistory, type AiReviewHistoryRecord } from '../api/normativeRules';
 import { useAuthSession } from '../auth/AuthSessionProvider';
-import { Card, EmptyState, ErrorState, LinkButton, LoadingState, ModuleTabs, PageHeader } from '../components/ui';
+import {
+  Card,
+  DataTable,
+  DataTableCell,
+  DataTableHead,
+  DataTableRow,
+  EmptyState,
+  ErrorState,
+  LinkButton,
+  LoadingState,
+  ModuleTabs,
+  PageHeader,
+} from '../components/ui';
 
 function formatTimestamp(value: string) {
   return value ? value.replace('T', ' ').replace('Z', '') : '—';
@@ -112,40 +124,43 @@ function AiReviewHistoryPage() {
         ) : null}
 
         {records.length > 0 ? (
-          <table className="mt-6 w-full border-collapse border border-[#E0E0E0] text-center text-[15px]">
-            <thead className="bg-[#1F3F66] text-white">
-              <tr>
-                <th className="border border-[#E0E0E0] px-3 py-4">序号</th>
-                <th className="border border-[#E0E0E0] px-3 py-4">论文题目</th>
-                <th className="border border-[#E0E0E0] px-3 py-4">模板</th>
-                <th className="border border-[#E0E0E0] px-3 py-4">总分</th>
-                <th className="border border-[#E0E0E0] px-3 py-4">结论</th>
-                <th className="border border-[#E0E0E0] px-3 py-4">时间</th>
-                <th className="border border-[#E0E0E0] px-3 py-4">操作</th>
-              </tr>
+          <DataTable className="mt-6" aria-label="辅助评阅历史记录">
+            <thead>
+              <DataTableRow className="hover:bg-transparent">
+                <DataTableHead className="text-center">序号</DataTableHead>
+                <DataTableHead>论文题目</DataTableHead>
+                <DataTableHead>模板</DataTableHead>
+                <DataTableHead className="text-center">总分</DataTableHead>
+                <DataTableHead>结论</DataTableHead>
+                <DataTableHead>时间</DataTableHead>
+                <DataTableHead className="text-center">操作</DataTableHead>
+              </DataTableRow>
             </thead>
             <tbody>
               {records.map((record, index) => (
-                <tr key={record.id}>
-                  <td className="border border-[#E0E0E0] px-3 py-4">{index + 1}</td>
-                  <td className="max-w-sm truncate border border-[#E0E0E0] px-3 py-4 text-left font-bold">
+                <DataTableRow key={record.id}>
+                  <DataTableCell className="text-center">{index + 1}</DataTableCell>
+                  <DataTableCell className="max-w-sm truncate font-semibold text-slate-900">
                     {record.thesis_title}
-                  </td>
-                  <td className="border border-[#E0E0E0] px-3 py-4">{record.template_id}</td>
-                  <td className="border border-[#E0E0E0] bg-[#EAF4FF] px-3 py-4 text-lg font-black text-[#2F80FF]">
+                  </DataTableCell>
+                  <DataTableCell>{record.template_id}</DataTableCell>
+                  <DataTableCell className="bg-brand-50 text-center text-base font-bold text-brand-600">
                     {record.total_score}
-                  </td>
-                  <td className="border border-[#E0E0E0] px-3 py-4 font-bold">{record.result_label}</td>
-                  <td className="border border-[#E0E0E0] px-3 py-4">{formatTimestamp(record.created_at)}</td>
-                  <td className="border border-[#E0E0E0] px-3 py-4">
-                    <Link className="font-black text-[#2F80FF]" to={`/ai-review/results/${record.id}`}>
+                  </DataTableCell>
+                  <DataTableCell className="font-semibold">{record.result_label}</DataTableCell>
+                  <DataTableCell className="tabular-nums">{formatTimestamp(record.created_at)}</DataTableCell>
+                  <DataTableCell className="text-center">
+                    <Link
+                      className="font-semibold text-brand-600 hover:text-brand-700"
+                      to={`/ai-review/results/${record.id}`}
+                    >
                       查看结果
                     </Link>
-                  </td>
-                </tr>
+                  </DataTableCell>
+                </DataTableRow>
               ))}
             </tbody>
-          </table>
+          </DataTable>
         ) : null}
       </section>
     </div>

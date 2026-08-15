@@ -6,7 +6,15 @@ import {
   downloadDetectionLedgerCsv,
   fetchDetectionLedgerRecords,
 } from '../api/normativeRules';
-import { EmptyState, ErrorState, LoadingState } from '../components/ui';
+import {
+  DataTable,
+  DataTableCell,
+  DataTableHead,
+  DataTableRow,
+  EmptyState,
+  ErrorState,
+  LoadingState,
+} from '../components/ui';
 
 const detectionTypeTabs: Array<{ value: DetectionLedgerType | ''; label: string }> = [
   { value: 'normative', label: '规范性检测' },
@@ -147,87 +155,83 @@ function LedgerRecordsPage() {
         </button>
       </section>
 
-      <section className="overflow-x-auto bg-white pb-8">
-        <table className="min-w-[1180px] table-fixed border-collapse text-[15px]">
-          <thead className="bg-[#1f3f63] text-white">
-            <tr>
-              <th className="w-12 border border-[#e5e5e5] py-3">
+      <DataTable tableClassName="min-w-[1180px] table-fixed" aria-label="检测记录台账">
+        <thead>
+          <DataTableRow className="hover:bg-transparent">
+            <DataTableHead className="w-12 text-center">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={(event) => setSelectedIds(event.target.checked ? records.map((record) => record.id) : [])}
+              />
+            </DataTableHead>
+            <DataTableHead className="w-28 text-center">学院</DataTableHead>
+            <DataTableHead className="w-28 text-center">学号</DataTableHead>
+            <DataTableHead className="w-24 text-center">姓名</DataTableHead>
+            <DataTableHead className="w-24 text-center">导师</DataTableHead>
+            <DataTableHead className="w-28 text-center">学生类别</DataTableHead>
+            <DataTableHead className="w-64">论文题目</DataTableHead>
+            <DataTableHead className="w-28 text-center">检测类型</DataTableHead>
+            <DataTableHead className="w-28 text-center">检测模板</DataTableHead>
+            <DataTableHead className="w-24 text-center">核心结果</DataTableHead>
+            <DataTableHead className="w-24 text-center">检测报告</DataTableHead>
+            <DataTableHead className="w-40 text-center">检测时间</DataTableHead>
+          </DataTableRow>
+        </thead>
+        <tbody>
+          {status === 'loading' && (
+            <DataTableRow>
+              <DataTableCell className="py-8" colSpan={12}>
+                <LoadingState compact label="加载中..." />
+              </DataTableCell>
+            </DataTableRow>
+          )}
+          {status === 'error' && (
+            <DataTableRow>
+              <DataTableCell className="py-8" colSpan={12}>
+                <ErrorState message={errorMessage} onRetry={() => void loadRecords()} />
+              </DataTableCell>
+            </DataTableRow>
+          )}
+          {status === 'idle' && records.length === 0 && (
+            <DataTableRow>
+              <DataTableCell className="py-8" colSpan={12}>
+                <EmptyState title="暂无符合条件的台账记录" />
+              </DataTableCell>
+            </DataTableRow>
+          )}
+          {records.map((record) => (
+            <DataTableRow key={record.id} className="h-14">
+              <DataTableCell className="text-center">
                 <input
                   type="checkbox"
-                  checked={allSelected}
-                  onChange={(event) => setSelectedIds(event.target.checked ? records.map((record) => record.id) : [])}
+                  checked={selectedIds.includes(record.id)}
+                  onChange={(event) =>
+                    setSelectedIds((current) =>
+                      event.target.checked ? [...current, record.id] : current.filter((id) => id !== record.id),
+                    )
+                  }
                 />
-              </th>
-              <th className="w-28 border border-[#e5e5e5]">学院</th>
-              <th className="w-28 border border-[#e5e5e5]">学号</th>
-              <th className="w-24 border border-[#e5e5e5]">姓名</th>
-              <th className="w-24 border border-[#e5e5e5]">导师</th>
-              <th className="w-28 border border-[#e5e5e5]">学生类别</th>
-              <th className="w-64 border border-[#e5e5e5]">论文题目</th>
-              <th className="w-28 border border-[#e5e5e5]">检测类型</th>
-              <th className="w-28 border border-[#e5e5e5]">检测模板</th>
-              <th className="w-24 border border-[#e5e5e5]">核心结果</th>
-              <th className="w-24 border border-[#e5e5e5]">检测报告</th>
-              <th className="w-40 border border-[#e5e5e5]">检测时间</th>
-            </tr>
-          </thead>
-          <tbody>
-            {status === 'loading' && (
-              <tr>
-                <td className="border border-[#e5e5e5] py-8" colSpan={12}>
-                  <LoadingState compact label="加载中..." />
-                </td>
-              </tr>
-            )}
-            {status === 'error' && (
-              <tr>
-                <td className="border border-[#e5e5e5] py-8" colSpan={12}>
-                  <ErrorState message={errorMessage} onRetry={() => void loadRecords()} />
-                </td>
-              </tr>
-            )}
-            {status === 'idle' && records.length === 0 && (
-              <tr>
-                <td className="border border-[#e5e5e5] py-8" colSpan={12}>
-                  <EmptyState title="暂无符合条件的台账记录" />
-                </td>
-              </tr>
-            )}
-            {records.map((record) => (
-              <tr key={record.id} className="h-[74px]">
-                <td className="border border-[#e5e5e5] text-center">
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.includes(record.id)}
-                    onChange={(event) =>
-                      setSelectedIds((current) =>
-                        event.target.checked ? [...current, record.id] : current.filter((id) => id !== record.id),
-                      )
-                    }
-                  />
-                </td>
-                <td className="border border-[#e5e5e5] text-center">{record.college_name}</td>
-                <td className="border border-[#e5e5e5] text-center">{record.student_number}</td>
-                <td className="border border-[#e5e5e5] text-center">{record.student_name}</td>
-                <td className="border border-[#e5e5e5] text-center">{record.supervisor_name}</td>
-                <td className="border border-[#e5e5e5] text-center">{record.student_category}</td>
-                <td className="border border-[#e5e5e5] px-3">{record.thesis_title}</td>
-                <td className="border border-[#e5e5e5] text-center">{record.detection_type_label}</td>
-                <td className="border border-[#e5e5e5] text-center">{record.template_name}</td>
-                <td className="border border-[#e5e5e5] text-center font-semibold text-[#e98332]">
-                  {record.core_result}
-                </td>
-                <td className="border border-[#e5e5e5] text-center">
-                  <a className="text-[#3b86ee]" href={record.detail_url}>
-                    详情
-                  </a>
-                </td>
-                <td className="border border-[#e5e5e5] text-center">{record.created_at}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+              </DataTableCell>
+              <DataTableCell className="text-center">{record.college_name}</DataTableCell>
+              <DataTableCell className="text-center">{record.student_number}</DataTableCell>
+              <DataTableCell className="text-center">{record.student_name}</DataTableCell>
+              <DataTableCell className="text-center">{record.supervisor_name}</DataTableCell>
+              <DataTableCell className="text-center">{record.student_category}</DataTableCell>
+              <DataTableCell className="font-semibold text-slate-900">{record.thesis_title}</DataTableCell>
+              <DataTableCell className="text-center">{record.detection_type_label}</DataTableCell>
+              <DataTableCell className="text-center">{record.template_name}</DataTableCell>
+              <DataTableCell className="text-center font-semibold text-warning-600">{record.core_result}</DataTableCell>
+              <DataTableCell className="text-center">
+                <a className="font-semibold text-brand-600 hover:text-brand-700" href={record.detail_url}>
+                  详情
+                </a>
+              </DataTableCell>
+              <DataTableCell className="text-center tabular-nums">{record.created_at}</DataTableCell>
+            </DataTableRow>
+          ))}
+        </tbody>
+      </DataTable>
     </div>
   );
 }

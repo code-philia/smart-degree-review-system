@@ -10,6 +10,10 @@ import { useAuthSession } from '../auth/AuthSessionProvider';
 import {
   Button,
   Card,
+  DataTable,
+  DataTableCell,
+  DataTableHead,
+  DataTableRow,
   EmptyState,
   ErrorState,
   LinkButton,
@@ -160,53 +164,48 @@ function DuplicationHistoryPage() {
         <EmptyState title="暂无相似度检测记录" description="完成一次论文相似度检测后，报告会出现在这里。" />
       ) : null}
       {history.length > 0 ? (
-        <div className="overflow-x-auto border border-[#E3EAF2] bg-white">
-          <table className="min-w-full text-center text-[15px]">
-            <thead className="bg-[#1F3A63] text-base font-bold text-white">
-              <tr>
-                <th className="px-6 py-5 text-left">文档名称</th>
-                <th className="px-6 py-5">检测类型</th>
-                <th className="px-6 py-5">检测结果</th>
-                <th className="px-6 py-5">报告生成时间</th>
-                <th className="px-6 py-5">操作</th>
-                <th className="px-6 py-5">提交状态</th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.map((record, index) => (
-                <tr
-                  key={record.id}
-                  className={`border-b border-[#E3EAF2] ${index % 2 === 0 ? 'bg-white' : 'bg-[#F3F7FB]'}`}
-                >
-                  <td className="min-w-64 px-6 py-7 text-left font-black text-slate-900">
-                    📄 {getDocumentName(record)}
-                  </td>
-                  <td className="px-6 py-7 font-bold">论文相似度检测</td>
-                  <td className="px-6 py-7 font-black text-[#D93636]">
-                    总相似率 {formatPercent(record.total_similarity_rate)} · 风险分{' '}
-                    {Math.round(record.writing_risk_score)} · 样本 {record.sample_count}
-                  </td>
-                  <td className="px-6 py-7 text-slate-700">{record.created_at}</td>
-                  <td className="px-6 py-7">
-                    <div className="flex flex-nowrap justify-center gap-3">
-                      <button
-                        className="h-9 rounded-full bg-[#355B8E] px-4 text-sm font-bold text-white"
-                        type="button"
-                        onClick={() => handleDownloadJson(record.id)}
-                      >
-                        报告下载
-                      </button>
-                      <LinkButton size="sm" className="!rounded-full" to={`/duplication-history/${record.id}`}>
-                        报告预览
-                      </LinkButton>
-                    </div>
-                  </td>
-                  <td className="px-6 py-7 font-bold text-slate-800">未提交</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable aria-label="相似度检测历史记录">
+          <thead>
+            <DataTableRow className="hover:bg-transparent">
+              <DataTableHead>文档名称</DataTableHead>
+              <DataTableHead className="text-center">检测类型</DataTableHead>
+              <DataTableHead>检测结果</DataTableHead>
+              <DataTableHead className="text-center">报告生成时间</DataTableHead>
+              <DataTableHead className="text-center">操作</DataTableHead>
+              <DataTableHead className="text-center">提交状态</DataTableHead>
+            </DataTableRow>
+          </thead>
+          <tbody>
+            {history.map((record, index) => (
+              <DataTableRow key={record.id} className={index % 2 === 0 ? '' : 'bg-slate-50/60'}>
+                <DataTableCell className="min-w-64 font-semibold text-slate-900">
+                  {getDocumentName(record)}
+                </DataTableCell>
+                <DataTableCell className="text-center font-medium">论文相似度检测</DataTableCell>
+                <DataTableCell className="font-semibold text-danger-600">
+                  总相似率 {formatPercent(record.total_similarity_rate)} · 风险分{' '}
+                  {Math.round(record.writing_risk_score)} · 样本 {record.sample_count}
+                </DataTableCell>
+                <DataTableCell className="text-center tabular-nums">{record.created_at}</DataTableCell>
+                <DataTableCell className="text-center">
+                  <div className="flex flex-nowrap justify-center gap-3">
+                    <button
+                      className="h-9 rounded-full bg-[#355B8E] px-4 text-sm font-bold text-white"
+                      type="button"
+                      onClick={() => handleDownloadJson(record.id)}
+                    >
+                      报告下载
+                    </button>
+                    <LinkButton size="sm" className="!rounded-full" to={`/duplication-history/${record.id}`}>
+                      报告预览
+                    </LinkButton>
+                  </div>
+                </DataTableCell>
+                <DataTableCell className="text-center font-medium">未提交</DataTableCell>
+              </DataTableRow>
+            ))}
+          </tbody>
+        </DataTable>
       ) : null}
     </div>
   );

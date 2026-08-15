@@ -7,7 +7,16 @@ import {
   type SupervisorReviewQueueResponse,
 } from '../api/reportSupervisorQueue';
 import type { ReportSubmissionSourceType } from '../api/reportSubmissions';
-import { EmptyState, ErrorState, LoadingState, PageHeader } from '../components/ui';
+import {
+  DataTable,
+  DataTableCell,
+  DataTableHead,
+  DataTableRow,
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  PageHeader,
+} from '../components/ui';
 
 const sourceLabels: Record<ReportSubmissionSourceType, string> = {
   normative: '规范检测',
@@ -120,30 +129,30 @@ export default function SupervisorReviewQueuePage() {
           ) : data.records.length === 0 ? (
             <EmptyState title="暂无待批阅任务。" description="学生推送报告后，待办会展示在这里。" />
           ) : (
-            <table className="w-full border-collapse overflow-hidden rounded-lg text-sm">
-              <thead className="bg-[#1f3f67] text-white">
-                <tr>
-                  <th className="border border-[#173a62] px-4 py-3">状态</th>
-                  <th className="border border-[#173a62] px-4 py-3">学生</th>
-                  <th className="border border-[#173a62] px-4 py-3">报告类型</th>
-                  <th className="border border-[#173a62] px-4 py-3">报告编号</th>
-                  <th className="border border-[#173a62] px-4 py-3">标题</th>
-                  <th className="border border-[#173a62] px-4 py-3">提交时间</th>
-                  <th className="border border-[#173a62] px-4 py-3">操作</th>
-                </tr>
+            <DataTable aria-label="导师待批阅任务">
+              <thead>
+                <DataTableRow className="hover:bg-transparent">
+                  <DataTableHead>状态</DataTableHead>
+                  <DataTableHead>学生</DataTableHead>
+                  <DataTableHead>报告类型</DataTableHead>
+                  <DataTableHead>报告编号</DataTableHead>
+                  <DataTableHead>标题</DataTableHead>
+                  <DataTableHead>提交时间</DataTableHead>
+                  <DataTableHead className="text-center">操作</DataTableHead>
+                </DataTableRow>
               </thead>
               <tbody>
                 {data.records.map((record: SupervisorReviewQueueItem) => (
-                  <tr key={record.todo_id} className="odd:bg-white even:bg-slate-50">
-                    <td className="border border-slate-200 px-4 py-3 font-semibold text-[#ff8f2a]">
+                  <DataTableRow key={record.todo_id}>
+                    <DataTableCell className="font-semibold text-warning-600">
                       {statusLabels[record.todo_status]}
-                    </td>
-                    <td className="border border-slate-200 px-4 py-3">{record.student_id}</td>
-                    <td className="border border-slate-200 px-4 py-3">{sourceLabels[record.source_type]}</td>
-                    <td className="border border-slate-200 px-4 py-3 font-mono text-xs">{record.report_id}</td>
-                    <td className="border border-slate-200 px-4 py-3">{record.title}</td>
-                    <td className="border border-slate-200 px-4 py-3">{formatDateTime(record.created_at)}</td>
-                    <td className="border border-slate-200 px-4 py-3 text-center">
+                    </DataTableCell>
+                    <DataTableCell>{record.student_id}</DataTableCell>
+                    <DataTableCell>{sourceLabels[record.source_type]}</DataTableCell>
+                    <DataTableCell className="font-mono text-xs text-slate-500">{record.report_id}</DataTableCell>
+                    <DataTableCell className="font-semibold text-slate-900">{record.title}</DataTableCell>
+                    <DataTableCell className="tabular-nums">{formatDateTime(record.created_at)}</DataTableCell>
+                    <DataTableCell className="text-center">
                       <Link
                         className={
                           record.todo_status === 'pending'
@@ -154,11 +163,11 @@ export default function SupervisorReviewQueuePage() {
                       >
                         {record.todo_status === 'pending' ? '批阅' : '查看记录'}
                       </Link>
-                    </td>
-                  </tr>
+                    </DataTableCell>
+                  </DataTableRow>
                 ))}
               </tbody>
-            </table>
+            </DataTable>
           )}
         </div>
       </section>

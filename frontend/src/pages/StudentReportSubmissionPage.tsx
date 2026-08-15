@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
-import { EmptyState, ErrorState, LoadingState, PageHeader } from '../components/ui';
+import {
+  DataTable,
+  DataTableCell,
+  DataTableHead,
+  DataTableRow,
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  PageHeader,
+} from '../components/ui';
 import {
   createReportSubmissions,
   type ReportSubmissionRequestItem,
@@ -225,21 +234,21 @@ export default function StudentReportSubmissionPage() {
               description="完成规范检测、查重、创新性评价或 AI 评阅后，报告会出现在这里。"
             />
           ) : (
-            <table className="w-full border-collapse overflow-hidden rounded-lg text-sm">
-              <thead className="bg-[#1f3f67] text-white">
-                <tr>
-                  <th className="border border-[#173a62] px-4 py-3">选择</th>
-                  <th className="border border-[#173a62] px-4 py-3">检测类型</th>
-                  <th className="border border-[#173a62] px-4 py-3">报告编号</th>
-                  <th className="border border-[#173a62] px-4 py-3">报告名称</th>
-                  <th className="border border-[#173a62] px-4 py-3">结果摘要</th>
-                  <th className="border border-[#173a62] px-4 py-3">完成时间</th>
-                </tr>
+            <DataTable aria-label="可提交报告">
+              <thead>
+                <DataTableRow className="hover:bg-transparent">
+                  <DataTableHead className="text-center">选择</DataTableHead>
+                  <DataTableHead>检测类型</DataTableHead>
+                  <DataTableHead>报告编号</DataTableHead>
+                  <DataTableHead>报告名称</DataTableHead>
+                  <DataTableHead>结果摘要</DataTableHead>
+                  <DataTableHead>完成时间</DataTableHead>
+                </DataTableRow>
               </thead>
               <tbody>
                 {reports.map((row) => (
-                  <tr key={row.key} className="text-center even:bg-slate-50">
-                    <td className="border border-slate-200 px-4 py-3">
+                  <DataTableRow key={row.key}>
+                    <DataTableCell className="text-center">
                       <input
                         type="checkbox"
                         aria-label={`${row.typeLabel} ${row.report_id}`}
@@ -247,16 +256,16 @@ export default function StudentReportSubmissionPage() {
                         onChange={() => toggleReport(row)}
                         className="h-4 w-4 accent-[#3489f5]"
                       />
-                    </td>
-                    <td className="border border-slate-200 px-4 py-3 font-semibold text-[#1f3f67]">{row.typeLabel}</td>
-                    <td className="border border-slate-200 px-4 py-3 font-mono text-xs">{row.report_id}</td>
-                    <td className="border border-slate-200 px-4 py-3">{row.title}</td>
-                    <td className="border border-slate-200 px-4 py-3">{row.summary}</td>
-                    <td className="border border-slate-200 px-4 py-3">{formatDateTime(row.createdAt)}</td>
-                  </tr>
+                    </DataTableCell>
+                    <DataTableCell className="font-semibold text-brand-700">{row.typeLabel}</DataTableCell>
+                    <DataTableCell className="font-mono text-xs text-slate-500">{row.report_id}</DataTableCell>
+                    <DataTableCell className="font-semibold text-slate-900">{row.title}</DataTableCell>
+                    <DataTableCell>{row.summary}</DataTableCell>
+                    <DataTableCell className="tabular-nums">{formatDateTime(row.createdAt)}</DataTableCell>
+                  </DataTableRow>
                 ))}
               </tbody>
-            </table>
+            </DataTable>
           )}
         </div>
       </section>
