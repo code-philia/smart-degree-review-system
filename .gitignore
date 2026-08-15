@@ -12,3 +12,5 @@ frontend/dist-ssr/
 # <<< arcbench-agent-runtime <<<
 
 *.docx
+
+logs/
