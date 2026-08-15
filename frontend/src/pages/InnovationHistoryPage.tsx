@@ -6,7 +6,7 @@ import {
   type InnovationHistoryRecord,
 } from '../api/normativeRules';
 import { useAuthSession } from '../auth/AuthSessionProvider';
-import { Card, EmptyState, ErrorState, LinkButton, LoadingState, PageHeader } from '../components/ui';
+import { Card, EmptyState, ErrorState, LinkButton, LoadingState, ModuleTabs, PageHeader } from '../components/ui';
 
 const PAGE_SIZE = 8;
 
@@ -108,7 +108,14 @@ function InnovationHistoryPage() {
 
   return (
     <div className="font-['Microsoft_YaHei','PingFang_SC','Noto_Sans_SC',Arial,sans-serif] text-[#1F2D3D]">
-      <PageHeader title="创新性分析历史记录" />
+      <PageHeader title="创新性量表评估" description="查看本人以往评估结果并进入完整报告。" />
+      <ModuleTabs
+        ariaLabel="创新性量表评估功能导航"
+        items={[
+          { label: '发起评估', to: '/innovation-assessment', active: false },
+          { label: '历史记录', to: '/innovation-history', active: true, count: records.length },
+        ]}
+      />
 
       <section className="rounded-xl border border-[#E5E7EB] bg-white px-7 py-5">
         <div className="flex min-h-12 flex-wrap items-center justify-between gap-4">

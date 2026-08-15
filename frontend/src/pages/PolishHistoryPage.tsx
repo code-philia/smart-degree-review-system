@@ -7,7 +7,7 @@ import {
   type PolishHistoryRecord,
 } from '../api/normativeRules';
 import { useAuthSession } from '../auth/AuthSessionProvider';
-import { Card, EmptyState, ErrorState, LinkButton, LoadingState, PageHeader } from '../components/ui';
+import { Card, EmptyState, ErrorState, LinkButton, LoadingState, ModuleTabs, PageHeader } from '../components/ui';
 
 const LEVEL_LABELS: Record<PolishHistoryRecord['level'], string> = {
   basic: 'AI 校准',
@@ -159,7 +159,15 @@ function PolishHistoryPage() {
 
   return (
     <div className="text-slate-900">
-      <PageHeader title="润色记录" description={`共 ${totalCount} 条记录`} />
+      <PageHeader title="论文润色" description="查看本人整篇与局部润色的历史结果。" />
+      <ModuleTabs
+        ariaLabel="论文润色功能导航"
+        items={[
+          { label: '整篇润色', to: '/whole-polish', active: false },
+          { label: '局部润色', to: '/local-polish', active: false },
+          { label: '润色记录', to: '/polish-history', active: true, count: totalCount },
+        ]}
+      />
 
       <section className="overflow-x-auto">
         <table className="min-w-[1120px] w-full border-collapse text-center text-[20px]">

@@ -1,6 +1,6 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { useAuthSession } from '../auth/AuthSessionProvider';
-import { Button, Card, LinkButton, LoadingState } from '../components/ui';
+import { Button, Card, LinkButton, LoadingState, ModuleTabs, PageHeader } from '../components/ui';
 import { createLocalPolishResult, type LocalPolishLevel, type LocalPolishResult } from '../api/normativeRules';
 
 const LEVEL_OPTIONS: Array<{ level: LocalPolishLevel; title: string; summary: string; recommended?: boolean }> = [
@@ -117,9 +117,17 @@ function LocalPolishPage() {
 
   return (
     <div className="text-slate-900">
-      <h1 className="text-3xl font-black text-[#213C5E]">局部文本润色与差异对比</h1>
+      <PageHeader title="论文润色" description="整篇与局部润色、历史结果集中在同一业务模块。" />
+      <ModuleTabs
+        ariaLabel="论文润色功能导航"
+        items={[
+          { label: '整篇润色', to: '/whole-polish', active: false },
+          { label: '局部润色', to: '/local-polish', active: true },
+          { label: '润色记录', to: '/polish-history', active: false },
+        ]}
+      />
 
-      <form className="mt-6" onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit}>
         <section className="grid gap-5 lg:grid-cols-2">
           <article className="overflow-hidden border border-[#D9DDE3] bg-white">
             <div className="flex items-center justify-between bg-slate-100 px-6 py-4 text-xl font-black">

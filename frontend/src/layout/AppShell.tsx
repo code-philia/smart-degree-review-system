@@ -117,7 +117,12 @@ function isNavItemActive(pathname: string, item: NavItem) {
   }
 
   const prefix = item.matchPrefix ?? item.to;
-  return pathname.startsWith(`${prefix}/`);
+  return (
+    pathname.startsWith(`${prefix}/`) ||
+    (item.relatedPrefixes || []).some(
+      (relatedPrefix) => pathname === relatedPrefix || pathname.startsWith(`${relatedPrefix}/`),
+    )
+  );
 }
 
 function NavigationGroup({

@@ -100,7 +100,8 @@ describe('FEAT-INNOVATION-HISTORY frontend page, route, and client contract', ()
 
     renderRoute();
 
-    expect(await screen.findByRole('heading', { name: '创新性分析历史记录' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '创新性量表评估' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '发起评估' })).toHaveAttribute('href', '/innovation-assessment');
     await waitFor(() => expect(fetchInnovationHistory).toHaveBeenCalledTimes(1));
     expect(screen.getByText('共 2 条记录')).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: '论文题目' })).toBeInTheDocument();

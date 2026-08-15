@@ -8,7 +8,16 @@ import {
   type DetectionTaskResponse,
   type NormativeIssue,
 } from '../api/normativeRules';
-import { Button, Card, EmptyState, ErrorState, LinkButton, LoadingState, PageHeader } from '../components/ui';
+import {
+  Button,
+  Card,
+  EmptyState,
+  ErrorState,
+  LinkButton,
+  LoadingState,
+  ModuleTabs,
+  PageHeader,
+} from '../components/ui';
 
 type ActiveIssue = {
   issue: NormativeIssue;
@@ -174,7 +183,14 @@ function NormativeReportPage() {
 
   return (
     <div>
-      <PageHeader title="历史检测记录" />
+      <PageHeader title="规范性检测" description="查看本人已保存的规范检测记录和报告。" />
+      <ModuleTabs
+        ariaLabel="规范性检测功能导航"
+        items={[
+          { label: '发起审查', to: '/normative-check', active: false },
+          { label: '历史报告', to: '/normative-reports', active: true, count: history.length },
+        ]}
+      />
       {loading ? <LoadingState label="正在加载历史记录…" /> : null}
       {errorMessage ? <ErrorState message={errorMessage} /> : null}
       {!loading && !errorMessage && history.length === 0 ? (

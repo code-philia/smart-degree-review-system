@@ -8,7 +8,7 @@ import {
   type InnovationScoreDimensionKey,
 } from '../api/normativeRules';
 import { useAuthSession } from '../auth/AuthSessionProvider';
-import { Button, Card, LinkButton, LoadingState, PageHeader } from '../components/ui';
+import { Button, Card, LinkButton, LoadingState, ModuleTabs, PageHeader } from '../components/ui';
 
 const DIMENSIONS: Array<{ key: InnovationScoreDimensionKey; label: string }> = [
   { key: 'research_topic', label: '研究选题' },
@@ -112,7 +112,14 @@ function InnovationAssessmentPage() {
 
   return (
     <div>
-      <PageHeader title="发起创新性量表评估" />
+      <PageHeader title="创新性量表评估" description="完成新的五维度量表评估，或查看以往评估报告。" />
+      <ModuleTabs
+        ariaLabel="创新性量表评估功能导航"
+        items={[
+          { label: '发起评估', to: '/innovation-assessment', active: true },
+          { label: '历史记录', to: '/innovation-history', active: false },
+        ]}
+      />
 
       <form onSubmit={handleSubmit}>
         <section className="rounded-[24px] border-2 border-dashed border-[#B7CAE6] px-8 py-8 text-center">

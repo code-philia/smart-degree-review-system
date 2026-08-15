@@ -1,7 +1,7 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuthSession } from '../auth/AuthSessionProvider';
-import { Button, Card, LinkButton, LoadingState } from '../components/ui';
+import { Button, Card, LinkButton, LoadingState, ModuleTabs, PageHeader } from '../components/ui';
 import {
   createWholePolishResult,
   downloadWholePolishText,
@@ -151,9 +151,17 @@ function WholePolishPage() {
 
   return (
     <div className="text-slate-900">
-      <h1 className="text-3xl font-black text-[#1F3D60]">全文润色</h1>
+      <PageHeader title="论文润色" description="整篇与局部润色、历史结果集中在同一业务模块。" />
+      <ModuleTabs
+        ariaLabel="论文润色功能导航"
+        items={[
+          { label: '整篇润色', to: '/whole-polish', active: true },
+          { label: '局部润色', to: '/local-polish', active: false },
+          { label: '润色记录', to: '/polish-history', active: false },
+        ]}
+      />
 
-      <form className="mx-auto mt-6 max-w-6xl" onSubmit={handleSubmit}>
+      <form className="mx-auto max-w-6xl" onSubmit={handleSubmit}>
         <label className="flex min-h-[320px] cursor-pointer flex-col items-center justify-center rounded-[40px] border-2 border-dashed border-[#AFC2DD] bg-white px-6 text-center transition hover:border-blue-500 hover:bg-blue-50/40">
           <span
             className="flex h-20 w-20 items-center justify-center rounded-full bg-blue-100 text-2xl text-blue-600"

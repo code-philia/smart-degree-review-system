@@ -5,6 +5,7 @@ export type NavItem = {
   to: string;
   roles?: AuthRole[];
   matchPrefix?: string;
+  relatedPrefixes?: string[];
 };
 
 export type NavGroup = {
@@ -18,24 +19,22 @@ export const NAV_GROUPS: NavGroup[] = [
     key: 'detection',
     title: '检测与生成',
     items: [
-      { label: '规范性检测', to: '/normative-check' },
-      { label: '规范报告历史', to: '/normative-reports' },
-      { label: '论文相似度检测', to: '/duplication-detect' },
-      { label: '相似度检测历史', to: '/duplication-history' },
-      { label: '整篇润色', to: '/whole-polish' },
-      { label: '局部润色', to: '/local-polish' },
-      { label: '润色历史', to: '/polish-history' },
+      { label: '规范性检测', to: '/normative-check', relatedPrefixes: ['/normative-reports'] },
+      { label: '论文相似度检测', to: '/duplication-detect', relatedPrefixes: ['/duplication-history'] },
+      { label: '论文润色', to: '/whole-polish', relatedPrefixes: ['/local-polish', '/polish-history'] },
     ],
   },
   {
     key: 'assessment',
     title: '评估与评阅',
     items: [
-      { label: '创新性量表评估', to: '/innovation-assessment' },
+      {
+        label: '创新性量表评估',
+        to: '/innovation-assessment',
+        relatedPrefixes: ['/innovation-history', '/innovation-assessments'],
+      },
       { label: '创新评分试算', to: '/innovation-scoring' },
-      { label: '创新评估历史', to: '/innovation-history', matchPrefix: '/innovation-assessments' },
       { label: '规则化辅助评阅', to: '/ai-review' },
-      { label: '辅助评阅历史', to: '/ai-review/history' },
       { label: '内置审查案例', to: '/review-cases' },
     ],
   },
@@ -102,8 +101,10 @@ export function findNavItemLabel(pathname: string): { groupTitle: string; label:
   }
 
   const prefixMatches = allItems
-    .map(({ group, item }) => ({ group, item, prefix: item.matchPrefix || item.to }))
-    .filter(({ prefix }) => pathname.startsWith(`${prefix}/`))
+    .flatMap(({ group, item }) =>
+      [item.matchPrefix || item.to, ...(item.relatedPrefixes || [])].map((prefix) => ({ group, item, prefix })),
+    )
+    .filter(({ prefix }) => pathname === prefix || pathname.startsWith(`${prefix}/`))
     .sort((a, b) => b.prefix.length - a.prefix.length);
 
   const best = prefixMatches[0];

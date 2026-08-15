@@ -8,3 +8,5 @@ export type { StatusTone } from './StatusBadge';
 export { default as LoadingState } from './LoadingState';
 export { default as ErrorState } from './ErrorState';
 export { default as EmptyState } from './EmptyState';
+export { default as ModuleTabs } from './ModuleTabs';
+export type { ModuleTabItem } from './ModuleTabs';

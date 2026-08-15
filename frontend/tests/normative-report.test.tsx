@@ -137,7 +137,8 @@ describe('FEAT-NORMATIVE-REPORT frontend route, page, and client contract', () =
 
     renderRoute('/normative-reports');
 
-    expect(await screen.findByRole('heading', { name: '历史检测记录' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '规范性检测' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '发起审查' })).toHaveAttribute('href', '/normative-check');
     await waitFor(() => expect(fetchNormativeDetectionHistory).toHaveBeenCalledTimes(1));
     const table = await screen.findByRole('table');
     const rows = within(table).getAllByRole('row');

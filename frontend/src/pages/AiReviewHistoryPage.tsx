@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchAiReviewHistory, type AiReviewHistoryRecord } from '../api/normativeRules';
 import { useAuthSession } from '../auth/AuthSessionProvider';
-import { Card, EmptyState, ErrorState, LinkButton, LoadingState, PageHeader } from '../components/ui';
+import { Card, EmptyState, ErrorState, LinkButton, LoadingState, ModuleTabs, PageHeader } from '../components/ui';
 
 function formatTimestamp(value: string) {
   return value ? value.replace('T', ' ').replace('Z', '') : '—';
@@ -66,12 +66,13 @@ function AiReviewHistoryPage() {
   return (
     <div className="font-['Microsoft_YaHei','PingFang_SC','Noto_Sans_SC',Arial,sans-serif] text-[#1F2D3D]">
       <PageHeader title="AI 智能评阅" />
-      <nav className="grid h-20 grid-cols-2 text-2xl font-black" aria-label="AI 智能评阅导航">
-        <Link className="flex items-center justify-center bg-[#F1F4F8] text-slate-700" to="/ai-review">
-          论文上传
-        </Link>
-        <span className="flex items-center justify-center bg-[#3A86F4] text-white">评阅记录</span>
-      </nav>
+      <ModuleTabs
+        ariaLabel="AI 智能评阅功能导航"
+        items={[
+          { label: '发起评阅', to: '/ai-review', active: false },
+          { label: '评阅记录', to: '/ai-review/history', active: true, count: totalCount },
+        ]}
+      />
 
       <section className="px-8 py-7">
         <div className="flex items-end justify-between">

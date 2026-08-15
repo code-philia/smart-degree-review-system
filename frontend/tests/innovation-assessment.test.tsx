@@ -185,7 +185,8 @@ describe('FEAT-INNOVATION-ANALYZE frontend route, form, and persisted-result con
 
     renderRoute();
 
-    expect(await screen.findByRole('heading', { name: '发起创新性量表评估' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '创新性量表评估' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: '创新性量表评估功能导航' })).toBeInTheDocument();
     expect(screen.getByText(/当前登录用户：student01（STUDENT）/)).toBeInTheDocument();
     expect(screen.getByText('本结果为量表自评，不代替专家评审或文献查新')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '分析结果' })).not.toBeInTheDocument();

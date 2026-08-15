@@ -11,7 +11,16 @@ import {
 } from '../api/paperLint';
 import { PaperLintWorkspace } from '../components/paperLint/Workspace';
 import { flattenPaperLintFindings } from '../components/paperLint/model';
-import { Button, Card, ErrorState, LinkButton, LoadingState, PageHeader, StatusBadge } from '../components/ui';
+import {
+  Button,
+  Card,
+  ErrorState,
+  LinkButton,
+  LoadingState,
+  ModuleTabs,
+  PageHeader,
+  StatusBadge,
+} from '../components/ui';
 
 const MAX_PDF_BYTES = 50 * 1024 * 1024;
 
@@ -184,6 +193,18 @@ function NormativeCheckPage() {
         breadcrumbs={[{ label: '首页', to: '/' }, { label: '规范性检测' }]}
         actions={<StatusBadge tone="info">PDF-only · DeepSeek</StatusBadge>}
       />
+
+      <ModuleTabs
+        ariaLabel="规范性检测功能导航"
+        items={[
+          { label: '发起审查', to: '/normative-check', active: true },
+          { label: '历史报告', to: '/normative-reports', active: false },
+        ]}
+      />
+
+      <p className="-mt-2 mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        当前 PDF 快速审查结果不写入历史；“历史报告”展示系统内已保存的规范检测记录。
+      </p>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,.85fr)_minmax(440px,1.15fr)]">
         <Card title="1. 上传论文" description="仅处理 PDF，文件在后端临时运行后删除，不写入当前 SQLite。">

@@ -1,5 +1,4 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useAuthSession } from '../auth/AuthSessionProvider';
 import {
   createAiReviewRun,
@@ -8,7 +7,7 @@ import {
   type ReviewRubricTemplate,
   type ReviewRubricsResponse,
 } from '../api/normativeRules';
-import { Card, ErrorState, LinkButton, LoadingState, PageHeader } from '../components/ui';
+import { Card, ErrorState, LinkButton, LoadingState, ModuleTabs, PageHeader } from '../components/ui';
 import { extractThesisFileText, THESIS_FILE_ACCEPT } from '../utils/thesisFileText';
 
 const STEPS = ['论文上传', '模板选择', '智能评阅'];
@@ -19,7 +18,6 @@ function AiReviewRunPage() {
   const [rubrics, setRubrics] = useState<ReviewRubricsResponse | null>(null);
   const [rubricError, setRubricError] = useState<string | null>(null);
   const [loadingRubrics, setLoadingRubrics] = useState(false);
-  const [activeTab] = useState<'upload'>('upload');
   const [thesisTitle, setThesisTitle] = useState('');
   const [text, setText] = useState('');
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
@@ -68,7 +66,7 @@ function AiReviewRunPage() {
     return () => {
       mounted = false;
     };
-  }, [loadingRubrics, rubrics, user]);
+  }, [rubrics, user]);
 
   const selectedTemplate = useMemo<ReviewRubricTemplate | null>(() => {
     return rubrics?.templates.find((template) => template.template_id === selectedTemplateId) || null;
@@ -153,18 +151,13 @@ function AiReviewRunPage() {
   return (
     <div className="font-sans text-slate-900">
       <PageHeader title="AI 智能评阅" />
-
-      <nav className="grid h-20 grid-cols-2 text-3xl font-black" aria-label="AI 智能评阅导航">
-        <button
-          className={activeTab === 'upload' ? 'bg-[#3b86f6] text-white' : 'bg-[#f2f3f5] text-slate-600'}
-          type="button"
-        >
-          论文上传
-        </button>
-        <Link className="flex items-center justify-center bg-[#f2f3f5] text-slate-600" to="/ai-review/history">
-          评阅记录
-        </Link>
-      </nav>
+      <ModuleTabs
+        ariaLabel="AI 智能评阅功能导航"
+        items={[
+          { label: '发起评阅', to: '/ai-review', active: true },
+          { label: '评阅记录', to: '/ai-review/history', active: false },
+        ]}
+      />
 
       <section className="flex h-32 items-center justify-center bg-[#eef0f3]" aria-label="评阅流程进度">
         <div className="flex w-full max-w-4xl items-start justify-between px-8">
@@ -188,120 +181,112 @@ function AiReviewRunPage() {
         </div>
       </section>
 
-      {activeTab === 'history' ? (
-        <section className="mx-auto max-w-6xl px-8 py-12">
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-600">
-            评阅记录列表由历史记录节点提供；当前页面只负责发起新的规则化辅助评阅。
-          </div>
-        </section>
-      ) : (
-        <form className="mx-auto max-w-7xl px-8 py-12" onSubmit={handleSubmit}>
-          <label className="block text-xl font-black text-[#1f3f63]">
-            论文题目
-            <input
-              className="mt-3 h-14 w-full rounded-lg border border-[#d6d6d6] bg-white px-4 text-base outline-none focus:border-[#3b86f6]"
-              value={thesisTitle}
-              onChange={(event) => setThesisTitle(event.target.value)}
-            />
-            {fieldErrors.thesis_title ? (
-              <span className="mt-2 block text-sm text-red-600">{fieldErrors.thesis_title}</span>
-            ) : null}
-          </label>
-
-          <label
-            className={`mt-8 flex min-h-[220px] cursor-pointer flex-col items-center justify-center rounded-md border-[3px] border-dashed px-6 text-center transition ${dragOver ? 'border-[#3b86f6] bg-blue-50' : 'border-[#3b86f6] bg-[#fafafa]'}`}
-            onDragOver={(event) => {
-              event.preventDefault();
-              setDragOver(true);
-            }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={(event) => {
-              event.preventDefault();
-              setDragOver(false);
-              void applyFile(event.dataTransfer.files?.[0] || null);
-            }}
-          >
-            <span className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-[#3b86f6] text-3xl font-black text-[#3b86f6]">
-              ↑
-            </span>
-            <span className="mt-4 text-3xl font-black text-slate-900">拖拽或点击上传论文</span>
-            <span className="mt-2 text-lg text-slate-500">
-              文本文件、可搜索文本 PDF 及提取文本最大均为 50 MB；也可在下方直接粘贴文本
-            </span>
-            <input className="sr-only" type="file" accept={THESIS_FILE_ACCEPT} onChange={handleFileChange} />
-            {selectedFile ? <span className="mt-3 text-base font-bold text-[#3b86f6]">{selectedFile.name}</span> : null}
-          </label>
-
-          <label className="mt-6 block text-lg font-black text-[#1f3f63]">
-            论文文本
-            <textarea
-              className="mt-3 min-h-56 w-full rounded-lg border border-[#d6d6d6] bg-white p-4 leading-7 outline-none focus:border-[#3b86f6]"
-              value={text}
-              onChange={(event) => {
-                setText(event.target.value);
-                setSelectedFile(null);
-              }}
-              placeholder="粘贴摘要、关键词、引言、研究方法、结论和参考文献等论文文本。"
-            />
-            {fieldErrors.text ? <span className="mt-2 block text-sm text-red-600">{fieldErrors.text}</span> : null}
-          </label>
-
-          <section className="mt-10" aria-labelledby="review-template-heading">
-            <h2 id="review-template-heading" className="text-2xl font-black text-[#1f3f63]">
-              选择评阅模板
-            </h2>
-            {loadingRubrics ? <LoadingState label="正在加载评阅模板…" compact /> : null}
-            {rubricError ? <ErrorState message={rubricError} /> : null}
-            {rubrics ? (
-              <div className="mt-5 grid gap-5 lg:grid-cols-5">
-                {rubrics.templates.map((template, index) => {
-                  const selected = template.template_id === selectedTemplateId;
-                  return (
-                    <button
-                      key={template.template_id}
-                      aria-label={template.name}
-                      className={`relative min-h-[190px] rounded-[10px] border bg-white p-5 text-center transition hover:shadow ${selected ? 'border-[3px] border-[#3b86f6] bg-blue-50' : 'border-[#d6d6d6]'}`}
-                      type="button"
-                      onClick={() => setSelectedTemplateId(template.template_id)}
-                    >
-                      {selected ? (
-                        <span className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-[#3b86f6] text-sm font-black text-white">
-                          ✓
-                        </span>
-                      ) : null}
-                      <span
-                        className={`mx-auto flex h-14 w-14 items-center justify-center rounded-xl ${TEMPLATE_ICON_COLORS[index % TEMPLATE_ICON_COLORS.length]} text-xl font-black text-white`}
-                      >
-                        文
-                      </span>
-                      <span className="mt-4 block text-xl font-black text-slate-900">{template.name}</span>
-                      <span className="mt-2 block text-sm font-bold text-slate-500">
-                        最低参考文献 {template.minimum_reference_count} 条
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : null}
-            {selectedTemplate ? (
-              <p className="mt-4 text-sm font-semibold text-slate-600">
-                必需章节：{selectedTemplate.required_sections.join('、')}
-              </p>
-            ) : null}
-          </section>
-
-          {rubrics ? (
-            <button
-              className="mx-auto mt-12 flex h-20 w-full max-w-2xl items-center justify-center rounded-md bg-[#28ae6f] text-3xl font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300"
-              type="submit"
-              disabled={!canSubmit}
-            >
-              {readingFile ? '解析中…' : submitting ? '智能评阅中…' : '智能评阅'}
-            </button>
+      <form className="mx-auto max-w-7xl px-8 py-12" onSubmit={handleSubmit}>
+        <label className="block text-xl font-black text-[#1f3f63]">
+          论文题目
+          <input
+            className="mt-3 h-14 w-full rounded-lg border border-[#d6d6d6] bg-white px-4 text-base outline-none focus:border-[#3b86f6]"
+            value={thesisTitle}
+            onChange={(event) => setThesisTitle(event.target.value)}
+          />
+          {fieldErrors.thesis_title ? (
+            <span className="mt-2 block text-sm text-red-600">{fieldErrors.thesis_title}</span>
           ) : null}
-          {errorMessage ? <ErrorState title="提交失败" message={errorMessage} /> : null}
-        </form>
-      )}
+        </label>
+
+        <label
+          className={`mt-8 flex min-h-[220px] cursor-pointer flex-col items-center justify-center rounded-md border-[3px] border-dashed px-6 text-center transition ${dragOver ? 'border-[#3b86f6] bg-blue-50' : 'border-[#3b86f6] bg-[#fafafa]'}`}
+          onDragOver={(event) => {
+            event.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(event) => {
+            event.preventDefault();
+            setDragOver(false);
+            void applyFile(event.dataTransfer.files?.[0] || null);
+          }}
+        >
+          <span className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-[#3b86f6] text-3xl font-black text-[#3b86f6]">
+            ↑
+          </span>
+          <span className="mt-4 text-3xl font-black text-slate-900">拖拽或点击上传论文</span>
+          <span className="mt-2 text-lg text-slate-500">
+            文本文件、可搜索文本 PDF 及提取文本最大均为 50 MB；也可在下方直接粘贴文本
+          </span>
+          <input className="sr-only" type="file" accept={THESIS_FILE_ACCEPT} onChange={handleFileChange} />
+          {selectedFile ? <span className="mt-3 text-base font-bold text-[#3b86f6]">{selectedFile.name}</span> : null}
+        </label>
+
+        <label className="mt-6 block text-lg font-black text-[#1f3f63]">
+          论文文本
+          <textarea
+            className="mt-3 min-h-56 w-full rounded-lg border border-[#d6d6d6] bg-white p-4 leading-7 outline-none focus:border-[#3b86f6]"
+            value={text}
+            onChange={(event) => {
+              setText(event.target.value);
+              setSelectedFile(null);
+            }}
+            placeholder="粘贴摘要、关键词、引言、研究方法、结论和参考文献等论文文本。"
+          />
+          {fieldErrors.text ? <span className="mt-2 block text-sm text-red-600">{fieldErrors.text}</span> : null}
+        </label>
+
+        <section className="mt-10" aria-labelledby="review-template-heading">
+          <h2 id="review-template-heading" className="text-2xl font-black text-[#1f3f63]">
+            选择评阅模板
+          </h2>
+          {loadingRubrics ? <LoadingState label="正在加载评阅模板…" compact /> : null}
+          {rubricError ? <ErrorState message={rubricError} /> : null}
+          {rubrics ? (
+            <div className="mt-5 grid gap-5 lg:grid-cols-5">
+              {rubrics.templates.map((template, index) => {
+                const selected = template.template_id === selectedTemplateId;
+                return (
+                  <button
+                    key={template.template_id}
+                    aria-label={template.name}
+                    className={`relative min-h-[190px] rounded-[10px] border bg-white p-5 text-center transition hover:shadow ${selected ? 'border-[3px] border-[#3b86f6] bg-blue-50' : 'border-[#d6d6d6]'}`}
+                    type="button"
+                    onClick={() => setSelectedTemplateId(template.template_id)}
+                  >
+                    {selected ? (
+                      <span className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-[#3b86f6] text-sm font-black text-white">
+                        ✓
+                      </span>
+                    ) : null}
+                    <span
+                      className={`mx-auto flex h-14 w-14 items-center justify-center rounded-xl ${TEMPLATE_ICON_COLORS[index % TEMPLATE_ICON_COLORS.length]} text-xl font-black text-white`}
+                    >
+                      文
+                    </span>
+                    <span className="mt-4 block text-xl font-black text-slate-900">{template.name}</span>
+                    <span className="mt-2 block text-sm font-bold text-slate-500">
+                      最低参考文献 {template.minimum_reference_count} 条
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+          {selectedTemplate ? (
+            <p className="mt-4 text-sm font-semibold text-slate-600">
+              必需章节：{selectedTemplate.required_sections.join('、')}
+            </p>
+          ) : null}
+        </section>
+
+        {rubrics ? (
+          <button
+            className="mx-auto mt-12 flex h-20 w-full max-w-2xl items-center justify-center rounded-md bg-[#28ae6f] text-3xl font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+            type="submit"
+            disabled={!canSubmit}
+          >
+            {readingFile ? '解析中…' : submitting ? '智能评阅中…' : '智能评阅'}
+          </button>
+        ) : null}
+        {errorMessage ? <ErrorState title="提交失败" message={errorMessage} /> : null}
+      </form>
 
       {result ? (
         <section className="mx-auto max-w-7xl px-8 pb-12" aria-labelledby="ai-review-result-heading">

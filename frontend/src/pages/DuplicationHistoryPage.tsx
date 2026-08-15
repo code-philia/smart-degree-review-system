@@ -7,7 +7,16 @@ import {
   type DuplicationHistoryRecord,
 } from '../api/normativeRules';
 import { useAuthSession } from '../auth/AuthSessionProvider';
-import { Button, Card, EmptyState, ErrorState, LinkButton, LoadingState, PageHeader } from '../components/ui';
+import {
+  Button,
+  Card,
+  EmptyState,
+  ErrorState,
+  LinkButton,
+  LoadingState,
+  ModuleTabs,
+  PageHeader,
+} from '../components/ui';
 
 function formatPercent(value: number) {
   return `${Math.round(value * 100)}%`;
@@ -137,7 +146,14 @@ function DuplicationHistoryPage() {
 
   return (
     <div>
-      <PageHeader title="历史检测记录" />
+      <PageHeader title="论文相似度检测" description="查看本人以往检测记录和完整报告。" />
+      <ModuleTabs
+        ariaLabel="论文相似度检测功能导航"
+        items={[
+          { label: '发起检测', to: '/duplication-detect', active: false },
+          { label: '历史记录', to: '/duplication-history', active: true, count: history.length },
+        ]}
+      />
       {loading ? <LoadingState label="正在加载历史记录…" /> : null}
       {errorMessage ? <ErrorState message={errorMessage} /> : null}
       {!loading && !errorMessage && history.length === 0 ? (

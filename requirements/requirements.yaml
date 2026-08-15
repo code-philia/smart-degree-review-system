@@ -18,6 +18,42 @@ roles:
     name: '学院管理人员'
 dependencies: []
 children:
+  - id: MOD-UNIFIED-WORKBENCH
+    name: '业务功能与历史一体化'
+    type: MODULE
+    description: '规范性检测、论文相似度检测、论文润色、创新性量表评估和规则化辅助评阅在侧边栏中各保留一个模块入口。用户进入模块后，通过同一页面区域内的页签切换发起功能和历史记录；论文润色提供整篇润色、局部润色和润色记录三个页签。报告详情可以保留独立 URL，旧历史地址继续可访问，切换到历史页或详情页时侧边栏仍高亮所属业务模块。\nPDF 快速规则审查仍不保存结果，页面必须明确说明现有历史仅包含系统已持久化的规范检测记录。'
+    permissions: ALL
+    dependencies: []
+    children:
+      - id: FEAT-UNIFIED-MODULE-HISTORY
+        name: '功能与历史模块页签'
+        type: FEATURE
+        description: '模块页签只改变前端信息架构，不放宽后端的数据权限和角色范围。历史记录仍按各业务原有规则加载，报告详情链接保持可刷新和可返回。'
+        permissions: ALL
+        dependencies: []
+        scenarios:
+          - name: '在同一业务模块切换发起功能和历史'
+            actor: 'STUDENT'
+            steps:
+              - keyword: GIVEN
+                actor: 'STUDENT'
+                content: 'student01 已登录并进入论文相似度检测。'
+              - keyword: WHEN
+                actor: 'STUDENT'
+                content: '学生点击“历史记录”页签。'
+              - keyword: THEN
+                content: '系统仍将侧边栏“论文相似度检测”标记为当前模块，并仅显示 student01 的历史记录。'
+          - name: '合并论文润色入口'
+            actor: 'STUDENT'
+            steps:
+              - keyword: GIVEN
+                actor: 'STUDENT'
+                content: 'student01 已登录。'
+              - keyword: WHEN
+                actor: 'STUDENT'
+                content: '学生从侧边栏进入“论文润色”。'
+              - keyword: THEN
+                content: '页面提供整篇润色、局部润色和润色记录三个页签，侧边栏不再重复展示三个独立入口。'
   - id: MOD-AUTH
     name: '本地身份认证与会话'
     type: MODULE
