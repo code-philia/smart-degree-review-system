@@ -156,11 +156,11 @@ describe('review-pilot PDF rules review route', () => {
 
     renderRoute();
 
-    expect(await screen.findByRole('heading', { name: 'PDF 论文规则审查' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '规范性检测' })).toBeInTheDocument();
     expect(await screen.findByText('中文论文题名格式')).toBeInTheDocument();
     expect(screen.getByText('目录格式')).toBeInTheDocument();
     await user.upload(screen.getByLabelText('上传待审查 PDF'), pdf);
-    await user.click(screen.getByRole('button', { name: '开始规则审查' }));
+    await user.click(screen.getByRole('button', { name: '开始检查' }));
 
     await waitFor(() =>
       expect(runReviewPilotPaperLint).toHaveBeenCalledWith(
@@ -187,10 +187,10 @@ describe('review-pilot PDF rules review route', () => {
     await user.click(semanticRule);
 
     expect(screen.getByRole('note')).toHaveTextContent('发送到 DeepSeek 官方 API');
-    expect(screen.getByRole('button', { name: '开始规则审查' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '开始检查' })).toBeDisabled();
     await user.click(screen.getByRole('checkbox', { name: /我确认该论文相关文本允许发送/ }));
-    expect(screen.getByRole('button', { name: '开始规则审查' })).toBeEnabled();
-    await user.click(screen.getByRole('button', { name: '开始规则审查' }));
+    expect(screen.getByRole('button', { name: '开始检查' })).toBeEnabled();
+    await user.click(screen.getByRole('button', { name: '开始检查' }));
     await waitFor(() =>
       expect(runReviewPilotPaperLint).toHaveBeenCalledWith(
         pdf,
@@ -205,7 +205,7 @@ describe('review-pilot PDF rules review route', () => {
 
     renderRoute();
 
-    expect(await screen.findByRole('heading', { name: 'PDF 论文规则审查' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '规范性检测' })).toBeInTheDocument();
     expect(screen.getByText(/请先登录后上传论文/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '前往登录' })).toHaveAttribute('href', '/auth');
     expect(fetchReviewPilotPaperLintRules).not.toHaveBeenCalled();

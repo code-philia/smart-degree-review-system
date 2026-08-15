@@ -186,7 +186,7 @@ describe('FEAT-INNOVATION-ANALYZE frontend route, form, and persisted-result con
     renderRoute();
 
     expect(await screen.findByRole('heading', { name: '创新性量表评估' })).toBeInTheDocument();
-    expect(screen.getByRole('navigation', { name: '创新性量表评估功能导航' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '历史记录' })).toHaveAttribute('href', '/innovation-history');
     expect(screen.getByText(/当前登录用户：student01（STUDENT）/)).toBeInTheDocument();
     expect(screen.getByText('本结果为量表自评，不代替专家评审或文献查新')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '分析结果' })).not.toBeInTheDocument();
@@ -254,7 +254,7 @@ describe('FEAT-INNOVATION-ANALYZE frontend route, form, and persisted-result con
     renderRoute();
 
     expect(await screen.findByRole('heading', { name: '发起创新性量表评估' })).toBeInTheDocument();
-    expect(screen.getByText(/请先登录后发起创新性量表评估/)).toBeInTheDocument();
+    expect(screen.getByText(/请先登录后提交量表自评/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '前往登录' })).toHaveAttribute('href', '/auth');
     expect(screen.queryByRole('button', { name: 'AI 创新性分析' })).not.toBeInTheDocument();
     expect(createInnovationAssessment).not.toHaveBeenCalled();

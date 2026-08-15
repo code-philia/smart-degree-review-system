@@ -1,7 +1,7 @@
 import { ChangeEvent, FormEvent, useMemo, useState } from 'react';
 import { createDuplicationDetection, type DuplicationDetectionResponse } from '../api/normativeRules';
 import { useAuthSession } from '../auth/AuthSessionProvider';
-import { Card, LinkButton, LoadingState, ModuleTabs, PageHeader } from '../components/ui';
+import { Card, LinkButton, LoadingState, PageHeader } from '../components/ui';
 import { extractThesisFileText, THESIS_FILE_ACCEPT } from '../utils/thesisFileText';
 
 const DETECTION_TYPES = [{ value: 'local-similarity', label: '论文相似度检测' }];
@@ -81,13 +81,14 @@ function DuplicationDetectPage() {
 
   return (
     <div>
-      <PageHeader title="论文相似度检测" description="发起新检测，或在同一模块中查看以往检测报告。" />
-      <ModuleTabs
-        ariaLabel="论文相似度检测功能导航"
-        items={[
-          { label: '发起检测', to: '/duplication-detect', active: true },
-          { label: '历史记录', to: '/duplication-history', active: false },
-        ]}
+      <PageHeader
+        title="论文相似度检测"
+        description="上传论文或粘贴文本，与试点样本库比对相似片段。"
+        actions={
+          <LinkButton size="sm" variant="secondary" to="/duplication-history">
+            历史记录
+          </LinkButton>
+        }
       />
       <section className="mx-auto max-w-5xl">
         <form className="rounded-[28px] border border-[#B8B8B8] bg-white p-8" onSubmit={handleSubmit}>

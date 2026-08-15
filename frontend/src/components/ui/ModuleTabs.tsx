@@ -14,16 +14,15 @@ type ModuleTabsProps = {
 
 function ModuleTabs({ ariaLabel, items }: ModuleTabsProps) {
   return (
-    <nav
-      className="mb-6 flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm"
-      aria-label={ariaLabel}
-    >
+    <nav className="mb-6 flex flex-wrap items-center gap-1 border-b border-slate-200" aria-label={ariaLabel}>
       {items.map((item) => (
         <Link
           key={item.to}
           aria-current={item.active ? 'page' : undefined}
-          className={`flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-black transition sm:flex-none sm:min-w-40 ${
-            item.active ? 'bg-[#1F3F63] text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100 hover:text-[#1F3F63]'
+          className={`flex min-h-10 items-center justify-center gap-2 border-b-2 px-4 py-2 text-sm font-bold transition sm:px-5 ${
+            item.active
+              ? 'border-brand-500 text-brand-700'
+              : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-900'
           }`}
           to={item.to}
         >
@@ -31,7 +30,7 @@ function ModuleTabs({ ariaLabel, items }: ModuleTabsProps) {
           {typeof item.count === 'number' ? (
             <span
               className={`rounded-full px-2 py-0.5 text-xs ${
-                item.active ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                item.active ? 'bg-brand-50 text-brand-700' : 'bg-slate-100 text-slate-500'
               }`}
             >
               {item.count}

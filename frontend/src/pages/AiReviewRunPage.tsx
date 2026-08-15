@@ -7,7 +7,7 @@ import {
   type ReviewRubricTemplate,
   type ReviewRubricsResponse,
 } from '../api/normativeRules';
-import { Card, ErrorState, LinkButton, LoadingState, ModuleTabs, PageHeader } from '../components/ui';
+import { Card, ErrorState, LinkButton, LoadingState, PageHeader } from '../components/ui';
 import { extractThesisFileText, THESIS_FILE_ACCEPT } from '../utils/thesisFileText';
 
 const STEPS = ['论文上传', '模板选择', '智能评阅'];
@@ -150,13 +150,14 @@ function AiReviewRunPage() {
 
   return (
     <div className="font-sans text-slate-900">
-      <PageHeader title="AI 智能评阅" />
-      <ModuleTabs
-        ariaLabel="AI 智能评阅功能导航"
-        items={[
-          { label: '发起评阅', to: '/ai-review', active: true },
-          { label: '评阅记录', to: '/ai-review/history', active: false },
-        ]}
+      <PageHeader
+        title="AI 智能评阅"
+        description="上传论文并选择评阅模板，生成供人工复核的辅助评阅结果。"
+        actions={
+          <LinkButton size="sm" variant="secondary" to="/ai-review/history">
+            评阅记录
+          </LinkButton>
+        }
       />
 
       <section className="flex h-32 items-center justify-center bg-[#eef0f3]" aria-label="评阅流程进度">
