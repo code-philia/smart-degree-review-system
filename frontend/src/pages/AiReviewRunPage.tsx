@@ -170,11 +170,7 @@ function AiReviewRunPage() {
 
       <form className="mx-auto max-w-7xl px-6 py-8 lg:px-8" onSubmit={handleSubmit}>
         <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.8fr)]">
-          <Card
-            title="论文材料"
-            description="上传可提取文本的论文文件，或直接粘贴需要评阅的文本。"
-            className="p-6"
-          >
+          <Card title="论文材料" description="上传可提取文本的论文文件，或直接粘贴需要评阅的文本。" className="p-6">
             <label className="block text-sm font-semibold text-slate-800">
               论文题目
               <input
@@ -207,15 +203,25 @@ function AiReviewRunPage() {
               </span>
               <span className="min-w-0 text-left">
                 <span className="block text-sm font-semibold text-slate-800">上传论文文件</span>
-                <span className="mt-0.5 block text-xs leading-5 text-slate-500">支持 .txt、.md 与可搜索文本 PDF，最大 50 MB</span>
-                {selectedFile ? <span className="mt-1 block truncate text-xs font-semibold text-brand-700">已选择：{selectedFile.name}</span> : null}
+                <span className="mt-0.5 block text-xs leading-5 text-slate-500">
+                  支持 .txt、.md 与可搜索文本 PDF，最大 50 MB
+                </span>
+                {selectedFile ? (
+                  <span className="mt-1 block truncate text-xs font-semibold text-brand-700">
+                    已选择：{selectedFile.name}
+                  </span>
+                ) : null}
               </span>
-              <span className="ml-auto hidden rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 sm:block">选择文件</span>
+              <span className="ml-auto hidden rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 sm:block">
+                选择文件
+              </span>
               <input className="sr-only" type="file" accept={THESIS_FILE_ACCEPT} onChange={handleFileChange} />
             </label>
 
             <div className="my-5 flex items-center gap-3 text-xs text-slate-400" aria-hidden="true">
-              <span className="h-px flex-1 bg-slate-200" />或直接粘贴文本<span className="h-px flex-1 bg-slate-200" />
+              <span className="h-px flex-1 bg-slate-200" />
+              或直接粘贴文本
+              <span className="h-px flex-1 bg-slate-200" />
             </div>
 
             <label className="block text-sm font-semibold text-slate-800">
@@ -234,52 +240,62 @@ function AiReviewRunPage() {
                 <span>仅用于本次辅助评阅。</span>
                 <span>{text.length.toLocaleString()} 字</span>
               </span>
-              {fieldErrors.text ? <span className="mt-2 block text-sm font-normal text-red-600">{fieldErrors.text}</span> : null}
+              {fieldErrors.text ? (
+                <span className="mt-2 block text-sm font-normal text-red-600">{fieldErrors.text}</span>
+              ) : null}
             </label>
           </Card>
 
           <div className="space-y-6 xl:sticky xl:top-6">
             <Card title="评阅设置" description="选择与当前培养类型相符的模板。" className="p-6">
               <section aria-labelledby="review-template-heading">
-                <h2 id="review-template-heading" className="sr-only">选择评阅模板</h2>
-          {loadingRubrics ? <LoadingState label="正在加载评阅模板…" compact /> : null}
-          {rubricError ? <ErrorState message={rubricError} /> : null}
-          {rubrics ? (
-            <div className="space-y-2">
-              {rubrics.templates.map((template) => {
-                const selected = template.template_id === selectedTemplateId;
-                return (
-                  <button
-                    key={template.template_id}
-                    aria-label={template.name}
-                    aria-pressed={selected}
-                    className={`flex w-full items-center gap-3 rounded-lg border p-3.5 text-left transition ${selected ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-500' : 'border-slate-200 bg-white hover:border-brand-300 hover:bg-slate-50'}`}
-                    type="button"
-                    onClick={() => setSelectedTemplateId(template.template_id)}
-                  >
-                    <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${selected ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 bg-white'}`}>
-                      {selected ? <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" /> : null}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold text-slate-800">{template.name}</span>
-                      <span className="mt-0.5 block text-xs text-slate-500">最低参考文献 {template.minimum_reference_count} 条</span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          ) : null}
-          {selectedTemplate ? (
-            <div className="mt-5 rounded-lg border border-brand-100 bg-brand-50/70 p-4">
-              <div className="flex gap-2">
-                <FileText className="mt-0.5 h-4 w-4 shrink-0 text-brand-700" aria-hidden="true" />
-                <div>
-                  <p className="text-xs font-semibold text-brand-900">本模板关注的必要章节</p>
-                  <p className="mt-1 text-xs leading-5 text-slate-600">必需章节：{selectedTemplate.required_sections.join('、')}</p>
-                </div>
-              </div>
-            </div>
-          ) : null}
+                <h2 id="review-template-heading" className="sr-only">
+                  选择评阅模板
+                </h2>
+                {loadingRubrics ? <LoadingState label="正在加载评阅模板…" compact /> : null}
+                {rubricError ? <ErrorState message={rubricError} /> : null}
+                {rubrics ? (
+                  <div className="space-y-2">
+                    {rubrics.templates.map((template) => {
+                      const selected = template.template_id === selectedTemplateId;
+                      return (
+                        <button
+                          key={template.template_id}
+                          aria-label={template.name}
+                          aria-pressed={selected}
+                          className={`flex w-full items-center gap-3 rounded-lg border p-3.5 text-left transition ${selected ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-500' : 'border-slate-200 bg-white hover:border-brand-300 hover:bg-slate-50'}`}
+                          type="button"
+                          onClick={() => setSelectedTemplateId(template.template_id)}
+                        >
+                          <span
+                            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${selected ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 bg-white'}`}
+                          >
+                            {selected ? <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" /> : null}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-semibold text-slate-800">{template.name}</span>
+                            <span className="mt-0.5 block text-xs text-slate-500">
+                              最低参考文献 {template.minimum_reference_count} 条
+                            </span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+                {selectedTemplate ? (
+                  <div className="mt-5 rounded-lg border border-brand-100 bg-brand-50/70 p-4">
+                    <div className="flex gap-2">
+                      <FileText className="mt-0.5 h-4 w-4 shrink-0 text-brand-700" aria-hidden="true" />
+                      <div>
+                        <p className="text-xs font-semibold text-brand-900">本模板关注的必要章节</p>
+                        <p className="mt-1 text-xs leading-5 text-slate-600">
+                          必需章节：{selectedTemplate.required_sections.join('、')}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
               </section>
               {rubrics ? (
                 <Button className="mt-6 w-full" size="lg" type="submit" disabled={!canSubmit} aria-label="智能评阅">
@@ -295,7 +311,11 @@ function AiReviewRunPage() {
             </div>
           </div>
         </div>
-        {errorMessage ? <div className="mt-6"><ErrorState title="提交失败" message={errorMessage} /></div> : null}
+        {errorMessage ? (
+          <div className="mt-6">
+            <ErrorState title="提交失败" message={errorMessage} />
+          </div>
+        ) : null}
       </form>
 
       {result ? (
