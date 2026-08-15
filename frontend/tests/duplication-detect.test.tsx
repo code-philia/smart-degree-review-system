@@ -65,6 +65,9 @@ function renderHistoryReportRoute() {
 function report(overrides: Partial<DuplicationDetectionResponse> = {}): DuplicationDetectionResponse {
   return {
     status: 'completed',
+    detection_type: 'campus_corpus',
+    detection_type_label: '校内库查重',
+    detection_description: '与当前试点本地样本库进行相似片段比对。',
     source_type: 'paste',
     source_filename: null,
     threshold: 0.65,
@@ -180,7 +183,9 @@ describe('FEAT-DUPLICATION-DETECT frontend page route and API client contract', 
 
     expect(await screen.findByRole('heading', { name: '发起检测' })).toBeInTheDocument();
     expect(screen.getByText('选择论文文件')).toBeInTheDocument();
-    expect(screen.getByRole('combobox')).toHaveValue('local-similarity');
+    expect(screen.getByRole('combobox')).toHaveValue('campus_corpus');
+    expect(screen.getByRole('option', { name: '校内库查重' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'AIGC 写作风险检测' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '开始检测' })).toBeDisabled();
   });
 
@@ -211,6 +216,7 @@ describe('FEAT-DUPLICATION-DETECT frontend page route and API client contract', 
         text: '高校数字治理平台的建设效果进行分析',
         source_type: 'file',
         source_filename: 'paper.md',
+        detection_type: 'campus_corpus',
       }),
     );
   });
@@ -230,6 +236,7 @@ describe('FEAT-DUPLICATION-DETECT frontend page route and API client contract', 
         text: '高校数字治理平台的建设效果进行分析',
         source_type: 'paste',
         source_filename: null,
+        detection_type: 'campus_corpus',
       }),
     );
     expect(await screen.findByText(/写作风险分为启发式风险提示，并非 AI 真伪结论/)).toBeInTheDocument();
@@ -238,6 +245,38 @@ describe('FEAT-DUPLICATION-DETECT frontend page route and API client contract', 
     expect(screen.getByRole('heading', { name: '高校数字治理样本' })).toBeInTheDocument();
     expect(screen.getByText(/Jaccard：0.812 · 命中字符：52/)).toBeInTheDocument();
     expect(screen.getByText(/高校数字治理平台的建设效果进行分析/)).toBeInTheDocument();
+  });
+
+  it('FEAT-DUPLICATION-DETECT:UI:TYPE:001 submits AIGC writing-risk mode and does not present corpus matches as its result', async () => {
+    vi.mocked(fetchCurrentSession).mockResolvedValue({ user: student });
+    vi.mocked(createDuplicationDetection).mockResolvedValue(
+      report({
+        detection_type: 'aigc_writing_risk',
+        detection_type_label: 'AIGC 写作风险检测',
+        detection_description: '依据文本特征生成写作风险提示，不构成 AI 生成真伪结论。',
+        sample_count: 0,
+        top_matches: [],
+      }),
+    );
+    const user = userEvent.setup();
+
+    renderDetectRoute();
+
+    await user.selectOptions(await screen.findByRole('combobox'), 'aigc_writing_risk');
+    await user.type(
+      screen.getByPlaceholderText(/粘贴待检测论文文本/),
+      '首先，本文从多个方面进行分析。因此，相关问题具有重要意义。',
+    );
+    await user.click(screen.getByRole('button', { name: '开始检测' }));
+
+    await waitFor(() =>
+      expect(createDuplicationDetection).toHaveBeenCalledWith(
+        expect.objectContaining({ detection_type: 'aigc_writing_risk' }),
+      ),
+    );
+    expect(await screen.findByRole('heading', { name: 'AIGC 写作风险检测' })).toBeInTheDocument();
+    expect(screen.getByText('写作风险分')).toBeInTheDocument();
+    expect(screen.queryByText('相似片段')).not.toBeInTheDocument();
   });
 
   it('FEAT-DUPLICATION-DETECT:SCENARIO:002 renders no_samples explicitly without fabricated match rows while still showing writing risk', async () => {
@@ -275,6 +314,7 @@ describe('FEAT-DUPLICATION-DETECT frontend page route and API client contract', 
       source_type: 'paste' as const,
       source_filename: null,
       threshold: 0.65,
+      detection_type: 'campus_corpus' as const,
     };
 
     await expect(realApi.createDuplicationDetection(payload)).resolves.toMatchObject({ status: 'no_samples' });

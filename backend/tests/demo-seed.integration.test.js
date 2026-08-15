@@ -48,7 +48,7 @@ describe('explicit demo data seed', () => {
       ai_review: 12,
       whole_polish: 3,
       local_polish: 2,
-      corpus: 5,
+      corpus: 8,
       submissions: 5,
       todos: 5,
       feedback: 4,
@@ -116,7 +116,7 @@ describe('explicit demo data seed', () => {
     );
     expect(dashboard.body.sample_count).toBe(8);
     expect(dashboard.body.metrics.every((metric) => metric.sample_count === 8)).toBe(true);
-    expect(corpus.body.samples).toHaveLength(5);
+    expect(corpus.body.samples).toHaveLength(8);
 
     await expect(
       get(

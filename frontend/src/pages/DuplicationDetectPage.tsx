@@ -5,13 +5,24 @@ import { useAuthSession } from '../auth/AuthSessionProvider';
 import { Button, Card, LinkButton, LoadingState, PageHeader, StatusBadge } from '../components/ui';
 import { extractThesisFileText, THESIS_FILE_ACCEPT } from '../utils/thesisFileText';
 
-const DETECTION_TYPES = [{ value: 'local-similarity', label: '论文相似度检测' }];
+const DETECTION_TYPES = [
+  {
+    value: 'campus_corpus',
+    label: '校内库查重',
+    description: '与学校管理人员维护的试点样本库比对相似片段。',
+  },
+  {
+    value: 'aigc_writing_risk',
+    label: 'AIGC 写作风险检测',
+    description: '根据重复、句式与模板化表达等文本特征给出风险提示。',
+  },
+] as const;
 
 function DuplicationDetectPage() {
   const { status, user } = useAuthSession();
   const [text, setText] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [selectedType, setSelectedType] = useState(DETECTION_TYPES[0].value);
+  const [selectedType, setSelectedType] = useState<(typeof DETECTION_TYPES)[number]['value']>(DETECTION_TYPES[0].value);
   const [report, setReport] = useState<DuplicationDetectionResponse | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [readingFile, setReadingFile] = useState(false);
@@ -50,6 +61,7 @@ function DuplicationDetectPage() {
         text,
         source_type: selectedFile ? 'file' : 'paste',
         source_filename: selectedFile?.name || null,
+        detection_type: selectedType,
       });
       setReport(result);
       setText('');
@@ -82,7 +94,7 @@ function DuplicationDetectPage() {
     <div>
       <PageHeader
         title="论文相似度检测"
-        description="上传论文或粘贴文本，与试点样本库比对相似片段。"
+        description="选择校内库查重或 AIGC 写作风险检测，上传论文或粘贴文本后获得相应结果。"
         actions={
           <LinkButton size="sm" variant="secondary" to="/duplication-history">
             历史记录
@@ -93,7 +105,9 @@ function DuplicationDetectPage() {
         <form className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6" onSubmit={handleSubmit}>
           <div className="mb-5 border-b border-slate-100 pb-5">
             <h2 className="text-lg font-bold text-slate-900">发起检测</h2>
-            <p className="mt-1 text-sm text-slate-500">提交后将与当前试点样本库进行相似片段比对。</p>
+            <p className="mt-1 text-sm text-slate-500">
+              校内库查重比对当前试点样本库；AIGC 写作风险检测仅输出文本特征提示。
+            </p>
           </div>
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,.65fr)]">
             <div className="space-y-4">
@@ -140,16 +154,19 @@ function DuplicationDetectPage() {
                       </option>
                     ))}
                   </select>
+                  <p className="mt-2 text-xs leading-5 text-slate-500">
+                    {DETECTION_TYPES.find((option) => option.value === selectedType)?.description}
+                  </p>
                 </label>
                 <p className="mt-5 text-xs leading-5 text-slate-500">
-                  检测范围为当前试点样本库；结果中的写作风险仅作启发式提示。
+                  AIGC 写作风险仅作启发式提示，不用于判断 AI 生成真伪或学术不端。
                 </p>
               </div>
               <Button
                 className="mt-6 w-full"
                 size="lg"
                 type="submit"
-                disabled={readingFile || submitting || !text.trim() || selectedType !== 'local-similarity'}
+                disabled={readingFile || submitting || !text.trim()}
               >
                 {readingFile ? '正在解析文件…' : submitting ? '正在检测…' : '开始检测'}
               </Button>
@@ -163,8 +180,10 @@ function DuplicationDetectPage() {
             <div className="flex items-center gap-3">
               <span className="size-2 animate-pulse rounded-full bg-brand-500" />
               <div>
-                <p className="font-bold text-slate-900">正在与试点样本库比对</p>
-                <p className="mt-1 text-sm text-slate-500">完成后将展示真实的检测结果。</p>
+                <p className="font-bold text-slate-900">
+                  正在进行{DETECTION_TYPES.find((option) => option.value === selectedType)?.label}
+                </p>
+                <p className="mt-1 text-sm text-slate-500">完成后将展示基于本次文本计算的结果。</p>
               </div>
             </div>
           </Card>
@@ -172,33 +191,42 @@ function DuplicationDetectPage() {
 
         {report ? (
           <Card
-            title="检测结果"
-            description="本次检测已完成，可依据相似片段进一步核对。"
+            title={report.detection_type_label}
+            description={report.detection_description}
             actions={<StatusBadge tone={report.status === 'no_samples' ? 'neutral' : 'success'}>已完成</StatusBadge>}
           >
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {[
-                ['比对样本数', report.sample_count],
-                ['总相似率', `${Math.round(report.total_similarity_rate * 100)}%`],
-                ['有效字符数', report.effective_character_count],
-                ['风险分', Math.round(report.risk.score)],
-              ].map(([label, value]) => (
-                <div key={label} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs text-slate-500">{label}</p>
-                  <p className="mt-1 text-2xl font-black text-slate-900">{value}</p>
-                </div>
-              ))}
+              {(report.detection_type === 'campus_corpus'
+                ? [
+                    ['比对样本数', report.sample_count],
+                    ['总相似率', `${Math.round(report.total_similarity_rate * 100)}%`],
+                    ['风险分', Math.round(report.risk.score)],
+                  ]
+                : [
+                    ['写作风险分', Math.round(report.risk.score)],
+                    ['风险性质', '启发式提示'],
+                  ]
+              )
+                .concat([['有效字符数', report.effective_character_count]])
+                .map(([label, value]) => (
+                  <div key={label} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-xs text-slate-500">{label}</p>
+                    <p className="mt-1 text-2xl font-black text-slate-900">{value}</p>
+                  </div>
+                ))}
             </div>
             <div className="mt-5 space-y-4">
               <p className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-                写作风险分为启发式风险提示，并非 AI 真伪结论。
+                {report.detection_type === 'aigc_writing_risk'
+                  ? '写作风险分为启发式风险提示，并非 AI 真伪结论。建议结合写作过程、引用和导师指导综合判断。'
+                  : '写作风险分为启发式风险提示，并非 AI 真伪结论。'}
               </p>
-              {report.status === 'no_samples' ? (
+              {report.detection_type === 'campus_corpus' && report.status === 'no_samples' ? (
                 <p className="rounded-lg border border-dashed border-slate-300 px-4 py-3 text-sm text-slate-600">
                   当前样本库没有可用比对样本，因此未生成相似片段。
                 </p>
               ) : null}
-              {report.top_matches.length > 0 ? (
+              {report.detection_type === 'campus_corpus' && report.top_matches.length > 0 ? (
                 <section aria-labelledby="similarity-matches-heading" className="space-y-3">
                   <h3 id="similarity-matches-heading" className="text-sm font-bold text-slate-900">
                     相似片段

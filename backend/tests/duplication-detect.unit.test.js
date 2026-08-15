@@ -125,8 +125,8 @@ describe('FEAT-DUPLICATION-DETECT service similarity and risk rules', () => {
   it('FEAT-DUPLICATION-DETECT:FUNC:RISK:001 calculates weighted heuristic writing risk without presenting an AI authenticity conclusion', async () => {
     const repetitiveText = [
       '首先，本文对相关问题进行分析。',
-      '其次，本文对相关问题进行分析。',
-      '再次，本文对相关问题进行分析。',
+      '首先，本文对相关问题进行分析。',
+      '首先，本文对相关问题进行分析。',
       '综上所述，具有重要意义，相关方面应予以重视。',
     ].join('\n');
 
@@ -150,6 +150,26 @@ describe('FEAT-DUPLICATION-DETECT service similarity and risk rules', () => {
     expect(result.risk.factors.template_connector_density).toBeGreaterThan(0);
     expect(result.risk.factors.vague_phrase_density).toBeGreaterThan(0);
     expect(result.risk.score).toBeCloseTo(factorContribution(result.risk.factors, result.risk.weights), 5);
+  });
+
+  it('FEAT-DUPLICATION-DETECT:TYPE:001 runs AIGC writing-risk mode independently from the corpus and labels the result honestly', async () => {
+    const result = await runDuplicationDetection(student, {
+      text: '首先，本文从多个方面进行分析。因此，相关问题具有重要意义。',
+      source_type: 'paste',
+      detection_type: 'aigc_writing_risk',
+    });
+
+    expect(result).toMatchObject({
+      status: 'completed',
+      detection_type: 'aigc_writing_risk',
+      detection_type_label: 'AIGC 写作风险检测',
+      sample_count: 0,
+      top_matches: [],
+      risk: {
+        label: 'heuristic_only',
+        explanation: expect.stringMatching(/并非 AI 真伪结论/),
+      },
+    });
   });
 
   it('FEAT-DUPLICATION-DETECT:FUNC:VALIDATION:001 rejects missing, unsupported-role, blank, and oversized detection requests before corpus reads are needed', async () => {

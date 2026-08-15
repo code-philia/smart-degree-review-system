@@ -4,6 +4,16 @@ const MAX_DUPLICATION_DETECTION_TEXT_BYTES = 50 * 1024 * 1024;
 const ALLOWED_DUPLICATION_DETECTION_FILE_EXTENSIONS = Object.freeze(['.txt', '.md', '.pdf']);
 const DEFAULT_DUPLICATION_MATCH_THRESHOLD = 0.65;
 const ALLOWED_DUPLICATION_DETECTION_ROLES = ['STUDENT', 'SUPERVISOR', 'SCHOOL_ADMIN', 'COLLEGE_ADMIN'];
+const DUPLICATION_DETECTION_TYPES = Object.freeze({
+  campus_corpus: {
+    label: '校内库查重',
+    description: '与当前试点本地样本库进行相似片段比对。',
+  },
+  aigc_writing_risk: {
+    label: 'AIGC 写作风险检测',
+    description: '依据文本特征生成写作风险提示，不构成 AI 生成真伪结论。',
+  },
+});
 const RISK_WEIGHTS = {
   paragraph_duplication_rate: 0.35,
   sentence_length_low_variation: 0.25,
@@ -90,6 +100,9 @@ function validateDetectionPayload(payload = {}) {
     source_type: sourceType,
     source_filename: sourceType === 'file' ? sourceFilename : null,
     threshold,
+    detection_type: Object.hasOwn(DUPLICATION_DETECTION_TYPES, payload.detection_type)
+      ? payload.detection_type
+      : 'campus_corpus',
   };
 }
 
@@ -264,7 +277,7 @@ function calculateWritingRisk(text, totalSimilarityRate) {
 async function runDuplicationDetection(user, payload) {
   ensureAuthorizedUser(user);
   const request = validateDetectionPayload(payload);
-  const samples = await listCorpusSamples();
+  const samples = request.detection_type === 'campus_corpus' ? await listCorpusSamples() : [];
   const normalizedSource = normalizeText(request.text);
   const effectiveCharacterCount = [...normalizedSource].length;
   const sourceIntervals = [];
@@ -301,7 +314,10 @@ async function runDuplicationDetection(user, payload) {
   const totalSimilarityRate = effectiveCharacterCount > 0 ? Math.min(1, matchedCharacters / effectiveCharacterCount) : 0;
 
   return {
-    status: samples.length > 0 && matches.length > 0 ? 'completed' : samples.length > 0 ? 'completed' : 'no_samples',
+    status: request.detection_type === 'aigc_writing_risk' || samples.length > 0 ? 'completed' : 'no_samples',
+    detection_type: request.detection_type,
+    detection_type_label: DUPLICATION_DETECTION_TYPES[request.detection_type].label,
+    detection_description: DUPLICATION_DETECTION_TYPES[request.detection_type].description,
     source_type: request.source_type,
     source_filename: request.source_filename,
     threshold: request.threshold,
@@ -316,6 +332,7 @@ async function runDuplicationDetection(user, payload) {
 module.exports = {
   ALLOWED_DUPLICATION_DETECTION_ROLES,
   DEFAULT_DUPLICATION_MATCH_THRESHOLD,
+  DUPLICATION_DETECTION_TYPES,
   MAX_DUPLICATION_DETECTION_TEXT_BYTES,
   runDuplicationDetection,
 };

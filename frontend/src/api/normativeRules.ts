@@ -246,6 +246,7 @@ export type DuplicationDetectionRequest = {
   source_type: 'paste' | 'file';
   source_filename?: string | null;
   threshold?: number;
+  detection_type?: 'campus_corpus' | 'aigc_writing_risk';
 };
 
 export type DuplicationSimilaritySegment = {
@@ -283,6 +284,9 @@ export type DuplicationRiskReport = {
 
 export type DuplicationDetectionResponse = {
   status: 'completed' | 'no_samples';
+  detection_type: 'campus_corpus' | 'aigc_writing_risk';
+  detection_type_label: string;
+  detection_description: string;
   source_type: 'paste' | 'file';
   source_filename?: string | null;
   threshold: number;

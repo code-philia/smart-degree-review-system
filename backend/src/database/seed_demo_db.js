@@ -2,7 +2,7 @@ const { closeDb, getDbPath, initializeDatabase } = require('./init_db');
 const { seedDatabase } = require('./seed_db');
 const { withTransaction } = require('./db_runtime');
 
-const DEMO_SEED_VERSION = '2026.08.15.1';
+const DEMO_SEED_VERSION = '2026.08.15.2';
 const DEMO_USER_IDS = ['student01', 'supervisor01', 'college_admin01', 'school_admin01'];
 const SUPERVISOR_PROFILES = [
   { id: 'supervisor02', collegeId: 'college01' },
@@ -417,7 +417,7 @@ function buildAiScoreItems(totalScore) {
   });
 }
 
-function buildDuplicationReport(student, originalText, sourceFilename) {
+function buildDuplicationReport(student, originalText, sourceFilename, detectionType = 'campus_corpus') {
   const corpusMatches = [
     ['demo-corpus-digital-governance', '高校数字治理与质量保障案例样本', '教育管理', 2025, '构建由制度规范、过程管理、反馈机制和质量改进组成的分析框架。', '形成可解释、可追溯的质量评价框架'],
     ['demo-corpus-graduate-writing', '研究生学术写作规范案例样本', '研究生教育', 2024, '持续呈现任务完成节奏和反馈响应情况。', '形成持续修改记录'],
@@ -426,15 +426,21 @@ function buildDuplicationReport(student, originalText, sourceFilename) {
     ['demo-corpus-research-integrity', '高校科研诚信教育实施路径案例', '科研管理', 2024, '在选题、数据处理和论文送审前设置针对性提示。', '融入研究设计、数据采集、论文写作全过程'],
   ];
   const [sampleId, title, subject, year, sourceExcerpt, sampleExcerpt] = corpusMatches[getResearchContext(student).corpusIndex];
+  const isAigcRisk = detectionType === 'aigc_writing_risk';
   return {
     status: 'completed',
+    detection_type: detectionType,
+    detection_type_label: isAigcRisk ? 'AIGC 写作风险检测' : '校内库查重',
+    detection_description: isAigcRisk
+      ? '演示数据：根据文本特征生成写作风险提示，不构成 AI 生成真伪结论。'
+      : '演示数据：与试点本地样本库进行相似片段比对。',
     source_type: 'file',
     source_filename: sourceFilename,
     threshold: 0.3,
     effective_character_count: originalText.length,
-    total_similarity_rate: student.similarityRate,
-    sample_count: 5,
-    top_matches: [
+    total_similarity_rate: isAigcRisk ? 0 : student.similarityRate,
+    sample_count: isAigcRisk ? 0 : 8,
+    top_matches: isAigcRisk ? [] : [
       {
         sample_id: sampleId,
         title,
@@ -457,7 +463,9 @@ function buildDuplicationReport(student, originalText, sourceFilename) {
     risk: {
       score: Math.round(student.similarityRate * 100),
       label: 'heuristic_only',
-      explanation: '风险分仅依据本地样本相似片段和文本特征计算。',
+      explanation: isAigcRisk
+        ? '演示数据：写作风险分仅依据重复、句式和模板化表达等文本特征计算，并非 AI 真伪结论。'
+        : '演示数据：风险分仅依据本地样本相似片段和文本特征计算。',
       factors: {
         paragraph_duplication_rate: student.similarityRate,
         sentence_length_low_variation: 0.18,
@@ -635,6 +643,30 @@ async function seedCorpus(tx, summary) {
       content:
         '科研诚信教育需要融入研究设计、数据采集、论文写作和成果发布全过程，通过导师指导、规则教育和案例警示提升研究者的责任意识。',
     },
+    {
+      id: 'demo-corpus-education-evaluation',
+      title: '教育评价数字化转型研究样本',
+      subject: '教育学',
+      year: 2023,
+      content:
+        '教育评价数字化转型应同时关注数据质量、指标解释和结果反馈，避免将单一量化分数直接替代对学习过程与研究成果的综合判断。',
+    },
+    {
+      id: 'demo-corpus-public-policy',
+      title: '公共政策协同治理案例样本',
+      subject: '公共管理',
+      year: 2024,
+      content:
+        '协同治理需要明确责任边界、信息共享机制和反馈时限，并通过阶段性评估识别执行偏差，为后续政策调整提供可追溯的证据。',
+    },
+    {
+      id: 'demo-corpus-learning-analytics',
+      title: '学习分析支持课程改进研究样本',
+      subject: '教育技术学',
+      year: 2025,
+      content:
+        '学习分析应将任务完成节奏、互动质量和反馈响应情况结合起来解释，教师需要结合课程目标与学生实际情况开展人工复核。',
+    },
   ];
   for (const [index, sample] of samples.entries()) {
     await insertDemoRow(
@@ -662,7 +694,12 @@ async function seedQualityRecordSet(tx, summary, student, index, options = {}) {
   const reviewCreatedAt = isoDaysAgo(baseDaysAgo ?? 1 - Math.min(index, 1), 5);
   const originalText = buildOriginalText(student, revisionLabel);
   const normativeIssues = buildNormativeIssues(student.severityCounts);
-  const duplicationReport = buildDuplicationReport(student, originalText, sourceFilename);
+    const duplicationReport = buildDuplicationReport(
+      student,
+      originalText,
+      sourceFilename,
+      index % 2 === 0 ? 'campus_corpus' : 'aigc_writing_risk',
+    );
   const { inputSnapshot, scoringSnapshot } = buildInnovationSnapshots(
     { ...student, thesisTitle: displayTitle },
     innovationCreatedAt,
@@ -712,14 +749,15 @@ async function seedQualityRecordSet(tx, summary, student, index, options = {}) {
     `INSERT OR IGNORE INTO duplication_detection_reports (
        id, user_id, source_type, source_filename, original_text, total_similarity_rate,
        writing_risk_score, sample_count, report_json, created_at
-     ) VALUES (?, ?, 'file', ?, ?, ?, ?, 5, ?, ?)`,
+       ) VALUES (?, ?, 'file', ?, ?, ?, ?, ?, ?, ?)`,
     [
       `demo-duplication-${recordKey}`,
       student.id,
       sourceFilename,
       originalText,
-      student.similarityRate,
+      duplicationReport.total_similarity_rate,
       Math.round(student.similarityRate * 100 + 16),
+      duplicationReport.sample_count,
       JSON.stringify(duplicationReport),
       duplicationCreatedAt,
     ],
