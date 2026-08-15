@@ -187,11 +187,7 @@ function NormativeCheckPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="规范性检测"
-        description="上传 PDF 论文并选择检查项，生成可定位问题的检查报告。"
-        breadcrumbs={[{ label: '检测与生成', to: '/' }, { label: '规范性检测' }]}
-      />
+      <PageHeader title="规范性检测" description="上传 PDF 论文并选择检查项，生成可定位问题的检查报告。" />
       <ModuleTabs
         ariaLabel="规范性检测功能导航"
         items={[
