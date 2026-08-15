@@ -1,4 +1,5 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
+import { Check, FileText, FileUp, Info, ListChecks, Sparkles } from 'lucide-react';
 import { useAuthSession } from '../auth/AuthSessionProvider';
 import {
   createAiReviewRun,
@@ -7,11 +8,8 @@ import {
   type ReviewRubricTemplate,
   type ReviewRubricsResponse,
 } from '../api/normativeRules';
-import { Card, ErrorState, LinkButton, LoadingState, PageHeader } from '../components/ui';
+import { Button, Card, ErrorState, LinkButton, LoadingState, PageHeader } from '../components/ui';
 import { extractThesisFileText, THESIS_FILE_ACCEPT } from '../utils/thesisFileText';
-
-const STEPS = ['论文上传', '模板选择', '智能评阅'];
-const TEMPLATE_ICON_COLORS = ['bg-[#3b86f6]', 'bg-[#28ae6f]', 'bg-[#f59e0b]', 'bg-[#8b5cf6]', 'bg-[#ef4444]'];
 
 function AiReviewRunPage() {
   const { status, user } = useAuthSession();
@@ -152,7 +150,7 @@ function AiReviewRunPage() {
     <div className="font-sans text-slate-900">
       <PageHeader
         title="AI 智能评阅"
-        description="上传论文并选择评阅模板，生成供人工复核的辅助评阅结果。"
+        description="为论文准备一份结构化的辅助评阅底稿，供作者完善和导师后续复核。"
         actions={
           <LinkButton size="sm" variant="secondary" to="/ai-review/history">
             评阅记录
@@ -160,110 +158,111 @@ function AiReviewRunPage() {
         }
       />
 
-      <section className="flex h-32 items-center justify-center bg-[#eef0f3]" aria-label="评阅流程进度">
-        <div className="flex w-full max-w-4xl items-start justify-between px-8">
-          {STEPS.map((step, index) => (
-            <div key={step} className="flex flex-1 items-start last:flex-none">
-              <div className="flex flex-col items-center">
-                <span
-                  className={`flex h-12 w-12 items-center justify-center rounded-full text-xl font-black ${index === (result ? 2 : selectedTemplateId && text.trim() ? 1 : 0) ? 'bg-[#3b86f6] text-white' : 'border border-slate-300 bg-[#e5e5e5] text-[#8c8c8c]'}`}
-                >
-                  {index + 1}
-                </span>
-                <span
-                  className={`mt-2 text-lg font-black ${index === (result ? 2 : selectedTemplateId && text.trim() ? 1 : 0) ? 'text-[#3b86f6]' : 'text-[#8c8c8c]'}`}
-                >
-                  {step}
-                </span>
-              </div>
-              {index < STEPS.length - 1 ? <span className="mt-6 h-px flex-1 bg-slate-300" /> : null}
-            </div>
-          ))}
+      <section className="border-y border-slate-200 bg-white" aria-label="评阅说明">
+        <div className="mx-auto flex max-w-7xl items-start gap-3 px-6 py-4 lg:px-8">
+          <ListChecks className="mt-0.5 h-5 w-5 shrink-0 text-brand-700" aria-hidden="true" />
+          <div className="text-sm leading-6 text-slate-600">
+            <span className="font-semibold text-slate-800">使用方式：</span>
+            填写题目与论文文本，选择适用的评阅模板后生成辅助结果。结果用于完善论文和支持人工判断，不替代导师或专家评阅。
+          </div>
         </div>
       </section>
 
-      <form className="mx-auto max-w-7xl px-8 py-12" onSubmit={handleSubmit}>
-        <label className="block text-xl font-black text-[#1f3f63]">
-          论文题目
-          <input
-            className="mt-3 h-14 w-full rounded-lg border border-[#d6d6d6] bg-white px-4 text-base outline-none focus:border-[#3b86f6]"
-            value={thesisTitle}
-            onChange={(event) => setThesisTitle(event.target.value)}
-          />
-          {fieldErrors.thesis_title ? (
-            <span className="mt-2 block text-sm text-red-600">{fieldErrors.thesis_title}</span>
-          ) : null}
-        </label>
+      <form className="mx-auto max-w-7xl px-6 py-8 lg:px-8" onSubmit={handleSubmit}>
+        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.8fr)]">
+          <Card
+            title="论文材料"
+            description="上传可提取文本的论文文件，或直接粘贴需要评阅的文本。"
+            className="p-6"
+          >
+            <label className="block text-sm font-semibold text-slate-800">
+              论文题目
+              <input
+                className="mt-2 h-11 w-full rounded-lg border border-slate-300 bg-white px-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                aria-label="论文题目"
+                value={thesisTitle}
+                onChange={(event) => setThesisTitle(event.target.value)}
+                placeholder="例如：高校数字治理平台评阅研究"
+              />
+              {fieldErrors.thesis_title ? (
+                <span className="mt-2 block text-sm font-normal text-red-600">{fieldErrors.thesis_title}</span>
+              ) : null}
+            </label>
 
-        <label
-          className={`mt-8 flex min-h-[220px] cursor-pointer flex-col items-center justify-center rounded-md border-[3px] border-dashed px-6 text-center transition ${dragOver ? 'border-[#3b86f6] bg-blue-50' : 'border-[#3b86f6] bg-[#fafafa]'}`}
-          onDragOver={(event) => {
-            event.preventDefault();
-            setDragOver(true);
-          }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={(event) => {
-            event.preventDefault();
-            setDragOver(false);
-            void applyFile(event.dataTransfer.files?.[0] || null);
-          }}
-        >
-          <span className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-[#3b86f6] text-3xl font-black text-[#3b86f6]">
-            ↑
-          </span>
-          <span className="mt-4 text-3xl font-black text-slate-900">拖拽或点击上传论文</span>
-          <span className="mt-2 text-lg text-slate-500">
-            文本文件、可搜索文本 PDF 及提取文本最大均为 50 MB；也可在下方直接粘贴文本
-          </span>
-          <input className="sr-only" type="file" accept={THESIS_FILE_ACCEPT} onChange={handleFileChange} />
-          {selectedFile ? <span className="mt-3 text-base font-bold text-[#3b86f6]">{selectedFile.name}</span> : null}
-        </label>
+            <label
+              className={`mt-6 flex cursor-pointer items-center gap-4 rounded-lg border border-dashed px-5 py-4 transition ${dragOver ? 'border-brand-500 bg-brand-50' : 'border-slate-300 bg-slate-50 hover:border-brand-500 hover:bg-brand-50/60'}`}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(event) => {
+                event.preventDefault();
+                setDragOver(false);
+                void applyFile(event.dataTransfer.files?.[0] || null);
+              }}
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-700">
+                <FileUp className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <span className="min-w-0 text-left">
+                <span className="block text-sm font-semibold text-slate-800">上传论文文件</span>
+                <span className="mt-0.5 block text-xs leading-5 text-slate-500">支持 .txt、.md 与可搜索文本 PDF，最大 50 MB</span>
+                {selectedFile ? <span className="mt-1 block truncate text-xs font-semibold text-brand-700">已选择：{selectedFile.name}</span> : null}
+              </span>
+              <span className="ml-auto hidden rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 sm:block">选择文件</span>
+              <input className="sr-only" type="file" accept={THESIS_FILE_ACCEPT} onChange={handleFileChange} />
+            </label>
 
-        <label className="mt-6 block text-lg font-black text-[#1f3f63]">
-          论文文本
-          <textarea
-            className="mt-3 min-h-56 w-full rounded-lg border border-[#d6d6d6] bg-white p-4 leading-7 outline-none focus:border-[#3b86f6]"
-            value={text}
-            onChange={(event) => {
-              setText(event.target.value);
-              setSelectedFile(null);
-            }}
-            placeholder="粘贴摘要、关键词、引言、研究方法、结论和参考文献等论文文本。"
-          />
-          {fieldErrors.text ? <span className="mt-2 block text-sm text-red-600">{fieldErrors.text}</span> : null}
-        </label>
+            <div className="my-5 flex items-center gap-3 text-xs text-slate-400" aria-hidden="true">
+              <span className="h-px flex-1 bg-slate-200" />或直接粘贴文本<span className="h-px flex-1 bg-slate-200" />
+            </div>
 
-        <section className="mt-10" aria-labelledby="review-template-heading">
-          <h2 id="review-template-heading" className="text-2xl font-black text-[#1f3f63]">
-            选择评阅模板
-          </h2>
+            <label className="block text-sm font-semibold text-slate-800">
+              论文文本
+              <textarea
+                className="mt-2 min-h-72 w-full resize-y rounded-lg border border-slate-300 bg-white p-3.5 text-sm leading-7 outline-none transition placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                aria-label="论文文本"
+                value={text}
+                onChange={(event) => {
+                  setText(event.target.value);
+                  setSelectedFile(null);
+                }}
+                placeholder="建议包含摘要、关键词、引言、研究方法、结论和参考文献等正文内容。"
+              />
+              <span className="mt-2 flex items-center justify-between text-xs font-normal text-slate-500">
+                <span>仅用于本次辅助评阅。</span>
+                <span>{text.length.toLocaleString()} 字</span>
+              </span>
+              {fieldErrors.text ? <span className="mt-2 block text-sm font-normal text-red-600">{fieldErrors.text}</span> : null}
+            </label>
+          </Card>
+
+          <div className="space-y-6 xl:sticky xl:top-6">
+            <Card title="评阅设置" description="选择与当前培养类型相符的模板。" className="p-6">
+              <section aria-labelledby="review-template-heading">
+                <h2 id="review-template-heading" className="sr-only">选择评阅模板</h2>
           {loadingRubrics ? <LoadingState label="正在加载评阅模板…" compact /> : null}
           {rubricError ? <ErrorState message={rubricError} /> : null}
           {rubrics ? (
-            <div className="mt-5 grid gap-5 lg:grid-cols-5">
-              {rubrics.templates.map((template, index) => {
+            <div className="space-y-2">
+              {rubrics.templates.map((template) => {
                 const selected = template.template_id === selectedTemplateId;
                 return (
                   <button
                     key={template.template_id}
                     aria-label={template.name}
-                    className={`relative min-h-[190px] rounded-[10px] border bg-white p-5 text-center transition hover:shadow ${selected ? 'border-[3px] border-[#3b86f6] bg-blue-50' : 'border-[#d6d6d6]'}`}
+                    aria-pressed={selected}
+                    className={`flex w-full items-center gap-3 rounded-lg border p-3.5 text-left transition ${selected ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-500' : 'border-slate-200 bg-white hover:border-brand-300 hover:bg-slate-50'}`}
                     type="button"
                     onClick={() => setSelectedTemplateId(template.template_id)}
                   >
-                    {selected ? (
-                      <span className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-[#3b86f6] text-sm font-black text-white">
-                        ✓
-                      </span>
-                    ) : null}
-                    <span
-                      className={`mx-auto flex h-14 w-14 items-center justify-center rounded-xl ${TEMPLATE_ICON_COLORS[index % TEMPLATE_ICON_COLORS.length]} text-xl font-black text-white`}
-                    >
-                      文
+                    <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${selected ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 bg-white'}`}>
+                      {selected ? <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" /> : null}
                     </span>
-                    <span className="mt-4 block text-xl font-black text-slate-900">{template.name}</span>
-                    <span className="mt-2 block text-sm font-bold text-slate-500">
-                      最低参考文献 {template.minimum_reference_count} 条
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold text-slate-800">{template.name}</span>
+                      <span className="mt-0.5 block text-xs text-slate-500">最低参考文献 {template.minimum_reference_count} 条</span>
                     </span>
                   </button>
                 );
@@ -271,27 +270,37 @@ function AiReviewRunPage() {
             </div>
           ) : null}
           {selectedTemplate ? (
-            <p className="mt-4 text-sm font-semibold text-slate-600">
-              必需章节：{selectedTemplate.required_sections.join('、')}
-            </p>
+            <div className="mt-5 rounded-lg border border-brand-100 bg-brand-50/70 p-4">
+              <div className="flex gap-2">
+                <FileText className="mt-0.5 h-4 w-4 shrink-0 text-brand-700" aria-hidden="true" />
+                <div>
+                  <p className="text-xs font-semibold text-brand-900">本模板关注的必要章节</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-600">必需章节：{selectedTemplate.required_sections.join('、')}</p>
+                </div>
+              </div>
+            </div>
           ) : null}
-        </section>
+              </section>
+              {rubrics ? (
+                <Button className="mt-6 w-full" size="lg" type="submit" disabled={!canSubmit} aria-label="智能评阅">
+                  <Sparkles className="h-4 w-4" aria-hidden="true" />
+                  {readingFile ? '正在解析文件…' : submitting ? '正在生成辅助结果…' : '生成辅助评阅'}
+                </Button>
+              ) : null}
+            </Card>
 
-        {rubrics ? (
-          <button
-            className="mx-auto mt-12 flex h-20 w-full max-w-2xl items-center justify-center rounded-md bg-[#28ae6f] text-3xl font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300"
-            type="submit"
-            disabled={!canSubmit}
-          >
-            {readingFile ? '解析中…' : submitting ? '智能评阅中…' : '智能评阅'}
-          </button>
-        ) : null}
-        {errorMessage ? <ErrorState title="提交失败" message={errorMessage} /> : null}
+            <div className="flex gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-xs leading-5 text-slate-500 shadow-sm">
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+              <p>系统根据文本结构和已配置规则形成检查意见；请结合论文实际情况作出判断。</p>
+            </div>
+          </div>
+        </div>
+        {errorMessage ? <div className="mt-6"><ErrorState title="提交失败" message={errorMessage} /></div> : null}
       </form>
 
       {result ? (
         <section className="mx-auto max-w-7xl px-8 pb-12" aria-labelledby="ai-review-result-heading">
-          <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 id="ai-review-result-heading" className="text-2xl font-black text-[#1f3f63]">
               评阅结果
             </h2>
