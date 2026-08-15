@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuthSession } from '../auth/AuthSessionProvider';
+import { fetchPaperLintReports, type PaperLintReportListItem } from '../api/paperLint';
 import {
   downloadNormativeReportJson,
   fetchNormativeDetectionHistory,
@@ -29,6 +30,7 @@ function NormativeReportPage() {
   const { status, user } = useAuthSession();
   const [history, setHistory] = useState<DetectionTaskResponse[]>([]);
   const [report, setReport] = useState<DetectionTaskResponse | null>(null);
+  const [pdfReports, setPdfReports] = useState<PaperLintReportListItem[]>([]);
   const [activeIssue, setActiveIssue] = useState<ActiveIssue | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -45,14 +47,18 @@ function NormativeReportPage() {
     setLoading(true);
     setErrorMessage(null);
 
-    const request = reportId ? fetchNormativeDetectionReport(reportId) : fetchNormativeDetectionHistory();
+    const request = reportId
+      ? fetchNormativeDetectionReport(reportId)
+      : Promise.all([fetchNormativeDetectionHistory(), fetchPaperLintReports().catch(() => [])]);
     request
       .then((response) => {
         if (cancelled) {
           return;
         }
-        if (Array.isArray(response)) {
-          setHistory(response);
+        if (Array.isArray(response) && Array.isArray(response[0])) {
+          const [legacyHistory, savedPdfReports] = response as [DetectionTaskResponse[], PaperLintReportListItem[]];
+          setHistory(legacyHistory);
+          setPdfReports(savedPdfReports);
           setReport(null);
         } else {
           setReport(response);
@@ -188,55 +194,106 @@ function NormativeReportPage() {
         ariaLabel="规范性检测功能导航"
         items={[
           { label: '发起审查', to: '/normative-check', active: false },
-          { label: '历史报告', to: '/normative-reports', active: true, count: history.length },
+          { label: '历史报告', to: '/normative-reports', active: true, count: history.length + pdfReports.length },
         ]}
       />
       {loading ? <LoadingState label="正在加载历史记录…" /> : null}
       {errorMessage ? <ErrorState message={errorMessage} /> : null}
-      {!loading && !errorMessage && history.length === 0 ? (
+      {!loading && !errorMessage && history.length === 0 && pdfReports.length === 0 ? (
         <EmptyState title="暂无检测记录" description="完成一次规范性检测后，报告会出现在这里。" />
       ) : null}
+      {pdfReports.length > 0 ? (
+        <section className="mb-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+            <div>
+              <h2 className="font-bold text-slate-900">PDF 论文检查报告</h2>
+              <p className="mt-1 text-sm text-slate-500">可继续查看原文定位、问题说明和修改建议。</p>
+            </div>
+            <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700">
+              {pdfReports.length} 份
+            </span>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {pdfReports.map((record) => (
+              <div
+                key={record.id}
+                className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 hover:bg-brand-50/40"
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-slate-900">{record.source_filename}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {new Date(record.created_at).toLocaleString('zh-CN')} ·{' '}
+                    {record.summary.ruleset_label || '当前规则版本'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 text-sm">
+                  <span
+                    className={
+                      record.summary.error_finding_count
+                        ? 'font-bold text-danger-600'
+                        : 'font-semibold text-success-600'
+                    }
+                  >
+                    {record.summary.finding_count ? `${record.summary.finding_count} 项待处理` : '未发现问题'}
+                  </span>
+                  <LinkButton size="sm" to={`/normative-reports/pdf/${record.id}`}>
+                    继续处理
+                  </LinkButton>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
       {history.length > 0 ? (
-        <div className="overflow-hidden rounded-2xl border border-[#E1E7EF] bg-white shadow-sm">
-          <table className="min-w-full text-left text-sm">
-            <thead className="bg-[#1F3760] text-white">
-              <tr>
-                <th className="px-6 py-4">文档名称</th>
-                <th className="px-6 py-4">问题总数</th>
-                <th className="px-6 py-4">严重/一般/轻微</th>
-                <th className="px-6 py-4">检测时间</th>
-                <th className="px-6 py-4">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.map((record, index) => (
-                <tr key={record.id} className={index % 2 === 0 ? 'bg-white' : 'bg-[#F5F9FC]'}>
-                  <td className="px-6 py-6 font-bold text-slate-900">📄 {record.source_filename || '粘贴文本检测'}</td>
-                  <td className="px-6 py-6 font-black text-[#D62020]">{record.issues.length}</td>
-                  <td className="px-6 py-6 text-slate-700">
-                    {record.severity_counts.high || 0} / {record.severity_counts.medium || 0} /{' '}
-                    {record.severity_counts.low || 0}
-                  </td>
-                  <td className="px-6 py-6 text-slate-700">{record.created_at}</td>
-                  <td className="px-6 py-6">
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        className="rounded-lg bg-[#1F3760] px-3 py-2 font-bold text-white"
-                        type="button"
-                        onClick={() => handleDownloadJson(record.id)}
-                      >
-                        报告下载
-                      </button>
-                      <LinkButton size="sm" to={`/normative-reports/${record.id}`}>
-                        报告预览
-                      </LinkButton>
-                    </div>
-                  </td>
+        <section>
+          <div className="mb-3">
+            <h2 className="font-bold text-slate-900">文本规范检测记录</h2>
+            <p className="mt-1 text-sm text-slate-500">历史文本检测报告保留原有的行号定位方式。</p>
+          </div>
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <table className="min-w-full text-left text-sm">
+              <thead className="bg-[#1F3760] text-white">
+                <tr>
+                  <th className="px-6 py-4">文档名称</th>
+                  <th className="px-6 py-4">问题总数</th>
+                  <th className="px-6 py-4">严重/一般/轻微</th>
+                  <th className="px-6 py-4">检测时间</th>
+                  <th className="px-6 py-4">操作</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {history.map((record, index) => (
+                  <tr key={record.id} className={index % 2 === 0 ? 'bg-white' : 'bg-[#F5F9FC]'}>
+                    <td className="px-6 py-6 font-bold text-slate-900">
+                      📄 {record.source_filename || '粘贴文本检测'}
+                    </td>
+                    <td className="px-6 py-6 font-black text-[#D62020]">{record.issues.length}</td>
+                    <td className="px-6 py-6 text-slate-700">
+                      {record.severity_counts.high || 0} / {record.severity_counts.medium || 0} /{' '}
+                      {record.severity_counts.low || 0}
+                    </td>
+                    <td className="px-6 py-6 text-slate-700">{record.created_at}</td>
+                    <td className="px-6 py-6">
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          className="rounded-lg bg-[#1F3760] px-3 py-2 font-bold text-white"
+                          type="button"
+                          onClick={() => handleDownloadJson(record.id)}
+                        >
+                          报告下载
+                        </button>
+                        <LinkButton size="sm" to={`/normative-reports/${record.id}`}>
+                          报告预览
+                        </LinkButton>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
       ) : null}
     </div>
   );

@@ -1,4 +1,4 @@
-import { CheckCircle2, MapPin } from 'lucide-react';
+import { Check, CheckCircle2, MapPin } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { PaperLintRule } from '../../api/paperLint';
 import { Button, StatusBadge } from '../ui';
@@ -25,8 +25,15 @@ export function FindingsPane({
   onAnchorClick,
 }: Props) {
   const [filter, setFilter] = useState<'all' | 'error' | 'warning' | 'info'>('all');
+  const [ruleFilter, setRuleFilter] = useState('all');
+  const [handledKeys, setHandledKeys] = useState<string[]>([]);
   const ruleNames = useMemo(() => new Map(rules.map((rule) => [rule.rule_id, rule.title])), [rules]);
-  const filtered = findings.filter((item) => filter === 'all' || item.ruleRun.severity === filter);
+  const ruleIds = Array.from(new Set(findings.map((item) => item.ruleRun.rule_id)));
+  const filtered = findings.filter(
+    (item) =>
+      (filter === 'all' || item.ruleRun.severity === filter) &&
+      (ruleFilter === 'all' || item.ruleRun.rule_id === ruleFilter),
+  );
 
   return (
     <section className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
@@ -48,6 +55,21 @@ export function FindingsPane({
             </Button>
           ))}
         </div>
+        {ruleIds.length > 1 ? (
+          <select
+            aria-label="按检查项筛选"
+            className="mt-2 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700"
+            value={ruleFilter}
+            onChange={(event) => setRuleFilter(event.target.value)}
+          >
+            <option value="all">全部检查项</option>
+            {ruleIds.map((ruleId) => (
+              <option key={ruleId} value={ruleId}>
+                {ruleNames.get(ruleId) || ruleId}
+              </option>
+            ))}
+          </select>
+        ) : null}
       </div>
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
         {filtered.length === 0 ? (
@@ -88,13 +110,31 @@ export function FindingsPane({
                       {ruleNames.get(item.ruleRun.rule_id) || item.ruleRun.rule_id}
                     </h3>
                   </div>
-                  {page ? (
-                    <span className="inline-flex shrink-0 items-center gap-1 text-xs text-slate-500">
-                      <MapPin className="size-3" />第 {page} 页
-                    </span>
-                  ) : (
-                    <span className="text-xs text-slate-400">暂无精确定位</span>
-                  )}
+                  <div className="flex items-center gap-1">
+                    {page ? (
+                      <span className="inline-flex shrink-0 items-center gap-1 text-xs text-slate-500">
+                        <MapPin className="size-3" />第 {page} 页
+                      </span>
+                    ) : (
+                      <span className="text-xs text-slate-400">暂无精确定位</span>
+                    )}
+                    <Button
+                      size="sm"
+                      variant={handledKeys.includes(item.key) ? 'secondary' : 'ghost'}
+                      className="px-2"
+                      aria-label={handledKeys.includes(item.key) ? '取消已处理标记' : '标记为已处理'}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setHandledKeys((current) =>
+                          current.includes(item.key)
+                            ? current.filter((key) => key !== item.key)
+                            : [...current, item.key],
+                        );
+                      }}
+                    >
+                      <Check className="size-3.5" />
+                    </Button>
+                  </div>
                 </div>
                 <p className="mt-2 text-sm leading-6 text-slate-700">{item.finding.message}</p>
                 {active && item.finding.suggestion ? (
@@ -107,6 +147,9 @@ export function FindingsPane({
                   <p className="mt-2 rounded-lg bg-slate-100 px-3 py-2 text-xs leading-5 text-slate-600">
                     原文：{excerpt}
                   </p>
+                ) : null}
+                {handledKeys.includes(item.key) ? (
+                  <p className="mt-2 text-xs font-semibold text-success-600">已标记为本次已处理</p>
                 ) : null}
                 {active && item.finding.anchors?.length ? (
                   <div className="mt-2 flex flex-wrap gap-1">

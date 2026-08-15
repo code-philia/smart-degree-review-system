@@ -104,10 +104,29 @@ export type PaperLintResult = {
 };
 
 export type PaperLintRunResponse = {
+  id: string;
   source_filename: string;
   selected_rule_ids: string[];
-  processed_at: string;
   result: PaperLintResult;
+  summary: PaperLintReportSummary;
+  created_at: string;
+};
+
+export type PaperLintReportSummary = {
+  finding_count: number;
+  error_finding_count: number;
+  warning_finding_count: number;
+  info_finding_count: number;
+  rule_count: number;
+  ruleset_label: string | null;
+};
+
+export type PaperLintReportListItem = {
+  id: string;
+  source_filename: string;
+  selected_rule_ids: string[];
+  summary: PaperLintReportSummary;
+  created_at: string;
 };
 
 export type PaperLintBuiltInCaseSummary = {
@@ -146,6 +165,21 @@ export async function runReviewPilotPaperLint(
     },
     timeout: 310_000,
   });
+  return response.data;
+}
+
+export async function fetchPaperLintReports(): Promise<PaperLintReportListItem[]> {
+  const response = await apiClient.get<{ records: PaperLintReportListItem[] }>('/normative/paper-lint/reports');
+  return response.data.records;
+}
+
+export async function fetchPaperLintReport(reportId: string): Promise<PaperLintRunResponse> {
+  const response = await apiClient.get<PaperLintRunResponse>(`/normative/paper-lint/reports/${reportId}`);
+  return response.data;
+}
+
+export async function fetchPaperLintReportPdf(reportId: string): Promise<Blob> {
+  const response = await apiClient.get<Blob>(`/normative/paper-lint/reports/${reportId}/pdf`, { responseType: 'blob' });
   return response.data;
 }
 

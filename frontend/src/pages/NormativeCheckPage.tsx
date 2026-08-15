@@ -189,9 +189,9 @@ function NormativeCheckPage() {
     <div className="space-y-6">
       <PageHeader
         title="PDF 论文规则审查"
-        description="上传 PDF，选择 review-pilot 确定性规则或 DeepSeek 语义规则，查看带页码和坐标高亮的真实审查结果。"
+        description="上传论文，选择检查项，查看问题定位与修改建议；检测完成后可在历史报告中继续处理。"
         breadcrumbs={[{ label: '首页', to: '/' }, { label: '规范性检测' }]}
-        actions={<StatusBadge tone="info">PDF-only · DeepSeek</StatusBadge>}
+        actions={<StatusBadge tone="info">PDF 论文检查</StatusBadge>}
       />
 
       <ModuleTabs
@@ -202,12 +202,12 @@ function NormativeCheckPage() {
         ]}
       />
 
-      <p className="-mt-2 mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-        当前 PDF 快速审查结果不写入历史；“历史报告”展示系统内已保存的规范检测记录。
+      <p className="-mt-2 mb-6 rounded-xl border border-brand-100 bg-brand-50 px-4 py-3 text-sm text-brand-800">
+        检测完成后会保存为个人报告，后续可继续查看问题、原文定位和修改建议。
       </p>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,.85fr)_minmax(440px,1.15fr)]">
-        <Card title="1. 上传论文" description="仅处理 PDF，文件在后端临时运行后删除，不写入当前 SQLite。">
+        <Card title="1. 上传论文" description="仅支持 PDF；报告会保留原文定位所需的文件副本，仅本人可查看。">
           <label
             className={`flex min-h-64 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 text-center transition ${
               dragging
@@ -261,7 +261,7 @@ function NormativeCheckPage() {
 
         <Card
           title="2. 选择审查规则"
-          description="确定性规则默认启用；3 条语义规则按需选择，并使用固定的 DeepSeek V4 Flash。"
+          description="基础检查默认启用；需要额外文本分析的检查项可按需选择。"
           actions={
             catalog ? (
               <div className="flex gap-1">
@@ -281,7 +281,7 @@ function NormativeCheckPage() {
             ) : undefined
           }
         >
-          {catalogLoading ? <LoadingState label="正在读取 review-pilot 规则目录…" /> : null}
+          {catalogLoading ? <LoadingState label="正在读取检查项…" /> : null}
           {catalogError ? <ErrorState message={catalogError} onRetry={() => void loadCatalog()} /> : null}
           {catalog ? (
             <div className="grid max-h-80 gap-2 overflow-y-auto pr-1 md:grid-cols-2">
@@ -306,7 +306,7 @@ function NormativeCheckPage() {
                         {rule.title}
                         {rule.execution_mode === 'semantic' ? (
                           <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] text-violet-700">
-                            DeepSeek 语义
+                            扩展分析
                           </span>
                         ) : null}
                         {!rule.available ? (
@@ -316,7 +316,6 @@ function NormativeCheckPage() {
                         ) : null}
                       </span>
                       <span className="mt-1 block text-xs leading-5 text-slate-500">{rule.description}</span>
-                      <span className="mt-1 block truncate font-mono text-[10px] text-slate-400">{rule.rule_id}</span>
                     </span>
                   </label>
                 );
@@ -329,8 +328,8 @@ function NormativeCheckPage() {
               role="note"
             >
               <p>
-                已选择 {selectedSemanticRules.length} 条语义规则。规则会把相关摘要、论点和候选论据文本发送到 DeepSeek
-                官方 API；请勿上传不允许外发的论文，模型结果必须由人工复核。
+                已选择 {selectedSemanticRules.length} 条扩展分析检查项。系统会将相关摘要、论点和候选论据文本发送到
+                DeepSeek 官方 API；请勿上传不允许外发的论文，结果必须由人工复核。
               </p>
               <label className="mt-2 flex cursor-pointer items-start gap-2 font-semibold">
                 <input
@@ -373,10 +372,8 @@ function NormativeCheckPage() {
               <LoaderCircle className="size-5 animate-spin" />
             </span>
             <div>
-              <p className="font-bold text-slate-900">review-pilot 正在解析 PDF 并逐条执行规则</p>
-              <p className="mt-1 text-sm text-slate-500">
-                语义规则需要等待 DeepSeek 返回；页面不会显示虚构百分比，完成后直接展示真实结果。
-              </p>
+              <p className="font-bold text-slate-900">正在解析论文并逐项检查</p>
+              <p className="mt-1 text-sm text-slate-500">扩展分析检查项可能需要更长时间；完成后将直接展示真实结果。</p>
             </div>
           </div>
         </Card>
@@ -386,7 +383,7 @@ function NormativeCheckPage() {
         <>
           <Card
             title="审查结果"
-            description={`${response.result.paper_title} · ${new Date(response.processed_at).toLocaleString('zh-CN')}`}
+            description={`${response.result.paper_title} · ${new Date(response.created_at).toLocaleString('zh-CN')}`}
             actions={
               <StatusBadge tone={response.result.summary.finding_count ? 'warning' : 'success'}>
                 {response.result.summary.finding_count

@@ -230,7 +230,7 @@ describe("review-pilot paper-lint HTTP bridge", () => {
     });
   });
 
-  it("passes raw PDF bytes and selected rules through without persisting a fake task", async () => {
+  it("passes raw PDF bytes and selected rules through, then saves a retrievable PDF report", async () => {
     const pdf = Buffer.from("%PDF-1.7\nminimal test bytes");
     const response = await request(app)
       .post("/api/normative/paper-lint/run?filename=%E8%AE%BA%E6%96%87.pdf")
@@ -238,7 +238,7 @@ describe("review-pilot paper-lint HTTP bridge", () => {
       .set("Content-Type", "application/pdf")
       .set("X-Paper-Lint-Rule-Ids", "chinese_title_format_check")
       .send(pdf)
-      .expect(200);
+      .expect(201);
 
     expect(fakeService.runPaperLint).toHaveBeenCalledWith({
       pdfBuffer: expect.any(Buffer),
@@ -251,9 +251,24 @@ describe("review-pilot paper-lint HTTP bridge", () => {
     expect(response.body).toMatchObject({
       source_filename: "论文.pdf",
       selected_rule_ids: ["chinese_title_format_check"],
-      processed_at: expect.any(String),
+      id: expect.any(String),
+      created_at: expect.any(String),
       result: runResult,
     });
+    const report = await request(app)
+      .get(`/api/normative/paper-lint/reports/${response.body.id}`)
+      .set("Cookie", cookies.student01)
+      .expect(200);
+    expect(report.body.source_filename).toBe("论文.pdf");
+    await request(app)
+      .get(`/api/normative/paper-lint/reports/${response.body.id}`)
+      .set("Cookie", cookies.supervisor01)
+      .expect(404);
+    await request(app)
+      .get(`/api/normative/paper-lint/reports/${response.body.id}/pdf`)
+      .set("Cookie", cookies.student01)
+      .expect("Content-Type", /application\/pdf/)
+      .expect(200);
   });
 
   it("passes explicit external-processing consent to the service", async () => {
@@ -265,7 +280,7 @@ describe("review-pilot paper-lint HTTP bridge", () => {
       .set("X-Paper-Lint-Rule-Ids", "bilingual_abstract_consistency_check")
       .set("X-Paper-Lint-External-Processing-Consent", "confirmed")
       .send(pdf)
-      .expect(200);
+      .expect(201);
 
     expect(fakeService.runPaperLint).toHaveBeenLastCalledWith({
       pdfBuffer: expect.any(Buffer),

@@ -2,6 +2,7 @@ const express = require('express');
 const { requireAuth } = require('../auth/authMiddleware');
 const defaultService = require('./reviewPilotPaperLintService');
 const defaultExampleService = require('./paperLintExampleService');
+const paperLintReportRepository = require('./paperLintReportRepository');
 
 const allowedRoles = ['STUDENT', 'SUPERVISOR', 'SCHOOL_ADMIN', 'COLLEGE_ADMIN'];
 
@@ -53,6 +54,37 @@ function createReviewPilotPaperLintRouter(service = defaultService, exampleServi
     }
   });
 
+  router.get('/reports', requireAuth({ allowedRoles }), async (req, res, next) => {
+    try {
+      res.json({ records: await paperLintReportRepository.listPaperLintReportsByUser(req.user.id) });
+    } catch (error) {
+      sendError(error, res, next);
+    }
+  });
+
+  router.get('/reports/:reportId/pdf', requireAuth({ allowedRoles }), async (req, res, next) => {
+    try {
+      const pdf = await paperLintReportRepository.readPaperLintReportPdf(req.params.reportId, req.user.id);
+      if (!pdf) return res.status(404).json({ code: 404, message: '未找到该审查报告' });
+      if (!pdf.content) return res.status(410).json({ code: 410, message: '该报告的原始 PDF 已不可用' });
+      res.set('Content-Type', 'application/pdf');
+      res.set('Content-Disposition', `inline; filename="${encodeURIComponent(pdf.source_filename)}"`);
+      return res.send(pdf.content);
+    } catch (error) {
+      return sendError(error, res, next);
+    }
+  });
+
+  router.get('/reports/:reportId', requireAuth({ allowedRoles }), async (req, res, next) => {
+    try {
+      const report = await paperLintReportRepository.findPaperLintReportByIdForUser(req.params.reportId, req.user.id);
+      if (!report) return res.status(404).json({ code: 404, message: '未找到该审查报告' });
+      return res.json(report);
+    } catch (error) {
+      return sendError(error, res, next);
+    }
+  });
+
   router.post(
     '/run',
     requireAuth({ allowedRoles }),
@@ -68,12 +100,14 @@ function createReviewPilotPaperLintRouter(service = defaultService, exampleServi
           selectedRuleIds,
           externalProcessingConsent: req.get('x-paper-lint-external-processing-consent') === 'confirmed',
         });
-        res.json({
-          source_filename: typeof req.query.filename === 'string' ? req.query.filename.slice(0, 255) : '论文.pdf',
-          selected_rule_ids: normalizedRuleIds,
-          processed_at: new Date().toISOString(),
+        const report = await paperLintReportRepository.createPaperLintReport({
+          userId: req.user.id,
+          sourceFilename: typeof req.query.filename === 'string' ? req.query.filename.slice(0, 255) : '论文.pdf',
+          pdfBuffer: req.body,
+          selectedRuleIds: normalizedRuleIds,
           result,
         });
+        res.status(201).json(report);
       } catch (error) {
         sendError(error, res, next);
       }

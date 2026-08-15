@@ -152,6 +152,26 @@ async function initializeDatabase(options = {}) {
 
     await runStatement(
       database,
+      `CREATE TABLE IF NOT EXISTS paper_lint_reports (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        source_filename TEXT NOT NULL,
+        source_pdf_path TEXT NOT NULL,
+        selected_rule_ids_json TEXT NOT NULL,
+        result_json TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE
+      );`,
+    );
+
+    await runStatement(
+      database,
+      `CREATE INDEX IF NOT EXISTS idx_paper_lint_reports_user_created
+       ON paper_lint_reports (user_id, created_at DESC);`,
+    );
+
+    await runStatement(
+      database,
       `CREATE TABLE IF NOT EXISTS duplication_corpus_samples (
         id TEXT PRIMARY KEY,
         title TEXT NOT NULL,

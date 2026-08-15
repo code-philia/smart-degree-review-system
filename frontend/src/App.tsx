@@ -21,6 +21,7 @@ import LedgerRecordsPage from './pages/LedgerRecordsPage';
 import LocalPolishPage from './pages/LocalPolishPage';
 import NormativeCheckPage from './pages/NormativeCheckPage';
 import NormativeReportPage from './pages/NormativeReportPage';
+import PaperLintReportPage from './pages/PaperLintReportPage';
 import PolishHistoryPage from './pages/PolishHistoryPage';
 import QualityDashboardPage from './pages/QualityDashboardPage';
 import StudentQualityPortraitPage from './pages/StudentQualityPortraitPage';
@@ -47,6 +48,7 @@ function App() {
         <Route path="/review-cases" element={<BuiltInReviewCasesPage />} />
         <Route path="/review-cases/:caseId" element={<BuiltInReviewCasesPage />} />
         <Route path="/normative-reports" element={<NormativeReportPage />} />
+        <Route path="/normative-reports/pdf/:reportId" element={<PaperLintReportPage />} />
         <Route path="/normative-reports/:reportId" element={<NormativeReportPage />} />
         <Route path="/ledger-records" element={<LedgerRecordsPage />} />
         <Route path="/ledger-stats" element={<LedgerFilteredStatsPage />} />
