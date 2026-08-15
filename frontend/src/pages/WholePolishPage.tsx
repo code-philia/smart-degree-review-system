@@ -166,120 +166,120 @@ function WholePolishPage() {
         }
       />
 
-      <form className="mx-auto max-w-6xl" onSubmit={handleSubmit}>
-        <label className="flex min-h-[320px] cursor-pointer flex-col items-center justify-center rounded-[40px] border-2 border-dashed border-[#AFC2DD] bg-white px-6 text-center transition hover:border-blue-500 hover:bg-blue-50/40">
-          <span
-            className="flex h-20 w-20 items-center justify-center rounded-full bg-blue-100 text-2xl text-blue-600"
-            aria-hidden="true"
-          >
-            📄
-          </span>
-          <span className="mt-5 text-2xl font-black">拖拽或点击上传文档</span>
-          <span className="mt-3 text-lg text-slate-500">
-            文本文件、可搜索文本 PDF 及提取文本最大均为 50 MB，也可在下方直接粘贴文本
-          </span>
-          <input className="sr-only" type="file" accept={THESIS_FILE_ACCEPT} onChange={handleFileChange} />
-        </label>
-
-        <label className="mt-6 block text-sm font-bold text-slate-700" htmlFor="whole-polish-textarea">
-          粘贴文本
-        </label>
-        <textarea
-          id="whole-polish-textarea"
-          className="mt-2 min-h-36 w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm leading-7 outline-none focus:border-blue-500"
-          value={text}
-          onChange={(event) => setText(event.target.value)}
-          placeholder="粘贴需要全文润色的文本。"
-        />
-
-        <h2 className="mt-10 text-2xl font-black">选择润色等级</h2>
-        <div className="mt-5 grid gap-5 lg:grid-cols-3">
-          {LEVEL_OPTIONS.map((option) => {
-            const selected = option.level === level;
-            return (
-              <button
-                key={option.level}
-                type="button"
-                className={`rounded-3xl border p-6 text-left transition ${selected ? 'border-orange-500 bg-[#FFF9F3]' : 'border-slate-200 bg-white hover:border-blue-300'}`}
-                onClick={() => setLevel(option.level)}
-              >
-                <span className="flex items-center gap-3">
-                  <span
-                    className={`h-5 w-5 rounded-full border ${selected ? 'border-orange-500 bg-orange-500' : 'border-slate-300'}`}
-                  />
-                  <span className={`text-2xl font-black ${option.accent}`}>{option.title}</span>
-                  {option.recommended ? (
-                    <span className="rounded-full bg-orange-500 px-3 py-1 text-xs font-bold text-white">推荐</span>
-                  ) : null}
-                </span>
-                <span className="mt-4 block text-base leading-7 text-slate-600">{option.summary}</span>
-              </button>
-            );
-          })}
+      <form
+        className="mx-auto max-w-6xl rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6"
+        onSubmit={handleSubmit}
+      >
+        <div className="mb-5 border-b border-slate-100 pb-5">
+          <h2 className="text-lg font-bold text-slate-900">发起整篇润色</h2>
+          <p className="mt-1 text-sm text-slate-500">提交后生成可追溯的润色结果与变更明细。</p>
         </div>
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(300px,.65fr)]">
+          <div>
+            <p className="text-sm font-bold text-slate-800">论文内容</p>
+            <label className="mt-3 flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 p-5 text-center transition hover:border-brand-400 hover:bg-brand-50/40">
+              <span className="text-sm font-bold text-slate-900">
+                {selectedFile ? selectedFile.name : '选择论文文件'}
+              </span>
+              <span className="mt-1 text-xs text-slate-500">支持文本文件与可搜索文本 PDF，最大 50 MB</span>
+              <input className="sr-only" type="file" accept={THESIS_FILE_ACCEPT} onChange={handleFileChange} />
+            </label>
+            <label className="mt-4 block text-sm font-bold text-slate-800" htmlFor="whole-polish-textarea">
+              或直接粘贴全文
+              <textarea
+                id="whole-polish-textarea"
+                className="mt-2 min-h-56 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm leading-7 font-normal outline-none focus:border-brand-500"
+                value={text}
+                onChange={(event) => setText(event.target.value)}
+                placeholder="粘贴需要全文润色的文本。"
+              />
+            </label>
+          </div>
 
-        {errorMessage ? (
-          <p className="mt-5 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">{errorMessage}</p>
-        ) : null}
-
-        <Button
-          className="mx-auto mt-10 flex h-20 w-full max-w-md text-2xl"
-          size="lg"
-          type="submit"
-          disabled={!canSubmit}
-        >
-          {readingFile ? '解析中…' : submitting ? '润色中…' : '智能润色'}
-        </Button>
+          <aside className="flex flex-col rounded-xl border border-slate-200 bg-slate-50 p-5">
+            <div>
+              <p className="text-sm font-bold text-slate-900">润色方案</p>
+              <div className="mt-3 space-y-2">
+                {LEVEL_OPTIONS.map((option) => {
+                  const selected = option.level === level;
+                  return (
+                    <button
+                      key={option.level}
+                      type="button"
+                      className={`w-full rounded-lg border p-3 text-left transition ${selected ? 'border-brand-500 bg-brand-50' : 'border-slate-200 bg-white hover:border-slate-300'}`}
+                      onClick={() => setLevel(option.level)}
+                    >
+                      <span className="flex items-center gap-2 text-sm font-bold text-slate-900">
+                        <span
+                          className={`size-3 rounded-full border-2 ${selected ? 'border-brand-500 bg-brand-500' : 'border-slate-300 bg-white'}`}
+                        />
+                        {option.title}
+                        {option.recommended ? <span className="ml-auto text-xs text-brand-700">推荐</span> : null}
+                      </span>
+                      <span className="mt-1 block text-xs leading-5 text-slate-500">{option.summary}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <Button className="mt-6 w-full" size="lg" type="submit" disabled={!canSubmit}>
+              {readingFile ? '正在解析文件…' : submitting ? '正在润色…' : '开始润色'}
+            </Button>
+          </aside>
+        </div>
+        {errorMessage ? <p className="mt-4 text-sm font-semibold text-red-600">{errorMessage}</p> : null}
       </form>
 
       {loadingResult ? <LoadingState label="正在加载润色结果…" /> : null}
 
       {result ? (
         <section className="mx-auto max-w-6xl px-6 pb-12">
-          <div className="rounded-3xl border border-slate-200 bg-[#F8FAFC] p-6">
-            <div className="grid gap-8 lg:grid-cols-[240px_minmax(0,1fr)]">
-              <div className="flex h-52 w-52 flex-col items-center justify-center rounded-full border-[10px] border-green-500 bg-white text-center">
-                <span className="text-5xl font-black text-green-500">✓</span>
-                <span className="mt-2 font-black">润色完成</span>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-100 pb-5">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">润色结果</h2>
+                <p className="mt-1 text-sm text-slate-500">本次润色已完成，以下内容可继续查看或下载。</p>
               </div>
-              <div className="space-y-3 text-sm">
-                <p>
-                  <span className="text-slate-500">结果编号：</span>
-                  <strong data-testid="whole-polish-result-id">{result.id}</strong>
-                </p>
-                <p>
-                  <span className="text-slate-500">文档名称：</span>
-                  <strong>{result.source_filename || '粘贴文本'}</strong>
-                </p>
-                <p>
-                  <span className="text-slate-500">润色档位：</span>
-                  <strong className="text-orange-600">
-                    {result.level === 'standard' ? '标准优化' : result.level === 'enhanced' ? '增强优化' : '基础校准'}
-                  </strong>
-                </p>
-                <p>
-                  <span className="text-slate-500">变更数量：</span>
-                  <strong>{result.changes.length}</strong>
-                </p>
-                <p>
-                  <span className="text-slate-500">完成时间：</span>
-                  <strong>{result.created_at}</strong>
-                </p>
+              <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+                已完成
+              </span>
+            </div>
+            <div className="mt-5 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <span className="text-xs text-slate-500">结果编号</span>
+                <strong data-testid="whole-polish-result-id" className="mt-1 block truncate text-slate-900">
+                  {result.id}
+                </strong>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <span className="text-xs text-slate-500">来源</span>
+                <strong className="mt-1 block truncate text-slate-900">{result.source_filename || '粘贴文本'}</strong>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <span className="text-xs text-slate-500">润色档位</span>
+                <strong className="mt-1 block text-slate-900">
+                  {result.level === 'standard' ? '标准优化' : result.level === 'enhanced' ? '增强优化' : '基础校准'}
+                </strong>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <span className="text-xs text-slate-500">变更数量</span>
+                <strong className="mt-1 block text-slate-900">{result.changes.length}</strong>
               </div>
             </div>
-            <div className="mt-6 rounded-2xl bg-white p-5">
-              <h2 className="text-xl font-black text-slate-900">润色结果</h2>
-              <p className="mt-3 whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-sm leading-7 text-slate-800">
+            <p className="mt-4 text-xs text-slate-500">完成时间：{result.created_at}</p>
+            <div className="mt-5 rounded-xl border border-slate-200 p-5">
+              <h3 className="text-base font-bold text-slate-900">润色后的文本</h3>
+              <p className="mt-3 whitespace-pre-wrap rounded-lg bg-slate-50 p-4 text-sm leading-7 text-slate-800">
                 {result.polished_text}
               </p>
             </div>
-            <div className="mt-6 rounded-2xl bg-white p-5">
-              <h2 className="text-xl font-black text-slate-900">变更明细</h2>
+            <div className="mt-5 rounded-xl border border-slate-200 p-5">
+              <h3 className="text-base font-bold text-slate-900">变更明细</h3>
               <ul className="mt-3 space-y-3" aria-label="变更列表">
                 {result.changes.map((change, index) => (
                   <li
                     key={`${change.position}-${index}`}
-                    className="rounded-xl border border-slate-200 p-4 text-sm leading-6"
+                    className="rounded-lg border border-slate-200 p-4 text-sm leading-6"
                   >
                     <p>
                       <span className="font-bold text-slate-500">原文：</span>
@@ -307,7 +307,7 @@ function WholePolishPage() {
                 ))}
               </ul>
             </div>
-            <div className="mt-6 flex flex-wrap justify-center gap-4">
+            <div className="mt-5 flex flex-wrap gap-3">
               <LinkButton to={`/whole-polish/${result.id}`}>查看结果</LinkButton>
               <button
                 className="rounded-lg bg-green-500 px-8 py-3 font-bold text-white"

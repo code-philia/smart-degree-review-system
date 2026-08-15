@@ -134,10 +134,10 @@ describe('FEAT-DUPLICATION-DETECT frontend page route and API client contract', 
 
     renderDetectRoute();
 
-    expect(await screen.findByText('文档上传')).toBeInTheDocument();
-    expect(screen.getByText('点击或将文件拖拽至此处上传')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '发起检测' })).toBeInTheDocument();
+    expect(screen.getByText('选择论文文件')).toBeInTheDocument();
     expect(screen.getByRole('combobox')).toHaveValue('local-similarity');
-    expect(screen.getByRole('button', { name: '检测' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '开始检测' })).toBeDisabled();
   });
 
   it('FEAT-DUPLICATION-DETECT:UI:FILE:001 reads accepted UTF-8 files, rejects unsupported files, and submits file metadata through the API', async () => {
@@ -148,7 +148,7 @@ describe('FEAT-DUPLICATION-DETECT frontend page route and API client contract', 
     const user = userEvent.setup();
     const { container } = renderDetectRoute();
 
-    await screen.findByText('文档上传');
+    await screen.findByRole('heading', { name: '发起检测' });
     fireEvent.change(fileInput(container), {
       target: { files: testFileList(new File(['DOCX'], 'paper.docx')) },
     });
@@ -160,7 +160,7 @@ describe('FEAT-DUPLICATION-DETECT frontend page route and API client contract', 
       new File(['高校数字治理平台的建设效果进行分析'], 'paper.md', { type: 'text/markdown' }),
     );
     await waitFor(() => expect(screen.getByDisplayValue('高校数字治理平台的建设效果进行分析')).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: '检测' }));
+    await user.click(screen.getByRole('button', { name: '开始检测' }));
 
     await waitFor(() =>
       expect(createDuplicationDetection).toHaveBeenCalledWith({
@@ -179,7 +179,7 @@ describe('FEAT-DUPLICATION-DETECT frontend page route and API client contract', 
     renderDetectRoute();
 
     await user.type(await screen.findByPlaceholderText(/粘贴待检测论文文本/), '高校数字治理平台的建设效果进行分析');
-    await user.click(screen.getByRole('button', { name: '检测' }));
+    await user.click(screen.getByRole('button', { name: '开始检测' }));
 
     await waitFor(() =>
       expect(createDuplicationDetection).toHaveBeenCalledWith({
@@ -189,8 +189,8 @@ describe('FEAT-DUPLICATION-DETECT frontend page route and API client contract', 
       }),
     );
     expect(await screen.findByText(/写作风险分为启发式风险提示，并非 AI 真伪结论/)).toBeInTheDocument();
-    expect(screen.getByText('比对样本数：1')).toBeInTheDocument();
-    expect(screen.getByText('总相似率：42%')).toBeInTheDocument();
+    expect(screen.getByText('比对样本数').parentElement).toHaveTextContent('1');
+    expect(screen.getByText('总相似率').parentElement).toHaveTextContent('42%');
     expect(screen.getByRole('heading', { name: '高校数字治理样本' })).toBeInTheDocument();
     expect(screen.getByText(/Jaccard：0.812 · 命中字符：52/)).toBeInTheDocument();
     expect(screen.getByText(/高校数字治理平台的建设效果进行分析/)).toBeInTheDocument();
@@ -212,12 +212,12 @@ describe('FEAT-DUPLICATION-DETECT frontend page route and API client contract', 
     renderDetectRoute();
 
     await user.type(await screen.findByPlaceholderText(/粘贴待检测论文文本/), '无样本时也需要计算写作风险');
-    await user.click(screen.getByRole('button', { name: '检测' }));
+    await user.click(screen.getByRole('button', { name: '开始检测' }));
 
-    expect(await screen.findByText('无可用样本，未伪造比对结果。')).toBeInTheDocument();
-    expect(screen.getByText('比对样本数：0')).toBeInTheDocument();
-    expect(screen.getByText('总相似率：0%')).toBeInTheDocument();
-    expect(screen.getByText('风险分：28')).toBeInTheDocument();
+    expect(await screen.findByText('当前样本库没有可用比对样本，因此未生成相似片段。')).toBeInTheDocument();
+    expect(screen.getByText('比对样本数').parentElement).toHaveTextContent('0');
+    expect(screen.getByText('总相似率').parentElement).toHaveTextContent('0%');
+    expect(screen.getByText('风险分').parentElement).toHaveTextContent('28');
     expect(screen.queryByRole('heading', { name: '硬编码样本' })).not.toBeInTheDocument();
   });
 
