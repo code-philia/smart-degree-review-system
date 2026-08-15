@@ -85,9 +85,9 @@ describe('FEAT-INNOVATION-SCORING-MODEL frontend route and transparent report co
     renderRoute();
 
     expect(await screen.findByRole('heading', { name: '创新性评分' })).toBeInTheDocument();
-    expect(screen.getByText(/当前登录用户：student01（STUDENT）/)).toBeInTheDocument();
+    expect(screen.getByText('当前账号：student01')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /硕士/ })).toBeChecked();
 
-    await user.selectOptions(screen.getByLabelText('学位类型'), 'master');
     await user.selectOptions(screen.getByLabelText('研究选题等级'), '5');
     await user.selectOptions(screen.getByLabelText('研究方法等级'), '4');
     await user.selectOptions(screen.getByLabelText('研究内容等级'), '4');

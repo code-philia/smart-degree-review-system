@@ -8,10 +8,10 @@ const demoPassword = 'ArcDemo123!';
 async function loginAsStudent(page) {
   await page.goto('/auth');
   await expect(page.getByRole('heading', { name: '登录本地账号' })).toBeVisible();
-  await page.getByLabel('账号').fill('student01');
-  await page.getByLabel('密码').fill(demoPassword);
+  await page.getByRole('textbox', { name: '账号' }).fill('student01');
+  await page.getByRole('textbox', { name: '密码' }).fill(demoPassword);
   await page.getByRole('button', { name: '登录' }).click();
-  await expect(page.getByText('已登录：student01（STUDENT）')).toBeVisible();
+  await expect(page.getByRole('heading', { name: '欢迎回来，student01' })).toBeVisible();
 }
 
 test.describe('FEAT-INNOVATION-SCORING-MODEL innovation scoring scenario', () => {
@@ -20,9 +20,9 @@ test.describe('FEAT-INNOVATION-SCORING-MODEL innovation scoring scenario', () =>
 
     await page.goto('/innovation-scoring');
     await expect(page.getByRole('heading', { name: '创新性评分' })).toBeVisible();
-    await expect(page.getByText(/当前登录用户：student01（STUDENT）/)).toBeVisible();
+    await expect(page.getByText('当前账号：student01')).toBeVisible();
+    await expect(page.getByRole('radio', { name: /硕士/ })).toBeChecked();
 
-    await page.getByLabel('学位类型').selectOption('master');
     await page.getByLabel('研究选题等级').selectOption('5');
     await page.getByLabel('研究方法等级').selectOption('4');
     await page.getByLabel('研究内容等级').selectOption('4');
