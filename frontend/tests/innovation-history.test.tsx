@@ -120,7 +120,7 @@ describe('FEAT-INNOVATION-HISTORY frontend page, route, and client contract', ()
     expect(rows[2]).toHaveTextContent('硕士');
     expect(rows[2]).toHaveTextContent('72');
     expect(rows[2]).toHaveTextContent('中等');
-    expect(screen.getByRole('link', { name: '报告预览' })).toHaveAttribute(
+    expect(screen.getAllByRole('link', { name: '报告预览' })[0]).toHaveAttribute(
       'href',
       '/innovation-assessments/student01-innovation-new',
     );

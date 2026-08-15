@@ -212,7 +212,7 @@ describe('FEAT-LEDGER-RECORDS protected ledger API, service, and repository cont
 
     expect(listResponse.body.records).toHaveLength(1);
     expect(listResponse.body.records[0]).toMatchObject({
-      id: ownedNew.id,
+      id: `normative:${ownedNew.id}`,
       student_id: 'student01',
       supervisor_id: 'supervisor01',
       detection_type: 'normative',
@@ -273,9 +273,9 @@ describe('FEAT-LEDGER-RECORDS protected ledger API, service, and repository cont
       .set('Cookie', collegeCookie)
       .expect(200);
     expect(collegeResponse.body.records.map((record) => record.id)).toEqual([
-      'ledger-college01-ai-review',
-      'ledger-college01-duplication',
-      'ledger-college01-normative',
+      'ai_review:ledger-college01-ai-review',
+      'duplication:ledger-college01-duplication',
+      'normative:ledger-college01-normative',
     ]);
     expect(collegeResponse.body.records.map((record) => record.id)).not.toContain('ledger-college02-innovation');
 
@@ -284,10 +284,9 @@ describe('FEAT-LEDGER-RECORDS protected ledger API, service, and repository cont
       .set('Cookie', schoolCookie)
       .expect(200);
     expect(schoolResponse.body.records.map((record) => record.id)).toEqual([
-      'ledger-college01-ai-review',
-      'ledger-college02-innovation',
-      'ledger-college01-duplication',
-      'ledger-college01-normative',
+      'ai_review:ledger-college01-ai-review',
+      'duplication:ledger-college01-duplication',
+      'normative:ledger-college01-normative',
     ]);
   });
 

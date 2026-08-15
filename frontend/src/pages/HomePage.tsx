@@ -22,6 +22,7 @@ const QUICK_ACTIONS: Record<AuthRole, QuickAction[]> = {
     { label: '内置审查案例', description: '查看跨页论点与论据定位示例', to: '/review-cases' },
     { label: '论文相似度检测', description: '与试点样本库比对相似片段', to: '/duplication-detect' },
     { label: '创新性量表评估', description: '五维度量表评估创新参考分', to: '/innovation-assessment' },
+    { label: '发起评阅', description: '生成供导师复核的论文辅助评阅意见', to: '/ai-review' },
     { label: '论文润色', description: '生成整篇或局部改写建议', to: '/whole-polish' },
     { label: '提交报告给导师', description: '推送已完成报告给导师批阅', to: '/student-report-submissions' },
     { label: '查看批阅结果', description: '查看导师反馈和历史轮次', to: '/student-report-results' },

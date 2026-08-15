@@ -121,16 +121,18 @@ describe('FEAT-AUTH-SESSION frontend session provider and auth page', () => {
     const user = userEvent.setup();
 
     render(
-      <AuthSessionProvider>
-        <LocalAccountLoginForm />
-      </AuthSessionProvider>,
+      <MemoryRouter>
+        <AuthSessionProvider>
+          <LocalAccountLoginForm />
+        </AuthSessionProvider>
+      </MemoryRouter>,
     );
 
     await user.type(await screen.findByLabelText('账号'), 'student01');
     await user.type(screen.getByLabelText('密码'), 'wrong-password');
     await user.click(screen.getByRole('button', { name: '登录' }));
 
-    expect(await screen.findByText('账号或密码不正确，请重试。')).toBeInTheDocument();
+    expect(await screen.findByText('用户名或密码错误，请重试。')).toBeInTheDocument();
     expect(screen.queryByText(/已登录：/)).not.toBeInTheDocument();
   });
 

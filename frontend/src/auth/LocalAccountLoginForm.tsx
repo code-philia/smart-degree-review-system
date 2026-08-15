@@ -19,7 +19,7 @@ function LocalAccountLoginForm() {
       await login({ username, password });
       navigate('/');
     } catch {
-      setErrorMessage('用户名或密码错误');
+      setErrorMessage('用户名或密码错误，请重试。');
     } finally {
       setSubmitting(false);
     }

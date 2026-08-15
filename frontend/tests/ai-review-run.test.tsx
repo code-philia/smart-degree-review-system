@@ -133,11 +133,11 @@ describe('FEAT-AI-REVIEW-RUN frontend route and workflow contract', () => {
 
     renderRoute('/');
 
-    expect(await screen.findByRole('heading', { name: '智慧学位 AI 评阅辅助系统' })).toBeInTheDocument();
-    await user.click(screen.getByRole('link', { name: '发起评阅' }));
+    expect(await screen.findByRole('link', { name: /智慧学位 AI 评阅辅助系统/ })).toHaveAttribute('href', '/');
+    await user.click(screen.getByRole('link', { name: /发起评阅/ }));
 
     expect(await screen.findByRole('heading', { name: 'AI 智能评阅' })).toBeInTheDocument();
-    expect(await screen.findByText('智能评阅')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '智能评阅' })).toBeInTheDocument();
     expect(vi.mocked(fetchReviewRubrics)).toHaveBeenCalledTimes(1);
   });
 

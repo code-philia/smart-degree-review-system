@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import App from '../src/App';
 import DemoAccountHelpPanel from '../src/auth/DemoAccountHelpPanel';
+import { AuthSessionProvider } from '../src/auth/AuthSessionProvider';
 
 const expectedAccounts = [
   ['student01', '学生'],
@@ -15,7 +16,9 @@ describe('FEAT-AUTH-HELP local login help', () => {
   it('renders the /auth page shell with the demo help disclosure and login form', () => {
     render(
       <MemoryRouter initialEntries={['/auth']}>
-        <App />
+        <AuthSessionProvider>
+          <App />
+        </AuthSessionProvider>
       </MemoryRouter>,
     );
 

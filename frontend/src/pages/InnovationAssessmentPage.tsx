@@ -121,6 +121,9 @@ function InnovationAssessmentPage() {
           </LinkButton>
         }
       />
+      <p className="mb-5 text-sm text-slate-600">
+        当前登录用户：{user.username}（{user.role}）
+      </p>
 
       <form onSubmit={handleSubmit}>
         <section className="rounded-[24px] border-2 border-dashed border-[#B7CAE6] px-8 py-8 text-center">
@@ -136,6 +139,7 @@ function InnovationAssessmentPage() {
             论文题目
             <input
               className="h-12 rounded border border-[#DADADA] px-4 outline-none focus:border-[#3D8BF2]"
+              aria-label="论文题目"
               value={thesisTitle}
               onChange={(event) => setThesisTitle(event.target.value)}
             />
@@ -145,6 +149,7 @@ function InnovationAssessmentPage() {
             学历层次
             <select
               className="h-12 rounded border border-[#DADADA] px-4 outline-none focus:border-[#3D8BF2]"
+              aria-label="学历层次"
               value={degreeType}
               onChange={(event) => setDegreeType(event.target.value as InnovationDegreeType)}
             >
@@ -156,6 +161,7 @@ function InnovationAssessmentPage() {
             一级学科
             <input
               className="h-12 rounded border border-[#DADADA] px-4 outline-none focus:border-[#3D8BF2]"
+              aria-label="一级学科"
               value={primaryDiscipline}
               onChange={(event) => setPrimaryDiscipline(event.target.value)}
             />
@@ -167,6 +173,7 @@ function InnovationAssessmentPage() {
             二级学科
             <input
               className="h-12 rounded border border-[#DADADA] px-4 outline-none focus:border-[#3D8BF2]"
+              aria-label="二级学科"
               value={secondaryDiscipline}
               onChange={(event) => setSecondaryDiscipline(event.target.value)}
             />
@@ -178,6 +185,7 @@ function InnovationAssessmentPage() {
             研究方向
             <input
               className="h-12 rounded border border-[#DADADA] px-4 outline-none focus:border-[#3D8BF2]"
+              aria-label="研究方向"
               value={researchDirection}
               onChange={(event) => setResearchDirection(event.target.value)}
             />
@@ -195,6 +203,7 @@ function InnovationAssessmentPage() {
                 等级
                 <select
                   className="mt-2 h-11 w-full rounded border border-[#DADADA] px-3"
+                  aria-label={`${dimension.label}等级`}
                   value={dimensions[dimension.key].level}
                   onChange={(event) =>
                     setDimensions((current) => ({
@@ -214,6 +223,7 @@ function InnovationAssessmentPage() {
                 证据（不少于 20 个字符）
                 <textarea
                   className="mt-2 min-h-24 w-full rounded border border-[#DADADA] p-3"
+                  aria-label={`${dimension.label}证据`}
                   value={dimensions[dimension.key].evidence}
                   onChange={(event) =>
                     setDimensions((current) => ({
@@ -230,6 +240,7 @@ function InnovationAssessmentPage() {
                 改进计划（不少于 20 个字符）
                 <textarea
                   className="mt-2 min-h-24 w-full rounded border border-[#DADADA] p-3"
+                  aria-label={`${dimension.label}改进计划`}
                   value={dimensions[dimension.key].improvement_plan}
                   onChange={(event) =>
                     setDimensions((current) => ({

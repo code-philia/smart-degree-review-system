@@ -8,7 +8,7 @@ import { fetchCurrentSession, type AuthenticatedUser } from '../src/api/authSess
 import { createReportSubmissions, type CreateReportSubmissionResponse } from '../src/api/reportSubmissions';
 import {
   fetchAiReviewHistory,
-  fetchDuplicationHistory,
+  fetchDuplicationDetectionHistory,
   fetchInnovationHistory,
   fetchNormativeDetectionHistory,
 } from '../src/api/normativeRules';
@@ -35,7 +35,7 @@ vi.mock('../src/api/normativeRules', async () => {
   return {
     ...actual,
     fetchAiReviewHistory: vi.fn(),
-    fetchDuplicationHistory: vi.fn(),
+    fetchDuplicationDetectionHistory: vi.fn(),
     fetchInnovationHistory: vi.fn(),
     fetchNormativeDetectionHistory: vi.fn(),
   };
@@ -109,11 +109,11 @@ describe('FEAT-REPORT-STUDENT-SUBMIT frontend page and client contract', () => {
     vi.mocked(fetchCurrentSession).mockReset();
     vi.mocked(createReportSubmissions).mockReset();
     vi.mocked(fetchNormativeDetectionHistory).mockReset();
-    vi.mocked(fetchDuplicationHistory).mockReset();
+    vi.mocked(fetchDuplicationDetectionHistory).mockReset();
     vi.mocked(fetchInnovationHistory).mockReset();
     vi.mocked(fetchAiReviewHistory).mockReset();
     vi.mocked(fetchNormativeDetectionHistory).mockResolvedValue([]);
-    vi.mocked(fetchDuplicationHistory).mockResolvedValue([]);
+    vi.mocked(fetchDuplicationDetectionHistory).mockResolvedValue([]);
     vi.mocked(fetchInnovationHistory).mockResolvedValue([]);
     vi.mocked(fetchAiReviewHistory).mockResolvedValue([]);
   });
@@ -125,7 +125,7 @@ describe('FEAT-REPORT-STUDENT-SUBMIT frontend page and client contract', () => {
 
     expect(await screen.findByRole('heading', { name: '学生报告提交与批阅结果台账' })).toBeInTheDocument();
     expect(screen.getByText('报告状态流转：')).toBeInTheDocument();
-    expect(screen.getByText('暂无已加载的可提交报告。')).toBeInTheDocument();
+    expect(await screen.findByText('暂无已加载的可提交报告')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '推送报告' })).toBeDisabled();
     expect(screen.queryByText(/student01-规范报告|示例报告|demo/i)).not.toBeInTheDocument();
     expect(createReportSubmissions).not.toHaveBeenCalled();

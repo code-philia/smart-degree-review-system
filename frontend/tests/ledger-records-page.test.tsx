@@ -70,14 +70,14 @@ describe('FEAT-LEDGER-RECORDS ledger page contract', () => {
 
     expect(screen.getByText('学位论文检测台账管理')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '检测记录台账' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '检测数据统计' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '检测数据统计' })).toHaveAttribute('href', '/ledger-stats');
     expect(screen.getByRole('button', { name: '规范性检测' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'AIGC查重' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '查询' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '重置' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '导出' })).toBeInTheDocument();
 
-    await waitFor(() => expect(fetchDetectionLedgerRecords).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByText('台账页面论文一号')).toBeInTheDocument());
     expect(fetchDetectionLedgerRecords).toHaveBeenCalledWith({ detection_type: 'normative', latest_only: false });
 
     const table = screen.getByRole('table');

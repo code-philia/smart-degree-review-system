@@ -101,7 +101,7 @@ describe('FEAT-AUTH-PASSWORD frontend local login and role-aware home menu', () 
     await user.type(screen.getByLabelText('密码'), 'WrongPassword123!');
     await user.click(screen.getByRole('button', { name: '登录' }));
 
-    expect(await screen.findByText('用户名或密码错误')).toBeInTheDocument();
+    expect(await screen.findByText(/用户名或密码错误/)).toBeInTheDocument();
     expect(screen.queryByText(/已登录：student01（STUDENT）/)).not.toBeInTheDocument();
     expect(screen.queryByText('账号是否存在')).not.toBeInTheDocument();
   });

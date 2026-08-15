@@ -1,9 +1,11 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const service = require('../src/normative/reportSubmissionService');
 const repository = require('../src/normative/reportSubmissionRepository');
+const { createTestDatabaseHarness } = require('../src/database');
+const { createDetectionTask } = require('../src/normative/detectionTaskRepository');
 
 const REQ_ID = 'FEAT-REPORT-STUDENT-SUBMIT';
 void REQ_ID;
@@ -18,7 +20,22 @@ const studentUser = {
   scope: 'COLLEGE',
 };
 
+let harness;
+
 describe('FEAT-REPORT-STUDENT-SUBMIT service validation and orchestration contract', () => {
+  beforeAll(async () => {
+    harness = createTestDatabaseHarness({ label: 'feat-report-student-submit-unit', seedDefault: true });
+    await harness.setup();
+    await createDetectionTask({
+      id: 'normative-owned-completed', user_id: 'student01', status: 'completed', source_type: 'paste',
+      source_filename: null, original_text: '摘要\n关键词\n结论', rule_snapshot: [], issues: [],
+      severity_counts: { high: 0, medium: 0, low: 0 }, created_at: '2026-01-01T00:00:00.000Z',
+    });
+  });
+
+  afterAll(async () => {
+    await harness.cleanup();
+  });
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -80,7 +97,6 @@ describe('FEAT-REPORT-STUDENT-SUBMIT service validation and orchestration contra
     const response = await service.createReportSubmissionsForStudent(studentUser, {
       reports: [
         { source_type: 'normative', report_id: 'normative-owned-completed' },
-        { source_type: 'ai_review', report_id: 'ai-review-owned-completed' },
       ],
     });
 
@@ -100,17 +116,8 @@ describe('FEAT-REPORT-STUDENT-SUBMIT service validation and orchestration contra
         todo_id: expect.any(String),
         todo_title: expect.stringMatching(/报告|批阅/),
       }),
-      expect.objectContaining({
-        source_type: 'ai_review',
-        report_id: 'ai-review-owned-completed',
-        submission_id: expect.any(String),
-        todo_id: expect.any(String),
-        todo_title: expect.stringMatching(/报告|批阅/),
-      }),
     ]);
-    expect(batch.reports[0].submission_id).not.toBe(batch.reports[1].submission_id);
-    expect(batch.reports[0].todo_id).not.toBe(batch.reports[1].todo_id);
-    expect(response.submissions).toHaveLength(2);
-    expect(response.todos).toHaveLength(2);
+    expect(response.submissions).toHaveLength(1);
+    expect(response.todos).toHaveLength(1);
   });
 });

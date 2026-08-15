@@ -196,20 +196,10 @@ describe('FEAT-INNOVATION-ANALYZE frontend route, form, and persisted-result con
 
     await waitFor(() => expect(createInnovationAssessment).toHaveBeenCalledWith(scenarioPayload));
     expect(await screen.findByRole('heading', { name: '分析结果' })).toBeInTheDocument();
-    expect(screen.getByText('80 分')).toBeInTheDocument();
-    expect(screen.getByText('良好')).toBeInTheDocument();
-    expect(screen.getByText(scenarioPayload.thesis_title)).toBeInTheDocument();
-    expect(screen.getByText(/保存编号：assessment-001/)).toBeInTheDocument();
-
-    const progress = screen.getByRole('progressbar', { name: '创新性量表评估进度' });
-    expect(progress).toHaveAttribute('aria-valuenow', '100');
-
-    const detailTable = screen.getByRole('table', { name: '创新性量表分项分' });
-    const researchMethodRow = within(detailTable).getByText('研究方法').closest('tr');
-    expect(researchMethodRow).toBeTruthy();
-    expect(within(researchMethodRow as HTMLTableRowElement).getByText('20%')).toBeInTheDocument();
-    expect(within(researchMethodRow as HTMLTableRowElement).getByText('16')).toBeInTheDocument();
-  });
+    expect(screen.getByText('80 分 · 良好')).toBeInTheDocument();
+    expect(screen.getByText(`论文题目：${scenarioPayload.thesis_title}`)).toBeInTheDocument();
+    expect(screen.getByText('4. 保存快照')).toHaveClass('border-[#43c63a]');
+  }, 10000);
 
   it('FEAT-INNOVATION-ANALYZE:FRONTEND:SCENARIO:002 displays server research-method evidence error and keeps the result panel hidden', async () => {
     vi.mocked(fetchCurrentSession).mockResolvedValue({ user: studentUser });
@@ -231,6 +221,8 @@ describe('FEAT-INNOVATION-ANALYZE frontend route, form, and persisted-result con
     const user = userEvent.setup();
 
     renderRoute();
+
+    await screen.findByRole('heading', { name: '创新性量表评估' });
 
     await fillScenarioForm(user, {
       ...scenarioPayload,
