@@ -71,6 +71,15 @@ cd backend
 npm run db:seed
 ```
 
+如需为甲方体验准备完整的业务演示场景（学生论文历程、导师待办、管理台账和样本库），请使用独立、可丢弃的数据库。该命令不会删除任何非演示数据，重复执行也不会重复插入同一场景的数据：
+
+```bash
+cd backend
+ARC_DB_FILE="$PWD/.arc-demo-db/presentation.sqlite" ARC_ALLOW_DEMO_SEED=1 npm run db:seed:demo
+```
+
+演示 seed 会校验学生—导师关系和“提交记录—报告”关联；成功后输出场景版本及新增、更新、清理数量。请勿对正在录入试点数据的数据库运行该命令。
+
 构建前端并启动后端：
 
 ```bash
@@ -133,4 +142,5 @@ npm run test:e2e
 - 可通过 `ARC_DB_FILE` 或 `DATABASE_FILE` 覆盖
 - 运行时只自动创建基础表结构，不创建或修改演示账号
 - `npm run db:seed` 仅创建缺失的演示账号，不覆盖已有账号或密码
+- `npm run db:seed:demo` 必须显式设置数据库路径及 `ARC_ALLOW_DEMO_SEED=1`；用于完整演示场景，并记录场景版本
 - 测试会使用隔离的 SQLite 文件

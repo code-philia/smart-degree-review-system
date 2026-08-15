@@ -34,18 +34,20 @@ describe('explicit demo data seed', () => {
     await expect(get('SELECT COUNT(*) AS count FROM auth_users')).resolves.toEqual({ count: 0 });
   });
 
-  it('seeds five student histories, scoped quality data, and five review workflow rounds idempotently', async () => {
+  it('seeds coherent student journeys, scoped management data, and five review workflow rounds idempotently', async () => {
     const first = await seedDemoDatabase({ confirmDemoData: true });
-    expect(first.inserted).toBe(97);
+    expect(first.inserted).toBeGreaterThan(0);
     expect(first.updated).toBe(0);
+    expect(first.removed).toBe(0);
+    expect(first.verification).toEqual({ valid: true, checked: ['student-supervisor', 'submission-report'] });
     expect(first.totals).toMatchObject({
-      users: 11,
-      normative: 15,
-      duplication: 15,
-      innovation: 15,
-      ai_review: 15,
-      whole_polish: 6,
-      local_polish: 5,
+      users: 15,
+      normative: 12,
+      duplication: 12,
+      innovation: 12,
+      ai_review: 12,
+      whole_polish: 3,
+      local_polish: 2,
       corpus: 5,
       submissions: 5,
       todos: 5,
@@ -61,10 +63,10 @@ describe('explicit demo data seed', () => {
         request(app).get('/api/normative/innovation-assessments').set('Cookie', cookie).expect(200),
         request(app).get('/api/normative/ai-review-runs').set('Cookie', cookie).expect(200),
       ]);
-      const expectedHistoryCount = username === 'student01' ? 5 : 1;
+      const expectedHistoryCount = username === 'student01' ? 5 : 0;
       expect(normative.body.records).toHaveLength(expectedHistoryCount);
       expect(duplication.body.records).toHaveLength(expectedHistoryCount);
-      expect(polish.body.records).toHaveLength(username === 'student01' ? 5 : 2);
+      expect(polish.body.records).toHaveLength(username === 'student01' ? 5 : 0);
       expect(innovation.body.records).toHaveLength(expectedHistoryCount);
       expect(aiReview.body.records).toHaveLength(expectedHistoryCount);
       expect(normative.body.records.every((record) => !record.source_filename?.includes('[演示]'))).toBe(true);
@@ -116,9 +118,29 @@ describe('explicit demo data seed', () => {
     expect(dashboard.body.metrics.every((metric) => metric.sample_count === 8)).toBe(true);
     expect(corpus.body.samples).toHaveLength(5);
 
+    await expect(
+      get(
+        `SELECT COUNT(*) AS count
+           FROM auth_users student
+           LEFT JOIN auth_users supervisor ON supervisor.id = student.supervisor_id AND supervisor.role = 'SUPERVISOR'
+          WHERE student.id LIKE 'student%' AND student.role = 'STUDENT' AND supervisor.id IS NULL`,
+      ),
+    ).resolves.toEqual({ count: 0 });
+    await expect(
+      get(
+        `SELECT COUNT(*) AS count
+           FROM report_submissions submission
+           JOIN normative_detection_tasks report ON report.id = submission.report_id
+          WHERE submission.id LIKE 'demo-submission-%' AND report.user_id != submission.student_id`,
+      ),
+    ).resolves.toEqual({ count: 0 });
+    await expect(get("SELECT version FROM demo_seed_metadata WHERE demo_key = 'presentation-full'"))
+      .resolves.toMatchObject({ version: first.version });
+
     const second = await seedDemoDatabase({ confirmDemoData: true });
     expect(second.inserted).toBe(0);
     expect(second.updated).toBe(0);
+    expect(second.removed).toBe(0);
     expect(second.totals).toEqual(first.totals);
   });
 });

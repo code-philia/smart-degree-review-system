@@ -85,6 +85,15 @@ async function initializeDatabase(options = {}) {
 
     await runStatement(
       database,
+      `CREATE TABLE IF NOT EXISTS demo_seed_metadata (
+        demo_key TEXT PRIMARY KEY,
+        version TEXT NOT NULL,
+        seeded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );`,
+    );
+
+    await runStatement(
+      database,
       `CREATE TABLE IF NOT EXISTS auth_sessions (
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,
