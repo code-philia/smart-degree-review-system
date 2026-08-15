@@ -8,6 +8,7 @@ const app = express();
 // route modules imports
 const authRoutes = require('./auth/authRoutes');
 const normativeRoutes = require('./normative/normativeRoutes');
+const exampleRuleRoutes = require('./example-rule-check/exampleRuleRoutes');
 
 // middleware imports
 app.use(cors());
@@ -18,6 +19,7 @@ app.get('/api/health', (req, res) => {
 });
 app.use('/api/auth', bodyParser.json({ limit: '16kb' }), authRoutes);
 app.use('/api/normative', normativeRoutes);
+app.use('/api/example-rule-check', exampleRuleRoutes);
 
 const frontendDistPath = path.resolve(__dirname, '../../frontend/dist');
 

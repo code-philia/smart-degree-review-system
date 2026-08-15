@@ -32,6 +32,10 @@ import SupervisorReviewPage from './pages/SupervisorReviewPage';
 import RuleConfigPage from './pages/RuleConfigPage';
 import WholePolishPage from './pages/WholePolishPage';
 import BuiltInReviewCasesPage from './pages/BuiltInReviewCasesPage';
+import ExampleRuleCheckPage from './pages/ExampleRuleCheckPage';
+import ExampleRuleManagementPage from './pages/ExampleRuleManagementPage';
+import ExampleRuleReportsPage from './pages/ExampleRuleReportsPage';
+import ExampleRuleReportPage from './pages/ExampleRuleReportPage';
 
 function App() {
   return (
@@ -45,6 +49,10 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/normative-check" element={<NormativeCheckPage />} />
+        <Route path="/example-rule-check" element={<ExampleRuleCheckPage />} />
+        <Route path="/example-rule-check/rules" element={<ExampleRuleManagementPage />} />
+        <Route path="/example-rule-check/reports" element={<ExampleRuleReportsPage />} />
+        <Route path="/example-rule-check/reports/:reportId" element={<ExampleRuleReportPage />} />
         <Route path="/review-cases" element={<BuiltInReviewCasesPage />} />
         <Route path="/review-cases/:caseId" element={<BuiltInReviewCasesPage />} />
         <Route path="/normative-reports" element={<NormativeReportPage />} />

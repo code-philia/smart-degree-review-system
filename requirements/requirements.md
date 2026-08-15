@@ -651,3 +651,50 @@ Actor: STUDENT.
 - **GIVEN (STUDENT)** student01 有一条状态为批阅完成已反馈的提交记录。
 - **WHEN (STUDENT)** 学生首次打开详情。
 - **THEN** 页面展示原报告、批注和整体评价，记录状态更新为学生已查阅。
+
+## MOD-EXAMPLE-RULE-CHECK 示例规则检测
+
+“示例规则检测”是独立的个人规则模块，入口为 `/example-rule-check`，规则管理、报告历史和报告详情分别为 `/example-rule-check/rules`、`/example-rule-check/reports`、`/example-rule-check/reports/:reportId`。所有已登录角色只能创建、编辑、删除、启停、使用和查看本人资源；它不替换或修改规范性检测、学校/学院固定规则、review-pilot PDF 审查、检测台账、统计、质量画像或师生批阅闭环。
+
+用户可上传 1–5 份不超过 50 MB、带可搜索文字层的示例 PDF，并记录关注内容、合格示例、不合格示例、例外情况或补充说明等带页码/摘录的证据标注。原始 PDF 不写入 SQLite，仅存于应用受保护目录，并只能由创建者经登录接口读取。用户填写检查意图后，可在每次明确确认相关文本允许发送至 DeepSeek 的前提下生成结构化规则、示例试跑并检测新 PDF；模型未配置、超时、解析失败、扫描件、加密件、缺少标注或结构化返回无效时必须返回真实且可理解的失败状态，不伪造结果。
+
+个人规则包含启停状态、版本、创建/更新时间和结构化定义；每次编辑递增版本。检测报告保存当次规则快照、结论、证据、修改建议和 PDF 原文定位所需文件，规则后续编辑不得改变历史报告。
+
+Permissions: ALL.
+### Included chapters
+- `FEAT-EXAMPLE-RULE-AUTHORING` 示例标注、规则生成与试跑
+- `FEAT-EXAMPLE-RULE-PERSONAL-OWNERSHIP` 个人规则和资料权限
+- `FEAT-EXAMPLE-RULE-REPORTS` 个人 PDF 检测报告
+
+### FEAT-EXAMPLE-RULE-AUTHORING 示例标注、规则生成与试跑
+
+用户在示例资料中记录带页码与摘录的证据，填写检查意图，明确同意外发后调用 DeepSeek 生成并校验结构化规则。规则可编辑，并可使用同一批示例进行实际模型试跑。
+
+### Acceptance scenarios
+#### 未同意外发时拒绝生成
+Actor: STUDENT.
+- **GIVEN (STUDENT)** student01 已填写意图并完成示例标注。
+- **WHEN (STUDENT)** 未确认相关文本可发送至 DeepSeek 就请求生成规则。
+- **THEN** 系统返回明确提示，不调用模型且不生成规则。
+
+### FEAT-EXAMPLE-RULE-PERSONAL-OWNERSHIP 个人规则和资料权限
+
+规则、示例资料元数据、标注和文件均按创建者隔离；后端在路由及 repository/service 查询中使用当前用户 ID 限制所有读写删操作。
+
+### Acceptance scenarios
+#### 拒绝读取他人规则和资料
+Actor: STUDENT.
+- **GIVEN (STUDENT)** student01 与 student02 各有个人规则或示例资料。
+- **WHEN (STUDENT)** student01 以 ID 请求 student02 的资源。
+- **THEN** 后端返回 404/403，不返回资源内容且不修改数据。
+
+### FEAT-EXAMPLE-RULE-REPORTS 个人 PDF 检测报告
+
+用户选择最多 5 条已启用个人规则检测新的 PDF。报告保存规则版本快照、模型真实返回的状态、证据、结论和修改建议；原文仅供创建者读取。结果为人工复核辅助信息。
+
+### Acceptance scenarios
+#### 历史报告保持规则快照
+Actor: STUDENT.
+- **GIVEN (STUDENT)** student01 使用个人规则版本 1 完成一份检测报告。
+- **WHEN (STUDENT)** student01 编辑同一规则并保存为版本 2。
+- **THEN** 原报告仍展示版本 1 的规则快照，不受后续编辑影响。

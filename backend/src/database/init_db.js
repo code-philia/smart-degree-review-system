@@ -179,6 +179,38 @@ async function initializeDatabase(options = {}) {
        ON paper_lint_reports (user_id, created_at DESC);`,
     );
 
+    // Personal example-derived rules are deliberately isolated from normative rules.
+    await runStatement(database, `CREATE TABLE IF NOT EXISTS example_rule_documents (
+      id TEXT PRIMARY KEY, user_id TEXT NOT NULL, source_filename TEXT NOT NULL,
+      source_pdf_path TEXT NOT NULL, annotations_json TEXT NOT NULL DEFAULT '[]',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE
+    );`);
+    await runStatement(database, `CREATE TABLE IF NOT EXISTS example_rule_definitions (
+      id TEXT PRIMARY KEY, user_id TEXT NOT NULL, name TEXT NOT NULL, intent TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('enabled', 'disabled')),
+      version INTEGER NOT NULL, rule_json TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE
+    );`);
+    await runStatement(database, `CREATE TABLE IF NOT EXISTS example_rule_versions (
+      id TEXT PRIMARY KEY, rule_id TEXT NOT NULL, user_id TEXT NOT NULL, version INTEGER NOT NULL,
+      rule_snapshot_json TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (rule_id, version),
+      FOREIGN KEY (rule_id) REFERENCES example_rule_definitions(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE
+    );`);
+    await runStatement(database, `CREATE TABLE IF NOT EXISTS example_rule_reports (
+      id TEXT PRIMARY KEY, user_id TEXT NOT NULL, source_filename TEXT NOT NULL, source_pdf_path TEXT NOT NULL,
+      rule_snapshots_json TEXT NOT NULL, result_json TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE
+    );`);
+    await runStatement(database, `CREATE INDEX IF NOT EXISTS idx_example_rule_documents_user_created ON example_rule_documents (user_id, created_at DESC);`);
+    await runStatement(database, `CREATE INDEX IF NOT EXISTS idx_example_rule_definitions_user_updated ON example_rule_definitions (user_id, updated_at DESC);`);
+    await runStatement(database, `CREATE INDEX IF NOT EXISTS idx_example_rule_reports_user_created ON example_rule_reports (user_id, created_at DESC);`);
+
     await runStatement(
       database,
       `CREATE TABLE IF NOT EXISTS duplication_corpus_samples (

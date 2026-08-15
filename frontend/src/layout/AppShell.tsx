@@ -87,6 +87,7 @@ const PRODUCT_TAGLINE = '试点验证版 V0.9';
 
 const NAV_ICONS: Record<string, LucideIcon> = {
   '/normative-check': FileCheck2,
+  '/example-rule-check': Sparkles,
   '/normative-reports': History,
   '/duplication-detect': Search,
   '/duplication-history': Files,

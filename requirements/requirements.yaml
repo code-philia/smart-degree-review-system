@@ -1,5 +1,25 @@
 id: SYS-DEGREE-AI-REVIEW
 name: '智慧学位 AI 评阅辅助系统（ARC 可实现版）'
+example_rule_check:
+  id: MOD-EXAMPLE-RULE-CHECK
+  name: '示例规则检测'
+  permissions: ['STUDENT', 'SUPERVISOR', 'COLLEGE_ADMIN', 'SCHOOL_ADMIN']
+  routes: ['/example-rule-check', '/example-rule-check/rules', '/example-rule-check/reports', '/example-rule-check/reports/:reportId']
+  boundaries:
+    - '个人规则独立于规范性检测、学校/学院固定规则和 review-pilot PDF 审查。'
+    - '不进入检测台账、统计、质量画像或师生批阅闭环。'
+    - '原始 PDF 不存 SQLite，仅在受保护目录中供创建者读取。'
+    - '每次生成、试跑和检测均需确认相关文本允许发送至 DeepSeek。'
+  features:
+    - id: FEAT-EXAMPLE-RULE-AUTHORING
+      name: '示例标注、规则生成与试跑'
+      validation: ['1–5 份 PDF', '每份最大 50 MB', '需有效标注、意图和外发同意', 'DeepSeek JSON 严格校验']
+    - id: FEAT-EXAMPLE-RULE-PERSONAL-OWNERSHIP
+      name: '个人资源隔离'
+      validation: ['所有读写删均以当前 user_id 限定']
+    - id: FEAT-EXAMPLE-RULE-REPORTS
+      name: '个人 PDF 检测报告'
+      validation: ['最多 5 条启用规则', '保存规则版本快照、证据、结论和建议', '仅创建者读取 PDF']
 type: MODULE
 description: '面向学生、导师、学院管理人员和学校管理人员，建设一个可在当前 ARC Web 模板中完整生成、运行和测试的学位论文辅助系统。\n系统采用单端口 B/S 架构，前端使用 React，后端使用 Express，业务数据使用 SQLite 持久化。系统在本地单实例中运行，不承诺微服务拆分、校内私有云部署、高并发或弹性扩容。\n除明确标注的 review-pilot PDF 语义规则外，核心结果由本地可解释的规则、公式和持久化数据产生，不依赖 jAccount、短信、微信、外部大模型、校外文献库或未提供的校内论文库。语义规则固定调用 DeepSeek 官方 API，只处理规则选中的摘要、论点和候选论据文本，其结果属于需人工复核的辅助判断。'
 images:
