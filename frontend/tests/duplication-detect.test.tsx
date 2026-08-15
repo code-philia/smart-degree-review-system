@@ -5,7 +5,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../src/App';
 import apiClient from '../src/api';
 import { fetchCurrentSession, type AuthenticatedUser } from '../src/api/authSession';
-import { createDuplicationDetection, type DuplicationDetectionResponse } from '../src/api/normativeRules';
+import {
+  createDuplicationDetection,
+  fetchDuplicationDetectionReport,
+  type DuplicationDetectionResponse,
+  type DuplicationHistoryRecord,
+} from '../src/api/normativeRules';
 import { AuthSessionProvider } from '../src/auth/AuthSessionProvider';
 
 vi.mock('../src/api/authSession', async () => {
@@ -21,6 +26,7 @@ vi.mock('../src/api/normativeRules', async () => {
   return {
     ...actual,
     createDuplicationDetection: vi.fn(),
+    fetchDuplicationDetectionReport: vi.fn(),
   };
 });
 
@@ -39,6 +45,16 @@ const student: AuthenticatedUser = {
 function renderDetectRoute() {
   return render(
     <MemoryRouter initialEntries={['/duplication-detect']}>
+      <AuthSessionProvider>
+        <App />
+      </AuthSessionProvider>
+    </MemoryRouter>,
+  );
+}
+
+function renderHistoryReportRoute() {
+  return render(
+    <MemoryRouter initialEntries={['/duplication-history/report-001']}>
       <AuthSessionProvider>
         <App />
       </AuthSessionProvider>
@@ -117,6 +133,34 @@ describe('FEAT-DUPLICATION-DETECT frontend page route and API client contract', 
   beforeEach(() => {
     vi.mocked(fetchCurrentSession).mockReset();
     vi.mocked(createDuplicationDetection).mockReset();
+    vi.mocked(fetchDuplicationDetectionReport).mockReset();
+  });
+
+  it('FEAT-DUPLICATION-HISTORY:UI:REPORT:001 presents structured report details instead of raw JSON', async () => {
+    vi.mocked(fetchCurrentSession).mockResolvedValue({ user: student });
+    const detectionReport = report();
+    const historyRecord: DuplicationHistoryRecord = {
+      id: 'report-001',
+      user_id: student.username,
+      source_type: 'paste',
+      source_filename: null,
+      original_text: '待检测论文文本',
+      total_similarity_rate: detectionReport.total_similarity_rate,
+      writing_risk_score: detectionReport.risk.score,
+      sample_count: detectionReport.sample_count,
+      report_json: detectionReport,
+      created_at: '2026-08-15T07:00:00.000Z',
+    };
+    vi.mocked(fetchDuplicationDetectionReport).mockResolvedValue(historyRecord);
+
+    renderHistoryReportRoute();
+
+    expect(await screen.findByRole('heading', { name: '检测摘要' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '相似片段' })).toBeInTheDocument();
+    expect(screen.getByText('高校数字治理样本')).toBeInTheDocument();
+    expect(screen.getByText('论文片段')).toBeInTheDocument();
+    expect(screen.getByText('样本片段')).toBeInTheDocument();
+    expect(screen.queryByText('"top_matches"')).not.toBeInTheDocument();
   });
 
   it('FEAT-DUPLICATION-DETECT:UI:AUTH:001 renders shared-session anonymous login prompt instead of local fake detection controls', async () => {

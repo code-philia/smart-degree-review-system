@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   downloadDuplicationReportJson,
   fetchDuplicationDetectionHistory,
   fetchDuplicationDetectionReport,
+  type DuplicationDetectionResponse,
   type DuplicationHistoryRecord,
 } from '../api/normativeRules';
 import { useAuthSession } from '../auth/AuthSessionProvider';
@@ -20,6 +21,7 @@ import {
   LoadingState,
   ModuleTabs,
   PageHeader,
+  StatusBadge,
 } from '../components/ui';
 
 function formatPercent(value: number) {
@@ -30,6 +32,29 @@ function getDocumentName(record: DuplicationHistoryRecord) {
   return record.source_filename || '粘贴文本检测';
 }
 
+function formatDateTime(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString('zh-CN', { hour12: false });
+}
+
+function getDetectionReport(value: DuplicationHistoryRecord['report_json']): DuplicationDetectionResponse | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+
+  const candidate = value as Partial<DuplicationDetectionResponse>;
+  return Array.isArray(candidate.top_matches) && candidate.risk && typeof candidate.risk === 'object'
+    ? (candidate as DuplicationDetectionResponse)
+    : null;
+}
+
+const RISK_FACTOR_LABELS: Record<string, string> = {
+  paragraph_duplication_rate: '段落重复度',
+  sentence_length_low_variation: '句式长度单一',
+  template_connector_density: '模板连接词密度',
+  vague_phrase_density: '模糊表达密度',
+};
+
 function DuplicationHistoryPage() {
   const { reportId } = useParams();
   const { status, user } = useAuthSession();
@@ -38,7 +63,7 @@ function DuplicationHistoryPage() {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const reportPayload = useMemo(() => (report ? JSON.stringify(report.report_json, null, 2) : ''), [report]);
+  const detectionReport = report ? getDetectionReport(report.report_json) : null;
 
   useEffect(() => {
     if (status !== 'authenticated' || !user) {
@@ -112,6 +137,7 @@ function DuplicationHistoryPage() {
       <div>
         <PageHeader
           title="查重检测报告"
+          description={report ? `检测完成于 ${formatDateTime(report.created_at)}` : '查看相似片段与写作风险提示。'}
           breadcrumbs={[
             { label: '首页', to: '/' },
             { label: '历史检测记录', to: '/duplication-history' },
@@ -132,17 +158,112 @@ function DuplicationHistoryPage() {
         {loading ? <LoadingState label="正在加载报告…" /> : null}
         {errorMessage ? <ErrorState message={errorMessage} /> : null}
         {report ? (
-          <Card>
-            <dl className="grid gap-4 text-sm font-bold sm:grid-cols-4">
-              <div>文档名：{getDocumentName(report)}</div>
-              <div className="text-[#D93636]">总相似率：{formatPercent(report.total_similarity_rate)}</div>
-              <div className="text-[#D93636]">写作风险分：{Math.round(report.writing_risk_score)}</div>
-              <div>样本库数量：{report.sample_count}</div>
-            </dl>
-            <pre className="mt-6 max-h-[640px] overflow-auto rounded-2xl bg-slate-950 p-5 text-xs leading-6 text-slate-50">
-              {reportPayload}
-            </pre>
-          </Card>
+          <div className="mx-auto max-w-6xl space-y-6">
+            <Card
+              title="检测摘要"
+              description={getDocumentName(report)}
+              actions={<StatusBadge tone="success">检测完成</StatusBadge>}
+            >
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {[
+                  ['总相似率', formatPercent(report.total_similarity_rate), 'text-danger-600'],
+                  ['写作风险分', String(Math.round(report.writing_risk_score)), 'text-slate-900'],
+                  ['比对样本数', String(report.sample_count), 'text-slate-900'],
+                  ['有效字符数', String(detectionReport?.effective_character_count ?? '—'), 'text-slate-900'],
+                ].map(([label, value, tone]) => (
+                  <div key={label} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-xs font-medium text-slate-500">{label}</p>
+                    <p className={`mt-1 text-2xl font-black ${tone}`}>{value}</p>
+                  </div>
+                ))}
+              </div>
+              <dl className="mt-5 grid gap-x-8 gap-y-2 border-t border-slate-100 pt-4 text-sm sm:grid-cols-2">
+                <div className="flex justify-between gap-4">
+                  <dt className="text-slate-500">检测方式</dt>
+                  <dd className="font-semibold text-slate-900">
+                    {report.source_type === 'file' ? '文件上传' : '文本粘贴'}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-slate-500">报告生成时间</dt>
+                  <dd className="font-semibold text-slate-900">{formatDateTime(report.created_at)}</dd>
+                </div>
+              </dl>
+            </Card>
+
+            <Card title="相似片段" description="以下内容用于辅助核对，建议结合论文语境和引用规范判断。">
+              {!detectionReport ? (
+                <p className="rounded-lg border border-dashed border-slate-300 px-4 py-3 text-sm text-slate-600">
+                  该历史报告未保留可展示的片段明细，可下载原始报告进行查看。
+                </p>
+              ) : detectionReport.status === 'no_samples' || detectionReport.top_matches.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-slate-300 px-4 py-3 text-sm text-slate-600">
+                  当前试点样本库中没有达到检测阈值的相似片段。
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {detectionReport.top_matches.map((match) => (
+                    <article key={match.sample_id} className="rounded-xl border border-slate-200 p-4 sm:p-5">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <h3 className="font-bold text-slate-900">{match.title}</h3>
+                          <p className="mt-1 text-sm text-slate-500">
+                            {match.subject || '未标注学科'} · {match.year || '年份未标注'}
+                          </p>
+                        </div>
+                        <div className="flex gap-2 text-xs font-semibold">
+                          <span className="rounded-full bg-danger-50 px-2.5 py-1 text-danger-600">
+                            相似度 {formatPercent(match.jaccard_score)}
+                          </span>
+                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">
+                            命中 {match.matched_character_count} 字
+                          </span>
+                        </div>
+                      </div>
+                      <div className="mt-4 space-y-3">
+                        {match.segments.map((segment, index) => (
+                          <div
+                            key={`${segment.source_start}-${segment.sample_start}-${index}`}
+                            className="grid gap-3 rounded-lg bg-slate-50 p-3 lg:grid-cols-2"
+                          >
+                            <div>
+                              <p className="text-xs font-bold text-slate-500">论文片段</p>
+                              <p className="mt-1 text-sm leading-6 text-slate-800">{segment.source_excerpt}</p>
+                            </div>
+                            <div className="border-t border-slate-200 pt-3 lg:border-l lg:border-t-0 lg:pl-3 lg:pt-0">
+                              <p className="text-xs font-bold text-slate-500">样本片段</p>
+                              <p className="mt-1 text-sm leading-6 text-slate-800">{segment.sample_excerpt}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            <Card title="写作风险提示" description="该分值仅基于文本特征进行启发式计算，不构成 AI 真伪或学术不端结论。">
+              {detectionReport ? (
+                <>
+                  <p className="text-sm leading-6 text-slate-700">{detectionReport.risk.explanation}</p>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    {Object.entries(detectionReport.risk.factors).map(([key, value]) => (
+                      <div
+                        key={key}
+                        className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3 text-sm"
+                      >
+                        <span className="text-slate-600">{RISK_FACTOR_LABELS[key] || key}</span>
+                        <strong className="text-slate-900">{Math.round(value)}</strong>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-slate-600">该历史报告未保留风险因素明细。</p>
+              )}
+            </Card>
+          </div>
         ) : null}
       </div>
     );
