@@ -7,7 +7,19 @@ import {
   type PolishHistoryRecord,
 } from '../api/normativeRules';
 import { useAuthSession } from '../auth/AuthSessionProvider';
-import { Card, EmptyState, ErrorState, LinkButton, LoadingState, ModuleTabs, PageHeader } from '../components/ui';
+import {
+  Card,
+  DataTable,
+  DataTableCell,
+  DataTableHead,
+  DataTableRow,
+  EmptyState,
+  ErrorState,
+  LinkButton,
+  LoadingState,
+  ModuleTabs,
+  PageHeader,
+} from '../components/ui';
 
 const LEVEL_LABELS: Record<PolishHistoryRecord['level'], string> = {
   basic: 'AI 校准',
@@ -17,12 +29,12 @@ const LEVEL_LABELS: Record<PolishHistoryRecord['level'], string> = {
 
 function getLevelClass(level: PolishHistoryRecord['level']) {
   if (level === 'enhanced') {
-    return 'text-[#F04438]';
+    return 'bg-danger-50 text-danger-700';
   }
   if (level === 'standard') {
-    return 'text-[#2F7BFF]';
+    return 'bg-brand-50 text-brand-700';
   }
-  return 'text-[#F28A18]';
+  return 'bg-warning-50 text-warning-700';
 }
 
 function getModeLabel(record: PolishHistoryRecord) {
@@ -169,58 +181,73 @@ function PolishHistoryPage() {
         ]}
       />
 
-      <section className="overflow-x-auto">
-        <table className="min-w-[1120px] w-full border-collapse text-center text-[20px]">
-          <thead className="bg-[#1F3D62] text-[22px] font-black text-white">
-            <tr className="border-t border-blue-100/40">
-              <th className="w-24 px-6 py-7">序号</th>
-              <th className="min-w-80 px-6 py-7 text-left">文档名称</th>
-              <th className="w-40 px-6 py-7">润色模式</th>
-              <th className="w-40 px-6 py-7">润色等级</th>
-              <th className="w-64 px-6 py-7">报告生成时间</th>
-              <th className="w-72 px-6 py-7">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {records.map((item, index) => (
-              <tr
-                key={`${item.polish_type}-${item.id}`}
-                className={`border-b border-[#DADDE1] ${index % 2 === 0 ? 'bg-white' : 'bg-[#F6F7F9]'}`}
-              >
-                <td className="border-r border-[#DADDE1] px-6 py-9 font-medium">{index + 1}</td>
-                <td className="border-r border-[#DADDE1] px-6 py-9 text-left font-semibold">{item.document_name}</td>
-                <td className="border-r border-[#DADDE1] px-6 py-9">{getModeLabel(item)}</td>
-                <td className={`border-r border-[#DADDE1] px-6 py-9 font-black ${getLevelClass(item.level)}`}>
-                  {LEVEL_LABELS[item.level]}
-                </td>
-                <td className="border-r border-[#DADDE1] px-6 py-9 text-lg">{item.created_at}</td>
-                <td className="px-6 py-9">
-                  <div className="flex flex-nowrap justify-center gap-5 text-lg font-bold text-[#2F7BFF]">
-                    <Link
-                      className="hover:underline focus:outline-none focus:ring-2 focus:ring-[#2F7BFF]"
-                      to={`/polish-history/${item.polish_type}/${item.id}`}
-                    >
-                      查看差异
-                    </Link>
-                    <button
-                      className="hover:underline focus:outline-none focus:ring-2 focus:ring-[#2F7BFF]"
-                      type="button"
-                      onClick={() => handleDownload(item)}
-                    >
-                      下载结果
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-
       {loading ? <LoadingState label="正在加载润色记录…" /> : null}
       {errorMessage ? <ErrorState message={errorMessage} /> : null}
       {!loading && !errorMessage && records.length === 0 ? (
         <EmptyState title="暂无润色记录" description="完成一次全文或局部润色后，记录会展示在这里。" />
+      ) : null}
+      {!loading && !errorMessage && records.length > 0 ? (
+        <section aria-labelledby="polish-history-heading">
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+            <h2 id="polish-history-heading" className="text-lg font-semibold text-foreground">
+              润色记录
+            </h2>
+            <p className="text-sm text-muted-foreground">共 {totalCount} 条记录</p>
+          </div>
+          <DataTable tableClassName="min-w-[920px]" aria-label="论文润色历史记录">
+            <thead>
+              <DataTableRow className="hover:bg-transparent">
+                <DataTableHead className="w-16 text-center">序号</DataTableHead>
+                <DataTableHead className="min-w-72">文档名称</DataTableHead>
+                <DataTableHead className="w-28 text-center">润色模式</DataTableHead>
+                <DataTableHead className="w-28 text-center">润色等级</DataTableHead>
+                <DataTableHead className="w-44 text-center">报告生成时间</DataTableHead>
+                <DataTableHead className="w-44 text-center">操作</DataTableHead>
+              </DataTableRow>
+            </thead>
+            <tbody>
+              {records.map((item, index) => (
+                <DataTableRow
+                  key={`${item.polish_type}-${item.id}`}
+                  className={index % 2 === 0 ? '' : 'bg-slate-50/60'}
+                >
+                  <DataTableCell className="text-center tabular-nums text-slate-500">{index + 1}</DataTableCell>
+                  <DataTableCell className="max-w-md font-semibold text-slate-900">
+                    <span className="block truncate" title={item.document_name}>
+                      {item.document_name}
+                    </span>
+                  </DataTableCell>
+                  <DataTableCell className="text-center font-medium">{getModeLabel(item)}</DataTableCell>
+                  <DataTableCell className="text-center">
+                    <span
+                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${getLevelClass(item.level)}`}
+                    >
+                      {LEVEL_LABELS[item.level]}
+                    </span>
+                  </DataTableCell>
+                  <DataTableCell className="text-center tabular-nums text-slate-600">{item.created_at}</DataTableCell>
+                  <DataTableCell>
+                    <div className="flex flex-nowrap justify-center gap-3">
+                      <Link
+                        className="font-semibold text-brand-600 hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        to={`/polish-history/${item.polish_type}/${item.id}`}
+                      >
+                        查看差异
+                      </Link>
+                      <button
+                        className="font-semibold text-brand-600 hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        type="button"
+                        onClick={() => handleDownload(item)}
+                      >
+                        下载结果
+                      </button>
+                    </div>
+                  </DataTableCell>
+                </DataTableRow>
+              ))}
+            </tbody>
+          </DataTable>
+        </section>
       ) : null}
     </div>
   );
