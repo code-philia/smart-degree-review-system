@@ -54,7 +54,7 @@ function RuleConfigPage() {
     return (
       <div className="mx-auto max-w-4xl">
         <Card>
-          <h1 className="text-2xl font-black text-slate-900">规范性检测规则配置</h1>
+          <h1 className="text-2xl font-black text-slate-900">基础规则检测规则配置</h1>
           <p className="mt-3 text-sm leading-6 text-slate-600">请先登录学校或学院管理员账号后维护规则。</p>
           <LinkButton className="mt-5" to="/auth">
             前往登录
@@ -78,7 +78,7 @@ function RuleConfigPage() {
   return (
     <div className="text-slate-900">
       <PageHeader
-        title="规范性检测规则配置"
+        title="基础规则检测规则配置"
         actions={<span className="rounded-full bg-[#3D8BFF] px-4 py-2 text-sm font-bold text-white">{roleLabel}</span>}
       />
       <section className="mx-auto max-w-7xl overflow-hidden rounded-2xl border border-[#D8DDE6] shadow-sm">

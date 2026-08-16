@@ -18,9 +18,9 @@ type QuickAction = { label: string; description: string; to: string };
 
 const QUICK_ACTIONS: Record<AuthRole, QuickAction[]> = {
   STUDENT: [
-    { label: '规范性检测', description: '运行 PDF 版式规则并定位原文问题', to: '/normative-check' },
+    { label: '基础规则检测', description: '运行 PDF 版式规则并定位原文问题', to: '/normative-check' },
     { label: '内置审查案例', description: '查看跨页论点与论据定位示例', to: '/review-cases' },
-    { label: '论文相似度检测', description: '与试点样本库比对相似片段', to: '/duplication-detect' },
+    { label: '高级语义规则检测', description: '查看论点论据、新颖性与对比工作固定示例', to: '/advanced-semantic-rule-check' },
     { label: '创新性量表评估', description: '五维度量表评估创新参考分', to: '/innovation-assessment' },
     { label: '发起评阅', description: '生成供导师复核的论文辅助评阅意见', to: '/ai-review' },
     { label: '论文润色', description: '生成整篇或局部改写建议', to: '/whole-polish' },
@@ -290,7 +290,7 @@ function AnonymousLanding() {
       <p className="text-sm font-bold text-brand-500">试点验证版 V0.9</p>
       <h1 className="mt-3 text-3xl font-black text-slate-900 md:text-4xl">智慧学位 AI 评阅辅助系统</h1>
       <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-slate-600">
-        面向学生、导师、学院管理人员和学校管理人员，提供规范性检测、相似度检测、创新性评估、辅助评阅、论文润色和师生报告流转等一体化功能。
+        面向学生、导师、学院管理人员和学校管理人员，提供基础规则检测、高级语义规则演示、创新性评估、辅助评阅、论文润色和师生报告流转等一体化功能。
       </p>
       <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
         <LinkButton to="/auth" size="lg">
@@ -357,8 +357,8 @@ function HomePage() {
           }
         >
           <ul className="space-y-2.5 text-sm leading-6 text-slate-600">
-            <li>规范性检测按当前生效规则定位问题到具体行列。</li>
-            <li>相似度检测覆盖试点样本库，给出相似片段和风险提示。</li>
+            <li>基础规则检测按当前生效规则定位问题到具体行列。</li>
+            <li>高级语义规则检测提供固定的论点论据、新颖性与对比工作示例。</li>
             <li>创新性评估和辅助评阅使用可解释规则与公式计算参考分。</li>
             <li>检测台账与质量看板按角色数据范围呈现。</li>
           </ul>

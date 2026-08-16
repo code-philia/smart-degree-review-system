@@ -31,6 +31,14 @@ export type PdfViewerHandle = {
   currentScale: () => number;
 };
 
+export type SupplementalPdfAnnotation = {
+  id: string;
+  pageNumber: number;
+  boundingRect: PaperLintPdfAnnotation['boundingRect'];
+  label: string;
+  tone: 'error' | 'warning' | 'info';
+};
+
 type Props = {
   pdfDocument: PDFDocumentProxy;
   scale: Scale;
@@ -40,10 +48,93 @@ type Props = {
   density: HighlightDensity;
   onFindingClick: (findingKey: string) => void;
   onAnchorClick: (findingKey: string, anchorId: string) => void;
+  onTextSelection?: (selection: {
+    pageNumber: number;
+    text: string;
+    boundingRect: {
+      x1: number;
+      y1: number;
+      x2: number;
+      y2: number;
+      width: number;
+      height: number;
+      page_number: number;
+    };
+  }) => void;
+  supplementalAnnotations?: SupplementalPdfAnnotation[];
+  activeSupplementalAnnotationId?: string | null;
+  onSupplementalAnnotationClick?: (id: string) => void;
 };
 
 type ViewerState = { eventBus: EventBus; linkService: LinkService; viewer: Viewer };
 type OverlayHost = { pageNumber: number; host: HTMLDivElement };
+
+const supplementalTone = {
+  error: { fill: 'rgba(239,68,68,.16)', stroke: '#dc2626' },
+  warning: { fill: 'rgba(245,158,11,.16)', stroke: '#d97706' },
+  info: { fill: 'rgba(59,130,246,.14)', stroke: '#2563eb' },
+};
+
+function SupplementalOverlay({
+  pageWidth,
+  pageHeight,
+  annotations,
+  activeId,
+  density,
+  onClick,
+}: {
+  pageWidth: number;
+  pageHeight: number;
+  annotations: SupplementalPdfAnnotation[];
+  activeId: string | null;
+  density: HighlightDensity;
+  onClick?: (id: string) => void;
+}) {
+  if (annotations.length === 0 || density === 'hidden') return null;
+  return (
+    <svg className="absolute inset-0 size-full" viewBox={`0 0 ${pageWidth} ${pageHeight}`} preserveAspectRatio="none">
+      {annotations.map((annotation) => {
+        const rect = annotation.boundingRect;
+        const tone = supplementalTone[annotation.tone];
+        const active = activeId === annotation.id;
+        return (
+          <g
+            key={annotation.id}
+            role="button"
+            tabIndex={0}
+            aria-label={`编辑证据：${annotation.label}`}
+            style={{ cursor: 'pointer', pointerEvents: 'auto' }}
+            onClick={(event) => {
+              event.stopPropagation();
+              onClick?.(annotation.id);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onClick?.(annotation.id);
+              }
+            }}
+          >
+            <rect
+              x={rect.x1}
+              y={rect.y1}
+              width={rect.x2 - rect.x1}
+              height={rect.y2 - rect.y1}
+              rx={3}
+              fill={tone.fill}
+              stroke={tone.stroke}
+              strokeWidth={active ? 2.5 : 1.25}
+              vectorEffect="non-scaling-stroke"
+            />
+            <text x={rect.x1 + 4} y={Math.max(12, rect.y1 - 4)} fill={tone.stroke} fontSize="12" fontWeight="700">
+              {annotation.label}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
 
 function pageElement(container: HTMLDivElement, pageNumber: number) {
   return container.querySelector<HTMLElement>(`.page[data-page-number="${pageNumber}"]`);
@@ -74,7 +165,20 @@ function scrollToRect(container: HTMLDivElement, element: HTMLElement, annotatio
 
 export const PdfViewer = memo(
   forwardRef<PdfViewerHandle, Props>(function PdfViewer(
-    { pdfDocument, scale, annotationsByPage, activeFindingKey, activeAnchorId, density, onFindingClick, onAnchorClick },
+    {
+      pdfDocument,
+      scale,
+      annotationsByPage,
+      activeFindingKey,
+      activeAnchorId,
+      density,
+      onFindingClick,
+      onAnchorClick,
+      onTextSelection,
+      supplementalAnnotations = [],
+      activeSupplementalAnnotationId = null,
+      onSupplementalAnnotationClick,
+    },
     ref,
   ) {
     const containerRef = useRef<HTMLDivElement | null>(null);
@@ -95,7 +199,11 @@ export const PdfViewer = memo(
     const syncHosts = useCallback(() => {
       const container = containerRef.current;
       if (!container) return;
-      const next = Array.from(annotationsRef.current.keys()).flatMap((pageNumber) => {
+      const pages = new Set([
+        ...annotationsRef.current.keys(),
+        ...supplementalAnnotations.map((annotation) => annotation.pageNumber),
+      ]);
+      const next = Array.from(pages).flatMap((pageNumber) => {
         const element = pageElement(container, pageNumber);
         return element ? [{ pageNumber, host: overlayHost(element, pageNumber) }] : [];
       });
@@ -105,7 +213,7 @@ export const PdfViewer = memo(
           ? previous
           : next,
       );
-    }, []);
+    }, [supplementalAnnotations]);
 
     const scrollToPage = useCallback((pageNumber: number) => {
       stateRef.current?.viewer.scrollPageIntoView({ pageNumber });
@@ -167,7 +275,7 @@ export const PdfViewer = memo(
           viewer: viewerElement,
           eventBus,
           linkService,
-          textLayerMode: 0,
+          textLayerMode: 2,
           annotationMode: 0,
           removePageBorders: true,
         });
@@ -196,6 +304,43 @@ export const PdfViewer = memo(
     }, [flushPending, pdfDocument, syncHosts]);
 
     useEffect(() => {
+      const container = containerRef.current;
+      if (!container || !onTextSelection) return;
+      const capture = () => {
+        const selection = window.getSelection();
+        const text = selection?.toString().trim();
+        if (!text || !selection?.rangeCount) return;
+        const range = selection.getRangeAt(0);
+        const node = range.commonAncestorContainer;
+        const element = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
+        const page = element?.closest('.page') as HTMLElement | null;
+        const rect = range.getBoundingClientRect();
+        if (!page || !rect.width || !rect.height) return;
+        const pageRect = page.getBoundingClientRect();
+        const width = 1000;
+        const height = Math.round((pageRect.height / pageRect.width) * width);
+        const scaleX = width / pageRect.width;
+        const scaleY = height / pageRect.height;
+        onTextSelection({
+          pageNumber: Number(page.dataset.pageNumber),
+          text: text.slice(0, 2000),
+          boundingRect: {
+            x1: (rect.left - pageRect.left) * scaleX,
+            y1: (rect.top - pageRect.top) * scaleY,
+            x2: (rect.right - pageRect.left) * scaleX,
+            y2: (rect.bottom - pageRect.top) * scaleY,
+            width,
+            height,
+            page_number: Number(page.dataset.pageNumber),
+          },
+        });
+        selection.removeAllRanges();
+      };
+      container.addEventListener('mouseup', capture);
+      return () => container.removeEventListener('mouseup', capture);
+    }, [onTextSelection]);
+
+    useEffect(() => {
       const viewer = stateRef.current?.viewer;
       if (!viewer) return;
       if (typeof scale === 'number') viewer.currentScale = scale;
@@ -205,33 +350,60 @@ export const PdfViewer = memo(
 
     useEffect(() => {
       syncHosts();
-    }, [annotationsByPage, syncHosts]);
+    }, [annotationsByPage, supplementalAnnotations, syncHosts]);
 
     const portals = useMemo(
       () =>
         hosts.flatMap(({ pageNumber, host }) => {
           const annotations = annotationsByPage.get(pageNumber) || [];
-          const size = pageSize(annotations);
+          const supplemental = supplementalAnnotations.filter((annotation) => annotation.pageNumber === pageNumber);
+          const firstSupplemental = supplemental[0]?.boundingRect;
+          const size =
+            pageSize(annotations) ||
+            (firstSupplemental ? { width: firstSupplemental.width, height: firstSupplemental.height } : null);
           if (!size) return [];
           return [
             createPortal(
-              <PdfOverlay
-                pageNumber={pageNumber}
-                pageWidth={size.width}
-                pageHeight={size.height}
-                annotations={annotations}
-                activeFindingKey={activeFindingKey}
-                activeAnchorId={activeAnchorId}
-                density={density}
-                onFindingClick={onFindingClick}
-                onAnchorClick={onAnchorClick}
-              />,
+              <>
+                {annotations.length > 0 && (
+                  <PdfOverlay
+                    pageNumber={pageNumber}
+                    pageWidth={size.width}
+                    pageHeight={size.height}
+                    annotations={annotations}
+                    activeFindingKey={activeFindingKey}
+                    activeAnchorId={activeAnchorId}
+                    density={density}
+                    onFindingClick={onFindingClick}
+                    onAnchorClick={onAnchorClick}
+                  />
+                )}
+                <SupplementalOverlay
+                  pageWidth={size.width}
+                  pageHeight={size.height}
+                  annotations={supplemental}
+                  activeId={activeSupplementalAnnotationId}
+                  density={density}
+                  onClick={onSupplementalAnnotationClick}
+                />
+              </>,
               host,
               `paper-lint-overlay-${pageNumber}`,
             ),
           ];
         }),
-      [activeAnchorId, activeFindingKey, annotationsByPage, density, hosts, onAnchorClick, onFindingClick],
+      [
+        activeAnchorId,
+        activeFindingKey,
+        activeSupplementalAnnotationId,
+        annotationsByPage,
+        density,
+        hosts,
+        onAnchorClick,
+        onFindingClick,
+        onSupplementalAnnotationClick,
+        supplementalAnnotations,
+      ],
     );
 
     return (

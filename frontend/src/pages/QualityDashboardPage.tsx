@@ -77,7 +77,7 @@ function QualityDashboardPage() {
               }
             >
               <option value="">全部质量项</option>
-              <option value="normative">规范性检测</option>
+              <option value="normative">基础规则检测</option>
               <option value="duplication">校内库查重</option>
               <option value="innovation">创新性分析</option>
               <option value="ai_review">AI智能评阅</option>

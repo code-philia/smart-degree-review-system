@@ -36,6 +36,7 @@ import ExampleRuleCheckPage from './pages/ExampleRuleCheckPage';
 import ExampleRuleManagementPage from './pages/ExampleRuleManagementPage';
 import ExampleRuleReportsPage from './pages/ExampleRuleReportsPage';
 import ExampleRuleReportPage from './pages/ExampleRuleReportPage';
+import AdvancedSemanticRuleCheckPage from './pages/AdvancedSemanticRuleCheckPage';
 
 function App() {
   return (
@@ -55,6 +56,8 @@ function App() {
         <Route path="/example-rule-check/reports/:reportId" element={<ExampleRuleReportPage />} />
         <Route path="/review-cases" element={<BuiltInReviewCasesPage />} />
         <Route path="/review-cases/:caseId" element={<BuiltInReviewCasesPage />} />
+        <Route path="/advanced-semantic-rule-check" element={<AdvancedSemanticRuleCheckPage />} />
+        <Route path="/advanced-semantic-rule-check/:example" element={<AdvancedSemanticRuleCheckPage />} />
         <Route path="/normative-reports" element={<NormativeReportPage />} />
         <Route path="/normative-reports/pdf/:reportId" element={<PaperLintReportPage />} />
         <Route path="/normative-reports/:reportId" element={<NormativeReportPage />} />

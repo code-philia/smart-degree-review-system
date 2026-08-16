@@ -51,7 +51,7 @@ function PaperLintReportPage() {
         description={`检测于 ${new Date(report.created_at).toLocaleString('zh-CN')} 完成。请优先处理严重和警告问题。`}
         breadcrumbs={[
           { label: '首页', to: '/' },
-          { label: '规范性检测', to: '/normative-check' },
+          { label: '基础规则检测', to: '/normative-check' },
           { label: '历史报告', to: '/normative-reports' },
           { label: '检测报告' },
         ]}

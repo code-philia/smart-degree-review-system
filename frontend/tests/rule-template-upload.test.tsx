@@ -95,7 +95,7 @@ describe('FEAT-RULE-TEMPLATE-UPLOAD frontend route and import panel contract', (
 
     renderRuleConfigRoute();
 
-    expect(await screen.findByRole('heading', { name: '规范性检测规则配置' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '基础规则检测规则配置' })).toBeInTheDocument();
     expect(screen.getByText(/JSON 规则集导入草稿/)).toBeInTheDocument();
     expect(screen.getByText(/仅保存为规则草稿，不会自动生效/)).toBeInTheDocument();
     expect(screen.getByText(/DOC\/DOCX 模板不支持自动推导规则/)).toBeInTheDocument();

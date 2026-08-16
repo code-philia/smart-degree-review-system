@@ -8,8 +8,9 @@ describe('FEAT-UNIFIED-MODULE-HISTORY unified module navigation', () => {
   it('keeps one sidebar entry per business module and maps legacy history paths back to it', () => {
     const visibleLabels = getVisibleNavGroups('STUDENT').flatMap((group) => group.items.map((item) => item.label));
 
-    expect(visibleLabels).toContain('规范性检测');
-    expect(visibleLabels).toContain('论文相似度检测');
+    expect(visibleLabels).toContain('基础规则检测');
+    expect(visibleLabels).toContain('高级语义规则检测');
+    expect(visibleLabels).not.toContain('论文相似度检测');
     expect(visibleLabels).toContain('论文润色');
     expect(visibleLabels).toContain('创新性量表评估');
     expect(visibleLabels).toContain('规则化辅助评阅');
@@ -19,14 +20,11 @@ describe('FEAT-UNIFIED-MODULE-HISTORY unified module navigation', () => {
     expect(visibleLabels).not.toContain('创新评估历史');
     expect(visibleLabels).not.toContain('辅助评阅历史');
 
-    expect(findNavItemLabel('/duplication-history/report-001')).toEqual({
+    expect(findNavItemLabel('/advanced-semantic-rule-check/novelty-detection')).toEqual({
       groupTitle: '检测与生成',
-      label: '论文相似度检测',
+      label: '高级语义规则检测',
     });
-    expect(findNavItemLabel('/duplication-history')).toEqual({
-      groupTitle: '检测与生成',
-      label: '论文相似度检测',
-    });
+    expect(findNavItemLabel('/duplication-history')).toBeNull();
     expect(findNavItemLabel('/polish-history/whole/result-001')).toEqual({
       groupTitle: '检测与生成',
       label: '论文润色',

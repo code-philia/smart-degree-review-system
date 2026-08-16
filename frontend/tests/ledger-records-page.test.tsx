@@ -71,7 +71,7 @@ describe('FEAT-LEDGER-RECORDS ledger page contract', () => {
     expect(screen.getByText('学位论文检测台账管理')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '检测记录台账' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '检测数据统计' })).toHaveAttribute('href', '/ledger-stats');
-    expect(screen.getByRole('button', { name: '规范性检测' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '基础规则检测' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'AIGC查重' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '查询' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '重置' })).toBeInTheDocument();
@@ -90,7 +90,7 @@ describe('FEAT-LEDGER-RECORDS ledger page contract', () => {
     expect(within(rows[1]).getByText('张三')).toBeInTheDocument();
     expect(within(rows[1]).getByText('李导师')).toBeInTheDocument();
     expect(within(rows[1]).getByText('台账页面论文一号')).toBeInTheDocument();
-    expect(within(rows[1]).getByText('规范性检测')).toBeInTheDocument();
+    expect(within(rows[1]).getByText('基础规则检测')).toBeInTheDocument();
     expect(within(rows[1]).getByRole('link', { name: '详情' })).toHaveAttribute(
       'href',
       '/normative-reports/ledger-ui-001',

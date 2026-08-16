@@ -156,7 +156,7 @@ describe('review-pilot PDF rules review route', () => {
 
     renderRoute();
 
-    expect(await screen.findByRole('heading', { name: '规范性检测' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '基础规则检测' })).toBeInTheDocument();
     expect(await screen.findByText('中文论文题名格式')).toBeInTheDocument();
     expect(screen.getByText('目录格式')).toBeInTheDocument();
     await user.upload(screen.getByLabelText('上传待审查 PDF'), pdf);
@@ -205,7 +205,7 @@ describe('review-pilot PDF rules review route', () => {
 
     renderRoute();
 
-    expect(await screen.findByRole('heading', { name: '规范性检测' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '基础规则检测' })).toBeInTheDocument();
     expect(screen.getByText(/请先登录后上传论文/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '前往登录' })).toHaveAttribute('href', '/auth');
     expect(fetchReviewPilotPaperLintRules).not.toHaveBeenCalled();

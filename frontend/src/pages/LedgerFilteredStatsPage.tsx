@@ -8,7 +8,7 @@ import {
 import { EmptyState, ErrorState, LoadingState, PageHeader } from '../components/ui';
 
 const detectionTypeTabs: Array<{ value: DetectionLedgerType | ''; label: string }> = [
-  { value: 'normative', label: '规范性检测' },
+  { value: 'normative', label: '基础规则检测' },
   { value: 'aigc', label: 'AIGC查重' },
   { value: 'duplication', label: '校内库查重' },
   { value: 'polish', label: '全文润色' },

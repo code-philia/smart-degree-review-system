@@ -17,7 +17,7 @@ import {
 } from '../components/ui';
 
 const detectionTypeTabs: Array<{ value: DetectionLedgerType | ''; label: string }> = [
-  { value: 'normative', label: '规范性检测' },
+  { value: 'normative', label: '基础规则检测' },
   { value: 'aigc', label: 'AIGC查重' },
   { value: 'duplication', label: '校内库查重' },
   { value: 'polish', label: '全文润色' },
@@ -29,6 +29,10 @@ const initialFilters: LedgerRecordFilters = {
   detection_type: 'normative',
   latest_only: false,
 };
+
+function displayDetectionTypeLabel(record: DetectionLedgerRecord) {
+  return record.detection_type === 'normative' ? '基础规则检测' : record.detection_type_label;
+}
 
 function LedgerRecordsPage() {
   const [filters, setFilters] = useState<LedgerRecordFilters>(initialFilters);
@@ -219,7 +223,7 @@ function LedgerRecordsPage() {
               <DataTableCell className="text-center">{record.supervisor_name}</DataTableCell>
               <DataTableCell className="text-center">{record.student_category}</DataTableCell>
               <DataTableCell className="font-semibold text-slate-900">{record.thesis_title}</DataTableCell>
-              <DataTableCell className="text-center">{record.detection_type_label}</DataTableCell>
+              <DataTableCell className="text-center">{displayDetectionTypeLabel(record)}</DataTableCell>
               <DataTableCell className="text-center">{record.template_name}</DataTableCell>
               <DataTableCell className="text-center font-semibold text-warning-600">{record.core_result}</DataTableCell>
               <DataTableCell className="text-center">

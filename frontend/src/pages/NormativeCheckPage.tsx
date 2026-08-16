@@ -176,7 +176,7 @@ function NormativeCheckPage() {
   if (!user) {
     return (
       <Card>
-        <h1 className="text-2xl font-black text-slate-900">规范性检测</h1>
+        <h1 className="text-2xl font-black text-slate-900">基础规则检测</h1>
         <p className="mt-3 text-sm leading-6 text-slate-600">请先登录后上传论文并运行规则审查。</p>
         <LinkButton className="mt-5" to="/auth">
           前往登录
@@ -187,9 +187,9 @@ function NormativeCheckPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="规范性检测" description="上传 PDF 论文并选择检查项，生成可定位问题的检查报告。" />
+      <PageHeader title="基础规则检测" description="上传 PDF 论文并选择检查项，生成可定位问题的检查报告。" />
       <ModuleTabs
-        ariaLabel="规范性检测功能导航"
+        ariaLabel="基础规则检测功能导航"
         items={[
           { label: '发起检测', to: '/normative-check', active: true },
           { label: '历史报告', to: '/normative-reports', active: false },
@@ -197,7 +197,7 @@ function NormativeCheckPage() {
       />
 
       <section
-        aria-label="发起规范性检测"
+        aria-label="发起基础规则检测"
         className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6"
       >
         <div className="mb-5 flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-5">

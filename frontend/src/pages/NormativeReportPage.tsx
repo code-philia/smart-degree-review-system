@@ -190,9 +190,9 @@ function NormativeReportPage() {
 
   return (
     <div>
-      <PageHeader title="规范性检测" description="查看本人已保存的规范检测记录和报告。" />
+      <PageHeader title="基础规则检测" description="查看本人已保存的基础规则检测记录和报告。" />
       <ModuleTabs
-        ariaLabel="规范性检测功能导航"
+        ariaLabel="基础规则检测功能导航"
         items={[
           { label: '发起检测', to: '/normative-check', active: false },
           { label: '历史报告', to: '/normative-reports', active: true, count: history.length + pdfReports.length },
@@ -201,7 +201,7 @@ function NormativeReportPage() {
       {loading ? <LoadingState label="正在加载历史记录…" /> : null}
       {errorMessage ? <ErrorState message={errorMessage} /> : null}
       {!loading && !errorMessage && history.length === 0 && pdfReports.length === 0 ? (
-        <EmptyState title="暂无检测记录" description="完成一次规范性检测后，报告会出现在这里。" />
+        <EmptyState title="暂无检测记录" description="完成一次基础规则检测后，报告会出现在这里。" />
       ) : null}
       {pdfReports.length > 0 ? (
         <section className="mb-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">

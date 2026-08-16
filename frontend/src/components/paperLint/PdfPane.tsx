@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '../ui';
 import type { PaperLintFindingItem } from './model';
 import { buildAnnotations, findingTarget, groupAnnotationsByPage } from './geometry';
-import { PdfViewer, type PdfViewerHandle } from './PdfViewer';
+import { PdfViewer, type PdfViewerHandle, type SupplementalPdfAnnotation } from './PdfViewer';
 import type { HighlightDensity } from './PdfOverlay';
 
 type Props = {
@@ -14,11 +14,38 @@ type Props = {
   activeAnchorId: string | null;
   onFindingClick: (key: string) => void;
   onAnchorClick: (key: string, anchorId: string) => void;
+  onTextSelection?: (selection: {
+    pageNumber: number;
+    text: string;
+    boundingRect: {
+      x1: number;
+      y1: number;
+      x2: number;
+      y2: number;
+      width: number;
+      height: number;
+      page_number: number;
+    };
+  }) => void;
+  supplementalAnnotations?: SupplementalPdfAnnotation[];
+  activeSupplementalAnnotationId?: string | null;
+  onSupplementalAnnotationClick?: (id: string) => void;
 };
 
 type Scale = number | 'page-width';
 
-export function PdfPane({ file, findings, activeFindingKey, activeAnchorId, onFindingClick, onAnchorClick }: Props) {
+export function PdfPane({
+  file,
+  findings,
+  activeFindingKey,
+  activeAnchorId,
+  onFindingClick,
+  onAnchorClick,
+  onTextSelection,
+  supplementalAnnotations = [],
+  activeSupplementalAnnotationId = null,
+  onSupplementalAnnotationClick,
+}: Props) {
   const [document, setDocument] = useState<PDFDocumentProxy | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [scale, setScale] = useState<Scale>('page-width');
@@ -120,6 +147,10 @@ export function PdfPane({ file, findings, activeFindingKey, activeAnchorId, onFi
             density={density}
             onFindingClick={onFindingClick}
             onAnchorClick={onAnchorClick}
+            onTextSelection={onTextSelection}
+            supplementalAnnotations={supplementalAnnotations}
+            activeSupplementalAnnotationId={activeSupplementalAnnotationId}
+            onSupplementalAnnotationClick={onSupplementalAnnotationClick}
           />
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-slate-500">
