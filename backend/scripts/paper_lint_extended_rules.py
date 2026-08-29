@@ -1,19 +1,21 @@
-"""Five additional deterministic PDF rules for the degree-review pilot.
+"""Additional deterministic PDF rules for the degree-review pilot.
 
 The rules consume the review-pilot parser's extracted visible text; they offer
-locatable, explainable checks and deliberately do not claim full GB/T coverage.
+locatable, explainable checks and deliberately avoid claims beyond visible PDF facts.
 """
 
 from __future__ import annotations
 
 import re
 from collections import defaultdict
+from dataclasses import dataclass
 
 from pydantic import BaseModel, Field
 
 from novref.domain.paper_lint.context import PaperLintContext
 from novref.domain.paper_lint.contracts import Finding, RuleRun
 from novref.domain.paper_lint.pdf_location import location_from_lines
+from novref.domain.paper_lint.pdf_raw import PdfLintTextLine
 from novref.domain.paper_lint.rules.base import completed_from_findings, unsupported
 from novref.domain.paper_lint.rules.executor import RuleExecutionEntry
 from novref.domain.paper_lint.rules.heading_numbering_hierarchy_check import (
@@ -25,10 +27,46 @@ from novref.domain.paper_lint.rules.toc_format_check import (
 )
 
 _REFERENCE_HEADING = re.compile(r"^(参考文献|references|bibliography)$", re.I)
-_NEXT_SECTION = re.compile(r"^(致谢|附录|acknowledg(e)?ments?|appendix)", re.I)
-_REFERENCE = re.compile(r"^\s*\[(\d+)]\s*(.+)$")
-_YEAR = re.compile(r"(?<!\d)(?:19|20)\d{2}(?!\d)")
-_TYPE = re.compile(r"\[[A-Z]{1,3}(?:/[A-Z]{1,3})?]")
+_REFERENCE_HEADING_PREFIX = re.compile(
+    r"^(?:(?:参考文献|references|bibliography)\s*)+(?=\[\d+])", re.I
+)
+_NEXT_SECTION = re.compile(
+    r"^(致谢|致\s*$|附录|学术论文和科研成果目录|攻读.*期间.*成果|个人简历|"
+    r"acknowledg(e)?ments?|appendix|checklist|supplemental materials?)",
+    re.I,
+)
+_APPENDIX_LETTER = re.compile(r"^[A-Z]$")
+_REFERENCE_NUMBERED_START = re.compile(r"^\s*\[(?P<number>\d+)]\s*(?P<body>.*)$")
+_REFERENCE_APA_START = re.compile(
+    r"^\s*(?!\[\d+])(?=.{2,180}?\.\s*\((?:19|20)\d{2}[a-z]?\)\.?)",
+    re.I,
+)
+_GBT_REFERENCE_PATTERNS = (
+    re.compile(
+        r"^\[\d+]\s*.+\[(?:J|M|D|C|N|P|R|S|Z|DB|CP|EB)"
+        r"(?:/[A-Z]{1,3})?].*(?:19|20)\d{2}",
+        re.I,
+    ),
+)
+_APA7_REFERENCE_PATTERNS = (
+    re.compile(
+        r"^(?!\[\d+])[^()]{2,240}\((?:19|20)\d{2}[a-z]?\)\.?\s+.{2,}$",
+        re.I,
+    ),
+)
+_IEEE_REFERENCE_PATTERNS = (
+    re.compile(
+        r"^\[\d+]\s+.+?(?:[\"“][^\"”]+[\"”].*"
+        r"|\b(?:vol\.|no\.|pp\.|proc\.|doi|\d+(?:st|nd|rd|th)\s+ed\.).*)"
+        r"(?:19|20)\d{2}",
+        re.I,
+    ),
+)
+_REFERENCE_STYLE_LABELS = {
+    "gbt": "GB/T 7714",
+    "apa7": "APA 7",
+    "ieee": "IEEE",
+}
 _CJK = re.compile(r"[\u4e00-\u9fff]")
 _ASCII_PUNCTUATION = re.compile(r"[\u4e00-\u9fff][,;:!?][\u4e00-\u9fff]")
 _FULLWIDTH_ALNUM = re.compile(r"[Ａ-Ｚａ-ｚ０-９]")
@@ -41,10 +79,85 @@ _OBJECT = re.compile(
 )
 _CITATION = re.compile(r"\[(\d+(?:\s*[,，、-]\s*\d+)*)]")
 _FOOTNOTE = re.compile(r"^(?:注|脚注)\s*(\d+)|^(\d+)\s*[）.)、]")
+_OBJECT_NUMBER_PATTERN = (
+    r"\d+(?:\s*[-.．]\s*\d+)*(?:\s*[（(][A-Za-z0-9]+[)）])?"
+)
+_OBJECT_PREFIX_PATTERNS = {
+    "figure": re.compile(
+        rf"^\s*(?:图|fig(?:ure)?\.?)\s*(?P<number>{_OBJECT_NUMBER_PATTERN})(?P<tail>.*)$",
+        re.I,
+    ),
+    "table": re.compile(
+        rf"^\s*(?:表|table)\s*(?P<number>{_OBJECT_NUMBER_PATTERN})(?P<tail>.*)$",
+        re.I,
+    ),
+}
+_OBJECT_REFERENCE_PATTERNS = {
+    "figure": re.compile(
+        rf"(?:图|fig(?:ure)?s?\.?)\s*(?P<number>{_OBJECT_NUMBER_PATTERN})",
+        re.I,
+    ),
+    "table": re.compile(
+        rf"(?:表|tables?)\s*(?P<number>{_OBJECT_NUMBER_PATTERN})",
+        re.I,
+    ),
+}
+_CAPTION_REFERENCE_STARTERS = {
+    "figure": (
+        "所示",
+        "可知",
+        "显示",
+        "展示",
+        "给出",
+        "如下",
+        "图中",
+        "是",
+        "为",
+        "shows",
+        "is shown",
+        "is presented",
+        "is depicted",
+        "illustrates",
+        "presents",
+        "depicts",
+    ),
+    "table": (
+        "所示",
+        "可知",
+        "显示",
+        "列出",
+        "给出",
+        "如下",
+        "表中",
+        "是",
+        "为",
+        "shows",
+        "is shown",
+        "is presented",
+        "lists",
+        "presents",
+        "reports",
+    ),
+}
+_LIST_ENTRY_TRAILER = re.compile(
+    r"(?:\.{3,}|…{2,}|⋯{2,}|·{3,})\s*(?:\d+|[ivxlcdm]+)\s*$",
+    re.I,
+)
 
 
 class _Params(BaseModel):
     max_findings: int = Field(default=20, gt=0, le=200)
+
+
+class _ReferenceParams(_Params):
+    min_recognized_entries: int = Field(default=2, ge=1, le=20)
+    min_style_share: float = Field(default=0.6, ge=0.5, le=1.0)
+
+
+@dataclass(frozen=True, slots=True)
+class _ReferenceEntry:
+    text: str
+    line: PdfLintTextLine
 
 
 def _lines(context: PaperLintContext):
@@ -52,9 +165,10 @@ def _lines(context: PaperLintContext):
         (line for line in context.raw.lines if line.text.strip()),
         key=lambda line: (
             line.page_number,
-            line.reading_order,
-            line.bbox.y1,
+            line.bbox.y2,
             line.bbox.x1,
+            line.bbox.y1,
+            line.reading_order,
         ),
     )
 
@@ -70,6 +184,155 @@ def _finding(rule_id: str, line, message: str, suggestion: str) -> Finding:
 
 def _compact(text: str) -> str:
     return re.sub(r"\s+", "", text).lower()
+
+
+def _reference_section_entries(
+    lines: list[PdfLintTextLine], start: int
+) -> list[_ReferenceEntry]:
+    entries: list[_ReferenceEntry] = []
+    current_text: list[str] = []
+    current_line = None
+
+    def flush() -> None:
+        nonlocal current_text, current_line
+        if current_line is not None and current_text:
+            entries.append(
+                _ReferenceEntry(
+                    text=" ".join(part for part in current_text if part).strip(),
+                    line=current_line,
+                )
+            )
+        current_text = []
+        current_line = None
+
+    for line_index, line in enumerate(lines[start + 1 :], start=start + 1):
+        text = re.sub(r"\s+", " ", line.text.strip())
+        if (
+            line.bbox.y2 < line.bbox.height * 0.105
+            or line.bbox.y1 > line.bbox.height * 0.9
+        ):
+            continue
+        is_split_appendix_heading = False
+        if _APPENDIX_LETTER.fullmatch(text):
+            for following in lines[line_index + 1 : line_index + 4]:
+                if following.page_number != line.page_number:
+                    break
+                following_text = re.sub(r"\s+", " ", following.text.strip())
+                vertical_gap = following.bbox.y2 - line.bbox.y2
+                looks_like_heading = (
+                    abs(vertical_gap) <= 2
+                    or (
+                        0 < vertical_gap <= 40
+                        and len(following_text) <= 120
+                        and following_text.upper() == following_text
+                    )
+                )
+                if looks_like_heading:
+                    is_split_appendix_heading = bool(
+                        len(following_text) >= 3
+                        and not _REFERENCE_NUMBERED_START.match(following_text)
+                        and not _REFERENCE_APA_START.match(following_text)
+                    )
+                    break
+        if _NEXT_SECTION.match(text) or is_split_appendix_heading:
+            break
+        if _REFERENCE_HEADING.match(text):
+            continue
+        text = _REFERENCE_HEADING_PREFIX.sub("", text).strip()
+        if not text or text.isdigit():
+            continue
+        is_start = bool(
+            _REFERENCE_NUMBERED_START.match(text)
+            or _REFERENCE_APA_START.match(text)
+        )
+        if is_start:
+            flush()
+        if current_line is None:
+            current_line = line
+        current_text.append(text)
+    flush()
+    return entries
+
+
+def _reference_style(text: str) -> str | None:
+    normalized = re.sub(r"\s+", " ", text).strip()[:4000]
+    profiles = (
+        ("gbt", _GBT_REFERENCE_PATTERNS),
+        ("apa7", _APA7_REFERENCE_PATTERNS),
+        ("ieee", _IEEE_REFERENCE_PATTERNS),
+    )
+    for style, patterns in profiles:
+        if any(pattern.search(normalized) for pattern in patterns):
+            return style
+    return None
+
+
+def _dominant_reference_style(
+    styles: list[str | None], params: _ReferenceParams
+) -> tuple[str | None, dict[str, int]]:
+    counts = {
+        style: styles.count(style)
+        for style in _REFERENCE_STYLE_LABELS
+        if styles.count(style)
+    }
+    recognized = sum(counts.values())
+    if recognized < params.min_recognized_entries or not counts:
+        return None, counts
+    ranked = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+    if len(ranked) > 1 and ranked[0][1] == ranked[1][1]:
+        return None, counts
+    if ranked[0][1] / len(styles) < params.min_style_share:
+        return None, counts
+    return ranked[0][0], counts
+
+
+def _normalize_object_number(number: str) -> str:
+    normalized = number.translate(str.maketrans({"．": ".", "（": "(", "）": ")"}))
+    normalized = re.sub(r"\s+", "", normalized).lower()
+    normalized = re.sub(r"\([a-z0-9]+\)$", "", normalized)
+    return re.sub(r"-", ".", normalized)
+
+
+def _caption_number(line: PdfLintTextLine, kind: str) -> str | None:
+    match = _OBJECT_PREFIX_PATTERNS[kind].match(line.text.strip())
+    if match is None:
+        return None
+    tail = match.group("tail").strip(" \t:：.-—")
+    lowered = tail.lower()
+    if any(lowered.startswith(value) for value in _CAPTION_REFERENCE_STARTERS[kind]):
+        return None
+    if _LIST_ENTRY_TRAILER.search(line.text.strip()):
+        return None
+    return _normalize_object_number(match.group("number"))
+
+
+def _object_reference_occurrences(
+    lines: list[PdfLintTextLine], kind: str
+) -> tuple[set[str], dict[str, tuple[PdfLintTextLine, str]]]:
+    captions: set[str] = set()
+    caption_line_ids: set[str] = set()
+    for line in lines:
+        number = _caption_number(line, kind)
+        if number is not None:
+            captions.add(number)
+            caption_line_ids.add(line.line_id)
+
+    occurrences: dict[str, tuple[PdfLintTextLine, str]] = {}
+    in_references = False
+    for line in lines:
+        text = line.text.strip()
+        if _REFERENCE_HEADING.match(text):
+            in_references = True
+        if (
+            in_references
+            or line.line_id in caption_line_ids
+            or _LIST_ENTRY_TRAILER.search(text)
+        ):
+            continue
+        for match in _OBJECT_REFERENCE_PATTERNS[kind].finditer(text):
+            number = _normalize_object_number(match.group("number"))
+            occurrences.setdefault(number, (line, match.group("number").strip()))
+    return captions, occurrences
 
 
 class FigureTableFormulaNumberingRule:
@@ -129,7 +392,7 @@ class FigureTableFormulaNumberingRule:
 class ReferenceBasicFormatRule:
     rule_id = "reference_basic_format_check"
     default_severity = "warning"
-    params_model = _Params
+    params_model = _ReferenceParams
 
     async def execute(
         self, context: PaperLintContext, entry: RuleExecutionEntry
@@ -146,64 +409,127 @@ class ReferenceBasicFormatRule:
         )
         if start is None:
             return unsupported(entry, message="reference_section_not_detected")
-        findings, expected, entries = [], 1, 0
-        for line in lines[start + 1 :]:
-            text = line.text.strip()
-            if _NEXT_SECTION.match(text):
-                break
-            match = _REFERENCE.match(text)
-            if match is None:
-                if re.match(r"^\s*(?:\d+[.)、]|[A-Z][A-Za-z .'-]{1,40}[,:])", text):
-                    findings.append(
-                        _finding(
-                            entry.rule_id,
-                            line,
-                            "参考文献条目缺少方括号编号。",
-                            "请以“[序号]”开头，并按正文出现顺序连续编号。",
-                        )
-                    )
-                continue
-            else:
-                entries += 1
-                number, body = int(match.group(1)), match.group(2)
-                if number != expected:
-                    findings.append(
-                        _finding(
-                            entry.rule_id,
-                            line,
-                            f"参考文献编号应为 [{expected}]，实际为 [{number}]。",
-                            "请调整参考文献编号，使其从 [1] 起连续递增。",
-                        )
-                    )
-                if not _YEAR.search(body):
-                    findings.append(
-                        _finding(
-                            entry.rule_id,
-                            line,
-                            "参考文献条目未识别到四位出版年份。",
-                            "请补充规范的出版或发表年份。",
-                        )
-                    )
-                if not _TYPE.search(body):
-                    findings.append(
-                        _finding(
-                            entry.rule_id,
-                            line,
-                            "参考文献条目未识别到文献类型标识。",
-                            "请按采用的 GB/T 7714 模板补充如 [J]、[M]、[D] 等文献类型标识。",
-                        )
-                    )
-                expected = max(expected + 1, number + 1)
-            if len(findings) >= params.max_findings:
-                break
-        if entries == 0 and not findings:
+        references = _reference_section_entries(lines, start)
+        if not references:
             return unsupported(entry, message="reference_entries_not_detected")
+        styles = [_reference_style(reference.text) for reference in references]
+        dominant, counts = _dominant_reference_style(styles, params)
+        findings = []
+        if dominant is None:
+            detected = "、".join(
+                f"{_REFERENCE_STYLE_LABELS[style]} {count} 条"
+                for style, count in sorted(counts.items())
+            )
+            findings.append(
+                _finding(
+                    entry.rule_id,
+                    references[0].line,
+                    "无法稳定判断全文参考文献采用的统一格式"
+                    + (f"：当前识别到 {detected}。" if detected else "。"),
+                    "请统一采用 GB/T 7714、APA 7 或 IEEE 中的一种格式，并检查无法识别的条目。",
+                )
+            )
+            message = "reference_style_inconclusive"
+        else:
+            label = _REFERENCE_STYLE_LABELS[dominant]
+            message = f"自动识别的参考文献格式：{label}"
+            for reference, style in zip(references, styles):
+                if style == dominant:
+                    continue
+                actual = (
+                    _REFERENCE_STYLE_LABELS[style]
+                    if style is not None
+                    else "无法识别的格式"
+                )
+                findings.append(
+                    _finding(
+                        entry.rule_id,
+                        reference.line,
+                        f"该参考文献呈现为{actual}，与全文自动识别的 {label} 格式不一致。",
+                        f"请按 {label} 格式补全作者、题名、年份和来源等著录字段。",
+                    )
+                )
+                if len(findings) >= params.max_findings:
+                    break
+
+            if dominant in {"gbt", "ieee"}:
+                expected = 1
+                for reference in references:
+                    match = _REFERENCE_NUMBERED_START.match(reference.text)
+                    if match is None:
+                        continue
+                    number = int(match.group("number"))
+                    if number != expected:
+                        findings.append(
+                            _finding(
+                                entry.rule_id,
+                                reference.line,
+                                f"参考文献编号应为 [{expected}]，实际为 [{number}]。",
+                                "请调整参考文献编号，使其从 [1] 起连续递增。",
+                            )
+                        )
+                    expected = max(expected + 1, number + 1)
+                    if len(findings) >= params.max_findings:
+                        break
         return completed_from_findings(
             entry,
             findings=findings[: params.max_findings],
             evidence_mode="derived",
+            message=message,
             params=params.model_dump(),
         )
+
+
+class _ObjectReferenceTargetRule:
+    kind = ""
+    object_label = ""
+    default_severity = "warning"
+    params_model = _Params
+
+    async def execute(
+        self, context: PaperLintContext, entry: RuleExecutionEntry
+    ) -> RuleRun:
+        params = self.params_model.model_validate(entry.params or {})
+        captions, references = _object_reference_occurrences(
+            _lines(context), self.kind
+        )
+        if not references:
+            return unsupported(
+                entry, message=f"{self.kind}_references_not_detected"
+            )
+        findings = []
+        for number, (line, display_number) in references.items():
+            if number in captions:
+                continue
+            findings.append(
+                _finding(
+                    entry.rule_id,
+                    line,
+                    f"正文引用了“{self.object_label} {display_number}”，但全文未识别到对应{self.object_label}题注。",
+                    f"请检查{self.object_label}是否缺失、题注是否遗漏，或正文引用与题注编号是否一致。",
+                )
+            )
+            if len(findings) >= params.max_findings:
+                break
+        return completed_from_findings(
+            entry,
+            findings=findings,
+            evidence_mode="derived",
+            message=f"根据正文引用与{self.object_label}题注编号进行交叉核对。",
+            params=params.model_dump(),
+        )
+
+
+class FigureReferenceTargetRule(_ObjectReferenceTargetRule):
+    rule_id = "figure_reference_target_check"
+    kind = "figure"
+    object_label = "图"
+
+
+class TableReferenceTargetRule(_ObjectReferenceTargetRule):
+    rule_id = "table_reference_target_check"
+    kind = "table"
+    object_label = "表"
 
 
 class ChineseEnglishSymbolMixRule:

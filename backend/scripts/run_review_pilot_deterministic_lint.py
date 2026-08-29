@@ -63,8 +63,16 @@ RULE_METADATA: dict[str, tuple[str, str]] = {
         "检查图、表和公式标签的编号是否从 1 起连续。",
     ),
     "reference_basic_format_check": (
-        "参考文献基础著录",
-        "检查参考文献编号、四位年份和文献类型标识等可见基础字段。",
+        "参考文献格式一致性",
+        "自动识别 GB/T 7714、APA 7 或 IEEE，并检查全文参考文献格式是否统一。",
+    ),
+    "figure_reference_target_check": (
+        "正文图片引用完整性",
+        "检查正文引用的图片编号是否存在对应图片题注。",
+    ),
+    "table_reference_target_check": (
+        "正文表格引用完整性",
+        "检查正文引用的表格编号是否存在对应表格题注。",
     ),
     "chinese_english_symbol_mix_check": (
         "中英文符号与全半角",
@@ -149,6 +157,7 @@ def load_engine(
     from paper_lint_extended_rules import (
         BilingualKeywordsCorrespondenceRule,
         ChineseEnglishSymbolMixRule,
+        FigureReferenceTargetRule,
         FigureTableFormulaNumberingRule,
         HeadingNumberingSequenceRule,
         TocBodyHeadingConsistencyRule,
@@ -156,6 +165,7 @@ def load_engine(
         PageNumberSequenceRule,
         CitationFootnoteSequenceRule,
         ReferenceBasicFormatRule,
+        TableReferenceTargetRule,
     )
 
     rule_factories = {
@@ -174,6 +184,8 @@ def load_engine(
             TocFormatRule,
             FigureTableFormulaNumberingRule,
             ReferenceBasicFormatRule,
+            FigureReferenceTargetRule,
+            TableReferenceTargetRule,
             ChineseEnglishSymbolMixRule,
             BilingualKeywordsCorrespondenceRule,
             HeadingNumberingSequenceRule,
