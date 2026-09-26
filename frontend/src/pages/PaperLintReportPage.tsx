@@ -1,4 +1,4 @@
-import { FileCheck2, FileText } from 'lucide-react';
+import { ExternalLink, FileCheck2, FileText } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
@@ -73,9 +73,20 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
           { label: '检测报告' },
         ]}
         actions={
-          <Link className="text-sm font-semibold text-brand-700 hover:underline" to={historyPath}>
-            返回历史报告
-          </Link>
+          <>
+            <a
+              href={`/api/normative/paper-lint/reports/${encodeURIComponent(reportId!)}/pdf`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-blue-700"
+            >
+              <ExternalLink className="size-4" />
+              在浏览器中打开完整 PDF
+            </a>
+            <Link className="text-sm font-semibold text-brand-700 hover:underline" to={historyPath}>
+              返回历史报告
+            </Link>
+          </>
         }
       />
       <Card

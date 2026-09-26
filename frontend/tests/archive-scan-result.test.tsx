@@ -102,5 +102,9 @@ describe('archive paper result', () => {
       '/api/normative/archive-scans/jobs/job/documents/doc/pdf',
     );
     expect(screen.getByTestId('workspace')).toHaveTextContent('公式引用未找到目标');
+    const fullPdf = screen.getByRole('link', { name: '在浏览器中打开完整 PDF' });
+    expect(fullPdf).toHaveAttribute('href', '/api/normative/archive-scans/jobs/job/documents/doc/pdf');
+    expect(fullPdf).toHaveAttribute('target', '_blank');
+    expect(fullPdf).toHaveAttribute('rel', 'noopener noreferrer');
   });
 });

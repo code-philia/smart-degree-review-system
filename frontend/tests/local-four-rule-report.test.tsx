@@ -98,6 +98,10 @@ describe('saved local four-rule PDF report', () => {
     expect(await screen.findByRole('heading', { name: '待检论文.pdf' })).toBeInTheDocument();
     expect(screen.getByText('部分规则无法判定')).toBeInTheDocument();
     expect(screen.getByText('无法识别参考文献表')).toBeInTheDocument();
+    const fullPdf = screen.getByRole('link', { name: '在浏览器中打开完整 PDF' });
+    expect(fullPdf).toHaveAttribute('href', '/api/normative/paper-lint/reports/report-24/pdf');
+    expect(fullPdf).toHaveAttribute('target', '_blank');
+    expect(fullPdf).toHaveAttribute('rel', 'noopener noreferrer');
   });
 
   it('keeps report breadcrumbs and return link in the 30-rule section', async () => {
