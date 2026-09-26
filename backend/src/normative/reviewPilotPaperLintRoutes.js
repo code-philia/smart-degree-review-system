@@ -4,6 +4,8 @@ const defaultService = require('./reviewPilotPaperLintService');
 const defaultExampleService = require('./paperLintExampleService');
 const paperLintReportRepository = require('./paperLintReportRepository');
 const { sendPrivatePdf } = require('./privatePdfResponse');
+const defaultJobService = require('./paperLintJobService');
+const { CLOUD_IDS } = require('./sixRulePaperLintService');
 
 const allowedRoles = ['STUDENT', 'SUPERVISOR', 'SCHOOL_ADMIN', 'COLLEGE_ADMIN'];
 
@@ -17,7 +19,7 @@ function sendError(error, res, next) {
   }
 }
 
-function createReviewPilotPaperLintRouter(service = defaultService, exampleService = defaultExampleService) {
+function createReviewPilotPaperLintRouter(service = defaultService, exampleService = defaultExampleService, jobService = defaultJobService) {
   const router = express.Router();
 
   router.get('/examples', requireAuth({ allowedRoles }), async (_req, res, next) => {
@@ -84,6 +86,15 @@ function createReviewPilotPaperLintRouter(service = defaultService, exampleServi
     }
   });
 
+  router.get('/jobs/:jobId', requireAuth({ allowedRoles }), async (req, res, next) => {
+    try {
+      const job = await jobService.getForUser(req.params.jobId, req.user.id);
+      if (!job) return res.status(404).json({ code: 404, message: '未找到该检查任务' });
+      return res.json(job);
+    } catch (error) {
+      return sendError(error, res, next);
+    }
+  });
   router.post(
     '/run',
     requireAuth({ allowedRoles }),
@@ -94,10 +105,20 @@ function createReviewPilotPaperLintRouter(service = defaultService, exampleServi
           .split(',')
           .map((value) => value.trim())
           .filter(Boolean);
-        const { result, selectedRuleIds: normalizedRuleIds } = await service.runPaperLint({
+        const externalProcessingConsent = req.get('x-paper-lint-external-processing-consent') === 'confirmed';
+        if (selectedRuleIds.some((id) => CLOUD_IDS.has(id))) {
+          service.validatePdf(req.body);
+          const normalizedRuleIds = await service.normalizeSelectedRuleIds(selectedRuleIds, externalProcessingConsent);
+          const job = await jobService.enqueue({
+            userId: req.user.id,
+            sourceFilename: typeof req.query.filename === 'string' ? req.query.filename.slice(0, 255) : '论文.pdf',
+            pdfBuffer: req.body, selectedRuleIds: normalizedRuleIds, externalProcessingConsent,
+          });
+          return res.status(202).json(job);
+        }        const { result, selectedRuleIds: normalizedRuleIds } = await service.runPaperLint({
           pdfBuffer: req.body,
           selectedRuleIds,
-          externalProcessingConsent: req.get('x-paper-lint-external-processing-consent') === 'confirmed',
+          externalProcessingConsent,
         });
         const report = await paperLintReportRepository.createPaperLintReport({
           userId: req.user.id,

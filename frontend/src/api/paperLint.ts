@@ -13,7 +13,7 @@ export type PaperLintRule = {
   execution_mode: 'deterministic' | 'semantic';
   uses_external_model: boolean;
   available: boolean;
-  source?: 'sjtu-local';
+  source?: 'sjtu-local' | 'sjtu-six-pdf';
 };
 
 export type PaperLintCatalogResponse = {
@@ -114,6 +114,18 @@ export type PaperLintRunResponse = {
   created_at: string;
 };
 
+export type PaperLintJobResponse = {
+  job_id: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  report_id: string | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export function isPaperLintJobResponse(value: PaperLintRunResponse | PaperLintJobResponse): value is PaperLintJobResponse {
+  return 'job_id' in value;
+}
 export type PaperLintReportSummary = {
   finding_count: number;
   error_finding_count: number;
@@ -159,8 +171,8 @@ export async function runReviewPilotPaperLint(
   file: File,
   selectedRuleIds: string[],
   externalProcessingConsent = false,
-): Promise<PaperLintRunResponse> {
-  const response = await apiClient.post<PaperLintRunResponse>('/normative/paper-lint/run', file, {
+): Promise<PaperLintRunResponse | PaperLintJobResponse> {
+  const response = await apiClient.post<PaperLintRunResponse | PaperLintJobResponse>('/normative/paper-lint/run', file, {
     params: { filename: file.name },
     headers: {
       'Content-Type': 'application/pdf',
@@ -172,6 +184,10 @@ export async function runReviewPilotPaperLint(
   return response.data;
 }
 
+export async function fetchPaperLintJob(jobId: string): Promise<PaperLintJobResponse> {
+  const response = await apiClient.get<PaperLintJobResponse>(`/normative/paper-lint/jobs/${jobId}`);
+  return response.data;
+}
 export async function fetchPaperLintReports(): Promise<PaperLintReportListItem[]> {
   const response = await apiClient.get<{ records: PaperLintReportListItem[] }>('/normative/paper-lint/reports');
   return response.data.records;

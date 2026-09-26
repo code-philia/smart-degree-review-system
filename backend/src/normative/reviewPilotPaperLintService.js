@@ -265,13 +265,14 @@ function mergePaperLintResults(existingResult, localResult, selectedRuleIds) {
   };
 }
 
-async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingConsent = false }) {
+async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingConsent = false, background = false }) {
   validatePdf(pdfBuffer);
   // The deadline covers catalog loading, queueing, and both engines so a timed-out
   // browser request cannot later persist a seemingly successful report.
   const requestedTimeout = Number(process.env.PAPER_LINT_RUN_TIMEOUT_MS);
   const timeoutMs = Number.isFinite(requestedTimeout) && requestedTimeout > 0
-    ? Math.min(requestedTimeout, ENGINE_TIMEOUT_MS) : ENGINE_TIMEOUT_MS;
+    ? Math.min(requestedTimeout, background ? 20 * 60 * 1000 : ENGINE_TIMEOUT_MS)
+    : background ? 20 * 60 * 1000 : ENGINE_TIMEOUT_MS;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -318,6 +319,5 @@ module.exports = {
   validateExternalProcessingConsent,
   validateSelectedRuleIds,
   validatePdf,
+  normalizeSelectedRuleIds,
 };
-
-
