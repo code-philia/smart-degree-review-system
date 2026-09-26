@@ -4,9 +4,14 @@ import { FindingsPane } from './FindingsPane';
 import type { PaperLintFindingItem } from './model';
 import { PdfPane } from './PdfPane';
 
-type Props = { file: File | { name: string; url: string }; findings: PaperLintFindingItem[]; rules: PaperLintRule[] };
+type Props = {
+  file: File | { name: string; url: string };
+  findings: PaperLintFindingItem[];
+  rules: PaperLintRule[];
+  openPdfUrl?: string;
+};
 
-export function PaperLintWorkspace({ file, findings, rules }: Props) {
+export function PaperLintWorkspace({ file, findings, rules, openPdfUrl }: Props) {
   const [activeFindingKey, setActiveFindingKey] = useState<string | null>(findings[0]?.key || null);
   const [activeAnchorId, setActiveAnchorId] = useState<string | null>(null);
   const [navigationRequest, setNavigationRequest] = useState(0);
@@ -25,6 +30,7 @@ export function PaperLintWorkspace({ file, findings, rules }: Props) {
     <div className="grid min-h-[620px] gap-4 lg:h-[min(78vh,860px)] lg:grid-cols-[minmax(0,1.25fr)_minmax(340px,.75fr)]">
       <PdfPane
         file={file}
+        openPdfUrl={openPdfUrl}
         findings={findings}
         activeFindingKey={activeFindingKey}
         activeAnchorId={activeAnchorId}

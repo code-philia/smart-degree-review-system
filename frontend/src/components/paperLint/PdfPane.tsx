@@ -1,7 +1,7 @@
-import { Eye, EyeOff, Highlighter, LoaderCircle, ZoomIn, ZoomOut } from 'lucide-react';
+import { Eye, EyeOff, Highlighter, Link2, LoaderCircle, ZoomIn, ZoomOut } from 'lucide-react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button } from '../ui';
+import { Button, buttonClassName } from '../ui';
 import type { PaperLintFindingItem } from './model';
 import { buildAnnotations, findingTarget, groupAnnotationsByPage } from './geometry';
 import { PdfViewer, type PdfViewerHandle, type SupplementalPdfAnnotation } from './PdfViewer';
@@ -9,6 +9,7 @@ import type { HighlightDensity } from './PdfOverlay';
 
 type Props = {
   file: File | { name: string; url: string };
+  openPdfUrl?: string;
   findings: PaperLintFindingItem[];
   activeFindingKey: string | null;
   activeAnchorId: string | null;
@@ -38,6 +39,7 @@ const EMPTY_SUPPLEMENTAL_ANNOTATIONS: SupplementalPdfAnnotation[] = [];
 
 export function PdfPane({
   file,
+  openPdfUrl,
   findings,
   activeFindingKey,
   activeAnchorId,
@@ -109,7 +111,7 @@ export function PdfPane({
           <p className="text-sm font-bold text-slate-900">PDF 原文</p>
           <p className="max-w-80 truncate text-xs text-slate-500">{file.name}</p>
         </div>
-        <div className="flex items-center gap-1">
+        <div role="toolbar" aria-label="PDF 工具" className="flex items-center gap-1">
           {(
             [
               ['hidden', EyeOff, '隐藏高亮'],
@@ -136,6 +138,18 @@ export function PdfPane({
           <Button size="sm" variant="ghost" className="px-2" aria-label="放大 PDF" title="放大 PDF" onClick={zoomIn}>
             <ZoomIn className="size-4" />
           </Button>
+          {openPdfUrl ? (
+            <a
+              href={openPdfUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={buttonClassName('ghost', 'sm', 'px-2')}
+              aria-label="在浏览器打开完整 PDF"
+              title="在浏览器打开完整 PDF"
+            >
+              <Link2 className="size-4" />
+            </a>
+          ) : null}
         </div>
       </div>
       <div className="relative min-h-[520px] flex-1 overflow-hidden">

@@ -18,11 +18,13 @@ vi.mock('../src/components/paperLint/Workspace', () => ({
   PaperLintWorkspace: ({
     file,
     findings,
+    openPdfUrl,
   }: {
     file: { url: string };
     findings: Array<{ finding: { message: string } }>;
+    openPdfUrl?: string;
   }) => (
-    <div data-testid="workspace">
+    <div data-testid="workspace" data-open-pdf-url={openPdfUrl}>
       {file.url} {findings.map((item) => item.finding.message).join(' ')}
     </div>
   ),
@@ -102,9 +104,10 @@ describe('archive paper result', () => {
       '/api/normative/archive-scans/jobs/job/documents/doc/pdf',
     );
     expect(screen.getByTestId('workspace')).toHaveTextContent('公式引用未找到目标');
-    const fullPdf = screen.getByRole('link', { name: '在浏览器中打开完整 PDF' });
-    expect(fullPdf).toHaveAttribute('href', '/api/normative/archive-scans/jobs/job/documents/doc/pdf');
-    expect(fullPdf).toHaveAttribute('target', '_blank');
-    expect(fullPdf).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(screen.getByTestId('workspace')).toHaveAttribute(
+      'data-open-pdf-url',
+      '/api/normative/archive-scans/jobs/job/documents/doc/pdf',
+    );
+    expect(screen.queryByRole('link', { name: '在浏览器中打开完整 PDF' })).not.toBeInTheDocument();
   });
 });

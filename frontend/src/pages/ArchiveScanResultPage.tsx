@@ -1,4 +1,4 @@
-import { ArrowLeft, CircleAlert, ExternalLink, FileSearch, MapPin } from 'lucide-react';
+import { ArrowLeft, CircleAlert, FileSearch, MapPin } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
@@ -62,21 +62,10 @@ export default function ArchiveScanResultPage() {
           { label: '论文结果' },
         ]}
         actions={
-          <>
-            <a
-              href={archivePdfUrl(jobId!, documentId!)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-blue-700"
-            >
-              <ExternalLink className="size-4" />
-              在浏览器中打开完整 PDF
-            </a>
-            <Link to={back} className="inline-flex items-center gap-2 text-sm font-bold text-blue-700 hover:underline">
-              <ArrowLeft className="size-4" />
-              返回任务结果
-            </Link>
-          </>
+          <Link to={back} className="inline-flex items-center gap-2 text-sm font-bold text-blue-700 hover:underline">
+            <ArrowLeft className="size-4" />
+            返回任务结果
+          </Link>
         }
       />
       {document.status === 'failed' ? (
@@ -130,6 +119,7 @@ export default function ArchiveScanResultPage() {
           </div>
           <PaperLintWorkspace
             file={{ name: document.filename, url: archivePdfUrl(jobId!, documentId!) }}
+            openPdfUrl={archivePdfUrl(jobId!, documentId!)}
             findings={findings}
             rules={catalog.rules}
           />

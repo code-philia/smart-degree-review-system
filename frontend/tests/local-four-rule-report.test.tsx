@@ -18,7 +18,13 @@ vi.mock('../src/api/paperLint', async () => {
     fetchReviewPilotPaperLintRules: vi.fn(),
   };
 });
-vi.mock('../src/components/paperLint/Workspace', () => ({ PaperLintWorkspace: () => <div>PDF 工作区</div> }));
+vi.mock('../src/components/paperLint/Workspace', () => ({
+  PaperLintWorkspace: ({ openPdfUrl }: { openPdfUrl?: string }) => (
+    <div data-testid="workspace" data-open-pdf-url={openPdfUrl}>
+      PDF 工作区
+    </div>
+  ),
+}));
 
 const report: PaperLintRunResponse = {
   id: 'report-24',
@@ -98,10 +104,11 @@ describe('saved local four-rule PDF report', () => {
     expect(await screen.findByRole('heading', { name: '待检论文.pdf' })).toBeInTheDocument();
     expect(screen.getByText('部分规则无法判定')).toBeInTheDocument();
     expect(screen.getByText('无法识别参考文献表')).toBeInTheDocument();
-    const fullPdf = screen.getByRole('link', { name: '在浏览器中打开完整 PDF' });
-    expect(fullPdf).toHaveAttribute('href', '/api/normative/paper-lint/reports/report-24/pdf');
-    expect(fullPdf).toHaveAttribute('target', '_blank');
-    expect(fullPdf).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(screen.getByTestId('workspace')).toHaveAttribute(
+      'data-open-pdf-url',
+      '/api/normative/paper-lint/reports/report-24/pdf',
+    );
+    expect(screen.queryByRole('link', { name: '在浏览器中打开完整 PDF' })).not.toBeInTheDocument();
   });
 
   it('keeps report breadcrumbs and return link in the 30-rule section', async () => {
