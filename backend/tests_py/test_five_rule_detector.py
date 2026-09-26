@@ -33,6 +33,67 @@ class FiveRuleDetectorTests(unittest.TestCase):
         self.assertEqual(result['status'], 'completed')
         self.assertEqual([f['token'] for f in result['findings']], ['9.9'])
 
+    def test_rule_18_finds_formula_reference_wrapped_to_next_line(self):
+        lines = [line(1, '第2章 方法', 50),
+                 line(1, '具体的计算过程见公式', 120),
+                 line(1, '(9-99)，然后继续分析。', 140),
+                 line(1, '(2-26)', 180, 480)]
+        result = detect_lines(lines, [18])['18']
+        self.assertEqual(result['status'], 'completed')
+        self.assertEqual([f['token'] for f in result['findings']], ['9-99'])
+        self.assertEqual(result['findings'][0]['page'], 1)
+        self.assertEqual(result['findings'][0]['text_range'], [0, 6])
+
+    def test_rule_18_finds_wrapped_reference_after_short_indented_line(self):
+        lines = [line(1, '第2章 方法', 50),
+                 line(1, '其中Q的值由公式', 120, 306),
+                 line(1, '(9-99)计算得到。', 140, 90),
+                 line(1, '(2-19)', 180, 480)]
+        result = detect_lines(lines, [18])['18']
+        self.assertEqual(result['status'], 'completed')
+        self.assertEqual([f['token'] for f in result['findings']], ['9-99'])
+
+    def test_rule_18_supports_single_number_formula_references_and_labels(self):
+        lines = [line(1, '第2章 方法', 50),
+                 line(1, '按式（17）计算，另见如下式（99）。', 120),
+                 line(2, '(17)', 180, 480)]
+        result = detect_lines(lines, [18])['18']
+        self.assertEqual(result['status'], 'completed')
+        self.assertEqual([f['token'] for f in result['findings']], ['99'])
+
+    def test_rule_18_does_not_treat_unrelated_wrapped_number_as_reference(self):
+        lines = [line(1, '第2章 方法', 50),
+                 line(1, '实验分组及样本数量如下', 120),
+                 line(1, '(9-99)组用于试验。', 140),
+                 line(1, '(2-26)', 180, 480)]
+        result = detect_lines(lines, [18])['18']
+        self.assertEqual(result['status'], 'completed')
+        self.assertEqual(result['findings'], [])
+    def test_rule_18_ignores_numbered_list_after_training_way_colon(self):
+        lines = [line(1, '第2章 方法', 50),
+                 line(1, '训练可分为两种方式：', 120),
+                 line(1, '(1) 联合训练：同时优化参数。', 140),
+                 line(1, '(2-26)', 180, 480)]
+        result = detect_lines(lines, [18])['18']
+        self.assertEqual(result['status'], 'completed')
+        self.assertEqual(result['findings'], [])
+
+    def test_rule_18_ignores_numbered_list_after_model_mode_colon(self):
+        lines = [line(1, '第2章 方法', 50),
+                 line(1, '具体实现分为两种模式：(1) 联合训练。', 120),
+                 line(1, '(2-26)', 180, 480)]
+        result = detect_lines(lines, [18])['18']
+        self.assertEqual(result['status'], 'completed')
+        self.assertEqual(result['findings'], [])
+    def test_rule_18_ignores_numbered_prose_form(self):
+        lines = [line(1, '第2章 方法', 50),
+                 line(1, '现有研究分为三种形式：（1）第一类。', 120),
+                 line(1, '另外一种范式(2)也可用于分析。', 140),
+                 line(1, '(2-26)', 180, 480)]
+        result = detect_lines(lines, [18])['18']
+        self.assertEqual(result['status'], 'completed')
+        self.assertEqual(result['findings'], [])
+
     def test_rules_22_and_24_compare_body_citations_with_bibliography(self):
         lines = [line(1, '第1章 绪论'), line(1, '已有研究[1]提出方法，另见[0]', 140),
                  line(2, '参考文献', 40), line(2, '[1]', 100), line(2, '作者. 文献一', 115),
