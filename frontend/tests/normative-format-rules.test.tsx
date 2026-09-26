@@ -130,9 +130,9 @@ const completedResponse = {
   },
 };
 
-function renderRoute() {
+function renderRoute(route = '/normative-check') {
   return render(
-    <MemoryRouter initialEntries={['/normative-check']}>
+    <MemoryRouter initialEntries={[route]}>
       <AuthSessionProvider>
         <App />
       </AuthSessionProvider>
@@ -232,7 +232,7 @@ describe('review-pilot PDF rules review route', () => {
   });
 });
 
-describe('four local PDF rules in the basic-check page', () => {
+describe('four local PDF rules in the 30-rule page', () => {
   const localRules = [18, 22, 24, 28].map((number) => ({
     rule_id: `sjtu_rule_${number}`,
     title: `规则 ${number} · 本地检测`,
@@ -245,35 +245,66 @@ describe('four local PDF rules in the basic-check page', () => {
     source: 'sjtu-local' as const,
   }));
 
-  it('lists the local rules in the existing style and runs a selected one without model consent', async () => {
+  it('keeps local rules out of the basic page and links to their own page', async () => {
     vi.mocked(fetchCurrentSession).mockResolvedValue({ user: studentUser });
     vi.mocked(fetchReviewPilotPaperLintRules).mockResolvedValue({
-      engine: 'sjtu-local', mode: 'pdf_lint', semantic_model: 'deepseek-v4-flash',
-      rules: localRules, warning: '原有规则引擎暂不可用',
+      engine: 'review-pilot',
+      mode: 'pdf_lint',
+      semantic_model: 'deepseek-v4-flash',
+      rules: [...catalog.rules, ...localRules],
+    });
+    renderRoute();
+    expect(await screen.findByText('中文论文题名格式')).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: /规则 22/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '30条规则检测' })).toHaveAttribute('href', '/thirty-rules-check');
+  });
+
+  it('lists the local rules and runs a selected one without model consent', async () => {
+    vi.mocked(fetchCurrentSession).mockResolvedValue({ user: studentUser });
+    vi.mocked(fetchReviewPilotPaperLintRules).mockResolvedValue({
+      engine: 'sjtu-local',
+      mode: 'pdf_lint',
+      semantic_model: 'deepseek-v4-flash',
+      rules: localRules,
+      warning: '原有规则引擎暂不可用',
     });
     vi.mocked(runReviewPilotPaperLint).mockResolvedValue({
       ...completedResponse,
       id: 'local-report-22',
       created_at: '2026-09-26T04:30:00.000Z',
-      summary: { finding_count: 1, error_finding_count: 0, warning_finding_count: 1,
-        info_finding_count: 0, rule_count: 1, ruleset_label: '本地四规则' },
+      summary: {
+        finding_count: 1,
+        error_finding_count: 0,
+        warning_finding_count: 1,
+        info_finding_count: 0,
+        rule_count: 1,
+        ruleset_label: '本地四规则',
+      },
       selected_rule_ids: ['sjtu_rule_22'],
       result: {
         ...completedResponse.result,
-        rule_runs: [{
-          ...completedResponse.result.rule_runs[0],
-          rule_id: 'sjtu_rule_22',
-          outcome: 'issues_found' as const,
-          findings: [{ ...completedResponse.result.rule_runs[0].findings[0],
-            rule_id: 'sjtu_rule_22', message: '文献引用 [99] 没有对应条目。' }],
-        }],
+        rule_runs: [
+          {
+            ...completedResponse.result.rule_runs[0],
+            rule_id: 'sjtu_rule_22',
+            outcome: 'issues_found' as const,
+            findings: [
+              {
+                ...completedResponse.result.rule_runs[0].findings[0],
+                rule_id: 'sjtu_rule_22',
+                message: '文献引用 [99] 没有对应条目。',
+              },
+            ],
+          },
+        ],
       },
     });
     const user = userEvent.setup();
     const pdf = new File(['%PDF-1.7\n'], '待检论文.pdf', { type: 'application/pdf' });
-    renderRoute();
+    renderRoute('/thirty-rules-check');
     expect(await screen.findByRole('checkbox', { name: /规则 22/ })).toBeInTheDocument();
     expect(screen.getAllByText('本地检测')).toHaveLength(4);
+    expect(screen.getByText('已开放 4 条')).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('原有规则引擎暂不可用');
     await user.upload(screen.getByLabelText('上传待审查 PDF'), pdf);
     await user.click(screen.getByRole('checkbox', { name: /规则 22/ }));
@@ -286,28 +317,51 @@ describe('four local PDF rules in the basic-check page', () => {
   it('shows an inconclusive result instead of claiming that an unsupported check passed', async () => {
     vi.mocked(fetchCurrentSession).mockResolvedValue({ user: studentUser });
     vi.mocked(fetchReviewPilotPaperLintRules).mockResolvedValue({
-      engine: 'sjtu-local', mode: 'pdf_lint', semantic_model: 'deepseek-v4-flash', rules: localRules,
+      engine: 'sjtu-local',
+      mode: 'pdf_lint',
+      semantic_model: 'deepseek-v4-flash',
+      rules: localRules,
     });
     vi.mocked(runReviewPilotPaperLint).mockResolvedValue({
       ...completedResponse,
       id: 'local-report-24',
       created_at: '2026-09-26T04:30:00.000Z',
-      summary: { finding_count: 0, error_finding_count: 0, warning_finding_count: 0,
-        info_finding_count: 0, rule_count: 1, ruleset_label: '本地四规则' },
+      summary: {
+        finding_count: 0,
+        error_finding_count: 0,
+        warning_finding_count: 0,
+        info_finding_count: 0,
+        rule_count: 1,
+        ruleset_label: '本地四规则',
+      },
       selected_rule_ids: ['sjtu_rule_24'],
       result: {
         ...completedResponse.result,
-        rule_runs: [{ ...completedResponse.result.rule_runs[0], rule_id: 'sjtu_rule_24',
-          execution_status: 'unsupported' as const, outcome: 'inconclusive' as const,
-          message: '无法识别参考文献表', findings: [] }],
-        summary: { ...completedResponse.result.summary, finding_count: 0,
-          unsupported_rule_count: 1, issue_rule_count: 0 },
+        rule_runs: [
+          {
+            ...completedResponse.result.rule_runs[0],
+            rule_id: 'sjtu_rule_24',
+            execution_status: 'unsupported' as const,
+            outcome: 'inconclusive' as const,
+            message: '无法识别参考文献表',
+            findings: [],
+          },
+        ],
+        summary: {
+          ...completedResponse.result.summary,
+          finding_count: 0,
+          unsupported_rule_count: 1,
+          issue_rule_count: 0,
+        },
       },
     });
     const user = userEvent.setup();
-    renderRoute();
+    renderRoute('/thirty-rules-check');
     await screen.findByRole('checkbox', { name: /规则 24/ });
-    await user.upload(screen.getByLabelText('上传待审查 PDF'), new File(['%PDF-1.7\n'], '论文.pdf', { type: 'application/pdf' }));
+    await user.upload(
+      screen.getByLabelText('上传待审查 PDF'),
+      new File(['%PDF-1.7\n'], '论文.pdf', { type: 'application/pdf' }),
+    );
     await user.click(screen.getByRole('checkbox', { name: /规则 24/ }));
     await user.click(screen.getByRole('button', { name: '开始检查' }));
     expect(await screen.findByText('部分规则无法判定')).toBeInTheDocument();

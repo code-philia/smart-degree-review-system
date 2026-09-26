@@ -20,6 +20,7 @@ export const NAV_GROUPS: NavGroup[] = [
     title: '检测与生成',
     items: [
       { label: '基础规则检测', to: '/normative-check', relatedPrefixes: ['/normative-reports'] },
+      { label: '30条规则检测', to: '/thirty-rules-check' },
       { label: '示例规则检测', to: '/example-rule-check' },
       { label: '高级语义规则检测', to: '/advanced-semantic-rule-check' },
       { label: '论文润色', to: '/whole-polish', relatedPrefixes: ['/local-polish', '/polish-history'] },

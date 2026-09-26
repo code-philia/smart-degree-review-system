@@ -50,6 +50,7 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/normative-check" element={<NormativeCheckPage />} />
+        <Route path="/thirty-rules-check" element={<NormativeCheckPage mode="thirty" />} />
         <Route path="/example-rule-check" element={<ExampleRuleCheckPage />} />
         <Route path="/example-rule-check/rules" element={<ExampleRuleManagementPage />} />
         <Route path="/example-rule-check/reports" element={<ExampleRuleReportsPage />} />

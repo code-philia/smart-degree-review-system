@@ -23,6 +23,12 @@ import {
 } from '../components/ui';
 
 const MAX_PDF_BYTES = 50 * 1024 * 1024;
+const THIRTY_RULE_IDS = new Set(['sjtu_rule_18', 'sjtu_rule_22', 'sjtu_rule_24', 'sjtu_rule_28']);
+type CheckMode = 'basic' | 'thirty';
+
+function rulesForMode(rules: PaperLintRule[], mode: CheckMode) {
+  return rules.filter((rule) => THIRTY_RULE_IDS.has(rule.rule_id) === (mode === 'thirty'));
+}
 
 function errorMessage(error: unknown, fallback: string) {
   if (axios.isAxiosError(error)) {
@@ -59,7 +65,9 @@ const outcomeTones = {
   not_applicable: 'neutral',
 } as const;
 
-function NormativeCheckPage() {
+function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
+  const isThirty = mode === 'thirty';
+  const title = isThirty ? '30条规则检测' : '基础规则检测';
   const { status, user } = useAuthSession();
   const [catalog, setCatalog] = useState<PaperLintCatalogResponse | null>(null);
   const [selectedRuleIds, setSelectedRuleIds] = useState<string[]>([]);
@@ -79,7 +87,11 @@ function NormativeCheckPage() {
     try {
       const nextCatalog = await fetchReviewPilotPaperLintRules();
       setCatalog(nextCatalog);
-      setSelectedRuleIds(nextCatalog.rules.filter((rule) => rule.default_enabled).map((rule) => rule.rule_id));
+      setSelectedRuleIds(
+        rulesForMode(nextCatalog.rules, mode)
+          .filter((rule) => rule.default_enabled)
+          .map((rule) => rule.rule_id),
+      );
       setSemanticConsent(false);
     } catch (error) {
       setCatalog(null);
@@ -91,8 +103,9 @@ function NormativeCheckPage() {
 
   useEffect(() => {
     if (user) void loadCatalog();
-  }, [user?.id]);
+  }, [user?.id, mode]);
 
+  const visibleRules = useMemo(() => rulesForMode(catalog?.rules || [], mode), [catalog, mode]);
   const rulesById = useMemo(() => new Map((catalog?.rules || []).map((rule) => [rule.rule_id, rule])), [catalog]);
   const selectedSemanticRules = useMemo(
     () =>
@@ -176,7 +189,7 @@ function NormativeCheckPage() {
   if (!user) {
     return (
       <Card>
-        <h1 className="text-2xl font-black text-slate-900">基础规则检测</h1>
+        <h1 className="text-2xl font-black text-slate-900">{title}</h1>
         <p className="mt-3 text-sm leading-6 text-slate-600">请先登录后上传论文并运行规则审查。</p>
         <LinkButton className="mt-5" to="/auth">
           前往登录
@@ -187,17 +200,51 @@ function NormativeCheckPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="基础规则检测" description="上传 PDF 论文并选择检查项，生成可定位问题的检查报告。" />
+      {isThirty ? (
+        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-blue-950 to-cyan-900 p-6 text-white shadow-xl sm:p-9">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-14 -top-24 size-72 rounded-full border border-white/10 bg-cyan-300/10 blur-2xl"
+          />
+          <div className="relative grid gap-7 lg:grid-cols-[1fr_auto] lg:items-end">
+            <div>
+              <span className="inline-flex rounded-full border border-cyan-200/30 bg-cyan-300/10 px-3 py-1 text-xs font-semibold tracking-wide text-cyan-100">
+                论文规范专项检测
+              </span>
+              <h1 className="mt-5 text-3xl font-black tracking-tight sm:text-4xl">30条规则检测</h1>
+              <p className="mt-3 max-w-2xl text-sm leading-7 text-blue-100/85 sm:text-base">
+                聚焦公式引用、文献引用与目录页码等可定位问题。上传论文后，自主选择已开放规则，逐项查看检测结果和 PDF
+                原文位置。
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:min-w-72">
+              <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
+                <p className="text-3xl font-black">
+                  {visibleRules.length}
+                  <span className="ml-1 text-base font-medium">/ 30</span>
+                </p>
+                <p className="mt-2 text-xs text-blue-100">已开放 {visibleRules.length} 条</p>
+              </div>
+              <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
+                <p className="text-3xl font-black">PDF</p>
+                <p className="mt-2 text-xs text-blue-100">原文定位报告</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : (
+        <PageHeader title={title} description="上传 PDF 论文并选择检查项，生成可定位问题的检查报告。" />
+      )}
       <ModuleTabs
-        ariaLabel="基础规则检测功能导航"
+        ariaLabel={`${title}功能导航`}
         items={[
-          { label: '发起检测', to: '/normative-check', active: true },
+          { label: '发起检测', to: isThirty ? '/thirty-rules-check' : '/normative-check', active: true },
           { label: '历史报告', to: '/normative-reports', active: false },
         ]}
       />
 
       <section
-        aria-label="发起基础规则检测"
+        aria-label={isThirty ? '发起30条规则检测' : '发起基础规则检测'}
         className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6"
       >
         <div className="mb-5 flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-5">
@@ -211,8 +258,12 @@ function NormativeCheckPage() {
         </div>
 
         {catalog?.warning ? (
-          <p role="status" className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            {catalog.warning}。本地四规则仍可使用。
+          <p
+            role="status"
+            className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+          >
+            {catalog.warning}
+            {isThirty ? '。已开放的本地规则仍可使用。' : ''}
           </p>
         ) : null}
 
@@ -271,7 +322,11 @@ function NormativeCheckPage() {
 
           <Card
             title="2. 选择审查规则"
-            description="基础检查默认启用；需要额外文本分析的检查项可按需选择。"
+            description={
+              isThirty
+                ? '当前开放 4 条规则，其余规则将逐步开放。可按需选择本次检查项。'
+                : '基础检查默认启用；需要额外文本分析的检查项可按需选择。'
+            }
             actions={
               catalog ? (
                 <div className="flex gap-1">
@@ -279,7 +334,7 @@ function NormativeCheckPage() {
                     size="sm"
                     variant="ghost"
                     onClick={() =>
-                      replaceSelectedRules(catalog.rules.filter((rule) => rule.available).map((rule) => rule.rule_id))
+                      replaceSelectedRules(visibleRules.filter((rule) => rule.available).map((rule) => rule.rule_id))
                     }
                   >
                     全选可用
@@ -294,15 +349,15 @@ function NormativeCheckPage() {
             {catalogLoading ? <LoadingState label="正在读取检查项…" /> : null}
             {catalogError ? <ErrorState message={catalogError} onRetry={() => void loadCatalog()} /> : null}
             {catalog ? (
-              <div className="grid max-h-80 gap-2 overflow-y-auto pr-1 md:grid-cols-2">
-                {catalog.rules.map((rule: PaperLintRule) => {
+              <div className={`grid gap-3 md:grid-cols-2 ${isThirty ? '' : 'max-h-80 overflow-y-auto pr-1'}`}>
+                {visibleRules.map((rule: PaperLintRule) => {
                   const checked = selectedRuleIds.includes(rule.rule_id);
                   return (
                     <label
                       key={rule.rule_id}
                       className={`flex gap-3 rounded-lg border p-3 transition ${
                         rule.available ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'
-                      } ${checked ? 'border-brand-500 bg-brand-50' : 'border-slate-200 hover:border-slate-300'}`}
+                      } ${checked ? 'border-brand-500 bg-brand-50 shadow-sm' : 'border-slate-200 hover:border-slate-300'} ${isThirty ? 'min-h-28 rounded-xl bg-gradient-to-br from-white to-slate-50/70 p-4' : ''}`}
                     >
                       <input
                         className="mt-0.5 size-4 accent-brand-500"
@@ -336,6 +391,11 @@ function NormativeCheckPage() {
                   );
                 })}
               </div>
+            ) : null}
+            {catalog && visibleRules.length === 0 ? (
+              <p className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                当前页面暂无可用规则。
+              </p>
             ) : null}
             {selectedSemanticRules.length > 0 ? (
               <div
@@ -402,12 +462,20 @@ function NormativeCheckPage() {
             title="审查结果"
             description={`${response.result.paper_title} · ${new Date(response.created_at).toLocaleString('zh-CN')}`}
             actions={
-              <StatusBadge tone={response.result.summary.finding_count ? 'warning' :
-                response.result.summary.unsupported_rule_count + response.result.summary.error_rule_count ? 'neutral' : 'success'}>
+              <StatusBadge
+                tone={
+                  response.result.summary.finding_count
+                    ? 'warning'
+                    : response.result.summary.unsupported_rule_count + response.result.summary.error_rule_count
+                      ? 'neutral'
+                      : 'success'
+                }
+              >
                 {response.result.summary.finding_count
                   ? `发现 ${response.result.summary.finding_count} 项问题`
                   : response.result.summary.unsupported_rule_count + response.result.summary.error_rule_count
-                    ? '部分规则无法判定' : '未发现问题'}
+                    ? '部分规则无法判定'
+                    : '未发现问题'}
               </StatusBadge>
             }
           >
@@ -455,7 +523,7 @@ function NormativeCheckPage() {
             <FileCheck2 className="size-5 text-brand-600" />
             <h2 className="text-lg font-black text-slate-900">PDF 定位与问题联动</h2>
           </div>
-          <PaperLintWorkspace file={resultFile} findings={findings} rules={catalog?.rules || []} />
+          <PaperLintWorkspace file={resultFile} findings={findings} rules={visibleRules} />
         </>
       ) : null}
     </div>
