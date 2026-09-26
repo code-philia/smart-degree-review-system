@@ -44,10 +44,32 @@ def detect_caption_rules(objects: list[LayoutObject], selected_rule_numbers) -> 
         if not objects:
             result[str(rule)] = {"status": "unsupported", "reason": "MinerU 未返回可核查版面", "findings": []}
             continue
+        targets = [obj for obj in objects if obj.kind == target_kind]
         captions = [obj for obj in objects if obj.kind == caption_kind]
+        candidates = []
+        for target_index, target in enumerate(targets):
+            for caption_index, caption in enumerate(captions):
+                if not _matches(target, caption):
+                    continue
+                if target.page_number == caption.page_number:
+                    gap = max(caption.bbox[1] - target.bbox[3],
+                              target.bbox[1] - caption.bbox[3], 0)
+                elif target.page_number < caption.page_number:
+                    gap = target.page_height - target.bbox[3] + caption.bbox[1]
+                else:
+                    gap = caption.page_height - caption.bbox[3] + target.bbox[1]
+                horizontal = abs((target.bbox[0] + target.bbox[2]) -
+                                 (caption.bbox[0] + caption.bbox[2]))
+                candidates.append((abs(target.page_number - caption.page_number),
+                                   gap, horizontal, target_index, caption_index))
+        matched_targets, matched_captions = set(), set()
+        for _, _, _, target_index, caption_index in sorted(candidates):
+            if target_index not in matched_targets and caption_index not in matched_captions:
+                matched_targets.add(target_index)
+                matched_captions.add(caption_index)
         findings = []
-        for target in (obj for obj in objects if obj.kind == target_kind):
-            if any(_matches(target, caption) for caption in captions):
+        for target_index, target in enumerate(targets):
+            if target_index in matched_targets:
                 continue
             findings.append({
                 "rule_id": str(rule), "page": target.page_number,
@@ -57,4 +79,3 @@ def detect_caption_rules(objects: list[LayoutObject], selected_rule_numbers) -> 
             })
         result[str(rule)] = {"status": "completed", "findings": findings}
     return result
-

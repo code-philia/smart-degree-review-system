@@ -84,4 +84,3 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
 const defaultJobService = createPaperLintJobService();
 module.exports = defaultJobService;
 module.exports.createPaperLintJobService = createPaperLintJobService;
-

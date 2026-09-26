@@ -64,4 +64,3 @@ async function failJob(id, message) {
 }
 
 module.exports = { createJob, getJob, getJobForUser, recoverJobs, claimJob, completeJob, failJob, publicJob };
-

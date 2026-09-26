@@ -55,4 +55,3 @@ describe('six PDF rules integration', () => {
     expect(() => validateExternalProcessingConsent(catalog, ['deepseek_rule'], false)).toThrow();
   });
 });
-

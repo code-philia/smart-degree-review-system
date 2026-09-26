@@ -152,6 +152,3 @@ def parse_layout(pdf_path, token, http_client=None, page_limit=180, *,
         raise
     except Exception:
         raise MinerUError("PDF layout parsing failed") from None
-
-
-

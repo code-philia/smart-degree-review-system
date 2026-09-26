@@ -48,10 +48,12 @@ def normalize_layout(
     original_sizes: list[tuple[float, float]],
 ) -> list[LayoutObject]:
     objects = []
+    seen_pages = set()
     for page in pages:
         index = page.get("page_idx")
-        if not isinstance(index, int) or index < 0 or index >= len(original_sizes):
+        if type(index) is not int or index < 0 or index >= len(original_sizes) or index in seen_pages:
             raise ValueError("Invalid MinerU page index")
+        seen_pages.add(index)
         raw_size = page.get("page_size")
         if not isinstance(raw_size, list) or len(raw_size) != 2 or min(raw_size) <= 0:
             raise ValueError("Invalid MinerU page dimensions")
@@ -78,5 +80,6 @@ def normalize_layout(
                 kind = _caption_kind(text)
                 if kind:
                     convert(candidate, kind, text)
+    if seen_pages != set(range(len(original_sizes))):
+        raise ValueError("MinerU omitted pages")
     return objects
-

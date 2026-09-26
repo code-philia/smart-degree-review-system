@@ -27,4 +27,3 @@ def extract_pdf(path: str | Path) -> PdfDocument:
                 unreadable=not lines and bool(page.get_images(full=True)),
             ))
     return PdfDocument(pdf_path, tuple(pages))
-

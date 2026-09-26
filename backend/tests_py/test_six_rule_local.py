@@ -71,3 +71,36 @@ class SixRuleLocalTests(unittest.TestCase):
                          ["unsupported"] * 4)
         self.assertTrue(all(not result[str(rule)]["findings"] for rule in (11, 15, 16, 29)))
 
+
+    def test_body_reference_resolves_only_matching_appendix(self):
+        process = run_pdf([
+            ["正文见图A.1。", "另见附录A图1.1。"],
+            ["附录B 对照", "图1.1 附录B的图"],
+        ], [11, 15])
+        self.assertEqual(process.returncode, 0, process.stderr)
+        result = json.loads(process.stdout)["rules"]
+        self.assertEqual([f["token"] for f in result["11"]["findings"]], ["A.1", "1.1"])
+        self.assertEqual([f["token"] for f in result["15"]["findings"]], ["1.1"])
+
+    def test_body_sentence_is_not_appendix_heading(self):
+        process = run_pdf([["附录 A 介绍了实验", "其他内容"]], [29])
+        self.assertEqual(process.returncode, 0, process.stderr)
+        result = json.loads(process.stdout)["rules"]
+        self.assertEqual([f["token"] for f in result["29"]["findings"]], ["A"])
+    def test_body_reference_to_appendix_figure_matches_exact_scope(self):
+        process = run_pdf([
+            ["正文见图A.1。", "还见附录A图1.1。"],
+            ["附录A 实验", "图A.1 附录A图一", "图1.1 附录A图二"],
+            ["附录B 对照", "图1.1 附录B图"],
+        ], [11, 15])
+        self.assertEqual(process.returncode, 0, process.stderr)
+        result = json.loads(process.stdout)["rules"]
+        self.assertEqual(result["11"]["findings"], [])
+        self.assertEqual([(f["token"], f["page"]) for f in result["15"]["findings"]], [("1.1", 3)])
+    def test_appendix_title_with_common_noun_is_heading(self):
+        process = run_pdf([
+            ["详见附录C。"],
+            ["附录C 使用说明"],
+        ], [29])
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertEqual(json.loads(process.stdout)["rules"]["29"]["findings"], [])

@@ -104,4 +104,3 @@ async function runSixRules(pdfPath, selectedRuleIds, { signal } = {}) {
 }
 
 module.exports = { getSixRules, isSixRuleId, runSixRules, toSixRuleResult, CLOUD_IDS };
-

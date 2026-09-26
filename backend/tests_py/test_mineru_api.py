@@ -11,14 +11,22 @@ import pymupdf
 from pdf_rules.mineru_api import MinerUError, UrllibHttpClient, parse_layout
 
 
-def fake_zip(page_index=0, width=600, height=800):
-    payload = {"pdf_info": [{"page_idx": page_index, "page_size": [width, height],
-                            "para_blocks": [{"type": "image", "bbox": [100, 200, 300, 350 if width == 300 else 400]},
-                                            {"type": "image_caption", "bbox": [100, 355 if width == 300 else 410, 300, 380 if width == 300 else 430],
-                                             "lines": [{"spans": [{"content": "图 1 示例"}]}]}]}]}
+def fake_zip(page_index=0, width=600, height=800, page_count=1):
+    pages = []
+    for index in range(page_count):
+        blocks = []
+        if index == page_index:
+            blocks = [
+                {"type": "image", "bbox": [100, 200, 300, 350 if width == 300 else 400]},
+                {"type": "image_caption",
+                 "bbox": [100, 355 if width == 300 else 410, 300, 380 if width == 300 else 430],
+                 "lines": [{"spans": [{"content": "图 1 示例"}]}]},
+            ]
+        pages.append({"page_idx": index, "page_size": [width, height],
+                      "para_blocks": blocks})
     data = io.BytesIO()
     with zipfile.ZipFile(data, "w") as archive:
-        archive.writestr("layout.json", json.dumps(payload))
+        archive.writestr("layout.json", json.dumps({"pdf_info": pages}))
     return data.getvalue()
 
 
@@ -37,11 +45,13 @@ class FakeHttp:
             return {"code": 0, "data": {"batch_id": f"batch-{number}",
                                         "file_urls": [f"https://upload.test/{number}?signed-url-secret"]}}
         if method == "PUT":
+            with pymupdf.open(stream=data, filetype="pdf") as pdf:
+                self.chunk_pages = len(pdf)
             return {}
         if "/extract-results/batch/" in url:
             return {"code": 0, "data": {"extract_result": [
                 {"state": "done", "full_zip_url": "https://download.test/result?signed-url-secret"}]}}
-        return self.archive
+        return self.archive(self.chunk_pages) if callable(self.archive) else self.archive
 
 
 class MinerUApiTests(unittest.TestCase):
@@ -68,7 +78,7 @@ class MinerUApiTests(unittest.TestCase):
         self.assertNotIn("Content-Type", http.calls[1][2])
 
     def test_chunk_page_mapping(self):
-        http = FakeHttp(fake_zip(page_index=40, width=300, height=400))
+        http = FakeHttp(lambda count: fake_zip(page_index=40, width=300, height=400, page_count=count))
         objects = parse_layout(self.pdf(221), "token-secret", http, page_limit=180)
         self.assertEqual(len([call for call in http.calls if call[0] == "POST"]), 2)
         self.assertEqual([obj.page_number for obj in objects if obj.kind == "figure"], [41, 221])
@@ -89,3 +99,7 @@ class MinerUApiTests(unittest.TestCase):
         self.assertNotIn("signed-url-secret", str(raised.exception))
 
 
+
+    def test_partial_layout_is_rejected(self):
+        with self.assertRaises(MinerUError):
+            parse_layout(self.pdf(2), "token-secret", FakeHttp(fake_zip()))

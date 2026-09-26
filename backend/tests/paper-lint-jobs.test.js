@@ -112,5 +112,3 @@ describe('durable MinerU paper-lint jobs', () => {
     expect(service.runPaperLint).toHaveBeenCalledTimes(3);
   });
 });
-
-

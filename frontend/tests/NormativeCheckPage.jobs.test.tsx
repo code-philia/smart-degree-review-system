@@ -76,7 +76,3 @@ describe('MinerU background PDF review', () => {
     expect(fetchPaperLintReport).toHaveBeenCalledWith('job-1');
   });
 });
-
-
-
-

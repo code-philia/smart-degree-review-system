@@ -59,3 +59,12 @@ class CaptionRuleTests(unittest.TestCase):
         self.assertEqual(result["13"]["status"], "unsupported")
         self.assertEqual(result["14"]["status"], "unsupported")
 
+
+    def test_one_caption_cannot_cover_two_figures(self):
+        objects = [
+            obj("figure", 1, (50, 100, 300, 250)),
+            obj("figure", 1, (260, 100, 510, 250)),
+            obj("figure_caption", 1, (250, 260, 310, 280), "图 1 并排示例"),
+        ]
+        result = detect_caption_rules(objects, [13])
+        self.assertEqual(len(result["13"]["findings"]), 1)

@@ -1,8 +1,18 @@
 from .model import DocumentIndex, Label, PdfDocument
 from .numbering import (
-    APPENDIX_HEADING, APPENDIX_REFERENCE, FIGURE_CAPTION, FIGURE_REFERENCE,
-    TABLE_CAPTION, TABLE_REFERENCE, is_toc_line, normalize_label, normalize_text,
+    APPENDIX_HEADING, APPENDIX_QUALIFIER, APPENDIX_REFERENCE, FIGURE_CAPTION, FIGURE_REFERENCE,
+    TABLE_CAPTION, TABLE_REFERENCE, is_appendix_heading, is_toc_line, normalize_label, normalize_text,
 )
+
+
+def _reference_label(match, text, line, scope):
+    number = normalize_label(match.group("number"))
+    prefix = text[max(0, match.start() - 16):match.start()]
+    qualifier = APPENDIX_QUALIFIER.search(prefix)
+    target_scope = (normalize_label(qualifier.group("number")) if qualifier else
+                    number[0] if len(number) > 1 and number[1] == "." and number[0].isalpha()
+                    else None)
+    return Label(number, line, scope, target_scope)
 
 
 def build_index(document: PdfDocument, layout_objects=None) -> DocumentIndex:
@@ -11,7 +21,7 @@ def build_index(document: PdfDocument, layout_objects=None) -> DocumentIndex:
     for line in document.lines:
         text = normalize_text(line.text)
         heading = APPENDIX_HEADING.search(text)
-        if heading:
+        if heading and is_appendix_heading(text, heading):
             scope = normalize_label(heading.group("number"))
             index.appendices.append(Label(scope, line, scope))
             continue
@@ -32,18 +42,11 @@ def build_index(document: PdfDocument, layout_objects=None) -> DocumentIndex:
         for match in FIGURE_REFERENCE.finditer(text):
             if figure_caption and match.start() < figure_start:
                 continue
-            prefix = text[max(0, match.start() - 5):match.start()]
-            index.figure_refs.append(Label(
-                normalize_label(match.group("number")), line, scope, "附录" in prefix,
-            ))
+            index.figure_refs.append(_reference_label(match, text, line, scope))
         for match in TABLE_REFERENCE.finditer(text):
             if table_caption and match.start() < table_start:
                 continue
-            prefix = text[max(0, match.start() - 5):match.start()]
-            index.table_refs.append(Label(
-                normalize_label(match.group("number")), line, scope, "附录" in prefix,
-            ))
+            index.table_refs.append(_reference_label(match, text, line, scope))
         for match in APPENDIX_REFERENCE.finditer(text):
             index.appendix_refs.append(Label(normalize_label(match.group("number")), line, scope))
     return index
-

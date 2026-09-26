@@ -12,8 +12,8 @@ MESSAGES = {
 def same_target(reference: Label, target: Label) -> bool:
     if reference.number != target.number:
         return False
-    if reference.qualified:
-        return target.scope != "body"
+    if reference.target_scope is not None:
+        return reference.target_scope == target.scope
     return reference.scope == target.scope
 
 
@@ -66,4 +66,3 @@ def detect_rules(index: DocumentIndex, selected_rule_numbers) -> dict[str, dict]
             labels = [ref for ref in index.appendix_refs if ref.number not in existing]
         result[str(rule)] = {"status": "completed", "findings": [finding(rule, label) for label in labels]}
     return result
-

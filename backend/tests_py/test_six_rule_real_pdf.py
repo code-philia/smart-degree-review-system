@@ -84,4 +84,3 @@ class SixRuleRealPdfTests(unittest.TestCase):
         self.assertEqual(result["13"]["findings"][0]["location"]["bounding_rect"]["page_number"], 1)
         self.assertGreater(result["13"]["findings"][0]["location"]["bounding_rect"]["y1"], 300)
         self.assertGreater(result["14"]["findings"][0]["location"]["bounding_rect"]["y1"], 600)
-

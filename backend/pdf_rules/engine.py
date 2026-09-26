@@ -28,4 +28,3 @@ def detect(pdf_path: str | Path, selected_rule_numbers, *, token=None, http_clie
             for number in selected & CLOUD:
                 results[str(number)] = {"status": "unsupported", "reason": str(exc), "findings": []}
     return {"pages": len(document.pages), "rules": results}
-

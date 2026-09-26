@@ -35,7 +35,7 @@ class Label:
     number: str
     line: PdfLine
     scope: str
-    qualified: bool = False
+    target_scope: str | None = None
 
 
 @dataclass
@@ -51,4 +51,3 @@ class DocumentIndex:
     @property
     def lines(self) -> tuple[PdfLine, ...]:
         return self.document.lines
-
