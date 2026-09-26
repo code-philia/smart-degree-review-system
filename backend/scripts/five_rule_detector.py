@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -41,9 +42,11 @@ class Line:
 
 def extract_lines(pdf_path: Path) -> tuple[list[Line], int]:
     lines = []
+    # The detector only needs text; image blocks can consume hundreds of MiB.
+    text_flags = pymupdf.TEXTFLAGS_DICT & ~pymupdf.TEXT_PRESERVE_IMAGES
     with pymupdf.open(pdf_path) as pdf:
         for page_number, page in enumerate(pdf, 1):
-            for block in page.get_text('dict', sort=True)['blocks']:
+            for block in page.get_text('dict', sort=True, flags=text_flags)['blocks']:
                 if block['type'] != 0:
                     continue
                 for raw in block['lines']:
@@ -769,7 +772,13 @@ def main() -> None:
     parser.add_argument('--rule', action='append', type=int, choices=RULES)
     parser.add_argument('--output', type=Path)
     args = parser.parse_args()
+    # MuPDF diagnostics can be printed on stdout and corrupt the JSON protocol.
+    pymupdf.TOOLS.mupdf_display_errors(False)
+    pymupdf.TOOLS.mupdf_display_warnings(False)
     result = detect_pdf(args.pdf, args.rule or RULES)
+    diagnostics = pymupdf.TOOLS.mupdf_warnings()
+    if diagnostics:
+        print(diagnostics, file=sys.stderr)
     serialized = json.dumps(result, ensure_ascii=False, indent=2)
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
