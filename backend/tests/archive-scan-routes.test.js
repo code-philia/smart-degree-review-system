@@ -70,6 +70,11 @@ describe('archive scan API', () => {
       .set('Range', 'bytes=0-3')
       .expect(206);
     expect(pdf.headers['content-range']).toMatch(/^bytes 0-3\//);
+    expect(pdf.headers['cache-control']).toMatch(/private, max-age=3600/);
+    expect(pdf.headers.vary).toMatch(/Cookie/);
+    expect(pdf.headers.etag).toBeTruthy();
+    await request(app).get(`/api/normative/archive-scans/jobs/${jobId}/documents/${id}/pdf`)
+      .set('Cookie', cookies.college_admin01).set('If-None-Match', pdf.headers.etag).expect(304);
     const tail = await request(app)
       .get(`/api/normative/archive-scans/jobs/${jobId}/documents/${id}/pdf`)
       .set('Cookie', cookies.college_admin01)
@@ -77,5 +82,17 @@ describe('archive scan API', () => {
       .expect(206);
     expect(tail.headers['content-length']).toBe('4');
     expect(tail.headers['content-range']).toMatch(/^bytes \d+-\d+\/\d+$/);
+  });
+  it('lets admins delete a finished job but denies students', async () => {
+    const response = await request(app).post('/api/normative/archive-scans/jobs')
+      .set('Cookie', cookies.college_admin01)
+      .send({ selected_rule_ids: ['sjtu_rule_18'] }).expect(201);
+    const url = `/api/normative/archive-scans/jobs/${response.body.job.id}`;
+    await request(app).delete(url).expect(401);
+    await request(app).delete(url).set('Cookie', cookies.student01).expect(403);
+    await service.waitForIdle();
+    await request(app).delete(url).set('Cookie', cookies.college_admin01).expect(204);
+    await request(app).get(url).set('Cookie', cookies.college_admin01).expect(404);
+    await request(app).delete(url).set('Cookie', cookies.college_admin01).expect(404);
   });
 });

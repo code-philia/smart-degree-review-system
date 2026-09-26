@@ -152,6 +152,14 @@ function createArchiveScanService({
   async function listJobs() {
     return (await db.all('SELECT * FROM archive_scan_jobs ORDER BY created_at DESC, rowid DESC')).map(decodeJob);
   }
+  async function deleteJob(id) {
+    await db.withTransaction(async (tx) => {
+      const job = await tx.get('SELECT status FROM archive_scan_jobs WHERE id=?', [id]);
+      if (!job) throw problem(404, '扫描任务不存在');
+      if (job.status === 'running') throw problem(409, '正在运行的扫描任务不能删除');
+      await tx.run('DELETE FROM archive_scan_jobs WHERE id=?', [id]);
+    });
+  }
   async function listDocuments(jobId, { ruleId, outcome, query, page = 1 } = {}) {
     await getJob(jobId);
     const rows = (
@@ -193,6 +201,7 @@ function createArchiveScanService({
       if (worker) await worker;
     },
     listJobs,
+    deleteJob,
     getJob,
     listDocuments,
     getDocument,

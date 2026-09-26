@@ -269,6 +269,20 @@ describe("review-pilot paper-lint HTTP bridge", () => {
       .set("Cookie", cookies.student01)
       .expect("Content-Type", /application\/pdf/)
       .expect(200);
+    const partial = await request(app)
+      .get(`/api/normative/paper-lint/reports/${response.body.id}/pdf`)
+      .set("Cookie", cookies.student01)
+      .set("Range", "bytes=0-3")
+      .expect(206);
+    expect(partial.headers["content-range"]).toMatch(/^bytes 0-3\//);
+    expect(partial.headers["cache-control"]).toMatch(/private, max-age=3600/);
+    expect(partial.headers.vary).toMatch(/Cookie/);
+    expect(partial.headers.etag).toBeTruthy();
+    await request(app)
+      .get(`/api/normative/paper-lint/reports/${response.body.id}/pdf`)
+      .set("Cookie", cookies.student01)
+      .set("If-None-Match", partial.headers.etag)
+      .expect(304);
   });
 
   it("retains unsupported counts in saved list summaries", async () => {

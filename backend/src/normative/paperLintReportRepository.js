@@ -63,16 +63,17 @@ async function findPaperLintReportByIdForUser(id, userId) {
   return toReport(row);
 }
 
-async function readPaperLintReportPdf(id, userId) {
+async function getPaperLintReportPdfFile(id, userId) {
   const row = await get(
     `SELECT source_filename, source_pdf_path FROM paper_lint_reports WHERE id = ? AND user_id = ?;`,
     [id, userId],
   );
   if (!row) return null;
   try {
-    return { source_filename: row.source_filename, content: await fs.promises.readFile(row.source_pdf_path) };
+    const stat = await fs.promises.stat(row.source_pdf_path);
+    return { source_filename: row.source_filename, path: stat.isFile() ? row.source_pdf_path : null };
   } catch (error) {
-    if (error.code === 'ENOENT') return { source_filename: row.source_filename, content: null };
+    if (error.code === 'ENOENT') return { source_filename: row.source_filename, path: null };
     throw error;
   }
 }
@@ -81,5 +82,5 @@ module.exports = {
   createPaperLintReport,
   findPaperLintReportByIdForUser,
   listPaperLintReportsByUser,
-  readPaperLintReportPdf,
+  getPaperLintReportPdfFile,
 };

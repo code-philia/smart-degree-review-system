@@ -38,6 +38,9 @@ export async function startArchiveJob(ruleIds: string[]): Promise<{ job: Archive
   return (await apiClient.post<{ job: ArchiveJob }>(`${base}/jobs`, { selected_rule_ids: ruleIds }, { timeout: 30000 }))
     .data;
 }
+export async function deleteArchiveJob(id: string): Promise<void> {
+  await apiClient.delete(`${base}/jobs/${encodeURIComponent(id)}`);
+}
 export async function fetchArchiveJob(id: string): Promise<{ job: ArchiveJob }> {
   return (await apiClient.get<{ job: ArchiveJob }>(`${base}/jobs/${id}`)).data;
 }

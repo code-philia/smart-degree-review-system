@@ -10,6 +10,7 @@ import {
   fetchArchiveJob,
   fetchArchiveDocuments,
   fetchArchiveJobs,
+  deleteArchiveJob,
   startArchiveJob,
 } from '../src/api/archiveScans';
 vi.mock('../src/api/authSession', async () => ({
@@ -19,6 +20,7 @@ vi.mock('../src/api/authSession', async () => ({
 vi.mock('../src/api/archiveScans', () => ({
   fetchArchiveCatalog: vi.fn(),
   fetchArchiveJobs: vi.fn(),
+  deleteArchiveJob: vi.fn(),
   startArchiveJob: vi.fn(),
   fetchArchiveJob: vi.fn(),
   fetchArchiveDocuments: vi.fn(),
@@ -40,6 +42,7 @@ beforeEach(() => {
   vi.mocked(fetchCurrentSession).mockResolvedValue({ user: admin as never });
   vi.mocked(fetchArchiveCatalog).mockResolvedValue({ rules: rules as never, paper_count: 479 });
   vi.mocked(fetchArchiveJobs).mockResolvedValue({ jobs: [] });
+  vi.mocked(deleteArchiveJob).mockResolvedValue(undefined);
   vi.mocked(startArchiveJob).mockResolvedValue({
     job: {
       id: 'job-1',
@@ -145,6 +148,26 @@ describe('archive scan page', () => {
     await waitFor(() => expect(screen.getByRole('combobox', { name: '按规则筛选' })).toHaveValue(''));
     expect(await screen.findByRole('link', { name: /论文.pdf/ })).toBeInTheDocument();
   });
+  it('confirms deletion of an older saved job and refreshes the list', async () => {
+    const older = { ...savedJob, id: 'older', created_at: '2026-09-25T00:00:00Z' };
+    vi.mocked(fetchArchiveJobs)
+      .mockResolvedValueOnce({ jobs: [savedJob, older] as never })
+      .mockResolvedValue({ jobs: [savedJob] as never });
+    vi.mocked(fetchArchiveJob).mockResolvedValue({ job: savedJob as never });
+    vi.mocked(fetchArchiveDocuments).mockResolvedValue({ items: [], total: 0, page: 1, page_size: 25 });
+    renderPage();
+    const deleteButtons = await screen.findAllByRole('button', { name: /删除任务/ });
+    expect(deleteButtons).toHaveLength(2);
+    await userEvent.click(deleteButtons[1]);
+    expect(await screen.findByRole('alertdialog')).toHaveTextContent('删除后无法恢复');
+    await userEvent.click(screen.getByRole('button', { name: '取消' }));
+    expect(deleteArchiveJob).not.toHaveBeenCalled();
+    await userEvent.click(screen.getAllByRole('button', { name: /删除任务/ })[1]);
+    await userEvent.click(screen.getByRole('button', { name: '确认删除' }));
+    await waitFor(() => expect(deleteArchiveJob).toHaveBeenCalledWith('older'));
+    await waitFor(() => expect(screen.getAllByRole('button', { name: /删除任务/ })).toHaveLength(1));
+  });
+
   it('starts selected multiple rules as one job', async () => {
     renderPage();
     await userEvent.click(await screen.findByRole('checkbox', { name: '选择规则 18' }));

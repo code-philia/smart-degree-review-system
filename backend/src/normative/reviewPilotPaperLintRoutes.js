@@ -3,6 +3,7 @@ const { requireAuth } = require('../auth/authMiddleware');
 const defaultService = require('./reviewPilotPaperLintService');
 const defaultExampleService = require('./paperLintExampleService');
 const paperLintReportRepository = require('./paperLintReportRepository');
+const { sendPrivatePdf } = require('./privatePdfResponse');
 
 const allowedRoles = ['STUDENT', 'SUPERVISOR', 'SCHOOL_ADMIN', 'COLLEGE_ADMIN'];
 
@@ -64,12 +65,10 @@ function createReviewPilotPaperLintRouter(service = defaultService, exampleServi
 
   router.get('/reports/:reportId/pdf', requireAuth({ allowedRoles }), async (req, res, next) => {
     try {
-      const pdf = await paperLintReportRepository.readPaperLintReportPdf(req.params.reportId, req.user.id);
+      const pdf = await paperLintReportRepository.getPaperLintReportPdfFile(req.params.reportId, req.user.id);
       if (!pdf) return res.status(404).json({ code: 404, message: '未找到该审查报告' });
-      if (!pdf.content) return res.status(410).json({ code: 410, message: '该报告的原始 PDF 已不可用' });
-      res.set('Content-Type', 'application/pdf');
-      res.set('Content-Disposition', `inline; filename="${encodeURIComponent(pdf.source_filename)}"`);
-      return res.send(pdf.content);
+      if (!pdf.path) return res.status(410).json({ code: 410, message: '该报告的原始 PDF 已不可用' });
+      return sendPrivatePdf(req, res, pdf.path, pdf.source_filename, next);
     } catch (error) {
       return sendError(error, res, next);
     }

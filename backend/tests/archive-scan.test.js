@@ -94,6 +94,32 @@ describe('archive scan jobs', () => {
     expect((await service.listJobs()).length).toBe(51);
   });
 
+  it('deletes a completed job and its results while leaving archived PDFs intact', async () => {
+    const service = createArchiveScanService({ archiveRoot: archive, detector: async (_file, ids) => result(ids) });
+    const job = await service.startJob({ userId: 'admin', ruleIds: ['sjtu_rule_18'] });
+    await service.waitForIdle();
+    expect((await service.listDocuments(job.id)).total).toBe(2);
+    await service.deleteJob(job.id);
+    await expect(service.getJob(job.id)).rejects.toMatchObject({ status: 404 });
+    expect(await db.get('SELECT COUNT(*) AS count FROM archive_scan_documents WHERE job_id=?', [job.id]))
+      .toEqual({ count: 0 });
+    expect(fs.existsSync(path.join(archive, 'two.pdf'))).toBe(true);
+  });
+
+  it('refuses to delete a running job', async () => {
+    let release;
+    const blocked = new Promise((resolve) => { release = resolve; });
+    const service = createArchiveScanService({ archiveRoot: archive, detector: async (_file, ids) => {
+      await blocked;
+      return result(ids);
+    } });
+    const job = await service.startJob({ userId: 'admin', ruleIds: ['sjtu_rule_18'] });
+    await expect(service.deleteJob(job.id)).rejects.toMatchObject({ status: 409 });
+    release();
+    await service.waitForIdle();
+    expect((await service.getJob(job.id)).status).toBe('completed');
+  });
+
   it('returns a conflict rather than a server error for simultaneous starts', async () => {
     await db.run(
       "INSERT INTO auth_users (id, username, password_hash, role, scope) VALUES ('admin2', 'archiveadmin2', 'hash', 'COLLEGE_ADMIN', 'COLLEGE')",

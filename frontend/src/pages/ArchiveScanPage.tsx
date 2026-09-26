@@ -10,6 +10,7 @@ import {
   LoaderCircle,
   Play,
   Search,
+  Trash2,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -19,12 +20,24 @@ import {
   fetchArchiveDocuments,
   fetchArchiveJob,
   fetchArchiveJobs,
+  deleteArchiveJob,
   startArchiveJob,
   type ArchiveCatalog,
   type ArchiveDocumentPage,
   type ArchiveJob,
 } from '../api/archiveScans';
 import { Button, EmptyState, ErrorState, LoadingState, ModuleTabs, PageHeader } from '../components/ui';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '../components/shadcn/alert-dialog';
 
 const adminRoles = new Set(['COLLEGE_ADMIN', 'SCHOOL_ADMIN']);
 function message(error: unknown) {
@@ -47,6 +60,7 @@ export default function ArchiveScanPage() {
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const [busy, setBusy] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const canAccess = !!user && adminRoles.has(user.role);
@@ -142,6 +156,27 @@ export default function ArchiveScanPage() {
       setError(message(cause));
     } finally {
       setBusy(false);
+    }
+  }
+  async function removeJob(id: string) {
+    setDeletingId(id);
+    setError(null);
+    try {
+      await deleteArchiveJob(id);
+      const remaining = await refreshJobs();
+      if (currentJobId === id) {
+        setRuleFilter('');
+        setOutcomeFilter('');
+        setQuery('');
+        setPage(1);
+        setActiveJob(null);
+        setDocuments(null);
+        setSearchParams(remaining[0] ? { job: remaining[0].id } : {}, { replace: true });
+      }
+    } catch (cause) {
+      setError(message(cause));
+    } finally {
+      setDeletingId(null);
     }
   }
   if (status === 'loading') return <LoadingState label="正在验证访问权限…" />;
@@ -260,33 +295,71 @@ export default function ArchiveScanPage() {
               <div className="mt-4 max-h-[520px] space-y-2 overflow-y-auto">
                 {jobs.length ? (
                   jobs.map((job) => (
-                    <button
+                    <div
                       key={job.id}
-                      type="button"
-                      onClick={() => {
-                        setRuleFilter('');
-                        setOutcomeFilter('');
-                        setQuery('');
-                        setPage(1);
-                        setActiveJob(null);
-                        setDocuments(null);
-                        setSearchParams({ job: job.id });
-                      }}
-                      className={`w-full rounded-xl border p-3 text-left transition ${currentJobId === job.id ? 'border-blue-300 bg-blue-50' : 'border-slate-200 hover:bg-slate-50'}`}
+                      className={`flex items-center rounded-xl border transition ${currentJobId === job.id ? 'border-blue-300 bg-blue-50' : 'border-slate-200 hover:bg-slate-50'}`}
                     >
-                      <span className="flex items-center justify-between gap-2 text-sm font-bold text-slate-900">
-                        <span>{jobLabel(job)}</span>
-                        {job.status === 'running' ? (
-                          <LoaderCircle className="size-4 animate-spin text-blue-600" />
-                        ) : (
-                          <CheckCircle2 className="size-4 text-emerald-600" />
-                        )}
-                      </span>
-                      <span className="mt-1 block text-xs text-slate-500">
-                        {new Date(job.created_at).toLocaleString('zh-CN')} · {job.completed_count + job.failed_count}/
-                        {job.total_count} 篇
-                      </span>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRuleFilter('');
+                          setOutcomeFilter('');
+                          setQuery('');
+                          setPage(1);
+                          setActiveJob(null);
+                          setDocuments(null);
+                          setSearchParams({ job: job.id });
+                        }}
+                        className="min-w-0 flex-1 p-3 text-left"
+                      >
+                        <span className="flex items-center justify-between gap-2 text-sm font-bold text-slate-900">
+                          <span>{jobLabel(job)}</span>
+                          {job.status === 'running' ? (
+                            <LoaderCircle className="size-4 animate-spin text-blue-600" />
+                          ) : (
+                            <CheckCircle2 className="size-4 text-emerald-600" />
+                          )}
+                        </span>
+                        <span className="mt-1 block text-xs text-slate-500">
+                          {new Date(job.created_at).toLocaleString('zh-CN')} · {job.completed_count + job.failed_count}/
+                          {job.total_count} 篇
+                        </span>
+                      </button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <button
+                            type="button"
+                            aria-label={`删除任务 ${job.id}`}
+                            title={job.status === 'running' ? '扫描中不可删除' : '删除任务'}
+                            disabled={job.status === 'running' || deletingId !== null}
+                            className="mr-2 inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            {deletingId === job.id ? (
+                              <LoaderCircle className="size-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="size-4" />
+                            )}
+                          </button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>删除这次扫描任务？</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              删除后无法恢复。该任务的 {job.total_count} 篇检测结果会一起删除，归档 PDF 文件会保留。
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>取消</AlertDialogCancel>
+                            <AlertDialogAction
+                              className="bg-red-600 text-white hover:bg-red-700"
+                              onClick={() => void removeJob(job.id)}
+                            >
+                              确认删除
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
                   ))
                 ) : (
                   <EmptyState title="尚无扫描任务" description="选择规则后开始第一次扫描。" />
