@@ -229,12 +229,20 @@ function NormativeReportPage() {
                 <div className="flex items-center gap-3 text-sm">
                   <span
                     className={
-                      record.summary.error_finding_count
+                      record.summary.finding_count
                         ? 'font-bold text-danger-600'
-                        : 'font-semibold text-success-600'
+                        : record.summary.unsupported_rule_count || record.summary.error_rule_count
+                          ? 'font-semibold text-amber-700'
+                          : 'font-semibold text-success-600'
                     }
                   >
-                    {record.summary.finding_count ? `${record.summary.finding_count} 项待处理` : '未发现问题'}
+                    {record.summary.finding_count
+                      ? `${record.summary.finding_count} 项待处理`
+                      : record.summary.error_rule_count
+                        ? '部分规则检测失败'
+                        : record.summary.unsupported_rule_count
+                          ? '部分规则无法判定'
+                          : '未发现问题'}
                   </span>
                   <LinkButton size="sm" to={`/normative-reports/pdf/${record.id}`}>
                     继续处理

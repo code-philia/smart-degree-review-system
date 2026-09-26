@@ -12,6 +12,7 @@ type Props = {
   findings: PaperLintFindingItem[];
   activeFindingKey: string | null;
   activeAnchorId: string | null;
+  navigationRequest?: number;
   onFindingClick: (key: string) => void;
   onAnchorClick: (key: string, anchorId: string) => void;
   onTextSelection?: (selection: {
@@ -33,16 +34,18 @@ type Props = {
 };
 
 type Scale = number | 'page-width';
+const EMPTY_SUPPLEMENTAL_ANNOTATIONS: SupplementalPdfAnnotation[] = [];
 
 export function PdfPane({
   file,
   findings,
   activeFindingKey,
   activeAnchorId,
+  navigationRequest = 0,
   onFindingClick,
   onAnchorClick,
   onTextSelection,
-  supplementalAnnotations = [],
+  supplementalAnnotations = EMPTY_SUPPLEMENTAL_ANNOTATIONS,
   activeSupplementalAnnotationId = null,
   onSupplementalAnnotationClick,
 }: Props) {
@@ -87,7 +90,7 @@ export function PdfPane({
       if (target.type === 'bbox') viewerRef.current?.scrollToAnnotation(target.annotation);
       else if (target.type === 'page') viewerRef.current?.scrollToPage(target.pageNumber);
     });
-  }, [activeFindingKey, activeAnchorId, target]);
+  }, [activeFindingKey, activeAnchorId, target, document, navigationRequest]);
 
   const currentScale = useCallback(
     () => (typeof scale === 'number' ? scale : viewerRef.current?.currentScale() || 1),
@@ -117,16 +120,17 @@ export function PdfPane({
               variant={density === value ? 'secondary' : 'ghost'}
               className="px-2"
               aria-label={label}
+              title={label}
               aria-pressed={density === value}
               onClick={() => setDensity(value)}
             >
               <Icon className="size-4" />
             </Button>
           ))}
-          <Button size="sm" variant="ghost" className="px-2" aria-label="缩小 PDF" onClick={zoomOut}>
+          <Button size="sm" variant="ghost" className="px-2" aria-label="缩小 PDF" title="缩小 PDF" onClick={zoomOut}>
             <ZoomOut className="size-4" />
           </Button>
-          <Button size="sm" variant="ghost" className="px-2" aria-label="放大 PDF" onClick={zoomIn}>
+          <Button size="sm" variant="ghost" className="px-2" aria-label="放大 PDF" title="放大 PDF" onClick={zoomIn}>
             <ZoomIn className="size-4" />
           </Button>
         </div>

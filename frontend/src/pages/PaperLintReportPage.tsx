@@ -12,6 +12,11 @@ import { PaperLintWorkspace } from '../components/paperLint/Workspace';
 import { flattenPaperLintFindings } from '../components/paperLint/model';
 import { Card, ErrorState, LoadingState, PageHeader, StatusBadge } from '../components/ui';
 
+const outcomeLabels = { passed: '通过', issues_found: '发现问题',
+  inconclusive: '无法判定', not_applicable: '不适用' };
+const outcomeTones = { passed: 'success', issues_found: 'warning',
+  inconclusive: 'neutral', not_applicable: 'neutral' } as const;
+
 function PaperLintReportPage() {
   const { reportId } = useParams();
   const [report, setReport] = useState<PaperLintRunResponse | null>(null);
@@ -47,7 +52,7 @@ function PaperLintReportPage() {
     <div className="space-y-6">
       <PageHeader
         eyebrow="已完成检测"
-        title={report.result.paper_title || report.source_filename}
+        title={report.result.paper_title === '上传论文' ? report.source_filename : report.result.paper_title || report.source_filename}
         description={`检测于 ${new Date(report.created_at).toLocaleString('zh-CN')} 完成。请优先处理严重和警告问题。`}
         breadcrumbs={[
           { label: '首页', to: '/' },
@@ -66,9 +71,11 @@ function PaperLintReportPage() {
         description="以下结论用于修改前自查，不替代导师或学院的正式审核。"
         actions={
           <StatusBadge
-            tone={summary.error_finding_count ? 'danger' : summary.warning_finding_count ? 'warning' : 'success'}
+            tone={summary.error_finding_count ? 'danger' : summary.warning_finding_count ? 'warning' :
+              summary.unsupported_rule_count + summary.error_rule_count ? 'neutral' : 'success'}
           >
-            {summary.finding_count ? `待处理 ${summary.finding_count} 项` : '基础检查通过'}
+            {summary.finding_count ? `待处理 ${summary.finding_count} 项` :
+              summary.unsupported_rule_count + summary.error_rule_count ? '部分规则无法判定' : '基础检查通过'}
           </StatusBadge>
         }
       >
@@ -91,6 +98,21 @@ function PaperLintReportPage() {
           规则版本：{report.summary.ruleset_label || '当前发布版本'} · 原文可定位问题{' '}
           {findings.filter((item) => item.finding.location || item.finding.anchors?.length).length} 项
         </p>
+      </Card>
+      <Card title="各规则执行状态">
+        <div className="grid gap-2 md:grid-cols-2">
+          {report.result.rule_runs.map((run) => (
+            <div key={run.rule_run_id} className="flex items-start justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-800">
+                  {rules.find((rule) => rule.rule_id === run.rule_id)?.title || run.rule_id}
+                </p>
+                {run.message ? <p className="mt-1 text-xs text-slate-600">{run.message}</p> : null}
+              </div>
+              <StatusBadge tone={outcomeTones[run.outcome]}>{outcomeLabels[run.outcome]}</StatusBadge>
+            </div>
+          ))}
+        </div>
       </Card>
       <div className="flex items-center gap-2">
         <FileText className="size-5 text-brand-600" />

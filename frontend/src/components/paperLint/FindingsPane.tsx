@@ -113,7 +113,7 @@ export function FindingsPane({
                   <div className="flex items-center gap-1">
                     {page ? (
                       <span className="inline-flex shrink-0 items-center gap-1 text-xs text-slate-500">
-                        <MapPin className="size-3" />第 {page} 页
+                        <MapPin className="size-3" />PDF 第 {page} 页
                       </span>
                     ) : (
                       <span className="text-xs text-slate-400">暂无精确定位</span>
@@ -123,6 +123,7 @@ export function FindingsPane({
                       variant={handledKeys.includes(item.key) ? 'secondary' : 'ghost'}
                       className="px-2"
                       aria-label={handledKeys.includes(item.key) ? '取消已处理标记' : '标记为已处理'}
+                      title="本次页面的临时标记，刷新后不保留"
                       onClick={(event) => {
                         event.stopPropagation();
                         setHandledKeys((current) =>
@@ -137,6 +138,20 @@ export function FindingsPane({
                   </div>
                 </div>
                 <p className="mt-2 text-sm leading-6 text-slate-700">{item.finding.message}</p>
+                {page ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="mt-2"
+                    aria-label={`跳到 PDF 第 ${page} 页`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onFindingClick(item.key);
+                    }}
+                  >
+                    跳到 PDF 第 {page} 页
+                  </Button>
+                ) : null}
                 {active && item.finding.suggestion ? (
                   <div className="mt-3 rounded-lg bg-white p-3 text-xs leading-5 text-slate-600">
                     <strong className="text-slate-800">修改建议：</strong>

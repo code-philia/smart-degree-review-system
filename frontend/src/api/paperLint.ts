@@ -13,13 +13,15 @@ export type PaperLintRule = {
   execution_mode: 'deterministic' | 'semantic';
   uses_external_model: boolean;
   available: boolean;
+  source?: 'sjtu-local';
 };
 
 export type PaperLintCatalogResponse = {
-  engine: 'review-pilot';
+  engine: 'review-pilot' | 'sjtu-local';
   mode: 'pdf_lint';
   semantic_model: 'deepseek-v4-flash';
   rules: PaperLintRule[];
+  warning?: string;
 };
 
 export type PdfRect = {
@@ -118,6 +120,8 @@ export type PaperLintReportSummary = {
   warning_finding_count: number;
   info_finding_count: number;
   rule_count: number;
+  unsupported_rule_count: number;
+  error_rule_count: number;
   ruleset_label: string | null;
 };
 

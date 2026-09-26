@@ -7,6 +7,7 @@
 
 - 本地账号密码登录、会话恢复、退出登录
 - 规范性检测：review-pilot PDF 版式规则、页内高亮，以及原有纯文本规则与历史报告
+- 四规则本地检测器：规则 18、22、24、28 已接入基础规则检测页面，支持 PDF 定位与历史报告；规则 6 暂停，见 [使用说明](docs/five-rule-detector.md)
 - 本地文本相似度与写作风险：样本库比对、Jaccard 相似度、相似片段、风险启发式评分
 - 创新性量表评估：硕士/博士五维评分、证据与改进计划、评估快照
 - 规则化辅助评阅：模板选择、章节检查、参考文献检查、规范问题与客观分
@@ -109,9 +110,13 @@ npm run dev
 - `REVIEW_PILOT_MAX_CONCURRENT_RUNS`：可选，并发运行上限，默认 `2`。
 - `REVIEW_PILOT_DEEPSEEK_API_KEY`：可选的 DeepSeek 官方 API Key；只从部署环境读取，未配置时 3 条语义规则不可选择，确定性规则不受影响。
 
+基础规则检测页面还提供本地规则 18（公式引用目标）、22（文献引用目标）、24（参考文献全文未引用）、28（目录页码）。它们调用仓库内 `backend/scripts/five_rule_detector.py`，逐处返回 PDF 页码及 bbox，沿用现有报告的原文高亮、状态和历史记录。规则 6 暂停，未加入页面。只选这四条时不需要 review-pilot 或 DeepSeek；缺少 review-pilot 时目录仍展示四条本地规则。检测器若无法可靠判定，会显示“无法判定”，不能视为通过。
+
+服务器需安装 `backend/requirements-five-rule-detector.txt`，并可用 `FIVE_RULE_PYTHON` 指定已安装 PyMuPDF 的 Python 可执行文件；未设置时先使用 `REVIEW_PILOT_PYTHON`，再使用系统 Python。
+
 语义规则固定使用 DeepSeek 官方 `deepseek-v4-flash` 非思考模式，不提供前端模型选择，也不在 Node 层自动重试。规则只发送其选中的摘要、论点和候选论据文本，不上传原始 PDF；模型输出必须人工复核。不要把 API Key 写入仓库、普通日志或前端代码。
 
-上传的 PDF 只写入权限受限的系统临时目录，规则运行结束后删除；结果不写入当前 SQLite 或规范检测历史。只有用户明确勾选语义规则并确认相关文本允许外发时，后端才接受外部模型调用请求。
+检测时上传的 PDF 写入权限受限的系统临时目录，规则运行结束后删除；成功的基础规则检测报告与原 PDF 按现有历史报告流程保存。只有用户明确勾选语义规则并确认相关文本允许外发时，后端才接受外部模型调用请求。
 
 `/local-polish` 与 `/whole-polish` 通过 Node 后端直接调用 DeepSeek 官方 API 进行润色。部署环境需要配置：
 

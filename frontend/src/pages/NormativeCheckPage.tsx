@@ -210,6 +210,12 @@ function NormativeCheckPage() {
           </span>
         </div>
 
+        {catalog?.warning ? (
+          <p role="status" className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {catalog.warning}。本地四规则仍可使用。
+          </p>
+        ) : null}
+
         <div className="grid gap-6 xl:grid-cols-[minmax(0,.85fr)_minmax(440px,1.15fr)]">
           <Card title="1. 上传论文" description="仅支持 PDF，最大 50 MB。">
             <label
@@ -313,6 +319,11 @@ function NormativeCheckPage() {
                               扩展分析
                             </span>
                           ) : null}
+                          {rule.source === 'sjtu-local' ? (
+                            <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] text-sky-700">
+                              本地检测
+                            </span>
+                          ) : null}
                           {!rule.available ? (
                             <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] text-slate-600">
                               尚未配置
@@ -391,10 +402,12 @@ function NormativeCheckPage() {
             title="审查结果"
             description={`${response.result.paper_title} · ${new Date(response.created_at).toLocaleString('zh-CN')}`}
             actions={
-              <StatusBadge tone={response.result.summary.finding_count ? 'warning' : 'success'}>
+              <StatusBadge tone={response.result.summary.finding_count ? 'warning' :
+                response.result.summary.unsupported_rule_count + response.result.summary.error_rule_count ? 'neutral' : 'success'}>
                 {response.result.summary.finding_count
                   ? `发现 ${response.result.summary.finding_count} 项问题`
-                  : '未发现问题'}
+                  : response.result.summary.unsupported_rule_count + response.result.summary.error_rule_count
+                    ? '部分规则无法判定' : '未发现问题'}
               </StatusBadge>
             }
           >
@@ -425,9 +438,12 @@ function NormativeCheckPage() {
                     key={run.rule_run_id}
                     className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2"
                   >
-                    <span className="truncate text-sm text-slate-700">
-                      {rulesById.get(run.rule_id)?.title || run.rule_id}
-                    </span>
+                    <div className="min-w-0">
+                      <span className="block truncate text-sm text-slate-700">
+                        {rulesById.get(run.rule_id)?.title || run.rule_id}
+                      </span>
+                      {run.message ? <p className="mt-1 text-xs text-slate-500">{run.message}</p> : null}
+                    </div>
                     <StatusBadge tone={outcomeTones[run.outcome]}>{outcomeLabels[run.outcome]}</StatusBadge>
                   </div>
                 ))}

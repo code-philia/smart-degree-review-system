@@ -9,13 +9,16 @@ type Props = { file: File; findings: PaperLintFindingItem[]; rules: PaperLintRul
 export function PaperLintWorkspace({ file, findings, rules }: Props) {
   const [activeFindingKey, setActiveFindingKey] = useState<string | null>(findings[0]?.key || null);
   const [activeAnchorId, setActiveAnchorId] = useState<string | null>(null);
+  const [navigationRequest, setNavigationRequest] = useState(0);
   const selectFinding = useCallback((key: string) => {
     setActiveFindingKey(key);
     setActiveAnchorId(null);
+    setNavigationRequest((current) => current + 1);
   }, []);
   const selectAnchor = useCallback((key: string, anchorId: string) => {
     setActiveFindingKey(key);
     setActiveAnchorId(anchorId);
+    setNavigationRequest((current) => current + 1);
   }, []);
 
   return (
@@ -25,6 +28,7 @@ export function PaperLintWorkspace({ file, findings, rules }: Props) {
         findings={findings}
         activeFindingKey={activeFindingKey}
         activeAnchorId={activeAnchorId}
+        navigationRequest={navigationRequest}
         onFindingClick={selectFinding}
         onAnchorClick={selectAnchor}
       />

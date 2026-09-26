@@ -22,6 +22,8 @@ function toReport(row, { includeResult = true } = {}) {
       warning_finding_count: summary.warning_finding_count || 0,
       info_finding_count: summary.info_finding_count || 0,
       rule_count: summary.rule_count || 0,
+      unsupported_rule_count: summary.unsupported_rule_count || 0,
+      error_rule_count: summary.error_rule_count || 0,
       ruleset_label: parsedResult.ruleset?.version_label || null,
     },
     created_at: row.created_at,

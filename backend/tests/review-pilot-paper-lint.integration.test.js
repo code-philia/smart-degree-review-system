@@ -271,6 +271,26 @@ describe("review-pilot paper-lint HTTP bridge", () => {
       .expect(200);
   });
 
+  it("retains unsupported counts in saved list summaries", async () => {
+    const inconclusive = {
+      ...runResult,
+      summary: { ...runResult.summary, completed_rule_count: 0, unsupported_rule_count: 1 },
+      rule_runs: [{ rule_id: 'sjtu_rule_24', execution_status: 'unsupported',
+        outcome: 'inconclusive', findings: [] }],
+    };
+    fakeService.runPaperLint.mockResolvedValueOnce({ result: inconclusive,
+      selectedRuleIds: ['sjtu_rule_24'] });
+    const saved = await request(app).post('/api/normative/paper-lint/run')
+      .set('Cookie', cookies.student01).set('Content-Type', 'application/pdf')
+      .set('X-Paper-Lint-Rule-Ids', 'sjtu_rule_24')
+      .send(Buffer.from('%PDF-1.7\nunsupported'))
+      .expect(201);
+    const list = await request(app).get('/api/normative/paper-lint/reports')
+      .set('Cookie', cookies.student01).expect(200);
+    expect(list.body.records.find((record) => record.id === saved.body.id).summary)
+      .toMatchObject({ finding_count: 0, unsupported_rule_count: 1, error_rule_count: 0 });
+  });
+
   it("passes explicit external-processing consent to the service", async () => {
     const pdf = Buffer.from("%PDF-1.7\nsemantic test bytes");
     await request(app)

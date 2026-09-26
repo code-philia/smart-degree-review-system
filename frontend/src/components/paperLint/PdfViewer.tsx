@@ -68,6 +68,7 @@ type Props = {
 
 type ViewerState = { eventBus: EventBus; linkService: LinkService; viewer: Viewer };
 type OverlayHost = { pageNumber: number; host: HTMLDivElement };
+const EMPTY_SUPPLEMENTAL_ANNOTATIONS: SupplementalPdfAnnotation[] = [];
 
 const supplementalTone = {
   error: { fill: 'rgba(239,68,68,.16)', stroke: '#dc2626' },
@@ -175,7 +176,7 @@ export const PdfViewer = memo(
       onFindingClick,
       onAnchorClick,
       onTextSelection,
-      supplementalAnnotations = [],
+      supplementalAnnotations = EMPTY_SUPPLEMENTAL_ANNOTATIONS,
       activeSupplementalAnnotationId = null,
       onSupplementalAnnotationClick,
     },
@@ -185,6 +186,8 @@ export const PdfViewer = memo(
     const viewerRef = useRef<HTMLDivElement | null>(null);
     const stateRef = useRef<ViewerState | null>(null);
     const pendingRef = useRef<PaperLintPdfAnnotation | null>(null);
+    const pendingPageRef = useRef<number | null>(null);
+    const pagesReadyRef = useRef(false);
     const annotationsRef = useRef(annotationsByPage);
     const scaleRef = useRef(scale);
     const [hosts, setHosts] = useState<OverlayHost[]>([]);
@@ -215,34 +218,35 @@ export const PdfViewer = memo(
       );
     }, [supplementalAnnotations]);
 
-    const scrollToPage = useCallback((pageNumber: number) => {
-      stateRef.current?.viewer.scrollPageIntoView({ pageNumber });
-    }, []);
-
-    const scrollToAnnotation = useCallback((annotation: PaperLintPdfAnnotation) => {
-      const container = containerRef.current;
-      const state = stateRef.current;
-      if (!container || !state) {
-        pendingRef.current = annotation;
-        return;
-      }
-      state.viewer.scrollPageIntoView({ pageNumber: annotation.pageNumber });
-      window.requestAnimationFrame(() => {
-        const element = pageElement(container, annotation.pageNumber);
-        if (element) scrollToRect(container, element, annotation);
-        else pendingRef.current = annotation;
-      });
-    }, []);
-
     const flushPending = useCallback(() => {
       const annotation = pendingRef.current;
       const container = containerRef.current;
       if (!annotation || !container) return;
       const element = pageElement(container, annotation.pageNumber);
-      if (!element) return;
+      if (!element || !element.clientWidth || !element.clientHeight) return;
       pendingRef.current = null;
       scrollToRect(container, element, annotation);
     }, []);
+
+    const scrollToPage = useCallback((pageNumber: number) => {
+      pendingRef.current = null;
+      const state = stateRef.current;
+      if (!state || !pagesReadyRef.current) {
+        pendingPageRef.current = pageNumber;
+        return;
+      }
+      pendingPageRef.current = null;
+      state.viewer.scrollPageIntoView({ pageNumber });
+    }, []);
+
+    const scrollToAnnotation = useCallback((annotation: PaperLintPdfAnnotation) => {
+      pendingPageRef.current = null;
+      pendingRef.current = annotation;
+      const state = stateRef.current;
+      if (!state || !pagesReadyRef.current) return;
+      state.viewer.scrollPageIntoView({ pageNumber: annotation.pageNumber });
+      window.requestAnimationFrame(flushPending);
+    }, [flushPending]);
 
     useImperativeHandle(
       ref,
@@ -264,6 +268,20 @@ export const PdfViewer = memo(
         syncHosts();
         flushPending();
       };
+      const onPagesInit = () => {
+        pagesReadyRef.current = true;
+        const viewer = stateRef.current?.viewer;
+        if (!viewer) return;
+        const annotation = pendingRef.current;
+        if (annotation) {
+          viewer.scrollPageIntoView({ pageNumber: annotation.pageNumber });
+          window.requestAnimationFrame(flushPending);
+        } else if (pendingPageRef.current !== null) {
+          const pageNumber = pendingPageRef.current;
+          pendingPageRef.current = null;
+          viewer.scrollPageIntoView({ pageNumber });
+        }
+      };
       const onScaleChanging = () => window.requestAnimationFrame(syncHosts);
 
       void loadViewerModule().then(({ EventBus, PDFLinkService, PDFViewer }) => {
@@ -279,19 +297,23 @@ export const PdfViewer = memo(
           annotationMode: 0,
           removePageBorders: true,
         });
+        stateRef.current = { eventBus, linkService, viewer };
+        pagesReadyRef.current = false;
+        eventBus.on('pagesinit', onPagesInit);
+        eventBus.on('pagerendered', onPageRendered);
+        eventBus.on('scalechanging', onScaleChanging);
         linkService.setViewer(viewer);
         linkService.setDocument(pdfDocument);
         viewer.setDocument(pdfDocument);
-        stateRef.current = { eventBus, linkService, viewer };
-        eventBus.on('pagerendered', onPageRendered);
-        eventBus.on('scalechanging', onScaleChanging);
         container.addEventListener('scroll', syncHosts, { passive: true });
         if (typeof scaleRef.current === 'number') viewer.currentScale = scaleRef.current;
         else viewer.currentScaleValue = scaleRef.current;
         cleanup = () => {
+          eventBus.off('pagesinit', onPagesInit);
           eventBus.off('pagerendered', onPageRendered);
           eventBus.off('scalechanging', onScaleChanging);
           container.removeEventListener('scroll', syncHosts);
+          pagesReadyRef.current = false;
           viewer.cleanup();
         };
       });
