@@ -6,11 +6,11 @@
 
 ## 解析架构
 
-规则 11、15、16、29 以 PyMuPDF 提取的全文文本和几何信息为主。规则 13、14 需要确认真实图表对象，使用 MinerU 精准解析 API 获取版面 JSON。远程适配器输出统一的图表对象结构，以后可替换为本地 MinerU，而规则判断不变。无需其他大模型 API。
+规则 11、15、16、29 以 PyMuPDF 提取的全文文本和几何信息为主。规则 13、14 需要确认真实图表对象，开发和上线阶段均使用 MinerU 精准解析 API 获取版面 JSON。远程适配器输出统一的图表对象结构；将来服务器资源允许时再替换为本地 MinerU，规则判断不变。无需其他大模型 API。
 
 私有论文不提供公开 URL。服务端调用 MinerU 的批量上传接口申请临时上传地址，PUT 本地 PDF，轮询结果并下载结构化 JSON。API 单文件上限 200 页、200 MB；超限论文按页拆分，结果统一映射回母 PDF 页码和 bbox。片段失败时，相应规则显示无法判定。临时片段和解析原始结果及时清理，敏感地址及 Token 不写日志或报告。
 
-只有勾选规则 13 或 14 时才调用 MinerU API；其他规则单独运行时不调用 MinerU。开发阶段不增加前端上传提示。Token 从后端环境变量 MINERU_API_TOKEN 读取，未配置时云解析规则不可用。MinerU 异步任务使用持久化状态、有限并发、轮询超时和明确错误，不让整篇论文堵住原有同步五分钟调用。
+只有勾选规则 13 或 14 时才调用 MinerU API；其他规则单独运行时不调用 MinerU。开发和上线阶段均不增加前端上传提示。Token 从后端环境变量 MINERU_API_TOKEN 读取，未配置时云解析规则不可用。MinerU 异步任务使用持久化状态、有限并发、轮询超时和明确错误，不让整篇论文堵住原有同步五分钟调用。
 
 ## 六条规则
 
@@ -31,4 +31,4 @@ Python 新建模块化检测包，不继续扩充 backend/scripts/five_rule_dete
 
 单元测试用 MinerU 假响应覆盖编号变体、长论文分页、页码映射、跨页图题、续表、重复编号、全文引用、缺失目标、Token 缺失和 API 失败；不需要真实密钥。联调用少量获准外发论文核对 MinerU JSON 和高亮位置。保留独立测试论文作最终泛化评估，不以检测结果筛样。
 
-线上服务是 smart-degree-review.service，工作目录 /opt/smart-degree-review/current/backend。部署时用 systemd EnvironmentFile 从 /etc/smart-degree-review/mineru.env 注入 MINERU_API_TOKEN，权限只给管理员读取，密钥不进 Git 或前端。上线前检查服务器能访问 MinerU 接口和上传地址，上线后以获授权 PDF 做端到端测试。
+线上服务是 smart-degree-review.service，工作目录 /opt/smart-degree-review/current/backend。首次上线六规则时继续使用 MinerU API。部署时用 systemd EnvironmentFile 从 /etc/smart-degree-review/mineru.env 注入 MINERU_API_TOKEN，权限只给管理员读取，密钥不进 Git 或前端。上线前检查服务器能访问 MinerU 接口和上传地址，上线后以获授权 PDF 做端到端测试。
