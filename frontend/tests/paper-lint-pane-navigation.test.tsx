@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PaperLintFindingItem } from '../src/components/paperLint/model';
 import { PdfPane } from '../src/components/paperLint/PdfPane';
@@ -98,6 +98,46 @@ describe('PDF pane navigation', () => {
       'href',
       '/api/full-paper.pdf',
     );
+  });
+
+  it('opens the selected issue or evidence page in the complete browser PDF', () => {
+    const secondFinding: PaperLintFindingItem = {
+      ...finding,
+      key: 'finding-7',
+      index: 1,
+      finding: {
+        ...finding.finding,
+        finding_id: 'finding-7',
+        message: '第二处问题',
+        location: { type: 'pdf_page', page_number: 7 },
+        anchors: [
+          {
+            anchor_id: 'evidence-21',
+            role: 'evidence',
+            label: '对应证据',
+            location: { type: 'pdf_page', page_number: 21 },
+          },
+        ],
+      },
+    };
+    render(
+      <PaperLintWorkspace
+        file={file}
+        findings={[finding, secondFinding]}
+        rules={[]}
+        openPdfUrl="/api/full-paper.pdf?download=false"
+      />,
+    );
+    const link = within(screen.getByRole('toolbar', { name: 'PDF 工具' })).getByRole('link', {
+      name: '在浏览器打开完整 PDF',
+    });
+    expect(link.getAttribute('href')).toBe('/api/full-paper.pdf?download=false#page=99');
+
+    fireEvent.click(screen.getByText('第二处问题'));
+    expect(link.getAttribute('href')).toBe('/api/full-paper.pdf?download=false#page=7');
+
+    fireEvent.click(screen.getByRole('button', { name: '对应证据' }));
+    expect(link.getAttribute('href')).toBe('/api/full-paper.pdf?download=false#page=21');
   });
 
   it('opens the complete PDF from a link icon in the viewer toolbar', () => {

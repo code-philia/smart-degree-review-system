@@ -88,6 +88,12 @@ export function PdfPane({
     [activeFindingKey, findings],
   );
   const target = useMemo(() => findingTarget(activeItem, activeAnchorId), [activeAnchorId, activeItem]);
+  const pageNumber =
+    target.type === 'bbox' ? target.annotation.pageNumber : target.type === 'page' ? target.pageNumber : null;
+  const browserPdfUrl =
+    openPdfUrl && pageNumber && Number.isInteger(pageNumber) && pageNumber > 0
+      ? `${openPdfUrl.split('#')[0]}#page=${pageNumber}`
+      : openPdfUrl;
 
   useEffect(() => {
     if (!activeFindingKey) return;
@@ -140,7 +146,7 @@ export function PdfPane({
           </Button>
           {openPdfUrl ? (
             <a
-              href={openPdfUrl}
+              href={browserPdfUrl}
               target="_blank"
               rel="noopener noreferrer"
               className={buttonClassName('ghost', 'sm', 'px-2')}
