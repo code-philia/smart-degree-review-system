@@ -12,7 +12,7 @@ from .mineru_layout import normalize_layout
 
 
 BASE = "https://mineru.net/api/v4"
-MAX_POLL_SECONDS = 240
+MAX_POLL_SECONDS = 17 * 60
 MAX_ARCHIVE_BYTES = 150 * 1024 * 1024
 
 
@@ -20,9 +20,18 @@ class MinerUError(Exception):
     pass
 
 
+class SignedPutRequest(urllib.request.Request):
+    """Suppress urllib's form Content-Type on a presigned binary upload."""
+
+    def has_header(self, header_name):
+        if header_name.lower() == "content-type":
+            return True
+        return super().has_header(header_name)
+
 class UrllibHttpClient:
     def request(self, method, url, *, headers=None, data=None, timeout=30):
-        request = urllib.request.Request(url, data=data, method=method, headers=headers or {})
+        request_type = SignedPutRequest if method == "PUT" else urllib.request.Request
+        request = request_type(url, data=data, method=method, headers=headers or {})
         with urllib.request.urlopen(request, timeout=timeout) as response:
             payload = response.read(MAX_ARCHIVE_BYTES + 1)
         if len(payload) > MAX_ARCHIVE_BYTES:

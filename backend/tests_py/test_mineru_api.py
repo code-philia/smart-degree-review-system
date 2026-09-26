@@ -4,10 +4,11 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from unittest.mock import patch, MagicMock
 
 import pymupdf
 
-from pdf_rules.mineru_api import MinerUError, parse_layout
+from pdf_rules.mineru_api import MinerUError, UrllibHttpClient, parse_layout
 
 
 def fake_zip(page_index=0, width=600, height=800):
@@ -73,6 +74,14 @@ class MinerUApiTests(unittest.TestCase):
         self.assertEqual([obj.page_number for obj in objects if obj.kind == "figure"], [41, 221])
         self.assertEqual(objects[-2].bbox, (200.0, 400.0, 600.0, 700.0))
 
+    def test_signed_put_has_no_implicit_form_content_type(self):
+        response = MagicMock()
+        response.__enter__.return_value.read.return_value = b""
+        with patch("urllib.request.urlopen", return_value=response) as opener:
+            UrllibHttpClient().request("PUT", "https://upload.test/signed", headers={}, data=b"pdf")
+        request = opener.call_args.args[0]
+        self.assertTrue(request.has_header("Content-type"))
+        self.assertFalse(any(key.lower() == "content-type" for key, _ in request.header_items()))
     def test_api_failure_is_sanitized(self):
         with self.assertRaises(MinerUError) as raised:
             parse_layout(self.pdf(1), "token-secret", FakeHttp(failure="failure"))

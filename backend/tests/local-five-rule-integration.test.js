@@ -21,12 +21,13 @@ afterEach(() => {
 });
 
 describe('four local rules in the existing basic-check flow', () => {
-  it('shows the four selectable rules even when review-pilot is not installed', async () => {
+  it('keeps the old four selectable alongside six new rules without review-pilot', async () => {
     const catalog = await service.getPaperLintCatalog({ refresh: true });
     expect(catalog.rules.map((rule) => rule.rule_id)).toEqual([
       'sjtu_rule_18', 'sjtu_rule_22', 'sjtu_rule_24', 'sjtu_rule_28',
+      'sjtu_rule_11', 'sjtu_rule_13', 'sjtu_rule_14', 'sjtu_rule_15', 'sjtu_rule_16', 'sjtu_rule_29',
     ]);
-    expect(catalog.rules.every((rule) => rule.available && !rule.uses_external_model)).toBe(true);
+    expect(catalog.rules.slice(0, 4).every((rule) => rule.available && !rule.uses_external_model)).toBe(true);
   });
 
   it('retries the existing catalog after a temporary fallback', async () => {

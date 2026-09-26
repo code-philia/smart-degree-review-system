@@ -13,7 +13,8 @@ def _matches(target: LayoutObject, caption: LayoutObject) -> bool:
         return False
     if target.page_number == caption.page_number:
         if target.kind == "figure":
-            return 0 <= caption.bbox[1] - target.bbox[3] <= 80
+            return (0 <= caption.bbox[1] - target.bbox[3] <= 80 or
+                    0 <= target.bbox[1] - caption.bbox[3] <= 80)
         return 0 <= target.bbox[1] - caption.bbox[3] <= 80
     if caption.page_number == target.page_number + 1 and target.kind == "figure":
         return target.bbox[3] >= target.page_height * 0.75 and caption.bbox[1] <= caption.page_height * 0.15

@@ -1,7 +1,7 @@
 import unittest
 
 from pdf_rules.caption_rules import detect_caption_rules
-from pdf_rules.mineru_layout import LayoutObject
+from pdf_rules.mineru_layout import LayoutObject, normalize_layout
 
 
 def obj(kind, page, bbox, text=""):
@@ -34,6 +34,26 @@ class CaptionRuleTests(unittest.TestCase):
         self.assertEqual(result["13"]["findings"], [])
         self.assertEqual(result["14"]["findings"], [])
 
+    def test_real_mineru_nested_chart_and_misclassified_captions(self):
+        def caption(kind, box, text):
+            return {"type": kind, "bbox": box, "lines": [{"spans": [{"content": text}]}]}
+        pages = [{"page_idx": 0, "page_size": [595, 842], "para_blocks": [
+            {"type": "chart", "bbox": [95, 162, 423, 310], "blocks": [
+                caption("chart_caption", [57, 138, 268, 154], "Figure 1. Measured output"),
+                {"type": "chart_body", "bbox": [95, 162, 423, 310]}]},
+            {"type": "chart", "bbox": [95, 343, 423, 490], "blocks": [
+                {"type": "chart_body", "bbox": [95, 343, 423, 490]},
+                caption("chart_caption", [57, 499, 233, 513], "Table 1. Measurements")]},
+            {"type": "table", "bbox": [78, 522, 480, 614], "blocks": [
+                {"type": "table_body", "bbox": [78, 522, 480, 614]}]},
+            {"type": "table", "bbox": [78, 667, 480, 759], "blocks": [
+                caption("table_caption", [57, 639, 251, 654], "The next table has no caption"),
+                {"type": "table_body", "bbox": [78, 667, 480, 759]}]},
+        ]}]
+        objects = normalize_layout(pages, 1, [(595.0, 842.0)])
+        result = detect_caption_rules(objects, [13, 14])
+        self.assertEqual([f["location"]["bounding_rect"]["y1"] for f in result["13"]["findings"]], [343.0])
+        self.assertEqual([f["location"]["bounding_rect"]["y1"] for f in result["14"]["findings"]], [667.0])
     def test_missing_layout_is_inconclusive(self):
         result = detect_caption_rules([], [13, 14])
         self.assertEqual(result["13"]["status"], "unsupported")

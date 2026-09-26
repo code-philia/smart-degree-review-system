@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Iterable
+import re
 
 
 @dataclass(frozen=True)
@@ -12,14 +13,17 @@ class LayoutObject:
     page_height: float
 
 
-KINDS = {
-    "image": "figure",
-    "figure": "figure",
-    "table": "table",
-    "image_caption": "figure_caption",
-    "figure_caption": "figure_caption",
-    "table_caption": "table_caption",
-}
+TARGET_KINDS = {"image": "figure", "figure": "figure", "chart": "figure",
+                "table": "table"}
+FIGURE_CAPTION = re.compile(
+    r"^\s*(?:图|Figure|Fig\.?)\s*[A-Z]?\d+(?:[.\-]\d+)*\s*(?:[.．、:：]\s*|\s+)\S",
+    re.I,
+)
+TABLE_CAPTION = re.compile(
+    r"^\s*(?:表|Table)\s*[A-Z]?\d+(?:[.\-]\d+)*\s*(?:[.．、:：]\s*|\s+)\S",
+    re.I,
+)
+CONTINUED_TABLE = re.compile(r"^\s*(?:续表|Table\s+[A-Z]?\d+(?:[.\-]\d+)*\s*[（(]?[Cc]ontinued)", re.I)
 
 
 def _block_text(block: dict) -> str:
@@ -28,6 +32,14 @@ def _block_text(block: dict) -> str:
         for span in line.get("spans", []):
             parts.append(str(span.get("content", "")))
     return "".join(parts).strip()
+
+
+def _caption_kind(text: str) -> str | None:
+    if FIGURE_CAPTION.match(text):
+        return "figure_caption"
+    if TABLE_CAPTION.match(text) or CONTINUED_TABLE.match(text):
+        return "table_caption"
+    return None
 
 
 def normalize_layout(
@@ -45,10 +57,8 @@ def normalize_layout(
             raise ValueError("Invalid MinerU page dimensions")
         width, height = original_sizes[index]
         scale_x, scale_y = width / raw_size[0], height / raw_size[1]
-        for block in page.get("para_blocks", []):
-            kind = KINDS.get(block.get("type"))
-            if not kind:
-                continue
+
+        def convert(block, kind, text=""):
             box = block.get("bbox")
             if not isinstance(box, list) or len(box) != 4:
                 raise ValueError("Invalid MinerU bounding box")
@@ -57,6 +67,16 @@ def normalize_layout(
             if not (0 <= x1 < x2 <= width + 2 and 0 <= y1 < y2 <= height + 2):
                 raise ValueError("MinerU bounding box outside source page")
             objects.append(LayoutObject(kind, first_page + index, (x1, y1, x2, y2),
-                                        _block_text(block), width, height))
+                                        text, width, height))
+
+        for block in page.get("para_blocks", []):
+            target_kind = TARGET_KINDS.get(block.get("type"))
+            if target_kind:
+                convert(block, target_kind)
+            for candidate in (block, *block.get("blocks", [])):
+                text = _block_text(candidate)
+                kind = _caption_kind(text)
+                if kind:
+                    convert(candidate, kind, text)
     return objects
 
