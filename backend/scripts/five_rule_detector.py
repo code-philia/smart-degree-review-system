@@ -24,7 +24,7 @@ _CITATION = re.compile(r'\[(\d+(?:(?:\s*[-–—－,，、;；]\s*|\s+)\d+)*)\]'
 _FORMULA_REFERENCE = re.compile(r'(?:公式[\s:：]*|(?<![公方模形范样类])式\s*|equation[\s:：]*|eq\.?[\s:：]*)[（(]\s*(\d+(?:\s*[.．–—－−-]\s*\d+)*[a-z]?)\s*[)）]', re.I)
 _DISPLAY_FORMULA = re.compile(r'^[（(]\s*(\d+(?:\s*[.．–—－−-]\s*\d+)*[a-z]?)\s*[)）]$', re.I)
 _DISPLAY_FORMULA_TAIL = re.compile(r'[（(]\s*(\d+(?:\s*[.．–—－−-]\s*\d+)*[a-z]?)\s*[)）]\s*$', re.I)
-_TOC_ENTRY = re.compile(r'^\s*(.+?)(?:(?:\.\s*){2,}|…{2,}|⋯{2,}|·{2,})\s*(\d{1,4})\s*$')
+_TOC_ENTRY = re.compile(r'^\s*(.+?)(?:(?:\.\s*){2,}|…{2,}|⋯{2,}|·{2,})[\s\u2060]*(\d{1,4})\s*$')
 _TOC_HEADING = re.compile(r'^(?:第\s*[一二三四五六七八九十\d]+\s*章|[1-9]\d*(?:[.．]\d+)*(?=\s|[\u4e00-\u9fff])|chapter\s+[1-9]\d*|致谢|参考文献|附录|acknowledg(?:e)?ments?|references|bibliography|学术论文|科研成果|研究成果|攻读.{0,20}期间|发表.{0,12}论文|个人简历|作者简介|publications?|research\s+(?:outputs?|achievements?))', re.I)
 _REF_LABEL = re.compile(r'^\s*\[(\d+)\]')
 _CHAPTER = re.compile(r'^(?:第\s*(?:\d+|[一二三四五六七八九十]+)\s*章|chapter\s+[1-9]\d*|1[\s.．]+[^0-9]|introduction|引言|绪论)', re.I)

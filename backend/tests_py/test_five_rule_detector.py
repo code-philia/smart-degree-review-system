@@ -116,6 +116,17 @@ class FiveRuleDetectorTests(unittest.TestCase):
         self.assertEqual(result['findings'][0]['page'], 1)
         self.assertEqual(result['findings'][0]['actual_page'], 1)
 
+    def test_rule_28_ignores_word_joiner_before_toc_page_number(self):
+        lines = [line(1, 'Contents', 40)]
+        for logical in range(1, 9):
+            name = f'{logical} Section{logical}'
+            shown = 3 if logical == 1 else logical
+            lines.append(line(1, f'{name}........\u2060{shown}', 80 + logical * 20))
+            lines.append(line(logical + 2, name, 90))
+        result = detect_lines(lines, [28])['28']
+        self.assertEqual(result['status'], 'completed')
+        self.assertEqual([finding['actual_page'] for finding in result['findings']], [1])
+
     def test_missing_bibliography_is_unsupported_not_clean(self):
         result = detect_lines([line(1, '第1章 绪论'), line(1, '已有研究[1]')], [22, 24])
         self.assertEqual(result['22']['status'], 'unsupported')
