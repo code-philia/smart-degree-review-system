@@ -12,12 +12,17 @@ import { PaperLintWorkspace } from '../components/paperLint/Workspace';
 import { flattenPaperLintFindings } from '../components/paperLint/model';
 import { Card, ErrorState, LoadingState, PageHeader, StatusBadge } from '../components/ui';
 
-const outcomeLabels = { passed: '通过', issues_found: '发现问题',
-  inconclusive: '无法判定', not_applicable: '不适用' };
-const outcomeTones = { passed: 'success', issues_found: 'warning',
-  inconclusive: 'neutral', not_applicable: 'neutral' } as const;
+const outcomeLabels = { passed: '通过', issues_found: '发现问题', inconclusive: '无法判定', not_applicable: '不适用' };
+const outcomeTones = {
+  passed: 'success',
+  issues_found: 'warning',
+  inconclusive: 'neutral',
+  not_applicable: 'neutral',
+} as const;
 
-function PaperLintReportPage() {
+function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) {
+  const isThirty = mode === 'thirty';
+  const historyPath = isThirty ? '/thirty-rules-check/reports' : '/normative-reports';
   const { reportId } = useParams();
   const [report, setReport] = useState<PaperLintRunResponse | null>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -52,16 +57,23 @@ function PaperLintReportPage() {
     <div className="space-y-6">
       <PageHeader
         eyebrow="已完成检测"
-        title={report.result.paper_title === '上传论文' ? report.source_filename : report.result.paper_title || report.source_filename}
+        title={
+          report.result.paper_title === '上传论文'
+            ? report.source_filename
+            : report.result.paper_title || report.source_filename
+        }
         description={`检测于 ${new Date(report.created_at).toLocaleString('zh-CN')} 完成。请优先处理严重和警告问题。`}
         breadcrumbs={[
           { label: '首页', to: '/' },
-          { label: '基础规则检测', to: '/normative-check' },
-          { label: '历史报告', to: '/normative-reports' },
+          {
+            label: isThirty ? '30条规则检测' : '基础规则检测',
+            to: isThirty ? '/thirty-rules-check' : '/normative-check',
+          },
+          { label: '历史报告', to: historyPath },
           { label: '检测报告' },
         ]}
         actions={
-          <Link className="text-sm font-semibold text-brand-700 hover:underline" to="/normative-reports">
+          <Link className="text-sm font-semibold text-brand-700 hover:underline" to={historyPath}>
             返回历史报告
           </Link>
         }
@@ -71,11 +83,23 @@ function PaperLintReportPage() {
         description="以下结论用于修改前自查，不替代导师或学院的正式审核。"
         actions={
           <StatusBadge
-            tone={summary.error_finding_count ? 'danger' : summary.warning_finding_count ? 'warning' :
-              summary.unsupported_rule_count + summary.error_rule_count ? 'neutral' : 'success'}
+            tone={
+              summary.error_finding_count
+                ? 'danger'
+                : summary.warning_finding_count
+                  ? 'warning'
+                  : summary.unsupported_rule_count + summary.error_rule_count
+                    ? 'neutral'
+                    : 'success'
+            }
           >
-            {summary.finding_count ? `待处理 ${summary.finding_count} 项` :
-              summary.unsupported_rule_count + summary.error_rule_count ? '部分规则无法判定' : '基础检查通过'}
+            {summary.finding_count
+              ? `待处理 ${summary.finding_count} 项`
+              : summary.unsupported_rule_count + summary.error_rule_count
+                ? '部分规则无法判定'
+                : isThirty
+                  ? '规则检查通过'
+                  : '基础检查通过'}
           </StatusBadge>
         }
       >
@@ -102,7 +126,10 @@ function PaperLintReportPage() {
       <Card title="各规则执行状态">
         <div className="grid gap-2 md:grid-cols-2">
           {report.result.rule_runs.map((run) => (
-            <div key={run.rule_run_id} className="flex items-start justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2">
+            <div
+              key={run.rule_run_id}
+              className="flex items-start justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2"
+            >
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-slate-800">
                   {rules.find((rule) => rule.rule_id === run.rule_id)?.title || run.rule_id}

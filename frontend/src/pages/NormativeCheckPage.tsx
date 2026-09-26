@@ -11,6 +11,7 @@ import {
 } from '../api/paperLint';
 import { PaperLintWorkspace } from '../components/paperLint/Workspace';
 import { flattenPaperLintFindings } from '../components/paperLint/model';
+import { THIRTY_RULE_IDS } from '../utils/paperLintRuleGroups';
 import {
   Button,
   Card,
@@ -23,7 +24,6 @@ import {
 } from '../components/ui';
 
 const MAX_PDF_BYTES = 50 * 1024 * 1024;
-const THIRTY_RULE_IDS = new Set(['sjtu_rule_18', 'sjtu_rule_22', 'sjtu_rule_24', 'sjtu_rule_28']);
 type CheckMode = 'basic' | 'thirty';
 
 function rulesForMode(rules: PaperLintRule[], mode: CheckMode) {
@@ -239,7 +239,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
         ariaLabel={`${title}功能导航`}
         items={[
           { label: '发起检测', to: isThirty ? '/thirty-rules-check' : '/normative-check', active: true },
-          { label: '历史报告', to: '/normative-reports', active: false },
+          { label: '历史报告', to: isThirty ? '/thirty-rules-check/reports' : '/normative-reports', active: false },
         ]}
       />
 
@@ -372,11 +372,6 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
                           {rule.execution_mode === 'semantic' ? (
                             <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] text-violet-700">
                               扩展分析
-                            </span>
-                          ) : null}
-                          {rule.source === 'sjtu-local' ? (
-                            <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] text-sky-700">
-                              本地检测
                             </span>
                           ) : null}
                           {!rule.available ? (

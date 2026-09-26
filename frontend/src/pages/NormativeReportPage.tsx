@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useAuthSession } from '../auth/AuthSessionProvider';
 import { fetchPaperLintReports, type PaperLintReportListItem } from '../api/paperLint';
 import { formatChinaDateTime } from '../utils/dateTime';
+import { THIRTY_RULE_IDS } from '../utils/paperLintRuleGroups';
 import {
   downloadNormativeReportJson,
   fetchNormativeDetectionHistory,
@@ -26,7 +27,10 @@ type ActiveIssue = {
   index: number;
 };
 
-function NormativeReportPage() {
+function NormativeReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) {
+  const isThirty = mode === 'thirty';
+  const checkPath = isThirty ? '/thirty-rules-check' : '/normative-check';
+  const historyPath = isThirty ? '/thirty-rules-check/reports' : '/normative-reports';
   const { reportId } = useParams();
   const { status, user } = useAuthSession();
   const [history, setHistory] = useState<DetectionTaskResponse[]>([]);
@@ -50,7 +54,10 @@ function NormativeReportPage() {
 
     const request = reportId
       ? fetchNormativeDetectionReport(reportId)
-      : Promise.all([fetchNormativeDetectionHistory(), fetchPaperLintReports().catch(() => [])]);
+      : Promise.all([
+          isThirty ? Promise.resolve([] as DetectionTaskResponse[]) : fetchNormativeDetectionHistory(),
+          fetchPaperLintReports().catch(() => []),
+        ]);
     request
       .then((response) => {
         if (cancelled) {
@@ -59,7 +66,11 @@ function NormativeReportPage() {
         if (Array.isArray(response) && Array.isArray(response[0])) {
           const [legacyHistory, savedPdfReports] = response as [DetectionTaskResponse[], PaperLintReportListItem[]];
           setHistory(legacyHistory);
-          setPdfReports(savedPdfReports);
+          setPdfReports(
+            isThirty
+              ? savedPdfReports.filter((item) => item.selected_rule_ids.some((id) => THIRTY_RULE_IDS.has(id)))
+              : savedPdfReports,
+          );
           setReport(null);
         } else {
           setReport(response);
@@ -80,7 +91,7 @@ function NormativeReportPage() {
     return () => {
       cancelled = true;
     };
-  }, [reportId, status, user]);
+  }, [reportId, status, user, mode]);
 
   function handleIssueClick(issue: NormativeIssue, index: number) {
     setActiveIssue({ issue, index });
@@ -190,18 +201,26 @@ function NormativeReportPage() {
 
   return (
     <div>
-      <PageHeader title="基础规则检测" description="查看本人已保存的基础规则检测记录和报告。" />
+      <PageHeader
+        title={isThirty ? '30条规则检测' : '基础规则检测'}
+        description={isThirty ? '查看已保存的30条规则专项检测报告。' : '查看本人已保存的基础规则检测记录和报告。'}
+      />
       <ModuleTabs
-        ariaLabel="基础规则检测功能导航"
+        ariaLabel={isThirty ? '30条规则检测功能导航' : '基础规则检测功能导航'}
         items={[
-          { label: '发起检测', to: '/normative-check', active: false },
-          { label: '历史报告', to: '/normative-reports', active: true, count: history.length + pdfReports.length },
+          { label: '发起检测', to: checkPath, active: false },
+          { label: '历史报告', to: historyPath, active: true, count: history.length + pdfReports.length },
         ]}
       />
       {loading ? <LoadingState label="正在加载历史记录…" /> : null}
       {errorMessage ? <ErrorState message={errorMessage} /> : null}
       {!loading && !errorMessage && history.length === 0 && pdfReports.length === 0 ? (
-        <EmptyState title="暂无检测记录" description="完成一次基础规则检测后，报告会出现在这里。" />
+        <EmptyState
+          title="暂无检测记录"
+          description={
+            isThirty ? '完成一次30条规则检测后，报告会出现在这里。' : '完成一次基础规则检测后，报告会出现在这里。'
+          }
+        />
       ) : null}
       {pdfReports.length > 0 ? (
         <section className="mb-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -244,7 +263,7 @@ function NormativeReportPage() {
                           ? '部分规则无法判定'
                           : '未发现问题'}
                   </span>
-                  <LinkButton size="sm" to={`/normative-reports/pdf/${record.id}`}>
+                  <LinkButton size="sm" to={`${historyPath}/pdf/${record.id}`}>
                     继续处理
                   </LinkButton>
                 </div>

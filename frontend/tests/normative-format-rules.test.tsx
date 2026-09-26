@@ -5,7 +5,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../src/App';
 import apiClient from '../src/api';
 import { fetchCurrentSession, type AuthenticatedUser } from '../src/api/authSession';
-import { fetchReviewPilotPaperLintRules, runReviewPilotPaperLint } from '../src/api/paperLint';
+import { fetchPaperLintReports, fetchReviewPilotPaperLintRules, runReviewPilotPaperLint } from '../src/api/paperLint';
+import { fetchNormativeDetectionHistory } from '../src/api/normativeRules';
 import { AuthSessionProvider } from '../src/auth/AuthSessionProvider';
 
 vi.mock('../src/api/authSession', async () => {
@@ -18,8 +19,14 @@ vi.mock('../src/api/paperLint', async () => {
   return {
     ...actual,
     fetchReviewPilotPaperLintRules: vi.fn(),
+    fetchPaperLintReports: vi.fn(),
     runReviewPilotPaperLint: vi.fn(),
   };
+});
+
+vi.mock('../src/api/normativeRules', async () => {
+  const actual = await vi.importActual<typeof import('../src/api/normativeRules')>('../src/api/normativeRules');
+  return { ...actual, fetchNormativeDetectionHistory: vi.fn() };
 });
 
 vi.mock('../src/components/paperLint/Workspace', () => ({
@@ -145,6 +152,10 @@ describe('review-pilot PDF rules review route', () => {
     vi.mocked(fetchCurrentSession).mockReset();
     vi.mocked(fetchReviewPilotPaperLintRules).mockReset();
     vi.mocked(runReviewPilotPaperLint).mockReset();
+    vi.mocked(fetchPaperLintReports).mockReset();
+    vi.mocked(fetchPaperLintReports).mockResolvedValue([]);
+    vi.mocked(fetchNormativeDetectionHistory).mockReset();
+    vi.mocked(fetchNormativeDetectionHistory).mockResolvedValue([]);
   });
 
   it('loads default rules, uploads a PDF and renders the real API result', async () => {
@@ -235,7 +246,7 @@ describe('review-pilot PDF rules review route', () => {
 describe('four local PDF rules in the 30-rule page', () => {
   const localRules = [18, 22, 24, 28].map((number) => ({
     rule_id: `sjtu_rule_${number}`,
-    title: `规则 ${number} · 本地检测`,
+    title: `规则 ${number} · 检查项`,
     description: `检查规则 ${number}`,
     default_severity: 'warning' as const,
     default_enabled: false,
@@ -303,7 +314,7 @@ describe('four local PDF rules in the 30-rule page', () => {
     const pdf = new File(['%PDF-1.7\n'], '待检论文.pdf', { type: 'application/pdf' });
     renderRoute('/thirty-rules-check');
     expect(await screen.findByRole('checkbox', { name: /规则 22/ })).toBeInTheDocument();
-    expect(screen.getAllByText('本地检测')).toHaveLength(4);
+    expect(screen.queryByText('本地检测')).not.toBeInTheDocument();
     expect(screen.getByText('已开放 4 条')).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('原有规则引擎暂不可用');
     await user.upload(screen.getByLabelText('上传待审查 PDF'), pdf);
@@ -312,6 +323,29 @@ describe('four local PDF rules in the 30-rule page', () => {
     await user.click(screen.getByRole('button', { name: '开始检查' }));
     await waitFor(() => expect(runReviewPilotPaperLint).toHaveBeenCalledWith(pdf, ['sjtu_rule_22'], false));
     expect(await screen.findByText('文献引用 [99] 没有对应条目。')).toBeInTheDocument();
+  });
+
+  it('keeps the 30-rule navigation active across history and the start tab', async () => {
+    vi.mocked(fetchCurrentSession).mockResolvedValue({ user: studentUser });
+    vi.mocked(fetchReviewPilotPaperLintRules).mockResolvedValue({
+      engine: 'sjtu-local',
+      mode: 'pdf_lint',
+      semantic_model: 'deepseek-v4-flash',
+      rules: localRules,
+    });
+    const user = userEvent.setup();
+    renderRoute('/thirty-rules-check');
+    await screen.findByRole('checkbox', { name: /规则 22/ });
+    await user.click(screen.getByRole('link', { name: '历史报告' }));
+    expect(await screen.findByRole('heading', { name: '30条规则检测' })).toBeInTheDocument();
+    expect(
+      screen
+        .getAllByRole('link', { name: '30条规则检测' })
+        .find((link) => link.getAttribute('href') === '/thirty-rules-check'),
+    ).toHaveAttribute('data-active', 'true');
+    expect(screen.getByRole('link', { name: '发起检测' })).toHaveAttribute('href', '/thirty-rules-check');
+    await user.click(screen.getByRole('link', { name: '发起检测' }));
+    expect(await screen.findByRole('checkbox', { name: /规则 22/ })).toBeInTheDocument();
   });
 
   it('shows an inconclusive result instead of claiming that an unsupported check passed', async () => {
