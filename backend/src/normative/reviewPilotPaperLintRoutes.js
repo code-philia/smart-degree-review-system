@@ -115,7 +115,8 @@ function createReviewPilotPaperLintRouter(service = defaultService, exampleServi
             pdfBuffer: req.body, selectedRuleIds: normalizedRuleIds, externalProcessingConsent,
           });
           return res.status(202).json(job);
-        }        const { result, selectedRuleIds: normalizedRuleIds } = await service.runPaperLint({
+        }
+        const { result, selectedRuleIds: normalizedRuleIds } = await service.runPaperLint({
           pdfBuffer: req.body,
           selectedRuleIds,
           externalProcessingConsent,
