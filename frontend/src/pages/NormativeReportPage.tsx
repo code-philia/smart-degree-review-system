@@ -210,6 +210,9 @@ function NormativeReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
         items={[
           { label: '发起检测', to: checkPath, active: false },
           { label: '历史报告', to: historyPath, active: true, count: history.length + pdfReports.length },
+          ...(isThirty && user && ['COLLEGE_ADMIN', 'SCHOOL_ADMIN'].includes(user.role)
+            ? [{ label: '扫描479篇归档论文', to: '/thirty-rules-check/archive', active: false }]
+            : []),
         ]}
       />
       {loading ? <LoadingState label="正在加载历史记录…" /> : null}

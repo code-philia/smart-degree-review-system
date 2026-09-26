@@ -179,6 +179,29 @@ async function initializeDatabase(options = {}) {
        ON paper_lint_reports (user_id, created_at DESC);`,
     );
 
+    await runStatement(database, `CREATE TABLE IF NOT EXISTS archive_scan_jobs (
+      id TEXT PRIMARY KEY, created_by TEXT NOT NULL, selected_rule_ids_json TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('running', 'completed', 'failed')),
+      total_count INTEGER NOT NULL, completed_count INTEGER NOT NULL DEFAULT 0,
+      failed_count INTEGER NOT NULL DEFAULT 0, inconclusive_count INTEGER NOT NULL DEFAULT 0,
+      finding_count INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, finished_at TEXT,
+      FOREIGN KEY (created_by) REFERENCES auth_users(id) ON DELETE RESTRICT
+    );`);
+    await runStatement(database, `CREATE UNIQUE INDEX IF NOT EXISTS idx_archive_scan_one_active
+      ON archive_scan_jobs (status) WHERE status = 'running';`);
+    await runStatement(database, `CREATE TABLE IF NOT EXISTS archive_scan_documents (
+      id TEXT PRIMARY KEY, job_id TEXT NOT NULL, relative_path TEXT NOT NULL,
+      filename TEXT NOT NULL, size_bytes INTEGER NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('pending', 'running', 'completed', 'failed')),
+      finding_count INTEGER NOT NULL DEFAULT 0, rule_outcomes_json TEXT,
+      result_json TEXT, error_message TEXT, finished_at TEXT,
+      FOREIGN KEY (job_id) REFERENCES archive_scan_jobs(id) ON DELETE CASCADE,
+      UNIQUE (job_id, relative_path)
+    );`);
+    await runStatement(database, `CREATE INDEX IF NOT EXISTS idx_archive_scan_documents_job
+      ON archive_scan_documents (job_id, status, relative_path);`);
+
     // Personal example-derived rules are deliberately isolated from normative rules.
     await runStatement(database, `CREATE TABLE IF NOT EXISTS example_rule_documents (
       id TEXT PRIMARY KEY, user_id TEXT NOT NULL, source_filename TEXT NOT NULL,

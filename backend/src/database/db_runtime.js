@@ -1,5 +1,7 @@
 const { getDb, initializeDatabase } = require('./init_db');
 
+let transactionTail = Promise.resolve();
+
 function normalizeParams(params) {
   if (Array.isArray(params)) {
     return params;
@@ -82,27 +84,35 @@ async function exec(sql) {
 }
 
 async function withTransaction(work) {
-  const database = await initializeDatabase();
-  await execOnDatabase(database, 'BEGIN IMMEDIATE TRANSACTION;');
-
-  const tx = {
-    run: (sql, params = []) => runOnDatabase(database, sql, params),
-    get: (sql, params = []) => getOnDatabase(database, sql, params),
-    all: (sql, params = []) => allOnDatabase(database, sql, params),
-    exec: (sql) => execOnDatabase(database, sql),
-  };
-
+  const previous = transactionTail;
+  let release;
+  transactionTail = new Promise((resolve) => { release = resolve; });
+  await previous;
   try {
-    const result = await work(tx);
-    await execOnDatabase(database, 'COMMIT;');
-    return result;
-  } catch (error) {
+    const database = await initializeDatabase();
+    await execOnDatabase(database, 'BEGIN IMMEDIATE TRANSACTION;');
+
+    const tx = {
+      run: (sql, params = []) => runOnDatabase(database, sql, params),
+      get: (sql, params = []) => getOnDatabase(database, sql, params),
+      all: (sql, params = []) => allOnDatabase(database, sql, params),
+      exec: (sql) => execOnDatabase(database, sql),
+    };
+
     try {
-      await execOnDatabase(database, 'ROLLBACK;');
-    } catch (rollbackError) {
-      error.rollbackError = rollbackError;
+      const result = await work(tx);
+      await execOnDatabase(database, 'COMMIT;');
+      return result;
+    } catch (error) {
+      try {
+        await execOnDatabase(database, 'ROLLBACK;');
+      } catch (rollbackError) {
+        error.rollbackError = rollbackError;
+      }
+      throw error;
     }
-    throw error;
+  } finally {
+    release();
   }
 }
 

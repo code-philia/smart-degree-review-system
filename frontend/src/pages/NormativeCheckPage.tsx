@@ -240,6 +240,9 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
         items={[
           { label: '发起检测', to: isThirty ? '/thirty-rules-check' : '/normative-check', active: true },
           { label: '历史报告', to: isThirty ? '/thirty-rules-check/reports' : '/normative-reports', active: false },
+          ...(isThirty && user && ['COLLEGE_ADMIN', 'SCHOOL_ADMIN'].includes(user.role)
+            ? [{ label: '扫描479篇归档论文', to: '/thirty-rules-check/archive', active: false }]
+            : []),
         ]}
       />
 

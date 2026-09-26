@@ -8,7 +8,7 @@ import { PdfViewer, type PdfViewerHandle, type SupplementalPdfAnnotation } from 
 import type { HighlightDensity } from './PdfOverlay';
 
 type Props = {
-  file: File;
+  file: File | { name: string; url: string };
   findings: PaperLintFindingItem[];
   activeFindingKey: string | null;
   activeAnchorId: string | null;
@@ -60,10 +60,13 @@ export function PdfPane({
     let loaded: PDFDocumentProxy | null = null;
     setDocument(null);
     setError(null);
-    void Promise.all([import('pdfjs-dist'), import('pdfjs-dist/build/pdf.worker.min.mjs?url'), file.arrayBuffer()])
-      .then(async ([pdfjs, workerModule, buffer]) => {
+    void Promise.all([import('pdfjs-dist'), import('pdfjs-dist/build/pdf.worker.min.mjs?url')])
+      .then(async ([pdfjs, workerModule]) => {
         pdfjs.GlobalWorkerOptions.workerSrc = workerModule.default;
-        const task = pdfjs.getDocument({ data: new Uint8Array(buffer) });
+        const task =
+          'url' in file
+            ? pdfjs.getDocument({ url: file.url, withCredentials: true })
+            : pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) });
         loaded = await task.promise;
         if (disposed) await loaded.destroy();
         else setDocument(loaded);

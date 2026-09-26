@@ -4,7 +4,7 @@ import { FindingsPane } from './FindingsPane';
 import type { PaperLintFindingItem } from './model';
 import { PdfPane } from './PdfPane';
 
-type Props = { file: File; findings: PaperLintFindingItem[]; rules: PaperLintRule[] };
+type Props = { file: File | { name: string; url: string }; findings: PaperLintFindingItem[]; rules: PaperLintRule[] };
 
 export function PaperLintWorkspace({ file, findings, rules }: Props) {
   const [activeFindingKey, setActiveFindingKey] = useState<string | null>(findings[0]?.key || null);

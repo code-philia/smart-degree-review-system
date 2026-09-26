@@ -1,11 +1,13 @@
 const app = require('./app');
 const { initializeDatabase } = require('./database/init_db');
+const { createArchiveScanService } = require('./normative/archiveScanService');
 
 const defaultPort = 3000;
 const port = Number(process.env.PORT || defaultPort);
 
 initializeDatabase()
-  .then(() => {
+  .then(async () => {
+    await createArchiveScanService().resumeJobs();
     app.listen(port, () => {
       console.log(`Backend listening at http://127.0.0.1:${port}`);
     });

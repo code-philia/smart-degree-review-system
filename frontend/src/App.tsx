@@ -21,6 +21,8 @@ import LedgerRecordsPage from './pages/LedgerRecordsPage';
 import LocalPolishPage from './pages/LocalPolishPage';
 import NormativeCheckPage from './pages/NormativeCheckPage';
 import NormativeReportPage from './pages/NormativeReportPage';
+import ArchiveScanPage from './pages/ArchiveScanPage';
+import ArchiveScanResultPage from './pages/ArchiveScanResultPage';
 import PaperLintReportPage from './pages/PaperLintReportPage';
 import PolishHistoryPage from './pages/PolishHistoryPage';
 import QualityDashboardPage from './pages/QualityDashboardPage';
@@ -51,6 +53,11 @@ function App() {
         <Route path="/about" element={<AboutPage />} />
         <Route path="/normative-check" element={<NormativeCheckPage />} />
         <Route path="/thirty-rules-check" element={<NormativeCheckPage mode="thirty" />} />
+        <Route path="/thirty-rules-check/archive" element={<ArchiveScanPage />} />
+        <Route
+          path="/thirty-rules-check/archive/jobs/:jobId/documents/:documentId"
+          element={<ArchiveScanResultPage />}
+        />
         <Route path="/thirty-rules-check/reports" element={<NormativeReportPage mode="thirty" />} />
         <Route path="/thirty-rules-check/reports/pdf/:reportId" element={<PaperLintReportPage mode="thirty" />} />
         <Route path="/example-rule-check" element={<ExampleRuleCheckPage />} />
