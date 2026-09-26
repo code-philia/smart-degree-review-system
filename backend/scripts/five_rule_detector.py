@@ -19,9 +19,10 @@ RULES = (6, 18, 22, 24, 28)
 TITLES = {6: '摘要连续内容重复', 18: '公式引用目标不存在', 22: '文献引用目标不存在',
           24: '参考文献未被全文引用', 28: '目录页码与正文不一致'}
 _CITATION = re.compile(r'\[(\d+(?:(?:\s*[-–—－,，、;；]\s*|\s+)\d+)*)\]')
-_FORMULA_REFERENCE = re.compile(r'(?:公式|(?<!公)式|equation|eq\.?)[\s:：]*[（(]\s*(\d+(?:\s*[.．–—－−-]\s*\d+)+[a-z]?)\s*[)）]', re.I)
-_DISPLAY_FORMULA = re.compile(r'^[（(]\s*(\d+(?:\s*[.．–—－−-]\s*\d+)+[a-z]?)\s*[)）]$', re.I)
-_DISPLAY_FORMULA_TAIL = re.compile(r'[（(]\s*(\d+(?:\s*[.．–—－−-]\s*\d+)+[a-z]?)\s*[)）]\s*$', re.I)
+# A bare 式 can introduce an equation, but 方式/模式/形式/范式： often introduce numbered lists.
+_FORMULA_REFERENCE = re.compile(r'(?:公式[\s:：]*|(?<![公方模形范样类])式\s*|equation[\s:：]*|eq\.?[\s:：]*)[（(]\s*(\d+(?:\s*[.．–—－−-]\s*\d+)*[a-z]?)\s*[)）]', re.I)
+_DISPLAY_FORMULA = re.compile(r'^[（(]\s*(\d+(?:\s*[.．–—－−-]\s*\d+)*[a-z]?)\s*[)）]$', re.I)
+_DISPLAY_FORMULA_TAIL = re.compile(r'[（(]\s*(\d+(?:\s*[.．–—－−-]\s*\d+)*[a-z]?)\s*[)）]\s*$', re.I)
 _TOC_ENTRY = re.compile(r'^\s*(.+?)(?:(?:\.\s*){2,}|…{2,}|⋯{2,}|·{2,})\s*(\d{1,4})\s*$')
 _TOC_HEADING = re.compile(r'^(?:第\s*[一二三四五六七八九十\d]+\s*章|[1-9]\d*(?:[.．]\d+)*(?=\s|[\u4e00-\u9fff])|chapter\s+[1-9]\d*|致谢|参考文献|附录|acknowledg(?:e)?ments?|references|bibliography|学术论文|科研成果|研究成果|攻读.{0,20}期间|发表.{0,12}论文|个人简历|作者简介|publications?|research\s+(?:outputs?|achievements?))', re.I)
 _REF_LABEL = re.compile(r'^\s*\[(\d+)\]')
@@ -246,12 +247,27 @@ def _external_formula_reference(text: str, formula_start: int) -> bool:
     return not re.search(r'(?:本文|本研究|本论文|我们)(?:的|中|提出|使用)?$', attribution.group())
 
 
+def _wrapped_formula_reference(previous: Line, current: Line) -> tuple[re.Match, str, int] | None:
+    """Find a reference whose formula keyword and number straddle two PDF lines."""
+    if (previous.page != current.page
+            or not 0 <= current.bbox[1] - previous.bbox[1] <= 35
+            or not re.match(r'^\s*[（(]', current.text)):
+        return None
+    context = previous.text + ' ' + current.text
+    offset = len(previous.text) + 1
+    for match in _FORMULA_REFERENCE.finditer(context):
+        if match.start() < offset < match.end():
+            return match, context, offset
+    return None
+
+
 def _rule_18(body: list[Line]) -> dict:
     displayed = set()
     for line in body:
         content = line.text.strip()
         marker = _DISPLAY_FORMULA.match(content)
-        if marker and (line.bbox[0] > line.page_width * .55 or len(content) < 20):
+        if marker and (line.bbox[0] > line.page_width * .55
+                       or (len(content) < 20 and re.search(r'[.．–—－−-]', marker.group(1)))):
             displayed.add(_formula_key(marker.group(1)))
             continue
         trailing = _DISPLAY_FORMULA_TAIL.search(content)
@@ -261,7 +277,11 @@ def _rule_18(body: list[Line]) -> dict:
         if trailing and formula_like and line.bbox[2] > line.page_width * .7:
             displayed.add(_formula_key(trailing.group(1)))
     if not displayed:
-        if not any(_FORMULA_REFERENCE.search(line.text) for line in body):
+        has_reference = any(_FORMULA_REFERENCE.search(line.text) for line in body)
+        has_wrapped_reference = any(
+            _wrapped_formula_reference(body[index - 1], line)
+            for index, line in enumerate(body) if index)
+        if not has_reference and not has_wrapped_reference:
             return _result()
         return _result(reason='有公式引用，但未可靠识别独立公式编号')
     displayed_groups = {key[:-1] for key in displayed if key[-1].isalpha()}
@@ -276,8 +296,16 @@ def _rule_18(body: list[Line]) -> dict:
                     and abs(line.bbox[0] - previous.bbox[0]) <= 80):
                 context = previous.text + ' ' + line.text
                 context_offset = len(previous.text) + 1
-        for match in _FORMULA_REFERENCE.finditer(line.text):
-            if _external_formula_reference(context, context_offset + match.start()):
+        references = [(match, context, context_offset + match.start(),
+                       match.start(), match.end())
+                      for match in _FORMULA_REFERENCE.finditer(line.text)]
+        if index:
+            wrapped = _wrapped_formula_reference(body[index - 1], line)
+            if wrapped:
+                match, joined, offset = wrapped
+                references.append((match, joined, match.start(), 0, match.end() - offset))
+        for match, reference_context, formula_start, start, end in references:
+            if _external_formula_reference(reference_context, formula_start):
                 continue
             number = re.sub(r'\s+', '', match.group(1)).replace('．', '.')
             targets = _formula_targets(number)
@@ -286,7 +314,7 @@ def _rule_18(body: list[Line]) -> dict:
                     continue
                 token = number if len(targets) == 1 else target
                 findings.append(_finding(18, line, f'公式引用 {number} 的目标 {target} 在公式编号中不存在',
-                                         token=token, text_range=[match.start(), match.end()]))
+                                         token=token, text_range=[start, end]))
     return _result(findings)
 
 
