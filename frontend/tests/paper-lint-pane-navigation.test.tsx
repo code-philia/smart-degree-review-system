@@ -4,11 +4,17 @@ import type { PaperLintFindingItem } from '../src/components/paperLint/model';
 import { PdfPane } from '../src/components/paperLint/PdfPane';
 import { PaperLintWorkspace } from '../src/components/paperLint/Workspace';
 
-const { scrollToAnnotation } = vi.hoisted(() => ({ scrollToAnnotation: vi.fn() }));
+const { scrollToAnnotation, getDocumentOptions } = vi.hoisted(() => ({
+  scrollToAnnotation: vi.fn(),
+  getDocumentOptions: vi.fn(),
+}));
 
 vi.mock('pdfjs-dist', () => ({
   GlobalWorkerOptions: {},
-  getDocument: () => ({ promise: Promise.resolve({ destroy: async () => undefined }) }),
+  getDocument: (options: unknown) => {
+    getDocumentOptions(options);
+    return { promise: Promise.resolve({ destroy: async () => undefined }) };
+  },
 }));
 vi.mock('pdfjs-dist/build/pdf.worker.min.mjs?url', () => ({ default: 'test-worker' }));
 vi.mock('../src/components/paperLint/PdfViewer', async () => {
@@ -53,9 +59,40 @@ const file = { name: 'mutant.pdf', arrayBuffer: async () => new ArrayBuffer(8) }
 afterEach(() => {
   vi.unstubAllGlobals();
   scrollToAnnotation.mockClear();
+  getDocumentOptions.mockClear();
 });
 
 describe('PDF pane navigation', () => {
+  it('loads archived and uploaded PDFs with Chinese font CMaps', async () => {
+    const remoteFile = { name: 'archive.pdf', url: '/api/archive.pdf' };
+    const props = {
+      findings: [],
+      activeFindingKey: null,
+      activeAnchorId: null,
+      onFindingClick: vi.fn(),
+      onAnchorClick: vi.fn(),
+    };
+    const { rerender } = render(<PdfPane {...props} file={remoteFile} />);
+    await waitFor(() =>
+      expect(getDocumentOptions).toHaveBeenCalledWith({
+        url: '/api/archive.pdf',
+        withCredentials: true,
+        cMapUrl: '/pdfjs-cmaps/',
+        cMapPacked: true,
+      }),
+    );
+
+    getDocumentOptions.mockClear();
+    rerender(<PdfPane {...props} file={file} />);
+    await waitFor(() =>
+      expect(getDocumentOptions).toHaveBeenCalledWith({
+        data: expect.any(Uint8Array),
+        cMapUrl: '/pdfjs-cmaps/',
+        cMapPacked: true,
+      }),
+    );
+  });
+
   it('retries the selected finding after the PDF finishes loading', async () => {
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
       callback(0);

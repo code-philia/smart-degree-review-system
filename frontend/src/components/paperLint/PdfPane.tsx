@@ -36,6 +36,7 @@ type Props = {
 
 type Scale = number | 'page-width';
 const EMPTY_SUPPLEMENTAL_ANNOTATIONS: SupplementalPdfAnnotation[] = [];
+const cMapOptions = { cMapUrl: `${import.meta.env.BASE_URL}pdfjs-cmaps/`, cMapPacked: true };
 
 export function PdfPane({
   file,
@@ -67,8 +68,8 @@ export function PdfPane({
         pdfjs.GlobalWorkerOptions.workerSrc = workerModule.default;
         const task =
           'url' in file
-            ? pdfjs.getDocument({ url: file.url, withCredentials: true })
-            : pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) });
+            ? pdfjs.getDocument({ url: file.url, withCredentials: true, ...cMapOptions })
+            : pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()), ...cMapOptions });
         loaded = await task.promise;
         if (disposed) await loaded.destroy();
         else setDocument(loaded);
