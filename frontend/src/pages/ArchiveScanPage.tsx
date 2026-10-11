@@ -208,7 +208,7 @@ export default function ArchiveScanPage() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-2xl border border-white/15 bg-white/10 px-5 py-4 backdrop-blur-sm">
-              <p className="text-3xl font-black">4</p>
+              <p className="text-3xl font-black">{catalog?.rules.filter((rule) => rule.available).length ?? '—'}</p>
               <p className="mt-1 text-xs text-blue-100">已开放规则</p>
             </div>
             <div className="rounded-2xl border border-white/15 bg-white/10 px-5 py-4 backdrop-blur-sm">
@@ -245,6 +245,7 @@ export default function ArchiveScanPage() {
                       type="checkbox"
                       aria-label={`选择规则 ${rule.rule_id.replace('sjtu_rule_', '')}`}
                       checked={selected.includes(rule.rule_id)}
+                      disabled={!rule.available}
                       onChange={() =>
                         setSelected((current) =>
                           current.includes(rule.rule_id)
@@ -256,13 +257,16 @@ export default function ArchiveScanPage() {
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-black text-slate-900">{rule.title}</p>
                       <p className="mt-2 text-sm leading-6 text-slate-500">{rule.description}</p>
+                      {!rule.available && (
+                        <p className="mt-2 text-xs text-amber-700">暂不可用，请联系管理员配置检测服务。</p>
+                      )}
                     </div>
                   </div>
                   <div className="mt-5 flex justify-end">
                     <Button
                       size="sm"
                       variant="secondary"
-                      disabled={running || busy}
+                      disabled={running || busy || !rule.available}
                       aria-label={`仅运行规则 ${rule.rule_id.replace('sjtu_rule_', '')}`}
                       onClick={() => void launch([rule.rule_id])}
                     >
@@ -279,7 +283,10 @@ export default function ArchiveScanPage() {
                   ? `本次将以 ${selectedRules.map((rule) => rule.title).join('、')} 扫描全部论文`
                   : '勾选规则后开始批量扫描'}
               </p>
-              <Button disabled={!selected.length || busy || running} onClick={() => void launch(selected)}>
+              <Button
+                disabled={!selectedRules.length || busy || running}
+                onClick={() => void launch(selectedRules.map((rule) => rule.rule_id))}
+              >
                 {busy ? <LoaderCircle className="mr-2 size-4 animate-spin" /> : <Play className="mr-2 size-4" />}
                 扫描全部归档论文
               </Button>

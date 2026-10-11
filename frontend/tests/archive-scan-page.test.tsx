@@ -29,6 +29,7 @@ const rules = [18, 22, 24, 28].map((number) => ({
   rule_id: `sjtu_rule_${number}`,
   title: `规则 ${number}`,
   description: `检测规则 ${number}`,
+  available: true,
 }));
 const admin = {
   id: 'admin',
@@ -76,6 +77,45 @@ function renderPage() {
   );
 }
 describe('archive scan page', () => {
+  it('shows the expanded catalog and lets new and old rules share a batch', async () => {
+    const expanded = [11, 13, 14, 15, 16, 18, 22, 24, 28, 29].map((number) => ({
+      ...rules[0],
+      rule_id: `sjtu_rule_${number}`,
+      title: `规则 ${number}`,
+    }));
+    vi.mocked(fetchArchiveCatalog).mockResolvedValue({ rules: expanded as never, paper_count: 479 });
+    renderPage();
+    await screen.findByRole('checkbox', { name: '选择规则 11' });
+    expect(screen.getByText('已开放规则').previousElementSibling).toHaveTextContent('10');
+    expect(screen.getAllByRole('checkbox').map((element) => element.getAttribute('aria-label'))).toEqual([
+      '选择规则 11',
+      '选择规则 13',
+      '选择规则 14',
+      '选择规则 15',
+      '选择规则 16',
+      '选择规则 18',
+      '选择规则 22',
+      '选择规则 24',
+      '选择规则 28',
+      '选择规则 29',
+    ]);
+    await userEvent.click(screen.getByRole('checkbox', { name: '选择规则 29' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: '选择规则 18' }));
+    await userEvent.click(screen.getByRole('button', { name: '扫描全部归档论文' }));
+    await waitFor(() => expect(startArchiveJob).toHaveBeenCalledWith(['sjtu_rule_18', 'sjtu_rule_29']));
+  });
+
+  it('disables unavailable rules and excludes them from the available count', async () => {
+    vi.mocked(fetchArchiveCatalog).mockResolvedValue({
+      rules: [...rules, { ...rules[0], rule_id: 'sjtu_rule_13', title: '规则 13', available: false }] as never,
+      paper_count: 479,
+    });
+    renderPage();
+    expect(await screen.findByRole('checkbox', { name: '选择规则 13' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '仅运行规则 13' })).toBeDisabled();
+    expect(screen.getByText('已开放规则').previousElementSibling).toHaveTextContent('4');
+  });
+
   it('starts one rule from its card without selecting all rules', async () => {
     renderPage();
     await userEvent.click(await screen.findByRole('button', { name: '仅运行规则 18' }));

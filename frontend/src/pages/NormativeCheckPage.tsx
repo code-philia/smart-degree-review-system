@@ -30,7 +30,13 @@ const MAX_PDF_BYTES = 50 * 1024 * 1024;
 type CheckMode = 'basic' | 'thirty';
 
 function rulesForMode(rules: PaperLintRule[], mode: CheckMode) {
-  return rules.filter((rule) => THIRTY_RULE_IDS.has(rule.rule_id) === (mode === 'thirty'));
+  const filtered = rules.filter((rule) => THIRTY_RULE_IDS.has(rule.rule_id) === (mode === 'thirty'));
+  if (mode === 'thirty') {
+    filtered.sort(
+      (a, b) => Number(a.rule_id.slice('sjtu_rule_'.length)) - Number(b.rule_id.slice('sjtu_rule_'.length)),
+    );
+  }
+  return filtered;
 }
 
 function errorMessage(error: unknown, fallback: string) {

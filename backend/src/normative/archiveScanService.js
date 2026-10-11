@@ -3,8 +3,22 @@ const path = require('path');
 const { randomUUID } = require('crypto');
 const db = require('../database/db_runtime');
 const { LOCAL_RULES, isLocalRuleId, runLocalFiveRules } = require('./localFiveRulePaperLintService');
+const { getSixRules, isSixRuleId, runSixRules } = require('./sixRulePaperLintService');
+const { mergePaperLintResults } = require('./reviewPilotPaperLintService');
 
 const DEFAULT_ROOT = '/opt/sjtu-archive-479';
+function getArchiveRules() {
+  return [...LOCAL_RULES, ...getSixRules()].sort((a, b) => a.number - b.number);
+}
+async function runArchiveRules(pdfPath, ruleIds) {
+  const localIds = ruleIds.filter(isLocalRuleId);
+  const sixIds = ruleIds.filter(isSixRuleId);
+  const localResult = localIds.length ? await runLocalFiveRules(pdfPath, localIds) : null;
+  const sixResult = sixIds.length ? await runSixRules(pdfPath, sixIds) : null;
+  return localResult && sixResult
+    ? mergePaperLintResults(localResult, sixResult, ruleIds)
+    : localResult || sixResult;
+}
 function problem(status, message) {
   const error = new Error(message);
   error.status = status;
@@ -39,7 +53,7 @@ async function listArchivePdfs(root) {
 }
 function createArchiveScanService({
   archiveRoot = process.env.ARCHIVE_SCAN_ROOT || DEFAULT_ROOT,
-  detector = runLocalFiveRules,
+  detector = runArchiveRules,
 } = {}) {
   let worker = null;
   async function safePdfPath(relativePath) {
@@ -112,9 +126,13 @@ function createArchiveScanService({
       !Array.isArray(ruleIds) ||
       !ruleIds.length ||
       new Set(ruleIds).size !== ruleIds.length ||
-      !ruleIds.every(isLocalRuleId)
+      !ruleIds.every((id) => isLocalRuleId(id) || isSixRuleId(id))
     )
       throw problem(400, '请选择已开放的归档扫描规则');
+    const selectedRules = getArchiveRules().filter((rule) => ruleIds.includes(rule.rule_id));
+    if (selectedRules.some((rule) => !rule.available))
+      throw problem(400, '所选规则暂不可用，请联系管理员配置检测服务');
+    ruleIds = selectedRules.map((rule) => rule.rule_id);
     if (worker || (await db.get("SELECT id FROM archive_scan_jobs WHERE status='running' LIMIT 1")))
       throw problem(409, '已有归档扫描任务正在运行');
     const documents = await listArchivePdfs(archiveRoot);
@@ -192,7 +210,9 @@ function createArchiveScanService({
     return safePdfPath(doc.relative_path);
   }
   return {
-    rules: LOCAL_RULES,
+    get rules() {
+      return getArchiveRules();
+    },
     archiveRoot,
     listArchivePdfs: () => listArchivePdfs(archiveRoot),
     startJob,
