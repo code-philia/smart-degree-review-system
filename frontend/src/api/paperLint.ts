@@ -123,7 +123,9 @@ export type PaperLintJobResponse = {
   updated_at: string;
 };
 
-export function isPaperLintJobResponse(value: PaperLintRunResponse | PaperLintJobResponse): value is PaperLintJobResponse {
+export function isPaperLintJobResponse(
+  value: PaperLintRunResponse | PaperLintJobResponse,
+): value is PaperLintJobResponse {
   return 'job_id' in value;
 }
 export type PaperLintReportSummary = {
@@ -172,15 +174,19 @@ export async function runReviewPilotPaperLint(
   selectedRuleIds: string[],
   externalProcessingConsent = false,
 ): Promise<PaperLintRunResponse | PaperLintJobResponse> {
-  const response = await apiClient.post<PaperLintRunResponse | PaperLintJobResponse>('/normative/paper-lint/run', file, {
-    params: { filename: file.name },
-    headers: {
-      'Content-Type': 'application/pdf',
-      'X-Paper-Lint-Rule-Ids': selectedRuleIds.join(','),
-      ...(externalProcessingConsent ? { 'X-Paper-Lint-External-Processing-Consent': 'confirmed' } : {}),
+  const response = await apiClient.post<PaperLintRunResponse | PaperLintJobResponse>(
+    '/normative/paper-lint/run',
+    file,
+    {
+      params: { filename: file.name },
+      headers: {
+        'Content-Type': 'application/pdf',
+        'X-Paper-Lint-Rule-Ids': selectedRuleIds.join(','),
+        ...(externalProcessingConsent ? { 'X-Paper-Lint-External-Processing-Consent': 'confirmed' } : {}),
+      },
+      timeout: 310_000,
     },
-    timeout: 310_000,
-  });
+  );
   return response.data;
 }
 

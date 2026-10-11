@@ -345,7 +345,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
             title="2. 选择审查规则"
             description={
               isThirty
-                ? "当前开放 "+visibleRules.length+" 条规则，其余规则将逐步开放。可按需选择本次检查项。"
+                ? '当前开放 ' + visibleRules.length + ' 条规则，其余规则将逐步开放。可按需选择本次检查项。'
                 : '基础检查默认启用；需要额外文本分析的检查项可按需选择。'
             }
             actions={
