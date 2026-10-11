@@ -202,6 +202,18 @@ async function initializeDatabase(options = {}) {
     await runStatement(database, `CREATE INDEX IF NOT EXISTS idx_archive_scan_documents_job
       ON archive_scan_documents (job_id, status, relative_path);`);
 
+    await runStatement(database, `CREATE TABLE IF NOT EXISTS paper_lint_jobs (
+      id TEXT PRIMARY KEY, user_id TEXT NOT NULL, source_filename TEXT NOT NULL,
+      source_pdf_path TEXT NOT NULL, selected_rule_ids_json TEXT NOT NULL,
+      external_consent INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL CHECK (status IN ('pending','running','completed','failed')),
+      attempts INTEGER NOT NULL DEFAULT 0, report_id TEXT, error_message TEXT,
+      created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE,
+      FOREIGN KEY (report_id) REFERENCES paper_lint_reports(id) ON DELETE SET NULL
+    );`);
+    await runStatement(database, `CREATE INDEX IF NOT EXISTS idx_paper_lint_jobs_status
+      ON paper_lint_jobs (status, created_at);`);
     // Personal example-derived rules are deliberately isolated from normative rules.
     await runStatement(database, `CREATE TABLE IF NOT EXISTS example_rule_documents (
       id TEXT PRIMARY KEY, user_id TEXT NOT NULL, source_filename TEXT NOT NULL,

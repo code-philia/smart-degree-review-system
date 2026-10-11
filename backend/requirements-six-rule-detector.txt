@@ -1,0 +1,5 @@
+PyMuPDF>=1.24,<2
+
+# CPU fallback for unread scanned administrative continuations. Models are bundled.
+rapidocr==3.9.2
+onnxruntime>=1.18,<2

@@ -1,0 +1,162 @@
+import io
+import json
+import tempfile
+import unittest
+import zipfile
+from pathlib import Path
+from unittest.mock import patch, MagicMock
+
+import pymupdf
+
+from pdf_rules.mineru_api import MinerUError, UrllibHttpClient, parse_layout
+
+
+def fake_zip(page_index=0, width=600, height=800, page_count=1):
+    pages = []
+    for index in range(page_count):
+        blocks = []
+        if index == page_index:
+            blocks = [
+                {"type": "image", "bbox": [100, 200, 300, 350 if width == 300 else 400]},
+                {"type": "image_caption",
+                 "bbox": [100, 355 if width == 300 else 410, 300, 380 if width == 300 else 430],
+                 "lines": [{"spans": [{"content": "图 1 示例"}]}]},
+            ]
+        pages.append({"page_idx": index, "page_size": [width, height],
+                      "para_blocks": blocks})
+    data = io.BytesIO()
+    with zipfile.ZipFile(data, "w") as archive:
+        archive.writestr("layout.json", json.dumps({"pdf_info": pages}))
+    return data.getvalue()
+
+
+class FakeHttp:
+    def __init__(self, archive=None, failure=None):
+        self.calls = []
+        self.archive = archive or fake_zip()
+        self.failure = failure
+
+    def request(self, method, url, *, headers=None, data=None, timeout=30):
+        self.calls.append((method, url, headers or {}, data))
+        if self.failure:
+            raise RuntimeError("signed-url-secret token-secret " + self.failure)
+        if method == "POST":
+            number = sum(call[0] == "POST" for call in self.calls)
+            return {"code": 0, "data": {"batch_id": f"batch-{number}",
+                                        "file_urls": [f"https://upload.test/{number}?signed-url-secret"]}}
+        if method == "PUT":
+            with pymupdf.open(stream=data, filetype="pdf") as pdf:
+                self.chunk_pages = len(pdf)
+            return {}
+        if "/extract-results/batch/" in url:
+            return {"code": 0, "data": {"extract_result": [
+                {"state": "done", "full_zip_url": "https://download.test/result?signed-url-secret"}]}}
+        return self.archive(self.chunk_pages) if callable(self.archive) else self.archive
+
+
+class MinerUApiTests(unittest.TestCase):
+    def pdf(self, pages):
+        temporary = tempfile.TemporaryDirectory()
+        path = Path(temporary.name) / "paper.pdf"
+        doc = pymupdf.open()
+        for _ in range(pages):
+            doc.new_page(width=600, height=800)
+        doc.save(path)
+        doc.close()
+        self.addCleanup(temporary.cleanup)
+        return path
+
+    def test_upload_poll_and_zip(self):
+        http = FakeHttp()
+        objects = parse_layout(self.pdf(1), "token-secret", http)
+        self.assertEqual([obj.kind for obj in objects], ["figure", "figure_caption"])
+        self.assertEqual(objects[0].page_number, 1)
+        self.assertEqual(objects[0].bbox, (100.0, 200.0, 300.0, 400.0))
+        self.assertEqual([call[0] for call in http.calls], ["POST", "PUT", "GET", "GET"])
+        self.assertEqual(json.loads(http.calls[0][3])["model_version"], "vlm")
+        self.assertEqual(http.calls[0][2]["Authorization"], "Bearer token-secret")
+        self.assertNotIn("Content-Type", http.calls[1][2])
+
+    def test_chunk_page_mapping(self):
+        http = FakeHttp(lambda count: fake_zip(page_index=40, width=300, height=400, page_count=count))
+        objects = parse_layout(self.pdf(221), "token-secret", http, page_limit=180)
+        self.assertEqual(len([call for call in http.calls if call[0] == "POST"]), 2)
+        self.assertEqual([obj.page_number for obj in objects if obj.kind == "figure"], [41, 221])
+        self.assertEqual(objects[-2].bbox, (200.0, 400.0, 600.0, 700.0))
+
+    def test_signed_put_has_no_implicit_form_content_type(self):
+        response = MagicMock()
+        response.__enter__.return_value.read.return_value = b""
+        with patch("pdf_rules.mineru_api._open", return_value=response) as opener:
+            UrllibHttpClient().request("PUT", "https://upload.test/signed", headers={}, data=b"pdf")
+        request = opener.call_args.args[0]
+        self.assertTrue(request.has_header("Content-type"))
+        self.assertFalse(any(key.lower() == "content-type" for key, _ in request.header_items()))
+    def test_api_failure_is_sanitized(self):
+        with self.assertRaises(MinerUError) as raised:
+            parse_layout(self.pdf(1), "token-secret", FakeHttp(failure="failure"))
+        self.assertNotIn("token-secret", str(raised.exception))
+        self.assertNotIn("signed-url-secret", str(raised.exception))
+
+
+
+    def test_partial_layout_is_rejected(self):
+        with self.assertRaises(MinerUError):
+            parse_layout(self.pdf(2), "token-secret", FakeHttp(fake_zip()))
+
+    def test_failed_large_segment_is_split_without_losing_original_page_mapping(self):
+        class SplitHttp(FakeHttp):
+            def request(self, method, url, **kw):
+                if method == "GET" and "/extract-results/batch/" in url and self.chunk_pages > 2:
+                    self.calls.append((method, url, {}, None))
+                    return {"code": 0, "data": {"extract_result": [{"state": "failed"}]}}
+                return super().request(method, url, **kw)
+        http = SplitHttp(lambda count: fake_zip(page_index=0, page_count=count))
+        objects = parse_layout(self.pdf(4), "fixture-token", http)
+        self.assertEqual([o.page_number for o in objects if o.kind == "figure"], [1, 3])
+        self.assertEqual(sum(c[0] == "POST" for c in http.calls), 3)
+
+    def test_forced_ocr_selects_pipeline_and_sets_the_file_ocr_flag(self):
+        http = FakeHttp()
+        parse_layout(self.pdf(1), "fixture-token", http, force_ocr=True)
+        body = json.loads(http.calls[0][3])
+        self.assertEqual(body["model_version"], "pipeline")
+        self.assertTrue(body["files"][0]["is_ocr"])
+
+    def test_failed_single_page_is_not_split_or_reported_as_completed(self):
+        class FailedHttp(FakeHttp):
+            def request(self, method, url, **kw):
+                if method == "GET" and "/extract-results/batch/" in url:
+                    return {"code": 0, "data": {"extract_result": [{"state": "failed"}]}}
+                return super().request(method, url, **kw)
+        http = FailedHttp()
+        with self.assertRaises(MinerUError):
+            parse_layout(self.pdf(1), "fixture-token", http)
+        self.assertEqual(sum(c[0] == "POST" for c in http.calls), 1)
+
+    def test_upright_ocr_preserves_rotation_and_maps_boxes_to_canonical_frame(self):
+        from hashlib import sha256
+        path=self.pdf(1)
+        with pymupdf.open(path) as pdf:
+            pdf[0].set_rotation(180);pdf.saveIncr()
+        before=sha256(path.read_bytes()).hexdigest();http=FakeHttp()
+        objects=parse_layout(path,'fixture-token',http,force_ocr=True,respect_rotation=True)
+        payload=next(c[3] for c in http.calls if c[0]=='PUT')
+        with pymupdf.open(stream=payload,filetype='pdf') as pdf:self.assertEqual(pdf[0].rotation,180)
+        self.assertEqual(objects[0].bbox,(300.0,400.0,500.0,600.0))
+        self.assertEqual((objects[0].page_width,objects[0].page_height),(600.0,800.0))
+        self.assertEqual(sha256(path.read_bytes()).hexdigest(),before)
+
+    def test_rotated_source_is_uploaded_unrotated_without_changing_the_pdf(self):
+        from hashlib import sha256
+        path = self.pdf(1)
+        with pymupdf.open(path) as doc:
+            doc[0].set_rotation(90)
+            doc.saveIncr()
+        before = sha256(path.read_bytes()).hexdigest()
+        http = FakeHttp()
+        parse_layout(path, "fixture-token", http)
+        payload = next(c[3] for c in http.calls if c[0] == "PUT")
+        with pymupdf.open(stream=payload, filetype="pdf") as uploaded:
+            self.assertEqual(uploaded[0].rotation, 0)
+        self.assertEqual(sha256(path.read_bytes()).hexdigest(), before)

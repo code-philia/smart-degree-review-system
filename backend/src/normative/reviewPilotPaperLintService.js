@@ -4,6 +4,8 @@ const os = require('os');
 const path = require('path');
 const { LOCAL_RULES, isLocalRuleId, runLocalFiveRules, summarizeRuleRuns } = require('./localFiveRulePaperLintService');
 
+const { getSixRules, isSixRuleId, runSixRules } = require('./sixRulePaperLintService');
+
 const MAX_PDF_BYTES = 50 * 1024 * 1024;
 const MAX_ENGINE_OUTPUT_BYTES = 30 * 1024 * 1024;
 const ENGINE_TIMEOUT_MS = 5 * 60 * 1000;
@@ -189,13 +191,13 @@ async function getPaperLintCatalog({ refresh = false } = {}) {
     catalogPromise = (async () => {
       try {
         const existing = await runBridge(['--catalog'], 30 * 1000);
-        return { ...existing, rules: [...LOCAL_RULES, ...existing.rules] };
+        return { ...existing, rules: [...LOCAL_RULES, ...getSixRules(), ...existing.rules] };
       } catch {
         // A temporary bridge failure must not hide the existing rule catalog indefinitely.
         catalogExpiresAt = 0;
         return {
           engine: 'sjtu-local', mode: 'pdf_lint', semantic_model: 'deepseek-v4-flash',
-          rules: [...LOCAL_RULES],
+          rules: [...LOCAL_RULES, ...getSixRules()],
           warning: '原有规则引擎暂不可用',
         };
       }
@@ -226,7 +228,7 @@ function validateSelectedRuleIds(catalog, selectedRuleIds) {
     (rule) => normalized.includes(rule.rule_id) && rule.available === false,
   );
   if (unavailable) {
-    throw createHttpError(503, `${unavailable.title || unavailable.rule_id}暂不可用，请联系管理员配置语义模型`);
+    throw createHttpError(503, `${unavailable.title || unavailable.rule_id}暂不可用，请联系管理员配置检测服务`);
   }
   return normalized;
 }
@@ -263,20 +265,22 @@ function mergePaperLintResults(existingResult, localResult, selectedRuleIds) {
   };
 }
 
-async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingConsent = false }) {
+async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingConsent = false, background = false }) {
   validatePdf(pdfBuffer);
   // The deadline covers catalog loading, queueing, and both engines so a timed-out
   // browser request cannot later persist a seemingly successful report.
   const requestedTimeout = Number(process.env.PAPER_LINT_RUN_TIMEOUT_MS);
   const timeoutMs = Number.isFinite(requestedTimeout) && requestedTimeout > 0
-    ? Math.min(requestedTimeout, ENGINE_TIMEOUT_MS) : ENGINE_TIMEOUT_MS;
+    ? Math.min(requestedTimeout, background ? 20 * 60 * 1000 : ENGINE_TIMEOUT_MS)
+    : background ? 20 * 60 * 1000 : ENGINE_TIMEOUT_MS;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const normalizedRuleIds = await normalizeSelectedRuleIds(selectedRuleIds, externalProcessingConsent);
     if (controller.signal.aborted) throw createHttpError(504, RUN_TIMEOUT_MESSAGE);
     const localIds = normalizedRuleIds.filter(isLocalRuleId);
-    const existingIds = normalizedRuleIds.filter((ruleId) => !isLocalRuleId(ruleId));
+    const sixIds = normalizedRuleIds.filter(isSixRuleId);
+    const existingIds = normalizedRuleIds.filter((ruleId) => !isLocalRuleId(ruleId) && !isSixRuleId(ruleId));
 
     return await withRunSlot(async () => {
       const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'smart-degree-paper-lint-'));
@@ -286,13 +290,16 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
         await fs.promises.writeFile(pdfPath, pdfBuffer, { flag: 'wx', mode: 0o600 });
         const localResult = localIds.length
           ? await runLocalFiveRules(pdfPath, localIds, { signal: controller.signal }) : null;
+        const sixResult = sixIds.length
+          ? await runSixRules(pdfPath, sixIds, { signal: controller.signal }) : null;
         const existingResult = existingIds.length ? await runBridge([
           '--pdf', pdfPath, ...existingIds.flatMap((ruleId) => ['--rule', ruleId]),
         ], ENGINE_TIMEOUT_MS, controller.signal) : null;
         if (controller.signal.aborted) throw createHttpError(504, RUN_TIMEOUT_MESSAGE);
-        const result = localResult && existingResult
-          ? mergePaperLintResults(existingResult, localResult, normalizedRuleIds)
-          : localResult || existingResult;
+        const parts = [existingResult, localResult, sixResult].filter(Boolean);
+        const result = parts.length > 1
+          ? mergePaperLintResults(parts[0], { rule_runs: parts.slice(1).flatMap((part) => part.rule_runs) }, normalizedRuleIds)
+          : parts[0];
         return { result, selectedRuleIds: normalizedRuleIds };
       } finally {
         await fs.promises.rm(tempDir, { recursive: true, force: true });
@@ -312,4 +319,5 @@ module.exports = {
   validateExternalProcessingConsent,
   validateSelectedRuleIds,
   validatePdf,
+  normalizeSelectedRuleIds,
 };

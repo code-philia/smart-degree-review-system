@@ -16,3 +16,9 @@ frontend/dist-ssr/
 logs/
 __pycache__/
 *.pyc
+
+# Isolated development worktrees
+.worktrees/
+
+# Private raw MinerU layouts and resumable parsing tasks
+backend/data/mineru-layout-cache/
