@@ -54,15 +54,25 @@ class TaskState:
     def __init__(self,cache,key,token):
         self.path=cache.folder/(key+'.pending.json')
         self.account=sha256(token.encode('utf-8')).hexdigest()
-    def read(self):
+    def _pending_record(self):
         try:
             record=json.loads(self.path.read_text(encoding='utf-8'))
             batch=record.get('batch_id')
-            if (record.get('account_sha')==self.account and isinstance(batch,str)
-                    and re.fullmatch(r'[A-Za-z0-9_-]{1,128}',batch)
+            if (isinstance(batch,str) and re.fullmatch(r'[A-Za-z0-9_-]{1,128}',batch)
                     and 0<=time.time()-record['submitted_at']<48*3600):
-                return batch
-        except (OSError,ValueError,KeyError,TypeError):pass
+                return record
+        except (OSError,ValueError,KeyError,TypeError,AttributeError):pass
+        return None
+    def pending_owner(self):
+        """Private ownership metadata only for a valid, live pending task."""
+        record=self._pending_record()
+        if record is None:return None
+        return (record.get('account_sha'),'account_sha' not in record)
+    def read(self,*,legacy_owned=False):
+        record=self._pending_record()
+        if record is not None and (record.get('account_sha')==self.account
+                or (legacy_owned is True and 'account_sha' not in record)):
+            return record['batch_id']
         return None
     def write(self,batch):
         temporary=self.path.with_name(self.path.name+'.'+uuid.uuid4().hex+'.tmp')

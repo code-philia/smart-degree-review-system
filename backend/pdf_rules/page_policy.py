@@ -173,6 +173,8 @@ def signature_page_reasons(document,objects=()):
   signed=any(value in text for value in ('签名','签字','作者签','日期'))
   if _verified_scan_regions(page,objects,'declaration'):
    reasons[page.number]='pixel_proved_scanned_declaration_or_authorization'
+  elif _verified_scan_regions(page,objects,'decision'):
+   reasons[page.number]='pixel_proved_scanned_thesis_defense_form';defense.add(page.number)
   elif title and legal and signed and not any(l.source=='signature_structure_cpu' for l in page.lines):
    reasons[page.number]='signed_thesis_declaration_or_authorization'
   elif (_complete_decision_schema(text) or decision_form(page) or _modern_decision(page,text)

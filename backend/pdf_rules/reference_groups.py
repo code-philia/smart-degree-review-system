@@ -1,7 +1,7 @@
 """Expand explicit citation ranges/lists while retaining their original ink spans."""
 import re
 from dataclasses import dataclass
-from .numbering import normalize_label, FIGURE_REFERENCE_LABEL, CITATION_AND
+from .numbering import normalize_label, FIGURE_REFERENCE_LABEL, CITATION_AND, NUMBER_SEPARATOR
 
 @dataclass(frozen=True)
 class ReferenceMatch:
@@ -20,7 +20,7 @@ class ReferenceMatch:
 
 # A hyphen within 7-2 is a chapter separator; between two complete chapter
 # labels (7.2-7.4 or 7-2-7-4) it denotes a range. Bare 2-4 stays ambiguous.
-RANGE=re.compile(r'^([A-Z]?\d+[.\-]\d+)\s*[-~至到]\s*([A-Z]?\d+[.\-]\d+)$',re.I)
+RANGE=re.compile(rf'^([A-Z]?\d+{NUMBER_SEPARATOR}\d+)\s*[-~至到]\s*([A-Z]?\d+{NUMBER_SEPARATOR}\d+)$',re.I)
 # Use the same complete label grammar at each endpoint. A numeric panel
 # suffix can precede a range separator, but identifiers such as F2D cannot.
 NEXT=re.compile(rf'\s*[)）]?\s*(?P<sep>以及|{CITATION_AND}|[,，、和及与]|至|到|[-~]|\bto\b|\s+)\s*(?P<word>图|表格?|Figures?|Figs?\.?|Tables?)?\s*[(（]?\s*'+FIGURE_REFERENCE_LABEL,re.I)

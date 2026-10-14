@@ -32,6 +32,7 @@ class PdfPage:
     legend_marks: tuple[tuple[float, float, float, float], ...] = ()
     display_rotation: int = 0
     graphics: tuple[tuple[float, float, float, float], ...] = ()
+    margin_barcodes: tuple[tuple[float, float, float, float], ...] = ()
 
 
 @dataclass(frozen=True)

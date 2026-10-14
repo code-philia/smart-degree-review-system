@@ -1,0 +1,2134 @@
+[
+  {
+    "evidence": "native consecutive panels",
+    "source_pdf": "SJTU_0057.pdf",
+    "page": {
+      "number": 84,
+      "width": 595.3200073242188,
+      "height": 841.9199829101562,
+      "lines": [
+        {
+          "page_number": 84,
+          "text": "第三章 低速域船舶粘流场及体积力法船-桨耦合模拟验证 ",
+          "bbox": [
+            177.3800048828125,
+            71.90098571777344,
+            403.239990234375,
+            81.86398315429688
+          ],
+          "page_width": 595.3200073242188,
+          "page_height": 841.9199829101562,
+          "source": "native",
+          "role": "",
+          "text_regions": [],
+          "reference_regions": [],
+          "block_id": null,
+          "direction": [
+            1.0,
+            0.0
+          ],
+          "font_size": null,
+          "bold": false
+        },
+        {
+          "page_number": 84,
+          "text": "第 70 页 ",
+          "bbox": [
+            271.25,
+            746.2769775390625,
+            309.5,
+            756.2399291992188
+          ],
+          "page_width": 595.3200073242188,
+          "page_height": 841.9199829101562,
+          "source": "native",
+          "role": "",
+          "text_regions": [],
+          "reference_regions": [],
+          "block_id": null,
+          "direction": [
+            1.0,
+            0.0
+          ],
+          "font_size": null,
+          "bold": false
+        },
+        {
+          "page_number": 84,
+          "text": "(a) 整体视图 ",
+          "bbox": [
+            259.1300048828125,
+            239.22317504882812,
+            321.77001953125,
+            251.06092834472656
+          ],
+          "page_width": 595.3200073242188,
+          "page_height": 841.9199829101562,
+          "source": "native",
+          "role": "",
+          "text_regions": [],
+          "reference_regions": [],
+          "block_id": null,
+          "direction": [
+            1.0,
+            0.0
+          ],
+          "font_size": null,
+          "bold": false
+        },
+        {
+          "page_number": 84,
+          "text": "(b) 艏部流线及轴向Liutex 发展 ",
+          "bbox": [
+            216.52999877929688,
+            395.2532043457031,
+            364.3900146484375,
+            407.0909423828125
+          ],
+          "page_width": 595.3200073242188,
+          "page_height": 841.9199829101562,
+          "source": "native",
+          "role": "",
+          "text_regions": [],
+          "reference_regions": [],
+          "block_id": null,
+          "direction": [
+            1.0,
+            0.0
+          ],
+          "font_size": null,
+          "bold": false
+        },
+        {
+          "page_number": 84,
+          "text": "(c) 尾部流线及轴向Liutex 发展 ",
+          "bbox": [
+            216.52999877929688,
+            551.2731323242188,
+            364.3900146484375,
+            563.1109008789062
+          ],
+          "page_width": 595.3200073242188,
+          "page_height": 841.9199829101562,
+          "source": "native",
+          "role": "",
+          "text_regions": [],
+          "reference_regions": [],
+          "block_id": null,
+          "direction": [
+            1.0,
+            0.0
+          ],
+          "font_size": null,
+          "bold": false
+        },
+        {
+          "page_number": 84,
+          "text": "(d) 桨轴下游流线及轴向Liutex 发展 ",
+          "bbox": [
+            206.08999633789062,
+            707.1831665039062,
+            374.95001220703125,
+            719.0209350585938
+          ],
+          "page_width": 595.3200073242188,
+          "page_height": 841.9199829101562,
+          "source": "native",
+          "role": "",
+          "text_regions": [],
+          "reference_regions": [],
+          "block_id": null,
+          "direction": [
+            1.0,
+            0.0
+          ],
+          "font_size": null,
+          "bold": false
+        }
+      ],
+      "unreadable": true,
+      "images": [
+        [
+          42.2400016784668,
+          99.23997497558594,
+          283.0799865722656,
+          234.719970703125
+        ],
+        [
+          294.6000061035156,
+          99.23997497558594,
+          535.4400024414062,
+          234.719970703125
+        ],
+        [
+          42.2400016784668,
+          255.23997497558594,
+          283.0799865722656,
+          390.719970703125
+        ],
+        [
+          294.6000061035156,
+          255.23997497558594,
+          535.4400024414062,
+          390.719970703125
+        ],
+        [
+          42.2400016784668,
+          411.239990234375,
+          283.0799865722656,
+          546.719970703125
+        ],
+        [
+          294.6000061035156,
+          411.239990234375,
+          535.4400024414062,
+          546.719970703125
+        ],
+        [
+          42.2400016784668,
+          567.1199951171875,
+          283.0799865722656,
+          702.719970703125
+        ],
+        [
+          294.6000061035156,
+          567.1199951171875,
+          535.4400024414062,
+          702.719970703125
+        ]
+      ],
+      "tables": [],
+      "ink_bottom": null,
+      "legend_marks": [],
+      "display_rotation": 0,
+      "graphics": [],
+      "margin_barcodes": []
+    },
+    "objects": [
+      {
+        "kind": "figure",
+        "page_number": 84,
+        "bbox": [
+          52.02796702665441,
+          98.10720371604675,
+          277.1489781996783,
+          232.25378838900863
+        ],
+        "text": "",
+        "page_width": 595.3200073242188,
+        "page_height": 841.9199829101562,
+        "role": "image_body",
+        "text_lines": [],
+        "panel_boxes": [],
+        "source_id": "mineru:3d46c4195dcf63e8afe10deae3471c6e02100697a04691bcf330e69831b87799:84:para_blocks:0:blocks:0",
+        "parent_id": "mineru:3d46c4195dcf63e8afe10deae3471c6e02100697a04691bcf330e69831b87799:84:para_blocks:0",
+        "parent_bbox": [
+          52.02796702665441,
+          98.10720371604675,
+          277.1489781996783,
+          232.25378838900863
+        ],
+        "parent_kind": "image",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "figure",
+        "page_number": 84,
+        "bbox": [
+          302.16242388556986,
+          99.10829763151662,
+          530.2850485409008,
+          232.25378838900863
+        ],
+        "text": "",
+        "page_width": 595.3200073242188,
+        "page_height": 841.9199829101562,
+        "role": "image_body",
+        "text_lines": [],
+        "panel_boxes": [],
+        "source_id": "mineru:3d46c4195dcf63e8afe10deae3471c6e02100697a04691bcf330e69831b87799:84:para_blocks:1:blocks:0",
+        "parent_id": "mineru:3d46c4195dcf63e8afe10deae3471c6e02100697a04691bcf330e69831b87799:84:para_blocks:1",
+        "parent_bbox": [
+          302.16242388556986,
+          99.10829763151662,
+          530.2850485409008,
+          232.25378838900863
+        ],
+        "parent_kind": "image",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "figure",
+        "page_number": 84,
+        "bbox": [
+          41.022050924862135,
+          254.27785452934566,
+          285.1532808191636,
+          388.42443920230755
+        ],
+        "text": "",
+        "page_width": 595.3200073242188,
+        "page_height": 841.9199829101562,
+        "role": "image_body",
+        "text_lines": [],
+        "panel_boxes": [],
+        "source_id": "mineru:3d46c4195dcf63e8afe10deae3471c6e02100697a04691bcf330e69831b87799:84:para_blocks:2:blocks:1",
+        "parent_id": "mineru:3d46c4195dcf63e8afe10deae3471c6e02100697a04691bcf330e69831b87799:84:para_blocks:2",
+        "parent_bbox": [
+          41.022050924862135,
+          254.27785452934566,
+          285.1532808191636,
+          388.42443920230755
+        ],
+        "parent_kind": "image",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "text",
+        "page_number": 84,
+        "bbox": [
+          257.1382216509651,
+          238.26035188182783,
+          318.17102912454044,
+          250.2734788674662
+        ],
+        "text": "(a) 整体视图",
+        "page_width": 595.3200073242188,
+        "page_height": 841.9199829101562,
+        "role": "image_caption",
+        "text_lines": [
+          [
+            "(a) 整体视图",
+            [
+              257.1382216509651,
+              238.26035188182783,
+              318.17102912454044,
+              250.2734788674662
+            ]
+          ]
+        ],
+        "panel_boxes": [],
+        "source_id": "mineru:3d46c4195dcf63e8afe10deae3471c6e02100697a04691bcf330e69831b87799:84:para_blocks:2:blocks:0:lines:0",
+        "parent_id": "mineru:3d46c4195dcf63e8afe10deae3471c6e02100697a04691bcf330e69831b87799:84:para_blocks:2:blocks:0",
+        "parent_bbox": [
+          256.1376838235294,
+          238.26035188182783,
+          320.17210477941177,
+          251.27457278293608
+        ],
+        "parent_kind": "image_caption",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "figure",
+        "page_number": 84,
+        "bbox": [
+          291.15650778377756,
+          254.27785452934566,
+          536.2882755055147,
+          386.4222513713678
+        ],
+        "text": "",
+        "page_width": 595.3200073242188,
+        "page_height": 841.9199829101562,
+        "role": "image_body",
+        "text_lines": [],
+        "panel_boxes": [],
+        "source_id": "mineru:3d46c4195dcf63e8afe10deae3471c6e02100697a04691bcf330e69831b87799:84:para_blocks:3:blocks:0",
+        "parent_id": "mineru:3d46c4195dcf63e8afe10deae3471c6e02100697a04691bcf330e69831b87799:84:para_blocks:3",
+        "parent_bbox": [
+          291.15650778377756,
+          254.27785452934566,
+          536.2882755055147,
+          386.4222513713678
+        ],
+        "parent_kind": "image",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "figure",
+        "page_number": 84,
+        "bbox": [
+          40.02151309742647,
+          412.4506931735843,
+          285.1532808191636,
+          544.5950900156065
+        ],
+        "text": "",
+        "page_width": 595.3200073242188,
+        "page_height": 841.9199829101562,
+        "role": "image_body",
+        "text_lines": [],
+        "panel_boxes": [],
+        "source_id": "mineru:3d46c4195dcf63e8afe10deae3471c6e02100697a04691bcf330e69831b87799:84:para_blocks:4:blocks:1",
+        "parent_id": "mineru:3d46c4195dcf63e8afe10deae3471c6e02100697a04691bcf330e69831b87799:84:para_blocks:4",
+        "parent_bbox": [
+          40.02151309742647,
+          412.4506931735843,
+          285.1532808191636,
+          544.5950900156065
+        ],
+        "parent_kind": "image",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "text",
+        "page_number": 84,
+        "bbox": [
+          215.1156328986673,
+          395.4320966105966,
+          361.1941557042739,
+          407.445223596235
+        ],
+        "text": "(b) 艏部流线及轴向 Liutex 发展",
+        "page_width": 595.3200073242188,
+        "page_height": 841.9199829101562,
+        "role": "image_caption",
+        "text_lines": [
+          [
+            "(b) 艏部流线及轴向 Liutex 发展",
+            [
+              215.1156328986673,
+              395.4320966105966,
+              361.1941557042739,
+              407.445223596235
+            ]
+          ]
+        ],
+        "panel_boxes": [],
+        "source_id": "mineru:3d46c4195dcf63e8afe10deae3471c6e02100697a04691bcf330e69831b87799:84:para_blocks:4:blocks:0:lines:0",
+        "parent_id": "mineru:3d46c4195dcf63e8afe10deae3471c6e02100697a04691bcf330e69831b87799:84:para_blocks:4:blocks:0",
+        "parent_bbox": [
+          213.11455724379596,
+          394.4310026951267,
+          362.19469353170956,
+          407.445223596235
+        ],
+        "parent_kind": "image_caption",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "figure",
+        "page_number": 84,
+        "bbox": [
+          291.15650778377756,
+          411.44959925811446,
+          536.2882755055147,
+          544.5950900156065
+        ],
+        "text": "",
+        "page_width": 595.3200073242188,
+        "page_height": 841.9199829101562,
+        "role": "image_body",
+        "text_lines": [],
+        "panel_boxes": [],
+        "source_id": "mineru:3d46c4195dcf63e8afe10deae3471c6e02100697a04691bcf330e69831b87799:84:para_blocks:5:blocks:0",
+        "parent_id": "mineru:3d46c4195dcf63e8afe10deae3471c6e02100697a04691bcf330e69831b87799:84:para_blocks:5",
+        "parent_bbox": [
+          291.15650778377756,
+          411.44959925811446,
+          536.2882755055147,
+          544.5950900156065
+        ],
+        "parent_kind": "image",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "figure",
+        "page_number": 84,
+        "bbox": [
+          52.02796702665441,
+          565.6180622404736,
+          286.1538186465993,
+          699.7646469134355
+        ],
+        "text": "",
+        "page_width": 595.3200073242188,
+        "page_height": 841.9199829101562,
+        "role": "image_body",
+        "text_lines": [],
+        "panel_boxes": [],
+        "source_id": "mineru:3d46c4195dcf63e8afe10deae3471c6e02100697a04691bcf330e69831b87799:84:para_blocks:6:blocks:1",
+        "parent_id": "mineru:3d46c4195dcf63e8afe10deae3471c6e02100697a04691bcf330e69831b87799:84:para_blocks:6",
+        "parent_bbox": [
+          52.02796702665441,
+          565.6180622404736,
+          286.1538186465993,
+          699.7646469134355
+        ],
+        "parent_kind": "image",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "text",
+        "page_number": 84,
+        "bbox": [
+          215.1156328986673,
+          550.6016535084257,
+          361.1941557042739,
+          562.614780494064
+        ],
+        "text": "(c) 尾部流线及轴向 Liutex 发展",
+        "page_width": 595.3200073242188,
+        "page_height": 841.9199829101562,
+        "role": "image_caption",
+        "text_lines": [
+          [
+            "(c) 尾部流线及轴向 Liutex 发展",
+            [
+              215.1156328986673,
+              550.6016535084257,
+              361.1941557042739,
+              562.614780494064
+            ]
+          ]
+        ],
+        "panel_boxes": [],
+        "source_id": "mineru:3d46c4195dcf63e8afe10deae3471c6e02100697a04691bcf330e69831b87799:84:para_blocks:6:blocks:0:lines:0",
+        "parent_id": "mineru:3d46c4195dcf63e8afe10deae3471c6e02100697a04691bcf330e69831b87799:84:para_blocks:6:blocks:0",
+        "parent_bbox": [
+          214.11509507123162,
+          550.6016535084257,
+          362.19469353170956,
+          563.615874409534
+        ],
+        "parent_kind": "image_caption",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "figure",
+        "page_number": 84,
+        "bbox": [
+          303.16296171300553,
+          565.6180622404736,
+          537.2888133329503,
+          699.7646469134355
+        ],
+        "text": "",
+        "page_width": 595.3200073242188,
+        "page_height": 841.9199829101562,
+        "role": "image_body",
+        "text_lines": [],
+        "panel_boxes": [],
+        "source_id": "mineru:3d46c4195dcf63e8afe10deae3471c6e02100697a04691bcf330e69831b87799:84:para_blocks:7:blocks:0",
+        "parent_id": "mineru:3d46c4195dcf63e8afe10deae3471c6e02100697a04691bcf330e69831b87799:84:para_blocks:7",
+        "parent_bbox": [
+          303.16296171300553,
+          565.6180622404736,
+          537.2888133329503,
+          699.7646469134355
+        ],
+        "parent_kind": "image",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "text",
+        "page_number": 84,
+        "bbox": [
+          205.11025462431067,
+          707.7733982371944,
+          371.19953397863054,
+          718.785431307363
+        ],
+        "text": "(d) 桨轴下游流线及轴向Liutex 发展",
+        "page_width": 595.3200073242188,
+        "page_height": 841.9199829101562,
+        "role": "image_caption",
+        "text_lines": [
+          [
+            "(d) 桨轴下游流线及轴向Liutex 发展",
+            [
+              205.11025462431067,
+              707.7733982371944,
+              371.19953397863054,
+              718.785431307363
+            ]
+          ]
+        ],
+        "panel_boxes": [],
+        "source_id": "mineru:3d46c4195dcf63e8afe10deae3471c6e02100697a04691bcf330e69831b87799:84:para_blocks:7:blocks:1:lines:0",
+        "parent_id": "mineru:3d46c4195dcf63e8afe10deae3471c6e02100697a04691bcf330e69831b87799:84:para_blocks:7:blocks:1",
+        "parent_bbox": [
+          203.10917896943934,
+          705.7712104062547,
+          373.20060963350187,
+          719.7865252228328
+        ],
+        "parent_kind": "image_caption",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "text",
+        "page_number": 84,
+        "bbox": [
+          177.09519545611212,
+          73.07985582930013,
+          399.21459314682903,
+          80.08751323758918
+        ],
+        "text": "第三章 低速域船舶粘流场及体积力法船-桨耦合模拟验证",
+        "page_width": 595.3200073242188,
+        "page_height": 841.9199829101562,
+        "role": "header",
+        "text_lines": [
+          [
+            "第三章 低速域船舶粘流场及体积力法船-桨耦合模拟验证",
+            [
+              177.09519545611212,
+              73.07985582930013,
+              399.21459314682903,
+              80.08751323758918
+            ]
+          ]
+        ],
+        "panel_boxes": [],
+        "source_id": "mineru:3d46c4195dcf63e8afe10deae3471c6e02100697a04691bcf330e69831b87799:84:discarded_blocks:0:lines:0",
+        "parent_id": "mineru:3d46c4195dcf63e8afe10deae3471c6e02100697a04691bcf330e69831b87799:84:discarded_blocks:0",
+        "parent_bbox": [
+          174.09358197380516,
+          70.07657408289053,
+          402.216206629136,
+          82.08970106852891
+        ],
+        "parent_kind": "header",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "text",
+        "page_number": 84,
+        "bbox": [
+          269.144675580193,
+          745.8149670250493,
+          307.1651130227482,
+          756.8270000952178
+        ],
+        "text": "第 70 页",
+        "page_width": 595.3200073242188,
+        "page_height": 841.9199829101562,
+        "role": "page_number",
+        "text_lines": [
+          [
+            "第 70 页",
+            [
+              269.144675580193,
+              745.8149670250493,
+              307.1651130227482,
+              756.8270000952178
+            ]
+          ]
+        ],
+        "panel_boxes": [],
+        "source_id": "mineru:3d46c4195dcf63e8afe10deae3471c6e02100697a04691bcf330e69831b87799:84:discarded_blocks:1:lines:0",
+        "parent_id": "mineru:3d46c4195dcf63e8afe10deae3471c6e02100697a04691bcf330e69831b87799:84:discarded_blocks:1",
+        "parent_bbox": [
+          268.14413775275733,
+          744.8138731095794,
+          308.16565085018385,
+          756.8270000952178
+        ],
+        "parent_kind": "page_number",
+        "caption_owner_id": ""
+      }
+    ]
+  },
+  {
+    "evidence": "native caption raster duplicates",
+    "source_pdf": "SJTU_EXTRA_0111.pdf",
+    "page": {
+      "number": 22,
+      "width": 612.0,
+      "height": 792.0,
+      "lines": [
+        {
+          "page_number": 22,
+          "text": "8 ",
+          "bbox": [
+            303.2900085449219,
+            731.2559814453125,
+            311.3050231933594,
+            742.2960205078125
+          ],
+          "page_width": 612.0,
+          "page_height": 792.0,
+          "source": "native",
+          "role": "",
+          "text_regions": [],
+          "reference_regions": [],
+          "block_id": null,
+          "direction": [
+            1.0,
+            0.0
+          ],
+          "font_size": null,
+          "bold": false
+        },
+        {
+          "page_number": 22,
+          "text": "入射光在两个不同组分处相互干涉的强Bragg 散射和相消干涉形成了光子带隙。当信号光",
+          "bbox": [
+            72.02400207519531,
+            73.32801818847656,
+            540.0999755859375,
+            86.61202239990234
+          ],
+          "page_width": 612.0,
+          "page_height": 792.0,
+          "source": "native",
+          "role": "",
+          "text_regions": [],
+          "reference_regions": [],
+          "block_id": null,
+          "direction": [
+            1.0,
+            0.0
+          ],
+          "font_size": null,
+          "bold": false
+        },
+        {
+          "page_number": 22,
+          "text": "的频率在阻带（stop band）中时，光子晶体则可完全反射掉信号光。通过在理想的光子晶",
+          "bbox": [
+            72.02400207519531,
+            96.72798156738281,
+            539.97998046875,
+            110.0119857788086
+          ],
+          "page_width": 612.0,
+          "page_height": 792.0,
+          "source": "native",
+          "role": "",
+          "text_regions": [],
+          "reference_regions": [],
+          "block_id": null,
+          "direction": [
+            1.0,
+            0.0
+          ],
+          "font_size": null,
+          "bold": false
+        },
+        {
+          "page_number": 22,
+          "text": "Fig. 1.3 (a) An SEM picture of the microring resonator with 1.5-μm radius coupled to a waveguide. (b) A ",
+          "bbox": [
+            73.58399963378906,
+            630.5833740234375,
+            541.982421875,
+            642.8046264648438
+          ],
+          "page_width": 612.0,
+          "page_height": 792.0,
+          "source": "native",
+          "role": "",
+          "text_regions": [],
+          "reference_regions": [],
+          "block_id": null,
+          "direction": [
+            1.0,
+            0.0
+          ],
+          "font_size": null,
+          "bold": false
+        },
+        {
+          "page_number": 22,
+          "text": "microscope picture of the cascaded microring resonators coupled to a U-shaped waveguide at the edge of ",
+          "bbox": [
+            73.58399963378906,
+            649.5433349609375,
+            542.019287109375,
+            661.7646484375
+          ],
+          "page_width": 612.0,
+          "page_height": 792.0,
+          "source": "native",
+          "role": "",
+          "text_regions": [],
+          "reference_regions": [],
+          "block_id": null,
+          "direction": [
+            1.0,
+            0.0
+          ],
+          "font_size": null,
+          "bold": false
+        },
+        {
+          "page_number": 22,
+          "text": "the chip [31]. (c) A one-dimensional periodic photonic crystal [22]. (d) Plasmon-enhanced optical",
+          "bbox": [
+            73.58399963378906,
+            668.5032958984375,
+            539.41162109375,
+            680.724609375
+          ],
+          "page_width": 612.0,
+          "page_height": 792.0,
+          "source": "native",
+          "role": "",
+          "text_regions": [],
+          "reference_regions": [],
+          "block_id": null,
+          "direction": [
+            1.0,
+            0.0
+          ],
+          "font_size": null,
+          "bold": false
+        },
+        {
+          "page_number": 22,
+          "text": "nonlinear effects on aluminum surface in femtosecond optical modulation [43]. ",
+          "bbox": [
+            73.58399963378906,
+            687.4593505859375,
+            425.3500061035156,
+            699.6806640625
+          ],
+          "page_width": 612.0,
+          "page_height": 792.0,
+          "source": "native",
+          "role": "",
+          "text_regions": [],
+          "reference_regions": [],
+          "block_id": null,
+          "direction": [
+            1.0,
+            0.0
+          ],
+          "font_size": null,
+          "bold": false
+        },
+        {
+          "page_number": 22,
+          "text": "图1.3 （a）为直径1.5 微米的微环形腔与一直线波导耦合的扫描电子显微镜图像；（b）级联的微",
+          "bbox": [
+            72.02400207519531,
+            557.3533935546875,
+            538.5385131835938,
+            569.5746459960938
+          ],
+          "page_width": 612.0,
+          "page_height": 792.0,
+          "source": "native",
+          "role": "",
+          "text_regions": [],
+          "reference_regions": [],
+          "block_id": null,
+          "direction": [
+            1.0,
+            0.0
+          ],
+          "font_size": null,
+          "bold": false
+        },
+        {
+          "page_number": 22,
+          "text": "环形腔耦合到芯片边沿的U 型波导的微观图像[31]；（c）一维周期性光子晶体示意图[22]；（d）",
+          "bbox": [
+            72.02400207519531,
+            578.743408203125,
+            539.1399536132812,
+            590.9646606445312
+          ],
+          "page_width": 612.0,
+          "page_height": 792.0,
+          "source": "native",
+          "role": "",
+          "text_regions": [],
+          "reference_regions": [],
+          "block_id": null,
+          "direction": [
+            1.0,
+            0.0
+          ],
+          "font_size": null,
+          "bold": false
+        },
+        {
+          "page_number": 22,
+          "text": "表面等离激元增强铝表面非线性效应[43]。 ",
+          "bbox": [
+            72.02400207519531,
+            595.7196655273438,
+            281.3599853515625,
+            613.3873901367188
+          ],
+          "page_width": 612.0,
+          "page_height": 792.0,
+          "source": "native",
+          "role": "",
+          "text_regions": [],
+          "reference_regions": [],
+          "block_id": null,
+          "direction": [
+            1.0,
+            0.0
+          ],
+          "font_size": null,
+          "bold": false
+        }
+      ],
+      "unreadable": true,
+      "images": [
+        [
+          73.55999755859375,
+          630.3600463867188,
+          539.280029296875,
+          716.1600341796875
+        ],
+        [
+          72.0,
+          556.0799560546875,
+          540.0,
+          630.239990234375
+        ],
+        [
+          72.0,
+          112.0799560546875,
+          540.0,
+          526.0799560546875
+        ]
+      ],
+      "tables": [],
+      "ink_bottom": null,
+      "legend_marks": [],
+      "display_rotation": 0,
+      "graphics": [],
+      "margin_barcodes": []
+    },
+    "objects": [
+      {
+        "kind": "figure",
+        "page_number": 22,
+        "bbox": [
+          7.0,
+          0.0,
+          85.0,
+          49.0
+        ],
+        "text": "",
+        "page_width": 612.0,
+        "page_height": 792.0,
+        "role": "image_body",
+        "text_lines": [],
+        "panel_boxes": [],
+        "source_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:22:para_blocks:0:blocks:0",
+        "parent_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:22:para_blocks:0",
+        "parent_bbox": [
+          7.0,
+          0.0,
+          85.0,
+          49.0
+        ],
+        "parent_kind": "image",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "text",
+        "page_number": 22,
+        "bbox": [
+          22.0,
+          49.0,
+          68.0,
+          61.0
+        ],
+        "text": "4007181",
+        "page_width": 612.0,
+        "page_height": 792.0,
+        "role": "image_footnote",
+        "text_lines": [
+          [
+            "4007181",
+            [
+              22.0,
+              49.0,
+              68.0,
+              61.0
+            ]
+          ]
+        ],
+        "panel_boxes": [],
+        "source_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:22:para_blocks:0:blocks:1:lines:0",
+        "parent_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:22:para_blocks:0:blocks:1",
+        "parent_bbox": [
+          23.0,
+          49.0,
+          69.0,
+          60.0
+        ],
+        "parent_kind": "image_footnote",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "figure",
+        "page_number": 22,
+        "bbox": [
+          109.0,
+          116.0,
+          498.0,
+          297.0
+        ],
+        "text": "",
+        "page_width": 612.0,
+        "page_height": 792.0,
+        "role": "image_body",
+        "text_lines": [],
+        "panel_boxes": [],
+        "source_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:22:para_blocks:2:blocks:0",
+        "parent_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:22:para_blocks:2",
+        "parent_bbox": [
+          109.0,
+          116.0,
+          498.0,
+          297.0
+        ],
+        "parent_kind": "image",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "figure",
+        "page_number": 22,
+        "bbox": [
+          79.0,
+          324.0,
+          290.0,
+          472.0
+        ],
+        "text": "",
+        "page_width": 612.0,
+        "page_height": 792.0,
+        "role": "image_body",
+        "text_lines": [],
+        "panel_boxes": [],
+        "source_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:22:para_blocks:3:blocks:0",
+        "parent_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:22:para_blocks:3",
+        "parent_bbox": [
+          79.0,
+          324.0,
+          290.0,
+          472.0
+        ],
+        "parent_kind": "image",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "figure",
+        "page_number": 22,
+        "bbox": [
+          293.0,
+          322.0,
+          536.0,
+          526.0
+        ],
+        "text": "",
+        "page_width": 612.0,
+        "page_height": 792.0,
+        "role": "image_body",
+        "text_lines": [],
+        "panel_boxes": [],
+        "source_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:22:para_blocks:4:blocks:0",
+        "parent_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:22:para_blocks:4",
+        "parent_bbox": [
+          293.0,
+          322.0,
+          536.0,
+          526.0
+        ],
+        "parent_kind": "image",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "text",
+        "page_number": 22,
+        "bbox": [
+          72.0,
+          558.0,
+          536.0,
+          567.0
+        ],
+        "text": "图1.3（a）为直径 1.5微米的微环形腔与一直线波导耦合的扫描电子显微镜图像；（b）级联的微",
+        "page_width": 612.0,
+        "page_height": 792.0,
+        "role": "image_caption",
+        "text_lines": [
+          [
+            "图1.3（a）为直径 1.5微米的微环形腔与一直线波导耦合的扫描电子显微镜图像；（b）级联的微",
+            [
+              72.0,
+              558.0,
+              536.0,
+              567.0
+            ]
+          ]
+        ],
+        "panel_boxes": [],
+        "source_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:22:para_blocks:4:blocks:1:lines:0",
+        "parent_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:22:para_blocks:4:blocks:1",
+        "parent_bbox": [
+          69.0,
+          555.0,
+          539.0,
+          614.0
+        ],
+        "parent_kind": "image_caption",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "text",
+        "page_number": 22,
+        "bbox": [
+          71.0,
+          578.0,
+          531.0,
+          590.0
+        ],
+        "text": "环形腔耦合到芯片边沿的 U型波导的微观图像[31]；（c）一维周期性光子晶体示意图[22]；（d）",
+        "page_width": 612.0,
+        "page_height": 792.0,
+        "role": "image_caption",
+        "text_lines": [
+          [
+            "环形腔耦合到芯片边沿的 U型波导的微观图像[31]；（c）一维周期性光子晶体示意图[22]；（d）",
+            [
+              71.0,
+              578.0,
+              531.0,
+              590.0
+            ]
+          ]
+        ],
+        "panel_boxes": [],
+        "source_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:22:para_blocks:4:blocks:1:lines:1",
+        "parent_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:22:para_blocks:4:blocks:1",
+        "parent_bbox": [
+          69.0,
+          555.0,
+          539.0,
+          614.0
+        ],
+        "parent_kind": "image_caption",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "text",
+        "page_number": 22,
+        "bbox": [
+          71.0,
+          600.0,
+          269.0,
+          611.0
+        ],
+        "text": "表面等离激元增强铝表面非线性效应[43]。",
+        "page_width": 612.0,
+        "page_height": 792.0,
+        "role": "image_caption",
+        "text_lines": [
+          [
+            "表面等离激元增强铝表面非线性效应[43]。",
+            [
+              71.0,
+              600.0,
+              269.0,
+              611.0
+            ]
+          ]
+        ],
+        "panel_boxes": [],
+        "source_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:22:para_blocks:4:blocks:1:lines:2",
+        "parent_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:22:para_blocks:4:blocks:1",
+        "parent_bbox": [
+          69.0,
+          555.0,
+          539.0,
+          614.0
+        ],
+        "parent_kind": "image_caption",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "figure_caption",
+        "page_number": 22,
+        "bbox": [
+          69.0,
+          629.0,
+          541.0,
+          701.0
+        ],
+        "text": "Fig. 1.3 (a) An SEM picture of the microring resonator with 1.5-μm radius coupled to a waveguide. (b) Amicroscope picture of the cascaded microring resonators coupled to a U-shaped waveguide at the edge ofthe chip [31]. (c) A one-dimensional periodic photonic crystal [22]. (d) Plasmon-enhanced opticalnonlinear effects on aluminum surface in femtosecond optical modulation [43].",
+        "page_width": 612.0,
+        "page_height": 792.0,
+        "role": "image_caption",
+        "text_lines": [
+          [
+            "Fig. 1.3 (a) An SEM picture of the microring resonator with 1.5-μm radius coupled to a waveguide. (b) A",
+            [
+              72.0,
+              632.0,
+              539.0,
+              642.0
+            ]
+          ],
+          [
+            "microscope picture of the cascaded microring resonators coupled to a U-shaped waveguide at the edge of",
+            [
+              72.0,
+              651.0,
+              539.0,
+              662.0
+            ]
+          ],
+          [
+            "the chip [31]. (c) A one-dimensional periodic photonic crystal [22]. (d) Plasmon-enhanced optical",
+            [
+              72.0,
+              670.0,
+              539.0,
+              680.0
+            ]
+          ],
+          [
+            "nonlinear effects on aluminum surface in femtosecond optical modulation [43].",
+            [
+              72.0,
+              688.0,
+              422.0,
+              700.0
+            ]
+          ]
+        ],
+        "panel_boxes": [],
+        "source_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:22:para_blocks:4:blocks:2",
+        "parent_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:22:para_blocks:4",
+        "parent_bbox": [
+          293.0,
+          322.0,
+          536.0,
+          526.0
+        ],
+        "parent_kind": "image",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "text",
+        "page_number": 22,
+        "bbox": [
+          302.0,
+          731.0,
+          309.0,
+          741.0
+        ],
+        "text": "8",
+        "page_width": 612.0,
+        "page_height": 792.0,
+        "role": "page_number",
+        "text_lines": [
+          [
+            "8",
+            [
+              302.0,
+              731.0,
+              309.0,
+              741.0
+            ]
+          ]
+        ],
+        "panel_boxes": [],
+        "source_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:22:discarded_blocks:0:lines:0",
+        "parent_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:22:discarded_blocks:0",
+        "parent_bbox": [
+          301.0,
+          731.0,
+          309.0,
+          740.0
+        ],
+        "parent_kind": "page_number",
+        "caption_owner_id": ""
+      }
+    ]
+  },
+  {
+    "evidence": "native caption raster duplicates",
+    "source_pdf": "SJTU_EXTRA_0111.pdf",
+    "page": {
+      "number": 66,
+      "width": 612.0,
+      "height": 792.0,
+      "lines": [
+        {
+          "page_number": 66,
+          "text": "52 ",
+          "bbox": [
+            300.4100036621094,
+            731.2559814453125,
+            314.0650329589844,
+            742.2960205078125
+          ],
+          "page_width": 612.0,
+          "page_height": 792.0,
+          "source": "native",
+          "role": "",
+          "text_regions": [],
+          "reference_regions": [],
+          "block_id": null,
+          "direction": [
+            1.0,
+            0.0
+          ],
+          "font_size": null,
+          "bold": false
+        },
+        {
+          "page_number": 66,
+          "text": "图5.1  不同文献中通过z 扫描方法测得的三阶非线性光学极化率𝜒(3)随激光脉宽变化的关系[17]。 ",
+          "bbox": [
+            72.02400207519531,
+            283.7720031738281,
+            539.739990234375,
+            297.94085693359375
+          ],
+          "page_width": 612.0,
+          "page_height": 792.0,
+          "source": "native",
+          "role": "",
+          "text_regions": [],
+          "reference_regions": [],
+          "block_id": null,
+          "direction": [
+            1.0,
+            0.0
+          ],
+          "font_size": null,
+          "bold": false
+        },
+        {
+          "page_number": 66,
+          "text": "蓝色和红色分别表示原始值为负数和正数。 ",
+          "bbox": [
+            72.02400207519531,
+            307.13336181640625,
+            283.7300109863281,
+            319.3546447753906
+          ],
+          "page_width": 612.0,
+          "page_height": 792.0,
+          "source": "native",
+          "role": "",
+          "text_regions": [],
+          "reference_regions": [],
+          "block_id": null,
+          "direction": [
+            1.0,
+            0.0
+          ],
+          "font_size": null,
+          "bold": false
+        },
+        {
+          "page_number": 66,
+          "text": "Fig. 5.1 Converted values of the third order nonlinear susceptibility 𝜒(3) plotted against the duration of the",
+          "bbox": [
+            72.02400207519531,
+            331.6520080566406,
+            540.3397216796875,
+            345.82086181640625
+          ],
+          "page_width": 612.0,
+          "page_height": 792.0,
+          "source": "native",
+          "role": "",
+          "text_regions": [],
+          "reference_regions": [],
+          "block_id": null,
+          "direction": [
+            1.0,
+            0.0
+          ],
+          "font_size": null,
+          "bold": false
+        },
+        {
+          "page_number": 66,
+          "text": "laser pulse from reported z-scan measurements [17]. The thick blue and thin red markers indicate that the ",
+          "bbox": [
+            72.02400207519531,
+            352.6133728027344,
+            542.952880859375,
+            364.83465576171875
+          ],
+          "page_width": 612.0,
+          "page_height": 792.0,
+          "source": "native",
+          "role": "",
+          "text_regions": [],
+          "reference_regions": [],
+          "block_id": null,
+          "direction": [
+            1.0,
+            0.0
+          ],
+          "font_size": null,
+          "bold": false
+        },
+        {
+          "page_number": 66,
+          "text": "original values are negative and positive, respectively. ",
+          "bbox": [
+            72.02400207519531,
+            371.5733642578125,
+            313.7300109863281,
+            383.7946472167969
+          ],
+          "page_width": 612.0,
+          "page_height": 792.0,
+          "source": "native",
+          "role": "",
+          "text_regions": [],
+          "reference_regions": [],
+          "block_id": null,
+          "direction": [
+            1.0,
+            0.0
+          ],
+          "font_size": null,
+          "bold": false
+        },
+        {
+          "page_number": 66,
+          "text": "图5.2 脉冲能量为100 nJ、光斑大小为40 μm 的脉冲作用下理论计算的非线性吸收系数𝛽𝑡ℎ随脉冲",
+          "bbox": [
+            72.02400207519531,
+            593.9320068359375,
+            540.4599609375,
+            608.48486328125
+          ],
+          "page_width": 612.0,
+          "page_height": 792.0,
+          "source": "native",
+          "role": "",
+          "text_regions": [],
+          "reference_regions": [],
+          "block_id": null,
+          "direction": [
+            1.0,
+            0.0
+          ],
+          "font_size": null,
+          "bold": false
+        },
+        {
+          "page_number": 66,
+          "text": "宽度的关系，阴影区域表示实验脉宽范围；红色虚线表示电子温度峰值随入射光脉宽的关系",
+          "bbox": [
+            72.02400207519531,
+            616.2966918945312,
+            539.8441772460938,
+            627.336669921875
+          ],
+          "page_width": 612.0,
+          "page_height": 792.0,
+          "source": "native",
+          "role": "",
+          "text_regions": [],
+          "reference_regions": [],
+          "block_id": null,
+          "direction": [
+            1.0,
+            0.0
+          ],
+          "font_size": null,
+          "bold": false
+        },
+        {
+          "page_number": 66,
+          "text": "[118]。  ",
+          "bbox": [
+            72.02400207519531,
+            637.3033447265625,
+            112.34000396728516,
+            649.524658203125
+          ],
+          "page_width": 612.0,
+          "page_height": 792.0,
+          "source": "native",
+          "role": "",
+          "text_regions": [],
+          "reference_regions": [],
+          "block_id": null,
+          "direction": [
+            1.0,
+            0.0
+          ],
+          "font_size": null,
+          "bold": false
+        },
+        {
+          "page_number": 66,
+          "text": "Fig. 5.2 Calculated 𝛽𝑡ℎ as a function of pulse width for a 100-nJ pulse energy, a 40-μm beam diameter. The",
+          "bbox": [
+            72.02400207519531,
+            659.092041015625,
+            540.4671630859375,
+            673.6448364257812
+          ],
+          "page_width": 612.0,
+          "page_height": 792.0,
+          "source": "native",
+          "role": "",
+          "text_regions": [],
+          "reference_regions": [],
+          "block_id": null,
+          "direction": [
+            1.0,
+            0.0
+          ],
+          "font_size": null,
+          "bold": false
+        },
+        {
+          "page_number": 66,
+          "text": "shaded area indicates the range of conditions for which the experiments are performed. The behavior of the ",
+          "bbox": [
+            72.02400207519531,
+            678.8233642578125,
+            542.8470458984375,
+            691.044677734375
+          ],
+          "page_width": 612.0,
+          "page_height": 792.0,
+          "source": "native",
+          "role": "",
+          "text_regions": [],
+          "reference_regions": [],
+          "block_id": null,
+          "direction": [
+            1.0,
+            0.0
+          ],
+          "font_size": null,
+          "bold": false
+        },
+        {
+          "page_number": 66,
+          "text": "peak electron temperature 𝑇𝑚𝑎𝑥, as a function of pulse width is plotted with the red dashed line [118].  ",
+          "bbox": [
+            72.02400207519531,
+            697.3680419921875,
+            525.4600219726562,
+            711.9208374023438
+          ],
+          "page_width": 612.0,
+          "page_height": 792.0,
+          "source": "native",
+          "role": "",
+          "text_regions": [],
+          "reference_regions": [],
+          "block_id": null,
+          "direction": [
+            1.0,
+            0.0
+          ],
+          "font_size": null,
+          "bold": false
+        }
+      ],
+      "unreadable": true,
+      "images": [
+        [
+          72.0,
+          284.280029296875,
+          540.239990234375,
+          337.20001220703125
+        ],
+        [
+          90.72000122070312,
+          72.00001525878906,
+          520.5599975585938,
+          269.760009765625
+        ],
+        [
+          72.0,
+          332.2799987792969,
+          540.239990234375,
+          392.2799987792969
+        ],
+        [
+          144.72000122070312,
+          390.0,
+          466.55999755859375,
+          589.2000122070312
+        ],
+        [
+          72.0,
+          593.280029296875,
+          540.239990234375,
+          653.280029296875
+        ],
+        [
+          72.0,
+          659.280029296875,
+          540.239990234375,
+          718.56005859375
+        ]
+      ],
+      "tables": [],
+      "ink_bottom": null,
+      "legend_marks": [],
+      "display_rotation": 0,
+      "graphics": [],
+      "margin_barcodes": []
+    },
+    "objects": [
+      {
+        "kind": "text",
+        "page_number": 66,
+        "bbox": [
+          154.0,
+          75.0,
+          447.0,
+          105.0
+        ],
+        "text": "Smith99 (532 nm) Lee06 (600 nm) Rotenberg07 (630 nm)\nWang04 (532 nm) Xenogiannopoulou07 (532 nm)",
+        "page_width": 612.0,
+        "page_height": 792.0,
+        "role": "code_body",
+        "text_lines": [
+          [
+            "Smith99 (532 nm) Lee06 (600 nm) Rotenberg07 (630 nm)\nWang04 (532 nm) Xenogiannopoulou07 (532 nm)",
+            [
+              154.0,
+              75.0,
+              447.0,
+              105.0
+            ]
+          ]
+        ],
+        "panel_boxes": [],
+        "source_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:66:para_blocks:0:blocks:0:lines:0",
+        "parent_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:66:para_blocks:0:blocks:0",
+        "parent_bbox": [
+          154.0,
+          75.0,
+          447.0,
+          105.0
+        ],
+        "parent_kind": "code_body",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "figure",
+        "page_number": 66,
+        "bbox": [
+          89.0,
+          110.0,
+          302.0,
+          270.0
+        ],
+        "text": "",
+        "page_width": 612.0,
+        "page_height": 792.0,
+        "role": "chart_body",
+        "text_lines": [],
+        "panel_boxes": [],
+        "source_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:66:para_blocks:1:blocks:0",
+        "parent_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:66:para_blocks:1",
+        "parent_bbox": [
+          89.0,
+          110.0,
+          302.0,
+          270.0
+        ],
+        "parent_kind": "chart",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "figure",
+        "page_number": 66,
+        "bbox": [
+          309.0,
+          110.0,
+          521.0,
+          269.0
+        ],
+        "text": "",
+        "page_width": 612.0,
+        "page_height": 792.0,
+        "role": "chart_body",
+        "text_lines": [],
+        "panel_boxes": [],
+        "source_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:66:para_blocks:2:blocks:0",
+        "parent_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:66:para_blocks:2",
+        "parent_bbox": [
+          309.0,
+          110.0,
+          521.0,
+          269.0
+        ],
+        "parent_kind": "chart",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "equation",
+        "page_number": 66,
+        "bbox": [
+          376.0,
+          284.0,
+          396.0,
+          298.0
+        ],
+        "text": "\\cdot \\chi ^ { ( 3 ) }",
+        "page_width": 612.0,
+        "page_height": 792.0,
+        "role": "inline_equation",
+        "text_lines": [],
+        "panel_boxes": [],
+        "source_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:66:para_blocks:2:blocks:1:lines:0:spans:1",
+        "parent_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:66:para_blocks:2:blocks:1",
+        "parent_bbox": [
+          68.0,
+          284.0,
+          531.0,
+          320.0
+        ],
+        "parent_kind": "chart_caption",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "figure_caption",
+        "page_number": 66,
+        "bbox": [
+          68.0,
+          284.0,
+          531.0,
+          320.0
+        ],
+        "text": "图5.1 不同文献中通过 z扫描方法测得的三阶非线性光学极化率\\cdot \\chi ^ { ( 3 ) }随激光脉宽变化的关系[17]。蓝色和红色分别表示原始值为负数和正数。",
+        "page_width": 612.0,
+        "page_height": 792.0,
+        "role": "chart_caption",
+        "text_lines": [
+          [
+            "图5.1 不同文献中通过 z扫描方法测得的三阶非线性光学极化率\\cdot \\chi ^ { ( 3 ) }随激光脉宽变化的关系[17]。",
+            [
+              72.0,
+              284.0,
+              529.0,
+              298.0
+            ]
+          ],
+          [
+            "蓝色和红色分别表示原始值为负数和正数。",
+            [
+              72.0,
+              308.0,
+              273.0,
+              317.0
+            ]
+          ]
+        ],
+        "panel_boxes": [],
+        "source_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:66:para_blocks:2:blocks:1",
+        "parent_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:66:para_blocks:2",
+        "parent_bbox": [
+          309.0,
+          110.0,
+          521.0,
+          269.0
+        ],
+        "parent_kind": "chart",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "figure",
+        "page_number": 66,
+        "bbox": [
+          147.0,
+          399.0,
+          462.0,
+          583.0
+        ],
+        "text": "",
+        "page_width": 612.0,
+        "page_height": 792.0,
+        "role": "chart_body",
+        "text_lines": [],
+        "panel_boxes": [],
+        "source_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:66:para_blocks:3:blocks:1",
+        "parent_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:66:para_blocks:3",
+        "parent_bbox": [
+          147.0,
+          399.0,
+          462.0,
+          583.0
+        ],
+        "parent_kind": "chart",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "equation",
+        "page_number": 66,
+        "bbox": [
+          369.0,
+          332.0,
+          389.0,
+          346.0
+        ],
+        "text": "\\chi ^ { ( 3 ) }",
+        "page_width": 612.0,
+        "page_height": 792.0,
+        "role": "inline_equation",
+        "text_lines": [],
+        "panel_boxes": [],
+        "source_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:66:para_blocks:3:blocks:0:lines:0:spans:1",
+        "parent_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:66:para_blocks:3:blocks:0",
+        "parent_bbox": [
+          68.0,
+          332.0,
+          542.0,
+          386.0
+        ],
+        "parent_kind": "chart_caption",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "figure_caption",
+        "page_number": 66,
+        "bbox": [
+          68.0,
+          332.0,
+          542.0,
+          386.0
+        ],
+        "text": "Fig. 5.1 Converted values of the third order nonlinear susceptibility\\chi ^ { ( 3 ) }plotted against the duration of thelaser pulse from reported z-scan measurements [17]. The thick blue and thin red markers indicate that theoriginal values are negative and positive, respectively.",
+        "page_width": 612.0,
+        "page_height": 792.0,
+        "role": "chart_caption",
+        "text_lines": [
+          [
+            "Fig. 5.1 Converted values of the third order nonlinear susceptibility\\chi ^ { ( 3 ) }plotted against the duration of the",
+            [
+              70.0,
+              332.0,
+              540.0,
+              346.0
+            ]
+          ],
+          [
+            "laser pulse from reported z-scan measurements [17]. The thick blue and thin red markers indicate that the",
+            [
+              71.0,
+              354.0,
+              539.0,
+              364.0
+            ]
+          ],
+          [
+            "original values are negative and positive, respectively.",
+            [
+              70.0,
+              372.0,
+              309.0,
+              384.0
+            ]
+          ]
+        ],
+        "panel_boxes": [],
+        "source_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:66:para_blocks:3:blocks:0",
+        "parent_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:66:para_blocks:3",
+        "parent_bbox": [
+          147.0,
+          399.0,
+          462.0,
+          583.0
+        ],
+        "parent_kind": "chart",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "equation",
+        "page_number": 66,
+        "bbox": [
+          260.0,
+          594.0,
+          292.0,
+          608.0
+        ],
+        "text": "4 0 ~ { \\mu \\mathrm { m } }",
+        "page_width": 612.0,
+        "page_height": 792.0,
+        "role": "inline_equation",
+        "text_lines": [],
+        "panel_boxes": [],
+        "source_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:66:para_blocks:3:blocks:2:lines:0:spans:1",
+        "parent_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:66:para_blocks:3:blocks:2",
+        "parent_bbox": [
+          68.0,
+          593.0,
+          542.0,
+          651.0
+        ],
+        "parent_kind": "chart_caption",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "equation",
+        "page_number": 66,
+        "bbox": [
+          490.0,
+          594.0,
+          506.0,
+          608.0
+        ],
+        "text": "\\cdot \\beta _ { t h }",
+        "page_width": 612.0,
+        "page_height": 792.0,
+        "role": "inline_equation",
+        "text_lines": [],
+        "panel_boxes": [],
+        "source_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:66:para_blocks:3:blocks:2:lines:0:spans:3",
+        "parent_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:66:para_blocks:3:blocks:2",
+        "parent_bbox": [
+          68.0,
+          593.0,
+          542.0,
+          651.0
+        ],
+        "parent_kind": "chart_caption",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "figure_caption",
+        "page_number": 66,
+        "bbox": [
+          68.0,
+          593.0,
+          542.0,
+          651.0
+        ],
+        "text": "图 5.2 脉冲能量为 100 nJ、光斑大小为4 0 ~ { \\mu \\mathrm { m } }的脉冲作用下理论计算的非线性吸收系数\\cdot \\beta _ { t h }随脉冲宽度的关系，阴影区域表示实验脉宽范围；红色虚线表示电子温度峰值随入射光脉宽的关系[118]。",
+        "page_width": 612.0,
+        "page_height": 792.0,
+        "role": "chart_caption",
+        "text_lines": [
+          [
+            "图 5.2 脉冲能量为 100 nJ、光斑大小为4 0 ~ { \\mu \\mathrm { m } }的脉冲作用下理论计算的非线性吸收系数\\cdot \\beta _ { t h }随脉冲",
+            [
+              72.0,
+              594.0,
+              539.0,
+              608.0
+            ]
+          ],
+          [
+            "宽度的关系，阴影区域表示实验脉宽范围；红色虚线表示电子温度峰值随入射光脉宽的关系",
+            [
+              72.0,
+              616.0,
+              539.0,
+              626.0
+            ]
+          ],
+          [
+            "[118]。",
+            [
+              69.0,
+              637.0,
+              101.0,
+              651.0
+            ]
+          ]
+        ],
+        "panel_boxes": [],
+        "source_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:66:para_blocks:3:blocks:2",
+        "parent_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:66:para_blocks:3",
+        "parent_bbox": [
+          147.0,
+          399.0,
+          462.0,
+          583.0
+        ],
+        "parent_kind": "chart",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "equation",
+        "page_number": 66,
+        "bbox": [
+          156.0,
+          660.0,
+          172.0,
+          673.0
+        ],
+        "text": "\\beta _ { t h }",
+        "page_width": 612.0,
+        "page_height": 792.0,
+        "role": "inline_equation",
+        "text_lines": [],
+        "panel_boxes": [],
+        "source_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:66:para_blocks:3:blocks:3:lines:0:spans:1",
+        "parent_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:66:para_blocks:3:blocks:3",
+        "parent_bbox": [
+          68.0,
+          658.0,
+          542.0,
+          712.0
+        ],
+        "parent_kind": "chart_caption",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "equation",
+        "page_number": 66,
+        "bbox": [
+          187.0,
+          697.0,
+          211.0,
+          712.0
+        ],
+        "text": "T _ { m a x }",
+        "page_width": 612.0,
+        "page_height": 792.0,
+        "role": "inline_equation",
+        "text_lines": [],
+        "panel_boxes": [],
+        "source_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:66:para_blocks:3:blocks:3:lines:2:spans:1",
+        "parent_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:66:para_blocks:3:blocks:3",
+        "parent_bbox": [
+          68.0,
+          658.0,
+          542.0,
+          712.0
+        ],
+        "parent_kind": "chart_caption",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "figure_caption",
+        "page_number": 66,
+        "bbox": [
+          68.0,
+          658.0,
+          542.0,
+          712.0
+        ],
+        "text": "Fig. 5.2 Calculated\\beta _ { t h }as a function of pulse width for a 100-nJ pulse energy, a 40-μm beam diameter. Theshaded area indicates the range of conditions for which the experiments are performed. The behavior of thepeak electron temperatureT _ { m a x }, as a function of pulse width is plotted with the red dashed line [118].",
+        "page_width": 612.0,
+        "page_height": 792.0,
+        "role": "chart_caption",
+        "text_lines": [
+          [
+            "Fig. 5.2 Calculated\\beta _ { t h }as a function of pulse width for a 100-nJ pulse energy, a 40-μm beam diameter. The",
+            [
+              70.0,
+              660.0,
+              539.0,
+              673.0
+            ]
+          ],
+          [
+            "shaded area indicates the range of conditions for which the experiments are performed. The behavior of the",
+            [
+              70.0,
+              679.0,
+              539.0,
+              690.0
+            ]
+          ],
+          [
+            "peak electron temperatureT _ { m a x }, as a function of pulse width is plotted with the red dashed line [118].",
+            [
+              70.0,
+              697.0,
+              518.0,
+              712.0
+            ]
+          ]
+        ],
+        "panel_boxes": [],
+        "source_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:66:para_blocks:3:blocks:3",
+        "parent_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:66:para_blocks:3",
+        "parent_bbox": [
+          147.0,
+          399.0,
+          462.0,
+          583.0
+        ],
+        "parent_kind": "chart",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "text",
+        "page_number": 66,
+        "bbox": [
+          22.0,
+          49.0,
+          68.0,
+          61.0
+        ],
+        "text": "4007181",
+        "page_width": 612.0,
+        "page_height": 792.0,
+        "role": "header",
+        "text_lines": [
+          [
+            "4007181",
+            [
+              22.0,
+              49.0,
+              68.0,
+              61.0
+            ]
+          ]
+        ],
+        "panel_boxes": [],
+        "source_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:66:discarded_blocks:1:lines:0",
+        "parent_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:66:discarded_blocks:1",
+        "parent_bbox": [
+          22.0,
+          49.0,
+          69.0,
+          60.0
+        ],
+        "parent_kind": "header",
+        "caption_owner_id": ""
+      },
+      {
+        "kind": "text",
+        "page_number": 66,
+        "bbox": [
+          298.0,
+          731.0,
+          312.0,
+          742.0
+        ],
+        "text": "52",
+        "page_width": 612.0,
+        "page_height": 792.0,
+        "role": "page_number",
+        "text_lines": [
+          [
+            "52",
+            [
+              298.0,
+              731.0,
+              312.0,
+              742.0
+            ]
+          ]
+        ],
+        "panel_boxes": [],
+        "source_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:66:discarded_blocks:2:lines:0",
+        "parent_id": "mineru:ca0748729a636b86ed5f38745515c01ac54558cd87f9092afd905671c12d4f03:66:discarded_blocks:2",
+        "parent_bbox": [
+          298.0,
+          730.0,
+          312.0,
+          741.0
+        ],
+        "parent_kind": "page_number",
+        "caption_owner_id": ""
+      }
+    ]
+  }
+]

@@ -98,7 +98,7 @@ def _image_roots(source_page):
 
 
 def _native_contributors(obj, page):
-    if obj.source_id or obj.role != 'native_figure' or obj.panel_boxes:
+    if obj.source_id or obj.role != 'native_figure':
         return []
     boxes = [b for b in page.images if _inside(b, obj.bbox) > .999]
     return boxes if boxes and _close(_union(boxes), obj.bbox) else []

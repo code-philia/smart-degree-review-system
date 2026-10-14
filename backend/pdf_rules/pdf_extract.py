@@ -5,6 +5,7 @@ import pymupdf
 from .model import PdfDocument, PdfLine, PdfPage
 from .numbering import normalize_text
 from .visible_images import visible_images
+from .barcode_carriers import margin_barcode_boxes
 from .native_graphics import visible_drawings
 from .text_fragments import merge_reference_fragments
 from .native_layout import raster_needs_ocr, three_line_tables, merge_caption_fragments, visible_ink_bottom, vertical_cell_borders, coloured_legend_marks
@@ -58,6 +59,8 @@ def extract_pdf(path: str | Path) -> PdfDocument:
                 if not visible.is_empty:
                     images.append(tuple(float(v) for v in visible))
             images = visible_images(page, tuple(images))
+            barcodes = margin_barcode_boxes(page, images, lines, display_rotation)
+            images = tuple(box for box in images if box not in barcodes)
             unreadable = raster_needs_ocr(lines, images, page.rect.width, page.rect.height)
             pages.append(PdfPage(
                 page_number, float(page.rect.width), float(page.rect.height), tuple(lines),
@@ -65,7 +68,9 @@ def extract_pdf(path: str | Path) -> PdfDocument:
                 graphics=tuple(tuple(float(v) for v in d["rect"]) for d in drawings
                                if d["rect"].width>3 and d["rect"].height>3),
                 images=images, tables=tables, legend_marks=coloured_legend_marks(page, drawings),display_rotation=display_rotation,
+                margin_barcodes=barcodes,
                 ink_bottom=visible_ink_bottom(page) if unreadable else None,
             ))
     from .caption_raster_prefixes import recover_raster_caption_prefixes
-    return recover_raster_caption_prefixes(PdfDocument(pdf_path, tuple(pages)))
+    from .parallel_captions import recover_parallel_native_captions
+    return recover_raster_caption_prefixes(recover_parallel_native_captions(PdfDocument(pdf_path, tuple(pages))))

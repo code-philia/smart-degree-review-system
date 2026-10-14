@@ -49,6 +49,7 @@ def build_index(document: PdfDocument, layout_objects=None) -> DocumentIndex:
     figure_regions = [o for o in (*list(layout_objects or ()),*native_regions) if o.kind=="figure"
                       and any(_matches(o,c) for c in captions)]
     caption_regions=caption_region_lines(document,layout_objects)
+    from .parallel_captions import parallel_caption_ranges
     for line in document.lines:
         text = normalize_text(line.text)
         # Directory entries cannot open document sections or appendix scopes.
@@ -84,7 +85,11 @@ def build_index(document: PdfDocument, layout_objects=None) -> DocumentIndex:
         # title still count (for example, "图 2.1 与图 1.1 对比").
         figure_start = figure_caption.end("number") if figure_caption else 0
         table_start = table_caption.end("number") if table_caption else 0
+        parallel_numbers = parallel_caption_ranges(line, pages[line.page_number])
         for match in reference_matches(FIGURE_REFERENCE,text):
+            if any(kind=='figure' and start<=match.start('number') and match.end('number')<=end
+                   for kind,start,end in parallel_numbers):
+                continue
             if (figure_caption or table_caption) and match.start("number") < max(figure_start,table_start):
                 continue
             if not local_reference(text, match) or graph_variable_use(text,match,graph_symbols):continue
@@ -93,6 +98,9 @@ def build_index(document: PdfDocument, layout_objects=None) -> DocumentIndex:
                 continue
             # Ordinary prose is parsed once after wrap reconstruction below.
         for match in reference_matches(TABLE_REFERENCE,text):
+            if any(kind=='table' and start<=match.start('number') and match.end('number')<=end
+                   for kind,start,end in parallel_numbers):
+                continue
             if (figure_caption or table_caption) and match.start("number") < max(figure_start,table_start):
                 continue
             if not local_reference(text, match):continue

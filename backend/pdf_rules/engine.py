@@ -11,7 +11,7 @@ from .caption_rules import detect_caption_rules
 from .index import build_index
 from .layout_context import recover_document, research_document, prepare_caption_layout
 from .local_rules import detect_rules
-from .mineru_api import MinerUError, parse_layout, MAX_POLL_SECONDS
+from .mineru_api import MinerUError, MinerUTaskBinding, parse_layout, MAX_POLL_SECONDS
 from .pdf_extract import extract_pdf
 from .page_policy import exclude_signature_pages
 
@@ -25,7 +25,59 @@ LOCAL = {11, 15, 16, 29}
 CLOUD = {13, 14}
 
 
-def detect(pdf_path: str | Path, selected_rule_numbers, *, token=None, http_client=None) -> dict:
+def _mineru_error_record(exc):
+    """Export only bounded structural diagnostics, never private request data."""
+    record = {"reason": str(exc)}
+    supplied = getattr(exc, "diagnostics", None)
+    if not isinstance(supplied, dict):
+        return record
+    error_types = {"HTTPError", "URLError", "OSError", "TimeoutError",
+                   "ConnectionResetError", "ConnectionRefusedError", "BrokenPipeError",
+                   "SSLError", "SSLEOFError", "SSLCertVerificationError",
+                   "IncompleteRead", "RemoteDisconnected", "MinerUError", "unknown"}
+    enums = {"account_failure": {"pool_invalid","pool_unavailable","pool_permissions",
+             "legacy_invalid","legacy_unavailable","legacy_permissions","legacy_missing",
+             "owner_invalid","owner_missing","owner_conflict","pdf_identity_invalid"},
+             "operation": {"GET", "POST", "PUT", "HEAD", "other"},
+             "timeout_phase": {"upload_slot", "connect", "request_send", "response_read"},
+             "exception_type": error_types, "reason_type": error_types,
+             "transport_mode": {"direct", "dedicated_proxy", "environment_proxy",
+                                "custom_client", "invalid"}}
+    diagnostics = {}
+    for key, allowed in enums.items():
+        value = supplied.get(key)
+        if type(value) is str and value in allowed:
+            diagnostics[key] = value
+    for key, bounds in {"attempts": (1, 4), "errno": (0, 65535),
+                        "http_status": (100, 599)}.items():
+        value = supplied.get(key)
+        if type(value) is int and bounds[0] <= value <= bounds[1]:
+            diagnostics[key] = value
+    if diagnostics:
+        record["diagnostics"] = diagnostics
+    return record
+
+
+
+def _configured_account_pool(secret):
+    """CLI workers opt into a private pool through explicit environment paths."""
+    from .mineru_account_pool import load_account_pool, MinerUAccountPool, MinerUAccountPoolError
+    legacy_path=os.environ.get("MINERU_LEGACY_TOKEN_FILE") or None
+    failure=None
+    try:
+        pool=load_account_pool(os.environ["MINERU_ACCOUNT_POOL_FILE"],legacy_token_path=legacy_path)
+        if legacy_path is None and secret:
+            # Existing CLI token configuration identifies the original account
+            # even when the JSON key list has been reordered.
+            pool=MinerUAccountPool.from_tokens((a.token for a in pool.accounts),legacy_token=secret)
+    except MinerUAccountPoolError as exc:
+        failure=exc.reason_code
+    if failure is not None:
+        raise MinerUError("MinerU PDF account ownership is unavailable",
+                          diagnostics={"account_failure":failure})
+    return pool
+
+def detect(pdf_path: str | Path, selected_rule_numbers, *, token=None, http_client=None, account_pool=None) -> dict:
     selected = set(selected_rule_numbers)
     usage_only = bool(selected) and selected <= {15, 16}
     def ocr_document(source, layout=()):
@@ -56,25 +108,34 @@ def detect(pdf_path: str | Path, selected_rule_numbers, *, token=None, http_clie
                 raise MinerUError("MinerU task timed out",retryable=True)
             return min(cap,remaining)
         secret = token if token is not None else os.environ.get("MINERU_API_TOKEN")
+        account_binding=None
+        auth_options={}
+        account_blocked=False
         # Retry a temporary full-layout failure within the same reserved
         # window. Raw task state lets the second attempt resume its upload.
         for attempt in range(2):
             stage="initial_layout" if attempt==0 else "initial_layout_retry"
             try:
+                if account_pool is None and "MINERU_ACCOUNT_POOL_FILE" in os.environ:
+                    account_pool=_configured_account_pool(secret)
+                if account_pool is not None and account_binding is None:
+                    account_binding=MinerUTaskBinding(account_pool,sha256(Path(pdf_path).read_bytes()).hexdigest())
+                    auth_options={"account_binding":account_binding}
                 initial_budget=budget(420 if needs_ocr else MAX_POLL_SECONDS,
                                       reserve=600 if needs_ocr else 0)
                 if selected & CLOUD:
-                    objects=parse_layout(pdf_path,secret,http_client,max_seconds=initial_budget)
+                    objects=parse_layout(pdf_path,secret,http_client,max_seconds=initial_budget,**auth_options)
                 else:
-                    fresh=_ocr_missing_pages(pdf_path,ocr_document(document),secret,http_client,max_seconds=initial_budget)
+                    fresh=_ocr_missing_pages(pdf_path,ocr_document(document),secret,http_client,max_seconds=initial_budget,**auth_options)
                     objects=_replace_ocr_text(objects or [],fresh) if usage_only and objects else fresh
                 attempts.append({"stage":stage,"status":"completed"})
                 document=recover_document(document,objects)
                 cloud_error=None
                 break
             except MinerUError as exc:
-                cloud_error=str(exc)
-                attempts.append({"stage":stage,"status":"failed","reason":str(exc)})
+                cloud_error=_mineru_error_record(exc)
+                account_blocked=bool((getattr(exc,"diagnostics",None) or {}).get("account_failure"))
+                attempts.append({"stage":stage,"status":"failed",**cloud_error})
                 if not exc.retryable:break
         # Text recovery remains available after layout failure. Independent
         # OCR passes continue after a temporary failure of any preceding pass.
@@ -88,7 +149,7 @@ def detect(pdf_path: str | Path, selected_rule_numbers, *, token=None, http_clie
                     max_seconds=min(180,max(0,deadline-monotonic())),structure_only=True)
                 recovery.extend(structural)
         unresolved=ocr_document(document,objects)
-        if selected & LOCAL and any(page.unreadable for page in unresolved.pages):
+        if selected & LOCAL and not account_blocked and any(page.unreadable for page in unresolved.pages):
             with pymupdf.open(pdf_path) as original:
                 rotated_missing=any(original[page.number-1].rotation for page in unresolved.pages if page.unreadable)
             stages=[("forced_ocr",180 if rotated_missing else 240,{"force_ocr":True})]
@@ -102,12 +163,13 @@ def detect(pdf_path: str | Path, selected_rule_numbers, *, token=None, http_clie
                 reserve=180+sum(stage[1] for stage in stages[index+1:])
                 try:
                     fresh=_ocr_missing_pages(pdf_path,unresolved,secret,http_client,
-                                              max_seconds=budget(cap,reserve),**options)
+                                              max_seconds=budget(cap,reserve),**options,**auth_options)
                     objects=_replace_ocr_text(objects or [],fresh)
                     document=recover_document(document,objects)
                     attempts.append({"stage":name,"status":"completed"})
                 except MinerUError as exc:
-                    attempts.append({"stage":name,"status":"failed","reason":str(exc)})
+                    attempts.append({"stage":name,"status":"failed",**_mineru_error_record(exc)})
+                    if (getattr(exc,"diagnostics",None) or {}).get("account_failure"):break
     rule_document, rule_objects, excluded_pages = exclude_signature_pages(document,objects or ())
     if selected & LOCAL:
         text_document=research_document(rule_document)
@@ -135,7 +197,7 @@ def detect(pdf_path: str | Path, selected_rule_numbers, *, token=None, http_clie
     if selected & CLOUD:
         if cloud_error:
             for number in selected & CLOUD:
-                results[str(number)] = {"status": "unsupported", "reason": cloud_error, "findings": []}
+                results[str(number)] = {"status": "unsupported", **cloud_error, "findings": []}
         else:
             if evidence:
                 results.update(detect_caption_rules(evidence, selected & CLOUD, rule_document))
@@ -156,7 +218,7 @@ def detect(pdf_path: str | Path, selected_rule_numbers, *, token=None, http_clie
     return output
 
 
-def _ocr_missing_pages(pdf_path, document, token, http_client, *, force_ocr=False, tiled=False, upright=False, max_seconds=MAX_POLL_SECONDS):
+def _ocr_missing_pages(pdf_path, document, token, http_client, *, force_ocr=False, tiled=False, upright=False, max_seconds=MAX_POLL_SECONDS, account_binding=None):
     missing = [page.number for page in document.pages if page.unreadable]
     sources = {page.number: page for page in document.pages}
     mapping = []
@@ -180,6 +242,7 @@ def _ocr_missing_pages(pdf_path, document, token, http_client, *, force_ocr=Fals
         view_scope = ("ocr:" + sha256(path.read_bytes()).hexdigest()
                       + f":{int(force_ocr)}:{int(upright)}:{tiled}")
         options={"respect_rotation":True} if upright else {}
+        if account_binding is not None:options["account_binding"]=account_binding
         objects = parse_layout(path, token, http_client, force_ocr=force_ocr, max_seconds=max_seconds,**options)
     result = []
     for obj in objects:

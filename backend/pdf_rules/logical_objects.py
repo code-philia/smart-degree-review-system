@@ -4,6 +4,84 @@ from .layout_context import containment, union, _panel_match, PANEL
 from .caption_rules import _matches, _horizontal_overlap
 
 
+def recover_native_raster_partitions(targets, document, captions):
+    """Preserve source image obligations when a parser merges their envelopes.
+
+    A retained title beside only one separately placed raster cannot caption
+    both images. Explicit panel or positional declarations keep a composite.
+    """
+    pages = {p.number: p for p in document.pages}
+    result = []
+    for target in targets:
+        if target.kind != 'figure' or target.role != 'image_body' or target.panel_boxes:
+            result.append(target)
+            continue
+        images = sorted({b for b in pages[target.page_number].images
+                         if containment(b, target.bbox) >= .95
+                         and b[2] - b[0] >= target.page_width * .08
+                         and b[3] - b[1] >= target.page_height * .06}, key=lambda b: b[1])
+        if len(images) != 2:
+            result.append(target)
+            continue
+        horizontal = _horizontal_raster_partition(images, target, pages[target.page_number], captions)
+        if horizontal:
+            result.extend(replace(target, bbox=box, panel_boxes=(), role='native_raster_partition',
+                                  parent_id=None, parent_bbox=None, parent_kind='', caption_owner_id='')
+                          for box in horizontal)
+            continue
+        upper, lower = images
+        gap = lower[1] - upper[3]
+        width = min(b[2] - b[0] for b in images)
+        bounded = (abs(target.bbox[1] - upper[1]) <= 8
+                   and abs(target.bbox[3] - lower[3]) <= 8
+                   and max(abs(upper[0] - lower[0]), abs(upper[2] - lower[2])) <= max(20, width * .1))
+        lower_target = replace(target, bbox=lower)
+        lower_title = any(c.kind == 'figure_caption' and c.page_number == target.page_number
+                          and 0 <= c.bbox[1] - lower[3] <= 80 and _matches(lower_target, c)
+                          for c in captions)
+        if not (bounded and gap >= max(20, min(b[3] - b[1] for b in images) * .12)
+                and lower_title):
+            result.append(target)
+            continue
+        result.extend(replace(target, bbox=box, panel_boxes=(), role='native_raster_partition',
+                              parent_id=None, parent_bbox=None, parent_kind='', caption_owner_id='')
+                      for box in images)
+    return result
+
+
+def _horizontal_raster_partition(images, target, page, captions):
+    """Two aligned source placements and an exclusive title prove a split."""
+    from .caption_physical_ownership import _position_declaration
+    left, right = sorted(images, key=lambda box: box[0])
+    height = min(box[3] - box[1] for box in images)
+    envelope = union(images)
+    if (right[0] - left[2] <= .3
+            or any(abs(a - b) > 8 for a, b in zip(envelope, target.bbox))
+            or max(abs(left[1] - right[1]), abs(left[3] - right[3])) > max(8, height * .1)):
+        return None
+    local = [c for c in captions if c.kind == 'figure_caption' and c.page_number == page.number
+             and -5 <= c.bbox[1] - envelope[3] <= 80]
+    physical = [replace(target, bbox=box, caption_owner_id='') for box in (left, right)]
+    if any(_position_declaration(c.text) or all(_matches(obj, c) for obj in physical)
+           or abs((c.bbox[0] + c.bbox[2] - envelope[0] - envelope[2]) / 2)
+           <= max(2, (c.bbox[3] - c.bbox[1]) * .25)
+           for c in local):
+        return None
+    # Original panel letters bind the two placements to one numbered figure.
+    letters = []
+    for box in (left, right):
+        marks = {_panel_match(line.text).group(1).lower() for line in page.lines
+                 if line.source == 'native' and _panel_match(line.text)
+                 and containment(line.bbox, box) >= .95}
+        letters.append(marks)
+    if 'a' in letters[0] and 'b' in letters[1]:
+        return None
+    if any(_matches(physical[i], c) and _horizontal_overlap(physical[1-i], c) < .1
+           for c in local for i in range(2)):
+        return (left, right)
+    return None
+
+
 def remove_native_fragments(targets):
     result=[]
     for obj in targets:
@@ -54,7 +132,7 @@ def _physical_marker_lines(line,page,objects):
     physical.extend(box for o in objects if o.kind in {'figure','table'}
                     and o.page_number==page.number and not o.role.startswith('native_')
                     for box in (o.panel_boxes or (o.bbox,)))
-    split=[];owners=[]
+    split=[];choices_by_marker=[]
     for i,mark in enumerate(marks):
         boxes=[box for start,end,box in line.text_regions
                if start<mark.end() and end>mark.start()
@@ -67,14 +145,30 @@ def _physical_marker_lines(line,page,objects):
         choices=[body for body in physical if body[0]-15<=x<=body[2]+15
                  and body[1]-15<=box[3] and box[1]<=body[3]+35]
         if not choices:return [line]
-        owner=min(choices,key=lambda body:(max(body[1]-y,y-body[3],0),
-                                           abs(x-(body[0]+body[2])/2)))
-        if owner in owners:return [line]
-        owners.append(owner)
+        choices_by_marker.append(choices)
         end=marks[i+1].start() if i+1<len(marks) else len(value)
         text=value[mark.start():end].strip().rstrip(';；')
         split.append(replace(line,text=text,bbox=box,text_regions=(),reference_regions=()))
-    return split
+    # A wide next-row image may be closer to both merged labels than the two
+    # preceding panels. Resolve the row as a whole instead of discarding the
+    # second glyph because two independent nearest-neighbour guesses agree.
+    def distinct_row(index, selected):
+        if index == len(choices_by_marker):
+            return True
+        if index >= 8:
+            return False
+        for choice in choices_by_marker[index]:
+            if any(containment(choice, old) >= .85 and containment(old, choice) >= .85
+                   for old in selected):
+                continue
+            if selected and any(min(choice[3], old[3]) - max(choice[1], old[1])
+                                < .7 * min(choice[3] - choice[1], old[3] - old[1])
+                                for old in selected):
+                continue
+            if distinct_row(index + 1, selected + [choice]):
+                return True
+        return False
+    return split if distinct_row(0, []) else [line]
 
 
 def panel_label_lines(page, objects, captions=()):
@@ -85,6 +179,8 @@ def panel_label_lines(page, objects, captions=()):
     declarations = _declared_panel_letters(page, list(captions) or [o for o in objects if o.kind == 'figure_caption'])
     from .panel_notation import canonical_panel_line, numeric_panel_line
     for line in (fragment for original in sorted(page.lines,key=lambda l:(l.bbox[1],l.bbox[0]))
+                 if not any(c.kind.endswith('_caption') and c.page_number == page.number
+                            and containment(original.bbox, c.bbox) >= .8 for c in captions)
                  for fragment in _physical_marker_lines(original,page,objects)):
         # Font runs often split a subtitle's marker from its description.
         # Reconstruct only a same-row continuation immediately to its right.
@@ -292,7 +388,12 @@ def shared_title_groups(targets,captions,document):
             if len(row)<2 or panel_label_conflict([t for _,t in row],document,captions):continue
             box=union([t.bbox for _,t in row]);width=box[2]-box[0]
             ordered=sorted(row,key=lambda pair:pair[1].bbox[0])
-            if any(b.bbox[0]-a.bbox[2]>80 for (_,a),(_,b) in zip(ordered,ordered[1:])):continue
+            if any(b.bbox[0]-a.bbox[2]>80 for (_,a),(_,b) in zip(ordered,ordered[1:])):
+                from .caption_physical_ownership import _native_caption_text, _position_declaration
+                declared = _position_declaration(_native_caption_text(caption, pages[caption.page_number]))
+                if not (len(ordered)==2 and all(t.role=='chart_body' for _,t in ordered)
+                        and declared==('horizontal',(1,1))):
+                    continue
             wide = caption.bbox[2]-caption.bbox[0] >= width*.75
             # A total title may be short, but must straddle the panel gutter,
             # be centred on the entire equal-height row, and name both sides.
@@ -537,6 +638,8 @@ def shared_axis_groups(targets, captions, document):
         if len(component) < 2:
             continue
         members = [targets[i] for i in component]
+        if _independently_referenced_rasters(members, captions, pages[members[0].page_number]):
+            continue
         box = union([o.bbox for o in members])
         combined = replace(members[0], bbox=box, role='shared_axis_panels',
                            panel_boxes=tuple(b for o in members for b in (o.panel_boxes or (o.bbox,))))
@@ -582,6 +685,50 @@ def shared_axis_groups(targets, captions, document):
             merged.append((component, combined))
     removed = {i for component, _ in merged for i in component}
     return [o for i,o in enumerate(targets) if i not in removed] + [o for _,o in merged]
+
+
+def _independently_referenced_rasters(members, captions, page):
+    """Two original plots explicitly cited as distinct figures keep both titles.
+
+    Repeated axes are common to separate experiments. A source sentence citing
+    two figure IDs respectively supplies independent identity evidence even
+    after one of those figures loses its main title.
+    """
+    import re
+    from .numbering import LABEL, caption_match, normalize_label, normalize_text
+    if len(members) != 2:
+        return False
+    owners = []
+    for member in members:
+        choices = [b for b in page.images if containment(member.bbox, b) >= .85
+                   and containment(b, member.bbox) >= .85]
+        if len(choices) != 1 or choices[0] in owners:
+            return False
+        owners.append(choices[0])
+    pair = re.compile(r'(?:图|Figures?|Figs?\.?)\s*' + LABEL.replace('?P<number>', '?P<first>')
+                      + r'\s*(?:和|与|及|、|and\b|&)\s*(?:图|Figures?|Figs?\.?)?\s*'
+                      + LABEL.replace('?P<number>', '?P<second>'), re.I)
+    low = min(o.bbox[1] for o in members)
+    for line in page.lines:
+        if (line.source != 'native' or line.bbox[3] > low
+                or low - line.bbox[3] > 200
+                or not re.search(r'分别|\brespectively\b', line.text, re.I)):
+            continue
+        match = pair.search(normalize_text(line.text))
+        if not match:
+            continue
+        numbers = {normalize_label(match.group('first')), normalize_label(match.group('second'))}
+        if len(numbers) != 2:
+            continue
+        for cap in captions:
+            if cap.kind != 'figure_caption' or cap.page_number != page.number:
+                continue
+            declared = caption_match(cap.text, 'figure')
+            if (declared and normalize_label(declared.group('number')) in numbers
+                    and _matches(replace(members[0], bbox=union([o.bbox for o in members])), cap)
+                    and len(PANEL.findall(cap.text)) < 2):
+                return True
+    return False
 
 
 def recover_interface_figures(objects, document):

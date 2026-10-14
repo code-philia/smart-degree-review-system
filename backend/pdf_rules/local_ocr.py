@@ -29,8 +29,13 @@ class _GraphicGuard(tuple):
 @lru_cache(maxsize=1)
 def _engine():
     import os
+    import cv2
     import rapidocr
     from rapidocr import RapidOCR
+    # Full-document workers already reserve their CPU allocation with OMP.
+    # Honor that allocation for the separate OpenCV and ONNX thread pools.
+    threads=max(1,min(8,os.cpu_count() or 1,int(os.environ.get("OMP_NUM_THREADS","8"))))
+    cv2.setNumThreads(threads)
     models=Path(rapidocr.__file__).parent/"models"
     paths={"Det":"PP-OCRv6_det_small.onnx", "Cls":"ch_ppocr_mobile_v2.0_cls_mobile.onnx",
            "Rec":"PP-OCRv6_rec_small.onnx"}
@@ -38,7 +43,7 @@ def _engine():
         raise RuntimeError("Bundled OCR models are missing")
     return RapidOCR(params={
         "Global.log_level":"critical",
-        "EngineConfig.onnxruntime.intra_op_num_threads":min(8,os.cpu_count() or 1),
+        "EngineConfig.onnxruntime.intra_op_num_threads":threads,
         "EngineConfig.onnxruntime.inter_op_num_threads":1,
         **{f"{part}.model_path":str(models/name) for part,name in paths.items()},
     })

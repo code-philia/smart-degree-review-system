@@ -4,7 +4,7 @@ const os = require('os');
 const path = require('path');
 const { LOCAL_RULES, isLocalRuleId, runLocalFiveRules, summarizeRuleRuns } = require('./localFiveRulePaperLintService');
 
-const { getSixRules, isSixRuleId, runSixRules } = require('./sixRulePaperLintService');
+const { getSixRules, isSixRuleId, runSixRules, SIX_RULE_TIMEOUT_MS } = require('./sixRulePaperLintService');
 
 const MAX_PDF_BYTES = 50 * 1024 * 1024;
 const MAX_ENGINE_OUTPUT_BYTES = 30 * 1024 * 1024;
@@ -269,10 +269,12 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
   validatePdf(pdfBuffer);
   // The deadline covers catalog loading, queueing, and both engines so a timed-out
   // browser request cannot later persist a seemingly successful report.
+  const includesSixRules = Array.isArray(selectedRuleIds) &&
+    selectedRuleIds.some(ruleId => isSixRuleId(String(ruleId).trim()));
+  const maximumTimeout = background || includesSixRules ? SIX_RULE_TIMEOUT_MS : ENGINE_TIMEOUT_MS;
   const requestedTimeout = Number(process.env.PAPER_LINT_RUN_TIMEOUT_MS);
   const timeoutMs = Number.isFinite(requestedTimeout) && requestedTimeout > 0
-    ? Math.min(requestedTimeout, background ? 20 * 60 * 1000 : ENGINE_TIMEOUT_MS)
-    : background ? 20 * 60 * 1000 : ENGINE_TIMEOUT_MS;
+    ? Math.min(requestedTimeout, maximumTimeout) : maximumTimeout;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -305,6 +307,15 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
         await fs.promises.rm(tempDir, { recursive: true, force: true });
       }
     }, controller.signal);
+  } catch (error) {
+    if (!controller.signal.aborted) throw error;
+    const timeout = createHttpError(504, RUN_TIMEOUT_MESSAGE);
+    timeout.code = 'PAPER_LINT_TIMEOUT';
+    timeout.details = { kind: 'run_timeout', timeout_ms: timeoutMs };
+    if (typeof error.code === 'string' && error.code.startsWith('DETECTOR_')) {
+      timeout.details.detector = error.details;
+    }
+    throw timeout;
   } finally {
     clearTimeout(timer);
   }

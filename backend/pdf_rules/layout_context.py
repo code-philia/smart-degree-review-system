@@ -210,11 +210,59 @@ def research_document(document):
         for page in document.pages))
 
 
-def captioned_native_graphic(page, objects, regions):
-    """A native caption plus matching layout can distinguish a composite figure.
+def _native_caption_carrier(page, objects, region):
+    """A bounded raster copy whose complete caption is already native text."""
+    height = region[3] - region[1]
+    width = region[2] - region[0]
+    if width <= 0 or height <= 0 or height > page.height * .18:
+        return False
+    lines = sorted((line for line in page.lines if line.source == 'native'
+                    and region[0] <= (line.bbox[0] + line.bbox[2]) / 2 <= region[2]
+                    and region[1] <= (line.bbox[1] + line.bbox[3]) / 2 <= region[3]),
+                   key=lambda line: (line.bbox[1], line.bbox[0]))
+    if not lines or _caption_kind(lines[0].text) != 'figure_caption':
+        return False
+    def horizontal_coverage(box):
+        return max(0, min(region[2], box[2]) - max(region[0], box[0])) / width
+    # Paragraph rows span their caption carrier; only its final row may end
+    # early. Left-column native text does not establish unseen right-column
+    # raster content, even when a parser gives the caption an overwide box.
+    if any(horizontal_coverage(line.bbox) < .75 for line in (lines[:-1] or lines)):
+        return False
+    # Require independent cloud caption evidence at this native text, rather
+    # than calling any narrow scanned paragraph a caption layer.
+    # Mathematical caption tokens may be Unicode in native text and LaTeX in
+    # cloud text. Match the leading caption identity and subject before them.
+    prefix = re.sub(r'\s+', '', normalize_text(lines[0].text))[:12]
+    if not any((obj.kind == 'figure_caption' or obj.role in {'image_caption', 'chart_caption'})
+               and containment(lines[0].bbox, obj.bbox) >= .65
+               and horizontal_coverage(obj.bbox) >= .85
+               and re.sub(r'\s+', '', normalize_text(obj.text)).startswith(prefix)
+               for obj in objects):
+        return False
+    letters = sum(len(re.findall(r'[A-Za-z\u4e00-\u9fff]', line.text)) for line in lines)
+    top = min(line.bbox[1] for line in lines)
+    bottom = max(line.bbox[3] for line in lines)
+    cursor = region[1]
+    gap = 0
+    for line in lines:
+        gap = max(gap, line.bbox[1] - cursor)
+        cursor = max(cursor, line.bbox[3])
+    gap = max(gap, region[3] - cursor)
+    return (letters >= 40 and bottom - top >= height * .55
+            and top <= region[1] + max(3, height * .2)
+            and bottom >= region[3] - max(20, height * .25)
+            and gap <= max(20, height * .35))
 
+
+def captioned_native_graphic(page, objects, regions):
+    """Native explanations and matching layout prove bounded research images.
+
+    Every raster needs graphic coverage or a fully extracted caption copy.
     A layout image label alone never proves that scanned prose was extracted.
     """
+    regions = [region for region in regions
+               if not _native_caption_carrier(page, objects, region)]
     if not regions:
         return False
     box = union(regions)
@@ -222,21 +270,79 @@ def captioned_native_graphic(page, objects, regions):
             or box[2] - box[0] > page.width * 0.95
             or box[3] - box[1] > page.height * 0.92):
         return False
-    def adjacent_caption(line):
+    def adjacent_caption(line, region):
         x1,y1,x2,y2=line.bbox
-        if line.source!="native" or _caption_kind(line.text)!="figure_caption":
-            return False
         vertical=abs(line.direction[1])>.8 and y2-y1>2*(x2-x1)
         if vertical:
-            side_distance=min(abs(x1-box[2]),abs(box[0]-x2))
-            overlap=max(0,min(y2,box[3])-max(y1,box[1]))
-            return side_distance<=60 and overlap>=.5*min(y2-y1,box[3]-box[1])
-        return (0<=y1-box[3]<=60 and max(x1,box[0])<min(x2,box[2]))
-    captions=[line for line in page.lines if adjacent_caption(line)]
+            side_distance=min(abs(x1-region[2]),abs(region[0]-x2))
+            overlap=max(0,min(y2,region[3])-max(y1,region[1]))
+            return side_distance<=60 and overlap>=.5*min(y2-y1,region[3]-region[1])
+        return (-2<=y1-region[3]<=60 and max(x1,region[0])<min(x2,region[2]))
+    native = [line for line in page.lines if line.source == 'native']
+    captions = [line for line in native if _caption_kind(line.text) == 'figure_caption']
+    panels = []
+    for line in sorted(native, key=lambda line: (line.bbox[1], line.bbox[0])):
+        match = _panel_match(line.text)
+        if (match and len(re.findall(r'[A-Za-z\u4e00-\u9fff]', line.text[match.end():])) >= 4
+                and any(adjacent_caption(line, region) for region in regions)):
+            panels.append((match.group(1).lower(), line))
+    # Independent consecutive subpanel explanations can span a figure across
+    # pages. They establish readability without inventing its missing title.
+    letters = [ord(label) for label, _ in panels]
+    if len(letters) >= 2 and all(right == left + 1 for left, right in zip(letters, letters[1:])):
+        captions += [line for _, line in panels]
     if not captions:
         return False
+    carriers = list(regions)
+    # A source graphic may be stored as vertically adjacent raster tiles.
+    # Sharing a caption requires a common parsed figure, aligned native edges,
+    # an empty seam, and independently matching native/cloud caption text.
+    matched_captions = [
+        line for line in captions
+        if any(obj.kind == "figure_caption"
+               and containment(line.bbox, obj.bbox) >= .65
+               and re.sub(r'\s+', '', normalize_text(obj.text)).startswith(
+                   re.sub(r'\s+', '', normalize_text(line.text))[:12])
+               for obj in objects)]
+    maximal = [region for region in regions
+               if not any(region != other and containment(region, other) == 1
+                          for other in regions)]
+    for figure in (obj for obj in objects if obj.kind == "figure"):
+        tiles = sorted((region for region in maximal
+                        if containment(region, figure.bbox) >= .7),
+                       key=lambda region: (region[1], region[0]))
+        chain = []
+        for tile in tiles:
+            if chain:
+                previous = chain[-1]
+                seam = (tile[0], previous[3], tile[2], tile[1])
+                contiguous = (
+                    abs(previous[0] - tile[0]) <= 1
+                    and abs(previous[2] - tile[2]) <= 1
+                    and 0 <= tile[1] - previous[3] <= 2
+                    and not any(max(line.bbox[0], seam[0]) < min(line.bbox[2], seam[2])
+                                and max(line.bbox[1], seam[1]) < min(line.bbox[3], seam[3])
+                                for line in native))
+                if not contiguous:
+                    chain = []
+            chain.append(tile)
+            if len(chain) >= 2:
+                carrier = union(chain)
+                if (any(adjacent_caption(line, carrier) for line in matched_captions)
+                        and not any(_caption_kind(line.text) == "figure_caption"
+                                    and carrier[0] < (line.bbox[0] + line.bbox[2]) / 2 < carrier[2]
+                                    and carrier[1] < (line.bbox[1] + line.bbox[3]) / 2 < carrier[3]
+                                    for line in native)):
+                    carriers.append(carrier)
     targets = [obj.bbox for obj in objects if obj.kind == "figure"]
     for region in regions:
+        # A contained raster is a constituent of its captioned graphic carrier.
+        # Keep every region for independent figure coverage and preserve native
+        # text; only caption association may come from a containing carrier.
+        if not any(adjacent_caption(line, parent)
+                   for parent in carriers if containment(region, parent) == 1
+                   for line in captions):
+            return False
         intersections = [(max(region[0], other[0]), max(region[1], other[1]),
                           min(region[2], other[2]), min(region[3], other[3]))
                          for other in targets if area((max(region[0], other[0]), max(region[1], other[1]),
@@ -531,6 +637,13 @@ def caption_line_box(line):
 
 def prepare_caption_layout(objects, document):
     """No paper IDs, mutation coordinates, or evaluation labels are consulted."""
+    pages = {page.number: page for page in document.pages}
+    # Native pixel proof identifies these export carriers before cloud layout
+    # is used. An overlapping rectangle that also contains outside research
+    # content keeps its ordinary caption obligation.
+    objects = [obj for obj in objects if not any(
+        containment(obj.bbox, box) >= .98
+        for box in getattr(pages[obj.page_number], 'margin_barcodes', ()))]
     from .decorative_layers import remove_decorative_layers
     objects,document=remove_decorative_layers(objects,document)
     from .declared_code_figures import recover_declared_code_figures
@@ -650,8 +763,10 @@ def prepare_caption_layout(objects, document):
     evidence = reclassify_mixed_panels(evidence, document)
     from .object_identity import refine_targets
     evidence = refine_targets(evidence, document)
-    from .logical_objects import remove_native_fragments, shared_title_groups, shared_table_blocks, continuous_chart_rows, remove_embedded_targets, shared_axis_groups, complete_panel_envelopes
-    targets = _merge_contained(remove_native_fragments([obj for obj in evidence if obj.kind in {"figure", "table"}]))
+    from .logical_objects import remove_native_fragments, shared_title_groups, shared_table_blocks, continuous_chart_rows, remove_embedded_targets, shared_axis_groups, complete_panel_envelopes, recover_native_raster_partitions
+    targets = _merge_contained(remove_native_fragments(recover_native_raster_partitions(
+        [obj for obj in evidence if obj.kind in {"figure", "table"}], document,
+        [obj for obj in evidence if obj.kind.endswith('_caption')])))
     captions = _merge_contained([obj for obj in evidence if obj.kind.endswith("_caption")])
     from .logical_objects import reconcile_caption_alias_owners
     targets = reconcile_caption_alias_owners(targets, source_captions, document)

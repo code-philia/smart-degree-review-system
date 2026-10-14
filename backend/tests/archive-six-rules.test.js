@@ -4,8 +4,6 @@ const require = createRequire(import.meta.url);
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const childProcess = require('child_process');
-const { promisify } = require('util');
 const { createTestDatabaseHarness } = require('../src/database/test_harness');
 const { createArchiveScanService } = require('../src/normative/archiveScanService');
 
@@ -67,28 +65,33 @@ describe('archive scans with six additional rules', () => {
       '../src/normative/localFiveRulePaperLintService',
       '../src/normative/sixRulePaperLintService',
     ].map((name) => require.resolve(name));
-    const original = childProcess.execFile;
-    const calls = [];
+    const previousSixPython = process.env.SIX_RULE_PYTHON;
+    const previousFivePython = process.env.FIVE_RULE_PYTHON;
+    const previousTemp = process.env.SIX_RULE_TEMP_DIR;
+    const executable = path.join(root, 'synthetic-engines.cjs');
+    const callsFile = path.join(root, 'synthetic-calls.jsonl');
     const box = { x1: 10, y1: 20, x2: 60, y2: 80, width: 595, height: 842 };
-    const fake = () => { throw new Error('Expected promisified runner'); };
-    fake[promisify.custom] = async (_python, args) => {
-      calls.push(args);
-      const old = args[0].endsWith('/five_rule_detector.py');
-      const rules = old ? {
-        18: { status: 'completed', findings: [] }, 22: { status: 'completed', findings: [] },
-        24: { status: 'completed', findings: [] }, 28: { status: 'completed', findings: [] },
-      } : {
-        11: { status: 'completed', findings: [{ message: '图 99 不存在',
-          location: { type: 'pdf_bbox', page_number: 2, bounding_rect: box, rects: [box] } }] },
-        13: { status: 'unsupported', reason: '解析无法判定', findings: [] },
-        14: { status: 'completed', findings: [] }, 15: { status: 'completed', findings: [] },
-        16: { status: 'completed', findings: [] }, 29: { status: 'completed', findings: [] },
-      };
-      return { stdout: JSON.stringify({ rules }) };
+    const oldRules = {
+      18: { status: 'completed', findings: [] }, 22: { status: 'completed', findings: [] },
+      24: { status: 'completed', findings: [] }, 28: { status: 'completed', findings: [] },
     };
+    const sixRules = {
+      11: { status: 'completed', findings: [{ message: '图 99 不存在',
+        location: { type: 'pdf_bbox', page_number: 2, bounding_rect: box, rects: [box] } }] },
+      13: { status: 'unsupported', reason: '解析无法判定', findings: [] },
+      14: { status: 'completed', findings: [] }, 15: { status: 'completed', findings: [] },
+      16: { status: 'completed', findings: [] }, 29: { status: 'completed', findings: [] },
+    };
+    fs.writeFileSync(executable, '#!' + process.execPath + '\n' +
+      'const fs=require("node:fs");const args=process.argv.slice(2);' +
+      'fs.appendFileSync(' + JSON.stringify(callsFile) + ',JSON.stringify(args)+"\\n");' +
+      'const rules=args[0].endsWith("/five_rule_detector.py")?' + JSON.stringify(oldRules) + ':' + JSON.stringify(sixRules) + ';' +
+      'process.stdout.write(JSON.stringify({rules}));', { mode: 0o700 });
     let service;
     try {
-      childProcess.execFile = fake;
+      process.env.SIX_RULE_PYTHON = executable;
+      process.env.FIVE_RULE_PYTHON = executable;
+      process.env.SIX_RULE_TEMP_DIR = path.join(root, "spool");
       filenames.forEach((filename) => { delete require.cache[filename]; });
       service = require('../src/normative/archiveScanService').createArchiveScanService({ archiveRoot: root });
       const job = await service.startJob({ userId: 'admin', ruleIds: [...ids].reverse() });
@@ -99,6 +102,7 @@ describe('archive scans with six additional rules', () => {
       expect(saved.failed_count).toBe(0);
       expect(saved.finding_count).toBe(2);
       expect(saved.inconclusive_count).toBe(2);
+      const calls = fs.readFileSync(callsFile, 'utf8').trim().split('\n').map(line => JSON.parse(line));
       expect(calls).toHaveLength(4);
       for (const args of calls) {
         expect(fs.existsSync(args[2])).toBe(true);
@@ -115,7 +119,12 @@ describe('archive scans with six additional rules', () => {
       expect(report.rule_runs[1].outcome).toBe('inconclusive');
     } finally {
       if (service) await service.waitForIdle();
-      childProcess.execFile = original;
+      if (previousSixPython === undefined) delete process.env.SIX_RULE_PYTHON;
+      else process.env.SIX_RULE_PYTHON = previousSixPython;
+      if (previousFivePython === undefined) delete process.env.FIVE_RULE_PYTHON;
+      else process.env.FIVE_RULE_PYTHON = previousFivePython;
+      if (previousTemp === undefined) delete process.env.SIX_RULE_TEMP_DIR;
+      else process.env.SIX_RULE_TEMP_DIR = previousTemp;
       filenames.forEach((filename) => { delete require.cache[filename]; });
     }
   });

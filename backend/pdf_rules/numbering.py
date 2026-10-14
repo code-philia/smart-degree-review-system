@@ -5,20 +5,21 @@ from functools import lru_cache
 
 # Academic Arabic numerals are ASCII after NFKC normalization. Arbitrary
 # Unicode decimal characters can be accent glyphs from embedded math fonts.
-LABEL = r"(?P<number>(?:[A-Z][.\-]?)?[0-9]+(?:[.\-][0-9]+)*)(?![A-Za-z0-9]|[.\-]\d)"
-FIGURE_CAPTION = re.compile(rf"^\s*(?:图|Figure|Fig\.?)\s*{LABEL}(?:\s+|[、:：.]|(?=[\u4e00-\u9fff])|(?=\(\s*(?:续|continued)\s*\)))\s*\S", re.I)
-TABLE_CAPTION = re.compile(rf"^\s*(?:表|Table)\s*{LABEL}(?:\s+|[、:：.]|(?=[\u4e00-\u9fff])|(?=\(\s*(?:续|continued)\s*\)))\s*\S", re.I)
+NUMBER_SEPARATOR = r"[^\S\r\n]*[.\-][^\S\r\n]*"
+LABEL = rf"(?P<number>(?:[A-Z](?:{NUMBER_SEPARATOR})?)?[0-9]+(?:{NUMBER_SEPARATOR}[0-9]+)*)(?![A-Za-z0-9]|{NUMBER_SEPARATOR}\d)"
+FIGURE_CAPTION = re.compile(rf"^\s*(?:图|Figure|Fig\.?)\s*{LABEL}(?:\s+|[、:：.]|(?=[\u4e00-\u9fff“‘「])|(?=\(\s*(?:续|continued)\s*\)))\s*\S", re.I)
+TABLE_CAPTION = re.compile(rf"^\s*(?:表|Tab(?:le)?\.?)\s*{LABEL}(?:\s+|[、:：.]|(?=[\u4e00-\u9fff“‘「])|(?=\(\s*(?:续|continued)\s*\)))\s*\S", re.I)
 # A numeric subpanel suffix refers to its parent figure. A bare letter-prefix
 # label plus another letter (e.g. the variable F2D) is not a partial figure ID.
 # Allow a glued English conjunction only when another complete citation
 # label follows. Arbitrary identifier suffixes remain outside the grammar.
-CITATION_AND = (r"and(?=\s*(?:图|表格?|Figures?|Figs?\.?|Tables?)?\s*[(（]?\s*"
-                r"(?:[A-Z][.\-]?)?[0-9]+(?:[.\-][0-9]+)*(?:(?![A-Za-z0-9]|[.\-]\d)|and(?=\s*[0-9])))")
-FIGURE_REFERENCE_LABEL = (r"(?P<number>(?:(?P<bare_scope>[A-Z])|[A-Z][.\-])?[0-9]+(?:[.\-][0-9]+)*)"
-                          r"(?(bare_scope)(?![A-Za-z0-9]|[.\-]\d)|"
-                          rf"(?:[a-z](?![A-Za-z0-9])|(?![A-Za-z0-9]|[.\-]\d)|(?={CITATION_AND})))")
+CITATION_AND = (r"and(?=\s*(?:图|表格?|Figures?|Figs?\.?|Tables?\.?)?\s*[(（]?\s*"
+                rf"(?:[A-Z](?:{NUMBER_SEPARATOR})?)?[0-9]+(?:{NUMBER_SEPARATOR}[0-9]+)*(?:(?![A-Za-z0-9]|{NUMBER_SEPARATOR}\d)|and(?=\s*[0-9])))")
+FIGURE_REFERENCE_LABEL = (rf"(?P<number>(?:(?P<bare_scope>[A-Z])|[A-Z]{NUMBER_SEPARATOR})?[0-9]+(?:{NUMBER_SEPARATOR}[0-9]+)*)"
+                          rf"(?(bare_scope)(?![A-Za-z0-9]|{NUMBER_SEPARATOR}\d)|"
+                          rf"(?:[a-z](?![A-Za-z0-9])|(?![A-Za-z0-9]|{NUMBER_SEPARATOR}\d)|(?={CITATION_AND})))")
 FIGURE_REFERENCE = re.compile(rf"(?:图(?:\s*(?:所示|如))?|(?<![A-Za-z])Figures?|(?<![A-Za-z])Figs?\.?)\s*[(（]?\s*{FIGURE_REFERENCE_LABEL}", re.I)
-TABLE_REFERENCE = re.compile(rf"(?:表(?:格)?|(?<![A-Za-z])Tables?)\s*[(（]?\s*{FIGURE_REFERENCE_LABEL}", re.I)
+TABLE_REFERENCE = re.compile(rf"(?:表(?:格)?|(?<![A-Za-z])Tables?\.?)\s*[(（]?\s*{FIGURE_REFERENCE_LABEL}", re.I)
 APPENDIX_HEADING = re.compile(r"^\s*附录\s*(?P<number>[A-Z])(?:\s|[:：]|$)", re.I)
 APPENDIX_REFERENCE = re.compile(r"附录\s*(?P<number>[A-Z])", re.I)
 APPENDIX_QUALIFIER = re.compile(r"附录\s*(?P<number>[A-Z])\s*(?:中|内|里)?(?:的)?\s*$", re.I)
@@ -45,7 +46,9 @@ def normalize_text(text: str) -> str:
 
 
 def normalize_label(value: str) -> str:
-    return normalize_text(value).upper().replace("-", ".")
+    # Compact only separator whitespace in a parsed identity. Native prose
+    # and its character offsets stay untouched; independent digits stay apart.
+    return re.sub(r"[^\S\r\n]*([.\-])[^\S\r\n]*", r"\1", normalize_text(value)).upper().replace("-", ".")
 
 
 def is_toc_line(text: str) -> bool:
@@ -90,6 +93,65 @@ def _split_directory_entries(page, lines):
     return {(page.number,line.bbox) for entry in entries for line in entry} if len(entries)>=2 else set()
 
 
+def _split_contents_rows(page, lines):
+    """Prove complete TOC rows from native titles and aligned page-number ink.
+
+    A bibliography/appendix title can be extracted separately from its page
+    number. Require a contents heading or multiple actual leader rows; a
+    numerical cell in a table and a lone page-like number supply no proof.
+    Only the proved rows are excluded, never the surrounding page's prose.
+    """
+    rows = []
+    for line in lines:
+        if (line.source != 'native' or abs(line.direction[1]) > .1
+                or not page.height*.08 < line.bbox[1] < page.height*.92):
+            continue
+        height = max(1, line.bbox[3]-line.bbox[1])
+        row = next((r for r in reversed(rows)
+                    if abs(r[0].bbox[1]-line.bbox[1]) <= min(height, r[0].bbox[3]-r[0].bbox[1])*.25), None)
+        if row is None:
+            rows.append([line])
+        else:
+            row.append(line)
+    rows = [sorted(row, key=lambda l: l.bbox[0]) for row in rows]
+    text = lambda row: ' '.join(normalize_text(l.text).strip() for l in row)
+    title_groups = []
+    for row in rows:
+        if row[0].bbox[1] >= page.height*.22:
+            continue
+        group = []
+        for line in row:
+            if group and line.bbox[0]-group[-1].bbox[2] > max(
+                    line.bbox[3]-line.bbox[1], group[-1].bbox[3]-group[-1].bbox[1])*2.5:
+                title_groups.append(group)
+                group = []
+            group.append(line)
+        if group:
+            title_groups.append(group)
+    heading = any(re.fullmatch(r'(?:目录|contents|tableofcontents)',
+                              re.sub(r'\s+', '', text(group)), re.I) for group in title_groups)
+    candidates = []
+    for row in rows:
+        value = text(row)
+        if (row[0].bbox[0] >= page.width*.65 or row[-1].bbox[2] < page.width*.75
+                or len(re.findall(r'[A-Za-z\u4e00-\u9fff]', value)) < 2
+                or any(t[0]-.5 <= l.bbox[0] and t[1]-.5 <= l.bbox[1]
+                       and l.bbox[2] <= t[2]+.5 and l.bbox[3] <= t[3]+.5
+                       for l in row for t in (*page.tables, *page.images))):
+            continue
+        leader = bool(DOT_LEADER.search(value))
+        detached = (row[-1].bbox[0] >= page.width*.75
+                    and re.fullmatch(r'[0-9]{1,4}', normalize_text(row[-1].text).strip()))
+        if leader or detached:
+            candidates.append((row, leader))
+    aligned = [entry for entry in candidates if sum(
+        abs(entry[0][-1].bbox[2]-peer[0][-1].bbox[2]) <= page.width*.025
+        for peer in candidates) >= 3]
+    if len(aligned) < 3 or (not heading and sum(leader for _, leader in aligned) < 3):
+        return set()
+    return {(page.number, l.bbox) for row, _ in aligned for l in row}
+
+
 
 def toc_line_keys(document):
     """Identify full directory entries even when leaders end on a later row.
@@ -101,6 +163,7 @@ def toc_line_keys(document):
     for page in document.pages:
         lines = sorted(page.lines, key=lambda line: (line.bbox[1], line.bbox[0]))
         keys.update(_split_directory_entries(page,lines))
+        keys.update(_split_contents_rows(page,lines))
         heading_rows = {}
         for line in lines:
             if line.bbox[1] < page.height*.22:

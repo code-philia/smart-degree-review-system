@@ -158,6 +158,7 @@ function createArchiveScanService({
     return getJob(id);
   }
   async function resumeJobs() {
+    if (process.env.ARCHIVE_SCAN_EXTERNAL_SUPERVISOR === '1') return;
     if (worker) return;
     const active = await db.get("SELECT id FROM archive_scan_jobs WHERE status='running' LIMIT 1");
     if (active) {

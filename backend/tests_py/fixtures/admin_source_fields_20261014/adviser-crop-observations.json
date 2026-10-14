@@ -1,0 +1,22 @@
+{
+  "crop": [
+    334.5,
+    643,
+    578,
+    708
+  ],
+  "observations": [
+    {
+      "text": "指导教师签名：晏轶超",
+      "score": 0.9288,
+      "detection_score": 0.5185487965724708,
+      "bbox": [
+        334.5,
+        643.0,
+        518.5,
+        707.5
+      ]
+    }
+  ],
+  "method": "actual source field CPU crop observation; no generated substitute text"
+}

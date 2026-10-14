@@ -190,7 +190,7 @@ def detect_caption_rules(objects: list[LayoutObject], selected_rule_numbers, doc
             for caption_index, caption in sorted(local):
                 if not _matches(target, caption):
                     continue
-                if document is not None and target.page_number != caption.page_number and _body_between(target, caption, document):
+                if document is not None and _body_between(target, caption, document, objects):
                     continue
                 if target.page_number == caption.page_number:
                     gap = max(caption.bbox[1] - target.bbox[3],
@@ -221,7 +221,7 @@ def detect_caption_rules(objects: list[LayoutObject], selected_rule_numbers, doc
                 for index, target in enumerate(targets):
                     if index in matched_targets:
                         continue
-                    if any(_continuation(target, targets[other], document)
+                    if any(_continuation(target, targets[other], document, captions)
                            for other in matched_targets):
                         matched_targets.add(index)
                         progress = True
@@ -239,7 +239,7 @@ def detect_caption_rules(objects: list[LayoutObject], selected_rule_numbers, doc
     return result
 
 
-def _continuation(target, matched, document):
+def _continuation(target, matched, document, captions=()):
     if target.kind != matched.kind or abs(target.page_number - matched.page_number) != 1:
         return False
     first, second = sorted((target, matched), key=lambda obj: obj.page_number)
@@ -251,18 +251,26 @@ def _continuation(target, matched, document):
             or second.bbox[1] > second.page_height * 0.25
             or _horizontal_overlap(first, second) < 0.8):
         return False
-    if _body_between(first, second, document):
-        return False
     pages = {page.number: page for page in document.pages}
     if first.kind == "figure":
-        def tags(obj):
-            return [match.group(1).lower()
-                    for line in pages[obj.page_number].lines
+        from .layout_context import _panel_match
+        from .logical_objects import panel_label_lines
+        def tags(obj, *, native=False):
+            return {match.group(1).lower()
+                    for line in panel_label_lines(pages[obj.page_number], [first, second], captions)
+                    if not native or line.source == 'native'
                     if obj.bbox[1] <= line.bbox[1] <= obj.bbox[3] + 40
                     and obj.bbox[0] - 15 <= line.bbox[0] <= obj.bbox[2] + 15
-                    for match in re.finditer(r"[（(]([a-z])[）)]", normalize_text(line.text), re.I)]
+                    if (match := _panel_match(line.text))}
         a, b = tags(first), tags(second)
-        return bool(a and b and ord(min(b)) == ord(max(a)) + 1)
+        if not (a and b and ord(min(b)) == ord(max(a)) + 1):
+            return False
+        if not _body_between(first, second, document):
+            return True
+        return _counted_panel_continuation(first, second, tags(first, native=True),
+                                           tags(second, native=True), captions, pages)
+    if _body_between(first, second, document):
+        return False
     def header(obj):
         lines = [line for line in pages[obj.page_number].lines
                  if obj.bbox[0] <= line.bbox[0] <= obj.bbox[2]
@@ -283,6 +291,55 @@ def _continuation(target, matched, document):
     if any(not re.fullmatch(r'[+\-−]?\d+(?:\.\d+)?', text) for text in b):
         return False
     return _numeric_table_continuation(first, second, pages)
+
+
+def _counted_panel_continuation(first, second, before, after, captions, pages):
+    """An explicitly counted figure namespace can wrap around explanatory prose.
+
+    Require the original introduction to cite the retained main title, every
+    consecutive panel letter, and a separately observed physical body on each
+    page. A nearby next-page title or a restarted (a) is insufficient.
+    """
+    from .numbering import FIGURE_REFERENCE, caption_match, normalize_label
+    letters = sorted(before | after)
+    if (len(letters) < 3 or before & after
+            or letters != [chr(ord('a') + i) for i in range(len(letters))]):
+        return False
+    if not all(any(min(b[2], obj.bbox[2]) > max(b[0], obj.bbox[0])
+                   and min(b[3], obj.bbox[3]) > max(b[1], obj.bbox[1])
+                   for b in pages[obj.page_number].images + pages[obj.page_number].graphics)
+               for obj in (first, second)):
+        return False
+    titles = [c for c in captions if c.kind == 'figure_caption'
+              and c.page_number == second.page_number
+              and 0 <= c.bbox[1] - second.bbox[3] <= 80
+              and _matches(second, c)]
+    if len(titles) != 1:
+        return False
+    title = caption_match(titles[0].text, 'figure')
+    if title is None:
+        return False
+    number = normalize_label(title.group('number'))
+    counts = {'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6,
+              'seven': 7, 'eight': 8, 'nine': 9,
+              '二': 2, '两': 2, '三': 3, '四': 4, '五': 5, '六': 6,
+              '七': 7, '八': 8, '九': 9}
+    for line in pages[first.page_number].lines:
+        if (line.source != 'native' or line.bbox[3] > first.bbox[1]
+                or first.bbox[1] - line.bbox[3] > 180):
+            continue
+        text = normalize_text(line.text)
+        count = re.search(r'([二两三四五六七八九2-9])\s*(?:种|幅|个|组)|'
+                          r'\b(two|three|four|five|six|seven|eight|nine|[2-9])\s+'
+                          r'(?:methods|techniques|conditions|panels|cases)\b', text, re.I)
+        if count is None:
+            continue
+        raw = count.group(1) or count.group(2)
+        value = int(raw) if raw.isdigit() else counts[raw.lower()]
+        if value == len(letters) and any(normalize_label(m.group('number')) == number
+                                       for m in FIGURE_REFERENCE.finditer(text)):
+            return True
+    return False
 
 
 def _source_table_continuation(first, second, pages):
@@ -372,7 +429,104 @@ def _running_page_footer(line, page, document):
         for other in other_page.lines))
 
 
-def _body_between(left, right, document):
+def _caption_annotation(line, target, caption, page, observations=()):
+    """A compact native legend/title continuation is not intervening body prose."""
+    from .caption_context import body_font
+    from .numbering import FIGURE_CAPTION, TABLE_CAPTION, normalize_label
+    if target.kind.endswith('_caption'):
+        target, caption = caption, target
+    if target.kind not in {'figure', 'table'} or caption.kind != target.kind+'_caption':
+        return False
+    pattern = FIGURE_CAPTION if target.kind == 'figure' else TABLE_CAPTION
+    printed = pattern.match(normalize_text(caption.text))
+    if not printed or line.source != 'native' or not line.font_size:
+        return False
+    for anchor in page.lines:
+        match = pattern.match(normalize_text(anchor.text))
+        if (anchor.source != 'native' or not anchor.bold or not anchor.font_size
+                or not match or not anchor.text_regions
+                or normalize_label(match.group('number')) != normalize_label(printed.group('number'))):
+            continue
+        covered = {a for a, z, box in anchor.text_regions
+                   if z-a == 1 and box[2] > box[0] and box[3] > box[1]}
+        required = {i for i, char in enumerate(anchor.text[:match.end('number')]) if char.strip()}
+        overlap = max(0, min(anchor.bbox[3], caption.bbox[3])-max(anchor.bbox[1], caption.bbox[1]))
+        if not required <= covered or overlap < (anchor.bbox[3]-anchor.bbox[1])*.65:
+            continue
+        font = anchor.font_size
+        if line.font_size > font*1.05:
+            continue
+        continued = line.bold and abs(line.font_size-font) <= font*.05
+        typical = body_font(page)
+        if not (continued or line.font_size < font*.92
+                or (typical and line.font_size < typical*.92)):
+            continue
+        same_block = anchor.block_id is not None and line.block_id == anchor.block_id
+        def compact(text):
+            from unicodedata import normalize
+            return re.sub(r'\s+', '', re.sub(r'<[^>]*>', '', normalize('NFKC', normalize_text(text)))).casefold()
+        owned_note = any(
+            o.kind == 'text' and o.page_number == page.number
+            and o.role in {'table_caption', 'table_footnote', 'image_caption', 'image_footnote'}
+            and target.parent_id and o.parent_id
+            and (o.parent_id == target.parent_id or o.parent_id.startswith(target.parent_id+':'))
+            and (compact(line.text) in compact(o.text)
+                 or (len(re.sub(r'[^\u4e00-\u9fff]', '', line.text)) >= 12
+                     and re.sub(r'[^\u4e00-\u9fff]', '', line.text)
+                     in re.sub(r'[^\u4e00-\u9fff]', '', o.text)))
+            and min(o.bbox[3],line.bbox[3])-max(o.bbox[1],line.bbox[1]) >= (line.bbox[3]-line.bbox[1])*.5
+            for o in observations)
+        columns = compact(target.text)
+        descriptions = [line.text]
+        descriptions.extend(o.text for o in observations
+            if o.kind == 'text' and o.role == 'text' and o.page_number == page.number
+            and compact(line.text) in compact(o.text)
+            and min(o.bbox[3],line.bbox[3])-max(o.bbox[1],line.bbox[1]) >= (line.bbox[3]-line.bbox[1])*.5)
+        definition = False
+        if target.kind == 'table':
+            for description in descriptions:
+                terms = re.findall(r'[“"‘]([^”"’]{3,})[”"’]|\b([A-Za-z][A-Za-z0-9._/-]{2,})\b', description)
+                defines = re.search(r'表示|代表|意为|\b(?:denotes?|means?|represents?|indicates?)\b', description, re.I)
+                formatting = re.search(r'(?:加粗|下划线).{0,12}(?:数值|结果|表示)', description)
+                if formatting or (defines and any(compact(a or b).strip('.') in columns for a,b in terms)):
+                    definition = True
+                    break
+        if not (continued or same_block or owned_note or definition):
+            continue
+        centre = (line.bbox[0]+line.bbox[2])/2
+        visual_centre = (target.bbox[0]+target.bbox[2])/2
+        if abs(centre-visual_centre) > max(font*2.5, (target.bbox[2]-target.bbox[0])*.08):
+            continue
+        title_gap = max(line.bbox[1]-caption.bbox[3], caption.bbox[1]-line.bbox[3], 0)
+        visual_gap = max(line.bbox[1]-target.bbox[3], target.bbox[1]-line.bbox[3], 0)
+        if min(title_gap, visual_gap) <= font*3:
+            return True
+    return False
+
+
+def _body_between(left, right, document, observations=()):
+    if left.page_number == right.page_number:
+        # Source-proved ownership can include internal explanatory text.
+        from .mineru_layout import caption_identity
+        if ((getattr(left, 'caption_owner_id', '')
+             and left.caption_owner_id == caption_identity(right))
+                or (getattr(right, 'caption_owner_id', '')
+                    and right.caption_owner_id == caption_identity(left))):
+            return False
+        upper, lower = sorted((left, right), key=lambda obj: obj.bbox[1])
+        if upper.bbox[3] > lower.bbox[1]:
+            return False
+        from .layout_context import _panel_match
+        from .mineru_layout import _caption_kind
+        page = next(p for p in document.pages if p.number == left.page_number)
+        return any(line.source == 'native'
+                   and upper.bbox[3] <= line.bbox[1] < line.bbox[3] <= lower.bbox[1]
+                   and line.bbox[2] - line.bbox[0] >= page.width * .45
+                   and len(re.findall(r'[A-Za-z\u4e00-\u9fff]', line.text)) >= 12
+                   and not _caption_kind(line.text) and not _panel_match(line.text)
+                   and not _running_page_footer(line, page, document)
+                   and not _caption_annotation(line, left, right, page, observations)
+                   for line in page.lines)
     first, second = sorted((left, right), key=lambda obj: obj.page_number)
     for page in document.pages:
         if page.number not in {first.page_number, second.page_number}:

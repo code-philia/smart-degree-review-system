@@ -66,26 +66,32 @@ describe('six PDF rules integration', () => {
     expect(() => validateExternalProcessingConsent(catalog, ['deepseek_rule'], false)).toThrow();
   });
   it('allows OCR on a text rule to finish within the MinerU polling budget', async () => {
-    const childProcess = require('node:child_process');
-    const { promisify } = require('node:util');
-    const filename = require.resolve('../src/normative/sixRulePaperLintService');
-    const original = childProcess.execFile;
-    let options;
-    const fakeExec = () => { throw new Error('Expected promisified runner'); };
-    fakeExec[promisify.custom] = async (_python, _args, settings) => {
-      options = settings;
-      return { stdout: JSON.stringify({ rules: { 11: { status: 'completed', findings: [] } } }) };
-    };
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const os = require('node:os');
+    const service = require('../src/normative/sixRulePaperLintService');
+    const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'six-rule-wrapper-test-'));
+    const executable = path.join(folder, 'synthetic-child.cjs');
+    const previousPython = process.env.SIX_RULE_PYTHON;
+    const previousTemp = process.env.SIX_RULE_TEMP_DIR;
+    const header = '#!' + process.execPath + '\n';
     try {
-      childProcess.execFile = fakeExec;
-      delete require.cache[filename];
-      const isolated = require(filename);
-      const report = await isolated.runSixRules('scan.pdf', ['sjtu_rule_11']);
+      process.env.SIX_RULE_PYTHON = executable;
+      process.env.SIX_RULE_TEMP_DIR = path.join(folder, 'spool');
+      fs.writeFileSync(executable, header + 'process.stdout.write(JSON.stringify({rules:{11:{status:"completed",findings:[]}}}));', { mode: 0o700 });
+      const report = await service.runSixRules('synthetic.pdf', ['sjtu_rule_11']);
       expect(report.rule_runs[0].outcome).toBe('passed');
-      expect(options.timeout).toBeGreaterThan(17 * 60 * 1000);
+      // Inspect the budget actually applied to a real synthetic invocation.
+      fs.writeFileSync(executable, header + 'process.exitCode=42;');
+      const failure = await service.runSixRules('synthetic.pdf', ['sjtu_rule_11']).catch(error => error);
+      expect(failure.details.timeout_ms).toBeGreaterThan(17 * 60 * 1000);
+      expect(failure.details.exit_code).toBe(42);
     } finally {
-      childProcess.execFile = original;
-      delete require.cache[filename];
+      if (previousPython === undefined) delete process.env.SIX_RULE_PYTHON;
+      else process.env.SIX_RULE_PYTHON = previousPython;
+      if (previousTemp === undefined) delete process.env.SIX_RULE_TEMP_DIR;
+      else process.env.SIX_RULE_TEMP_DIR = previousTemp;
+      fs.rmSync(folder, { recursive: true, force: true });
     }
   });
 

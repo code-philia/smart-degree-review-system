@@ -36,10 +36,16 @@ def _signature_structure_candidate(pages,index):
     previous=pages[index-1] if index else None
     following=pages[index+1] if index+1<len(pages) else None
     text=''.join(normalize_text(line.text).replace(' ','') for line in page.lines)
+    # A page-sized raster can contain a complete signing form with no native
+    # text at all. A CPU schema attempt is only a proposal; source pixels and
+    # the full administrative structure must still prove any exclusion.
+    from .signature_structure import _research
+    from .signature_source_artifacts import scan_carrier_partition
+    scanned=(not _research(page.lines) and scan_carrier_partition(page.images,page.width,page.height))
     # Nearby forms identify candidates, never permission to exclude a page.
     return bool(previous is not None and page.number==previous.number+1 and _form_context(previous)
         or following is not None and following.number==page.number+1 and _form_context(following)
-        or any(word in text for word in ('原创性声明','使用授权','本人郑重声明')))
+        or any(word in text for word in ('原创性声明','使用授权','本人郑重声明')) or scanned)
 
 
 def has_signature_structure_candidates(document,unreadable_numbers):

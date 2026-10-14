@@ -19,7 +19,7 @@ from .local_rules import indirect_reference_key, physical_target_key
 _NUMBER = r'(?:[A-Z]\.)?[0-9]+(?:\s*[.\-]\s*[0-9]+)*'
 _TYPED = {
  'figure': re.compile(r'(?:图|(?<![A-Za-z])Figures?|(?<![A-Za-z])Figs?\.?)\s*[(（]?\s*(?P<number>'+_NUMBER+r')(?![A-Za-z0-9]|\s*[.\-]\s*\d)',re.I),
- 'table': re.compile(r'(?:表格?|(?<![A-Za-z])Tables?)\s*[(（]?\s*(?P<number>'+_NUMBER+r')(?![A-Za-z0-9]|\s*[.\-]\s*\d)',re.I),
+ 'table': re.compile(r'(?:表格?|(?<![A-Za-z])Tables?\.?)\s*[(（]?\s*(?P<number>'+_NUMBER+r')(?![A-Za-z0-9]|\s*[.\-]\s*\d)',re.I),
 }
 _APPENDIX = re.compile(r'^\s*(?:APPENDIX|附录)\s*(?P<number>[A-Z])(?:\s|[:：]|$)',re.I)
 _BODY_TAIL = re.compile(r'^(?:(?:至|到|[-—–])\s*'+_NUMBER+r'\s*)?(?:指明|固定|所总结|以.{0,20}(?:评估|展示|说明)|在.{0,90}(?:描述|总结|说明)|中(?:进行|详细|列出|展示|归纳|描述)|(?:展示|显示|说明|描述|给出|列出|为|是))',re.I)
