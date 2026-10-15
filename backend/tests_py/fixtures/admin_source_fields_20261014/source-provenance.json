@@ -1,0 +1,102 @@
+[
+  {
+    "name": "authorization_blank_expiry",
+    "source": "/data/pdfs/six_rule_test/mothers/SJTU_EXTRA_0104.pdf",
+    "physical_page": 136,
+    "source_sha256": "3cc23f19ea6b9c01a84e5cd79993404eb83a958fe2a1356870bd96fcc9424a66",
+    "fixture_sha256": "29a40aadeb1a1964ed3d73acc2310a4fa118b1d7fa49cb8b8c6b8c7a051c1c29",
+    "width": 595.4400024414062,
+    "height": 841.6799926757812,
+    "rotation": 0
+  },
+  {
+    "name": "authorization_far_adviser",
+    "source": "/data/pdfs/six_rule_test/mothers/SJTU_EXTRA_0107.pdf",
+    "physical_page": 161,
+    "source_sha256": "89464f4ae8069bc2bbfb7ad5c91849e6a098ade2d30514550be5e213cee2aed2",
+    "fixture_sha256": "1550b6d8d8aef0f9442c01db03d48f9f84d6f2e4d0cf589c565f5e54c9da24d8",
+    "width": 612.0499877929688,
+    "height": 841.75,
+    "rotation": 0
+  },
+  {
+    "name": "authorization_weak_adviser",
+    "source": "/data/pdfs/archive479/新系统-归档论文/博士-论文归档批量下载 (1)/03300_020033910040_柳奉奇.pdf",
+    "physical_page": 152,
+    "source_sha256": "193bd3c69a134dd3a77a7ae31c4c8202e83170ae0643ad152247508b25df0f5f",
+    "fixture_sha256": "83dba513199438becc48babf936f169514a00047d6c8776fef12ee03e2f7d0cc",
+    "width": 595.0,
+    "height": 842.0,
+    "rotation": 0
+  },
+  {
+    "name": "decision_old_grid",
+    "source": "/data/pdfs/six_rule_test/mothers/SJTU_EXTRA_0109.pdf",
+    "physical_page": 120,
+    "source_sha256": "c0150178ea8db0587af3fca321b0215f2cb868f40794938baf14c45bfe100f61",
+    "fixture_sha256": "1abef63720da0cb68f21c996e05718a2ab2742f3fb102fdfd436bf46105093f1",
+    "width": 595.2760009765625,
+    "height": 841.8900146484375,
+    "rotation": 0
+  },
+  {
+    "name": "decision_compact_grid",
+    "source": "/data/pdfs/six_rule_test/mothers/SJTU_EXTRA_0107.pdf",
+    "physical_page": 162,
+    "source_sha256": "89464f4ae8069bc2bbfb7ad5c91849e6a098ade2d30514550be5e213cee2aed2",
+    "fixture_sha256": "18a754f940ef448d02d3a9e1f1fc6c96190ca1b6a183ea8d8670684836c40511",
+    "width": 612.0499877929688,
+    "height": 841.75,
+    "rotation": 0
+  },
+  {
+    "name": "decision_review_field",
+    "source": "/data/pdfs/archive479/新系统-归档论文/博士-论文归档批量下载 (1)/03300_021033910096_潘敏婷.pdf",
+    "physical_page": 178,
+    "source_sha256": "690f422f566eb4cc9e5119bb07ea118ffe72dd50a38f7c919ed07eb95037c763",
+    "fixture_sha256": "1dd821a33c03a8abfe5f2052a7850b13c81de25d6b30876b4ae9f6d980e9846a",
+    "width": 595.2000122070312,
+    "height": 841.6799926757812,
+    "rotation": 90
+  },
+  {
+    "name": "decision_roster_previous",
+    "source": "/data/pdfs/archive479/新系统-归档论文/博士-论文归档批量下载 (1)/03300_021033910096_潘敏婷.pdf",
+    "physical_page": 177,
+    "source_sha256": "690f422f566eb4cc9e5119bb07ea118ffe72dd50a38f7c919ed07eb95037c763",
+    "fixture_sha256": "b1eb1fccd40f55e0c1b2a3b648fead7b43a7d8d02c3b96a41b6d25b197772323",
+    "width": 595.2000122070312,
+    "height": 841.6799926757812,
+    "rotation": 90
+  },
+  {
+    "name": "authorization_unrecognized_adviser",
+    "source": "/data/pdfs/archive479/新系统-归档论文/博士-论文归档批量下载 (1)/03300_022033210004_陈琢.pdf",
+    "physical_page": 3,
+    "source_sha256": "d9d0603c5f718bd4ad2811479525ab2024afaaa482c00948d8cc7d9e6a05d76d",
+    "fixture_sha256": "820dd9ef93cec16fd4621b79cff4e973420c79551d77d53e4c9d6ccd278098f7",
+    "width": 595.280029296875,
+    "height": 841.8900146484375,
+    "rotation": 0
+  },
+  {
+    "name": "authorization_separate_checkbox",
+    "source": "/data/pdfs/archive479/新系统-归档论文/博士-论文归档批量下载 (1)/03300_021037910004_郑扬珞.pdf",
+    "physical_page": 188,
+    "source_sha256": "60c6f3fec3ef24503298db4db41aec15233bbd06936a8f06c149b667d790de11",
+    "fixture_sha256": "fb919f07c355edd872bd49f4a60499892168eef0d7d21576b24a765d9f3d4934",
+    "width": 611.52001953125,
+    "height": 841.9199829101562,
+    "rotation": 0
+  },
+  {
+    "name": "decision_signature_edge",
+    "source": "/data/pdfs/archive479/新系统-归档论文/博士-论文归档批量下载 (1)/03300_021037910004_郑扬珞.pdf",
+    "physical_page": 189,
+    "source_sha256": "60c6f3fec3ef24503298db4db41aec15233bbd06936a8f06c149b667d790de11",
+    "fixture_sha256": "e5e8e35fee24ddf696e698871e06314d0ea6404e7e88e6100247a8cf054eff13",
+    "width": 595.2755737304688,
+    "height": 841.8897705078125,
+    "rotation": 0
+  }
+]

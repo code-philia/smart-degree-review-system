@@ -30,15 +30,19 @@ function toReport(row, { includeResult = true } = {}) {
   };
 }
 
-async function createPaperLintReport({ userId, sourceFilename, pdfBuffer, selectedRuleIds, result }) {
-  const id = randomUUID();
+async function createPaperLintReport({ userId, sourceFilename, pdfBuffer, selectedRuleIds, result, reportId }) {
+  const id = reportId || randomUUID();
+  if (reportId) {
+    const existing = await findPaperLintReportByIdForUser(id, userId);
+    if (existing) return existing;
+  }
   const directory = reportsDirectory();
   const pdfPath = path.join(directory, `${id}.pdf`);
   await fs.promises.mkdir(directory, { recursive: true, mode: 0o700 });
-  await fs.promises.writeFile(pdfPath, pdfBuffer, { flag: 'wx', mode: 0o600 });
+  await fs.promises.writeFile(pdfPath, pdfBuffer, { flag: reportId ? 'w' : 'wx', mode: 0o600 });
   try {
     await run(
-      `INSERT INTO paper_lint_reports (
+      `INSERT OR IGNORE INTO paper_lint_reports (
         id, user_id, source_filename, source_pdf_path, selected_rule_ids_json, result_json, created_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?);`,
       [id, userId, sourceFilename, pdfPath, JSON.stringify(selectedRuleIds), JSON.stringify(result), new Date().toISOString()],

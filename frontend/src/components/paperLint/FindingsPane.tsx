@@ -2,7 +2,7 @@ import { Check, CheckCircle2, MapPin } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { PaperLintRule } from '../../api/paperLint';
 import { Button, StatusBadge } from '../ui';
-import { findingPageLabel, type PaperLintFindingItem } from './model';
+import { comparePaperLintRuleIds, findingPageLabel, type PaperLintFindingItem } from './model';
 
 type Props = {
   findings: PaperLintFindingItem[];
@@ -28,7 +28,7 @@ export function FindingsPane({
   const [ruleFilter, setRuleFilter] = useState('all');
   const [handledKeys, setHandledKeys] = useState<string[]>([]);
   const ruleNames = useMemo(() => new Map(rules.map((rule) => [rule.rule_id, rule.title])), [rules]);
-  const ruleIds = Array.from(new Set(findings.map((item) => item.ruleRun.rule_id)));
+  const ruleIds = Array.from(new Set(findings.map((item) => item.ruleRun.rule_id))).sort(comparePaperLintRuleIds);
   const filtered = findings.filter(
     (item) =>
       (filter === 'all' || item.ruleRun.severity === filter) &&
@@ -113,7 +113,8 @@ export function FindingsPane({
                   <div className="flex items-center gap-1">
                     {page ? (
                       <span className="inline-flex shrink-0 items-center gap-1 text-xs text-slate-500">
-                        <MapPin className="size-3" />PDF 第 {page} 页
+                        <MapPin className="size-3" />
+                        PDF 第 {page} 页
                       </span>
                     ) : (
                       <span className="text-xs text-slate-400">暂无精确定位</span>

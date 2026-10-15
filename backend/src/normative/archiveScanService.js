@@ -3,8 +3,22 @@ const path = require('path');
 const { randomUUID } = require('crypto');
 const db = require('../database/db_runtime');
 const { LOCAL_RULES, isLocalRuleId, runLocalFiveRules } = require('./localFiveRulePaperLintService');
+const { getSixRules, isSixRuleId, runSixRules } = require('./sixRulePaperLintService');
+const { mergePaperLintResults } = require('./reviewPilotPaperLintService');
 
 const DEFAULT_ROOT = '/opt/sjtu-archive-479';
+function getArchiveRules() {
+  return [...LOCAL_RULES, ...getSixRules()].sort((a, b) => a.number - b.number);
+}
+async function runArchiveRules(pdfPath, ruleIds) {
+  const localIds = ruleIds.filter(isLocalRuleId);
+  const sixIds = ruleIds.filter(isSixRuleId);
+  const localResult = localIds.length ? await runLocalFiveRules(pdfPath, localIds) : null;
+  const sixResult = sixIds.length ? await runSixRules(pdfPath, sixIds) : null;
+  return localResult && sixResult
+    ? mergePaperLintResults(localResult, sixResult, ruleIds)
+    : localResult || sixResult;
+}
 function problem(status, message) {
   const error = new Error(message);
   error.status = status;
@@ -39,7 +53,7 @@ async function listArchivePdfs(root) {
 }
 function createArchiveScanService({
   archiveRoot = process.env.ARCHIVE_SCAN_ROOT || DEFAULT_ROOT,
-  detector = runLocalFiveRules,
+  detector = runArchiveRules,
 } = {}) {
   let worker = null;
   async function safePdfPath(relativePath) {
@@ -112,9 +126,13 @@ function createArchiveScanService({
       !Array.isArray(ruleIds) ||
       !ruleIds.length ||
       new Set(ruleIds).size !== ruleIds.length ||
-      !ruleIds.every(isLocalRuleId)
+      !ruleIds.every((id) => isLocalRuleId(id) || isSixRuleId(id))
     )
       throw problem(400, '请选择已开放的归档扫描规则');
+    const selectedRules = getArchiveRules().filter((rule) => ruleIds.includes(rule.rule_id));
+    if (selectedRules.some((rule) => !rule.available))
+      throw problem(400, '所选规则暂不可用，请联系管理员配置检测服务');
+    ruleIds = selectedRules.map((rule) => rule.rule_id);
     if (worker || (await db.get("SELECT id FROM archive_scan_jobs WHERE status='running' LIMIT 1")))
       throw problem(409, '已有归档扫描任务正在运行');
     const documents = await listArchivePdfs(archiveRoot);
@@ -140,6 +158,7 @@ function createArchiveScanService({
     return getJob(id);
   }
   async function resumeJobs() {
+    if (process.env.ARCHIVE_SCAN_EXTERNAL_SUPERVISOR === '1') return;
     if (worker) return;
     const active = await db.get("SELECT id FROM archive_scan_jobs WHERE status='running' LIMIT 1");
     if (active) {
@@ -162,10 +181,15 @@ function createArchiveScanService({
   }
   async function listDocuments(jobId, { ruleId, outcome, query, page = 1 } = {}) {
     await getJob(jobId);
+    const findingCount = ruleId
+      ? `(SELECT COALESCE(SUM(json_array_length(rule_run.value, '$.findings')), 0)
+          FROM json_each(result_json, '$.rule_runs') AS rule_run
+          WHERE json_extract(rule_run.value, '$.rule_id') = ?)`
+      : 'finding_count';
     const rows = (
       await db.all(
-        'SELECT id, job_id, relative_path, filename, size_bytes, status, finding_count, rule_outcomes_json, error_message, finished_at FROM archive_scan_documents WHERE job_id=? ORDER BY relative_path',
-        [jobId],
+        `SELECT id, job_id, relative_path, filename, size_bytes, status, ${findingCount} AS finding_count, rule_outcomes_json, error_message, finished_at FROM archive_scan_documents WHERE job_id=? ORDER BY relative_path`,
+        ruleId ? [ruleId, jobId] : [jobId],
       )
     ).map((row) => decodeDocument(row));
     const filtered = rows.filter(
@@ -183,6 +207,7 @@ function createArchiveScanService({
     return {
       items: filtered.slice((pageNumber - 1) * 25, pageNumber * 25),
       total: filtered.length,
+      finding_count: filtered.reduce((sum, row) => sum + row.finding_count, 0),
       page: pageNumber,
       page_size: 25,
     };
@@ -192,7 +217,9 @@ function createArchiveScanService({
     return safePdfPath(doc.relative_path);
   }
   return {
-    rules: LOCAL_RULES,
+    get rules() {
+      return getArchiveRules();
+    },
     archiveRoot,
     listArchivePdfs: () => listArchivePdfs(archiveRoot),
     startJob,

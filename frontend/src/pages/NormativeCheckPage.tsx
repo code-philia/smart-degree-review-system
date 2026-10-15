@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState, type DragEvent } from 'react';
 import { useAuthSession } from '../auth/AuthSessionProvider';
 import {
   fetchReviewPilotPaperLintRules,
+  fetchPaperLintJob,
+  fetchPaperLintReport,
+  isPaperLintJobResponse,
   runReviewPilotPaperLint,
   type PaperLintCatalogResponse,
   type PaperLintRunResponse,
@@ -27,7 +30,13 @@ const MAX_PDF_BYTES = 50 * 1024 * 1024;
 type CheckMode = 'basic' | 'thirty';
 
 function rulesForMode(rules: PaperLintRule[], mode: CheckMode) {
-  return rules.filter((rule) => THIRTY_RULE_IDS.has(rule.rule_id) === (mode === 'thirty'));
+  const filtered = rules.filter((rule) => THIRTY_RULE_IDS.has(rule.rule_id) === (mode === 'thirty'));
+  if (mode === 'thirty') {
+    filtered.sort(
+      (a, b) => Number(a.rule_id.slice('sjtu_rule_'.length)) - Number(b.rule_id.slice('sjtu_rule_'.length)),
+    );
+  }
+  return filtered;
 }
 
 function errorMessage(error: unknown, fallback: string) {
@@ -174,7 +183,22 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     setResponse(null);
     setResultFile(null);
     try {
-      const nextResponse = await runReviewPilotPaperLint(file, selectedRuleIds, semanticConsent);
+      const submitted = await runReviewPilotPaperLint(file, selectedRuleIds, semanticConsent);
+      let nextResponse: PaperLintRunResponse;
+      if (isPaperLintJobResponse(submitted)) {
+        let job = submitted;
+        const deadline = Date.now() + 25 * 60 * 1000;
+        while (job.status === 'pending' || job.status === 'running') {
+          if (Date.now() > deadline) throw new Error('解析任务等待超时，请稍后在历史报告中查看');
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          job = await fetchPaperLintJob(job.job_id);
+        }
+        if (job.status === 'failed') throw new Error(job.error_message || '论文解析失败');
+        if (!job.report_id) throw new Error('检查已完成，但报告未保存');
+        nextResponse = await fetchPaperLintReport(job.report_id);
+      } else {
+        nextResponse = submitted;
+      }
       setResponse(nextResponse);
       setResultFile(file);
     } catch (error) {
@@ -327,7 +351,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
             title="2. 选择审查规则"
             description={
               isThirty
-                ? '当前开放 4 条规则，其余规则将逐步开放。可按需选择本次检查项。'
+                ? '当前开放 ' + visibleRules.length + ' 条规则，其余规则将逐步开放。可按需选择本次检查项。'
                 : '基础检查默认启用；需要额外文本分析的检查项可按需选择。'
             }
             actions={

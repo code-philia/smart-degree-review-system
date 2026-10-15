@@ -18,6 +18,12 @@ function topPosition(item: PaperLintFindingItem) {
   return location?.type === 'pdf_bbox' ? location.bounding_rect.y1 : Number.MAX_SAFE_INTEGER;
 }
 
+export function comparePaperLintRuleIds(left: string, right: string): number {
+  const leftNumber = Number(/^sjtu_rule_(\d+)$/.exec(left)?.[1] ?? Number.MAX_SAFE_INTEGER);
+  const rightNumber = Number(/^sjtu_rule_(\d+)$/.exec(right)?.[1] ?? Number.MAX_SAFE_INTEGER);
+  return leftNumber - rightNumber;
+}
+
 export function flattenPaperLintFindings(result: PaperLintResult): PaperLintFindingItem[] {
   const items: PaperLintFindingItem[] = [];
   for (const ruleRun of result.rule_runs || []) {
@@ -33,7 +39,10 @@ export function flattenPaperLintFindings(result: PaperLintResult): PaperLintFind
   return items
     .sort(
       (left, right) =>
-        pageNumber(left) - pageNumber(right) || topPosition(left) - topPosition(right) || left.index - right.index,
+        comparePaperLintRuleIds(left.ruleRun.rule_id, right.ruleRun.rule_id) ||
+        pageNumber(left) - pageNumber(right) ||
+        topPosition(left) - topPosition(right) ||
+        left.index - right.index,
     )
     .map((item, index) => ({ ...item, index }));
 }

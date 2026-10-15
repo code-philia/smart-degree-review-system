@@ -217,7 +217,7 @@ describe('FEAT-AI-REVIEW-RUN frontend route and workflow contract', () => {
 
     expect(await screen.findByRole('heading', { name: 'AI 智能评阅' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '选择评阅模板' })).toBeInTheDocument();
-    expect(screen.getByText('学术型硕士')).toBeInTheDocument();
+    expect(await screen.findByText('学术型硕士')).toBeInTheDocument();
     expect(screen.getByText(/必需章节：摘要、关键词、引言、研究方法、分析与讨论、结论、参考文献/)).toBeInTheDocument();
 
     await user.click(reviewTemplateCard('学术型硕士'));
