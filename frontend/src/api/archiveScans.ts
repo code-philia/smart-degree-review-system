@@ -26,7 +26,13 @@ export type ArchiveDocument = {
   result?: PaperLintResult | null;
 };
 export type ArchiveCatalog = { rules: PaperLintRule[]; paper_count: number };
-export type ArchiveDocumentPage = { items: ArchiveDocument[]; total: number; page: number; page_size: number };
+export type ArchiveDocumentPage = {
+  items: ArchiveDocument[];
+  total: number;
+  finding_count?: number;
+  page: number;
+  page_size: number;
+};
 const base = '/normative/archive-scans';
 export async function fetchArchiveCatalog(): Promise<ArchiveCatalog> {
   return (await apiClient.get<ArchiveCatalog>(base)).data;

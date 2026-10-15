@@ -399,7 +399,7 @@ export default function ArchiveScanPage() {
                       ['已完成', activeJob.completed_count, CheckCircle2],
                       ['失败', activeJob.failed_count, CircleAlert],
                       ['无法判定', activeJob.inconclusive_count, CircleAlert],
-                      ['发现问题', activeJob.finding_count, FileSearch],
+                      ['发现问题', documents?.finding_count ?? activeJob.finding_count, FileSearch],
                     ].map(([label, value, Icon]) => {
                       const Glyph = Icon as typeof FolderOpen;
                       return (
@@ -473,41 +473,44 @@ export default function ArchiveScanPage() {
                     </select>
                   </div>
                   <div className="mt-4 divide-y divide-slate-100">
-                    {documents?.items.map((doc) => (
-                      <Link
-                        key={doc.id}
-                        to={`/thirty-rules-check/archive/jobs/${activeJob.id}/documents/${doc.id}`}
-                        className="flex items-center gap-3 py-3 transition hover:bg-slate-50"
-                      >
-                        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-                          <FileSearch className="size-4" />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-semibold text-slate-900">{doc.filename}</span>
-                          <span className="block truncate text-xs text-slate-500">{doc.relative_path}</span>
-                        </span>
-                        <span
-                          className={`shrink-0 text-xs font-bold ${doc.finding_count ? 'text-amber-700' : doc.status === 'failed' ? 'text-red-600' : 'text-slate-500'}`}
+                    {documents?.items.map((doc) => {
+                      const outcomes = ruleFilter ? [doc.rule_outcomes[ruleFilter]] : Object.values(doc.rule_outcomes);
+                      return (
+                        <Link
+                          key={doc.id}
+                          to={`/thirty-rules-check/archive/jobs/${activeJob.id}/documents/${doc.id}`}
+                          className="flex items-center gap-3 py-3 transition hover:bg-slate-50"
                         >
-                          {doc.status === 'failed'
-                            ? '检测失败'
-                            : doc.status === 'pending'
-                              ? '等待中'
-                              : doc.status === 'running'
-                                ? '检测中'
-                                : doc.finding_count
-                                  ? `${doc.finding_count} 处问题`
-                                  : Object.values(doc.rule_outcomes).includes('inconclusive')
-                                    ? '无法判定'
-                                    : Object.values(doc.rule_outcomes).includes('issues_found')
-                                      ? '发现问题'
-                                      : Object.values(doc.rule_outcomes).every((outcome) => outcome === 'passed')
-                                        ? '通过'
-                                        : '未检测'}
-                        </span>
-                        <ArrowRight className="size-4 shrink-0 text-slate-400" />
-                      </Link>
-                    ))}
+                          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                            <FileSearch className="size-4" />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-semibold text-slate-900">{doc.filename}</span>
+                            <span className="block truncate text-xs text-slate-500">{doc.relative_path}</span>
+                          </span>
+                          <span
+                            className={`shrink-0 text-xs font-bold ${doc.finding_count ? 'text-amber-700' : doc.status === 'failed' ? 'text-red-600' : 'text-slate-500'}`}
+                          >
+                            {doc.status === 'failed'
+                              ? '检测失败'
+                              : doc.status === 'pending'
+                                ? '等待中'
+                                : doc.status === 'running'
+                                  ? '检测中'
+                                  : doc.finding_count
+                                    ? `${doc.finding_count} 处问题`
+                                    : outcomes.includes('inconclusive')
+                                      ? '无法判定'
+                                      : outcomes.includes('issues_found')
+                                        ? '发现问题'
+                                        : outcomes.every((outcome) => outcome === 'passed')
+                                          ? '通过'
+                                          : '未检测'}
+                          </span>
+                          <ArrowRight className="size-4 shrink-0 text-slate-400" />
+                        </Link>
+                      );
+                    })}
                   </div>
                   {documents && !documents.items.length && (
                     <p className="py-8 text-center text-sm text-slate-500">当前筛选下没有论文</p>

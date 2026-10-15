@@ -181,10 +181,15 @@ function createArchiveScanService({
   }
   async function listDocuments(jobId, { ruleId, outcome, query, page = 1 } = {}) {
     await getJob(jobId);
+    const findingCount = ruleId
+      ? `(SELECT COALESCE(SUM(json_array_length(rule_run.value, '$.findings')), 0)
+          FROM json_each(result_json, '$.rule_runs') AS rule_run
+          WHERE json_extract(rule_run.value, '$.rule_id') = ?)`
+      : 'finding_count';
     const rows = (
       await db.all(
-        'SELECT id, job_id, relative_path, filename, size_bytes, status, finding_count, rule_outcomes_json, error_message, finished_at FROM archive_scan_documents WHERE job_id=? ORDER BY relative_path',
-        [jobId],
+        `SELECT id, job_id, relative_path, filename, size_bytes, status, ${findingCount} AS finding_count, rule_outcomes_json, error_message, finished_at FROM archive_scan_documents WHERE job_id=? ORDER BY relative_path`,
+        ruleId ? [ruleId, jobId] : [jobId],
       )
     ).map((row) => decodeDocument(row));
     const filtered = rows.filter(
@@ -202,6 +207,7 @@ function createArchiveScanService({
     return {
       items: filtered.slice((pageNumber - 1) * 25, pageNumber * 25),
       total: filtered.length,
+      finding_count: filtered.reduce((sum, row) => sum + row.finding_count, 0),
       page: pageNumber,
       page_size: 25,
     };

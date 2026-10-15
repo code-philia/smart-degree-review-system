@@ -216,3 +216,65 @@ describe('archive scan page', () => {
     await waitFor(() => expect(startArchiveJob).toHaveBeenCalledWith(['sjtu_rule_18', 'sjtu_rule_22']));
   });
 });
+
+describe('archive counts follow the selected rule', () => {
+  it('shows the complete filtered total and restores all-rule counts when cleared', async () => {
+    const job = { ...savedJob, finding_count: 90, inconclusive_count: 0 };
+    vi.mocked(fetchArchiveJobs).mockResolvedValue({ jobs: [job as never] });
+    vi.mocked(fetchArchiveJob).mockResolvedValue({ job: job as never });
+    vi.mocked(fetchArchiveDocuments).mockImplementation(async (_id, params) => ({
+      items: [
+        {
+          id: 'mixed',
+          job_id: 'saved',
+          filename: 'mixed.pdf',
+          relative_path: 'mixed.pdf',
+          status: 'completed',
+          finding_count: params.rule_id ? 2 : 9,
+          rule_outcomes: { sjtu_rule_18: 'issues_found', sjtu_rule_22: 'issues_found' },
+        },
+      ] as never,
+      total: 30,
+      page: 1,
+      page_size: 25,
+      finding_count: params.rule_id ? 12 : 90,
+    }));
+    renderPage();
+    const row = await screen.findByRole('link', { name: /mixed.pdf/ });
+    expect(row).toHaveTextContent('9 处问题');
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: '按结果筛选' }), 'issues_found');
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: '按规则筛选' }), 'sjtu_rule_18');
+    await waitFor(() => expect(row).toHaveTextContent('2 处问题'));
+    expect(screen.getByText('发现问题', { selector: 'p' }).previousElementSibling).toHaveTextContent('12');
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: '按规则筛选' }), '');
+    await waitFor(() => expect(row).toHaveTextContent('9 处问题'));
+    expect(screen.getByText('发现问题', { selector: 'p' }).previousElementSibling).toHaveTextContent('90');
+  });
+  it('uses the selected rule outcome despite other inconclusive results', async () => {
+    vi.mocked(fetchArchiveJobs).mockResolvedValue({ jobs: [savedJob as never] });
+    vi.mocked(fetchArchiveJob).mockResolvedValue({ job: savedJob as never });
+    vi.mocked(fetchArchiveDocuments).mockResolvedValue({
+      items: [
+        {
+          id: 'mixed',
+          job_id: 'saved',
+          filename: 'passed.pdf',
+          relative_path: 'passed.pdf',
+          status: 'completed',
+          finding_count: 0,
+          rule_outcomes: { sjtu_rule_18: 'passed', sjtu_rule_22: 'inconclusive' },
+        },
+      ] as never,
+      total: 1,
+      page: 1,
+      page_size: 25,
+      finding_count: 0,
+    } as never);
+    renderPage();
+    const row = await screen.findByRole('link', { name: /passed.pdf/ });
+    expect(row).toHaveTextContent('无法判定');
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: '按规则筛选' }), 'sjtu_rule_18');
+    await waitFor(() => expect(row).toHaveTextContent('通过'));
+    expect(row).not.toHaveTextContent('无法判定');
+  });
+});
