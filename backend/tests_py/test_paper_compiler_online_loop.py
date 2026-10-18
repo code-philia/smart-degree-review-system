@@ -27,7 +27,12 @@ def package():
 
 def api():
     assert importlib.util.find_spec('paper_compiler.online_loop') is not None, 'online refinement orchestrator is missing'
-    return importlib.import_module('paper_compiler.online_loop').online_refine
+    online_refine = importlib.import_module('paper_compiler.online_loop').online_refine
+    # These fixtures exercise the original audit/CAS contract. New source-level
+    # generation and its default policy have dedicated real-builder tests.
+    def legacy_call(*args, resources=None, **kwargs):
+        return online_refine(*args, resources={'online_mutation_validation': False, **(resources or {})}, **kwargs)
+    return legacy_call
 
 
 class Model:

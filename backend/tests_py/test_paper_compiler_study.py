@@ -333,3 +333,13 @@ def test_program_only_repairs_failed_initial_code_under_the_configured_shared_mo
     assert fixed['rounds'][0]['status']=='candidate_failed'
     assert fixed['final_test']['metrics']['strict_balanced_accuracy']==1
     assert result['conditions']['program_only']['model_version']==model['version']
+
+def test_resume_rejects_changed_semantic_runtime_even_with_same_declared_version(tmp_path,monkeypatch):
+    import paper_compiler.study as study
+    tasks,manifest,splits=benchmark(tmp_path,('only',));out=tmp_path/'study';calls=[]
+    runner=runner_for(out,splits,calls)
+    study.run_study(tasks,manifest,client=Model(),output_dir=out,runner=runner,max_rounds=1)
+    original=study._sha
+    monkeypatch.setattr(study,'_sha',lambda path:'0'*64 if Path(path).name=='program_analysis.py' else original(path))
+    with pytest.raises(ValueError,match='frozen study artifact changed'):
+        study.run_study(tasks,manifest,client=Model(),output_dir=out,runner=runner,max_rounds=1)

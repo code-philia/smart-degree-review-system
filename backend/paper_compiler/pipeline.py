@@ -1,10 +1,16 @@
 """One shared version of the paper model and compatible generated checking passes."""
-import copy,json
+import copy,json,hashlib
 from pathlib import Path
 from .programs import build_program,save_program,load_program,check_programs,digest
 from .model_runtime import base_model,extend_model,apply_model
 from .storage import write_json_atomic
 from .contracts import ir_hash
+
+def runtime_sources():
+    root=Path(__file__).resolve().parent
+    return {str(path.relative_to(root)):hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in sorted(root.rglob('*')) if path.is_file() and path.suffix in {'.py','.json'}}
+
 
 def shared_model(packages):
     model=base_model()
@@ -37,7 +43,7 @@ def detect(ir,packages,*,client,gateway,cache_dir,evidence_environment=None):
     config=getattr(client,'config',{})
     execution={'semantic_model':{k:config.get(k) for k in ['MAAS_MODEL','MAAS_MODEL_VERSION']},
                'offline':client is None,'evidence_environment_sha256':digest(evidence_environment),
-               'evidence_snapshot':getattr(gateway,'snapshot_id',None)}
+               'evidence_snapshot':getattr(gateway,'snapshot_id',None),'runtime_source_sha256':digest(runtime_sources())}
     report['execution_config']=execution
     report['analysis_sha256']=digest(analysis)
     report['pipeline_version']=digest({'model':model,'programs':[p['manifest']['version_id'] for p in packages],'execution':execution})
@@ -54,7 +60,17 @@ def save_suite(packages,folder,*,validated=False,validation=None,regression_case
             if load_program(path)['manifest']!=package['manifest']:raise ValueError('suite program changed')
         else:save_program(package,path)
         names.append(name)
-    content={'schema_version':'paper-suite/1.0','model':model,'packages':names,
+    sources=runtime_sources()
+    for name,expected in sources.items():
+        archived=folder/'runtime'/name
+        archived.parent.mkdir(parents=True,exist_ok=True)
+        payload=Path(__file__).resolve().parent.joinpath(name).read_bytes()
+        if archived.exists():
+            if hashlib.sha256(archived.read_bytes()).hexdigest()!=expected:
+                raise ValueError('suite runtime artifact is immutable')
+        else:
+            with archived.open('xb') as handle:handle.write(payload)
+    content={'schema_version':'paper-suite/1.0','model':model,'packages':names,'runtime_source_sha256':sources,
              'program_versions':[p['manifest']['version_id'] for p in packages]}
     if regression_cases is not None:
         if not isinstance(regression_cases,list):raise ValueError('online regressions must be a list')
@@ -79,6 +95,16 @@ def load_suite(folder):
     content={k:v for k,v in manifest.items() if k!='version_id'}
     if manifest.get('schema_version')!='paper-suite/1.0' or digest(content)!=manifest.get('version_id'):
         raise ValueError('suite hash mismatch')
+    if 'runtime_source_sha256' in manifest:
+        sources=manifest['runtime_source_sha256']
+        if not isinstance(sources,dict) or not sources:raise ValueError('invalid runtime source manifest')
+        root=(folder/'runtime').resolve()
+        for name,expected in sources.items():
+            if not isinstance(name,str):raise ValueError('invalid runtime artifact path')
+            path=(root/name).resolve()
+            if not path.is_relative_to(root) or not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest()!=expected:
+                raise ValueError('suite runtime artifact hash mismatch')
+        if sources!=runtime_sources():raise ValueError('suite runtime implementation mismatch')
     if 'online_regression_sha256' in manifest:
         cases=json.loads((folder/'online-regressions.json').read_text())
         if not isinstance(cases,list) or digest(cases)!=manifest['online_regression_sha256'] or len(cases)!=manifest.get('online_regression_count'):

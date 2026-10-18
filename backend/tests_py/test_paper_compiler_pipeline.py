@@ -146,3 +146,23 @@ def test_online_cli_bounds_all_model_stages_before_building_pdf(tmp_path,monkeyp
         '--cache',str(tmp_path/'cache'),'--ledger',str(tmp_path/'ledger.db')])
     assert cli.execute(args)['status']=='completed'
     assert events==['bounded','pdf']
+
+def test_suite_archives_and_verifies_its_runtime_sources(tmp_path):
+    pkg=build_program(candidate(),rule_text='Entry',basis=[{'id':'test','text':'Entry'}])
+    folder=tmp_path/'suite';manifest=pipeline.save_suite([pkg],folder)
+    assert 'program_analysis.py' in manifest['runtime_source_sha256']
+    archived=folder/'runtime'/'program_analysis.py'
+    assert archived.read_bytes()==Path(pipeline.__file__).with_name('program_analysis.py').read_bytes()
+    archived.write_bytes(archived.read_bytes()+b'\n# changed')
+    with pytest.raises(ValueError,match='runtime artifact'):
+        pipeline.load_suite(folder)
+
+def test_suite_rejects_a_different_runtime_even_when_package_versions_match(tmp_path,monkeypatch):
+    pkg=build_program(candidate(),rule_text='Entry',basis=[{'id':'test','text':'Entry'}])
+    folder=tmp_path/'suite';pipeline.save_suite([pkg],folder)
+    original=getattr(pipeline,'runtime_sources',lambda:{})
+    def changed():
+        files=original();files['program_analysis.py']='0'*64;return files
+    monkeypatch.setattr(pipeline,'runtime_sources',changed,raising=False)
+    with pytest.raises(ValueError,match='runtime implementation'):
+        pipeline.load_suite(folder)

@@ -5,7 +5,6 @@ from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
-import time
 
 from .budget import BudgetExceeded
 from .contracts import ir_hash, reject_answers, validate_ir
@@ -13,6 +12,8 @@ from .feedback_loop import evaluate_cases, run_feedback_loop, _metrics
 from .model_runtime import base_model, extend_model, validate_model
 from .pipeline import rebind, save_suite, shared_model
 from .programs import build_program, digest, load_program, save_program
+from .run_accounting import ResourceInterval, budget_snapshot
+from .task_inputs import project_rule_basis
 from .storage import json_bytes, write_json_atomic
 from .synthesis import PROMPT_VERSION, synthesize_program
 
@@ -110,9 +111,8 @@ def _verify_outputs(out):
 
 
 def _budget(client):
-    ledger = getattr(client, 'ledger', None)
-    return ledger.summary() if ledger is not None and callable(getattr(ledger, 'summary', None)) else {
-        'available': False, 'reason': 'injected client exposes no budget ledger; no cost estimate fabricated'}
+    return budget_snapshot(client) or {
+        'available': False, 'reason': 'no usable budget snapshot; no cost estimate fabricated'}
 
 
 def _compatible(packages):
@@ -238,21 +238,28 @@ def run_study(tasks, manifest_path, *, client, output_dir, runner, max_rounds=5,
         'selection': 'validation strict balanced accuracy; no heldout access until all condition suites are frozen',
         'regression_policy': 'verified-other-rule-feedback-only/1.0', 'runner_fingerprint': getattr(runner, 'study_fingerprint', None),
         'model_config': {k: model_config.get(k) for k in ['MAAS_MODEL', 'MAAS_MODEL_VERSION']},
-        'implementation_sha256': {name: _sha(Path(__file__).with_name(name)) for name in ['study.py', 'feedback_loop.py', 'synthesis.py', 'pipeline.py']}}
+        'implementation_sha256': {str(path.relative_to(Path(__file__).resolve().parents[1])): _sha(path)
+            for path in sorted(Path(__file__).resolve().parent.rglob('*'))
+            if path.is_file() and path.suffix in {'.py', '.json'}}}
     _immutable(out / 'protocol.json', protocol)
     _immutable(out / 'frozen-benchmark.json', manifest)
     if (out / 'summary.json').exists():
         _verify_outputs(out)
         return _read(out / 'summary.json')
-    started = time.monotonic()
-    result = {'schema_version': VERSION, 'status': 'incomplete', 'conditions': {}, 'initial': {},
+    prior = _read(out/'checkpoint.json') if (out/'checkpoint.json').is_file() else {}
+    interval = ResourceInterval(client,out/'resource-usage.json',initial_record=prior)
+    first_budget = deepcopy(prior.get('budget_before',interval.budget_before))
+    result = {'schema_version': VERSION, 'status': 'incomplete', 'conditions': {},
+        'initial': deepcopy(prior.get('initial',{})),
         'initial_model_version': initial_model['version'], 'configured_model_version': initial_model['version'], 'benchmark_sha256': benchmark_hash,
-        'started_at': datetime.now(timezone.utc).isoformat(), 'budget_before': _budget(client),
+        'started_at': interval.started_at, 'budget_before': first_budget if first_budget is not None else _budget(None),
         'protocol_path': str((out / 'protocol.json').resolve())}
 
     def finish(reason, complete=False):
+        usage = interval.close('completed' if complete else reason)
         result.update(status='completed' if complete else 'incomplete', stop_reason=reason,
-                      elapsed_seconds=time.monotonic() - started, budget=_budget(client),
+                      elapsed_seconds=usage['elapsed_seconds'], resource_usage=usage,
+                      budget=deepcopy(usage['budget_after']) if usage['budget_after'] is not None else _budget(None),
                       finished_at=datetime.now(timezone.utc).isoformat())
         write_json_atomic(out / ('summary.json' if complete else 'checkpoint.json'), result)
         if complete:
@@ -267,17 +274,36 @@ def run_study(tasks, manifest_path, *, client, output_dir, runner, max_rounds=5,
             rid = task['rule_id']; folder = out / 'initial' / ('task-' + digest(rid)[:12])
             if (folder / 'generation-failed.json').exists() and not (folder / 'synthesis-response.json').exists():
                 return finish('initial_generation_failed_without_raw_response')
+            preparation_path = folder/'resource-usage.json'
+            preparation_state = _read(preparation_path) if preparation_path.is_file() else {}
+            reusable = (folder/'synthesis-response.json').is_file() and preparation_state.get('status') in {'completed','candidate_failed'}
+            preparation = None if reusable else ResourceInterval(client,preparation_path)
+            result['initial'].setdefault(rid,{})
+            if reusable:
+                result['initial'][rid]['resource_usage'] = deepcopy(preparation_state['resource_usage'])
             try:
                 package = synthesize_program(task, client, folder, model=initial_model)
                 initial_packages[rid] = package
             except BudgetExceeded:
+                if preparation is not None:
+                    result['initial'][rid]['resource_usage'] = preparation.close('budget_exhausted')
                 return finish('budget_limit_initial')
             except Exception as error:
+                if preparation is not None:
+                    result['initial'][rid]['resource_usage'] = preparation.close('candidate_failed')
                 if not (folder / 'synthesis-response.json').exists():
                     write_json_atomic(folder / 'generation-failed.json', {'error_type': type(error).__name__, 'reason': str(error)[:3000]})
                     return finish('initial_generation_failed_without_raw_response')
                 invalid_initial.add(rid)
-                result['initial'][rid] = {'status': 'invalid_initial', 'error_type': type(error).__name__, 'reason': str(error)[:3000]}
+                result['initial'][rid].update(status='invalid_initial', error_type=type(error).__name__, reason=str(error)[:3000])
+            except BaseException:
+                if preparation is not None:
+                    result['initial'][rid]['resource_usage'] = preparation.close('interrupted')
+                raise
+            else:
+                if preparation is not None:
+                    result['initial'][rid]['resource_usage'] = preparation.close('completed')
+            interval.checkpoint()
             raw[rid] = _read(folder / 'synthesis-response.json')
             result['initial'].setdefault(rid, {})
             result['initial'][rid].update(raw_sha256=digest(raw[rid]), raw_path=str((folder / 'synthesis-response.json').resolve()))
@@ -296,7 +322,7 @@ def run_study(tasks, manifest_path, *, client, output_dir, runner, max_rounds=5,
             if rid in invalid_initial:
                 continue
             try:
-                package = build_program(raw[rid], rule_text=task['rule_text'], basis=task['basis'], model=common_model)
+                package = build_program(raw[rid], rule_text=task['rule_text'], basis=project_rule_basis(task), model=common_model)
                 folder = out / 'initial' / 'shared-packages' / ('task-' + digest(rid)[:12])
                 if not (folder / 'manifest.json').exists(): save_program(package, folder)
                 else: package = load_program(folder)
@@ -334,6 +360,7 @@ def run_study(tasks, manifest_path, *, client, output_dir, runner, max_rounds=5,
                     candidate_validator=_cross_validator(condition, rid, state, raw[rid], manifest['cases'], runner, common_model),
                     regression_policy=protocol['regression_policy'])
                 condition_result['rules'][rid] = deepcopy(loop)
+                interval.checkpoint()
                 if 'budget' in loop.get('stop_reason', ''):
                     return finish('budget_limit_selection')
                 if loop.get('status') != 'selected_pending_test' or not loop.get('best_package_path'):
@@ -381,3 +408,6 @@ def run_study(tasks, manifest_path, *, client, output_dir, runner, max_rounds=5,
         return finish('all_frozen_selections_evaluated', complete=True)
     except BudgetExceeded:
         return finish('budget_limit')
+    except BaseException:
+        finish('interrupted')
+        raise

@@ -252,3 +252,18 @@ def test_rejected_offline_revision_is_supplied_with_grounded_counterexamples(tmp
     assert any(row.get('failed_candidate',{}).get('unexpected_note')=='must be removed' for row in failed)
     assert any('expected' in row for row in failed)
     assert result['rounds_completed']==3 and result['final_test']['strict_balanced_accuracy']==1
+
+def test_detector_synthesis_never_receives_benchmark_generation_guidance(tmp_path):
+    from paper_compiler.synthesis import synthesize_program
+    class Recorder:
+        def complete_json(self,task,instructions,data,max_tokens):
+            self.data=data
+            return candidate(CODE)
+    client=Recorder()
+    task={'rule_id':'new-rule','rule_text':'Hello','basis':[{'id':'test','text':'Hello'}],
+        'generation_guidance':'BENCHMARK-ONLY: fictional identity family and mutation construction protocol',
+        'detection_guidance':'Apply the stated rule to all applicable source nodes.'}
+    synthesize_program(task,client,tmp_path/'generation')
+    packet=json.dumps(client.data)
+    assert 'BENCHMARK-ONLY' not in packet
+    assert client.data['generation_guidance']==task['detection_guidance']

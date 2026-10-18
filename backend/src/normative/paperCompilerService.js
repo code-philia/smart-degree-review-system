@@ -26,6 +26,10 @@ async function runJsonProcess(command,args,{signal,timeoutMs=1200000,maxBytes=64
   catch(error) {
     if(error.code==='ERR_CHILD_PROCESS_STDIO_MAXBUFFER') throw failure(502,'COMPILER_OUTPUT_LIMIT','规则编译检测输出超过资源上限');
     if(signal?.aborted || error.name==='AbortError' || error.killed) throw failure(504,'COMPILER_INTERRUPTED','规则编译检测超时或已取消');
+    let stopped;
+    try { stopped=JSON.parse(typeof error.stdout==='string' ? error.stdout : ''); } catch {}
+    if(stopped?.status==='error' && stopped.error_type==='BudgetExceeded')throw failure(429,'COMPILER_BUDGET_EXHAUSTED','API预算已达到上限，未完成的检测已停止');
+    if(stopped?.status==='error' && stopped.error_type==='RequestDeadlineExceeded')throw failure(504,'COMPILER_TIME_LIMIT','本次任务已达到时限，未完成的检测已停止');
     throw failure(error.code==='ENOENT'?503:502,'COMPILER_PROCESS_FAILED','规则编译检测未完成，请检查运行记录');
   }
   try { const result=JSON.parse(stdout);if(!result || typeof result!=='object' || (Array.isArray(result) && !allowArray))throw new Error();return result; }
@@ -34,6 +38,12 @@ async function runJsonProcess(command,args,{signal,timeoutMs=1200000,maxBytes=64
 function toCompilerResult(output,selectedRuleIds) {
   if(output?.schema_version!=='paper-check/1.0' || !Array.isArray(output.rules))throw failure(502,'COMPILER_INVALID_REPORT','规则编译检测结果不完整');
   const asVersion=value=>typeof value==='string' && value.trim() ? value : null;
+  const refinementMessage=new Map([
+    ['budget_limit','自动迭代因API预算或时限停止；已完成的检测结果保留，未完成项无法判定。'],
+    ['mutation_validation_incomplete','自动迭代验证尚未完成，继续使用当前版本；本次检测结果保留。'],
+    ['candidate_rejected','自动迭代候选未通过验证，继续使用当前版本；本次检测结果保留。'],
+    ['audit_or_execution_error','自动迭代未完成，继续使用当前版本；本次检测结果保留。'],
+  ]).get(output.runtime?.status) || null;
   const explicitReport=output.runtime?.report_version;
   const runtimeVersion=explicitReport ? asVersion(explicitReport.suite_version) : asVersion(output.runtime?.active_version) || asVersion(output.runtime_version);
   const pipelineVersion=asVersion(output.pipeline_version) || asVersion(output.pipeline?.version_id);
@@ -56,7 +66,9 @@ function toCompilerResult(output,selectedRuleIds) {
     return {rule_run_id:`run_${ruleId}`,rule_id:ruleId,severity:'warning',params:null,
       execution_status:raw.status==='ERROR'?'error':'completed',evidence_mode:findings.some(f=>f.source_kind==='synthetic')?'derived':'native',
       outcome:findings.length?'issues_found':raw.status==='PASS'?'passed':raw.status==='NOT_APPLICABLE'?'not_applicable':'inconclusive',
-      message:raw.status==='UNKNOWN' || unknown || raw.coverage?.incomplete_scopes?.length ? `${unknown} 项证据不足；未覆盖的内容保留无法判定。` : null,
+      message:[raw.status==='UNKNOWN' || unknown || raw.coverage?.incomplete_scopes?.length ? `${unknown} 项证据不足；未覆盖的内容保留无法判定。` : null,
+        refinementMessage].filter(Boolean).join(' ') || null,
+      compiler_runtime_status:typeof output.runtime?.status==='string' ? output.runtime.status : null,
       findings,compiler_diagnostics:diagnostics,coverage:raw.coverage,compiler_counts:raw.counts,package_sha256:raw.package_sha256,
       runtime_version:runtimeVersion,pipeline_version:pipelineVersion,runtime_snapshot:runtimeSnapshot};
   });

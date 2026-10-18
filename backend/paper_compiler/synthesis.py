@@ -8,6 +8,7 @@ from .model_runtime import base_model, extend_model
 from .programs import build_program, save_program, digest
 from .program_worker import BUILTINS, METHODS, HELPERS
 from .registry import REGISTRY
+from .task_inputs import project_rule_basis
 from .storage import write_json_atomic
 
 PROMPT_VERSION='paper-program-synthesis/2.0'
@@ -51,8 +52,8 @@ def synthesize_program(task,client,output_dir,*,model=None,previous=None,feedbac
     output_dir=Path(output_dir);output_dir.mkdir(parents=True,exist_ok=True)
     model=copy.deepcopy(model or (previous['model'] if previous else base_model()))
     advertised={k:v for k,v in REGISTRY['capabilities'].items() if k!='citation_relevance'}
-    data={'requested_rule_id':str(task['rule_id']),'rule_text':task['rule_text'],'basis':task['basis'],
-        'task_target_kinds':task.get('target_kinds',[]),'generation_guidance':task.get('generation_guidance',''),
+    data={'requested_rule_id':str(task['rule_id']),'rule_text':task['rule_text'],'basis':project_rule_basis(task),
+        'task_target_kinds':task.get('target_kinds',[]),'generation_guidance':task.get('detection_guidance',''),
         'paper_model':model,'node_kinds':sorted(KINDS|set(model.get('node_types',{}))),
         'base_node_attributes':{kind:list({**COMMON,**ATTRS.get(kind,{})}) for kind in KINDS},
         'analysis_registry':advertised,'python_policy':{'builtins':sorted(BUILTINS),
@@ -60,6 +61,8 @@ def synthesize_program(task,client,output_dir,*,model=None,previous=None,feedbac
         'allow_model_refinement':bool(allow_model_refinement),
         'refinement_policy':('model and generated analysis requests may be refined' if allow_model_refinement else 'Paper Model and existing generated analysis_requests are FIXED after the initial candidate. Preserve analysis_requests and requires exactly; only detection code may be repaired.'),
         'previous_candidate':None if previous is None else {**copy.deepcopy(previous['program_spec']),'code':previous['code']}}
+    # Planner generation_guidance belongs only to mutant construction. The
+    # detector sees independent rule guidance, never the generator protocol.
     fingerprint=digest(data)
     input_file=output_dir/'synthesis-input.json';answer_file=output_dir/'synthesis-response.json'
     if input_file.exists():
@@ -77,7 +80,7 @@ def synthesize_program(task,client,output_dir,*,model=None,previous=None,feedbac
     if patch and patch.get('node_types'):
         if not allow_model_refinement:raise ValueError('model is fixed for this experimental condition')
         model=extend_model(model,patch)
-    package=build_program(candidate,rule_text=task['rule_text'],basis=task['basis'],model=model)
+    package=build_program(candidate,rule_text=task['rule_text'],basis=project_rule_basis(task),model=model)
     package_dir=output_dir/'package'
     if not (package_dir/'manifest.json').exists():save_program(package,package_dir)
     return package

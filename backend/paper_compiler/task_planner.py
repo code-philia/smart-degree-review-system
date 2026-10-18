@@ -13,6 +13,7 @@ import re
 from .contracts import KINDS, reject_answers
 from .llm import public_model_config
 from .model_runtime import base_model, validate_model
+from .task_inputs import project_rule_basis
 from .storage import json_bytes, write_json_atomic
 
 PROMPT_VERSION = 'paper-task-planning/1.0'
@@ -96,7 +97,7 @@ def _request(rule_id, rule_text, basis, client, model, origins, environments):
     validate_model(shared_model)
     origins, environments = _policy(origins, environments)
     config = getattr(client, 'config', None)
-    data = {'requested_rule_id': copy.deepcopy(rule_id), 'rule_text': rule_text, 'basis': _basis(basis),
+    data = {'requested_rule_id': copy.deepcopy(rule_id), 'rule_text': rule_text, 'basis': _basis(project_rule_basis({'basis': basis})),
             'paper_model': shared_model, 'available_node_kinds': sorted(KINDS | set(shared_model['node_types'])),
             'allowed_context_origins': origins, 'evidence_environments': environments,
             'planning_model': public_model_config(config) if isinstance(config, dict) else None}
@@ -176,6 +177,9 @@ def plan_task(rule_id, rule_text, basis, *, client, model=None,
         if root is not None:
             _immutable(raw_path, response)
     task = _task(data, response)
+    # Admission metadata remains host-owned for later mutant construction.
+    # It is never part of the planner's normative prompt.
+    task['basis'] = _basis(basis)
     if root is not None:
         _immutable(root / 'plan.json', task)
         manifest = {'schema_version': SCHEMA_VERSION,

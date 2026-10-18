@@ -97,3 +97,5 @@ Node 的 cache 默认仍为 `/data/runtime/paper-compiler`，与现有 CLI 一�
 evidence loader 会拒绝配置文件的任何组/其他权限位。直接给 root0600 文件增加用户ACL可能令mask映射为0640，仍被拒绝。上线方案应由systemd以root读取原0600 evidence.env作为EnvironmentFile，并将OPENALEX_API_KEY仅注入受控service；或提供服务UID独享0400的凭据文件。不采用给该文件增加普通只读ACL的方案。模型配置、同一个费用账本及SQLite日志父目录的权限分别按实际loader核对。本次仅准备配置方案，未修改生产权限或凭据。
 
 单任务默认5元/1200秒，通过同账本scope约束所有模型调用；原200元累计上限仍保留。成功在线版本携带最多32个已确认在线回归案例及哈希，下次晋级必须自动复检；正式独立测试不进入该库存。当前审阅修复与557/242项验证见 research/review-findings-20261019.md，发布仍待正式研究与用户上线要求。
+
+最新组件验收：Node248 passed/11 skipped（/data/tmp/paper-compiler-final-node-lft4trxa/vitest.log），前端152 passed且build退出0（/data/tmp/paper-compiler-final-web-_7t1e7ea/），compiler639 passed（development/compiler-all-final-1792355787.log）。网站现在明确呈现预算/时限、局部验证不完整、候选拒绝与迭代失败，保留已完成检测和实际旧版本。T55/T56/T60在最新TODO已完成组件验收；本文件早期剩余列表按当时状态保留，最终T54/T57三规则真实联调与T58生产仍待正式研究及发布标准。

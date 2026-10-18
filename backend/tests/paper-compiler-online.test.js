@@ -113,3 +113,32 @@ it('uses the exact report release while preserving the distinct currently active
   expect(result.runtime.generation).toBe(8);
   expect(result.runtime.report_version).toBe('evaluated');
 });
+
+it.each([
+  ['BudgetExceeded',429,'COMPILER_BUDGET_EXHAUSTED'],
+  ['RequestDeadlineExceeded',504,'COMPILER_TIME_LIMIT'],
+])('presents structured %s as a resource stop', async (errorType,status,code) => {
+  const program="process.stdout.write(JSON.stringify({status:'error',error_type:"+JSON.stringify(errorType)+"}));process.exit(1)";
+  await expect(service.runJsonProcess(process.execPath,['-e',program])).rejects.toMatchObject({status,code});
+});
+it('preserves completed detection while explaining an adaptive-loop budget stop', () => {
+  const output={...report,runtime:{...report.runtime,freeze:false,status:'budget_limit'}};
+  const result=service.toCompilerResult(output,['sjtu_rule_31']);
+  expect(result.rule_runs[0].outcome).toBe('passed');
+  expect(result.rule_runs[0].message).toContain('预算');
+  expect(result.rule_runs[0].compiler_runtime_status).toBe('budget_limit');
+});
+
+it.each([
+  ['mutation_validation_incomplete','验证尚未完成'],
+  ['candidate_rejected','未通过验证'],
+  ['audit_or_execution_error','未完成'],
+])('explains %s while preserving the completed detection', (status,reason) => {
+  const output={...report,runtime:{...report.runtime,freeze:false,status}};
+  const result=service.toCompilerResult(output,['sjtu_rule_31']);
+  expect(result.rule_runs[0].outcome).toBe('passed');
+  expect(result.rule_runs[0].execution_status).toBe('completed');
+  expect(result.rule_runs[0].message).toContain(reason);
+  expect(result.rule_runs[0].message).toContain('当前版本');
+  expect(result.rule_runs[0].compiler_runtime_status).toBe(status);
+});

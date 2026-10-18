@@ -134,7 +134,10 @@ describe('built-in review cases module', () => {
 
   it('opens the deterministic case from the catalog and renders its PDF workspace result', async () => {
     vi.mocked(fetchCurrentSession).mockResolvedValue({ user: studentUser });
-    vi.mocked(fetchPaperLintBuiltInCases).mockResolvedValue({
+    let resolveCatalog!: (value: Awaited<ReturnType<typeof fetchPaperLintBuiltInCases>>) => void;
+    const catalogPromise = new Promise<Awaited<ReturnType<typeof fetchPaperLintBuiltInCases>>>(resolve => { resolveCatalog = resolve; });
+    vi.mocked(fetchPaperLintBuiltInCases).mockReturnValue(catalogPromise);
+    const catalogResponse: Awaited<ReturnType<typeof fetchPaperLintBuiltInCases>> = {
       cases: [
         { ...reviewCase, finding_count: 1 },
         {
@@ -151,7 +154,7 @@ describe('built-in review cases module', () => {
           },
         },
       ],
-    });
+    };
     vi.mocked(fetchPaperLintBuiltInCase).mockResolvedValue(reviewCase);
     vi.mocked(fetchPaperLintBuiltInCasePdf).mockResolvedValue(new Blob(['%PDF-1.7\n'], { type: 'application/pdf' }));
     const user = userEvent.setup();
@@ -159,7 +162,8 @@ describe('built-in review cases module', () => {
     renderRoute();
 
     expect(await screen.findByRole('heading', { name: '内置审查案例' })).toBeInTheDocument();
-    expect(screen.getByText('跨页数值论点与实验论据不一致')).toBeInTheDocument();
+    resolveCatalog(catalogResponse);
+    expect(await screen.findByText('跨页数值论点与实验论据不一致')).toBeInTheDocument();
     expect(screen.getByText('中英文摘要研究内容不一致')).toBeInTheDocument();
     expect(screen.getByText('第 22 页')).toBeInTheDocument();
     expect(screen.getByText('第 57 页')).toBeInTheDocument();

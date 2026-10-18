@@ -5,10 +5,12 @@ from pathlib import Path
 
 from .budget import BudgetExceeded
 from .contracts import ir_hash, validate_ir
+from .online_mutants import build_online_cases, mutation_policy
 from .pipeline import detect, load_suite, save_suite, shared_model, rebind, release_inventory, report_suite_version
 from .program_analysis import _base_kind, _ground_fields, _hash, _target_data
 from .programs import target_nodes
 from .runtime_control import RuntimeFrozen, VersionConflict
+from .task_inputs import project_feedback_evidence
 from .storage import write_json_atomic
 from .synthesis import synthesize_program
 
@@ -51,6 +53,7 @@ def _resources(resources):
     resources = {} if resources is None else resources
     if not isinstance(resources, dict):
         raise ValueError('online resources must be an object')
+    mutation_policy(resources)
     cases = resources.get('regression_cases', [])
     if not isinstance(cases, list):
         raise ValueError('online regression cases must be a list')
@@ -225,23 +228,47 @@ def _ground_judgments(answer, views, ir):
 
 def _gate(before, after, truths, regression_before, regression_after):
     old, new = _statuses(before), _statuses(after)
-    improvements = sum(old.get(key, 'UNKNOWN') != expected and new.get(key, 'UNKNOWN') == expected
-                       for key, expected in truths.items())
+    input_improvements = sum(old.get(key, 'UNKNOWN') != expected and new.get(key, 'UNKNOWN') == expected
+                             for key, expected in truths.items())
     regressions = sum(old.get(key) == expected and new.get(key) != expected for key, expected in truths.items())
     cross = sum(key not in truths and status in {'PASS', 'VIOLATION', 'NOT_APPLICABLE'} and
                 new.get(key, 'UNKNOWN') != status for key, status in old.items())
+    previous = {case['id']: _statuses(report) for case, report in regression_before}
+    local_improvements = 0
     for case, report in regression_after:
         statuses = _statuses(report)
-        regressions += sum(statuses.get((str(r['rule_id']), r['node_id']), 'UNKNOWN') != r['status']
-                           for r in case['expected'])
+        for row in case['expected']:
+            key = str(row['rule_id']), row['node_id']
+            regressions += statuses.get(key, 'UNKNOWN') != row['status']
+            if case.get('validation_role') == 'local-mutant':
+                local_improvements += (previous.get(case['id'], {}).get(key, 'UNKNOWN') != row['status']
+                                       and statuses.get(key, 'UNKNOWN') == row['status'])
+    improvements = input_improvements + local_improvements
     return {'passed': improvements > 0 and regressions == 0 and cross == 0,
-            'improvements': improvements, 'regressions': regressions, 'cross_rule_regressions': cross,
+            'improvements': improvements, 'input_improvements': input_improvements,
+            'local_mutation_improvements': local_improvements,
+            'regressions': regressions, 'cross_rule_regressions': cross,
             'remaining_feedback_errors': sum(new.get(key, 'UNKNOWN') != expected for key, expected in truths.items()),
-            'verified_regression_cases': len(regression_after)}
+            'verified_regression_cases': len(regression_after),
+            'verified_local_cases': sum(c.get('validation_role') in {'local-mutant', 'local-control'} for c, _ in regression_after),
+            'verified_local_controls': sum(c.get('validation_role') == 'local-control' for c, _ in regression_after)}
+
+
+def _case_failures(case, report):
+    statuses = _statuses(report)
+    nodes = {n['id']: n for n in case['ir']['nodes']}
+    return [{'rule_id': str(row['rule_id']), 'node_id': row['node_id'], 'case_id': case['id'],
+             'expected': row['status'], 'actual': statuses.get((str(row['rule_id']), row['node_id']), 'UNKNOWN'),
+             'source': deepcopy(nodes.get(row['node_id'])), 'origin': 'online-regression',
+             'source_edit': deepcopy(case.get('source_edit')), 'label_evidence': project_feedback_evidence(case.get('label_evidence')),
+             'context': {'edited_node': deepcopy(nodes.get((case.get('source_edit') or {}).get('node_id')))},
+             'failure_types': ['independently_verified_local_mutation_difference']}
+            for row in case['expected']
+            if statuses.get((str(row['rule_id']), row['node_id']), 'UNKNOWN') != row['status']]
 
 
 
-def _regression_inventory(parent, resources, current=None):
+def _regression_inventory(parent, resources, current=None, *, max_cases=32):
     cases = []
     if parent.get('active_path'):
         folder = Path(parent['active_path'])
@@ -258,13 +285,15 @@ def _regression_inventory(parent, resources, current=None):
         key = _hash({'ir': ir_hash(case['ir']), 'expected': case['expected']})
         unique[key] = deepcopy(case)
     # A bounded, versioned online inventory; never reads formal test data.
-    return list(unique.values())[-32:]
+    values = list(unique.values())
+    return values if max_cases is None else values[-max_cases:]
 
 def online_refine(ir, packages, *, client, gateway, cache_dir, control, output_dir, resources=None, max_rounds=2, parent_snapshot=None):
     """Detect, independently verify local feedback, and CAS-promote an improving suite.
 
     resources may contain evidence_environment, max_audit_targets (default eight),
-    and verified inline regression_cases with id/ir/expected[{rule_id,node_id,status}].
+    verified inline regression_cases with id/ir/expected[{rule_id,node_id,status}],
+    and online_mutation_validation (default on_feedback; explicit when=always probes correct input).
     Formal held-out labels and paths are never loaded by this module.
     """
     if type(max_rounds) is not int or not 1 <= max_rounds <= 5:
@@ -281,7 +310,10 @@ def online_refine(ir, packages, *, client, gateway, cache_dir, control, output_d
     folder.mkdir(parents=True, exist_ok=True)
     runtime = {'status': 'detecting', 'parent_snapshot': parent, 'rounds': [], 'run_id': run_id,
                'output_dir': str(folder.resolve()), 'protocol': 'online-grounded-feedback/1.0',
-               'candidate_validation': 'not_run', 'promotion_gate_passed': False}
+               'candidate_validation': 'not_run', 'promotion_gate_passed': False,
+               'local_mutation_validation': {
+                   'status': 'not_requested' if mutation_policy(resources)['enabled'] else 'disabled',
+                   'policy': mutation_policy(resources), 'origin': 'online-regression', 'formal_evaluation': False}}
     environment = resources.get('evidence_environment')
     detection_client = _GuardedClient(client, control, parent, allow_frozen=True) if client is not None else None
     refining_client = _GuardedClient(client, control, parent) if client is not None else None
@@ -299,6 +331,8 @@ def online_refine(ir, packages, *, client, gateway, cache_dir, control, output_d
 
     def finish(status):
         runtime['status'] = status
+        if runtime.get('local_mutation_validation', {}).get('status') == 'building':
+            runtime['local_mutation_validation'].update(status='interrupted', stop_reason=status)
         runtime['current_snapshot'] = control.snapshot()
         write_json_atomic(folder / 'runtime.json', runtime)
         write_json_atomic(folder / 'report.json', result['report'])
@@ -331,16 +365,43 @@ def online_refine(ir, packages, *, client, gateway, cache_dir, control, output_d
         runtime['reliable_feedback'] = len(failures)
         write_json_atomic(folder / 'verified-online-regression.json', {'ir': materialized, 'judgments': list(verified.values()),
                                                                      'protocol': runtime['protocol']})
-        if not failures:
+        policy = mutation_policy(resources)
+        local_cases = []
+        regression_resources = resources
+        if policy['enabled'] and (failures or policy['when'] == 'always'):
+            runtime['local_mutation_validation'] = {'status': 'building', 'policy': policy,
+                                                   'origin': 'online-regression', 'formal_evaluation': False}
+            built = build_online_cases(materialized, packages, analysis, client=refining_client, gateway=gateway,
+                                       output_dir=folder/'local-mutations', resources=resources)
+            runtime['local_mutation_validation'] = {key: deepcopy(value) for key, value in built.items() if key != 'cases'}
+            runtime['local_mutation_validation']['policy'] = policy
+            if built['status'] == 'budget_limit':
+                return finish('budget_limit')
+            if built['status'] != 'complete':
+                return finish('mutation_validation_incomplete')
+            local_cases = built['cases']
+            regression_resources = {**resources, 'regression_cases': [*resources.get('regression_cases', []), *local_cases]}
+        elif not failures:
             return finish('no_reliable_feedback')
-        regressions = _regression_inventory(parent, resources)
-        runtime['inherited_regression_cases'] = len(regressions)
+        # Validate every inherited control before applying the bounded history
+        # retention policy. Adding fresh cases must not evict a validation duty.
+        regressions = _regression_inventory(parent, regression_resources, max_cases=None)
+        runtime['inherited_regression_cases'] = sum(case not in local_cases for case in regressions)
+        runtime['local_regression_cases'] = len(local_cases)
+        runtime['validated_regression_cases'] = len(regressions)
         regression_before = []
         for case in regressions:
             refining_client.check()
             _, _, checked = detect(case['ir'], packages, client=refining_client, gateway=gateway,
                                    cache_dir=Path(cache_dir), evidence_environment=case.get('evidence_environment', environment))
             regression_before.append((case, checked))
+            if case in local_cases:
+                failures.extend(_case_failures(case, checked))
+        runtime['reliable_feedback'] = len(failures)
+        write_json_atomic(folder/'baseline-regressions.json',
+                          [{'case_id': case['id'], 'report': checked} for case, checked in regression_before])
+        if not failures:
+            return finish('no_reliable_feedback')
         previous = {str(p['program_spec']['rule_id']): p for p in packages}
         working_model = shared_model(packages)
         for index in range(max_rounds):
@@ -393,11 +454,12 @@ def online_refine(ir, packages, *, client, gateway, cache_dir, control, output_d
                         'label_protocol': runtime['protocol'], 'label_evidence_sha256': _hash(list(verified.values())),
                         'ir': materialized, 'expected': [{'rule_id': key[0], 'node_id': key[1], 'status': status}
                                                         for key, status in truths.items()]}
-                    inventory = _regression_inventory(parent, resources, current_case)
+                    inventory = _regression_inventory(parent, regression_resources, current_case if truths else None)
                     manifest = save_suite(candidates, suite_path, validated=True, regression_cases=inventory, validation={
                         'protocol': runtime['protocol'], 'input_sha256': ir_hash(ir), 'gate': gate,
                         'parent_version': parent['active_version'], 'parent_generation': parent['generation'],
-                        'verified_targets': len(verified), 'online_evaluation': True})
+                        'verified_targets': len(verified), 'online_evaluation': True,
+                        'local_mutation_validation': deepcopy(runtime['local_mutation_validation'])})
                     refining_client.check()
                     active = control.promote(manifest['version_id'], suite_path, parent['active_version'],
                         expected_generation=parent['generation'], actor='online-grounded-refinement')
@@ -410,8 +472,16 @@ def online_refine(ir, packages, *, client, gateway, cache_dir, control, output_d
                     return finish('promoted')
                 # Future bounded attempts may repair the evaluated failure without
                 # exposing formal benchmark labels or mutating the active version.
-                failures = [{**row, 'candidate_status': _statuses(new_report).get((row['rule_id'], row['node_id']), 'UNKNOWN'),
-                             'validation_gate': gate} for row in failures]
+                case_reports = {case['id']: checked for case, checked in regression_after}
+                failures = [{**row, 'candidate_status': _statuses(case_reports.get(row.get('case_id'), new_report)).get(
+                             (row['rule_id'], row.get('node_id')), 'UNKNOWN'), 'validation_gate': gate} for row in failures]
+                known = {(row.get('case_id'), row['rule_id'], row.get('node_id')) for row in failures}
+                for case, checked in regression_after:
+                    for failure in _case_failures(case, checked):
+                        key = (failure['case_id'], failure['rule_id'], failure['node_id'])
+                        if key not in known:
+                            failures.append({**failure, 'candidate_status': failure['actual'], 'validation_gate': gate})
+                            known.add(key)
             except (BudgetExceeded, RuntimeFrozen, VersionConflict):
                 raise
             except Exception as error:

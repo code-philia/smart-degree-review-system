@@ -71,8 +71,8 @@ class ExternalModel:
             proposals = []
             for p in data["parents"]:
                 rid = data["task"]["rule_id"]
-                proposals.extend([proposal(p, "[1] Wrong " + rid + "[J]. 2020.", "PASS"),
-                                  proposal(p, "[1] Proper " + rid + "[J]. 2020.")])
+                proposals.extend([proposal(p, "[1] Wrong " + rid + "[J]. 2020.", "VIOLATION"),
+                                  proposal(p, "[1] Proper " + rid + "[J]. 2020.", "PASS")])
             if self.mode == "duplicate": proposals += copy.deepcopy(proposals)
             return {"proposals": proposals}
         assert call_task in {"benchmark-label/2.0", "benchmark-review/2.0"}
@@ -603,3 +603,213 @@ def test_completed_legacy_snapshot_is_rechecked_against_baseline_local_evidence(
     mp.write_text(json.dumps(manifest))
     with pytest.raises(ValueError,match="evidence|role"):
         run(tmp_path,[path])
+
+
+def test_full_node_replacement_cannot_quote_only_unchanged_surroundings(tmp_path):
+    class WideReplacement(ExternalModel):
+        def complete_json(self,call_task,instructions,data,max_tokens):
+            answer=super().complete_json(call_task,instructions,data,max_tokens)
+            if call_task == "benchmark-proposals/2.0":
+                for p in answer["proposals"]:p["replacement"]=p["old_text"].replace("2020","2021")
+            else:answer["quotes"]=[{"source_id":"original-node","quote":"Source"},{"source_id":"mutated-node","quote":"Source"}]
+            return answer
+    result=run(tmp_path,[parent(tmp_path)],WideReplacement())
+    assert result["summary"]["generic"]["controls"]==0
+
+
+def test_generic_resource_sampling_filters_origins_edit_kinds_and_engine_boundaries(tmp_path):
+    real=parent(tmp_path);constructed=builder().construct_ir("Constructed method [1].",["[1] A source[J]. 2020."],output_dir=tmp_path/"constructed",source_id="evidence-s1")
+    original=json.loads(real.read_text());entry=next(n for n in original["nodes"] if n["id"]=="entry")
+    class BodyOnly(ExternalModel):
+        def complete_json(self,call_task,instructions,data,max_tokens):
+            if call_task == "benchmark-proposals/2.0":
+                assert len(data["parents"])==1 and data["parents"][0]["context_origin"]=="real"
+                assert [n["id"] for n in data["parents"][0]["nodes"]]==["p"]
+                n=data["parents"][0]["nodes"][0]
+                good={"parent_id":"parent-0","node_id":"p","old_text":n["text"],"replacement":"Wrong method [1]","start":0,"end":len(n["text"]),"target_node_id":"p","claimed_status":"VIOLATION","context_origin":"real","evidence_domain":"source_format","source_ids":["evidence-s1"]}
+                bad={**good,"node_id":"entry","old_text":entry["text"],"replacement":"Wrong source[J]","end":len(entry["text"]),"target_node_id":"entry"}
+                return {"proposals":[bad,good]}
+            return super().complete_json(call_task,instructions,data,max_tokens)
+    resources={**RESOURCES,"candidate_sampling":{"context_origins":["real"],"edit_kinds":["Paragraph"],"require_descendant_kinds":["ReferenceUse"]}}
+    result=builder().build_benchmark([{**task(),"target_kinds":["Paragraph","BibliographyEntry"]}],[real,constructed],client=BodyOnly(),output_dir=tmp_path/"out",resources=resources,negatives_per_rule=1,controls_per_rule=0,max_proposal_batches=1)
+    assert result["summary"]["generic"]["violations"]==1
+    assert any("sampling" in r["reason"] for r in json.loads((tmp_path/"out/rejections.json").read_text()))
+
+
+def test_generic_sampling_omits_paragraphs_without_requested_citation_descendants(tmp_path):
+    cited=parent(tmp_path);plain=builder().construct_ir("A paragraph without any citation.",[],output_dir=tmp_path/"plain",source_id="evidence-s1")
+    records=builder()._load_parents([cited,plain]);groups=builder()._groups(records,31)
+    for record in records.values():record["split"]=groups[record["group"]]["split"]
+    views=builder()._proposal_parents(records,{**task(),"target_kinds":["Paragraph"]},0,{"candidate_sampling":{"edit_kinds":["Paragraph"],"require_descendant_kinds":["ReferenceUse"]}})
+    assert all(p["parent_id"]=="parent-0" for p in views)
+
+
+def test_resume_reuses_strictly_revalidated_case_checkpoint_without_relabeling(tmp_path):
+    class StopAfterOne(ExternalModel):
+        def complete_json(self,call_task,instructions,data,max_tokens):
+            if call_task=="benchmark-review/2.0" and "Proper" in data["mutated_node"]["text"]:raise BudgetExceeded("stopped after first case")
+            return super().complete_json(call_task,instructions,data,max_tokens)
+    path=parent(tmp_path);first=run(tmp_path,[path],StopAfterOne());manifest=json.loads(Path(first["manifest_path"]).read_text());assert len(manifest["cases"])==1
+    op=Path(manifest["cases"][0]["oracle_path"]);before=op.read_bytes()
+    # Accepted immutable IR/oracle checkpoints remain usable independently of a
+    # missing transient call cache; the two raw judgments must stay unchanged.
+    for f in (tmp_path/"out/calls").glob('*.json'):f.unlink()
+    class RemainingOnly(ExternalModel):
+        def complete_json(self,call_task,instructions,data,max_tokens):
+            if call_task!="benchmark-proposals/2.0":assert "Wrong" not in data["mutated_node"]["text"]
+            return super().complete_json(call_task,instructions,data,max_tokens)
+    result=run(tmp_path,[path],RemainingOnly());assert json.loads(Path(result["manifest_path"]).read_text())["status"]=="complete"
+    assert op.read_bytes()==before
+
+
+def test_invalid_provider_output_consumes_failed_batch_and_resume_does_not_retry_it(tmp_path):
+    from paper_compiler.llm import ModelError
+    class InvalidFirst(ExternalModel):
+        def complete_json(self,call_task,instructions,data,max_tokens):
+            if call_task=="benchmark-proposals/2.0" and data["batch"]==0:raise ModelError("model request failed after bounded attempts: invalid_output")
+            return super().complete_json(call_task,instructions,data,max_tokens)
+    path=parent(tmp_path);first=run(tmp_path,[path],InvalidFirst(),batches=1)
+    assert json.loads(Path(first["manifest_path"]).read_text())["status"]=="incomplete"
+    assert any("invalid_output" in r["reason"] for r in json.loads((tmp_path/"out/rejections.json").read_text()))
+    class NeverRetryFailed(ExternalModel):
+        def complete_json(self,call_task,instructions,data,max_tokens):
+            if call_task=="benchmark-proposals/2.0":assert data["batch"]==1
+            return super().complete_json(call_task,instructions,data,max_tokens)
+    result=run(tmp_path,[path],NeverRetryFailed(),batches=2)
+    assert json.loads(Path(result["manifest_path"]).read_text())["status"]=="complete"
+
+
+def test_transport_failure_still_stops_instead_of_silently_skipping_batches(tmp_path):
+    from paper_compiler.llm import ModelError
+    class Transport(ExternalModel):
+        def complete_json(self,call_task,instructions,data,max_tokens):
+            raise ModelError("model request failed after bounded attempts: transport")
+    with pytest.raises(ModelError,match="transport"):run(tmp_path,[parent(tmp_path)],Transport(),batches=2)
+
+
+def test_blind_oracles_receive_rule_contract_without_mutator_or_expected_status_data(tmp_path):
+    class Blind(ExternalModel):
+        def complete_json(self,call_task,instructions,data,max_tokens):
+            if call_task=="benchmark-proposals/2.0":assert data["task"]["generation_guidance"]=="mutator secret"
+            else:
+                assert "generation_guidance" not in data["task"] and "expected_status" not in data["task"] and "quota" not in data["task"]
+                assert "PASS" in data["label_contract"]["valid"]
+            return super().complete_json(call_task,instructions,data,max_tokens)
+    policy={**task(),"generation_guidance":"mutator secret","expected_status":"VIOLATION","quota":100}
+    result=run(tmp_path,[parent(tmp_path)],Blind(),tasks=[policy]);assert result["summary"]["generic"]["controls"]==1
+
+
+def test_consistent_pass_label_cannot_reclassify_a_claimed_violation_as_control(tmp_path):
+    class Mismatch(ExternalModel):
+        def complete_json(self,call_task,instructions,data,max_tokens):
+            answer=super().complete_json(call_task,instructions,data,max_tokens)
+            if call_task=="benchmark-proposals/2.0":
+                for p in answer["proposals"]:p["claimed_status"]="PASS" if "Wrong" in p["replacement"] else "VIOLATION"
+            return answer
+    result=run(tmp_path,[parent(tmp_path)],Mismatch())
+    assert result["summary"]["generic"]["violations"]==0 and result["summary"]["generic"]["controls"]==0
+    assert sum("status mismatch" in r["reason"] for r in json.loads((tmp_path/"out/rejections.json").read_text()))==2
+
+
+
+def test_prior_api_accepted_candidates_are_blindly_revalidated_without_old_labels(tmp_path):
+    path=parent(tmp_path);first=run(tmp_path,[path],output="history")
+    old=json.loads(Path(first["manifest_path"]).read_text());raw={Path(c["oracle_path"]):Path(c["oracle_path"]).read_bytes() for c in old["cases"]}
+    record=next(f for f in (tmp_path/"history/calls").glob("*.json") if json.loads(f.read_text())["request"]["task"]=="benchmark-proposals/2.0")
+    generated=json.loads(record.read_text())["result"]["proposals"]
+    resources={**RESOURCES,"revalidation_candidates":[{"proposal":p,"generation_record_path":str(record),"generation_record_sha256":hashlib.sha256(record.read_bytes()).hexdigest(),"proposal_index":i} for i,p in enumerate(generated)]}
+    class FreshJudges(ExternalModel):
+        def complete_json(self,call_task,instructions,data,max_tokens):
+            assert call_task != "benchmark-proposals/2.0"
+            assert "revalidation_candidates" not in data and "generation_record_path" not in json.dumps(data)
+            assert data["label_contract"]["protocol"]=="benchmark-oracle/2.2"
+            return super().complete_json(call_task,instructions,data,max_tokens)
+    model=FreshJudges();result=builder().build_benchmark([task()],[path],client=model,output_dir=tmp_path/"fresh",resources=resources,negatives_per_rule=1,controls_per_rule=1,max_proposal_batches=1)
+    assert result["summary"]["generic"]["violations"]==1 and result["summary"]["generic"]["controls"]==1
+    assert len(model.requests)==4 and all(p.read_bytes()==payload for p,payload in raw.items())
+    assert list((tmp_path/"fresh/revalidation-batches").glob("*.json"))
+
+
+def test_revalidation_candidate_must_exactly_match_its_prior_api_generation_record(tmp_path):
+    path=parent(tmp_path);record=tmp_path/"generation.json"
+    p=proposal({"parent_id":"parent-0","nodes":[{"id":"entry","text":"[1] Source 0[J]. 2020."}]},"[1] Wrong source[J]. 2020.")
+    record.write_text(json.dumps({"request":{"task":"benchmark-proposals/2.0"},"result":{"proposals":[p]}}))
+    forged={**p,"replacement":"[1] Wrong invented content[J]. 2020."}
+    resources={**RESOURCES,"revalidation_candidates":[{"proposal":forged,"generation_record_path":str(record),"generation_record_sha256":hashlib.sha256(record.read_bytes()).hexdigest(),"proposal_index":0}]}
+    with pytest.raises(ValueError,match="generation|provenance"):
+        builder().build_benchmark([task()],[path],client=ExternalModel(),output_dir=tmp_path/"out",resources=resources,negatives_per_rule=1,controls_per_rule=0,max_proposal_batches=1)
+
+
+
+def test_oracles_receive_complete_catalog_once_when_exact_source_already_contains_it(tmp_path):
+    records=builder()._load_parents([parent(tmp_path)]);groups=builder()._groups(records,31)
+    for r in records.values():r["split"]=groups[r["group"]]["split"]
+    resources=copy.deepcopy(RESOURCES);resources["sources"].append({"id":"full-catalog","text":json.dumps(resources["controlled_catalog"]),"coverage":"complete_controlled_catalog"})
+    view=builder()._proposal_parents(records,task(),0,resources)[0]
+    p=proposal(view,"[1] Wrong citation[J]. 2020.");p["source_ids"].append("full-catalog")
+    data=builder()._candidate(task(),p,records,resources)[5]
+    assert data["controlled_catalog"]==[]
+    assert json.loads(next(s["text"] for s in data["sources"] if s["id"]=="full-catalog"))==RESOURCES["controlled_catalog"]
+
+
+
+def test_rule_basis_projection_excludes_explicit_mutation_admission_without_mutating_inputs():
+    from paper_compiler.task_inputs import project_rule_basis
+    original={"basis":[{"id":"norm","text":"A cited work must exist."},{"id":"admission","text":"Generate a distinct invented identity.","purpose":"mutation_admission"},"Legacy normative text"]}
+    projected=project_rule_basis(original)
+    assert projected==[{"id":"norm","text":"A cited work must exist."},"Legacy normative text"]
+    projected[0]["text"]="changed"
+    assert original["basis"][0]["text"]=="A cited work must exist."
+    assert project_rule_basis({"basis":"Legacy rule basis"})=="Legacy rule basis"
+
+
+def test_rule_basis_projection_rejects_unknown_purposes_instead_of_silently_exposing_them():
+    from paper_compiler.task_inputs import project_rule_basis
+    with pytest.raises(ValueError,match="purpose"):
+        project_rule_basis({"basis":[{"id":"x","text":"secret construction recipe","purpose":"mutator_typo"}]})
+
+
+
+def test_blind_oracle_projects_truth_basis_and_applies_exact_status_conditional_admission(tmp_path):
+    admission="Violation candidates must change identity. PASS controls retain confirmed identity."
+    boundary=admission.index("PASS controls")
+    policy={**task(),"basis":task()["basis"]+[{"id":"construction","text":admission,"purpose":"mutation_admission"}]}
+    resources=copy.deepcopy(RESOURCES);resources["sources"].append({"id":"construction","text":admission})
+    resources["oracle_policy"]={"conditional_admission":[{"basis_id":"construction","status":"VIOLATION","source_span":[0,boundary]},{"basis_id":"construction","status":"PASS","source_span":[boundary,len(admission)]}]}
+    class Conditional(ExternalModel):
+        def complete_json(self,call_task,instructions,data,max_tokens):
+            if call_task=="benchmark-proposals/2.0":assert data["task"]["basis"][-1]["purpose"]=="mutation_admission"
+            else:
+                assert data["label_contract"]["protocol"]=="benchmark-oracle/2.2"
+                assert data["task"]["basis"]==task()["basis"]
+                assert not any(source["id"]=="construction" for source in data["sources"])
+                conditions=data["admission_policy"]["conditions"]
+                assert {condition["status"] for condition in conditions}=={"VIOLATION","PASS"}
+                for condition in conditions:
+                    a,b=condition["source_span"];assert condition["text"]==admission[a:b]
+                assert "actual status" in data["admission_policy"]["precedence"]
+            return super().complete_json(call_task,instructions,data,max_tokens)
+    result=builder().build_benchmark([policy],[parent(tmp_path)],client=Conditional(),output_dir=tmp_path/"out",resources=resources,negatives_per_rule=1,controls_per_rule=1,max_proposal_batches=1)
+    assert result["summary"]["generic"]["controls"]==1
+
+
+@pytest.mark.parametrize("span,status", [([-1,8],"VIOLATION"),([0,1000],"VIOLATION"),([0,8],"EXPECTED")])
+def test_invalid_conditional_admission_provenance_fails_before_paid_calls(tmp_path,span,status):
+    policy={**task(),"basis":task()["basis"]+[{"id":"construction","text":"Admission policy text.","purpose":"mutation_admission"}]}
+    resources={**RESOURCES,"oracle_policy":{"conditional_admission":[{"basis_id":"construction","status":status,"source_span":span}]}}
+    model=ExternalModel()
+    with pytest.raises(ValueError,match="admission|span|status"):
+        builder().build_benchmark([policy],[parent(tmp_path)],client=model,output_dir=tmp_path/"out",resources=resources,negatives_per_rule=1,controls_per_rule=1,max_proposal_batches=1)
+    assert model.requests==[]
+
+
+
+def test_oracle_catalog_entry_duplicates_are_projected_to_complete_catalog_source(tmp_path):
+    records=builder()._load_parents([parent(tmp_path)]);groups=builder()._groups(records,31)
+    for r in records.values():r["split"]=groups[r["group"]]["split"]
+    resources=copy.deepcopy(RESOURCES)
+    resources["sources"] += [{"id":"full-catalog","text":json.dumps(resources["controlled_catalog"]),"coverage":"complete_controlled_catalog","roles":["controlled_catalog"]},{"id":"individual-record","text":json.dumps(resources["controlled_catalog"][0]),"coverage":"controlled_catalog_entry","roles":[]}]
+    view=builder()._proposal_parents(records,task(),0,resources)[0];p=proposal(view,"[1] Wrong citation[J]. 2020.");p["source_ids"] += ["full-catalog","individual-record"]
+    data=builder()._candidate(task(),p,records,resources)[5]
+    assert not any(source["id"]=="individual-record" for source in data["sources"])
+    assert any(source["id"]=="full-catalog" for source in data["sources"])

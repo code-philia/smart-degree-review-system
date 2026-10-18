@@ -7,6 +7,8 @@ from pathlib import Path
 from .budget import BudgetExceeded
 from .contracts import validate_ir,ir_hash
 from .programs import digest,load_program
+from .run_accounting import ResourceInterval
+from .task_inputs import project_rule_basis, project_feedback_evidence
 from .storage import write_json_atomic
 from .synthesis import synthesize_program
 
@@ -98,7 +100,7 @@ def evaluate_cases(package,cases,runner,cache=None):
         if not correct:
             failures.append({**record,'original':_view(original,target),'mutant':_view(mutant,target),
                 'actual_original':before_rows[:20],'actual_mutant':after_rows[:20],
-                'label_evidence':{k:v for k,v in oracle.items() if k not in {'status','valid'}},
+                'label_evidence':project_feedback_evidence(oracle),
                 'failure_types':(['false_positive_original'] if before=='VIOLATION' else [])+
                     (['false_negative'] if expected=='VIOLATION' and after!='VIOLATION' else [])+
                     (['false_positive_mutant'] if expected=='PASS' and after=='VIOLATION' else [])+
@@ -129,7 +131,7 @@ def run_feedback_loop(task,manifest_path,*,client,output_dir,runner,model=None,m
     cases=[c for c in manifest['cases'] if str(c['rule_id'])==str(task['rule_id'])]
     split={s:[c for c in cases if c['split']==s] for s in ['feedback','validation','test']}
     if any(not split[s] for s in split):raise FeedbackError('all three disjoint sets are required')
-    previous=None;feedback=[];best=None;best_score=-1;baseline=None;rounds=[];cache={};stop_reason='round_limit'
+    previous=None;feedback=[];best=None;best_score=-1;baseline=None;rounds=[];cache={};stop_reason='round_limit';pending_round=None
     for index in range(max_rounds):
         if control is not None and control.snapshot()['freeze']:
             stop_reason='frozen';break
@@ -146,6 +148,7 @@ def run_feedback_loop(task,manifest_path,*,client,output_dir,runner,model=None,m
                 if not feedback:stop_reason='feedback_converged';break
             else:feedback=record['failures']
             continue
+        interval=ResourceInterval(client,folder/'resource-usage.json')
         try:
             if index==0 and initial_candidate is not None:
                 from .programs import build_program,save_program
@@ -153,13 +156,13 @@ def run_feedback_loop(task,manifest_path,*,client,output_dir,runner,model=None,m
                 candidate_model=copy.deepcopy(model or base_model())
                 if initial_candidate.get('model_patch',{}).get('node_types'):
                     candidate_model=extend_model(candidate_model,initial_candidate['model_patch'])
-                package=build_program(initial_candidate,rule_text=task['rule_text'],basis=task['basis'],model=candidate_model)
+                package=build_program(initial_candidate,rule_text=task['rule_text'],basis=project_rule_basis(task),model=candidate_model)
                 if not (folder/'package'/'manifest.json').exists():save_program(package,folder/'package')
                 write_json_atomic(folder/'initial-reuse.json',{'raw_sha256':digest(initial_candidate),'generation_call':False})
             elif index==0 and initial_package is not None:
                 from .programs import save_program,verify_program
                 package=copy.deepcopy(initial_package);verify_program(package)
-                if package['input']['rule_text']!=task['rule_text'] or package['input']['basis']!=task['basis'] or package['program_spec']['rule_id']!=str(task['rule_id']):
+                if package['input']['rule_text']!=task['rule_text'] or package['input']['basis']!=project_rule_basis(task) or package['program_spec']['rule_id']!=str(task['rule_id']):
                     raise FeedbackError('shared initial candidate does not match task')
                 if not (folder/'package'/'manifest.json').exists():save_program(package,folder/'package')
                 write_json_atomic(folder/'initial-reuse.json',{'version_id':package['manifest']['version_id'],'generation_call':False})
@@ -167,8 +170,11 @@ def run_feedback_loop(task,manifest_path,*,client,output_dir,runner,model=None,m
                 package=synthesize_program(task,client,folder,model=model,previous=previous,
                     feedback=feedback[:12],allow_model_refinement=allow_model_refinement)
             if index==0:baseline=package
+            interval.checkpoint()
             fb=evaluate_cases(package,split['feedback'],runner,cache)
+            interval.checkpoint()
             validation=evaluate_cases(package,split['validation'],runner,cache)
+            interval.checkpoint()
             cross=candidate_validator(package) if candidate_validator is not None else {'passed':True,'failures':[]}
             if not isinstance(cross,dict) or type(cross.get('passed')) is not bool:
                 raise FeedbackError('invalid cross-rule validation result')
@@ -188,7 +194,9 @@ def run_feedback_loop(task,manifest_path,*,client,output_dir,runner,model=None,m
                 best_score=record['validation_score'];best=(package,record)
         except BudgetExceeded:
             stop_reason='budget_limit'
-            write_json_atomic(folder/'budget-stop.json',{'status':'budget_exhausted','round':index})
+            pending_round={'status':'budget_exhausted','round':index,
+                           'resource_usage':interval.close('budget_exhausted')}
+            write_json_atomic(folder/'budget-stop.json',pending_round)
             break
         except Exception as error:
             failure={'failure_types':['compile_or_contract'],'error_type':type(error).__name__,'reason':str(error)[:3000]}
@@ -202,12 +210,16 @@ def run_feedback_loop(task,manifest_path,*,client,output_dir,runner,model=None,m
             # truncate it; retain the independently grounded semantic failures.
             feedback=[failure,*[row for row in feedback if 'compile_or_contract' not in row.get('failure_types',[])]]
             record={'round':index,'status':'candidate_failed','failures':feedback}
+        except BaseException:
+            interval.close('interrupted')
+            raise
+        record['resource_usage']=interval.close(record['status'])
         write_json_atomic(checkpoint,record);rounds.append(record)
         if record['status']=='evaluated' and not feedback:
             stop_reason='feedback_converged';break
     if not best:
         result={'status':'incomplete','stop_reason':stop_reason,'rounds_completed':len(rounds),'rounds':rounds,
-                'best_version':None,'remaining_feedback_errors':len(feedback)}
+                'best_version':None,'remaining_feedback_errors':len(feedback),'pending_round':pending_round}
         write_json_atomic(output_dir/'partial.json',result)
         return result
     if _fingerprint(manifest_path,manifest)!=fingerprint:raise FeedbackError('frozen experiment inputs changed during execution')
@@ -215,7 +227,8 @@ def run_feedback_loop(task,manifest_path,*,client,output_dir,runner,model=None,m
     if stop_reason=='budget_limit':
         result={'status':'incomplete','stop_reason':'budget_limit','rounds_completed':len(rounds),'rounds':rounds,
             'best_version':package['manifest']['version_id'],'best_package_path':record['package_path'],
-            'remaining_feedback_errors':record['feedback_metrics']['strict_errors'],'benchmark_sha256':fingerprint}
+            'remaining_feedback_errors':record['feedback_metrics']['strict_errors'],'benchmark_sha256':fingerprint,
+            'pending_round':pending_round}
         write_json_atomic(output_dir/'partial.json',result)
         return result
     if defer_test:
@@ -225,19 +238,25 @@ def run_feedback_loop(task,manifest_path,*,client,output_dir,runner,model=None,m
             'benchmark_sha256':fingerprint,'deferred_test':True}
         write_json_atomic(result_file,result,exclusive=True)
         return result
+    test_interval=ResourceInterval(client,output_dir/'test-resource-usage.json')
     try:
         final_test=evaluate_cases(package,split['test'],runner,cache)
         baseline_test=evaluate_cases(baseline,split['test'],runner,cache) if baseline else {'metrics':None,'records':[]}
     except BudgetExceeded:
         result={'status':'incomplete','stop_reason':'budget_limit_test','rounds_completed':len(rounds),
-            'rounds':rounds,'best_version':package['manifest']['version_id'],'best_package_path':record['package_path']}
+            'rounds':rounds,'best_version':package['manifest']['version_id'],'best_package_path':record['package_path'],
+            'test_resource_usage':test_interval.close('budget_exhausted')}
         write_json_atomic(output_dir/'partial.json',result);return result
+    except BaseException:
+        test_interval.close('interrupted')
+        raise
+    test_usage=test_interval.close('completed')
     write_json_atomic(output_dir/'test-final.json',final_test)
     write_json_atomic(output_dir/'test-baseline.json',baseline_test)
     result={'status':'completed','stop_reason':stop_reason,'rounds_completed':len(rounds),'rounds':rounds,
         'initial_version':baseline['manifest']['version_id'] if baseline else None,
         'best_version':package['manifest']['version_id'],'best_package_path':record['package_path'],
-        'baseline_test':baseline_test['metrics'],'final_test':final_test['metrics'],
+        'baseline_test':baseline_test['metrics'],'final_test':final_test['metrics'],'test_resource_usage':test_usage,
         'remaining_feedback_errors':record['feedback_metrics']['strict_errors'],'benchmark_sha256':fingerprint}
     write_json_atomic(result_file,result,exclusive=True)
     return result
