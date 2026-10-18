@@ -7,3 +7,5 @@ Execution: inline implementation with one independent final review. Existing ser
 Pre-flight interfaces: T1 IR/hash -> T3/T4/T6/T7; T2 metered client -> T3/T4/T5/T6; T4 rule packages -> T6/T7/T8; T5 evidence -> T6; T6 checks -> T7/T8; all use dictionaries with versioned, validated schemas and explicit status values. No conflicting signatures identified.
 
 Task 1: in progress. Base 82768dd.
+
+Task 1: initial contract tests RED (missing package), then GREEN: 34 passed in 0.22s. Added typed nodes, tree/source validation, canonical IR hash, stale analysis rejection and exclusive atomic outputs. Full pre-change Python baseline is running and contains pre-existing failures; investigating separately before treating old-rule regression as clean.
