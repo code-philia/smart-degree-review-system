@@ -844,7 +844,9 @@ def build_benchmark(tasks: list[dict], parents: list[Path], *, client, output_di
                           'batch':batch,'max_proposals':12,
                           'needed':{'VIOLATION':counts['missing_violations'],'PASS':counts['missing_controls']},
                           'needed_by_split':counts['split_deficits'],
-                          'proposal_feedback':[{**{k:r[k] for k in ['reason','proposal'] if k in r},
+                          'proposal_feedback':[{**{k:r[k] for k in ['reason','proposal','disposition','split',
+                                                                    'sampling_class','source_edit','quota_current','quota_target',
+                                                                    'semantic_judgment_performed','label_generated','explanation'] if k in r},
                                                 'label_reason':r.get('label',{}).get('reason'),
                                                 'review_reason':r.get('review',{}).get('reason')}
                                                for r in rejected if r['rule_id']==rid][-12:],
@@ -873,6 +875,26 @@ def build_benchmark(tasks: list[dict], parents: list[Path], *, client, output_di
                         if edit_hash in seen:
                             rejected.append({**audit,'reason':'duplicate source edit'});continue
                         seen.add(edit_hash)
+                        # Admission still requires truth == claimed status. A full
+                        # claimed-class slot cannot accept this proposal under any
+                        # possible truth; this is sampling, not a semantic label.
+                        sampling_class = proposal['claimed_status']
+                        class_key = 'violations' if sampling_class=='VIOLATION' else 'controls'
+                        split = parent['split']
+                        quota_current = counts['splits'][split][class_key]
+                        quota_target = counts['split_targets'][class_key][split]
+                        if quota_current >= quota_target:
+                            rejected.append({**audit,'reason':'quota_full_before_oracle',
+                                             'disposition':'sampling_exclusion',
+                                             'parent_group':parent['group'],'split':split,
+                                             'source_edit':copy.deepcopy(oracle['source_edit']),
+                                             'sampling_class':sampling_class,
+                                             'quota_current':quota_current,'quota_target':quota_target,
+                                             'semantic_judgment_performed':False,'label_generated':False,
+                                             'explanation':'The proposed sampling class already fills this split quota. '
+                                                           'This candidate was not semantically judged; no label/review was generated. '
+                                                           'claimed_status is used only for sampling, not as truth.'})
+                            continue
                         # Calls are independent and have separate prompts, data copies and caches.
                         # Wait for both before fixed-order validation or case accounting.
                         with ThreadPoolExecutor(max_workers=2) as pool:

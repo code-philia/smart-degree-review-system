@@ -813,3 +813,66 @@ def test_oracle_catalog_entry_duplicates_are_projected_to_complete_catalog_sourc
     data=builder()._candidate(task(),p,records,resources)[5]
     assert not any(source["id"]=="individual-record" for source in data["sources"])
     assert any(source["id"]=="full-catalog" for source in data["sources"])
+
+
+@pytest.mark.parametrize("filled_class", ["VIOLATION", "PASS"])
+@pytest.mark.parametrize("hypothetical_truth", ["VIOLATION", "PASS", "UNKNOWN"])
+def test_full_split_class_is_sampling_exclusion_before_any_oracle_and_feedback_is_explicit(
+        tmp_path, filled_class, hypothetical_truth):
+    class QuotaModel(ExternalModel):
+        def __init__(self):
+            super().__init__(); self.original_proposals = None; self.following_feedback = None
+
+        def complete_json(self, call_task, instructions, data, max_tokens):
+            if call_task == "benchmark-proposals/2.0":
+                self.requests.append((call_task, copy.deepcopy(data)))
+                if data["batch"]:
+                    self.following_feedback = copy.deepcopy(data["proposal_feedback"])
+                    return {"proposals": []}
+                p = data["parents"][0]
+                first_word = "Wrong" if filled_class == "VIOLATION" else "Proper"
+                other = "PASS" if filled_class == "VIOLATION" else "VIOLATION"
+                other_word = "Proper" if other == "PASS" else "Wrong"
+                full = proposal(p, first_word + " fullslot", filled_class)
+                full.update(start=None, end=None, old_text="Source 0")
+                self.original_proposals = [
+                    proposal(p, "[1] " + first_word + " first[J]. 2020.", filled_class),
+                    full,
+                    proposal(p, "[1] " + other_word + " remaining[J]. 2020.", other),
+                ]
+                return {"proposals": copy.deepcopy(self.original_proposals)}
+            result = super().complete_json(call_task, instructions, data, max_tokens)
+            if "fullslot" in data["mutated_node"]["text"]:
+                result["status"] = hypothetical_truth
+            return result
+
+    model = QuotaModel()
+    negatives, controls = (2, 1) if filled_class == "VIOLATION" else (1, 2)
+    result = run(tmp_path, [parent(tmp_path)], model, tasks=[task("unfamiliar-928")],
+                 negatives=negatives, controls=controls, batches=2)
+    judges = [(name, data) for name, data in model.requests if name != "benchmark-proposals/2.0"]
+    assert len(judges) == 4
+    assert not any("fullslot" in data["mutated_node"]["text"] for _, data in judges)
+    assert result["summary"]["unfamiliar-928"]["violations"] == 1
+    assert result["summary"]["unfamiliar-928"]["controls"] == 1
+    rejected = json.loads((tmp_path/"out/rejections.json").read_text())
+    record = next(r for r in rejected if r["reason"] == "quota_full_before_oracle")
+    assert record["proposal"] == model.original_proposals[1]
+    assert record["proposal"]["start"] is None and record["proposal"]["end"] is None
+    assert record["source_edit"] == {"node_id": "entry", "start": 4, "end": 12,
+                                       "old_text": "Source 0", "replacement": model.original_proposals[1]["replacement"]}
+    assert record["disposition"] == "sampling_exclusion"
+    assert record["semantic_judgment_performed"] is False and record["label_generated"] is False
+    assert record["sampling_class"] == filled_class
+    assert record["quota_current"] == record["quota_target"] == 1
+    assert not {"label", "review", "valid", "status", "oracle_path"}.intersection(record)
+    feedback = next(r for r in model.following_feedback if r["reason"] == "quota_full_before_oracle")
+    assert feedback["proposal"] == model.original_proposals[1]
+    assert feedback["semantic_judgment_performed"] is False and feedback["label_generated"] is False
+    assert feedback["disposition"] == "sampling_exclusion" and feedback["split"] == record["split"]
+    assert "not semantically judged" in feedback["explanation"]
+    generated = next(json.loads(path.read_text())["result"]["proposals"]
+                     for path in (tmp_path/"out/calls").glob("*.json")
+                     if json.loads(path.read_text())["request"]["task"] == "benchmark-proposals/2.0"
+                     and json.loads(path.read_text())["request"]["data"]["batch"] == 0)
+    assert generated == model.original_proposals

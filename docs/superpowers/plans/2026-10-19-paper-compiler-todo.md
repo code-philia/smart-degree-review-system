@@ -8,7 +8,9 @@
 
 ## 当前完成证据（持续更新）
 
-- 最新整体验证：compiler **639 passed**，运行期间runtime源哈希未变；Node **248 passed/11 skipped**；前端 **152 passed**、构建成功。最终compiler日志development/compiler-all-final-1792355787.log，Node日志/data/tmp/paper-compiler-final-node-lft4trxa/vitest.log。T56已归档并校验运行时源码/提示与包版本；T60已实现默认可靠反馈后1违规+1合规局部验证，缺口保旧，实际规则上线联调仍待T57。
+- T19环境验收完成：全集已知的114条受控库、2.2独立双判且盲上下文核验的12违规＋1身份保持对照子集，以及真实开放检索7探针（6存在／1 UNKNOWN／0“证明不存在”）。证据framework-20261019/t19-environment-acceptance.json及[开放诊断](../../research/open-retrieval-diagnostics-20261019.md)。100＋30配额和正式冻结仍由T35—T39单独验收，未提前勾选。
+
+- 最新整体验证：compiler **645 passed**，运行期间runtime源哈希未变；Node **248 passed/11 skipped**；前端 **152 passed**、构建成功。最终compiler日志development/compiler-all-quota-1792358400.log，Node日志/data/tmp/paper-compiler-final-node-lft4trxa/vitest.log。T56已归档并校验运行时源码/提示与包版本；T60已实现默认可靠反馈后1违规+1合规局部验证，缺口保旧，实际规则上线联调仍待T57。
 - 逐轮和预算中断的资源侧车、同轮续记、study累计和独立初稿费用现已接入，原账本200元不变；shared_ledger_interval可能含并发，不作精确任务归因。正式方案补充见framework-20261019/study-protocol-v3.json，旧方案保留。
 
 - T21已修复并验收：规则真值与构造准入按purpose分离，初稿raw／package／共享重建／planner及offline/online反馈均有隔离回归；2.2标签先判真值再按实际状态验收。旧raw及拒绝保留；仅32干净首次初稿替换旧污染版，33失败初稿不重抽。
@@ -112,7 +114,7 @@ IR 变异及合规对照 → 另行验证 → 冻结数据与标签
 - [x] T16 调用 API 生成规则相关的违规变异及合规、等价对照方案或构造程序；旧 format_recipe 只用于冒烟和历史复现。
 - [x] T17 通用变异引擎在 IR 上应用带前置条件的修改，记录来源、操作、位置、随机种子与父子哈希，重建受影响分析。
 - [x] T18 分开检查结构合法性与规则标签正确性；验证原始局部是否合规、变异是否造成目标违规。禁止直接改派生存在性、相关性或诊断来制造“有效变异”。
-- [ ] T19 建立 R32 全集已知的受控文献环境，构造和验证不存在变体及身份保持对照；另行运行真实开放检索，未命中保留 UNKNOWN。
+- [x] T19 建立 R32 全集已知的受控文献环境，构造和验证不存在变体及身份保持对照；另行运行真实开放检索，未命中保留 UNKNOWN。
 - [ ] T20 R33 优先提取真实引用语境，必要时根据真实文献构造引用句；以分开的调用与上下文标注、复核，检查语境及被引内容的原文证据引句。
 - [x] T21 将答案、目标及 oracle 密封在评测侧；标注复核不以检测器预测作为答案，构造和验证的对话历史不进入检测程序生成或修订。
 - [x] T22 保留无效、冲突、证据不足与无法定位的候选及原因；合成来源标注 synthetic，不伪造 PDF 坐标，不计入有效样本。
