@@ -1,0 +1,220 @@
+{
+  "source_path": "/data/projects/legacy-rule-repair-suggestions/handoff/standards/《信息与文献参考文献著录规则》（GBT7714—2025）.pdf",
+  "source_sha256": "24aeb9dcd3af0e2800995ec2c5c058c4cf05dd8b8e36097c0eecf6af367f5146",
+  "standard": "GB/T 7714—2025",
+  "pages": [
+    {
+      "id": "gbt7714-2025:p9",
+      "pdf_page": 9,
+      "printed_page": 3,
+      "text": "GB/T7714—2025\n5 著录用文字\n5.1 参考文献应用信息资源本身的语种著录。\n示例：\n[1]博伯尔.银行业的未来与人工智能[M]. 徐超，译.北京：清华大学出版社，2023：35.\n[2]\n图沓館用語辞典编集委員会.最新図書館用語大辭典[M].東京：柏省房株式會社，2004：154.\n[3]\nBoobier T. AI and the future of banking[M]. Chichester: John Wiley & Sons,2020: 35.\n[4]]\n  . --   .  ,\n1993 (7): 50-58.\n5.2 著录数字时，应保持信息资源原有的形式。但是，连续出版物卷期号、页码、出版年、创建或修改日\n期、引用日期、顺序编码制的参考文献序号等宜用阿拉伯数字著录，其中日期著录应符合GB/T7408.1\n中的有关规定。\n5.3 使用汉语拼音著录中国人姓名时，宜使用GB/T 28039 给出的规则拼写。\n5.4 作为集体责任者的机关团体名称(见7.1.4、9.3.1.1)、出版信息中附在出版地之后的省名、州名、国\n名等(见7.5.2.1)以及出版者(见7.5.3.1)可按国际公认的方法缩写。\n5.5 西文期刊刊名的缩写可使用 ISO 4 给出的规则。\n5.6著录西文文献时，大写字母的使用应符合信息资源本身文种的习惯用法。\n6 著录用符号\n6.1 本文件中的著录用符号为前置符。按著者-出版年制(见9.3)组织的参考文献表中的第一个著录\n项目，如主要责任者、析出文献主要资任者、专利申请者/所有者前不应使用任何标识符号。按顺序编码\n制(见9.2)组织的参考文献表中的各篇文献序号应用方括号括起，如：[1]、[2]、……\n6.2 参考文献应使用下列规定的标识符号。\n—“.”用于题名(见7.2.1)、比例尺、其他责任者、析出文献其他责任者、版本、出版信息(见7.5)、\n年卷期或其他标识、尺寸、获取和访问路径、永久标识符前。每一条参考文献的结尾可用“.”号\n标识。\n—“：”用于其他题名信息(见7.2.3)、出版者、页码(见7.7)、学位授予单位、报告编号、专利申请\n号、档号、收藏者前。\n—“，”用于同一著作方式的责任者(见7.1.2)、“等”“译”字样或与之相应的词(见7.1.2)、出版年、\n连续出版物及其析出文献中的年和卷号、会议年份、学位授予年前。\n—“；”用于同一责任者的合订题名(见7.2.2)以及连续出版物后续的年卷期标识与页码(见\n8.5.1.3)前。\n—“//”用于析出文献的出处(见4.3)、会议名称前。\n一“()”用于连续出版物及其析出文献中的期号/版次、创建/发布或修改日期、非公元纪年的出\n版年(见 7.5.4.1)。\n—“[]”用于文献序号、文献类型和文献载体标识、引用日期以及自拟的信息(见7.2.1、7.5.2.3、\n7.5.3.3、7.5.4.4)。\n“/”用于合期的期号或合卷的卷号间(见8.5.1.2)、文献载体标识前。\n—“-”用于起讫页码(见8.5.1.1)、起讫序号(见9.2.1.2)间。\n3",
+      "visual_verified": true,
+      "ocr_source_sha256": "a03da65a3e8d2e1f911f4726c8f8372045fa369570fe87696106a19fdff50d50"
+    },
+    {
+      "id": "gbt7714-2025:p10",
+      "pdf_page": 10,
+      "printed_page": 4,
+      "text": "GB/T 7714—2025\n7 著录通则\n7.1 责任者\n7.1.1 个人责任者应采用姓在前名在后的著录形式。欧美责任者的中译名可只著录其姓，其名可用缩\n写字母，缩写名后省略缩写点。同姓不同名的欧美责任者，其中译名不仅应著录其姓，还应著录其名的\n首字母。用西文著录个人责任者，姓应全部著录，首字母应大写，名可缩写为首字母，如用首字母无法识\n别该人名时，可著录全名；用汉语拼音著录个人责任者，姓应全部著录，首字母应大写，名宜用全称。\n示例1：李时珍\n原题：（明）李时珍\n示例2：乔纳斯\n原题：（瑞士）伊迪斯·乔纳斯\n示例3：昂温\n原题：（美）S. 昂温（Stephen Unwin)\n示例4：昂温G，昂温PS\n原题：(英)G. 昂温 (G. Unwin)，P. S. 昂温(P. S.Unwin)\n示例5：丸山敏秋\n原题：（日）丸山敏秋\n示例6：凯西尔\n原题：（阿拉伯）伊本·凯西尔\n示例 7：Einstein A\n原题：Albert Einstein\n示例 8：Williams-Ellis A\n原题：Amabel Williams-Ellis\n示例 9: De Morgan A\n原题：Augustus De Morgan\n示例 10：Li Jiangning\n原题：Li Jiangning\n示例 11：Godard J-L\n原题：Jean-Luc Godard\n7.1.2 著作方式相同的责任者不超过3个时，应全部照录。超过3个时，可著录前3个责任者，其后加\n“，等”或与之相应的词。\n示例1：钱学森，刘再复\n原题：钱学森 刘再复\n示例2：李四光，华罗庚，茅以升\n原题：李四光 华罗庚 茅以升\n示例3：印森林，吴胜和，李俊飞，等\n原题：印森林吴胜和李俊飞冯文杰\n示例 4: Fordham E W Ali A Turner D A et al.\n原题:Evenst W. Fordham Amiad Ali David A. Turner John R. Charters\n7.1.3无责任者或者责任者情况不明的文献，“主要责任者”项应注明“佚名”或与之相应的词。凡采用\n顺序编码制(见9.2)组织的参考文献可省略此项，直接著录题名。\n示例1：佚名，2023.人物龙风帛画[J]. 中国书法（3)：5.\n示例 2: Anon, 1981. Coffee drinking and cancer of the pancreas[J]. Br Med J, 283 (6292): 628.\n注1：著者-出版年制。\n示例3：人物龙凤帛画[J]. 中国书法，2023（3)：5.\n示例 4: Coffee drinking and cancer of the pancreas[J]. Br Med J,1981, 283 (6292): 628.\n注2：顺序编码制。\n7.1.4 凡是对文献负责的机关团体名称，通常根据著录信息源著录。机关团体名称应由上至下分级著\n录，上下级间用“.”分隔，用汉字书写的机关团体名称除外。\n示例1：中国科学院物理研究所\n示例2：贵州省土壤普查办公室\n示例 3: American Chemical Society\n示例 4: Stanford University. Department of Civil Engineering\n7.2 题名\n7.2.1 题名应按著录信息源所载的内容著录。如无题名信息，可根据信息源所载内容自拟题名，并置\n4",
+      "visual_verified": true,
+      "ocr_source_sha256": "96938652c8c5d185643e3a7a7fcad21c4170d2dba843b7caa10f60d388810e66"
+    },
+    {
+      "id": "gbt7714-2025:p11",
+      "pdf_page": 11,
+      "printed_page": 5,
+      "text": "GB/T 7714—2025\n于“[]”内。\n示例1：《西游记》词汇对《汉语大词典》书证研究\n示例2：张子正蒙注\n示例3：法哲学原理，或，自然法和国家学纲要\n示例4：北京师范大学学报（自然科学版）\n示例5：[《昨日之歌》图书封面]\n注：自拟题名。\n示例 6: Gases in sea ice 1975—1979\n示例 7: J Math Phys\n7.2.2 同一责任者的多个合订题名，应著录前3个合订题名。对于不同责任者的多个合订题名，可只\n著录第一个或处于显要位置的合订题名。在参考文献中不著录并列题名。\n示例1：为人民服务；纪念白求恩；愚公移山原题：为人民服务纪念白求恩 愚公移山毛泽东著\n示例2：大趋势\n原题：大趋势 Megatrends\n7.2.3 其他题名信息应按信息资源外部特征的具体情况著录。其他题名信息包括副题名，说明题名文\n字，多卷书的分卷书名、卷次、册次等。\n示例1：地壳运动假说：从大陆漂移到板块构造\n示例2：三松堂全集：第4卷\n示例3：世界出版业：美国卷\n示例4：ECL集成电路：原理与设计\n示例5：中国科学技术史：第二卷 科学思想史\n示例6：红楼梦：脂砚斋全评本\n示例 7: Asian Pacific Journal of Cancer Prevention: e-only\n7.3 文献类型标识、文献载体标识\n文献类型标识、文献载体标识应按照附录A著录。电子资源既应著录文献类型标识，也应著录文\n献载体标识。\n示例1：马寅初讲义[M]\n示例2：环境司法制度改革对企业绿色创新的影响：实质性绿色创新还是漂绿？——基于公益诉讼试点的证据[J]\n示例3：严复思想与中国式现代化：纪念严复诞辰170周年学术研讨会论文集[C]\n示例4：中子反射数据分析技术[R]\n示例5：信息与文献都柏林核心元数据元索集[S]\n示例6：一种智能戒指的无线充电装置[P]\n示例 7: Quantum field theory: an introduction for chemical physicists[EB/OL]\n7.4 版本\n第1版可不著录，其他版本说明应著录。版本宜用阿拉伯数字、序数缩写形式或其他标识表示。古\n籍的版本应按原文客观照录，如“写本”“抄本”“刻本”“活字本”等。\n示例1：3版\n原题：第三版\n示例2：新1版\n原题：新1版\n示例3：明刻本\n原题：明刻本\n示例4：V1.0\n原题：V1.0\n示例 5：5th ed\n原题：Fifth edition\n示例 6：Rev. ed\n原题：Revised edition\n5",
+      "visual_verified": true,
+      "ocr_source_sha256": "ba9addd8124fb14f72fc72727565a46038dc235e80cbd685effa165217cf3869"
+    },
+    {
+      "id": "gbt7714-2025:p12",
+      "pdf_page": 12,
+      "printed_page": 6,
+      "text": "GB/T 7714—2025\n7.5 出版信息\n7.5.1 通用要求\n出版信息应按出版地、出版者、出版日期顺序著录。\n以下元紧应按照出版信息的要求著录：\n——学位论文中的学位授予单位所在地、学位授予单位、学位授予年(见8.7)；\n——报告中的发布日期(见8.8)；\n——专利中的公告(公开)日期(见8.10)；\n—档案中的收藏者所在地、收藏者、形成日期(见8.12)；\n——数据集中的发布平台(见8.14)；\n——预印本中的出版平台(见8.15)。\n示例1：北京：人民出版社，2013\n示例 2: New York: Academic Press，2012\n示例3：武汉：武汉大学，2022\n示例4：沈阳：辽宁省档案馆，1931-11-07\n7.5.2出版地\n7.5.2.1出版地应著录出版者所在地的城市名称。对同名异地的城市名，宜在城市名后附省、州名或国\n名等限定语。\n示例1：Cambridge，Eng.\n示例2：Cambridge，Mass.\n示例3：Taizhou，Zhejiang\n示例 4：Taizhou，Jiangsu\n7.5.2.2 文献中载有多个出版地，宜只著录第一个或处于显要位置的出版地。\n示例1：北京：科学出版社，2013\n原题：科学出版社 北京 上海 2013\n示例2：London：Butterworths，2000\n原题： Butterworths London Boston Durban Singapore Sydney Toronto Wellington 2000\n7.5.2.3无出版地的中文文献可著录“出版地不详”，外文文献可著录“S.1.”，并置于“[]”内。无出版地\n的电子资源可省略此项。\n示例1：[出版地不详]：三户图书刊行社，1990\n示例2：[S.1.]：Macmillan，1975\n示例 3:Open University Press,2025. https://www.mheducation.co.uk/economics-13e-9781526850232-emea-group.\n7.5.3 出版者\n7.5.3.1 出版者可按著录信息源所载的形式著录，也可按国际公认的简化形式或缩写形式著录。\n示例1：中国标准出版社\n原题：中国标准出版社\n示例 2:Elsevier Science Publishers原题：Elsevier Science Publishers\n示例3：IRRI\n原题： International Rice Research Institute\n7.5.3.2文献中载有多个出版者，宜只著录第一个或处于显要位置的出版者。\n示例：Chicago：ALA，1978\n原题:American Library Association / Chicago Canadian Library Association / Ottawa 1978\n7.5.3.3无出版者的中文文献可著录“出版者不详”，外文文献可著录“s.n.”，并置于“[]”内。无出版者\n6",
+      "visual_verified": true,
+      "ocr_source_sha256": "09a1c549e330fa7f15539d690857a9b61821f9ccbaa9b6cf8055e1c3861369e7"
+    },
+    {
+      "id": "gbt7714-2025:p13",
+      "pdf_page": 13,
+      "printed_page": 7,
+      "text": "GB/T 7714—2025\n的电子资源可省略此项。\n示例1：哈尔滨：[出版者不详]，2013\n示例 2: Salt Lake City：[s.n.]，1964\n7.5.4出版日期\n7.5.4.1 出版年应采用公元纪年，并用阿拉伯数字著录。如有其他纪年形式时，应将原有的纪年形式置\n于“()”内。\n示例1:1947（民国三十六年）\n示例2：1705（康熙四十四年）\n7.5.4.2期刊的在线出版日期、报纸的出版日期、报告的发布日期、专刊的公告日期、档案的形成日期应\n按照“YYYY-MM-DD”格式，用阿拉伯数字著录。\n示例：2013-01-08\n7.5.4.3 出版年无法确定时，可依次选用版权年、印刷年、估计的出版年。估计的出版年应置于“]”内。\n示例1：c1988\n注1：版权年。\n示例2：1995 印刷\n示例3：[1936]\n注2：估计的出版年。\n7.6创建/发布或修改日期、引用日期\n电子资源的创建日期、发布日期、修改日期、引用日期应按照“YYYY-MM-DD”格式，用阿拉伯数字\n著录。\n示例：(2012-05-03)[2013-11-12]\n7.7 页码\n析出文献页码或引文页码，应采用阿拉伯数字著录(见8.2、8.3、8.5、8.6、8.7、8.8、8.10、8.12、\n9.2.1.3、9.3.1.4)。引自序言或扉页题词的页码，可按实际情况著录。无页码有文章编号的，应将文章编\n号按页码著录。\n示例1：曹凌.中国佛教疑伪经综录[M].上海：上海古籍出版社，2011：19.\n示例2：钱学森.创建系统学[M].太原：山西科学技术出版社，2001：序2-3.\n示例3：冯友兰.冯友兰自选集[M].2版.北京：首都师范大学出版社，2008：第1版自序.\n示例4：李约瑟.题词[M]//苏克福，管成学，邓明鲁.苏颂与《本草图经》研究.长春：长春出版社，1991：\n扉页.\n示例 5: Dunbar K L, Mitchell D A. Revealing nature's synthetic potential through the study of ribosomal natural\nproduct biosynthesis[J/OL]. ACS Chemical Biology, 2013, 8 (3): 473-487. http://pubs.acs.org/doi/pd-\nfplus/10.1021/cb3005325.\n示例 6: Maurya A, Szymanski M, Karlowski W M. ARA: a flexible pipeline for automated exploration of NCBI SRA\ndatasets[J/OL]. GigaScience,2023,12: giad067. https://doi.org/10.1093/gigascience/giad067.\n7.8获取和访问路径\n获取和访问路径应根据电子资源在互联网中的实际情况著录。\n示例1：储大同.恶性肿瘤个体化治疗靶向药物的临床表现[J/OL]. 中华肿瘤杂志，2010，32（10)：721-724.\nhttps://rs.yiigle.com/cmaid/37528. DOI:10.3760/cma.j.issn.0253-3766.2010.10.001.\n示例 2: Torres L, Salisbury F, Yazbeck B, et al. Connecting the library to the curriculum[M/OL]. Singapore:\n7",
+      "visual_verified": true,
+      "ocr_source_sha256": "b45d411636b44186b06b8e8d67bab44ffe324bf1b48ba95b76e55ef2ed2e2b3e"
+    },
+    {
+      "id": "gbt7714-2025:p14",
+      "pdf_page": 14,
+      "printed_page": 8,
+      "text": "GB/T 7714—2025\nSpringer Nature, 2021:97. https://link.springer.com/book/10.1007/978-981-16-3868-8.\n7.9永久标识符\n7.9.1获取和访问路径中含永久标识符时，可不重复著录永久标识符。\n示例 1: Deverell W, Igler D. A companion to California history[M/OL]. New York: John Wiley & Sons,2013:\n21-22. https://onlinelibrary.wiley.com/doi/book/10.1002/9781444305036.\n注1：该书永久标识符为：DOI：10.1002/9781444305036。\n示例 2: Gross O. Word associations as a language model for generative and creative tasks[D/OL]. Helsinki: Uni-\nversity of Helsinki, 2016: 55-56. http://urn.fi/URN:ISBN:978-951-51-2090-8.\n注2：该书永久标识符为：URN：ISBN：978951-51-20908。\n7.9.2 获取和访问路径中不含永久标识符时，可按照原文如实著录永久标识符。\n示例：刘乃安.生物质材料热解失重动力学及其分析方法研究[D/OL].合肥：中国科学技术大学，2000：17-\n18.https://d.wanfangdata.com.cn/thesis/Y351065. DOI:10.7666/d.y351065.\n注：该论文永久标识符为：DOI：10.7666/d.y351065。\n8各文献类型著录项目与著录格式\n8.1 通用要求\n本章所有文献类型著录格式与示例均按照顺序编码制组织。\n采用著者-出版年制标注参考文献时，各种文献类型的著录格式应仿照本章所规定的著录格式与示\n例，但应将出版年(见7.5.1、7.5.4.1)置于费任者之后，并以“，”分隔\n示例：\n[1]张伯伟，2002.全唐五代诗格汇考[M]. 南京：江苏古籍出版社，288.\n[2]程根伟，1999.1998年长江洪水的成因与减灾对策[M]//许厚泽，赵其国.长江流域洪涝灾害与科技对\n策.北京：科学出版社，32-36.\n[3]杨洪升，2013.四库馆私家抄校书考略J].文献，(1)：56-75.\n[4] Caplan P, 1993. Cataloging internet resources[J]. The Public-access Computer Systems Review, 4 (2): 61-66.\n[5] Christou A, 2024. Improving knowledge graph understanding with contextual views[D/OL]. Ohio: Wright\nState University: 18. http://rave.ohiolink.edu/etdc/view?acc_num=wright1715878159408301.\n8.2 图书\n8.2.1 著录项目\n图书应按表1的著录项目著录。\n表1 图书著录项目\n元素\n必备性\n相关章条号\n主要责任者\n有则必备\n7.1\n题名\n必备\n7.2\n其他题名信息\n有则必备\n7.2.3\n文献类型标识\n必备\n7.3、A.1\n8",
+      "visual_verified": true,
+      "ocr_source_sha256": "beea8dc20d3cf639ab89e43b09fd45643fe378c0e16c63c3157e86f1f5cde46d"
+    },
+    {
+      "id": "gbt7714-2025:p15",
+      "pdf_page": 15,
+      "printed_page": 9,
+      "text": "GB/T 7714—2025\n表1图书著录项目(续)\n元素\n必备性\n相关章条号\n文献载体标识\n电子资源必备\n7.3、A.2\n其他责任者\n可选\n7.1\n版本\n有则必备\n7.4\n出版地\n有则必备\n7.5.2\n出版者\n有则必备\n7.5.3\n出版年\n有则必备\n7.5.4\n引文页码\n有则必备\n7.7\n获取和访问路径\n电子资源必备\n7.8\n永久标识符\n电子资源可选\n7.9\n8.2.2 著录格式\n图书应按以下格式著录：“主要责任者.题名：其他题名信息[文献类型标识/文献载体标识].其他\n责任者.版本.出版地：出版者，出版年：引文页码.获取和访问路径.永久标识符。”\n示例：\n[1]\n张伯伟.全唐五代诗格汇考[M]. 南京：江苏古籍出版社，2002：288.\n[2]\n王夫之.宋论[M].刻本.金陵：湘乡曾国荃，1865（清同治四年).\n[3]\n顾炎武.昌平山水记；京东考古录[M].北京：北京古籍出版社，1980.\n[4]\n康熙字典：已集上 水部[M].影印本.北京：中华书局，1962：50.\n[5]\n扬奎斯特，萨金特.递归宏观经济理论[M].杨斌，王忠玉，陈彦斌，等，译.2版.北京：中国人民大学出\n版社，2010：798.\n[6]\nPeebles P Z Jr. Probability, random variables, and random signal principles [M]. 4th ed. New York:\nMcGraw-Hill,2001.\n[7]\nPraetzellis A. Death by theory: a tale of mystery and archaeological theory [M/OL]. Rev. ed. [S. 1.]: Rowman &\nLittlefield Publishing Group,Inc., 2011: 13. http://lib.myilibrary.com/Open.aspx?id=293666.\n[8] Abadía O M, Conkey M W, McDonald J. Deep-time images in the age of globalization: rock art in the 21 st\ncentury [M/OL]. Springer Cham, 2024. https://doi.org/10.1007/978-3-031-54638-9.\n8.3 图书中的析出文献\n8.3.1 著录项目\n图书中的析出文献应按表2的著录项目著录。\n表2 图书中的析出文献著录项目\n元素\n必备性\n相关章条号\n析出文献主要责任者\n有则必备\n7.1\n析出文献题名\n必备\n7.2\n9",
+      "visual_verified": true,
+      "ocr_source_sha256": "8a888e015b4e4f5bb33f39963b2097a9e89e472a9b615fa09f9d116e1407af06"
+    },
+    {
+      "id": "gbt7714-2025:p16",
+      "pdf_page": 16,
+      "printed_page": 10,
+      "text": "GB/T7714—2025\n表 2 图书中的析出文献著录项目（续）\n元素\n必备性\n相关章条号\n析出文献其他题名信息\n有则必备\n7.2.3\n文献类型标识\n必备\n7.3、A.1\n文献载体标识\n电子资源必备\n7.3、A.2\n析出文献其他责任者\n可选\n7.1\n图书主要责任者\n有则必备\n7.1\n图书题名\n必备\n7.2\n其他题名信息\n有则必备\n7.2.3\n版本\n有则必备\n7.4\n出版地\n有则必备\n7.5.2\n出版者\n有则必备\n7.5.3\n出版年\n有则必备\n7.5.4\n析出文献页码\n有则必备\n7.7\n款取和访问路径\n电子资源必备\n7.8\n永久标识符\n电子资源可选\n7.9\n8.3.2 著录格式\n图书中的析出文献应按以下格式著录：“析出文献主要责任者.析出文献题名：析出文献其他题名\n信息[文献类型标识/文献载体标识].析出文献其他责任者//图书主要责任者.图书题名：其他题名信\n息.版本.出版地：出版者，出版年：析出文献页码.获取和访问路径.永久标识符.”\n示例：\n[1]\n阿扬.谈谈记忆：与诺贝尔获奖得者埃里克·坎德尔的问答[M].姜海伦，译//《环球科学》杂志社.认识\n记忆力：关于学习、思考与遗忘的脑科学.北京：机械工业出版社，2023：15-18.\n[2]\n周易外传：卷5[M]//王夫之.船山全书：第1册.修订版.长沙：岳施书社，2011：983-1029.\n[3]\n马克思.政治经济学批判[M]//马克思，恩格斯.马克思恩格斯全集：第35卷.2版.北京：人民出版\n社，2013：302.\n[4]\nWeinstein L, Swartz M N. Pathogenic properties of invading microorganisms[M]//Sodeman W A Jr, Sode-\nman W A. Pathologic physiology: mechanisms of disease. 5th ed. Philadelphia: Saunders, 1974: 457-472.\n[5]\nRoberson J A, Burneson E G. Drinking water quality standards, regulations and goals [M/OL] //American\nWater Works Association. Water quality & treatment: a handbook on drinking water. 6th ed. New York:\nMcGraw-Hill, 2011: 1. 1-1. 36. http://lib.myilibrary.com/Open.aspx? id=291430.\n8.4 连续出版物\n8.4.1 著录项目\n连续出版物应按表3的著录项目著录。\n10",
+      "visual_verified": true,
+      "ocr_source_sha256": "ee4eae658d830cff5cda9e65946401a319c029b19a82df5a4c093be03aaab6bf"
+    },
+    {
+      "id": "gbt7714-2025:p17",
+      "pdf_page": 17,
+      "printed_page": 11,
+      "text": "GB/T 7714—2025\n表 3 连续出版物著录项目\n元素\n必备性\n相关章条号\n主要责任者\n有则必备\n7.1\n题名\n必备\n7.2\n其他题名信息\n有则必备\n7.2.3\n文献类型标识\n必备\n7.3、A.1\n文献载体标识\n电子资源必备\n7.3、A.2\n年卷期或其他标识\n有则必备\n8.5.1\n出版地\n有则必备\n7.5.2\n出版者\n有则必备\n7.5.3\n出版年\n有则必备\n7.5.4\n获取和访问路径\n电子资源必备\n7.8\n永久标识符\n电子资源可选\n7.9\n8.4.2 著录格式\n连续出版物应按以下格式著录：“主要责任者.题名：其他题名信息[文献类型标识/文献载体标\n识]. 年，卷(期)一年，卷(期). 出版地：出版者，出版年.获取和访问路径.永久标识符.”\n示例：\n[1]\n中华医学会湖北分会.临床内科杂志[J].1984，1（1）一.武汉：中华医学会湖北分会，1984一.\n[2]\n中国图书馆学会.图书馆学通讯[J].1957（1）—1990（4).北京：北京图书馆，1957—1990.\n[3]\nAmerican Association for the Advancement of Scicnce. Science[J]. 1883, 1 (1) —. Washington, D. C.:\nAmerican Association for the Advancement of Science,1883—.\n[4]\nPublic Library Quarterly [J/OL]. 1979, 1 (1) —. Philadelphia: Taylor & Francis, 1979—. http://\nwww.tandfonline.com/journals/wplq20.\n8.5连续出版物中的析出文献\n8.5.1 通用要求\n8.5.1.1 凡是从期刊中析出的文章，应在刊名之后注明其年、卷、期、页码等。阅读型参考文献的页码可\n著录文章的起讫页或起始页，引文参考文献的页码应著录引用信息所在页。\n示例1：2001，2（1）：5-6\n“ -“ “  “\n示例2：2014，510：356-363\n示例3：2010(6)：23\n示例4：2012，22（增刊2）：81-86\n注4：“2012”代表“年”，“22”代表“卷”，“增刊2”代表“期”，“81-86”代表“页码”。\n示例5：2024，12(S1)：7-11\n11",
+      "visual_verified": true,
+      "ocr_source_sha256": "c1c4bd50b880b1436d5b835790bd8e0adf7014015273ea4ba82f5e82cafce7d6"
+    },
+    {
+      "id": "gbt7714-2025:p18",
+      "pdf_page": 18,
+      "printed_page": 12,
+      "text": "GB/T 7714—2025\n注5：“2024”代表“年”，“12”代表“卷”，“S1”代表“期”，“7-11”代表“页码”。\n示例6：2023，267：147370\n示例7：2024-05-09\n注7：“2024-05-09”代表“在线出版日期”。\n8.5.1.2对从合期、合卷中析出的文献，遵循上述规则著录，并在圆括号内注明合期号。\n示例：2001（8/9/10）：36-39\n“ -1“\n8.5.1.3 凡是在同一期刊上连载的文献，其后续部分不必另行著录，可在原参考文献后直接注明后续部\n分的年、卷、期、页码等。\n示例：2011，33(2)：20-25；2011，33(3)：26-30\n2 “ “-“ 2 \n表“卷”，“3”代表“期”，“26-30”代表“页码”。\n8.5.1.4 凡是从报纸中析出的文献，应在报纸名后著录其出版日期与版次。\n示例：2013-03-16（1）\n“ --\n8.5.2 著录项目\n连续出版物中的析出文献应按表4的著录项目著录。\n表 4 连续出版物中的析出文献著录项目\n元素\n必备性\n相关章条号\n析出文献主要责任者\n有则必备\n7.1\n析出文献题名\n必备\n7.2\n析出文献其他题名信息\n有则必备\n7.2.3\n文献类型标识\n必备\n7.3、A.1\n文献载体标识\n电子资源必备\n7.3、A.2\n析出文献其他责任者\n可选\n7.1\n连续出版物题名\n有则必备\n7.2\n其他题名信息\n有则必备\n7.2.3\n年卷期/版次标识与页码等\n有则必备\n8.5.1\n获取和访问路径\n电子资源必备\n7.8\n永久标识符\n电子资源可选\n7.9\n8.5.3 著录格式\n连续出版物中的析出文献应按以下格式著录：“析出文献主要责任者.析出文献题名：析出文献其\n他题名信息[文献类型标识/文献载体标识].析出文献其他责任者.连续出版物题名：其他题名信息，\n年，卷(期/版次)：页码.获取和访问路径.永久标识符.”\n12",
+      "visual_verified": true,
+      "ocr_source_sha256": "dc3b96527edd710790bae915511f69b603ab5b138c896a41f0e9ab2350929c94"
+    },
+    {
+      "id": "gbt7714-2025:p19",
+      "pdf_page": 19,
+      "printed_page": 13,
+      "text": "GB/T7714—2025\n示例：\n[1] 丁文详.数字革命与竞争国际化[N].中国青年报，2000-11-20(15).\n[2]久保智康.花枝蝶鸟方镜的镜范：以平安后期的铜镜制作工艺为中心[J]. 顾幼静，译.东方博物，2009\n(1): 85-92.\n[3]\n于潇，刘义，柴跃廷，等.互联网药品可信交易环境中主体资质审核备案模式[J].清华大学学报（自然科\n学版），2012，52(11)：1518-1523.\n[4]\n张群，程志宝，石志飞.惯性增强动力吸振器-浮置板轨道低频减振性能研究[J/OL].铁道学报，2024-05-\n09. https://kns.cnki.net/kcms/detail/11.2104.u.20240507.1737.002.html.\n[5]\n张群，程志宝，石志飞.惯性增强动力吸振器-浮置板轨道低频减振性能研究[J].铁道学报，2024，46\n(8): 102-111.\n[6]\n徐建委.历史的起点：《史记》中的时间设置及其意义[J/OL].北京大学学报（哲学社会科学版)，2025，62\n(2): 117-127. https://ncpssd.org/Litcrature/articleinfo?id=BJDXXBZXSHKXB2025002012&synUpdateType =\n&type=journalArticle&typename=%E4%B8%AD%E6%96%87%E6%9C%9F%E5%88%8A%E6%96%87%\nE7% AB% A0&nav = 1&1angType = 1&pageUrl = https% 253A% 252F% 252Fncpssd. org% 252Fjournal%\n252Fdetails%253Fgch%253D81274X%2526nav%253D1%2526langType%253D1.\n[7] 王利平，王福新，刘洪.过冷大水滴环境粒径分布模拟方法研究进展[J].航空学报，2024，45（增刊\n1):730570.\n[8] Saito M, Miyazaki K. Jadeite-bearing metagabbro in serpentinite melange of the “Kurosegawa Belt\" in Izumi\nTown, Yatsushiro City, Kumamoto Prefecture, central Kyushu[J]. Bulletin of the Geological Survey of Ja-\npan, 2006,57 (5/6): 169-176.\n[6]\nMyburg A A, Grattapaglia D, Tuskan G A, ct al. The genome of Eucalyptus grandis [J/OL]. Nature,\n2014,510: 356-362. https://www.nature.com/articles/naturel3308.pdf.DOI:10.1038/naturel3308.\n[10] Veen P H v d, Muller M, Vincken K L, et al. Longitudinal changes in brain volumes and cerebrovascular\nlesions on MRI in patients with manifest arterial disease: the SMART-MR study[J/OL]. J Neurol Sci,\n2014, 337 (1/2): 112-118. https://pubmed.ncbi.nlm.nih.gov/24314719/. DOI:10.1016/j.jns.2013.11.029.\n8.6 会议录\n8.6.1 通用要求\n凡以图书、图书中的析出文献、连续出版物、连续出版物中的析出文献形式出现的会议录，其著录项\n目与著录格式应分别按8.2~8.5中的有关规则处理。除此之外的会议录应按8.6.3著录。\n示例：\n[1]牛志明，SwinglandIR，雷光春.综合湿地管理：综合湿地管理国际研讨会论文集[C]. 北京：海洋出版\n社，2012.\n[2]\n护/热国\n生物安全框架实施国际合作项目研讨会论文集.北京：中国环境科学出版社，2005：22-25.\n[3]\n肖希明，石庆功，刘奕.民国图书馆学教育的社会贡献[C]//纪念北京大学图书馆学教育100周年研讨会论\n文集.北京：北京大学信息管理系，2024：134-147.\n[4]\nYufin S A. Geoecology and computers: proceedings of the Third International Conference on Advances of\nComputer Methods in Geotechnical and Geoenvironmental Engineering, Moscow, Russia, February 1-\n4, 2000[C]. Rotterdam: A. A. Balkema, 2000.\n[5]\nFourney M E. Advances in holographic photoelasticity[C]//Gottenberg W G. Symposium on Applications of\nHolography in Mechanics, August 23-25, 1971, University of Southern California, Los Angeles,\nCalifiornia. New York: ASME, 1971: 17-38.\n13",
+      "visual_verified": true,
+      "ocr_source_sha256": "2dad5eb1a7f3713b481f104711d5fea272c763f5ff1a677edce25bb7e2881015"
+    },
+    {
+      "id": "gbt7714-2025:p20",
+      "pdf_page": 20,
+      "printed_page": 14,
+      "text": "GB/T 7714—2025\n8.6.2 著录项目\n会议录应按表5的著录项目著录。\n表 5 会议录著录项目\n元素\n必备性\n相关章条号\n主要责任者\n有则必备\n7.1\n题名\n必备\n7.2\n其他题名信息\n有则必备\n7.2.3\n文献类型标识\n必备\n7.3、A.1\n文献载体标识\n电子资源必备\n7.3、A.2\n会议名称\n有则必备\n一\n会议年份\n有则必备\n一\n引文页码\n有则必备\n7.7\n获取和访问路径\n电子资源必备\n7.8\n永久标识符\n电子资源可选\n7.9\n8.6.3 著录格式\n会议录应按以下格式著录：“主要责任者.题名：其他题名信息[文献类型标识/文献载体标识]//会\n议名称，会议年份：引文页码.获取和访问路径.永久标识符.”\n示例：\n[1]\n李妍，王莹.医疗机构保洁人员“一前五后”手卫生干预效果研究[C]//中华预防医学会医院感染控制分\n会第31次全国医院感染学术年会，2022：2.\n[2]\nWang Shanshan. Application of improved SOM neural network in intelligent auditing of hospital financial-\nvouchers[C/OL]//2022 6th Asian Conference on Artificial Intelligence Technology, 2022: 2. https://ieeex-\nplore.ieee.org/document/10137867.DOI:10.1109/ACAIT56212.2022.10137867.\n[3] Yu Yang, Pan Erting, Wang Xinya, et al. Unmixing before fusion: a gencralized paradigm for multi-source-\nbased hyperspectral image synthesis [C/OL]//CVPR, 2024: 4. https://openaccess. thecvf. com/content/\nCVPR2024/html/Yu_Unmixing_Before_Fusion_A_Generalized_Paradigm_for_Multi-Source-based_Hyper-\nspectral_Image_CVPR_2024_paper.html.\n8.7 学位论文\n8.7.1 著录项目\n学位论文应按表6的著录项目著录。\n14",
+      "visual_verified": true,
+      "ocr_source_sha256": "f38d717912126fdeb286f3a7c2dffae067a10c62826c68a842eb65f3c4ab7a73"
+    },
+    {
+      "id": "gbt7714-2025:p21",
+      "pdf_page": 21,
+      "printed_page": 15,
+      "text": "GB/T 7714—2025\n表6学位论文著录项目\n元素\n必备性\n相关章条号\n主要责任者\n有则必备\n7.1\n题名\n必备\n7.2\n其他题名信息\n有则必备\n7.2.3\n文献类型标识\n必备\n7.3、A.1\n文献载体标识\n电子资源必备\n7.3、A.2\n学位授予单位所在地\n有则必备\n7.5.1、7.5.2\n学位授予单位\n必备\n7.5.1、7.5.3\n学位授予年\n有则必备\n7.5.1、7.5.4\n引文页码\n有则必备\n7.7\n获取和访问路径\n电子资源必备\n7.8\n永久标识符\n电子资源可选\n7.9\n8.7.2 著录格式\n学位论文应按以下格式著录：“主要责任者.题名：其他题名信息[文献类型标识/文献载体标\n识].学位授予单位所在地：学位授予单位，学位授予年：引文页码.获取和访问路径.永久标识符.”\n示例：\n[1]\n王琦.融合星载 GNSS-R 和 SAR 数据的高时空分辨率土壤湿度反演方法研究[D]. 武汉：武汉大学，\n2022：87.\n[2]\n金燕萍.社交媒体时代的虚假信息研究[D/OL]. 温州：温州大学，2020：16. https://d. wanfangdata.\ncom.cn/thesis/D02216281.\n[3] 井丽南.支持状态可编程的 SDN交换机关键技术研究[D/OL].北京：中国科学院大学，2022：43.\nhttp://dpaper.las.ac.cn/Dpapcr/dctail/detailNew? paperID=20209289.CSTR:35001.37.01.33142.20220037.\n[4] Cairns B R. Infrared spectroscopic studies of solid oxygen [D]. Berkeley: University of California,\nBerkeley, 1965: 15.\n[5]\nChristou A. Improving knowledge graph understanding with contextual views[D/OL]. Ohio: Wright State\nUniversity, 2024:18. http://rave.ohiolink.edu/ctdc/view?acc_num=wright1715878159408301.\n8.8 报告\n8.8.1 通用要求\n凡以图书、图书中的析出文献、连续出版物、连续出版物中的析出文献形式出现的报告，其著录项目\n与著录格式应分别按8.2~8.5 中的有关规则处理。除此之外的报告应按8.8.3 著录。\n8.8.2 著录项目\n报告应按表7的著录项目著录。\n15",
+      "visual_verified": true,
+      "ocr_source_sha256": "693b685bfbaf39d08fcbe6fe31057c6e0c0f05bad61249a4735feefba728150b"
+    },
+    {
+      "id": "gbt7714-2025:p22",
+      "pdf_page": 22,
+      "printed_page": 16,
+      "text": "GB/T 7714—2025\n表 7 报告著录项目\n元素\n必备性\n相关章条号\n主要责任者\n有则必备\n7.1\n题名\n必备\n7.2\n其他题名信息\n有则必备\n7.2.3\n报告编号\n有则必备\n一\n文献类型标识\n必备\n7.3、A.1\n文献载体标识\n电子资源必备\n7.3、A.2\n发布日期\n有则必备\n7.5.1、7.5.4\n引文页码\n有则必备\n7.7\n获取和访同路径\n电子资源必备\n7.8\n永久标识符\n电子资源可选\n7.9\n8.8.3 著录格式\n报告应按以下格式著录：“主要责任者.题名：其他题名信息：报告编号[文献类型标识/文献载体标\n识].发布日期：引文页码.获取和访问路径，永久标识符.”\n示例\n[1]\n汤万金，杨跃翔，刘文，，人体安全重要技术标准研制最终报告：7178999X-2006BAK04A10/10. 2013\n[R/OL]. 2013-09-30.http://www.nstrs.cn/xiangxiBG.aspx? id-41707.\n[2]中国信息通信研究院，中国电信股份有限公司研究院，中国移动通信研究院，等.电信业发展白皮书：\n2C23：新时代高质量发展探索[R/OLJ. 2023-12-28.http://www.caet.ac.en/kxyj/qwfb/bps/202312/\nP020240326615399026294.pdf.\n[3] Calkin D E, Ager A A, Thompson M P, et al. A comparative risk assessment framework for wildland\nfire management. the 2010 cohesive strategy science report: RMRS-GTR-262 [R/OL]. 2011: 8-9.\nhttps://www.fs.usda.gov/rm/pubs/rmrs_gtr262.pdf.\n[4] U.S. Department of Transportation Federal Highway Administration. Guidelines for handling excavated acid-\nproducing materials: PB 91-194001[R]. Springfield: U.S. Department of Commerce National Information\nService, 1990: 25.\n8.9 标准\n8.9.1 著录项目\n标准应按表8的著录项目著录。\n表 8 标准著录项目\n元素\n必备性\n相关章条号\n标准编号\n必备\n16",
+      "visual_verified": true,
+      "ocr_source_sha256": "e76b45eed6795f15cd989bad5850d5dbe89a668778f8d8c5ac04fc79dc8f3a3a"
+    },
+    {
+      "id": "gbt7714-2025:p23",
+      "pdf_page": 23,
+      "printed_page": 17,
+      "text": "GB/T 7714—2025\n表 8 标准著录项目（续）\n元素\n必备性\n相关章条号\n标准名称\n必备\n7.2\n文献类型标识\n必备/可选\n7.3、A.1\n文献载体标识\n电子资源必备\n7.3、A.2\n获取和访问路径\n电子资源必备\n7.8\n永久标识符\n电子资源可选\n7.9\n标准化文件中“文献类型标识”为可选项。\n8.9.2 著录格式\n标准应按以下格式著录：“标准编号\n标准名称[文献类型标识/文献载体标识]. 获取和访问路\n径. 永久标识符.”\n示例：\n[1]\nGB/T 3792—2021 信息与文献 资源描述 [S].\n[2]\nNB/T 10386—2020 水电工程水温实时监测系统技术规范 [S].\n[ε]\nGB/T 20090.16—2016 信息技术 先进音视频编码 第 16 部分：广播电视视频[S/OL]. http://c.\ngb688.cn/bzgk/gb/showGb?type=online&hcno=1D4AC2D4256C8DE7E0AA286CA7649300.\n[4]\nISO 21378: 2019 Audit data collection[S].\n[s]\nIEC/IEEE 61636-1: 2021 Software interface for maintenance information collection and analysis (SIMICA):\nexchanging test results and session information via the eXtensible Markup Language (XML) [S].\n8.10 专利\n8.10.1 著录项目\n专利应按表9的著录项目著录。\n表9 专利著录项目\n元索\n必备性\n相关章条号\n专利申请者/所有者\n必备\n7.1\n题名\n必备\n7.2\n其他题名信息\n有则必备\n7.2.3\n专利申请号\n必备\n一\n文献类型标识\n必备\n7.3、A.1\n文献载体标识\n电子资源必备\n7.3、A.2\n公告日期或公开日期\n有则必备\n7.5.1、7.5.4.2\n引文页码\n有则必备\n7.7\n17",
+      "visual_verified": true,
+      "ocr_source_sha256": "afe69fb191d2c59fc3c34f796ad9e71f026946114c5c2b23ec50a9d0da4a8f47"
+    },
+    {
+      "id": "gbt7714-2025:p24",
+      "pdf_page": 24,
+      "printed_page": 18,
+      "text": "GB/T 7714—2025\n表9 专利著录项目（续）\n元素\n必备性\n相关章条号\n获取和访问路径\n电子资源必备\n7.8\n永久标识符\n电子资源可选\n7.9\n8.10.2 著录格式\n专利应按以下格式著录：“专利申请者/所有者.题名：其他题名信息：专利申请号[文献类型标\n识，文献载体标识].公告(公开)日期：引文页码.获取和访问路径.永久标识符.”\n示例：\n[1]\n邓一刚.全智能节电器：CN200610171314. 3[P]. 2008-01-16：8-9.\n[2]\n西安电子科技大学.光折变自适应光外差探测方法：CN01128777. 2[P/OL. 2002-03-06. http://211.\n152.9.17/sipoasp/zljs/hyjs-yx-new.asp?recid=01128777.2&leixin=0.\n[3]\n中国科学院苏州生物医学工程技术研究所.光コヒーレンス断層拡張現突に基づく手術顕微鏡撮像システ\n2及び方法：JP2021578120A[P/OL]. 2022-09-13. https://pss-system.eponline.cnipa.gov.cn/documents/\ndetail?prevPageTit=changgui.\n[4]\nTrisco Icap Pty Ltd. Storagc and delivery system: AU2022228203A[P/OL]. 2022-10-06. https://worldwide.es-\npacenet.com/patent/search/famnily/061561249/publication/AU2022228203A1?q=AU2022228203A.\n8.11 网站、网页\n8.11.1 通用要求\n凡以网页形式出现的图书、连续出版物、会议录、学位论文、报告、标准、专利、档案、地图、数据集、预\n印本，应按相应文献类型的规则著录。除此之外的网站、网页及其析出内容应按本条著录。\n8.11.2 网站\n8.11.2.1 著录项目\n网站应按表10的著录项目著录。\n表10网站著录项目\n元素\n必备性\n相关章条号\n主要责任者\n有则必备\n7.1\n题名\n必备\n7.2\n其他题名信息\n有则必备\n7.2.3\n文献类型标识\n必备\n7.3、A.1\n文献载体标识\n必备\n7.3、A.2\n创建或修改日期\n有则必备\n7.6\n引用日期\n必备\n7.6\n获取和访问路径\n必备\n7.8\n18",
+      "visual_verified": true,
+      "ocr_source_sha256": "a167d58d610aaf103c380ae494dd1dbf6a1e8a82da8b171c60b0c15794776224"
+    },
+    {
+      "id": "gbt7714-2025:p25",
+      "pdf_page": 25,
+      "printed_page": 19,
+      "text": "GB/T 7714—2025\n8.11.2.2著录格式\n网站应按以下格式著录：“主要责任者.题名：其他题名信息[文献类型标识/文献载体标识].(创建\n或修改日期)[引用日期].获取和访问路径.”\n示例：\n[1] 中国国家博物馆[EB/OL]. [2025-05-06]. https://www.chnmuseum.cn/.\n[2] Library of Congress[EB/OL]. [2020-06-12]. https://www.loc.gov.\n8.11.3 网页\n8.11.3.1 著录项目\n网页应按表11的著录项目著录。\n表 11 网页著录项目\n元素\n必备性\n相关章条号\n主要责任者\n有则必备\n7.1\n题名\n必备\n7.2\n其他题名信息\n有则必备\n7.2.3\n文献类型标识\n必备\n7.3、A.1\n文献载体标识\n必备\n7.3、A.2\n创建或修改日期\n有则必备\n7.6\n引用日期\n必备\n7.6\n获取和访问路径\n必备\n7.8\n永久标识符\n可选\n7.9\n8.11.3.2著录格式\n网页应按以下格式著录：“主要责任者.题名：其他题名信息[文献类型标识/文献载体标识].(创建\n或修改日期)[引用日期].获取和访问路径.永久标识符.”\n示例：\n[1]高等教育文献保障系统.馆际互借与文献传递服务[EB/OL]. [2025-06-21]. http://home.calis.edu.cn/\npages/list.html? id=4101e184-7f64-4798-a5el-8e37aa6994fc.\n[2][《昨日之歌》图书封面][EB/OL].(2015-09-18)[2023-03-06].http://www.luxunmuseum.com.cn/\nuploads/allimg/150813/1-150Q31952110-L.jpg.\n[8]\n许振超：“好好干，当一个好工人”[EB/OL].(2025-02-17）[2025-06-22]. http://cpc.people.com.cn/\nn1/2025/0217/c443712-40419790.html.\n[4]\nAntónio M, Pepper L. Histórias de Portugal: livros caídos [EB/OL]. (2019-07-13) [2025-01-02 ].\nhttps://arquivo. pt/wayback/20190905210731/http://publico. pt/2019/07/13/sociedade/noticia/podcast-his-\ntorias-portugal-cuidadores-1879731.\nZotero. [Zotero download][CP/OL]. [2024-04-08]. https://www.zotero.org/download/.\n19",
+      "visual_verified": true,
+      "ocr_source_sha256": "2dffaa6bdc74b1850cd3ad7fe14d3f333121041bd201361192074ca94dd7d406"
+    },
+    {
+      "id": "gbt7714-2025:p26",
+      "pdf_page": 26,
+      "printed_page": 20,
+      "text": "GB/T7714—2025\n8.12 档案\n8.12.1 通用要求\n凡以图书、图书中的析出文献形式出现的档案，其著录项目与著录格式应分别按8.2、8.3中的有关\n规则处理。除此之外的档案应按8.12.3著录。\n8.12.2著录项目\n档案应按表12的著录项目著录。\n表 12 档案著录项目\n元素\n必备性\n相关章条号\n主要资任者\n有则必备\n7.1\n题名\n必备\n7.2\n其他题名信息\n有则必备\n7.2.3\n档号\n有则必备\n一\n文献类型标识\n必备\n7.3、A.1\n文献载体标识\n电子资源必备\n7.3、A.2\n收藏者所在地\n有则必备\n7.5.1、7.5.2\n收藏者\n有则必备\n7.5.1、7.5.3\n形成日期\n有则必备\n7.5.1、7.5.4\n引文页码\n有则必备\n7.7\n获取和访问路径\n电子资源必备\n7.8\n永久标识符\n电子资源可选\n7.9\n8.12.3 著录格式\n档案应按以下格式著录：“主要责任者.题名：其他题名信息：档号[文献类型标识/文献载体标\n识].收藏者所在地：收藏者，形成日期：引文页码.获取和访问路径.永久标识符.”\n示例：\n[1]\n李鸿章.奏请上海道库洋务外销要款无款可筹仍拨药厘接济事：04-01-35-0399-039[A].北京：中国第一历\n史档案馆，1887（光绪十三年三月十三日).\n[2]\n湖北省建设厅.湖北省建设厅关于检发实业部农工矿业团体登记规则的布告、训令及湖北省政府的训令：\nLS031-001-0001-001[A/OL].武汉：湖北省档案馆，1931-11-07. https://www.hbda.gov.cn/pdf/LS031-\n001-0001-001.PDF.PDF.\n[3]\n中国人民解放军武汉市军事管制委员会接管国立武汉大学的文告[A/OL].武汉：武汉大学档案馆，1949\n(中华民国三十八年八月). https://archive.whu.edu.cn/index/forwardView/20/51.\n[4]\nFitzwilliam H. [Letter to Bess of Hardwick][A/OL]. 1570-07-28. https://www. bessofhardwick. org/\nletter.jsp?letter=25.\n20",
+      "visual_verified": true,
+      "ocr_source_sha256": "deb0c35bfa38065db95637c5849e1d7dd8eddc56542c34e105f47d964457780e"
+    },
+    {
+      "id": "gbt7714-2025:p27",
+      "pdf_page": 27,
+      "printed_page": 21,
+      "text": "GB/T 7714—2025\n8.13 地图\n8.13.1通用要求\n凡以图书、图书中的析出文献形式出现的地图，其著录项目与著录格式应分别按8.2、8.3中的有关\n规则处理。除此之外的地图应按8.13.3著录。\n示例：\n[1]\n訾冬梅，高秀静.内蒙古自治区地图册[CM]. 新版.北京：中国地图出版社，2006.\n[2]\n谭其骧.中国历史地图集：第2册[CM].北京：地图出版社，1982：6.\n[ε]\nCribb R. Historical atlas of Indonesia[CM]. Abingdon: Routledge, 2015.\n[4]\nCoastal wetlands map of China continent [CM]//Coastal erosion and mitigation in east and southeast Asia.\nBeijing: China Occan Press, 2024, 50.\n8.13.2 著录项目\n地图应按表13的著录项目著录。\n表 13 地图著录项目\n元素\n必备性\n相关章条号\n主要资任者\n有则必备\n71\n题名\n必备\n7.2\n其他题名信息\n有则必备\n7.2.3\n比例尺\n有则必备\n一\n文献类型标识\n必备\n7.3、A.1\n文献载体标识\n电子资源必备\n7.3、A.2\n版本\n有则必备\n7.4\n出版地\n有则必备\n7.5.2\n出版者\n有则必备\n7.5.3\n出版年\n有则必备\n7.5.4\n尺寸\n纸质单幅地图必备\n一\n获取和访问路径\n电子资源必备\n7.8\n永久标识符\n电子资源可选\n7.9\n8.13.3 著录格式\n地图应按以下格式著录：“主要责任者.题名：其他题名信息.比例尺[文献类型标识/文献载体标\n识]. 版本.出版地：出版者，出版年.尺寸.获取和访问路径.永久标识符.”\n示例：\n[1]\n胡健民.东南极拉斯曼丘陵地区地质图.1：25 000[CM]. 北京：科学出版社，2021.128 cm×84 cm.\n[2]\n刘祥沈.沈阳市政区图.1：170 000[CM]. 武汉：武汉大学出版社，2016.138cm×96 cm.\n[3]\n国家测绘地理信息局.一带一路经济走廊及其途经城市分布地势图[CM/OL]. http://ydyl.china.com.cn/\n2016-10/27/content_39582227.htm.\n21",
+      "visual_verified": true,
+      "ocr_source_sha256": "016b910bd9fc86d99efb0cf11a4fc1e818fee1c8a95851d2d50a6bb4098247c3"
+    },
+    {
+      "id": "gbt7714-2025:p28",
+      "pdf_page": 28,
+      "printed_page": 22,
+      "text": "GB/T 7714—2025\n8.14数据集\n8.14.1 通用要求\n凡以图书、图书中的析出文献、连续出版物、连续出版物中的析出文献形式出现的数据集，其著录项\n目与著录格式应分别按8.2~8.5 中的有关规则处理。除此之外的数据集应按8.14.3 著录。\n8.14.2 著录项目\n数据集应按表14的著录项目著录。\n表14数据集著录项目\n元素\n必备性\n相关章条号\n主要责任者\n有则必备\n7.1\n题名\n必备\n7.2\n其他题名信息\n有则必备\n7.2.3\n文献类型标识\n必备\n7.3、A.1\n文献载体标识\n电子资源必备\n7.3、A.2\n版本\n可选\n7.4\n发布平台\n电子资源可选\n7.5.1\n发布或修改日期\n有则必备\n7.6\n引用日期\n必备\n7.6\n获取和访问路径\n电子资源必备\n7.8\n永久标识符\n电子资源可选\n7.9\n8.14.3 著录格式\n数据集应按以下格式著录：“主要责任者.题名：其他题名信息[文献类型标识/文献载体标识].\n版本。发布平台(发布或修改日期)[引用日期].获取和访问路径.永久标识符.”\n示例：\n[1] 周壮，李盛阳，吴薇，等.天宫二号遥感图像自然景物分类科学数据[DS/OL].V1.0. 国家基础学科公共\n科学数据中心(2023-09-10)[2025-07-15]. https://www. nbsdc.cn/general/dataLinks/CSTR:16666.11.\nnbsdc.tfpbwtqf.\n[2]\n黄土高原科学数据中心（西北农林科技大学水土保持研究所）.青海省县域教育、卫生发展指标（2001一\n2022 年）[DS/OL]. 国家地球系统科学数据中心-赏土高原分中心（2024-12-25）[2025-07-10]. https://\nloess. geodata. cn/data/datadetails. html? dataguid = 58691800703558. DOI: 10. 12041/geodata. 58691800703558.\nver1.db.\n[3]\nIHME. Global burden of disease study 2019(GBD 2019) data resources[DS/OL]. Global Health Data Ex-\nchange (2021)[2025-07-15]. https://ghdx.healthdata.org/gbd-2019.\n8.15 预印本\n8.15.1 著录项目\n预印本应按表15的著录项目著录。\n22",
+      "visual_verified": true,
+      "ocr_source_sha256": "8849b92a02a5eb7e623b892461b7a415583918e7c96bc007be2c60030a2c4d8b"
+    },
+    {
+      "id": "gbt7714-2025:p29",
+      "pdf_page": 29,
+      "printed_page": 23,
+      "text": "GB/T 7714—2025\n表 15 预印本著录项目\n元素\n必备性\n相关章条号\n主要责任者\n有则必备\n7.1\n题名\n必备\n7.2\n其他题名信息\n有则必备\n7.2.3\n文献类型标识\n必备\n7.3、A.1\n文献载体标识\n电子资源必备\n7.3、A.2\n版本\n有则必备\n7.4\n出版平台\n电子资源可选\n7.5.1\n创建或修改日期\n有则必备\n7.6\n引用日期\n必备\n7.6\n获取和访问路径\n必备\n7.8\n永久标识符\n电子资源可选\n7.9\n8.15.2 著录格式\n预印本应按以下格式著录：“主要责任者.题名：其他题名信息[文献类型标识/文献载体标识].\n版本.出版平台(创建或修改日期)[引用日期].获取和访问路径.永久标识符.”\n示例：\n[1]\n肖玲，张雪，王永.数据要索的统计测算方法探究[PP/OL]. PSSXiv（2024-07-02）[2024-09-30].\nhttps://zsyyb.cn/abs/202408.01096. CSTR:32012.36.PSSXiv.202408.01096.\n[2]\n方向明，曹迎杰.元宇宙在图书馆的应用：理论研究与实践进展[PP/OL].ChinaXiv（2023-03-03）[2024-\n09-30]. http://www.chinaxiv.org/abs/202303.00020. CSTR:32003.36.ChinaXiv.202303.00020.V1.\n[3]\nJenkins S D, Ruostekoski J. Controlled manipulation of light by cooperative response of atoms in an optical\nlattice[PP/OL]. V2. (2012-03-18)[2020-06-24]. https://doi.org/10.48550/arXiv.1112.6136.\n9 参考文献标引体系编制法\n9.1 通用要求\n参考文献的引用体系可按顺序编码制组织，也可按著者-出版年制组织。引文参考文献既可集中著\n录在文后或书末，也可分散著录在页下端。阅读型参考文献应著录在文后、书的各章节后或书末。\n9.2 顺序编码制\n9.2.1 正文中的引用\n9.2.1.1 顺序编码制应按正文中引用的文献出现的先后顺序连续编码，并将序号置于“[]”中，见示\n例1。如果顺序编码制用脚注方式时，序号可由计算机自动生成圈码，见示例2。\n23",
+      "visual_verified": true,
+      "ocr_source_sha256": "1a5113fd7e519a8c519fb346cebd1e0153dc90aebd1328935877a7906fa83028"
+    },
+    {
+      "id": "gbt7714-2025:p30",
+      "pdf_page": 30,
+      "printed_page": 24,
+      "text": "GB/T 7714—2025\n示例1：\n……德国学者N.克罗斯研究了瑞士巴塞尔市附近侏罗山中老第三纪断裂对第三系摺皱的控制[235]；之后，他又\n描述了西里西亚第3条大型的近南北向构造带，并提出地槽是在不均一的块体的基底上发展的思想[236]。\n示例2：\n》“\n词典》和张相⑦都认为“可”是“痊愈”，侯精一认为是“减轻”®。……另外，根据侯精一，表示病痛程度减轻的形\n容词“可”和表示逆转否定的副词“可”是兼类词④，这也说明二者应该存在着源流关系。\n9.2.1.2同一处引用多篇文献时，应将各篇文献的序号在“[]”内全部列出，各序号间用“，”。\n如遇连续序号，起讫序号间用短横线连接。此规则不适用于用计算机自动编码的序号。\n示例：\n裴伟[570,83]提出……\n莫拉德对稳定区的节理格式的研究[255-256].…\n9.2.1.3 多次引用同一责任者的同一文献时，在正文中标注首次引用的文献序号，并在序号的“[]”外\n著录引文页码，见示例1。如果用计算机自动编序号时，应重复著录参考文献，但参考文献表中的著录\n项目可简化为文献序号及引文页码，见示例2。\n示例1：\n……改变社会规范也可能存在类似的“二阶囚徒困境”问题：尽管改变旧的规范对所有人都好，但个人理性选择使得\n没有人愿意率先违反旧的规范[。……事实上，古希腊对轴心时代思想真正的贡献不是来自对民主的赞扬，而是来自对\n民主制度的批评，苏格拉底、柏拉图和亚里士多德3位贤圣都是民主制度的坚决反对者[2]260。……柏拉图在西方世界的\n影响力是如此之大以至于有学者评论说，一切后世的思想都是一系列为柏拉图思想所作的脚注[。……据《唐会要》\n记载，当时拆毁的寺院有4600余所，招提、兰若等佛教建筑4万余所，没收寺产，并强迫僧尼还俗达260500人。\n佛教受到极大的打击[2]326-329。……陈登原先生的考证是非常精确的，他印证了《春秋说题辞》“黍者绪也，故其立\n字，禾人米为黍，为酒以扶老，为酒以序尊卑，禾为柔物，亦宜养老”，指出：“以上谓等威之辨，尊卑之序，由于饮\n食荣辱。”4]\n参考文献：\n[1]\nSunstein C R. Social norms and social roles [J/OL]. Columbia Law Review, 1996, 96: 903. http://\nwww.heinonline.org/HOL/Page?handle=hein.journals/clr96&id=913&collection=journals&index=jour-\nnals/clr.\n[2]\nMorris L. Why the West rules: for now: the patterns of history, and what they reveal about the future\n[M]. New York: Farrar,Straus and Giroux, 2010.\n[3]\n罗杰斯.西方文明史：问题与源头[M].潘惠霞，魏婧，杨艳，等，译.大连：东北财经大学出版社，2011：\n15-16.\n[4] 陈登原.国史旧闻：第1卷[M].北京：中华书局，2000：29.\n示例2：\n……改变社会规范也可能存在类似的“二阶囚徒困境”问题：尽管改变旧的规范对所有人都好，但个人理性选择\n使得没有人愿意率先违反旧的规范①。……事实上，古希腊对轴心时代思想真正的贡献不是来自对民主的赞扬，而是\n来自对民主制度的批评，苏格拉底、柏拉图和亚里士多德3位贤圣都是民主制度的坚决反对者®。……柏拉图在西方\n世界的影像力是如此之大以至于有学者评论说，一切后世的思想都是一系列为柏拉图思想所作的脚注®。……据《唐\n会要》记载，当时拆毁的寺院有4600余所，招提、兰若等佛教建筑4万余所，没收寺产，并强迫僧尼还俗达260500\n人。佛教受到极大的打击®。……陈登原先生的考证是非常精确的，他印证了《春秋说题辞》“黍者绪也，故其立\n字，禾人米为黍，为酒以扶老，为酒以序尊卑，禾为柔物，亦宜养老”，指出：“以上谓等威之辨，尊卑之序，由于饮\n食荣辱。”\n24",
+      "visual_verified": true,
+      "ocr_source_sha256": "84706464e9c14d8ab7680b4fc5999922dcdd89bf6cab9a115ea21862c48e3a45"
+    },
+    {
+      "id": "gbt7714-2025:p31",
+      "pdf_page": 31,
+      "printed_page": 25,
+      "text": "GB/T 7714—2025\n参考文献：\n① Sunstein C R. Social norms and social roles[J/OL]. Columbia Law Review, 1996, 96: 903. http://www.hei-\nnonline.org/HOL/Page?handle=hein.journals/clr96&id=913&collection=journals&index=journals/clr.\n② Morris I. Why the West rules: for now: the patterns of history,and what they reveal about the future[M]. New\nYork : Farrar, Straus and Giroux, 2010: 260.\n③罗杰斯.西方文明史：问题与源头[M].潘惠霞，魏婧，杨艳，等，译.大连：东北财经大学出版社，2011：\n15-16.\n④ 同②326-329.\n⑤陈登原.国史旧闻：第1卷[M].北京：中华书局，2000：29.\n9.2.2参考文献表编制要求\n参考文献表采用顺序编码制组织时，各篇文献应按正文部分标注的序号依次列出(见9.2.1)。更多\n示例见附录B。\n示例：\n[1] Baker S K, Jackson M E. The future of resource sharing[M]. New York: The Haworth Press, 1995.\n[2]\nChernik B E. Introduction to library services for library technicians [ M]. Littleton, Colo.: Libraries\nUnlimited, Inc., 1982.\n[3]\n尼葛洛庞帝.数字化生存[M]. 胡泳，范海燕，译.海口：海南出版社，1996.\n[4]\n汪冰.电子图书馆理论与实践研究[M].北京：北京图书馆出版社，1997：16.\n[5]\n杨宗英.电子图书馆的现实模型[J]. 中国图书馆学报，1996(2)：24-29.\n[6]\nDowler L. The research university's dilemma: resource sharing and research in a transinstitutional environ-\nment[J]. Journal of Library Administration, 1995, 21(1/2): 5-26.\n9.3 著者-出版年制\n9.3.1 正文中的引用\n9.3.1.1 正文引用的文献采用著者-出版年制时，各篇文献的标注内容应由责任者姓氏与出版年(见\n7.5.1、7.5.4.1)构成，并置于“()”内。倘若只标注责任者姓氏无法识别该人名时，可标注责任者姓名(见\n7.1.1)。集体责任者著述的文献可标注机关团体名称。倘若正文中已提及责任者姓名，则在其后的\n“()”内只著录出版年。\n示例：\nThe notion of an invisible college has been explored in the sciences (Crane, 1972). Its absence among historians\nwas noted by Stieg(1981) ...\n参考文献：\nCrane D, 1972. Invisible college[M]. Chicago: Univ. of Chicago Press.\nStieg M F, 1981. The information needs of historians[J]. College and Research Libraries, 42(6): 549-560.\n9.3.1.2 正文中引用多责任者文献时，对欧美责任者只需标注第一个责任者的姓，其后附“et al.”；对于\n中国责任者应标注第一责任者的姓名，其后附“等”字。姓氏与“etal.”“等”之间留适当空隙。\n示例：\nPoor teacher behaviors are not a substantial problem for EFL (English as a Foreign Language) Japanese learners, but\nthe converse, that teacher seem quite inspiring (Falout et al., 2009) ...\n参考文献：\nFalout J, Elwood J, Hood M, 2009. Demotivation: affective states and learning outcomes[J]. System, 37 (3):\n403-417.\n9.3.1.3 著录同一责任者在同一年出版的多篇文献时，在正文中标注责任者与出版年，出版年后应用小\n25",
+      "visual_verified": true,
+      "ocr_source_sha256": "058a838fc4e35dfd63a478a00b7b4c4e8d005bd8db47093b18f7bba4abd6abef"
+    },
+    {
+      "id": "gbt7714-2025:p32",
+      "pdf_page": 32,
+      "printed_page": 26,
+      "text": "GB/T7714—2025\n写字母a，b,c……区别，并置于“()”内。\n示例：\n文献增长规律能在一定程度上反映出某个研究领域的发展状况。文献逻辑增长模型提出文献增长包括三个阶段：\n早期阶段呈指数增长；中期阶段增长率开始变小，出现转折点；后期文献累积量增加缓慢并且趋于一个极限值（邱均\n平，2000a)。……文献计量学中的布拉德福分散定律描述了科技论文在期刊中的分布规律，运用此定律，结合本研究\n的样本数量，将来源期刊按照其刊载的文献数量进行降序排列，并且划分出4个区域（核心区、相关区、弱相关区、\n非相关区)，使每个区内期刊载文量约为全部期刊载文量的1/4，并且尽量使核心区、相关区、弱相关区、非相关区\n含有的期刊数量满足1：n：n²：n8的比例关系（邱均平，2000b)。……洛特卡定律描述了科学工作者和科学论文产\n量之问的数学规律，核心思想可表述为：发表x篇文章的作者数量是发表1篇文章作者数量的1/x²，且发表1篇文\n章的作者数是全体作者的60%左右（邱均平，2000c)。利用此规律可以对某领域的作者发文情况进行分析。\n参考文献：\n邱均平，20008.信息计量学（二）：第二讲文献信息增长规律与应用[J/OL].情报理论与实践，23（2）：153-\n157. DOI: 10. 16353/j. cnki. 1000-7490. 2000. 02. 025.\n邱均平，2000b.信息计量学（四）：第四讲文献信息离散分布规律——布拉德福定律[J/OL].情报理论与实\n践，23 (4): 315-320. DOI: 10. 16353/j. cnki. 1000-7490. 2000. 04. 028.\n邱均平，2000c.信息计量学（六）：第六讲文献信息作者分布规律——洛特卡定律[J/OL]. 情报理论与实践，23\n(6): 475-478. DOI: 10. 16353/j. cnki. 1000-7490. 2000. 06. 026.\n9.3.1.4 多次引用同一责任者的同一文献，在正文中标注责任者与出版年，并在“()”外以角标的形式著\n录引文页码。\n示例：\n主编靠编辑思想指挥全局已是编辑界的共识（张忠智，1997)，然而对编辑思想至今没有一个明确的界定，故不\n妨提出一个构架……参与讨论。由于“思想”的内涵是“客观存在反映在人的意识中经过思维活动而产生的结果”\n(中国社会科学院语言研究所词典编辑室，1996)1，所以“编辑思想”的内涵就是编辑实践反映在编辑工作者的意\n识中，“经过思维活动而产生的结果”。……《中国青年》杂志创刊人追求的高格调理性的成熟与热点的凝聚\n(刘彻东，1998)，表明其读者群的文化品位的高层次……“方针”指“引导事业前进的方向和目标”(中国社会科学院\n语言研究所词典编辑室，1996)354。……对编辑方针，1981年中国科协副主席裴丽生曾有过科学的论断：“自然科学\n学术期刊应坚持以马列主义、毛泽东思想为指导，贯彻为国民经济发展服务、理论与实践相结合、普及与提高相结合、\n百花齐放，百家争鸣’的方针。”（裴丽生，1981）它完整地回答了为谁服务，怎样服务，如何服务得更好的问题。\n参考文献：\n裴丽生，1981.在中国科协学术期刊编辑工作经验交流会上的讲话[C]//中国科学技术协会.中国科协学术期刊编\n辑工作经验交流会资料选.北京：中国科学技术协会学会工作部：2-10.\n刘彻东，1998.中国的青年刊物：个性特色为本[J].中国出版（5）：38-39.\n会建会十周年学术研讨会论文汇编.北京：中国科学技术期刊编辑学会学术委员会：33-34.\n中国社会科学院语言研究所词典编辑室，1996.现代汉语词典[M].修订本.北京：商务印书馆。\n9.3.2参考文献表编制要求\n参考文献表采用著者-出版年制组织时，各篇文献应首先按文种集中，可分为中文、日文、西文、俄\n文、其他文种5部分；然后按责任者字顺和出版年排列。中文文献可按责任者汉语拼音字顺排列\n(见9.3.1)，也可按责任者的笔画笔顺排列。\n示例：\n尼葛洛庞帝，1996.数字化生存[M]. 胡泳，范海燕，译.海口：海南出版社.\n汪冰，1997.电子图书馆理论与实践研究[M].北京：北京图书馆出版社：16.\n杨宗英，1996.电子图书馆的现实模型[J]. 中国图书馆学报(2)：24-29.\n26",
+      "visual_verified": true,
+      "ocr_source_sha256": "8a33ff6dcc80dbb4ed0dc7f452b341cdf1603422a17da26328311f512e0ec243"
+    },
+    {
+      "id": "gbt7714-2025:p34",
+      "pdf_page": 34,
+      "printed_page": 28,
+      "text": "GB/T 7714—2025\n附录A\n(规范性)\n文献类型和文献载体标识代码\nA.1 文献类型和标识代码\n图书、期刊、报纸、会议录、学位论文、报告、标准、专利、网站、网页、档案、地图、数据集、预印本等文\n献类型和标识代码应按照表A.1著录。\n表 A.1 文献类型和标识代码\n参考文献类型\n文献类型标识代码\n图书\nM\n期刊\nJ\n报纸\nN\n会议录\nC\n学位论文\nD\n报告\nR\n标准\nS\n专利\nP\n网站、网页\nEB\n档案\nA\n地图\nCM\n数据集\nDS\n预印本\nPP\n汇编\nG\n计算机程序\nCP\n数据库\nDB\n其他\nZ\nA.2电子资源载体和标识代码\n图书、期刊、报纸、会议录、学位论文、报告、标准、专利、网站、网页、档案、地图、数据集、预印本等的\n电子资源载体和标识代码应按照表A.2著录。\n28",
+      "visual_verified": true,
+      "ocr_source_sha256": "fb0f53ecda7794b220af9f097fdfaba91053408e7d42f62682f50b9265000b88"
+    },
+    {
+      "id": "gbt7714-2025:p35",
+      "pdf_page": 35,
+      "printed_page": 29,
+      "text": "GB/T 7714—2025\n表 A.2 电子资源载体和标识代码\n电子资源的载体类型\n载体类型标识代码\n磁带(magnetic tape)\nMT\n磁盘(disk)\nDK\n光盘(CD-ROM)\nCD\n联机网络(online)\nOL\n缩微资料(microform materials)\nMM\n29",
+      "visual_verified": true,
+      "ocr_source_sha256": "68a848e0fa0f54c2477c29b713d8a15ffd0566e1ae9b384fbb4d5324d66bb2b0"
+    }
+  ],
+  "notes": [
+    "OCR and visual review; source examples can contain scan artifacts. Normative wording takes precedence over OCR examples.",
+    "A.2 online medium visually verified as OL; OCR 70 corrected.",
+    "This resource is evidence, not a generated rule package."
+  ]
+}

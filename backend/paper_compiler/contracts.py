@@ -262,3 +262,11 @@ def validate_analysis(ir: dict, analysis: dict) -> None:
         require(right is None or endpoints[edge['to']]['kind'] in right, 'edge target type mismatch')
         require(all(e in evidence for e in edge.get('evidence_ids', [])), 'unknown edge evidence')
     _observations(analysis['results'])
+    def verify_observations(value):
+        if isinstance(value,dict):
+            if 'state' in value:
+                require(all(e in evidence or e in nodes for e in value.get('evidence_ids',[])), 'unknown observation evidence')
+            for child in value.values():verify_observations(child)
+        elif isinstance(value,list):
+            for child in value:verify_observations(child)
+    verify_observations(analysis['results'])

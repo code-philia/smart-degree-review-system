@@ -137,6 +137,8 @@ class MaasClient:
                     record.update(usage=usage, conservative_cost_cny=str(charge))
                     try:
                         choice = response['choices'][0]
+                        record['finish_reason'] = choice.get('finish_reason')
+                        record['output_content'] = choice.get('message', {}).get('content')
                         if choice.get('finish_reason') != 'stop':
                             raise ValueError('incomplete output')
                         content = choice['message']['content']

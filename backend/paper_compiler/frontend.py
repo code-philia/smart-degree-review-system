@@ -10,7 +10,7 @@ import pymupdf
 from .citations import attach_citations
 from .contracts import SCHEMA_VERSION, MODEL_VERSION, validate_ir
 
-FRONTEND_VERSION='pdf-source-frontend/1.0'
+FRONTEND_VERSION='pdf-source-frontend/1.1'
 BIB_HEADING=re.compile(r'^(?:参考文献|參考文獻|References|Bibliography)\s*$',re.I)
 ENTRY=re.compile(r'^\s*(?:[\[［](\d{1,4})[\]］]|(\d{1,4})[.、．])\s*')
 NUMBERED_HEADING=re.compile(r'^(?:(第[一二三四五六七八九十百\d]+章)\s*|((?:\d+\.)*\d+)\s+)(\S.{0,65})$')
@@ -56,10 +56,34 @@ def _observe(pdf):
     return pages
 
 
+
+def _is_bibliography_heading(text):
+    return bool(BIB_HEADING.fullmatch(text.strip()) or re.sub(r'\s+','',text) in {'参考文献','參考文獻'})
+
+def _bibliography_heading(pages,client):
+    flat=[(page,line) for page in pages for line in page['lines']];candidates=[]
+    for index,(page,line) in enumerate(flat):
+        if not _is_bibliography_heading(line['text']):continue
+        following=[other['text'] for _,other in flat[index+1:index+13]]
+        markers=[ENTRY.match(t.strip()) for t in following];numbers=[int(m.group(1) or m.group(2)) for m in markers if m]
+        candidates.append({'id':line['id'],'page_index':page['page_index'],'text':line['text'],'font_size':line['font_size'],
+            'preceding':[other['text'] for _,other in flat[max(0,index-3):index]],'following':following,'first_numeric_key':numbers[0] if numbers else None})
+    if not candidates:return None,'not_found'
+    if len(candidates)>1 and client is not None:
+        answer=client.complete_json('bibliography-boundary/1.0',
+            'Identify the start heading of the MAIN actual bibliography from the supplied source candidates. Exclude table-of-contents labels, diagram labels, prompt examples and running headers. Use following bibliographic entries and page position. Return heading_id (one exact supplied ID, or null if unclear) and reason. Do not invent source IDs.',
+            {'page_count':len(pages),'candidates':candidates},1200)
+        if answer.get('heading_id') in {c['id'] for c in candidates}:return answer['heading_id'],'model_selected_source_heading'
+        if answer.get('heading_id') is not None:raise ValueError('bibliography selector returned an unknown source line')
+    # Main bibliography commonly starts at key 1; later diagram labels and running headers do not.
+    candidates.sort(key=lambda c:(c['first_numeric_key']==1,c['first_numeric_key'] is not None,c['font_size'],c['page_index']),reverse=True)
+    return candidates[0]['id'],'structural_candidate_unverified'
+
 def build_paper(pdf: Path, *, client=None, layout_cache=None) -> dict:
     pdf=Path(pdf).resolve()
     digest=hashlib.sha256(pdf.read_bytes()).hexdigest()
     pages=_observe(pdf)
+    bibliography_heading,bibliography_method=_bibliography_heading(pages,client)
     nodes=[];by_id={}
     def add(kind,text,parent,attrs=None,lines=None,node_id=None):
         nid=node_id or 'n'+str(len(nodes))
@@ -106,7 +130,7 @@ def build_paper(pdf: Path, *, client=None, layout_cache=None) -> dict:
             if margin and re.fullmatch(r'[ivxlcdmIVXLCDM\d]+',text):
                 add('UnknownBlock',line['text'],'paper',{'role':'page_number','reason':'page margin locator'},[(page,line)])
                 continue
-            if BIB_HEADING.fullmatch(text):
+            if line['id']==bibliography_heading:
                 if bibliography is None:bibliography=add('Bibliography',None,'back',{'bibliography_kind':'cited_works'},node_id='bibliography')
                 add('Heading',line['text'],bibliography,lines=[(page,line)])
                 mode='bibliography';paragraph=None;current_entry=None;previous_line=None;continue
@@ -167,9 +191,9 @@ def build_paper(pdf: Path, *, client=None, layout_cache=None) -> dict:
         'source_artifacts':[{'id':'pdf','kind':'pdf','path':str(pdf),'sha256':digest,'page_count':len(pages)}],
         'root_id':'paper','nodes':nodes,'layout':{'pages':pages},
         'coverage':{'pages':dict(complete if readable else partial),
-                    'bibliography':dict(complete if bibliography and readable else {'status':'partial','reason':'bibliography boundary or page coverage not verified'}),
+                    'bibliography':{'status':'partial','reason':'main bibliography candidate selected; full field/boundary coverage requires verification'},
                     'reference_uses':{'status':'partial','reason':'numeric and author-year source pass; semantic/OCR coverage verification pending'}},
-        'profile':{'id':'archive479-citations-v1'},'metadata':{'frontend_version':FRONTEND_VERSION},'extensions':{}}
+        'profile':{'id':'archive479-citations-v1'},'metadata':{'frontend_version':FRONTEND_VERSION,'bibliography_heading':bibliography_heading,'bibliography_selection':bibliography_method},'extensions':{}}
     attach_citations(ir)
     validate_ir(ir,pdf.parent)
     return ir

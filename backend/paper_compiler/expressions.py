@@ -73,6 +73,9 @@ def apply_op(op, args):
             if values[0] is None:return Value(state='unknown',reasons=['no text available'],evidence_ids=evidence)
             result=bool(re.fullmatch(values[1],values[0]))
         elif op=='length':result=len(values[0])
+        elif op=='precedes':
+            if values[1] not in values[0] or values[2] not in values[0]:return Value(state='unknown',reasons=['ordered field not observed'],evidence_ids=evidence)
+            result=values[0].index(values[1])<values[0].index(values[2])
         elif op=='lt':result=values[0]<values[1]
         elif op=='le':result=values[0]<=values[1]
         elif op=='gt':result=values[0]>values[1]

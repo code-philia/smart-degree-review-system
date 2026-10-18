@@ -126,3 +126,60 @@ def test_compilation_dispatches_missing_capability_to_validated_builder(tmp_path
         PipelineModel(),tmp_path/'package',capability_requests=[REQUEST])
     assert 'word_count' in compiled['manifest']['capability_versions']
     assert (tmp_path/'package'/'capabilities'/'registry.json').is_file()
+
+
+def test_compiler_rejects_inverted_predicate_and_retries_with_independent_cases(tmp_path):
+    ir,a=fixture(tmp_path)
+    class InvertedThenCorrect:
+        calls=0
+        def complete_json(self,task,instructions,data,max_tokens):
+            assert 'validation_cases' not in data
+            self.calls+=1
+            candidate=spec()
+            if self.calls==1:candidate['checks'][0]['assert']={'op':'not','args':[candidate['checks'][0]['assert']]}
+            return candidate
+    model=InvertedThenCorrect()
+    p=compile_rule('Require title',[],REGISTRY,model,tmp_path/'out',validation_cases=[{'id':'title-present','ir':ir,'analysis':a,'status':'PASS'}])
+    assert model.calls==2 and p['manifest']['validation']['passed']==1
+    assert (tmp_path/'out/compile-attempt-1.json').is_file()
+
+
+def test_compiler_rule_identifier_is_preserved(tmp_path):
+    with pytest.raises(CompilationError,match='rule_id'):
+        compile_rule('Require title',[],REGISTRY,RuleModel(),tmp_path/'out',expected_rule_id='31')
+
+
+def test_code_generation_is_stable_across_json_key_order():
+    r=rule();assert generate_code(r)==generate_code(json.loads(json.dumps(r,sort_keys=True)))
+
+
+def test_partitioned_compilation_merges_real_candidates_and_checks_final_semantics(tmp_path):
+    from paper_compiler.compiler import compile_partitioned_rule
+    from paper_compiler.runtime import load_package
+    ir,a=fixture(tmp_path)
+    class Parts:
+        def complete_json(self,task,instructions,data,max_tokens):
+            return spec(data['basis'][0]['id'])
+    package=compile_partitioned_rule('Require title and year',[{'id':'title','text':'Require title'},{'id':'year','text':'Require year'}],
+        REGISTRY,Parts(),tmp_path/'parts',expected_rule_id='test',validation_cases=[{'id':'missing-year','ir':ir,'analysis':a,'status':'VIOLATION'}])
+    assert len(package['rule_ir']['checks'])==2
+    assert len({c['id'] for c in package['rule_ir']['checks']})==2
+    assert load_package(tmp_path/'parts')['manifest']['validation']['passed']==1
+    assert len(package['manifest']['partition_manifests'])==2
+
+
+def test_partitioned_candidate_not_activated_when_combined_semantics_fail(tmp_path):
+    from paper_compiler.compiler import compile_partitioned_rule
+    ir,a=fixture(tmp_path)
+    with pytest.raises(CompilationError,match='combined'):
+        compile_partitioned_rule('Require title',[{'id':'title','text':'Required title'}],REGISTRY,RuleModel(),tmp_path/'parts',
+            validation_cases=[{'id':'incorrect','ir':ir,'analysis':a,'status':'VIOLATION'}])
+    assert not (tmp_path/'parts/manifest.json').exists()
+
+
+def test_sequence_order_primitive_preserves_unknown_and_has_typed_arguments(tmp_path):
+    from paper_compiler.expressions import apply_op,literal
+    r=rule();r['checks'][0]['assert']={'op':'precedes','args':[{'op':'literal','value':['place','publisher','year']},{'op':'literal','value':'publisher'},{'op':'literal','value':'year'}]}
+    validate_rule_ir(r,REGISTRY);ir,a=fixture(tmp_path)
+    assert run_generated(generate_code(r),ir,a)[0]['status']=='PASS'
+    assert apply_op('precedes',[literal(['year']),literal('publisher'),literal('year')]).state=='unknown'

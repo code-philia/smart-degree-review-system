@@ -112,3 +112,11 @@ def test_output_budget_includes_reasoning_even_if_provider_default_changes(tmp_p
     assert client.complete_json('extract', 'JSON', {}, 100) == {'answer':42}
     assert ledger.summary()['completion_tokens'] == 100
     assert not ledger.summary()['blocked']
+
+
+def test_invalid_output_preserves_finish_reason_and_content_for_diagnosis(tmp_path):
+    client,_=make_client(tmp_path,lambda *args:response('```json\n{}\n```',finish='length'),attempts=1)
+    with pytest.raises(ModelError):client.complete_json('diagnostic','JSON',{},100)
+    record=json.loads(next((tmp_path/'cache/attempts').glob('*.json')).read_text())
+    assert record['finish_reason']=='length'
+    assert record['output_content'].startswith('```json')
