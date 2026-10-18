@@ -121,7 +121,7 @@ PDF span：`source_id, page_index(0-based), printed_page_label, bbox, coordinate
 
 图像保留像素/矢量资产及分图结构；轴、系列、图例、单位等是有位置证据的对象。若未读取图中文字，17 应返回 UNKNOWN，不能根据 caption 缺少关键词便认定数据归属不明。
 
-## 6. 不变量与修复界限
+## 6. 不变量与修改界限
 
 1. 节点 ID 全局唯一，根存在；所有结构节点可达，children 不重复，树无环，每个非根节点恰有一个父节点。
 2. 来源文件存在且哈希匹配；字符范围、页索引和坐标范围合法；原文证据不与 synthetic 混淆。
@@ -136,4 +136,4 @@ PDF span：`source_id, page_index(0-based), printed_page_label, bbox, coordinate
 
 ## 7. v0.2 引用分析扩展
 
-CitationStyle、BibliographyFieldObservation、IdentityResolution、EvidenceRecord、CitationIntent 和 RelevanceAssessment 的职责见 [31—33 阶段设计](phase1-citations.md)。外部证据是带来源、范围和时间的分析输入；UNKNOWN 与服务 ERROR 分开。所有新增类型由 Model Registry 版本化注册，缺失能力走自动生成与测试，运行闭环不要求人工补写。
+CitationStyle、BibliographyFieldObservation、IdentityResolution、EvidenceRecord、CitationIntent 和 RelevanceAssessment 的职责见 [31—33 阶段设计](phase1-citations.md)。外部证据是带来源、范围和时间的分析输入；UNKNOWN 与服务 ERROR 分开。所有新增类型由 Model Registry 版本化注册，新规则的缺失能力保留初次自动生成与测试。按 v0.4 范围，检测系统自修复和论文修复建议均延期，不由运行失败自动修改模型契约或生成修改建议。
