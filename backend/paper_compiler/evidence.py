@@ -2,6 +2,8 @@
 import hashlib
 import html
 import json
+import os
+import stat
 import re
 import threading
 import time
@@ -38,16 +40,46 @@ def validate_url(url):
 class _NoRedirect(HTTPRedirectHandler):
     def redirect_request(self,*args,**kwargs):return None
 
+def _openalex_key():
+    """Load a private credential; no key is added to URLs or evidence artifacts."""
+    value=os.environ.get('OPENALEX_API_KEY')
+    if value is None:
+        path=Path(os.environ.get('PAPER_COMPILER_EVIDENCE_CONFIG',
+            '/data/apps/smart-degree-review/config/paper-model-evidence.env'))
+        try:
+            if path.is_symlink():raise EvidenceError('OpenAlex configuration must be a private regular file')
+            info=path.stat()
+            if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077:
+                raise EvidenceError('OpenAlex configuration must have private permissions')
+            for line in path.read_text(encoding='utf-8').splitlines():
+                name,separator,setting=line.partition('=')
+                if separator and name.strip()=='OPENALEX_API_KEY':
+                    value=setting.strip()
+                    if len(value)>=2 and value[0] in "\"'" and value[-1]==value[0]:value=value[1:-1]
+        except FileNotFoundError:return None
+        except OSError:raise EvidenceError('OpenAlex credential configuration is unreadable') from None
+    if value is None or value=='':return None
+    if not re.fullmatch(r'[A-Za-z0-9._~-]{1,512}',value):
+        raise EvidenceError('Invalid OpenAlex credential format')
+    return value
+
+
 def _http(url,proxy=None):
     validate_url(url)
+    key=_openalex_key() if urlsplit(url).hostname=='api.openalex.org' else None
+    headers={'User-Agent':'SJTU-PaperCompiler/1.0 (scholarly citation validation)','Accept':'application/json, application/xml'}
+    if key:headers['Authorization']='Bearer '+key
+    def public_headers(values):
+        return {str(k):str(v).replace(key,'[REDACTED]') if key else str(v) for k,v in values.items()}
     opener=build_opener(_NoRedirect(),*([ProxyHandler({'https':proxy})] if proxy else []))
     try:
-        with opener.open(Request(url,headers={'User-Agent':'SJTU-PaperCompiler/1.0 (scholarly citation validation)','Accept':'application/json, application/xml'}),timeout=20) as response:
+        with opener.open(Request(url,headers=headers),timeout=20) as response:
             data=response.read(MAX_BYTES+1)
             if len(data)>MAX_BYTES:raise EvidenceError('response too large')
-            return HTTPResponse(response.status,data,dict(response.headers))
+            if key:data=data.replace(key.encode(),b'[REDACTED]')
+            return HTTPResponse(response.status,data,public_headers(response.headers))
     except HTTPError as error:
-        return HTTPResponse(error.code,b'',dict(error.headers))
+        return HTTPResponse(error.code,b'',public_headers(error.headers))
 
 def _clean(text):return re.sub(r'\s+',' ',html.unescape(re.sub('<[^>]+>',' ',str(text or '')))).strip()
 def _year(value):
@@ -142,6 +174,8 @@ class EvidenceGateway:
         self.providers=['crossref','datacite','openalex','europepmc'] if providers is None else list(providers)
         if any(p not in _GROUPS for p in self.providers):raise EvidenceError('unknown provider')
         self.transport=transport or (lambda url:_http(url,proxy));self.clock=clock;self.rate_limit=transport is None
+        key=_openalex_key() if self.rate_limit and 'openalex' in self.providers else None
+        self.openalex_rate_scope='-authenticated-'+hashlib.sha256(key.encode()).hexdigest()[:16] if key else ''
     def _cache_result(self,path,value):
         if self.snapshot_id:
             try:write_json_atomic(path,value,exclusive=True)
@@ -153,9 +187,10 @@ class EvidenceGateway:
             if not self.rate_limit:return self.transport(url)
             import fcntl
             from email.utils import parsedate_to_datetime
-            state_path=self.rate_dir/(provider+'-rate-state.json')
+            rate_name=provider+(self.openalex_rate_scope if provider=='openalex' else '')
+            state_path=self.rate_dir/(rate_name+'-rate-state.json')
             # One in-flight request per provider across all local processes.
-            with (self.rate_dir/(provider+'-rate.lock')).open('a+') as lock:
+            with (self.rate_dir/(rate_name+'-rate.lock')).open('a+') as lock:
                 fcntl.flock(lock,fcntl.LOCK_EX)
                 state=json.loads(state_path.read_text()) if state_path.exists() else {}
                 now=time.time();until=state.get('cooldown_until',0)
