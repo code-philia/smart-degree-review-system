@@ -285,3 +285,53 @@ def test_declared_final_rule_set_cannot_silently_scan_a_different_suite(tmp_path
         '--out', str(tmp_path/'out'), '--offline', '--evidence-snapshot', 'fixed', '--expected-documents', '1', '--rule', 'other'])
     with pytest.raises(ValueError, match='rule'): module.execute(args)
     assert not (tmp_path/'out'/'items').exists()
+
+
+
+def corpus_cli_policy_fixture(tmp_path,monkeypatch):
+    """TEST ONLY offline execution isolates CLI policy from concurrent source edits."""
+    import os
+    import paper_compiler.program_analysis as analysis
+    module=api();inventory,suite,packages,ir=setup(tmp_path,1)
+    def policy():return {'schema_version':'TEST-ONLY-analysis-execution/1','batch_size':int(os.environ.get('PAPER_COMPILER_ANALYSIS_BATCH_SIZE','1')),
+                         'opaque_public_contract':{'max_bytes':131072,'no_target_truncation':True}}
+    monkeypatch.setattr(analysis,'analysis_execution_policy',policy,raising=False)
+    monkeypatch.setattr(module,'_source_hashes',lambda:{'TEST_ONLY_runtime':'fixed_for_policy_identity_test'})
+    monkeypatch.setattr(module,'_suite',lambda _:packages)
+    args=module.parser().parse_args(['run','--inventory',str(inventory),'--suite',str(suite),'--out',str(tmp_path/'out'),
+        '--offline','--evidence-snapshot','TEST-ONLY-fixed','--expected-documents','1','--cache',str(tmp_path/'cache')])
+    return module,args,policy
+
+
+def test_corpus_cli_modes_have_distinct_public_fingerprints_and_keep_opaque_policy_fields(tmp_path,monkeypatch):
+    module,args,policy=corpus_cli_policy_fixture(tmp_path,monkeypatch);captured=[]
+    def capture(*args,**kwargs):captured.append(copy.deepcopy(kwargs['runner'].fingerprint));return {'complete':False}
+    monkeypatch.setattr(module,'run_corpus',capture)
+    monkeypatch.setenv('PAPER_COMPILER_ANALYSIS_BATCH_SIZE','1');module.execute(args)
+    monkeypatch.setenv('PAPER_COMPILER_ANALYSIS_BATCH_SIZE','8');module.execute(args)
+    assert captured[0]!=captured[1]
+    assert captured[1]['analysis_execution_policy']==policy()
+    assert captured[1]['offline'] is True and captured[1]['semantic_model'] is None
+
+
+def test_corpus_cli_analysis_mode_change_rejects_the_same_frozen_resume(tmp_path,monkeypatch):
+    module,args,policy=corpus_cli_policy_fixture(tmp_path,monkeypatch)
+    monkeypatch.setenv('PAPER_COMPILER_ANALYSIS_BATCH_SIZE','1');first=module.execute(args)
+    assert first['complete'];frozen=(args.out/'frozen.json').read_bytes()
+    assert module.execute(args)==first
+    monkeypatch.setenv('PAPER_COMPILER_ANALYSIS_BATCH_SIZE','8')
+    with pytest.raises(ValueError,match='frozen corpus checkpoint changed'):module.execute(args)
+    assert (args.out/'frozen.json').read_bytes()==frozen
+
+
+
+def test_corpus_cli_invalid_analysis_policy_fails_before_opening_the_shared_ledger(tmp_path,monkeypatch):
+    import paper_compiler.program_analysis as analysis
+    import paper_compiler.budget as budget
+    module,args,_=corpus_cli_policy_fixture(tmp_path,monkeypatch)
+    args.offline=False;args.ledger=tmp_path/'TEST-ONLY-existing-ledger';args.ledger.touch()
+    def invalid():raise ValueError('TEST ONLY invalid analysis execution policy')
+    monkeypatch.setattr(analysis,'analysis_execution_policy',invalid,raising=False)
+    monkeypatch.setattr(budget,'BudgetLedger',lambda *_:pytest.fail('ledger opened before policy validation'))
+    with pytest.raises(ValueError,match='invalid analysis execution policy'):module.execute(args)
+    assert args.ledger.stat().st_size==0 and not args.out.exists()

@@ -487,3 +487,77 @@ def test_zero_successful_selections_have_no_fake_suite_or_package(tmp_path):
     assert metrics['strict_balanced_accuracy'] == 0
     assert metrics['mutant_detection_rate'] is None
     assert metrics['control_false_positive_rate'] is None
+
+
+
+def study_cli_policy_fixture(tmp_path,monkeypatch,*,real_study=False):
+    """TEST ONLY clients isolate the official CLI's public resume identity."""
+    import os
+    import paper_compiler.llm as llm
+    import paper_compiler.evidence as evidence
+    import paper_compiler.pipeline as pipeline
+    import paper_compiler.program_analysis as analysis
+    import paper_compiler.study as study
+    tasks,manifest,splits=benchmark(tmp_path,('policy-task',));out=tmp_path/'study'
+    task_path=tmp_path/'tasks.json';write_json_atomic(task_path,tasks)
+    script=Path(__file__).resolve().parents[1]/'scripts/run_paper_compiler_study.py'
+    spec=importlib.util.spec_from_file_location('study_cli_policy_test',script)
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    captured={'fingerprints':[],'clients':[]}
+    def policy():return {'schema_version':'TEST-ONLY-analysis-execution/1','batch_size':int(os.environ.get('PAPER_COMPILER_ANALYSIS_BATCH_SIZE','1')),
+                         'opaque_public_contract':{'max_bytes':131072,'no_target_truncation':True}}
+    monkeypatch.setattr(analysis,'analysis_execution_policy',policy,raising=False)
+    def client(*args,**kwargs):
+        assert kwargs['max_attempts']==1
+        value=Model();captured['clients'].append(value);return value
+    class Gateway:
+        providers=['TEST ONLY provider']
+        def __init__(self,*args,**kwargs):pass
+    check=runner_for(out,splits,[])
+    monkeypatch.setattr(llm,'MaasClient',client);monkeypatch.setattr(evidence,'EvidenceGateway',Gateway)
+    monkeypatch.setattr(pipeline,'detect',lambda ir,packages,**kwargs:(ir,{},check(packages[0],ir)))
+    actual=study.run_study
+    if real_study:
+        # Keep parallel runtime implementation edits outside this policy-only test.
+        old_sha=study._sha;core=Path(study.__file__).resolve().parent
+        monkeypatch.setattr(study,'_sha',lambda path:'b'*64 if Path(path).resolve().is_relative_to(core) else old_sha(path))
+    def run(*args,**kwargs):
+        captured['fingerprints'].append(kwargs['runner'].study_fingerprint)
+        return actual(*args,**kwargs) if real_study else {'status':'completed'}
+    monkeypatch.setattr(study,'run_study',run)
+    args=module.parser().parse_args(['--tasks',str(task_path),'--manifest',str(manifest),'--out',str(out),
+        '--max-rounds','1','--ledger',str(tmp_path/'test-only-ledger.sqlite3'),'--cache',str(tmp_path/'cache')])
+    return module,args,captured,policy
+
+
+def test_study_cli_modes_have_distinct_fingerprints_containing_the_entire_public_policy(tmp_path,monkeypatch):
+    from paper_compiler.programs import digest
+    module,args,captured,policy=study_cli_policy_fixture(tmp_path,monkeypatch)
+    monkeypatch.setenv('PAPER_COMPILER_ANALYSIS_BATCH_SIZE','1');module.execute(args)
+    monkeypatch.setenv('PAPER_COMPILER_ANALYSIS_BATCH_SIZE','8');module.execute(args)
+    assert captured['fingerprints'][0]!=captured['fingerprints'][1]
+    expected={'evidence_snapshot':'study-'+hashlib.sha256(args.manifest.read_bytes()).hexdigest()[:24],
+        'resources':{},'task_environments':{'policy-task':None},'providers':['TEST ONLY provider'],
+        'analysis_execution_policy':policy()}
+    assert captured['fingerprints'][1]==digest(expected)
+    assert all(not client.requests for client in captured['clients'])
+
+
+def test_study_cli_analysis_mode_change_rejects_the_same_output_before_new_model_calls(tmp_path,monkeypatch):
+    module,args,captured,_=study_cli_policy_fixture(tmp_path,monkeypatch,real_study=True)
+    monkeypatch.setenv('PAPER_COMPILER_ANALYSIS_BATCH_SIZE','1');assert module.execute(args)['status']=='completed'
+    frozen=(args.out/'protocol.json').read_bytes();assert captured['clients'][0].requests
+    assert module.execute(args)['status']=='completed' and not captured['clients'][-1].requests
+    monkeypatch.setenv('PAPER_COMPILER_ANALYSIS_BATCH_SIZE','8')
+    with pytest.raises(ValueError,match='frozen study artifact changed'):module.execute(args)
+    assert not captured['clients'][-1].requests and (args.out/'protocol.json').read_bytes()==frozen
+
+
+
+def test_study_cli_invalid_analysis_policy_fails_before_ledger_or_client_creation(tmp_path,monkeypatch):
+    import paper_compiler.program_analysis as analysis
+    module,args,captured,_=study_cli_policy_fixture(tmp_path,monkeypatch)
+    def invalid():raise ValueError('TEST ONLY invalid analysis execution policy')
+    monkeypatch.setattr(analysis,'analysis_execution_policy',invalid,raising=False)
+    with pytest.raises(ValueError,match='invalid analysis execution policy'):module.execute(args)
+    assert not args.ledger.exists() and not captured['clients']

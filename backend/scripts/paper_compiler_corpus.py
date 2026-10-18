@@ -338,6 +338,8 @@ def execute(args):
         from paper_compiler.llm import MaasClient, public_model_config
         from paper_compiler.budget import BudgetLedger
         from paper_compiler.evidence import EvidenceGateway
+        from paper_compiler.program_analysis import analysis_execution_policy
+        analysis_policy = analysis_execution_policy()
         packages = _suite(args.suite)
         if args.rule: _require(len(args.rule) == len(set(args.rule)) and set(args.rule) == {p['program_spec']['rule_id'] for p in packages}, 'declared final rule set does not match suite')
         if not args.offline: _require(args.ledger.is_file(), 'use the existing shared budget ledger; new ledgers are forbidden')
@@ -356,7 +358,8 @@ def execute(args):
         runner.fingerprint = {'semantic_model': public_model_config(client.config) if client else None,
             'evidence_snapshot': args.evidence_snapshot, 'providers': gateway.providers if gateway else [],
             'offline': args.offline, 'ledger': str(args.ledger.resolve()), 'cache': str(args.cache.resolve()),
-            'budget': args.budget, 'phase': args.phase, 'phase_budget': args.phase_budget}
+            'budget': args.budget, 'phase': args.phase, 'phase_budget': args.phase_budget,
+            'analysis_execution_policy': analysis_policy}
         if ledger: runner.meter = ledger.summary
         return run_corpus(args.inventory, args.suite, args.out, runner=runner, expected_documents=args.expected_documents)
     write_json_atomic(args.out, value, exclusive=True)
