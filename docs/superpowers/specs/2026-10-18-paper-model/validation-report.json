@@ -1,0 +1,54 @@
+{
+  "status": "passed",
+  "verification_kind": "documentation_and_fixture_consistency_only",
+  "date": "2026-10-18",
+  "baseline_nodes": 67,
+  "variants": 8,
+  "rules_mapped": 33,
+  "checks": [
+    {
+      "check": "All 35 JSON files decode as UTF-8 JSON",
+      "status": "passed"
+    },
+    {
+      "check": "Baseline and all 8 variant IR trees: unique IDs, one parent, full reachability, no cycles, valid source spans and scopes",
+      "status": "passed"
+    },
+    {
+      "check": "All unchanged node text matches exact source text; changed node provenance is synthetic and uses opaque operation IDs",
+      "status": "passed"
+    },
+    {
+      "check": "Baseline analysis matches current IR hash; 6 bindings have matching selector and target type; all semantic endpoints and evidence anchors exist",
+      "status": "passed"
+    },
+    {
+      "check": "Authored baseline quantities agree: 90/100 = 90% = 0.9",
+      "status": "passed"
+    },
+    {
+      "check": "All 33 rule texts match the supplied source exactly and all 33 appear once in the mapping",
+      "status": "passed"
+    },
+    {
+      "check": "All variant parent/child hashes, expected-result anchors and intended edit shapes are consistent; no analysis file is reused as a variant result",
+      "status": "passed"
+    },
+    {
+      "check": "All relative Markdown document links resolve",
+      "status": "passed"
+    },
+    {
+      "check": "Protected CSV hash is unchanged",
+      "status": "passed"
+    }
+  ],
+  "not_run": [
+    "PDF parser implementation or real-paper extraction",
+    "Natural-language rule compiler execution",
+    "LLM or external resource API calls",
+    "Real-paper detection accuracy evaluation",
+    "Production deployment"
+  ],
+  "protected_csv_sha256": "946308c0c010e061fafdedbebe352c6f511f818401510941e571dd91b79ff3ad"
+}

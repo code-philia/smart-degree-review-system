@@ -1,0 +1,204 @@
+{
+  "source_file": "30条规则.txt",
+  "source_sha256": "76ad6118b603e0b5f97cc854961c1f92a1b003393d8414805a76bef93bae643b",
+  "rules": [
+    {
+      "id": "R01",
+      "number": 1,
+      "original_text": "题名与论文主体研究完全不对应。",
+      "implementation_status": "design_only"
+    },
+    {
+      "id": "R02",
+      "number": 2,
+      "original_text": "核心正文混入与本研究无合理关联的实质内容块。",
+      "implementation_status": "design_only"
+    },
+    {
+      "id": "R03",
+      "number": 3,
+      "original_text": "上下文对同一事实的陈述矛盾。",
+      "implementation_status": "design_only"
+    },
+    {
+      "id": "R04",
+      "number": 4,
+      "original_text": "论文内部可核验的数据错误。",
+      "implementation_status": "design_only"
+    },
+    {
+      "id": "R05",
+      "number": 5,
+      "original_text": "核心自定义术语或缩写没有解释，关键处理步骤无法理解。",
+      "implementation_status": "design_only"
+    },
+    {
+      "id": "R06",
+      "number": 6,
+      "original_text": "摘要只是机械复制正文片段，没有形成内容浓缩。",
+      "implementation_status": "design_only"
+    },
+    {
+      "id": "R07",
+      "number": 7,
+      "original_text": "文献综述只有逐篇罗列，完全没有综合评述。",
+      "implementation_status": "design_only"
+    },
+    {
+      "id": "R08",
+      "number": 8,
+      "original_text": "最终结论只是机械复制章节小结，没有形成总体结论。",
+      "implementation_status": "design_only"
+    },
+    {
+      "id": "R09",
+      "number": 9,
+      "original_text": "最终结论没有回答论文明确提出的核心研究目标。",
+      "implementation_status": "design_only"
+    },
+    {
+      "id": "R10",
+      "number": 10,
+      "original_text": "摘要或结论中的具体研究结果缺少可追溯的正文依据。",
+      "implementation_status": "design_only"
+    },
+    {
+      "id": "R11",
+      "number": 11,
+      "original_text": "正文引用的图不存在。",
+      "implementation_status": "design_only"
+    },
+    {
+      "id": "R12",
+      "number": 12,
+      "original_text": "正文图表引用指向错误对象。",
+      "implementation_status": "design_only"
+    },
+    {
+      "id": "R13",
+      "number": 13,
+      "original_text": "图题缺失。",
+      "implementation_status": "design_only"
+    },
+    {
+      "id": "R14",
+      "number": 14,
+      "original_text": "表题缺失。",
+      "implementation_status": "design_only"
+    },
+    {
+      "id": "R15",
+      "number": 15,
+      "original_text": "出现未被引用的图。",
+      "implementation_status": "design_only"
+    },
+    {
+      "id": "R16",
+      "number": 16,
+      "original_text": "出现未被引用的表。",
+      "implementation_status": "design_only"
+    },
+    {
+      "id": "R17",
+      "number": 17,
+      "original_text": "关键图表缺少必要语义标签，数据归属无法确定。",
+      "implementation_status": "design_only"
+    },
+    {
+      "id": "R18",
+      "number": 18,
+      "original_text": "正文公式引用目标缺失。",
+      "implementation_status": "design_only"
+    },
+    {
+      "id": "R19",
+      "number": 19,
+      "original_text": "正文公式引用指向错误公式。",
+      "implementation_status": "design_only"
+    },
+    {
+      "id": "R20",
+      "number": 20,
+      "original_text": "核心公式必要符号的含义无法确定。",
+      "implementation_status": "design_only"
+    },
+    {
+      "id": "R21",
+      "number": 21,
+      "original_text": "用于研究计算的数值方程缺少可确定的单位约定。",
+      "implementation_status": "design_only"
+    },
+    {
+      "id": "R22",
+      "number": 22,
+      "original_text": "正文引文没有对应参考文献条目。",
+      "implementation_status": "design_only"
+    },
+    {
+      "id": "R23",
+      "number": 23,
+      "original_text": "正文引文指向错误的参考文献条目。",
+      "implementation_status": "design_only"
+    },
+    {
+      "id": "R24",
+      "number": 24,
+      "original_text": "参考文献列表中存在未被正文引用的条目。",
+      "implementation_status": "design_only"
+    },
+    {
+      "id": "R25",
+      "number": 25,
+      "original_text": "著者—年份引文不能唯一对应参考文献。",
+      "implementation_status": "design_only"
+    },
+    {
+      "id": "R26",
+      "number": 26,
+      "original_text": "关键参考文献的同一永久标识对应互不相容的资源身份。",
+      "implementation_status": "design_only"
+    },
+    {
+      "id": "R27",
+      "number": 27,
+      "original_text": "文献回指形成无来源锚点的循环。",
+      "implementation_status": "design_only"
+    },
+    {
+      "id": "R28",
+      "number": 28,
+      "original_text": "目录中的核心内容页码系统性错位。",
+      "implementation_status": "design_only"
+    },
+    {
+      "id": "R29",
+      "number": 29,
+      "original_text": "正文引用的本论文附录目标完全缺失。",
+      "implementation_status": "design_only"
+    },
+    {
+      "id": "R30",
+      "number": 30,
+      "original_text": "匿名评审稿中的作者或导师身份信息未清除。",
+      "implementation_status": "design_only"
+    },
+    {
+      "id": "R31",
+      "number": 31,
+      "original_text": "引用格式错误",
+      "implementation_status": "design_only"
+    },
+    {
+      "id": "R32",
+      "number": 32,
+      "original_text": "引用不存在",
+      "implementation_status": "design_only"
+    },
+    {
+      "id": "R33",
+      "number": 33,
+      "original_text": "引用文章疑似不相关",
+      "implementation_status": "design_only"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "kind": "expected_output_shape_not_executed",
+  "rule_id": 33,
+  "status": "VIOLATION",
+  "basis": "project_requirement",
+  "message": "该文献疑似与此处用于估计均值置信区间的重复抽样方法不相关。",
+  "anchors": [
+    {
+      "node_id": "u0"
+    },
+    {
+      "node_id": "p1"
+    },
+    {
+      "node_id": "r0"
+    }
+  ],
+  "evidence": [
+    {
+      "record_id": "w02",
+      "content_kind": "full_text",
+      "scope": "fixture-registry"
+    }
+  ],
+  "explanation": "本合成目录中的该作品讨论诗歌意象分类；当前引用用途是重复抽样估计。",
+  "qualification": "仅为合成设计样例；不涉及现实作者或现实论文，也不推断作者意图。"
+}

@@ -1,0 +1,340 @@
+{
+  "schema_version": "paper-analysis/0.1-design",
+  "paper_ir_sha256": "667e14456689295fe4fa1b0f29767d89a842a8685d7d1867c6f5b5dda8de8958",
+  "producer": "human_authored_design_example_not_runtime_output",
+  "section_roles": [
+    {
+      "node_id": "sec-intro",
+      "role": "introduction",
+      "status": "asserted",
+      "evidence_node_ids": [
+        "p-goal"
+      ]
+    },
+    {
+      "node_id": "sec-related",
+      "role": "literature_review",
+      "status": "asserted",
+      "evidence_node_ids": [
+        "p-related"
+      ]
+    },
+    {
+      "node_id": "sec-method",
+      "role": "method",
+      "status": "asserted",
+      "evidence_node_ids": [
+        "p-method"
+      ]
+    },
+    {
+      "node_id": "sec-results",
+      "role": "results",
+      "status": "asserted",
+      "evidence_node_ids": [
+        "p-result"
+      ]
+    },
+    {
+      "node_id": "sec-conclusion",
+      "role": "conclusion",
+      "status": "asserted",
+      "evidence_node_ids": [
+        "p-conclusion"
+      ]
+    }
+  ],
+  "symbol_table": [
+    {
+      "namespace": "figure",
+      "canonical_name": "1",
+      "scope_id": "body",
+      "defining_node_id": "figure-1"
+    },
+    {
+      "namespace": "table",
+      "canonical_name": "1",
+      "scope_id": "body",
+      "defining_node_id": "table-1"
+    },
+    {
+      "namespace": "equation",
+      "canonical_name": "1",
+      "scope_id": "body",
+      "defining_node_id": "equation-1"
+    },
+    {
+      "namespace": "bibliography",
+      "canonical_name": "1",
+      "scope_id": "body",
+      "defining_node_id": "bib-1"
+    },
+    {
+      "namespace": "bibliography",
+      "canonical_name": "2",
+      "scope_id": "body",
+      "defining_node_id": "bib-2"
+    },
+    {
+      "namespace": "appendix",
+      "canonical_name": "A",
+      "scope_id": "paper",
+      "defining_node_id": "appendix-a"
+    }
+  ],
+  "bindings": [
+    {
+      "use_id": "use-figure",
+      "target_ids": [
+        "figure-1"
+      ],
+      "candidate_ids": [
+        "figure-1"
+      ],
+      "status": "resolved",
+      "reason": "authored exact label binding"
+    },
+    {
+      "use_id": "use-table",
+      "target_ids": [
+        "table-1"
+      ],
+      "candidate_ids": [
+        "table-1"
+      ],
+      "status": "resolved",
+      "reason": "authored exact label binding"
+    },
+    {
+      "use_id": "use-equation",
+      "target_ids": [
+        "equation-1"
+      ],
+      "candidate_ids": [
+        "equation-1"
+      ],
+      "status": "resolved",
+      "reason": "authored exact label binding"
+    },
+    {
+      "use_id": "cite-1",
+      "target_ids": [
+        "bib-1"
+      ],
+      "candidate_ids": [
+        "bib-1"
+      ],
+      "status": "resolved",
+      "reason": "authored exact label binding"
+    },
+    {
+      "use_id": "cite-2",
+      "target_ids": [
+        "bib-2"
+      ],
+      "candidate_ids": [
+        "bib-2"
+      ],
+      "status": "resolved",
+      "reason": "authored exact label binding"
+    },
+    {
+      "use_id": "use-appendix",
+      "target_ids": [
+        "appendix-a"
+      ],
+      "candidate_ids": [
+        "appendix-a"
+      ],
+      "status": "resolved",
+      "reason": "authored exact label binding"
+    }
+  ],
+  "entities": [
+    {
+      "id": "goal-accuracy",
+      "kind": "ResearchGoal",
+      "source_node_ids": [
+        "p-goal"
+      ],
+      "object": "TS vs baseline on D1",
+      "question": "Does TS improve accuracy under the fixed settings?"
+    },
+    {
+      "id": "experiment-d1",
+      "kind": "Experiment",
+      "source_node_ids": [
+        "p-conditions",
+        "p-method",
+        "p-appendix"
+      ],
+      "dataset": "D1",
+      "test_count": 100,
+      "conditions": "fixed settings and shared labels"
+    },
+    {
+      "id": "method-ts",
+      "kind": "MethodStep",
+      "source_node_ids": [
+        "p-method"
+      ],
+      "operation": "retain terms with training document frequency >= 2"
+    },
+    {
+      "id": "claim-result",
+      "kind": "Claim",
+      "source_node_ids": [
+        "p-result",
+        "row-ts-c3"
+      ],
+      "subject": "TS",
+      "predicate": "accuracy",
+      "value": {
+        "number": 0.9,
+        "unit": "1"
+      },
+      "context_id": "experiment-d1",
+      "polarity": "positive",
+      "modality": "asserted"
+    },
+    {
+      "id": "claim-abstract",
+      "kind": "Claim",
+      "source_node_ids": [
+        "p-abstract"
+      ],
+      "subject": "TS",
+      "predicate": "accuracy",
+      "value": {
+        "number": 0.9,
+        "unit": "1"
+      },
+      "context_id": "experiment-d1",
+      "polarity": "positive",
+      "modality": "asserted"
+    },
+    {
+      "id": "claim-conclusion",
+      "kind": "Claim",
+      "source_node_ids": [
+        "p-conclusion"
+      ],
+      "subject": "TS",
+      "predicate": "accuracy",
+      "value": {
+        "number": 0.9,
+        "unit": "1"
+      },
+      "context_id": "experiment-d1",
+      "polarity": "positive",
+      "modality": "asserted"
+    },
+    {
+      "id": "work-1",
+      "kind": "ExternalWork",
+      "source_node_ids": [
+        "bib-1"
+      ],
+      "lookup_status": "not_requested",
+      "resource_identity": "synthetic; not asserted to exist externally"
+    },
+    {
+      "id": "work-2",
+      "kind": "ExternalWork",
+      "source_node_ids": [
+        "bib-2"
+      ],
+      "lookup_status": "not_requested",
+      "resource_identity": "synthetic; not asserted to exist externally"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-1",
+      "type": "supports",
+      "from": "row-ts-c3",
+      "to": "claim-result",
+      "status": "asserted",
+      "evidence_node_ids": [
+        "row-ts-c1",
+        "row-ts-c2",
+        "row-ts-c3",
+        "math-1",
+        "p-conditions"
+      ],
+      "producer": "human_authored_design_example"
+    },
+    {
+      "id": "edge-2",
+      "type": "supports",
+      "from": "claim-result",
+      "to": "claim-abstract",
+      "status": "asserted",
+      "evidence_node_ids": [
+        "p-result",
+        "p-abstract"
+      ],
+      "producer": "human_authored_design_example"
+    },
+    {
+      "id": "edge-3",
+      "type": "supports",
+      "from": "claim-result",
+      "to": "claim-conclusion",
+      "status": "asserted",
+      "evidence_node_ids": [
+        "p-result",
+        "p-conclusion"
+      ],
+      "producer": "human_authored_design_example"
+    },
+    {
+      "id": "edge-4",
+      "type": "answers",
+      "from": "claim-conclusion",
+      "to": "goal-accuracy",
+      "status": "asserted",
+      "evidence_node_ids": [
+        "p-goal",
+        "p-conclusion"
+      ],
+      "producer": "human_authored_design_example"
+    },
+    {
+      "id": "edge-5",
+      "type": "describes",
+      "from": "p-method",
+      "to": "method-ts",
+      "status": "asserted",
+      "evidence_node_ids": [
+        "p-method"
+      ],
+      "producer": "human_authored_design_example"
+    },
+    {
+      "id": "edge-6",
+      "type": "identifies",
+      "from": "bib-1",
+      "to": "work-1",
+      "status": "candidate",
+      "evidence_node_ids": [
+        "bib-1"
+      ],
+      "producer": "human_authored_design_example",
+      "identity_verification": "Only declared synthetic identity; no external validation."
+    },
+    {
+      "id": "edge-7",
+      "type": "identifies",
+      "from": "bib-2",
+      "to": "work-2",
+      "status": "candidate",
+      "evidence_node_ids": [
+        "bib-2"
+      ],
+      "producer": "human_authored_design_example",
+      "identity_verification": "Only declared synthetic identity; no external validation."
+    }
+  ],
+  "external_resources_status": "not_requested"
+}

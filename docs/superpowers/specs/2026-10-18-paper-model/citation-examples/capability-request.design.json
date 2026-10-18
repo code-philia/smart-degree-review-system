@@ -1,0 +1,29 @@
+{
+  "kind": "illustrative_automatic_extension_request",
+  "trigger": "bibliography fields require a reliable continuation relation",
+  "requested_capability": "bibliography_continuation_linking",
+  "input_types": [
+    "LayoutBlock",
+    "BibliographyEntry"
+  ],
+  "output_types": [
+    "ContinuationRelation",
+    "EvidenceSpan"
+  ],
+  "generator": "configured_llm_service",
+  "candidate_outputs": [
+    "typed contract",
+    "builder implementation",
+    "migration if needed",
+    "generated tests"
+  ],
+  "automatic_gates": [
+    "source fidelity",
+    "separate-entry negative cases",
+    "frozen regression",
+    "independent holdout",
+    "no coverage loss"
+  ],
+  "human_step_required": false,
+  "status": "design_only"
+}

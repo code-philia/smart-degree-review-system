@@ -1,0 +1,62 @@
+{
+  "kind": "authored_design_fixture_not_model_output",
+  "paper_ir_sha256": "f9c2f79bd3911ae6ef5533bc6b0d297871db6664f505fbe74d9007380a6206ee",
+  "evidence_environment_sha256": "31854ec5d65fdd16b9fe94fc771fb6c336b4f84c2a60ddc7d9ab7fb6994fb4ac",
+  "section_roles": [
+    {
+      "node_id": "s0",
+      "role": "method",
+      "evidence_node_ids": [
+        "h0",
+        "p1"
+      ]
+    }
+  ],
+  "bindings": [
+    {
+      "use_id": "u0",
+      "target_ids": [
+        "r0"
+      ],
+      "status": "resolved"
+    }
+  ],
+  "entities": [
+    {
+      "id": "intent0",
+      "kind": "CitationIntent",
+      "use_id": "u0",
+      "role": "method",
+      "context_node_ids": [
+        "p1"
+      ],
+      "text": "用重复抽样构造医学测量均值的置信区间"
+    },
+    {
+      "id": "work0",
+      "kind": "ExternalWork",
+      "record_id": "w01",
+      "environment_scope": "fixture-registry"
+    }
+  ],
+  "edges": [
+    {
+      "type": "identifies",
+      "from": "r0",
+      "to": "work0",
+      "evidence_ids": [
+        "w01"
+      ]
+    },
+    {
+      "type": "relevant_to",
+      "from": "work0",
+      "to": "intent0",
+      "status": "supported_in_fixture",
+      "evidence_ids": [
+        "w01"
+      ],
+      "evidence_text": "研究如何通过对观测样本重复抽样估计均值的不确定性，给出重采样均值分布与区间端点构造步骤。"
+    }
+  ]
+}

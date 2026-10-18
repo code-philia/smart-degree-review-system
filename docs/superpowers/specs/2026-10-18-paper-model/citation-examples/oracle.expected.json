@@ -1,0 +1,227 @@
+{
+  "kind": "design_expectations_not_detector_output",
+  "cases": [
+    {
+      "case_id": "baseline",
+      "ir_path": "paper.ir.json",
+      "evidence_environment": "evidence-environment.json",
+      "expected": [
+        {
+          "rule_id": 31,
+          "status": "PASS"
+        },
+        {
+          "rule_id": 32,
+          "status": "PASS"
+        },
+        {
+          "rule_id": 33,
+          "status": "PASS"
+        }
+      ],
+      "category": "paper_ir",
+      "note": "医学用途引用统计方法是合理跨学科引用；文献只在合成目录中存在，未声称现实存在。",
+      "scope": "R31 examples cover only explicitly listed subchecks; R32/R33 within supplied fixture evidence"
+    },
+    {
+      "case_id": "malformed-marker",
+      "ir_path": "snapshots/f724fdc13faa.paper.ir.json",
+      "evidence_environment": "evidence-environment.json",
+      "expected": [
+        {
+          "rule_id": 31,
+          "status": "VIOLATION"
+        },
+        {
+          "rule_id": 32,
+          "status": "PASS"
+        },
+        {
+          "rule_id": 33,
+          "status": "PASS"
+        }
+      ],
+      "category": "paper_ir",
+      "note": "标记语法错误，但本 IR 中目标编号仍可无歧义解析；重建分析后用途仍相关。",
+      "scope": "R31 examples cover only explicitly listed subchecks; R32/R33 within supplied fixture evidence"
+    },
+    {
+      "case_id": "missing-title",
+      "ir_path": "snapshots/9b42a7602b15.paper.ir.json",
+      "evidence_environment": "evidence-environment.json",
+      "expected": [
+        {
+          "rule_id": 31,
+          "status": "VIOLATION"
+        },
+        {
+          "rule_id": 32,
+          "status": "PASS"
+        },
+        {
+          "rule_id": 33,
+          "status": "PASS"
+        }
+      ],
+      "category": "paper_ir",
+      "note": "著录题名缺失；本封闭目录中其他身份字段仍唯一指向有效作品。外部补全不消除原始著录的 R31 问题。",
+      "scope": "R31 examples cover only explicitly listed subchecks; R32/R33 within supplied fixture evidence"
+    },
+    {
+      "case_id": "absent-in-closed-fixture",
+      "ir_path": "snapshots/95f1a26b845a.paper.ir.json",
+      "evidence_environment": "evidence-environment.json",
+      "expected": [
+        {
+          "rule_id": 31,
+          "status": "PASS"
+        },
+        {
+          "rule_id": 32,
+          "status": "VIOLATION"
+        },
+        {
+          "rule_id": 33,
+          "status": "UNKNOWN"
+        }
+      ],
+      "category": "paper_ir",
+      "note": "确定否定仅限完整枚举的合成目录，不代表搜索互联网无结果即可判不存在。",
+      "scope": "R31 examples cover only explicitly listed subchecks; R32/R33 within supplied fixture evidence"
+    },
+    {
+      "case_id": "absent-in-open-collection",
+      "ir_path": "snapshots/95f1a26b845a.paper.ir.json",
+      "evidence_environment": "open-evidence-environment.json",
+      "expected": [
+        {
+          "rule_id": 31,
+          "status": "PASS"
+        },
+        {
+          "rule_id": 32,
+          "status": "UNKNOWN"
+        },
+        {
+          "rule_id": 33,
+          "status": "UNKNOWN"
+        }
+      ],
+      "category": "evidence_environment_counterfactual",
+      "note": "相同 IR 在开放且不完整的证据范围下不能断言不存在。",
+      "scope": "R31 examples cover only explicitly listed subchecks; R32/R33 within supplied fixture evidence"
+    },
+    {
+      "case_id": "irrelevant-existing-work",
+      "ir_path": "snapshots/79e7e7a4813a.paper.ir.json",
+      "evidence_environment": "evidence-environment.json",
+      "expected": [
+        {
+          "rule_id": 31,
+          "status": "PASS"
+        },
+        {
+          "rule_id": 32,
+          "status": "PASS"
+        },
+        {
+          "rule_id": 33,
+          "status": "VIOLATION"
+        }
+      ],
+      "category": "paper_ir",
+      "note": "文献在目录内存在，格式符合示例约束；内容不支持当前重复抽样用途。",
+      "scope": "R31 examples cover only explicitly listed subchecks; R32/R33 within supplied fixture evidence"
+    },
+    {
+      "case_id": "equivalent-paraphrase",
+      "ir_path": "snapshots/ae9cb22e4776.paper.ir.json",
+      "evidence_environment": "evidence-environment.json",
+      "expected": [
+        {
+          "rule_id": 31,
+          "status": "PASS"
+        },
+        {
+          "rule_id": 32,
+          "status": "PASS"
+        },
+        {
+          "rule_id": 33,
+          "status": "PASS"
+        }
+      ],
+      "category": "paper_ir",
+      "note": "引用标记未改，语义等价；分析必须重建。",
+      "scope": "R31 examples cover only explicitly listed subchecks; R32/R33 within supplied fixture evidence"
+    },
+    {
+      "case_id": "abstract-sufficient",
+      "ir_path": "paper.ir.json",
+      "evidence_environment": "abstract-evidence-environment.json",
+      "expected": [
+        {
+          "rule_id": 31,
+          "status": "PASS"
+        },
+        {
+          "rule_id": 32,
+          "status": "PASS"
+        },
+        {
+          "rule_id": 33,
+          "status": "PASS"
+        }
+      ],
+      "category": "evidence_environment_counterfactual",
+      "note": "摘要足以证实该方法用途，允许相关性通过。",
+      "scope": "R31 examples cover only explicitly listed subchecks; R32/R33 within supplied fixture evidence"
+    },
+    {
+      "case_id": "only-metadata",
+      "ir_path": "paper.ir.json",
+      "evidence_environment": "metadata-evidence-environment.json",
+      "expected": [
+        {
+          "rule_id": 31,
+          "status": "PASS"
+        },
+        {
+          "rule_id": 32,
+          "status": "PASS"
+        },
+        {
+          "rule_id": 33,
+          "status": "UNKNOWN"
+        }
+      ],
+      "category": "evidence_environment_counterfactual",
+      "note": "身份已存在，但缺内容证据；不能只凭题名作最终相关性判断。",
+      "scope": "R31 examples cover only explicitly listed subchecks; R32/R33 within supplied fixture evidence"
+    },
+    {
+      "case_id": "service-failure",
+      "ir_path": "paper.ir.json",
+      "evidence_environment": "unavailable-evidence-environment.json",
+      "expected": [
+        {
+          "rule_id": 31,
+          "status": "PASS"
+        },
+        {
+          "rule_id": 32,
+          "status": "ERROR"
+        },
+        {
+          "rule_id": 33,
+          "status": "UNKNOWN"
+        }
+      ],
+      "category": "service_fault",
+      "note": "持续服务故障与真实文献不存在分开；依赖受阻的 R33 为 UNKNOWN。",
+      "scope": "R31 examples cover only explicitly listed subchecks; R32/R33 within supplied fixture evidence"
+    }
+  ],
+  "human_required_in_production": false,
+  "provenance": "authored illustrative expectations; production generators and independent validators are to be implemented"
+}

@@ -1,0 +1,162 @@
+{
+  "status": "design_examples_not_compiler_output",
+  "rules": [
+    {
+      "id": "R11",
+      "original_text": "正文引用的图不存在。",
+      "interpretation": "Local body reference must resolve to an existing object of the expected type.",
+      "status": "design_candidate",
+      "profile": "project-33-v1-design",
+      "requires": [
+        "structure",
+        "body_reference_inventory",
+        "figure_inventory"
+      ],
+      "operator": "reference_target_exists",
+      "parameters": {
+        "expected_kind": "Figure",
+        "namespace": "figure",
+        "use_roles": [
+          "body"
+        ],
+        "missing_requires_complete": "figure_inventory"
+      },
+      "evidence_obligation": [
+        "reference source span",
+        "binding candidates and policy",
+        "inventory coverage"
+      ],
+      "diagnostic_anchor": "reference_use"
+    },
+    {
+      "id": "R18",
+      "original_text": "正文公式引用目标缺失。",
+      "interpretation": "Local body reference must resolve to an existing object of the expected type.",
+      "status": "design_candidate",
+      "profile": "project-33-v1-design",
+      "requires": [
+        "structure",
+        "body_reference_inventory",
+        "equation_inventory"
+      ],
+      "operator": "reference_target_exists",
+      "parameters": {
+        "expected_kind": "Equation",
+        "namespace": "equation",
+        "use_roles": [
+          "body"
+        ],
+        "missing_requires_complete": "equation_inventory"
+      },
+      "evidence_obligation": [
+        "reference source span",
+        "binding candidates and policy",
+        "inventory coverage"
+      ],
+      "diagnostic_anchor": "reference_use"
+    },
+    {
+      "id": "R22",
+      "original_text": "正文引文没有对应参考文献条目。",
+      "interpretation": "Local body reference must resolve to an existing object of the expected type.",
+      "status": "design_candidate",
+      "profile": "project-33-v1-design",
+      "requires": [
+        "structure",
+        "body_reference_inventory",
+        "bibliography_inventory"
+      ],
+      "operator": "reference_target_exists",
+      "parameters": {
+        "expected_kind": "BibliographyEntry",
+        "namespace": "bibliography",
+        "use_roles": [
+          "body"
+        ],
+        "missing_requires_complete": "bibliography_inventory"
+      },
+      "evidence_obligation": [
+        "reference source span",
+        "binding candidates and policy",
+        "inventory coverage"
+      ],
+      "diagnostic_anchor": "reference_use"
+    },
+    {
+      "id": "R29",
+      "original_text": "正文引用的本论文附录目标完全缺失。",
+      "interpretation": "Local body reference must resolve to an existing object of the expected type.",
+      "status": "design_candidate",
+      "profile": "project-33-v1-design",
+      "requires": [
+        "structure",
+        "body_reference_inventory",
+        "appendix_inventory"
+      ],
+      "operator": "reference_target_exists",
+      "parameters": {
+        "expected_kind": "Appendix",
+        "namespace": "appendix",
+        "use_roles": [
+          "body"
+        ],
+        "missing_requires_complete": "appendix_inventory"
+      },
+      "evidence_obligation": [
+        "reference source span",
+        "binding candidates and policy",
+        "inventory coverage"
+      ],
+      "diagnostic_anchor": "reference_use"
+    },
+    {
+      "id": "R13",
+      "status": "design_candidate",
+      "profile": "project-33-v1-design",
+      "operator": "component_required",
+      "parameters": {
+        "subject_kind": "Figure",
+        "component_kind": "Caption",
+        "component_role": "title"
+      },
+      "requires": [
+        "figure_inventory",
+        "caption_regions"
+      ],
+      "normative_basis": {
+        "standard_modality": "should",
+        "project_modality": "must"
+      },
+      "evidence_obligation": [
+        "figure existence",
+        "caption-region coverage and ownership"
+      ]
+    },
+    {
+      "id": "R10",
+      "status": "design_candidate",
+      "profile": "project-33-v1-design",
+      "operator": "semantic_evidence_trace",
+      "parameters": {
+        "claim_roles": [
+          "abstract_result",
+          "conclusion_result"
+        ],
+        "support_scope": "body",
+        "context_match": true
+      },
+      "requires": [
+        "claims",
+        "supports",
+        "structure"
+      ],
+      "on_missing_evidence": "UNKNOWN unless search completeness and semantic adjudication satisfy the profile",
+      "evidence_obligation": [
+        "claim span",
+        "candidate support passages",
+        "context comparison",
+        "coverage"
+      ]
+    }
+  ]
+}

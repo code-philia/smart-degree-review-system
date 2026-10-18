@@ -1,0 +1,31 @@
+{
+  "kind": "synthetic_evidence_environment",
+  "scope": "fixture-registry",
+  "coverage": "enumerated_complete",
+  "retrieved_at": "2026-10-18",
+  "production_use_allowed": false,
+  "records": [
+    {
+      "id": "w01",
+      "title": "重采样置信区间方法",
+      "authors": [
+        "示例甲"
+      ],
+      "year": 2024,
+      "container": "合成统计学报",
+      "abstract": "研究如何通过对观测样本重复抽样估计均值的不确定性，给出重采样均值分布与区间端点构造步骤。",
+      "source": "fixture://registry/w01"
+    },
+    {
+      "id": "w02",
+      "title": "古典诗歌的意象分类",
+      "authors": [
+        "示例乙"
+      ],
+      "year": 2024,
+      "container": "合成人文学报",
+      "abstract": "研究古典诗歌中山水与季节意象的分类，给出修辞类别、例句及人工整理的意象目录。",
+      "source": "fixture://registry/w02"
+    }
+  ]
+}

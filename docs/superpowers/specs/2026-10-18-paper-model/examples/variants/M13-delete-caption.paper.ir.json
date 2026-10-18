@@ -1,0 +1,1409 @@
+{
+  "schema_version": "paper-ir/0.1-design",
+  "model_version": "paper-model/0.1-design",
+  "document_id": "teaching-paper-1",
+  "revision": "revision-9e7a8b41d053",
+  "fixture_kind": "hand_authored_not_parsed_from_pdf",
+  "profile": "project-33-v1-design",
+  "source_artifacts": [
+    {
+      "id": "source-1",
+      "path": "source-paper.txt",
+      "kind": "authored_text",
+      "sha256": "3be7a628bb6e84ecfca350c33c099545a600e2c1c8d1fe2fa0fa08b5beecf725",
+      "encoding": "utf-8",
+      "offset_unit": "unicode_codepoint"
+    }
+  ],
+  "root_id": "paper",
+  "nodes": [
+    {
+      "id": "paper",
+      "kind": "Paper",
+      "children": [
+        "front",
+        "body",
+        "back"
+      ],
+      "text": null,
+      "attrs": {
+        "language": "zh",
+        "document_kind": "thesis_excerpt",
+        "fixture": true
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 0,
+          "char_end": 1001
+        }
+      ]
+    },
+    {
+      "id": "front",
+      "kind": "FrontMatter",
+      "children": [
+        "title-page",
+        "abstract",
+        "toc"
+      ],
+      "text": null,
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 0,
+          "char_end": 1001
+        }
+      ]
+    },
+    {
+      "id": "title-page",
+      "kind": "TitlePage",
+      "children": [
+        "title"
+      ],
+      "text": null,
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 0,
+          "char_end": 1001
+        }
+      ]
+    },
+    {
+      "id": "title",
+      "kind": "Title",
+      "children": [],
+      "text": "词项筛选对文本分类准确率的影响",
+      "attrs": {
+        "language": "zh"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 3,
+          "char_end": 18
+        }
+      ]
+    },
+    {
+      "id": "abstract",
+      "kind": "Abstract",
+      "children": [
+        "p-abstract"
+      ],
+      "text": null,
+      "attrs": {
+        "language": "zh",
+        "abstract_kind": "informative"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 22,
+          "char_end": 97
+        }
+      ]
+    },
+    {
+      "id": "p-abstract",
+      "kind": "Paragraph",
+      "children": [],
+      "text": "本文研究词项筛选对文本分类的影响。在固定测试集 D1 上，词项筛选方法的准确率为 90%，基线为 80%。结果表明，该方法在本实验条件下提高了准确率。",
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 22,
+          "char_end": 97
+        }
+      ]
+    },
+    {
+      "id": "toc",
+      "kind": "ToC",
+      "children": [],
+      "text": "目录：1 绪论；2 相关研究；3 研究方法；4 实验结果；5 结论；参考文献；附录 A。",
+      "attrs": {
+        "rendered_page_map_status": "not_available_in_text_fixture"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 98,
+          "char_end": 142
+        }
+      ]
+    },
+    {
+      "id": "body",
+      "kind": "Body",
+      "children": [
+        "sec-intro",
+        "sec-related",
+        "sec-method",
+        "sec-results",
+        "sec-conclusion"
+      ],
+      "text": null,
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 0,
+          "char_end": 1001
+        }
+      ]
+    },
+    {
+      "id": "sec-intro",
+      "kind": "Section",
+      "children": [
+        "h-intro",
+        "p-goal"
+      ],
+      "text": null,
+      "attrs": {
+        "number": "1",
+        "level": 1,
+        "scope_id": "body"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 144,
+          "char_end": 148
+        }
+      ]
+    },
+    {
+      "id": "h-intro",
+      "kind": "Heading",
+      "children": [],
+      "text": "1 绪论",
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 144,
+          "char_end": 148
+        }
+      ]
+    },
+    {
+      "id": "sec-related",
+      "kind": "Section",
+      "children": [
+        "h-related",
+        "p-related"
+      ],
+      "text": null,
+      "attrs": {
+        "number": "2",
+        "level": 1,
+        "scope_id": "body"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 189,
+          "char_end": 195
+        }
+      ]
+    },
+    {
+      "id": "h-related",
+      "kind": "Heading",
+      "children": [],
+      "text": "2 相关研究",
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 189,
+          "char_end": 195
+        }
+      ]
+    },
+    {
+      "id": "sec-method",
+      "kind": "Section",
+      "children": [
+        "h-method",
+        "p-method",
+        "p-eq-use",
+        "equation-1",
+        "p-symbols",
+        "p-appendix-use"
+      ],
+      "text": null,
+      "attrs": {
+        "number": "3",
+        "level": 1,
+        "scope_id": "body"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 272,
+          "char_end": 278
+        }
+      ]
+    },
+    {
+      "id": "h-method",
+      "kind": "Heading",
+      "children": [],
+      "text": "3 研究方法",
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 272,
+          "char_end": 278
+        }
+      ]
+    },
+    {
+      "id": "sec-results",
+      "kind": "Section",
+      "children": [
+        "h-results",
+        "p-conditions",
+        "p-figure-use",
+        "figure-1",
+        "p-table-use",
+        "table-1",
+        "p-result"
+      ],
+      "text": null,
+      "attrs": {
+        "number": "4",
+        "level": 1,
+        "scope_id": "body"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 459,
+          "char_end": 465
+        }
+      ]
+    },
+    {
+      "id": "h-results",
+      "kind": "Heading",
+      "children": [],
+      "text": "4 实验结果",
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 459,
+          "char_end": 465
+        }
+      ]
+    },
+    {
+      "id": "sec-conclusion",
+      "kind": "Section",
+      "children": [
+        "h-conclusion",
+        "p-conclusion"
+      ],
+      "text": null,
+      "attrs": {
+        "number": "5",
+        "level": 1,
+        "scope_id": "body"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 742,
+          "char_end": 746
+        }
+      ]
+    },
+    {
+      "id": "h-conclusion",
+      "kind": "Heading",
+      "children": [],
+      "text": "5 结论",
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 742,
+          "char_end": 746
+        }
+      ]
+    },
+    {
+      "id": "p-goal",
+      "kind": "Paragraph",
+      "children": [],
+      "text": "本研究的核心目标是判断词项筛选能否提高固定测试集 D1 上的文本分类准确率。",
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 149,
+          "char_end": 187
+        }
+      ]
+    },
+    {
+      "id": "p-related",
+      "kind": "Paragraph",
+      "children": [
+        "cite-1",
+        "cite-2"
+      ],
+      "text": "甲研究者的词项筛选工作[1]讨论了稀疏表示，乙研究者的分类基线工作[2]讨论了固定词表。二者在是否筛选词项上不同，本研究在同一测试集上比较这一差异。",
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 196,
+          "char_end": 270
+        }
+      ]
+    },
+    {
+      "id": "cite-1",
+      "kind": "ReferenceUse",
+      "children": [],
+      "text": "[1]",
+      "attrs": {
+        "expected_kind": "BibliographyEntry",
+        "namespace": "bibliography",
+        "selector": {
+          "scheme": "numeric",
+          "value": "1"
+        },
+        "scope_id": "body",
+        "use_role": "body"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 207,
+          "char_end": 210
+        }
+      ]
+    },
+    {
+      "id": "cite-2",
+      "kind": "ReferenceUse",
+      "children": [],
+      "text": "[2]",
+      "attrs": {
+        "expected_kind": "BibliographyEntry",
+        "namespace": "bibliography",
+        "selector": {
+          "scheme": "numeric",
+          "value": "2"
+        },
+        "scope_id": "body",
+        "use_role": "body"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 229,
+          "char_end": 232
+        }
+      ]
+    },
+    {
+      "id": "p-method",
+      "kind": "Paragraph",
+      "children": [
+        "term-ts"
+      ],
+      "text": "本文将基于文档频率的词项筛选称为 TS（term selection）。基线保留全部词项，TS 保留训练集中出现至少两次的词项；其余训练设置相同。",
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 279,
+          "char_end": 352
+        }
+      ]
+    },
+    {
+      "id": "term-ts",
+      "kind": "TermDefinition",
+      "children": [],
+      "text": "词项筛选称为 TS（term selection）",
+      "attrs": {
+        "lexeme": "TS",
+        "scope_id": "body",
+        "definition": "基于文档频率的词项筛选"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 289,
+          "char_end": 314
+        }
+      ]
+    },
+    {
+      "id": "p-eq-use",
+      "kind": "Paragraph",
+      "children": [
+        "use-equation"
+      ],
+      "text": "准确率按式 (1) 计算。",
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 353,
+          "char_end": 366
+        }
+      ]
+    },
+    {
+      "id": "use-equation",
+      "kind": "ReferenceUse",
+      "children": [],
+      "text": "式 (1)",
+      "attrs": {
+        "expected_kind": "Equation",
+        "namespace": "equation",
+        "selector": {
+          "scheme": "label",
+          "value": "1"
+        },
+        "scope_id": "body",
+        "use_role": "body"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 357,
+          "char_end": 362
+        }
+      ]
+    },
+    {
+      "id": "equation-1",
+      "kind": "Equation",
+      "children": [
+        "math-1"
+      ],
+      "text": null,
+      "attrs": {
+        "label": "1",
+        "scope_id": "body",
+        "equation_kind": "quantity_relation"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 367,
+          "char_end": 383
+        }
+      ]
+    },
+    {
+      "id": "math-1",
+      "kind": "MathExpression",
+      "children": [],
+      "text": "a = k / n",
+      "attrs": {
+        "expression": {
+          "op": "eq",
+          "args": [
+            {
+              "op": "symbol",
+              "name": "a"
+            },
+            {
+              "op": "divide",
+              "args": [
+                {
+                  "op": "symbol",
+                  "name": "k"
+                },
+                {
+                  "op": "symbol",
+                  "name": "n"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 373,
+          "char_end": 382
+        }
+      ]
+    },
+    {
+      "id": "p-symbols",
+      "kind": "Paragraph",
+      "children": [
+        "symbol-a",
+        "symbol-k",
+        "symbol-n"
+      ],
+      "text": "其中 a 表示准确率，为无量纲比例；k 表示正确分类样本数，单位为个；n 表示测试样本总数，单位为个，且 n > 0。",
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 384,
+          "char_end": 443
+        }
+      ]
+    },
+    {
+      "id": "symbol-a",
+      "kind": "SymbolDefinition",
+      "children": [],
+      "text": "a 表示准确率，为无量纲比例",
+      "attrs": {
+        "lexeme": "a",
+        "scope_id": "sec-method",
+        "definition": "准确率",
+        "unit": "1"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 387,
+          "char_end": 401
+        }
+      ]
+    },
+    {
+      "id": "symbol-k",
+      "kind": "SymbolDefinition",
+      "children": [],
+      "text": "k 表示正确分类样本数，单位为个",
+      "attrs": {
+        "lexeme": "k",
+        "scope_id": "sec-method",
+        "definition": "正确分类样本数",
+        "unit": "count"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 402,
+          "char_end": 418
+        }
+      ]
+    },
+    {
+      "id": "symbol-n",
+      "kind": "SymbolDefinition",
+      "children": [],
+      "text": "n 表示测试样本总数，单位为个",
+      "attrs": {
+        "lexeme": "n",
+        "scope_id": "sec-method",
+        "definition": "测试样本总数",
+        "unit": "count"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 419,
+          "char_end": 434
+        }
+      ]
+    },
+    {
+      "id": "p-appendix-use",
+      "kind": "Paragraph",
+      "children": [
+        "use-appendix"
+      ],
+      "text": "划分说明见本论文附录 A。",
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 444,
+          "char_end": 457
+        }
+      ]
+    },
+    {
+      "id": "use-appendix",
+      "kind": "ReferenceUse",
+      "children": [],
+      "text": "附录 A",
+      "attrs": {
+        "expected_kind": "Appendix",
+        "namespace": "appendix",
+        "selector": {
+          "scheme": "label",
+          "value": "A"
+        },
+        "scope_id": "body",
+        "use_role": "body"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 452,
+          "char_end": 456
+        }
+      ]
+    },
+    {
+      "id": "p-conditions",
+      "kind": "Paragraph",
+      "children": [],
+      "text": "本实验使用同一固定测试集 D1，测试样本总数 n 为 100，两种方法使用完全相同的测试标签。",
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 466,
+          "char_end": 513
+        }
+      ]
+    },
+    {
+      "id": "p-figure-use",
+      "kind": "Paragraph",
+      "children": [
+        "use-figure"
+      ],
+      "text": "两种方法的准确率对比如图 1 所示。",
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 514,
+          "char_end": 532
+        }
+      ]
+    },
+    {
+      "id": "use-figure",
+      "kind": "ReferenceUse",
+      "children": [],
+      "text": "图 1",
+      "attrs": {
+        "expected_kind": "Figure",
+        "namespace": "figure",
+        "selector": {
+          "scheme": "label",
+          "value": "1"
+        },
+        "scope_id": "body",
+        "use_role": "body"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 525,
+          "char_end": 528
+        }
+      ]
+    },
+    {
+      "id": "figure-1",
+      "kind": "Figure",
+      "children": [
+        "visual-description"
+      ],
+      "text": null,
+      "attrs": {
+        "label": "1",
+        "scope_id": "body",
+        "visual_kind": "bar_chart",
+        "asset_status": "textual_fixture_only"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 533,
+          "char_end": 554
+        }
+      ]
+    },
+    {
+      "id": "visual-description",
+      "kind": "VisualLabel",
+      "children": [],
+      "text": "图形说明：两根柱的高度依次为 80% 和 90%；横轴为方法，纵轴为准确率/%；图例依次标注基线、TS。",
+      "attrs": {
+        "label_role": "authored_visual_description",
+        "series": [
+          {
+            "label": "基线",
+            "value": 80
+          },
+          {
+            "label": "TS",
+            "value": 90
+          }
+        ],
+        "unit": "percent"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 555,
+          "char_end": 607
+        }
+      ]
+    },
+    {
+      "id": "p-table-use",
+      "kind": "Paragraph",
+      "children": [
+        "use-table"
+      ],
+      "text": "详细计数见表 1。",
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 608,
+          "char_end": 617
+        }
+      ]
+    },
+    {
+      "id": "use-table",
+      "kind": "ReferenceUse",
+      "children": [],
+      "text": "表 1",
+      "attrs": {
+        "expected_kind": "Table",
+        "namespace": "table",
+        "selector": {
+          "scheme": "label",
+          "value": "1"
+        },
+        "scope_id": "body",
+        "use_role": "body"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 613,
+          "char_end": 616
+        }
+      ]
+    },
+    {
+      "id": "table-1",
+      "kind": "Table",
+      "children": [
+        "caption-table",
+        "row-header",
+        "row-baseline",
+        "row-ts"
+      ],
+      "text": null,
+      "attrs": {
+        "label": "1",
+        "scope_id": "body",
+        "columns": 4
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 618,
+          "char_end": 638
+        }
+      ]
+    },
+    {
+      "id": "caption-table",
+      "kind": "Caption",
+      "children": [],
+      "text": "表 1：固定测试集 D1 上的分类结果。",
+      "attrs": {
+        "caption_role": "title"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 618,
+          "char_end": 638
+        }
+      ]
+    },
+    {
+      "id": "row-header",
+      "kind": "TableRow",
+      "children": [
+        "row-header-c0",
+        "row-header-c1",
+        "row-header-c2",
+        "row-header-c3"
+      ],
+      "text": null,
+      "attrs": {
+        "row_role": "header"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 639,
+          "char_end": 669
+        }
+      ]
+    },
+    {
+      "id": "row-header-c0",
+      "kind": "TableCell",
+      "children": [],
+      "text": "方法",
+      "attrs": {
+        "column_index": 0,
+        "cell_role": "header"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 639,
+          "char_end": 641
+        }
+      ]
+    },
+    {
+      "id": "row-header-c1",
+      "kind": "TableCell",
+      "children": [],
+      "text": "正确分类数/个",
+      "attrs": {
+        "column_index": 1,
+        "cell_role": "header"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 644,
+          "char_end": 651
+        }
+      ]
+    },
+    {
+      "id": "row-header-c2",
+      "kind": "TableCell",
+      "children": [],
+      "text": "测试样本数/个",
+      "attrs": {
+        "column_index": 2,
+        "cell_role": "header"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 654,
+          "char_end": 661
+        }
+      ]
+    },
+    {
+      "id": "row-header-c3",
+      "kind": "TableCell",
+      "children": [],
+      "text": "准确率/%",
+      "attrs": {
+        "column_index": 3,
+        "cell_role": "header"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 664,
+          "char_end": 669
+        }
+      ]
+    },
+    {
+      "id": "row-baseline",
+      "kind": "TableRow",
+      "children": [
+        "row-baseline-c0",
+        "row-baseline-c1",
+        "row-baseline-c2",
+        "row-baseline-c3"
+      ],
+      "text": null,
+      "attrs": {
+        "row_role": "data"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 670,
+          "char_end": 688
+        }
+      ]
+    },
+    {
+      "id": "row-baseline-c0",
+      "kind": "TableCell",
+      "children": [],
+      "text": "基线",
+      "attrs": {
+        "column_index": 0,
+        "cell_role": "row_header"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 670,
+          "char_end": 672
+        }
+      ]
+    },
+    {
+      "id": "row-baseline-c1",
+      "kind": "TableCell",
+      "children": [],
+      "text": "80",
+      "attrs": {
+        "column_index": 1,
+        "cell_role": "data",
+        "number": 80,
+        "unit": "count"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 675,
+          "char_end": 677
+        }
+      ]
+    },
+    {
+      "id": "row-baseline-c2",
+      "kind": "TableCell",
+      "children": [],
+      "text": "100",
+      "attrs": {
+        "column_index": 2,
+        "cell_role": "data",
+        "number": 100,
+        "unit": "count"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 680,
+          "char_end": 683
+        }
+      ]
+    },
+    {
+      "id": "row-baseline-c3",
+      "kind": "TableCell",
+      "children": [],
+      "text": "80",
+      "attrs": {
+        "column_index": 3,
+        "cell_role": "data",
+        "number": 80,
+        "unit": "percent"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 686,
+          "char_end": 688
+        }
+      ]
+    },
+    {
+      "id": "row-ts",
+      "kind": "TableRow",
+      "children": [
+        "row-ts-c0",
+        "row-ts-c1",
+        "row-ts-c2",
+        "row-ts-c3"
+      ],
+      "text": null,
+      "attrs": {
+        "row_role": "data"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 689,
+          "char_end": 707
+        }
+      ]
+    },
+    {
+      "id": "row-ts-c0",
+      "kind": "TableCell",
+      "children": [],
+      "text": "TS",
+      "attrs": {
+        "column_index": 0,
+        "cell_role": "row_header"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 689,
+          "char_end": 691
+        }
+      ]
+    },
+    {
+      "id": "row-ts-c1",
+      "kind": "TableCell",
+      "children": [],
+      "text": "90",
+      "attrs": {
+        "column_index": 1,
+        "cell_role": "data",
+        "number": 90,
+        "unit": "count"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 694,
+          "char_end": 696
+        }
+      ]
+    },
+    {
+      "id": "row-ts-c2",
+      "kind": "TableCell",
+      "children": [],
+      "text": "100",
+      "attrs": {
+        "column_index": 2,
+        "cell_role": "data",
+        "number": 100,
+        "unit": "count"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 699,
+          "char_end": 702
+        }
+      ]
+    },
+    {
+      "id": "row-ts-c3",
+      "kind": "TableCell",
+      "children": [],
+      "text": "90",
+      "attrs": {
+        "column_index": 3,
+        "cell_role": "data",
+        "number": 90,
+        "unit": "percent"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 705,
+          "char_end": 707
+        }
+      ]
+    },
+    {
+      "id": "p-result",
+      "kind": "Paragraph",
+      "children": [],
+      "text": "在该实验中，TS 的准确率为 90%，比基线高 10 个百分点。",
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 708,
+          "char_end": 740
+        }
+      ]
+    },
+    {
+      "id": "p-conclusion",
+      "kind": "Paragraph",
+      "children": [],
+      "text": "在固定测试集 D1 和上述设置下，词项筛选将准确率从 80% 提高到 90%，回答了本文的研究目标；该结果尚不能直接推广到其他数据集。",
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 747,
+          "char_end": 814
+        }
+      ]
+    },
+    {
+      "id": "back",
+      "kind": "BackMatter",
+      "children": [
+        "bibliography",
+        "appendix-a"
+      ],
+      "text": null,
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 0,
+          "char_end": 1001
+        }
+      ]
+    },
+    {
+      "id": "bibliography",
+      "kind": "Bibliography",
+      "children": [
+        "bib-1",
+        "bib-2"
+      ],
+      "text": null,
+      "attrs": {
+        "bibliography_kind": "cited",
+        "citation_style": "numeric"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 816,
+          "char_end": 824
+        }
+      ]
+    },
+    {
+      "id": "bib-1",
+      "kind": "BibliographyEntry",
+      "children": [],
+      "text": "[1] 甲研究者. 稀疏词项筛选方法[J]. 教学文献, 2024, 1(1): 1-4.",
+      "attrs": {
+        "entry_key": "1",
+        "scope_id": "body",
+        "title": "稀疏词项筛选方法",
+        "authors": [
+          "甲研究者"
+        ],
+        "year": 2024,
+        "resource_kind": "journal_article",
+        "publication": "教学文献",
+        "pages": "1-4",
+        "identity_status": "unverified_synthetic_resource"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 821,
+          "char_end": 866
+        }
+      ]
+    },
+    {
+      "id": "bib-2",
+      "kind": "BibliographyEntry",
+      "children": [],
+      "text": "[2] 乙研究者. 固定词表分类基线[J]. 教学文献, 2024, 1(2): 5-8.",
+      "attrs": {
+        "entry_key": "2",
+        "scope_id": "body",
+        "title": "固定词表分类基线",
+        "authors": [
+          "乙研究者"
+        ],
+        "year": 2024,
+        "resource_kind": "journal_article",
+        "publication": "教学文献",
+        "pages": "5-8",
+        "identity_status": "unverified_synthetic_resource"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 867,
+          "char_end": 912
+        }
+      ]
+    },
+    {
+      "id": "appendix-a",
+      "kind": "Appendix",
+      "children": [
+        "p-appendix"
+      ],
+      "text": null,
+      "attrs": {
+        "label": "A",
+        "scope_id": "paper"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 914,
+          "char_end": 925
+        }
+      ]
+    },
+    {
+      "id": "p-appendix",
+      "kind": "Paragraph",
+      "children": [],
+      "text": "D1 为预先固定的 100 个测试样本，训练集与测试集相互独立。本文件为人工编写的模型教学样例，文献与实验均为合成内容，不代表真实研究或真实出版物。",
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "source-1",
+          "char_start": 926,
+          "char_end": 1000
+        }
+      ]
+    }
+  ],
+  "coverage": [
+    {
+      "capability": "structure",
+      "scope_id": "paper",
+      "status": "complete",
+      "basis": "authored_fixture"
+    },
+    {
+      "capability": "figure_inventory",
+      "scope_id": "paper",
+      "status": "complete",
+      "basis": "authored_fixture"
+    },
+    {
+      "capability": "table_inventory",
+      "scope_id": "paper",
+      "status": "complete",
+      "basis": "authored_fixture"
+    },
+    {
+      "capability": "equation_inventory",
+      "scope_id": "paper",
+      "status": "complete",
+      "basis": "authored_fixture"
+    },
+    {
+      "capability": "bibliography_inventory",
+      "scope_id": "paper",
+      "status": "complete",
+      "basis": "authored_fixture"
+    },
+    {
+      "capability": "appendix_inventory",
+      "scope_id": "paper",
+      "status": "complete",
+      "basis": "authored_fixture"
+    },
+    {
+      "capability": "body_reference_inventory",
+      "scope_id": "paper",
+      "status": "complete",
+      "basis": "authored_fixture"
+    },
+    {
+      "capability": "caption_regions",
+      "scope_id": "paper",
+      "status": "complete",
+      "basis": "authored_fixture"
+    },
+    {
+      "capability": "claims",
+      "scope_id": "paper",
+      "status": "complete",
+      "basis": "authored_fixture"
+    },
+    {
+      "capability": "goals",
+      "scope_id": "paper",
+      "status": "complete",
+      "basis": "authored_fixture"
+    },
+    {
+      "capability": "supports",
+      "scope_id": "paper",
+      "status": "complete",
+      "basis": "authored_fixture"
+    }
+  ]
+}

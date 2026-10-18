@@ -1,0 +1,49 @@
+{
+  "status": "passed",
+  "verification_kind": "documentation_fixture_consistency_only",
+  "baseline_nodes": 20,
+  "variants": 5,
+  "scenarios": 10,
+  "checks": [
+    {
+      "check": "All citation design JSON files decode",
+      "status": "passed"
+    },
+    {
+      "check": "All 6 IR snapshots have valid trees, scopes, source hashes and text spans; no oracle keys",
+      "status": "passed"
+    },
+    {
+      "check": "Baseline analysis hashes, binding selectors and relationship endpoints agree",
+      "status": "passed"
+    },
+    {
+      "check": "External evidence fixtures are explicitly synthetic and prohibited in production",
+      "status": "passed"
+    },
+    {
+      "check": "All mutations only edit declared source content; parent/child hashes and invalidation contracts agree",
+      "status": "passed"
+    },
+    {
+      "check": "Expected branches distinguish closed/open evidence, identity existence and citation relevance",
+      "status": "passed"
+    },
+    {
+      "check": "RuleSpec original texts and capability dependencies match supplied rules and Rule IR",
+      "status": "passed"
+    },
+    {
+      "check": "Protected result CSV is unchanged",
+      "status": "passed"
+    }
+  ],
+  "not_run": [
+    "actual natural-language compilation",
+    "LLM calls",
+    "real bibliography retrieval",
+    "479-paper evaluation",
+    "product deployment"
+  ],
+  "protected_csv_sha256": "946308c0c010e061fafdedbebe352c6f511f818401510941e571dd91b79ff3ad"
+}

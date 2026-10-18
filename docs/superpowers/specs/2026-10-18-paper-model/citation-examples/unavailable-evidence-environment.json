@@ -1,0 +1,9 @@
+{
+  "kind": "synthetic_evidence_environment",
+  "scope": "fixture-registry",
+  "coverage": "unavailable",
+  "retrieved_at": "2026-10-18",
+  "production_use_allowed": false,
+  "records": [],
+  "response_status": "persistent_service_error"
+}

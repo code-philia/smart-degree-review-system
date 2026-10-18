@@ -1,0 +1,171 @@
+{
+  "format": "design-mutations/0.1",
+  "operations_not_detected_labels": true,
+  "variants": [
+    {
+      "id": "M11-delete-figure",
+      "operation_id": "op-356d3e26fd16",
+      "category": "paper_mutation",
+      "parent_ir_sha256": "667e14456689295fe4fa1b0f29767d89a842a8685d7d1867c6f5b5dda8de8958",
+      "precondition": "Base fixture node IDs, text and complete authored coverage must match the recorded parent hash.",
+      "operations": [
+        {
+          "op": "delete_subtree",
+          "node_id": "figure-1"
+        }
+      ],
+      "derived_state_policy": "invalidate and rebuild all analysis; do not reuse baseline bindings or semantic edges",
+      "child_ir_sha256": "80f687b831440fdc52b3f396f00093ba64a56af40081eb8cd12d4490a84a7be7"
+    },
+    {
+      "id": "M13-delete-caption",
+      "operation_id": "op-173fdd529373",
+      "category": "paper_mutation",
+      "parent_ir_sha256": "667e14456689295fe4fa1b0f29767d89a842a8685d7d1867c6f5b5dda8de8958",
+      "precondition": "Base fixture node IDs, text and complete authored coverage must match the recorded parent hash.",
+      "operations": [
+        {
+          "op": "delete_subtree",
+          "node_id": "caption-figure"
+        }
+      ],
+      "derived_state_policy": "invalidate and rebuild all analysis; do not reuse baseline bindings or semantic edges",
+      "child_ir_sha256": "5cf16d05841037dd911240b3770a933cc5e4d81a244d30497b72619a71ebbb28"
+    },
+    {
+      "id": "M22-delete-entry",
+      "operation_id": "op-8e25ba615fb9",
+      "category": "paper_mutation",
+      "parent_ir_sha256": "667e14456689295fe4fa1b0f29767d89a842a8685d7d1867c6f5b5dda8de8958",
+      "precondition": "Base fixture node IDs, text and complete authored coverage must match the recorded parent hash.",
+      "operations": [
+        {
+          "op": "delete_subtree",
+          "node_id": "bib-2"
+        }
+      ],
+      "derived_state_policy": "invalidate and rebuild all analysis; do not reuse baseline bindings or semantic edges",
+      "child_ir_sha256": "12aeff73cbbf918d9e574bf7917da31c2c92a480acaf95e3a16df1ac102977fd"
+    },
+    {
+      "id": "M03-change-result",
+      "operation_id": "op-c9871743517e",
+      "category": "paper_mutation",
+      "parent_ir_sha256": "667e14456689295fe4fa1b0f29767d89a842a8685d7d1867c6f5b5dda8de8958",
+      "precondition": "Base fixture node IDs, text and complete authored coverage must match the recorded parent hash.",
+      "operations": [
+        {
+          "op": "replace_text",
+          "node_id": "p-result",
+          "old": "90%",
+          "new": "95%"
+        }
+      ],
+      "derived_state_policy": "invalidate and rebuild all analysis; do not reuse baseline bindings or semantic edges",
+      "child_ir_sha256": "66bef52104a811d99fbdfd0584c1138272782c5e05d3325ea105f7eea21ddc05"
+    },
+    {
+      "id": "M10-change-abstract",
+      "operation_id": "op-5a9ad3cd14a3",
+      "category": "paper_mutation",
+      "parent_ir_sha256": "667e14456689295fe4fa1b0f29767d89a842a8685d7d1867c6f5b5dda8de8958",
+      "precondition": "Base fixture node IDs, text and complete authored coverage must match the recorded parent hash.",
+      "operations": [
+        {
+          "op": "replace_text",
+          "node_id": "p-abstract",
+          "old": "90%",
+          "new": "95%"
+        }
+      ],
+      "derived_state_policy": "invalidate and rebuild all analysis; do not reuse baseline bindings or semantic edges",
+      "child_ir_sha256": "9655ee24e59ca000df712bc6dbc6159658736151b274b5ca0a3f8a5bd4596cd5"
+    },
+    {
+      "id": "M29-delete-appendix",
+      "operation_id": "op-e5373ea6c0e2",
+      "category": "paper_mutation",
+      "parent_ir_sha256": "667e14456689295fe4fa1b0f29767d89a842a8685d7d1867c6f5b5dda8de8958",
+      "precondition": "Base fixture node IDs, text and complete authored coverage must match the recorded parent hash.",
+      "operations": [
+        {
+          "op": "delete_subtree",
+          "node_id": "appendix-a"
+        }
+      ],
+      "derived_state_policy": "invalidate and rebuild all analysis; do not reuse baseline bindings or semantic edges",
+      "child_ir_sha256": "e12ef13a021f29e58ae1f8a064c4e770998ca7559631c2282656af412b8f0e84"
+    },
+    {
+      "id": "E01-renumber-figure",
+      "operation_id": "op-d0d3fd757a39",
+      "category": "equivalence_mutation",
+      "parent_ir_sha256": "667e14456689295fe4fa1b0f29767d89a842a8685d7d1867c6f5b5dda8de8958",
+      "precondition": "Base fixture node IDs, text and complete authored coverage must match the recorded parent hash.",
+      "operations": [
+        {
+          "op": "set_attr",
+          "node_id": "figure-1",
+          "name": "label",
+          "value": "9"
+        },
+        {
+          "op": "replace_text",
+          "node_id": "caption-figure",
+          "old": "图 1",
+          "new": "图 9"
+        },
+        {
+          "op": "replace_text",
+          "node_id": "p-figure-use",
+          "old": "图 1",
+          "new": "图 9"
+        },
+        {
+          "op": "replace_text",
+          "node_id": "use-figure",
+          "old": "图 1",
+          "new": "图 9"
+        },
+        {
+          "op": "set_attr",
+          "node_id": "use-figure",
+          "name": "selector",
+          "value": {
+            "scheme": "label",
+            "value": "9"
+          }
+        }
+      ],
+      "derived_state_policy": "invalidate and rebuild all analysis; do not reuse baseline bindings or semantic edges",
+      "child_ir_sha256": "3a303cf3e7d14eceb2ffe7f8204bc66f33b0b491ebc7e041b177964c8a526a67"
+    },
+    {
+      "id": "U01-incomplete-figures",
+      "operation_id": "op-f3ddff327ded",
+      "category": "parser_failure_fixture",
+      "parent_ir_sha256": "667e14456689295fe4fa1b0f29767d89a842a8685d7d1867c6f5b5dda8de8958",
+      "precondition": "Base fixture node IDs, text and complete authored coverage must match the recorded parent hash.",
+      "operations": [
+        {
+          "op": "delete_subtree",
+          "node_id": "figure-1"
+        },
+        {
+          "op": "set_coverage",
+          "capability": "figure_inventory",
+          "status": "partial",
+          "reason": "Simulated unparsed region containing a possible figure."
+        },
+        {
+          "op": "set_coverage",
+          "capability": "caption_regions",
+          "status": "partial",
+          "reason": "Unparsed region has not been checked for captions."
+        }
+      ],
+      "derived_state_policy": "invalidate and rebuild all analysis; do not reuse baseline bindings or semantic edges",
+      "child_ir_sha256": "020b18ae6d53b59c8817e09c78174438cbe7420f02cac7c5f9165459a6c73763"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+# Design illustration only. No runtime or compiler is implemented in this delivery.
+# Context methods below are specified interfaces, not existing callable functions.
+def check_R11(context):
+    for use in context.select("ReferenceUse", expected_kind="Figure", use_role="body"):
+        binding = context.resolve(use, namespace="figure")
+        if binding.status == "resolved":
+            yield context.result("R11", use, "PASS", evidence=binding.evidence)
+        elif binding.status == "missing" and context.coverage_sufficient("figure_inventory", use):
+            yield context.result("R11", use, "VIOLATION", evidence=binding.evidence)
+        else:
+            yield context.result("R11", use, "UNKNOWN", reason=binding.reason)

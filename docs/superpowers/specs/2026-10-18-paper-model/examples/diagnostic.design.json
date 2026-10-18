@@ -1,0 +1,27 @@
+{
+  "status": "illustrative_expected_diagnostic_not_execution_output",
+  "case_id": "M11-delete-figure",
+  "rule_id": "R11",
+  "check_status": "VIOLATION",
+  "anchor_node_id": "use-figure",
+  "message": "正文引用图 1，但完整教学 IR 中未声明该图。",
+  "proof": {
+    "selector": {
+      "namespace": "figure",
+      "value": "1",
+      "scope_id": "body"
+    },
+    "candidate_ids": [],
+    "coverage_requirement": "figure_inventory complete under authored fixture contract"
+  },
+  "source_location": [
+    {
+      "kind": "source",
+      "source_id": "source-1",
+      "char_start": 525,
+      "char_end": 528
+    }
+  ],
+  "profile": "project-33-v1-design",
+  "publication_status": "not_deployed"
+}

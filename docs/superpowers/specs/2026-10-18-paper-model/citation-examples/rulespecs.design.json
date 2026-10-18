@@ -1,0 +1,68 @@
+{
+  "kind": "illustrative_rulespecs_not_llm_generated",
+  "rules": [
+    {
+      "rule_id": 31,
+      "original_text": "引用格式错误",
+      "basis": [
+        "S13:chapter6-9",
+        "S15:5.3.5",
+        "S15:5.4"
+      ],
+      "targets": [
+        "CitationGroup",
+        "BibliographyEntry"
+      ],
+      "capabilities": [
+        "citation_style",
+        "bibliography_fields",
+        "format_constraints"
+      ],
+      "semantics": "validate source marker and applicable bibliography field/format constraints",
+      "on_insufficient_evidence": "request_enrichment_then_UNKNOWN",
+      "example_subchecks": [
+        "paired_numeric_marker",
+        "journal_article_title_present"
+      ],
+      "example_is_full_standard_coverage": false
+    },
+    {
+      "rule_id": 32,
+      "original_text": "引用不存在",
+      "basis": [
+        "project_requirement"
+      ],
+      "targets": [
+        "BibliographyEntry"
+      ],
+      "capabilities": [
+        "identity_resolution",
+        "external_evidence"
+      ],
+      "semantics": "verify claimed external resource identity; require scoped negative evidence for a negative finding",
+      "empty_search_is_violation": false,
+      "on_insufficient_evidence": "request_enrichment_then_UNKNOWN"
+    },
+    {
+      "rule_id": 33,
+      "original_text": "引用文章疑似不相关",
+      "basis": [
+        "project_requirement"
+      ],
+      "targets": [
+        "ReferenceUse(namespace=bibliography)"
+      ],
+      "capabilities": [
+        "citation_context",
+        "citation_intent",
+        "identity_resolution",
+        "external_content",
+        "semantic_relevance"
+      ],
+      "semantics": "judge relevance to this citation purpose, not global topic similarity",
+      "abstract_allowed_when_sufficient": true,
+      "negative_evidence_requirement": "content evidence plus consideration of reasonable alternative uses",
+      "on_insufficient_evidence": "request_enrichment_then_UNKNOWN"
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+# Design-only code shape. The context API below is not implemented.
+# These are illustrative backend outputs, NOT code obtained from a live LLM.
+# A production compiler derives selectors, operations and policies from typed Rule IR.
+
+def check_rule_31(ctx):
+    ctx.assert_snapshot_versions_match()
+    for node in ctx.select_types(["CitationGroup", "BibliographyEntry"]):
+        result = ctx.invoke_registered(
+            "validate_citation_format",
+            subject=node,
+            evidence_policy="precision_first",
+        )
+        yield ctx.to_diagnostic(rule_id=31, subject=node, result=result)
+
+
+def check_rule_32(ctx):
+    ctx.assert_snapshot_versions_match()
+    for entry in ctx.select_types(["BibliographyEntry"]):
+        result = ctx.invoke_registered(
+            "verify_external_identity",
+            subject=entry,
+            evidence_policy="precision_first",
+        )
+        yield ctx.to_diagnostic(rule_id=32, subject=entry, result=result)
+
+
+def check_rule_33(ctx):
+    ctx.assert_snapshot_versions_match()
+    for use in ctx.select_types(
+        ["ReferenceUse"], where={"attrs.namespace": "bibliography"}
+    ):
+        result = ctx.invoke_registered(
+            "judge_citation_relevance",
+            subject=use,
+            evidence_policy="precision_first",
+        )
+        yield ctx.to_diagnostic(rule_id=33, subject=use, result=result)
+
+
+# A registered capability may return NeedEvidence instead of a verdict.
+# The runtime scheduler then enriches the versioned analysis and reruns the check.
+# These functions never read PDFs, test oracles, mutation labels or external URLs.
+# Missing capabilities trigger the separate automatic build/verify/register pipeline.

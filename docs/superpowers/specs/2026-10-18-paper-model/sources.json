@@ -1,0 +1,204 @@
+{
+  "basis": "user_supplied_files",
+  "source_host": "local Windows workspace; absolute paths identify original supplied copies",
+  "reviewed_at": "2026-10-18",
+  "sources": [
+    {
+      "id": "S01",
+      "name": "CY／T 119-2015 学术出版规范 科学技术名词.pdf",
+      "path": "C:\\Users\\Adminitrator\\Desktop\\SJTU_Project\\学位论文规范标准\\学位论文规范标准\\CY／T 119-2015 学术出版规范 科学技术名词.pdf",
+      "pages": 8,
+      "text_chars": 2676,
+      "sha256": "5f853299d49bca4074343f9e9c7985f36440bf739aeb8f9e5484679f01c63868",
+      "visual_reviewed_pdf_pages": [],
+      "review_status": "extracted_text_reviewed",
+      "limitation": "Placeholder running headers in supplied copy; authoritative-copy check needed."
+    },
+    {
+      "id": "S02",
+      "name": "CY／T 121-2015 学术出版规范 注释.pdf",
+      "path": "C:\\Users\\Adminitrator\\Desktop\\SJTU_Project\\学位论文规范标准\\学位论文规范标准\\CY／T 121-2015 学术出版规范 注释.pdf",
+      "pages": 16,
+      "text_chars": 13510,
+      "sha256": "31310ebd637c97ada0192fd15cc7d4335d94c59b55a100c1926155f42b4f1fad",
+      "visual_reviewed_pdf_pages": [],
+      "review_status": "inventory_only"
+    },
+    {
+      "id": "S03",
+      "name": "CY／T 170-2019 学术出版规范 表格.pdf",
+      "path": "C:\\Users\\Adminitrator\\Desktop\\SJTU_Project\\学位论文规范标准\\学位论文规范标准\\CY／T 170-2019 学术出版规范 表格.pdf",
+      "pages": 14,
+      "text_chars": 0,
+      "sha256": "1d9450372f3d58f27b637b5816ce876307d14e86e1ab3f1a09851bc2f11484d9",
+      "visual_reviewed_pdf_pages": [
+        5,
+        6,
+        7
+      ],
+      "review_status": "selected_pages_visually_reviewed"
+    },
+    {
+      "id": "S04",
+      "name": "CY／T 171-2019 学术出版规范 插图.pdf",
+      "path": "C:\\Users\\Adminitrator\\Desktop\\SJTU_Project\\学位论文规范标准\\学位论文规范标准\\CY／T 171-2019 学术出版规范 插图.pdf",
+      "pages": 11,
+      "text_chars": 0,
+      "sha256": "c7e95d77fa776471e890ee825eb6e9e2676d075136164e77e0917838617c742a",
+      "visual_reviewed_pdf_pages": [
+        5,
+        6,
+        7
+      ],
+      "review_status": "selected_pages_visually_reviewed"
+    },
+    {
+      "id": "S05",
+      "name": "CY／T 173-2019 学术出版规范 关键词编写规范.pdf",
+      "path": "C:\\Users\\Adminitrator\\Desktop\\SJTU_Project\\学位论文规范标准\\学位论文规范标准\\CY／T 173-2019 学术出版规范 关键词编写规范.pdf",
+      "pages": 8,
+      "text_chars": 0,
+      "sha256": "b7467033e5cc9228f47895630ad58366b566ac100633e258d1d775c719df9d04",
+      "visual_reviewed_pdf_pages": [],
+      "review_status": "inventory_only"
+    },
+    {
+      "id": "S06",
+      "name": "GB 3100-1993 国际单位制及其应用.pdf",
+      "path": "C:\\Users\\Adminitrator\\Desktop\\SJTU_Project\\学位论文规范标准\\学位论文规范标准\\GB 3100-1993 国际单位制及其应用.pdf",
+      "pages": 35,
+      "text_chars": 676,
+      "sha256": "468b9637fdcfc4ecc09106349a5a5effcf4f619c9c738e4ab92821124fcbcb90",
+      "visual_reviewed_pdf_pages": [],
+      "review_status": "inventory_only"
+    },
+    {
+      "id": "S07",
+      "name": "GB3102-1993 空间和时间的量和单位.pdf",
+      "path": "C:\\Users\\Adminitrator\\Desktop\\SJTU_Project\\学位论文规范标准\\学位论文规范标准\\GB3102-1993 空间和时间的量和单位.pdf",
+      "pages": 13,
+      "text_chars": 12317,
+      "sha256": "f02eae216ecf2a5d384af4e4ac8112df5a2062e8cb70ca9eb78c0bb04a6af023",
+      "visual_reviewed_pdf_pages": [],
+      "review_status": "inventory_only"
+    },
+    {
+      "id": "S08",
+      "name": "GB／T 16159 汉语拼音正词法基本规则.pdf",
+      "path": "C:\\Users\\Adminitrator\\Desktop\\SJTU_Project\\学位论文规范标准\\学位论文规范标准\\GB／T 16159 汉语拼音正词法基本规则.pdf",
+      "pages": 15,
+      "text_chars": 14603,
+      "sha256": "bae01472777d39ef834eac19e69ee3676161626ac22813ab681760b605fa8cdf",
+      "visual_reviewed_pdf_pages": [],
+      "review_status": "inventory_only"
+    },
+    {
+      "id": "S09",
+      "name": "GB／T 3101-1993 有关量、单位和符号的一般原则.pdf",
+      "path": "C:\\Users\\Adminitrator\\Desktop\\SJTU_Project\\学位论文规范标准\\学位论文规范标准\\GB／T 3101-1993 有关量、单位和符号的一般原则.pdf",
+      "pages": 24,
+      "text_chars": 0,
+      "sha256": "bcb0e53014ed987aff5c142d7985c14c250511b662af2b900ef3bb04913ddd9f",
+      "visual_reviewed_pdf_pages": [
+        3,
+        4
+      ],
+      "review_status": "selected_pages_visually_reviewed"
+    },
+    {
+      "id": "S10",
+      "name": "GB／T 41210-2021 学位论文内容索引编制规则.pdf",
+      "path": "C:\\Users\\Adminitrator\\Desktop\\SJTU_Project\\学位论文规范标准\\学位论文规范标准\\GB／T 41210-2021 学位论文内容索引编制规则.pdf",
+      "pages": 13,
+      "text_chars": 11065,
+      "sha256": "663ae8e7a626562c0ed8739b697682b940954a60d50c3c5631a7ce079519c5a0",
+      "visual_reviewed_pdf_pages": [],
+      "review_status": "inventory_only"
+    },
+    {
+      "id": "S11",
+      "name": "GB／T 6447-2025 文献摘要编写规则.pdf",
+      "path": "C:\\Users\\Adminitrator\\Desktop\\SJTU_Project\\学位论文规范标准\\学位论文规范标准\\GB／T 6447-2025 文献摘要编写规则.pdf",
+      "pages": 11,
+      "text_chars": 7136,
+      "sha256": "0f34cc234ac1b889c98962bf79b88a2ab2b6d68e9ad25aa2dce47af43337e803",
+      "visual_reviewed_pdf_pages": [],
+      "review_status": "extracted_text_reviewed"
+    },
+    {
+      "id": "S12",
+      "name": "GB／T 7408.1-2023 日期和时间 信息交换表示法 第1部分：基本原则.pdf",
+      "path": "C:\\Users\\Adminitrator\\Desktop\\SJTU_Project\\学位论文规范标准\\学位论文规范标准\\GB／T 7408.1-2023 日期和时间 信息交换表示法 第1部分：基本原则.pdf",
+      "pages": 3,
+      "text_chars": 1537,
+      "sha256": "eda78b2f288a551ee30e50295c95d955fcb9675389fbff558e11f94e245d869b",
+      "visual_reviewed_pdf_pages": [],
+      "review_status": "extracted_text_reviewed",
+      "limitation": "Only cover, blank page and contents; normative body missing."
+    },
+    {
+      "id": "S13",
+      "name": "《信息与文献参考文献著录规则》（GBT7714—2025）.pdf",
+      "path": "C:\\Users\\Adminitrator\\Desktop\\SJTU_Project\\学位论文规范标准\\学位论文规范标准\\《信息与文献参考文献著录规则》（GBT7714—2025）.pdf",
+      "pages": 45,
+      "text_chars": 0,
+      "sha256": "24aeb9dcd3af0e2800995ec2c5c058c4cf05dd8b8e36097c0eecf6af367f5146",
+      "visual_reviewed_pdf_pages": [
+        9,
+        14,
+        29,
+        30,
+        31
+      ],
+      "review_status": "selected_pages_visually_reviewed"
+    },
+    {
+      "id": "S14",
+      "name": "《出版物上数字用法》（GBT 15835-2011）.pdf",
+      "path": "C:\\Users\\Adminitrator\\Desktop\\SJTU_Project\\学位论文规范标准\\学位论文规范标准\\《出版物上数字用法》（GBT 15835-2011）.pdf",
+      "pages": 10,
+      "text_chars": 0,
+      "sha256": "6b007605b50ad0a43060cf72e889e9b523323a8fe18c7a517c2fcf104714168a",
+      "visual_reviewed_pdf_pages": [],
+      "review_status": "inventory_only"
+    },
+    {
+      "id": "S15",
+      "name": "《学位论文编写规则》（GBT 7713-1-2025）.pdf",
+      "path": "C:\\Users\\Adminitrator\\Desktop\\SJTU_Project\\学位论文规范标准\\学位论文规范标准\\《学位论文编写规则》（GBT 7713-1-2025）.pdf",
+      "pages": 24,
+      "text_chars": 0,
+      "sha256": "f99566978fc5d35a1b80790d2fa3aef9570e676073fcc149f1228f43b75d116e",
+      "visual_reviewed_pdf_pages": [
+        7,
+        9,
+        10,
+        11,
+        12,
+        13,
+        15
+      ],
+      "review_status": "selected_pages_visually_reviewed"
+    },
+    {
+      "id": "S16",
+      "name": "《标点符号用法》（GBT 15834-2011）.pdf",
+      "path": "C:\\Users\\Adminitrator\\Desktop\\SJTU_Project\\学位论文规范标准\\学位论文规范标准\\《标点符号用法》（GBT 15834-2011）.pdf",
+      "pages": 25,
+      "text_chars": 0,
+      "sha256": "62902da31f6f131dc898a5db690b633fe68d52b8312bbfce456282e3f1cc68d7",
+      "visual_reviewed_pdf_pages": [],
+      "review_status": "inventory_only"
+    },
+    {
+      "id": "S17",
+      "name": "文献章节编号方法CY_T 35—2001.pdf",
+      "path": "C:\\Users\\Adminitrator\\Desktop\\SJTU_Project\\学位论文规范标准\\学位论文规范标准\\文献章节编号方法CY_T 35—2001.pdf",
+      "pages": 5,
+      "text_chars": 0,
+      "sha256": "4e695869783691f5526ef07315ae15b4a57dc996a95e0d6f14a9fe904fc32b5a",
+      "visual_reviewed_pdf_pages": [],
+      "review_status": "inventory_only"
+    }
+  ]
+}

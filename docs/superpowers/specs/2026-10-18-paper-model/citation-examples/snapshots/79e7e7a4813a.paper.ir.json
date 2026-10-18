@@ -1,0 +1,389 @@
+{
+  "schema_version": "paper-ir-design/0.2",
+  "model_version": "paper-model-design/0.2",
+  "document_id": "fixture-citations-001",
+  "revision": "rev-79e7e7a4813a",
+  "source_artifacts": [
+    {
+      "id": "s1",
+      "kind": "synthetic_text_fixture",
+      "path": "source-paper.txt",
+      "sha256": "60617ed924a3b41e904cd618530cee8ee32f53088a0f98b52f72b85a882631e9"
+    }
+  ],
+  "root_id": "p0",
+  "nodes": [
+    {
+      "id": "p0",
+      "kind": "Paper",
+      "text": null,
+      "children": [
+        "f0",
+        "b0",
+        "z0"
+      ],
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "s1",
+          "char_start": 0,
+          "char_end": 233
+        }
+      ]
+    },
+    {
+      "id": "f0",
+      "kind": "FrontMatter",
+      "text": null,
+      "children": [
+        "t0",
+        "a0"
+      ],
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "s1",
+          "char_start": 0,
+          "char_end": 233
+        }
+      ]
+    },
+    {
+      "id": "t0",
+      "kind": "Title",
+      "text": "统计重采样在医学测量分析中的应用",
+      "children": [],
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "s1",
+          "char_start": 0,
+          "char_end": 16
+        }
+      ]
+    },
+    {
+      "id": "a0",
+      "kind": "Abstract",
+      "text": null,
+      "children": [
+        "a1"
+      ],
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "s1",
+          "char_start": 0,
+          "char_end": 233
+        }
+      ]
+    },
+    {
+      "id": "a1",
+      "kind": "Paragraph",
+      "text": "本文研究医学测量均值的不确定性，采用重复抽样估计置信区间。本文仅为可控教学样例。",
+      "children": [],
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "s1",
+          "char_start": 20,
+          "char_end": 60
+        }
+      ]
+    },
+    {
+      "id": "b0",
+      "kind": "Body",
+      "text": null,
+      "children": [
+        "s0",
+        "s2",
+        "s3"
+      ],
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "s1",
+          "char_start": 0,
+          "char_end": 233
+        }
+      ]
+    },
+    {
+      "id": "s0",
+      "kind": "Section",
+      "text": null,
+      "children": [
+        "h0",
+        "p1"
+      ],
+      "attrs": {
+        "number": "1"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "s1",
+          "char_start": 0,
+          "char_end": 233
+        }
+      ]
+    },
+    {
+      "id": "h0",
+      "kind": "Heading",
+      "text": "1 研究方法",
+      "children": [],
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "s1",
+          "char_start": 61,
+          "char_end": 67
+        }
+      ]
+    },
+    {
+      "id": "p1",
+      "kind": "Paragraph",
+      "text": "我们使用文献[1]介绍的重复重采样方法，估计医学测量均值的置信区间。",
+      "children": [
+        "g0"
+      ],
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "s1",
+          "char_start": 68,
+          "char_end": 102
+        }
+      ]
+    },
+    {
+      "id": "g0",
+      "kind": "CitationGroup",
+      "text": "[1]",
+      "children": [
+        "u0"
+      ],
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "s1",
+          "char_start": 74,
+          "char_end": 77
+        }
+      ]
+    },
+    {
+      "id": "u0",
+      "kind": "ReferenceUse",
+      "text": "[1]",
+      "children": [],
+      "attrs": {
+        "namespace": "bibliography",
+        "expected_kind": "BibliographyEntry",
+        "scope_id": "bb",
+        "selector": {
+          "kind": "numeric",
+          "value": "1"
+        }
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "s1",
+          "char_start": 74,
+          "char_end": 77
+        }
+      ]
+    },
+    {
+      "id": "s2",
+      "kind": "Section",
+      "text": null,
+      "children": [
+        "h2",
+        "p2"
+      ],
+      "attrs": {
+        "number": "2"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "s1",
+          "char_start": 0,
+          "char_end": 233
+        }
+      ]
+    },
+    {
+      "id": "h2",
+      "kind": "Heading",
+      "text": "2 结果",
+      "children": [],
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "s1",
+          "char_start": 103,
+          "char_end": 107
+        }
+      ]
+    },
+    {
+      "id": "p2",
+      "kind": "Paragraph",
+      "text": "在合成测量样本上执行重复抽样，报告区间端点，不声称真实临床效果。",
+      "children": [],
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "s1",
+          "char_start": 108,
+          "char_end": 140
+        }
+      ]
+    },
+    {
+      "id": "s3",
+      "kind": "Section",
+      "text": null,
+      "children": [
+        "h3",
+        "p3"
+      ],
+      "attrs": {
+        "number": "3"
+      },
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "s1",
+          "char_start": 0,
+          "char_end": 233
+        }
+      ]
+    },
+    {
+      "id": "h3",
+      "kind": "Heading",
+      "text": "3 结论",
+      "children": [],
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "s1",
+          "char_start": 141,
+          "char_end": 145
+        }
+      ]
+    },
+    {
+      "id": "p3",
+      "kind": "Paragraph",
+      "text": "重复抽样过程用于刻画样本均值的不确定性，研究范围限定为本合成数据。",
+      "children": [],
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "s1",
+          "char_start": 146,
+          "char_end": 179
+        }
+      ]
+    },
+    {
+      "id": "z0",
+      "kind": "BackMatter",
+      "text": null,
+      "children": [
+        "bb"
+      ],
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "s1",
+          "char_start": 0,
+          "char_end": 233
+        }
+      ]
+    },
+    {
+      "id": "bb",
+      "kind": "Bibliography",
+      "text": null,
+      "children": [
+        "r0"
+      ],
+      "attrs": {},
+      "provenance": [
+        {
+          "kind": "source",
+          "source_id": "s1",
+          "char_start": 0,
+          "char_end": 233
+        }
+      ]
+    },
+    {
+      "id": "r0",
+      "kind": "BibliographyEntry",
+      "text": "[1] 示例乙. 古典诗歌的意象分类[J]. 合成人文学报, 2024, 1(1): 9-16.",
+      "children": [],
+      "attrs": {
+        "entry_key": "1",
+        "scope_id": "bb"
+      },
+      "provenance": [
+        {
+          "kind": "synthetic",
+          "operation_id": "op-79e7e7a4813a",
+          "ancestor_spans": [
+            {
+              "kind": "source",
+              "source_id": "s1",
+              "char_start": 185,
+              "char_end": 232
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "profile": {
+    "id": "archive479-citations-v1",
+    "citation_style": "auto",
+    "document_stage": "formal_archive"
+  },
+  "coverage": [
+    {
+      "capability": "citation_surface",
+      "scope_id": "b0",
+      "status": "complete",
+      "basis": "fixture_construction"
+    },
+    {
+      "capability": "bibliography_surface",
+      "scope_id": "bb",
+      "status": "complete",
+      "basis": "fixture_construction"
+    }
+  ]
+}

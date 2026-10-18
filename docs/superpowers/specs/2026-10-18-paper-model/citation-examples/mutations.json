@@ -1,0 +1,123 @@
+{
+  "kind": "evaluation_only_do_not_pass_to_detector",
+  "mutations": [
+    {
+      "case_id": "malformed-marker",
+      "operation_id": "op-f724fdc13faa",
+      "parent_ir_sha256": "f9c2f79bd3911ae6ef5533bc6b0d297871db6664f505fbe74d9007380a6206ee",
+      "child_ir_sha256": "1b41c0f9b931948ccc8c336b4fed135d45883ce16e51c24d1e5efbfe6765b229",
+      "child_path": "snapshots/f724fdc13faa.paper.ir.json",
+      "edits": [
+        {
+          "node_id": "p1",
+          "text": "我们使用文献[1介绍的重复重采样方法，估计医学测量均值的置信区间。"
+        },
+        {
+          "node_id": "g0",
+          "text": "[1"
+        },
+        {
+          "node_id": "u0",
+          "text": "[1"
+        }
+      ],
+      "precondition": "fixture baseline has a valid target under listed subchecks",
+      "invalidate": [
+        "field_extraction",
+        "bindings",
+        "identity_resolution",
+        "citation_intent",
+        "relevance",
+        "diagnostics"
+      ]
+    },
+    {
+      "case_id": "missing-title",
+      "operation_id": "op-9b42a7602b15",
+      "parent_ir_sha256": "f9c2f79bd3911ae6ef5533bc6b0d297871db6664f505fbe74d9007380a6206ee",
+      "child_ir_sha256": "8f1666c44919a339ded9cd7ae179e2ae358534ca075ad24738588038824f0ba3",
+      "child_path": "snapshots/9b42a7602b15.paper.ir.json",
+      "edits": [
+        {
+          "node_id": "r0",
+          "text": "[1] 示例甲. [J]. 合成统计学报, 2024, 1(1): 1-8."
+        }
+      ],
+      "precondition": "fixture baseline has a valid target under listed subchecks",
+      "invalidate": [
+        "field_extraction",
+        "bindings",
+        "identity_resolution",
+        "citation_intent",
+        "relevance",
+        "diagnostics"
+      ]
+    },
+    {
+      "case_id": "absent-in-closed-fixture",
+      "operation_id": "op-95f1a26b845a",
+      "parent_ir_sha256": "f9c2f79bd3911ae6ef5533bc6b0d297871db6664f505fbe74d9007380a6206ee",
+      "child_ir_sha256": "8a605cce199b5252dc12c33078f495d7502943211614bcb23ce926d9bb4039f6",
+      "child_path": "snapshots/95f1a26b845a.paper.ir.json",
+      "edits": [
+        {
+          "node_id": "r0",
+          "text": "[1] 示例丙. 不在本测试目录中的作品[J]. 合成测试学报, 2024, 1(1): 17-24."
+        }
+      ],
+      "precondition": "fixture baseline has a valid target under listed subchecks",
+      "invalidate": [
+        "field_extraction",
+        "bindings",
+        "identity_resolution",
+        "citation_intent",
+        "relevance",
+        "diagnostics"
+      ]
+    },
+    {
+      "case_id": "irrelevant-existing-work",
+      "operation_id": "op-79e7e7a4813a",
+      "parent_ir_sha256": "f9c2f79bd3911ae6ef5533bc6b0d297871db6664f505fbe74d9007380a6206ee",
+      "child_ir_sha256": "d8d8c4127f98d5f6c7459fced92f0b862c9da7a9155cbff7e42e58f71e42963c",
+      "child_path": "snapshots/79e7e7a4813a.paper.ir.json",
+      "edits": [
+        {
+          "node_id": "r0",
+          "text": "[1] 示例乙. 古典诗歌的意象分类[J]. 合成人文学报, 2024, 1(1): 9-16."
+        }
+      ],
+      "precondition": "fixture baseline has a valid target under listed subchecks",
+      "invalidate": [
+        "field_extraction",
+        "bindings",
+        "identity_resolution",
+        "citation_intent",
+        "relevance",
+        "diagnostics"
+      ]
+    },
+    {
+      "case_id": "equivalent-paraphrase",
+      "operation_id": "op-ae9cb22e4776",
+      "parent_ir_sha256": "f9c2f79bd3911ae6ef5533bc6b0d297871db6664f505fbe74d9007380a6206ee",
+      "child_ir_sha256": "cad69d60d51f8df4b57158e2639c9dec9a2438dcd6e1f91473c2666829abaa2e",
+      "child_path": "snapshots/ae9cb22e4776.paper.ir.json",
+      "edits": [
+        {
+          "node_id": "p1",
+          "text": "依照文献[1]所述的重复抽样过程，我们构造医学测量均值的区间。"
+        }
+      ],
+      "precondition": "fixture baseline has a valid target under listed subchecks",
+      "invalidate": [
+        "field_extraction",
+        "bindings",
+        "identity_resolution",
+        "citation_intent",
+        "relevance",
+        "diagnostics"
+      ]
+    }
+  ]
+}

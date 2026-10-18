@@ -1,0 +1,79 @@
+{
+  "kind": "illustrative_compiler_output_not_executed",
+  "plans": [
+    {
+      "rule_id": 31,
+      "inputs": [
+        "current_paper_ir",
+        "matching_analysis"
+      ],
+      "requires": [
+        "citation_style",
+        "bibliography_fields",
+        "format_constraints"
+      ],
+      "program": {
+        "op": "forall",
+        "select": [
+          "CitationGroup",
+          "BibliographyEntry"
+        ],
+        "body": {
+          "op": "validate_citation_format",
+          "evidence_policy": "precision_first",
+          "on_missing": "request_enrichment_then_UNKNOWN"
+        }
+      },
+      "diagnostic_anchor": "source node and relevant external evidence"
+    },
+    {
+      "rule_id": 32,
+      "inputs": [
+        "current_paper_ir",
+        "matching_analysis"
+      ],
+      "requires": [
+        "identity_resolution",
+        "external_evidence"
+      ],
+      "program": {
+        "op": "forall",
+        "select": [
+          "BibliographyEntry"
+        ],
+        "body": {
+          "op": "verify_external_identity",
+          "evidence_policy": "precision_first",
+          "on_missing": "request_enrichment_then_UNKNOWN"
+        }
+      },
+      "diagnostic_anchor": "source node and relevant external evidence"
+    },
+    {
+      "rule_id": 33,
+      "inputs": [
+        "current_paper_ir",
+        "matching_analysis"
+      ],
+      "requires": [
+        "citation_context",
+        "citation_intent",
+        "identity_resolution",
+        "external_content",
+        "semantic_relevance"
+      ],
+      "program": {
+        "op": "forall",
+        "select": [
+          "ReferenceUse(namespace=bibliography)"
+        ],
+        "body": {
+          "op": "judge_citation_relevance",
+          "evidence_policy": "precision_first",
+          "on_missing": "request_enrichment_then_UNKNOWN"
+        }
+      },
+      "diagnostic_anchor": "source node and relevant external evidence"
+    }
+  ]
+}

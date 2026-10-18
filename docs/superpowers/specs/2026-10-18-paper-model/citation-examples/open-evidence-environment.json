@@ -1,0 +1,33 @@
+{
+  "kind": "synthetic_evidence_environment",
+  "scope": "fixture-registry",
+  "coverage": "open_collection",
+  "retrieved_at": "2026-10-18",
+  "production_use_allowed": false,
+  "records": [
+    {
+      "id": "w01",
+      "title": "重采样置信区间方法",
+      "authors": [
+        "示例甲"
+      ],
+      "year": 2024,
+      "container": "合成统计学报",
+      "abstract": "研究如何通过对观测样本重复抽样估计均值的不确定性，给出重采样均值分布与区间端点构造步骤。",
+      "full_text": "输入是一组数值观测。多次有放回抽样，每次计算均值。将重采样均值排序，从分布的指定分位数取得区间端点。该方法描述均值估计的不确定性。",
+      "source": "fixture://registry/w01"
+    },
+    {
+      "id": "w02",
+      "title": "古典诗歌的意象分类",
+      "authors": [
+        "示例乙"
+      ],
+      "year": 2024,
+      "container": "合成人文学报",
+      "abstract": "研究古典诗歌中山水与季节意象的分类，给出修辞类别、例句及人工整理的意象目录。",
+      "full_text": "输入是古典诗歌文本。将山、水、月、春等意象归为自然与时间类别，结合具体诗句讨论修辞作用。全文给出四类意象及对应诗句目录。",
+      "source": "fixture://registry/w02"
+    }
+  ]
+}

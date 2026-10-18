@@ -1,0 +1,183 @@
+{
+  "evaluation_only": true,
+  "detector_must_not_read_this_file": true,
+  "description": "Human-derived fixture expectations, never measured detector outputs. Only listed target rules are asserted.",
+  "cases": [
+    {
+      "case_id": "base",
+      "ir_path": "paper.ir.json",
+      "result_kind": "human_derived_expected_results_not_detector_output",
+      "expected": [
+        {
+          "rule": "R03",
+          "status": "PASS"
+        },
+        {
+          "rule": "R10",
+          "status": "PASS"
+        },
+        {
+          "rule": "R11",
+          "status": "PASS"
+        },
+        {
+          "rule": "R13",
+          "status": "PASS"
+        },
+        {
+          "rule": "R14",
+          "status": "PASS"
+        },
+        {
+          "rule": "R18",
+          "status": "PASS"
+        },
+        {
+          "rule": "R22",
+          "status": "PASS"
+        },
+        {
+          "rule": "R24",
+          "status": "PASS"
+        },
+        {
+          "rule": "R29",
+          "status": "PASS"
+        },
+        {
+          "rule": "R32",
+          "status": "UNKNOWN",
+          "reason": "Synthetic bibliography has no real external existence evidence."
+        }
+      ]
+    },
+    {
+      "case_id": "M11-delete-figure",
+      "ir_path": "variants/M11-delete-figure.paper.ir.json",
+      "result_kind": "human_derived_expected_results_not_detector_output",
+      "expected": [
+        {
+          "rule": "R11",
+          "status": "VIOLATION",
+          "anchor": "use-figure",
+          "reason": "Figure selector 1 has no declaration in complete authored scope."
+        }
+      ],
+      "allowed_secondary_rule_ids": []
+    },
+    {
+      "case_id": "M13-delete-caption",
+      "ir_path": "variants/M13-delete-caption.paper.ir.json",
+      "result_kind": "human_derived_expected_results_not_detector_output",
+      "expected": [
+        {
+          "rule": "R13",
+          "status": "VIOLATION",
+          "anchor": "figure-1",
+          "reason": "Project profile requires caption; figure remains but caption is absent."
+        },
+        {
+          "rule": "R11",
+          "status": "PASS",
+          "anchor": "use-figure",
+          "reason": "Figure entity remains resolvable without its caption."
+        }
+      ],
+      "allowed_secondary_rule_ids": []
+    },
+    {
+      "case_id": "M22-delete-entry",
+      "ir_path": "variants/M22-delete-entry.paper.ir.json",
+      "result_kind": "human_derived_expected_results_not_detector_output",
+      "expected": [
+        {
+          "rule": "R22",
+          "status": "VIOLATION",
+          "anchor": "cite-2",
+          "reason": "Local bibliography entry 2 is absent."
+        }
+      ],
+      "allowed_secondary_rule_ids": []
+    },
+    {
+      "case_id": "M03-change-result",
+      "ir_path": "variants/M03-change-result.paper.ir.json",
+      "result_kind": "human_derived_expected_results_not_detector_output",
+      "expected": [
+        {
+          "rule": "R03",
+          "status": "VIOLATION",
+          "anchor": "p-result",
+          "reason": "Same experiment still has 90/100 and 90% in its table; prose now states 95%."
+        }
+      ],
+      "allowed_secondary_rule_ids": [
+        "R04"
+      ]
+    },
+    {
+      "case_id": "M10-change-abstract",
+      "ir_path": "variants/M10-change-abstract.paper.ir.json",
+      "result_kind": "human_derived_expected_results_not_detector_output",
+      "expected": [
+        {
+          "rule": "R10",
+          "status": "VIOLATION",
+          "anchor": "p-abstract",
+          "reason": "The claimed 95% result has no supporting result in this complete authored fixture."
+        }
+      ],
+      "allowed_secondary_rule_ids": [
+        "R03"
+      ]
+    },
+    {
+      "case_id": "M29-delete-appendix",
+      "ir_path": "variants/M29-delete-appendix.paper.ir.json",
+      "result_kind": "human_derived_expected_results_not_detector_output",
+      "expected": [
+        {
+          "rule": "R29",
+          "status": "VIOLATION",
+          "anchor": "use-appendix",
+          "reason": "The explicitly referenced local appendix A is absent."
+        }
+      ],
+      "allowed_secondary_rule_ids": []
+    },
+    {
+      "case_id": "E01-renumber-figure",
+      "ir_path": "variants/E01-renumber-figure.paper.ir.json",
+      "result_kind": "human_derived_expected_results_not_detector_output",
+      "expected": [
+        {
+          "rule": "R11",
+          "status": "PASS",
+          "anchor": "use-figure",
+          "reason": "Declaration and use are renamed together; entity ID remains figure-1."
+        },
+        {
+          "rule": "R13",
+          "status": "PASS",
+          "anchor": "figure-1",
+          "reason": "Caption remains present."
+        }
+      ],
+      "allowed_secondary_rule_ids": []
+    },
+    {
+      "case_id": "U01-incomplete-figures",
+      "ir_path": "variants/U01-incomplete-figures.paper.ir.json",
+      "result_kind": "human_derived_expected_results_not_detector_output",
+      "expected": [
+        {
+          "rule": "R11",
+          "status": "UNKNOWN",
+          "anchor": "use-figure",
+          "reason": "No target found, but figure inventory is incomplete; absence is not established."
+        }
+      ],
+      "allowed_secondary_rule_ids": []
+    }
+  ]
+}

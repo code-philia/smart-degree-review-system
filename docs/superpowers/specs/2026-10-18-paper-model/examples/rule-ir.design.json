@@ -1,0 +1,169 @@
+{
+  "status": "hand_authored_lowering_example_not_actual_compilation",
+  "plans": [
+    {
+      "rule_id": "R11",
+      "input_schema": "paper-ir/0.1-design",
+      "operations": [
+        {
+          "op": "select",
+          "type": "ReferenceUse",
+          "where": {
+            "expected_kind": "Figure",
+            "use_role": "body"
+          },
+          "out": "uses"
+        },
+        {
+          "op": "resolve",
+          "input": "uses",
+          "namespace": "figure",
+          "out": "bindings"
+        },
+        {
+          "op": "classify_target_existence",
+          "input": "bindings",
+          "missing_coverage_gate": "figure_inventory",
+          "resolved": "PASS",
+          "missing_and_complete": "VIOLATION",
+          "unknown": "UNKNOWN",
+          "ambiguous": "UNKNOWN"
+        },
+        {
+          "op": "emit_diagnostics",
+          "anchor": "use.provenance",
+          "include": [
+            "rule_id",
+            "status",
+            "candidates",
+            "coverage",
+            "evidence"
+          ]
+        }
+      ]
+    },
+    {
+      "rule_id": "R18",
+      "input_schema": "paper-ir/0.1-design",
+      "operations": [
+        {
+          "op": "select",
+          "type": "ReferenceUse",
+          "where": {
+            "expected_kind": "Equation",
+            "use_role": "body"
+          },
+          "out": "uses"
+        },
+        {
+          "op": "resolve",
+          "input": "uses",
+          "namespace": "equation",
+          "out": "bindings"
+        },
+        {
+          "op": "classify_target_existence",
+          "input": "bindings",
+          "missing_coverage_gate": "equation_inventory",
+          "resolved": "PASS",
+          "missing_and_complete": "VIOLATION",
+          "unknown": "UNKNOWN",
+          "ambiguous": "UNKNOWN"
+        },
+        {
+          "op": "emit_diagnostics",
+          "anchor": "use.provenance",
+          "include": [
+            "rule_id",
+            "status",
+            "candidates",
+            "coverage",
+            "evidence"
+          ]
+        }
+      ]
+    },
+    {
+      "rule_id": "R22",
+      "input_schema": "paper-ir/0.1-design",
+      "operations": [
+        {
+          "op": "select",
+          "type": "ReferenceUse",
+          "where": {
+            "expected_kind": "BibliographyEntry",
+            "use_role": "body"
+          },
+          "out": "uses"
+        },
+        {
+          "op": "resolve",
+          "input": "uses",
+          "namespace": "bibliography",
+          "out": "bindings"
+        },
+        {
+          "op": "classify_target_existence",
+          "input": "bindings",
+          "missing_coverage_gate": "bibliography_inventory",
+          "resolved": "PASS",
+          "missing_and_complete": "VIOLATION",
+          "unknown": "UNKNOWN",
+          "ambiguous": "UNKNOWN"
+        },
+        {
+          "op": "emit_diagnostics",
+          "anchor": "use.provenance",
+          "include": [
+            "rule_id",
+            "status",
+            "candidates",
+            "coverage",
+            "evidence"
+          ]
+        }
+      ]
+    },
+    {
+      "rule_id": "R29",
+      "input_schema": "paper-ir/0.1-design",
+      "operations": [
+        {
+          "op": "select",
+          "type": "ReferenceUse",
+          "where": {
+            "expected_kind": "Appendix",
+            "use_role": "body"
+          },
+          "out": "uses"
+        },
+        {
+          "op": "resolve",
+          "input": "uses",
+          "namespace": "appendix",
+          "out": "bindings"
+        },
+        {
+          "op": "classify_target_existence",
+          "input": "bindings",
+          "missing_coverage_gate": "appendix_inventory",
+          "resolved": "PASS",
+          "missing_and_complete": "VIOLATION",
+          "unknown": "UNKNOWN",
+          "ambiguous": "UNKNOWN"
+        },
+        {
+          "op": "emit_diagnostics",
+          "anchor": "use.provenance",
+          "include": [
+            "rule_id",
+            "status",
+            "candidates",
+            "coverage",
+            "evidence"
+          ]
+        }
+      ]
+    }
+  ]
+}
