@@ -1,6 +1,7 @@
 import { Check, CheckCircle2, MapPin } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { PaperLintRule } from '../../api/paperLint';
+import { EvidenceLinks } from './CompilerEvidence';
 import { Button, StatusBadge } from '../ui';
 import { comparePaperLintRuleIds, findingPageLabel, type PaperLintFindingItem } from './model';
 
@@ -76,7 +77,7 @@ export function FindingsPane({
           <div className="flex h-full min-h-60 flex-col items-center justify-center text-center">
             <CheckCircle2 className="size-8 text-success-600" />
             <p className="mt-3 text-sm font-bold text-slate-900">当前筛选下没有问题</p>
-            <p className="mt-1 text-xs text-slate-500">规则未发现问题，或该规则不适用于此 PDF。</p>
+            <p className="mt-1 text-xs text-slate-500">请结合各规则执行状态查看；证据不足的内容仍可能无法判定。</p>
           </div>
         ) : (
           filtered.map((item) => {
@@ -153,6 +154,8 @@ export function FindingsPane({
                     跳到 PDF 第 {page} 页
                   </Button>
                 ) : null}
+                {active && item.finding.source_kind === 'synthetic' ? <p className="mt-2 text-xs text-slate-600">该处来自变异内容，未标记为原始 PDF 中的文本。</p> : null}
+                {active && item.finding.evidence?.length ? <EvidenceLinks items={item.finding.evidence} /> : null}
                 {active && item.finding.suggestion ? (
                   <div className="mt-3 rounded-lg bg-white p-3 text-xs leading-5 text-slate-600">
                     <strong className="text-slate-800">修改建议：</strong>

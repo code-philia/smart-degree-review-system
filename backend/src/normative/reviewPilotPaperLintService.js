@@ -6,6 +6,8 @@ const { LOCAL_RULES, isLocalRuleId, runLocalFiveRules, summarizeRuleRuns } = req
 
 const { getSixRules, isSixRuleId, runSixRules, SIX_RULE_TIMEOUT_MS } = require('./sixRulePaperLintService');
 
+const { getCompilerRules, isCompilerRuleId, runCompilerRules } = require('./paperCompilerService');
+
 const MAX_PDF_BYTES = 50 * 1024 * 1024;
 const MAX_ENGINE_OUTPUT_BYTES = 30 * 1024 * 1024;
 const ENGINE_TIMEOUT_MS = 5 * 60 * 1000;
@@ -191,13 +193,13 @@ async function getPaperLintCatalog({ refresh = false } = {}) {
     catalogPromise = (async () => {
       try {
         const existing = await runBridge(['--catalog'], 30 * 1000);
-        return { ...existing, rules: [...LOCAL_RULES, ...getSixRules(), ...existing.rules] };
+        return { ...existing, rules: [...LOCAL_RULES, ...getSixRules(), ...getCompilerRules(), ...existing.rules] };
       } catch {
         // A temporary bridge failure must not hide the existing rule catalog indefinitely.
         catalogExpiresAt = 0;
         return {
           engine: 'sjtu-local', mode: 'pdf_lint', semantic_model: 'deepseek-v4-flash',
-          rules: [...LOCAL_RULES, ...getSixRules()],
+          rules: [...LOCAL_RULES, ...getSixRules(), ...getCompilerRules()],
           warning: '原有规则引擎暂不可用',
         };
       }
@@ -270,7 +272,7 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
   // The deadline covers catalog loading, queueing, and both engines so a timed-out
   // browser request cannot later persist a seemingly successful report.
   const includesSixRules = Array.isArray(selectedRuleIds) &&
-    selectedRuleIds.some(ruleId => isSixRuleId(String(ruleId).trim()));
+    selectedRuleIds.some(ruleId => (isSixRuleId(String(ruleId).trim()) || isCompilerRuleId(String(ruleId).trim())));
   const maximumTimeout = background || includesSixRules ? SIX_RULE_TIMEOUT_MS : ENGINE_TIMEOUT_MS;
   const requestedTimeout = Number(process.env.PAPER_LINT_RUN_TIMEOUT_MS);
   const timeoutMs = Number.isFinite(requestedTimeout) && requestedTimeout > 0
@@ -282,7 +284,8 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
     if (controller.signal.aborted) throw createHttpError(504, RUN_TIMEOUT_MESSAGE);
     const localIds = normalizedRuleIds.filter(isLocalRuleId);
     const sixIds = normalizedRuleIds.filter(isSixRuleId);
-    const existingIds = normalizedRuleIds.filter((ruleId) => !isLocalRuleId(ruleId) && !isSixRuleId(ruleId));
+    const compilerIds = normalizedRuleIds.filter(isCompilerRuleId);
+    const existingIds = normalizedRuleIds.filter((ruleId) => !isLocalRuleId(ruleId) && !isSixRuleId(ruleId) && !isCompilerRuleId(ruleId));
 
     return await withRunSlot(async () => {
       const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'smart-degree-paper-lint-'));
@@ -294,11 +297,13 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
           ? await runLocalFiveRules(pdfPath, localIds, { signal: controller.signal }) : null;
         const sixResult = sixIds.length
           ? await runSixRules(pdfPath, sixIds, { signal: controller.signal }) : null;
+        const compilerResult = compilerIds.length
+          ? await runCompilerRules(pdfPath, compilerIds, { signal: controller.signal }) : null;
         const existingResult = existingIds.length ? await runBridge([
           '--pdf', pdfPath, ...existingIds.flatMap((ruleId) => ['--rule', ruleId]),
         ], ENGINE_TIMEOUT_MS, controller.signal) : null;
         if (controller.signal.aborted) throw createHttpError(504, RUN_TIMEOUT_MESSAGE);
-        const parts = [existingResult, localResult, sixResult].filter(Boolean);
+        const parts = [existingResult, localResult, sixResult, compilerResult].filter(Boolean);
         const result = parts.length > 1
           ? mergePaperLintResults(parts[0], { rule_runs: parts.slice(1).flatMap((part) => part.rule_runs) }, normalizedRuleIds)
           : parts[0];

@@ -198,3 +198,20 @@ describe('archive scan jobs', () => {
     expect((await service.getJob(job.id)).total_count).toBe(2);
   });
 });
+
+it('requires explicit external processing consent before creating a compiler archive job', async()=>{
+  const oldEnabled=process.env.PAPER_COMPILER_ENABLED,oldRoot=process.env.PAPER_COMPILER_PACKAGE_ROOT;
+  const packages=path.join(archive,'packages');fs.mkdirSync(path.join(packages,'31'),{recursive:true});fs.writeFileSync(path.join(packages,'31/manifest.json'),'{}');
+  process.env.PAPER_COMPILER_ENABLED='1';process.env.PAPER_COMPILER_PACKAGE_ROOT=packages;
+  let calls=0;
+  try {
+    const service=createArchiveScanService({archiveRoot:archive,detector:async(_file,ids)=>{calls++;return result(ids);}});
+    await expect(service.startJob({userId:'admin',ruleIds:['sjtu_rule_31']})).rejects.toMatchObject({status:400});
+    expect(calls).toBe(0);
+    const job=await service.startJob({userId:'admin',ruleIds:['sjtu_rule_31'],externalProcessingConsent:true});
+    await service.waitForIdle();expect((await service.getJob(job.id)).completed_count).toBe(2);
+  } finally {
+    if(oldEnabled===undefined)delete process.env.PAPER_COMPILER_ENABLED;else process.env.PAPER_COMPILER_ENABLED=oldEnabled;
+    if(oldRoot===undefined)delete process.env.PAPER_COMPILER_PACKAGE_ROOT;else process.env.PAPER_COMPILER_PACKAGE_ROOT=oldRoot;
+  }
+});

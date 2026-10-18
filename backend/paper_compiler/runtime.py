@@ -47,6 +47,9 @@ def check(ir,analysis,rule_packages):
                         if typ not in types or not isinstance(value,types[typ]) or (typ=='number' and isinstance(value,bool)):
                             raise ValueError('analysis field type mismatch: '+cap_name+'.'+name)
         results=run_generated(package['code'],ir,analysis);counts=Counter(r['status'] for r in results)
+        for row in results:
+            assessment=analysis['results'].get('citation_relevance',{}).get(row.get('node_id'),{}).get('related')
+            if assessment and 'citation_relevance' in rule['requires']:row['assessment']=assessment
         scopes={ {'BibliographyEntry':'bibliography','CitationGroup':'reference_uses','ReferenceUse':'reference_uses'}.get(c['target_kind'],c['target_kind']) for c in rule['checks'] }
         gaps=[s for s in sorted(scopes) if ir['coverage'].get(s,{}).get('status')!='complete']
         if counts['ERROR']:status='ERROR'

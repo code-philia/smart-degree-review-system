@@ -109,3 +109,34 @@ def test_compact_explicit_absence_is_scoped_and_omissions_stay_unknown(tmp_path)
     fields=next(iter(a['results']['bibliography_fields'].values()))
     assert fields['doi']['state']=='confirmed_absent'
     assert fields['title']['state']=='unknown'
+
+
+def test_model_or_evidence_snapshot_change_invalidates_analysis_cache(tmp_path):
+    from paper_compiler.analysis import enrich
+    ir,_=fixture(tmp_path);packages=[{'rule_ir':{'requires':['bibliography_fields']}}]
+    class CountingModel(FieldModel):
+        calls=0
+        def __init__(self,version):super().__init__({});self.config={'MAAS_MODEL_VERSION':version}
+        def complete_json(self,*args):self.calls+=1;return super().complete_json(*args)
+    m=CountingModel('v1');n=CountingModel('v2')
+    enrich(ir,packages,client=m,gateway=None,cache_dir=tmp_path/'cache',snapshot_id='frozen-1')
+    enrich(ir,packages,client=m,gateway=None,cache_dir=tmp_path/'cache',snapshot_id='frozen-1')
+    assert m.calls==1
+    enrich(ir,packages,client=n,gateway=None,cache_dir=tmp_path/'cache',snapshot_id='frozen-1')
+    enrich(ir,packages,client=n,gateway=None,cache_dir=tmp_path/'cache',snapshot_id='frozen-2')
+    assert n.calls==2
+
+
+def test_extracted_resource_type_drives_real_conditional_checks_without_changing_ir(tmp_path):
+    from paper_compiler.expressions import interpret_rule
+    from paper_compiler.contracts import ir_hash
+    from test_paper_compiler_compiler import rule
+    ir,_=fixture(tmp_path);node=next(n for n in ir['nodes'] if n['kind']=='BibliographyEntry');node['text']='[1] Author. Hello[D].'
+    before=ir_hash(ir);a=base_analysis(ir)
+    parse_entries(ir,a,FieldModel({'type_code':{'state':'observed','value':'D','quote':'[D]'},'institution':{'state':'confirmed_absent'}}))
+    r=rule();r['checks'][0]['when']={'op':'equals','args':[{'op':'field','path':'node.attrs.resource_type'},{'op':'literal','value':'thesis'}]}
+    r['checks'][0]['assert']={'op':'present','args':[{'op':'field','path':'facts.bibliography_fields.institution'}]}
+    assert interpret_rule(r,ir,a)[0]['status']=='VIOLATION'
+    assert ir_hash(ir)==before
+    a['node_attributes'][node['id']]['resource_type']['value']=False
+    with pytest.raises(ValueError,match='attribute type'):validate_analysis(ir,a)

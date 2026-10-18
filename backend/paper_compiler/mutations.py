@@ -21,6 +21,8 @@ def mutate(ir:dict,recipe:dict):
     need(text[start:end]!=replacement,'mutation must change source content')
     node['text']=text[:start]+replacement+text[end:]
     node['provenance']=[{'kind':'synthetic','operation_id':recipe['mutation_id'],'ancestor_provenance':copy.deepcopy(node['provenance'])}]
+    if node['kind']=='BibliographyEntry':
+        node['attrs']={**node['attrs'],'resource_type':{'state':'unknown','reason':'source content changed; rederive type'},'fields':{}}
     if node['kind'] in {'Paragraph','Caption'}:
         # Re-derive all citation uses to avoid stale spans and IDs; untouched paragraphs retain their source provenance.
         remove={n['id'] for n in changed['nodes'] if n['kind'] in {'CitationGroup','ReferenceUse'}}

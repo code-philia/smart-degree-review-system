@@ -8,6 +8,7 @@ import {
   type PaperLintRule,
   type PaperLintRunResponse,
 } from '../api/paperLint';
+import { CompilerDiagnostics } from '../components/paperLint/CompilerEvidence';
 import { PaperLintWorkspace } from '../components/paperLint/Workspace';
 import { flattenPaperLintFindings } from '../components/paperLint/model';
 import { Card, ErrorState, LoadingState, PageHeader, StatusBadge } from '../components/ui';
@@ -135,6 +136,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
                   {rules.find((rule) => rule.rule_id === run.rule_id)?.title || run.rule_id}
                 </p>
                 {run.message ? <p className="mt-1 text-xs text-slate-600">{run.message}</p> : null}
+                <CompilerDiagnostics items={run.compiler_diagnostics} />
               </div>
               <StatusBadge tone={outcomeTones[run.outcome]}>{outcomeLabels[run.outcome]}</StatusBadge>
             </div>

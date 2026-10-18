@@ -37,3 +37,20 @@ def test_duplicate_parents_and_synthetic_domains_do_not_fill_real_parent_target(
 def test_exact_target_detection_is_recorded():
     result=score_pair(oracle(),report('PASS'),report('VIOLATION'))
     assert result['detected'] and result['valid_pair']
+
+
+def test_positive_controls_do_not_fill_negative_detection_parent_target():
+    o={**oracle(),'status':'PASS'};row=score_pair(o,report('PASS'),report('PASS'))
+    summary=summarize_pairs([row])['by_rule']['31']
+    assert summary['distinct_real_parents']==1
+    assert summary['distinct_real_negative_parents']==0 and summary['target_shortfall']==100
+    assert summary['by_expected_status']['PASS']['successful']==1
+
+def test_controlled_negative_cannot_borrow_real_positive_parent():
+    real={**oracle(),'status':'PASS'}
+    controlled={**oracle(),'evidence_domain':'controlled_catalogue'}
+    rows=[score_pair(real,report('PASS'),report('PASS')),score_pair(controlled,report('PASS'),report('VIOLATION'))]
+    assert summarize_pairs(rows)['by_rule']['31']['distinct_real_negative_parents']==0
+
+def test_parent_error_is_reported_as_error():
+    assert score_pair(oracle(),report('ERROR'),report('VIOLATION'))['outcome']=='error'

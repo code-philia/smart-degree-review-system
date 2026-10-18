@@ -3,8 +3,9 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import re2 as safe_regex
 
-from .contracts import KINDS
+from .contracts import KINDS, ATTRIBUTE_ENUMS
 from .storage import json_bytes, write_json_atomic
 
 
@@ -14,7 +15,7 @@ class CompilationError(ValueError):
 
 OPS={'present','all','any','not','equals','in','contains','matches','length','lt','le','gt','ge','precedes'}
 SPEC_KEYS={'rule_id','title','requires','checks','on_missing'}
-PROMPT_VERSION='rule-compiler/1.0'
+PROMPT_VERSION='rule-compiler/1.1'
 
 
 def _fail(condition,message):
@@ -36,8 +37,8 @@ def _pattern(pattern):
     # No groups/backreferences: these checks need regular lexical constraints, not an unbounded regex program.
     _fail(not re.search(r'(?<!\\)[()]|\\[1-9]',pattern),'regex groups/backreferences unsupported')
     _fail(not re.search(r'\{\d{6,}',pattern),'regex repetition bound too large')
-    try:re.compile(pattern)
-    except re.error as error:raise CompilationError('invalid regex') from error
+    try:safe_regex.compile(pattern)
+    except safe_regex.error as error:raise CompilationError('invalid regex') from error
 
 
 def expression_type(expr, target_kind, registry, required, depth=0):
@@ -56,30 +57,42 @@ def expression_type(expr, target_kind, registry, required, depth=0):
             fields={**COMMON,**ATTRS.get(target_kind,{})}
             _fail(len(bits)==3 and bits[2] in fields,'unknown node attribute: '+path+'; extracted fields must use facts.CAPABILITY.FIELD')
             typ=fields[bits[2]]
-            return 'string' if typ is str else 'number' if typ is int else 'object'
+            if isinstance(typ,tuple):typ=next((t for t in typ if t is not dict),dict)
+            return {str:'string',int:'number',bool:'boolean',list:'array',dict:'object'}[typ]
         _fail(bits[0]=='facts' and len(bits)==3,'field path must address node or a capability field')
         name=bits[1]
         _fail(name in required and name in registry.get('capabilities',{}),'missing or undeclared capability: '+name)
         cap=registry['capabilities'][name]
-        _fail(target_kind in cap['targets'],'capability target type mismatch')
+        _fail(target_kind in cap['targets'],'capability target type mismatch: '+path+' on '+target_kind+'; allowed targets: '+str(cap['targets']))
         _fail(bits[2] in cap['fields'],'unknown capability field: '+path)
         return cap['fields'][bits[2]]
     _fail(op in OPS,'unsupported operation: '+str(op))
     _fail(set(expr)=={'op','args'} and isinstance(expr['args'],list),'invalid operation arguments')
     args=expr['args'];types=[expression_type(a,target_kind,registry,required,depth+1) for a in args]
+    if op in {'equals','in','contains'} and len(args)==2:
+        for index,arg in enumerate(args):
+            if arg.get('op')!='field' or not arg.get('path','').startswith('node.attrs.'):continue
+            values=ATTRIBUTE_ENUMS.get(target_kind,{}).get(arg['path'].split('.')[-1])
+            other=args[1-index]
+            if values and other.get('op')=='literal' and other.get('value') is not None:
+                candidates=other['value'] if isinstance(other['value'],list) else [other['value']]
+                _fail(all(v in values for v in candidates),'attribute enum requires one of: '+str(values))
     if op in {'all','any'}:
         _fail(1<=len(args)<=100 and all(t=='boolean' for t in types),'boolean arguments required');return 'boolean'
     if op=='not':_fail(types==['boolean'],'not requires boolean');return 'boolean'
     if op=='present':_fail(len(types)==1,'present requires one field');return 'boolean'
     if op=='length':_fail(len(types)==1 and types[0] in {'string','array'},'length requires string or array');return 'number'
     if op=='precedes':
+        if len(args)==3 and args[0].get('path')=='facts.bibliography_shape.field_sequence':
+            from .registry import FIELD_TYPES
+            _fail(all(a.get('op')=='literal' and a.get('value') in FIELD_TYPES for a in args[1:]),'field_sequence takes literal field NAMES, not field values or punctuation')
         _fail(types==['array','string','string'],'precedes requires sequence array and two item names');return 'boolean'
     _fail(len(types)==2,'binary operation requires two arguments')
     if op=='matches':
         _fail(types==['string','string'] and args[1].get('op')=='literal','matches requires text and literal pattern')
         _pattern(args[1]['value'])
     elif op in {'lt','le','gt','ge','precedes'}:_fail(types==['number','number'],'comparison requires numbers')
-    elif op=='equals':_fail(types[0]==types[1] or 'null' in types,'equality type mismatch')
+    elif op=='equals':_fail(types[0]==types[1] or 'null' in types,'equality type mismatch: '+str(types)+'; compare equal types, or use in for scalar membership in an array')
     elif op=='in':_fail(types[1] in {'array','string'},'in requires array or string')
     elif op=='contains':_fail(types[0] in {'array','string'},'contains requires array or string')
     return 'boolean'
@@ -131,8 +144,30 @@ def generate_code(rule_ir: dict) -> str:
     return '\n'.join(lines+['    return output',''])
 
 
+def canonical_expression(expr,depth=0):
+    _fail(depth<=24,'expression too deep')
+    # Literal sugar is unambiguous; bare field-looking strings are never guessed.
+    if not isinstance(expr,dict):
+        _fail(not isinstance(expr,str) or not expr.startswith(('facts.','node.')),'field paths require an explicit field expression')
+        _literal_type(expr);return {'op':'literal','value':expr}
+    if 'args' in expr:return {**expr,'args':[canonical_expression(a,depth+1) for a in expr['args']]}
+    return expr
+
+
+def referenced_capabilities(value):
+    names=set()
+    if isinstance(value,dict):
+        if value.get('op')=='field' and isinstance(value.get('path'),str):
+            parts=value['path'].split('.')
+            if len(parts)==3 and parts[0]=='facts':names.add(parts[1])
+        for child in value.values():names.update(referenced_capabilities(child))
+    elif isinstance(value,list):
+        for child in value:names.update(referenced_capabilities(child))
+    return names
+
+
 def compile_rule(text: str, basis: list[dict], registry: dict, client, output_dir: Path, *, capability_requests=None, validation_cases=None, expected_rule_id=None, max_attempts=2) -> dict:
-    instructions="Compile a natural-language scholarly rule into a typed declarative specification.\nReturn ONE JSON object with EXACT keys rule_id (string), title, requires (capability names), checks, on_missing='UNKNOWN'. Copy requested_rule_id exactly if supplied.\nEvery check has EXACT keys id,target_kind,when,assert,basis (list of supplied basis IDs),message.\nExpressions: {op:'literal',value:...}, {op:'field',path:'node.text' or 'node.attrs.FIELD' or 'facts.CAPABILITY.FIELD'}, {op:OP,args:[EXPRESSION_OBJECTS]}. All constants including regexes and arrays must be literal expressions. Maximum expression nesting 12.\nOP: present,all,any,not,equals,in,contains,matches,length,lt,le,gt,ge,precedes. precedes takes [array, string_item_A, string_item_B] and tests A before B; missing item yields UNKNOWN. lt/le/gt/ge require two NUMBERS, never arrays or strings. Use precedes on field_sequence for field order. when and assert must be boolean. Regexes have no parentheses or backreferences; use character classes or any with separate matches instead of grouping. matches is a full-string match. Optional absent fields need a present applicability guard.\nCRITICAL: assert is the COMPLIANCE predicate: true=PASS, false=VIOLATION. when selects applicability, never selects a defect. To require existence: when=true and assert=(exists equals true). A defect-named rule does not invert compliance.\nBibliographic fields live at facts.bibliography_fields.title, facts.bibliography_fields.type_code, etc. They are NOT node.attrs.title/type_code. Choose paths from capability_field_paths or the supplied node_attributes only. Use reusable registered fields with the exact declared types, not rule-ID-specific operations. Respect standard modalities, exceptions and resource types. Do not emit Python, SQL, shell or filenames.\nMissing evidence stays UNKNOWN. A field can be confirmed absent only inside a documented source scope. Conditional required fields require independent proof the source has that field. DOI/URL are not universally mandatory.\nExternal identity requires verified existence or an independently scoped exclusion; failed searches are unknown. Relevance compares a specific citation purpose to source content; global topic mismatch or absent abstract detail is not negative proof.\nIf a required capability is missing, name it in requires; do not replace it with a constant true. Independent behavior test cases are withheld; diagnostics from a failed attempt describe constraints, not a new user rule.\n"
+    instructions="Compile a natural-language scholarly rule into a typed declarative specification.\nReturn ONE JSON object with EXACT keys rule_id (string), title, requires (capability names), checks, on_missing='UNKNOWN'. Copy requested_rule_id exactly if supplied.\nEvery check has EXACT keys id,target_kind,when,assert,basis (list of supplied basis IDs),message.\nExpressions: {op:'literal',value:...}, {op:'field',path:'node.text' or 'node.attrs.FIELD' or 'facts.CAPABILITY.FIELD'}, {op:OP,args:[EXPRESSION_OBJECTS]}. All constants including regexes and arrays must be literal expressions. Maximum expression nesting 12.\nOP: present,all,any,not,equals,in,contains,matches,length,lt,le,gt,ge,precedes. precedes takes [array, string_item_A, string_item_B] and tests A before B; missing item yields UNKNOWN. lt/le/gt/ge require two NUMBERS, never arrays or strings. Use precedes on field_sequence for field order. field_sequence is an array of FIELD NAMES such as title, type_code, carrier_code, year, not actual field values, slash characters or punctuation. Its two compared items must be literal field names. Inspect punctuation via matches on node.text instead. when and assert must be boolean. Regexes use the linear-time RE2 engine and have no parentheses or backreferences; use character classes or any with separate matches instead of grouping. matches is a full-string match. Optional absent fields need a present applicability guard.\nCRITICAL: assert is the COMPLIANCE predicate: true=PASS, false=VIOLATION. when selects applicability, never selects a defect. To require existence: when=true and assert=(exists equals true). A defect-named rule does not invert compliance.\nBibliographic fields live at facts.bibliography_fields.title, facts.bibliography_fields.type_code, etc. They are NOT node.attrs.title/type_code. Choose paths from capability_field_paths or the supplied node_attributes only. Use reusable registered fields with the exact declared types, not rule-ID-specific operations. Respect standard modalities, exceptions and resource types. A requirement restricted to electronic resources MUST include facts.bibliography_shape.electronic == true in when. Bibliographic format templates show relative order; they do NOT make every placeholder mandatory. Each precedes check MUST have present guards for BOTH fields in when. node.attrs.resource_type MUST use the supplied enum names, e.g. journal_article, standard, thesis. Bibliographic letter codes J/S/D belong ONLY to facts.bibliography_fields.type_code. Resource type S means a cited standard; type D means a cited thesis. The enclosing document being a thesis does not change the cited resource type. Do not emit Python, SQL, shell or filenames.\nMissing evidence stays UNKNOWN. A field can be confirmed absent only inside a documented source scope. Conditional required fields require independent proof the source has that field. DOI/URL are not universally mandatory.\nExternal identity requires verified existence or an independently scoped exclusion; failed searches are unknown. Relevance compares a specific citation purpose to source content; global topic mismatch or absent abstract detail is not negative proof.\nIf a required capability is missing, name it in requires; do not replace it with a constant true. Independent behavior test cases are withheld; diagnostics from a failed attempt describe constraints, not a new user rule.\n"
     if type(max_attempts)is not int or not 1<=max_attempts<=3:raise CompilationError('invalid compilation attempt limit')
     output_dir=Path(output_dir);output_dir.mkdir(parents=True,exist_ok=True)
     from .contracts import ATTRS,COMMON
@@ -140,13 +175,14 @@ def compile_rule(text: str, basis: list[dict], registry: dict, client, output_di
     failure=None;validation=[]
     for attempt in range(1,max_attempts+1):
         spec=client.complete_json(PROMPT_VERSION+'/semantic-gate-1',instructions,{'rule_text':text,'basis':basis,'registry':registry,
-            'node_kinds':sorted(KINDS),'capability_field_paths':advertised_fields,'node_attributes':{kind:sorted({**COMMON,**ATTRS.get(kind,{})}) for kind in KINDS},'requested_rule_id':expected_rule_id,'previous_failure':failure},16384)
+            'node_attribute_enums':ATTRIBUTE_ENUMS,'node_kinds':sorted(KINDS),'capability_field_paths':advertised_fields,'node_attributes':{kind:sorted({**COMMON,**ATTRS.get(kind,{})}) for kind in KINDS},'requested_rule_id':expected_rule_id,'previous_failure':failure},16384)
         write_json_atomic(output_dir/('compile-attempt-'+str(attempt)+'.json'),spec,exclusive=True)
         validation=[]
         try:
             _fail(isinstance(spec,dict) and set(spec)==SPEC_KEYS,'model returned invalid RuleSpec')
             _fail(expected_rule_id is None or spec['rule_id']==expected_rule_id,'rule_id does not match requested identifier')
             _fail(isinstance(spec['requires'],list) and all(isinstance(n,str) for n in spec['requires']), 'invalid dependencies')
+            spec={**spec,'requires':sorted(set(spec['requires'])|referenced_capabilities(spec['checks']))}
             missing=set(spec['requires'])-set(registry['capabilities'])
             if missing and capability_requests:
                 from .capabilities import ensure_capabilities
@@ -154,6 +190,7 @@ def compile_rule(text: str, basis: list[dict], registry: dict, client, output_di
                 _fail({request['name'] for request in selected}==missing, 'missing capability request/independent validation')
                 registry=ensure_capabilities(selected,registry,client,output_dir/'capabilities')
             rule_ir={'schema_version':'rule-ir/1.0',**spec,'registry_version':registry['version']}
+            rule_ir['checks']=[{**c,'when':canonical_expression(c['when']),'assert':canonical_expression(c['assert'])} for c in spec['checks']]
             validate_rule_ir(rule_ir,registry)
             validation=[]
             if validation_cases:
@@ -164,7 +201,7 @@ def compile_rule(text: str, basis: list[dict], registry: dict, client, output_di
                     _fail(interpreted==generated,'independent interpreted/generated execution mismatch')
                     statuses={r['status'] for r in interpreted}
                     actual=next((v for v in ['ERROR','VIOLATION','UNKNOWN','PASS','NOT_APPLICABLE'] if v in statuses),'UNKNOWN')
-                    passed=actual==case['status'];validation.append({'id':case['id'],'passed':passed,'actual':actual})
+                    passed=actual in case.get('allowed_statuses',[case['status']]);validation.append({'id':case['id'],'passed':passed,'actual':actual})
                     _fail(passed,'independent behavior validation failed for '+case['id']+'; check applicability, compliance direction, optional fields and evidence semantics')
         except CompilationError as error:
             failure=str(error)
@@ -201,8 +238,12 @@ def compile_partitioned_rule(text,basis,registry,client,output_dir,*,validation_
     _fail(isinstance(basis,list) and 1<=len(basis)<=50,'invalid clause partition count')
     checks=[];requires=set();parts=[];title=None;rid=expected_rule_id
     for index,clause in enumerate(basis):
+        part_cases=[]
+        for case in validation_cases or []:
+            if case['status']=='PASS':part_cases.append({**case,'allowed_statuses':['PASS','NOT_APPLICABLE']})
+            elif clause['id'] in case.get('basis_ids',[]):part_cases.append(case)
         part=compile_rule(text+'\nCompile ONLY the focal normative clause '+clause['id']+'. Other supplied clauses are background context. Produce concise atomic checks for this clause; do not repeat checks for other clauses. Do not infer extra requirements.',
-            [clause]+list(context_basis or []),registry,client,output_dir/'parts'/str(index+1),expected_rule_id=rid,max_attempts=max_attempts)
+            [clause]+list(context_basis or []),registry,client,output_dir/'parts'/str(index+1),expected_rule_id=rid,max_attempts=max_attempts,validation_cases=part_cases)
         rid=part['rule_ir']['rule_id'];title=title or part['rule_ir']['title'];requires.update(part['rule_ir']['requires'])
         checks.extend([{**check,'id':'clause-'+str(index+1)+'-'+check['id']} for check in part['rule_ir']['checks']])
         parts.append(hashlib.sha256(json_bytes(part['manifest'])).hexdigest())

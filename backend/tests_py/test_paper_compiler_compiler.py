@@ -183,3 +183,70 @@ def test_sequence_order_primitive_preserves_unknown_and_has_typed_arguments(tmp_
     validate_rule_ir(r,REGISTRY);ir,a=fixture(tmp_path)
     assert run_generated(generate_code(r),ir,a)[0]['status']=='PASS'
     assert apply_op('precedes',[literal(['year']),literal('publisher'),literal('year')]).state=='unknown'
+
+
+def test_literal_argument_syntax_is_canonicalized_without_guessing_field_paths(tmp_path):
+    class LiteralModel:
+        def complete_json(self,*args):
+            s=spec();s['checks'][0]['assert']={'op':'matches','args':[{'op':'field','path':'node.text'},'Hello']};return s
+    p=compile_rule('Require Hello',[],REGISTRY,LiteralModel(),tmp_path/'out')
+    ir,a=fixture(tmp_path)
+    assert p['rule_ir']['checks'][0]['assert']['args'][1]=={'op':'literal','value':'Hello'}
+    assert run_generated(p['code'],ir,a)[0]['status']=='PASS'
+
+
+def test_observation_wrapped_node_attributes_keep_their_declared_scalar_type(tmp_path):
+    r=rule();r['checks'][0]['when']={'op':'equals','args':[{'op':'field','path':'node.attrs.resource_type'},{'op':'literal','value':'journal_article'}]}
+    validate_rule_ir(r,REGISTRY)
+    ir,a=fixture(tmp_path);entry=next(n for n in ir['nodes'] if n['id']=='entry')
+    entry['attrs']['resource_type']={'state':'unknown','reason':'not classified'}
+    from paper_compiler.contracts import ir_hash
+    a['paper_ir_sha256']=ir_hash(ir)
+    assert interpret_rule(r,ir,a)[0]['status']=='UNKNOWN'
+
+
+def test_compiler_infers_declared_capabilities_from_typed_field_references(tmp_path):
+    class Model:
+        def complete_json(self,*args):s=spec();s['requires']=[];return s
+    result=compile_rule('Require title',[],REGISTRY,Model(),tmp_path/'out')
+    assert result['rule_ir']['requires']==['bibliography_fields']
+    assert 'bibliography_fields' in result['manifest']['capability_versions']
+
+
+def test_partition_clause_rejects_false_positive_before_merging(tmp_path):
+    from paper_compiler.compiler import compile_partitioned_rule
+    ir,a=fixture(tmp_path)
+    class Model:
+        calls=0
+        def complete_json(self,*args):
+            self.calls+=1;s=spec()
+            if self.calls==1:s['checks'][0]['assert']={'op':'not','args':[s['checks'][0]['assert']]}
+            return s
+    m=Model();p=compile_partitioned_rule('Require title',[{'id':'title','text':'Title required'}],REGISTRY,m,tmp_path/'out',validation_cases=[{'id':'positive','ir':ir,'analysis':a,'status':'PASS'}])
+    assert m.calls==2 and p['manifest']['validation']['passed']==1
+
+
+def test_group_free_ambiguous_regex_is_bounded_in_runtime(tmp_path):
+    import subprocess,sys,os
+    code="from paper_compiler.expressions import apply_op,literal; print(apply_op('matches',[literal('a'*60+'!'),literal('a+'*20+'$')]).value)"
+    result=subprocess.run([sys.executable,'-c',code],capture_output=True,text=True,timeout=1,env={**os.environ,'PYTHONPATH':str(Path(__file__).parents[1])})
+    assert result.returncode==0 and result.stdout.strip()=='False'
+
+@pytest.mark.parametrize('operation,value',[('equals','J'),('equals','conference_proceedings'),('in',['journal_article','J'])])
+def test_resource_type_enum_rejects_codes_or_invented_names(operation,value):
+    r=rule()
+    r['checks'][0]['when']={'op':operation,'args':[{'op':'field','path':'node.attrs.resource_type'},{'op':'literal','value':value}]}
+    with pytest.raises(CompilationError,match='enum'):
+        validate_rule_ir(r,REGISTRY)
+
+def test_resource_type_enum_accepts_advertised_values():
+    r=rule()
+    r['checks'][0]['when']={'op':'equals','args':[{'op':'field','path':'node.attrs.resource_type'},{'op':'literal','value':'journal_article'}]}
+    validate_rule_ir(r,REGISTRY)
+
+def test_field_sequence_cannot_be_used_as_a_character_sequence():
+    from paper_compiler.registry import REGISTRY as actual_registry
+    r=rule();r['registry_version']=actual_registry['version'];r['requires']=['bibliography_shape']
+    r['checks'][0]['assert']={'op':'precedes','args':[{'op':'field','path':'facts.bibliography_shape.field_sequence'},{'op':'literal','value':'/'},{'op':'literal','value':'OL'}]}
+    with pytest.raises(CompilationError,match='sequence'):
+        validate_rule_ir(r,actual_registry)

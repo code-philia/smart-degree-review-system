@@ -13,8 +13,9 @@ from urllib.error import HTTPError
 from .storage import json_bytes, write_json_atomic
 
 VERSION='public-evidence/1.1'
+CONTENT_VERSION='public-content/1.1-arxiv'
 MAX_BYTES=4*1024*1024
-HOSTS={'api.crossref.org','api.datacite.org','api.openalex.org','www.ebi.ac.uk'}
+HOSTS={'api.crossref.org','api.datacite.org','api.openalex.org','www.ebi.ac.uk','export.arxiv.org'}
 _GROUPS={'crossref':'doi-registration','datacite':'doi-registration','openalex':'aggregated-metadata','europepmc':'pubmed-metadata'}
 _locks={name:threading.Lock() for name in _GROUPS}
 _last={name:0.0 for name in _GROUPS}
@@ -148,5 +149,44 @@ class EvidenceGateway:
                         'url':url,'retrieved_at':self.clock(),'response_sha256':hashlib.sha256(body).hexdigest(),'source_evidence_ids':work.get('evidence_ids',[])}
                     write_json_atomic(path,item);records.append(item)
                 except (OSError,ValueError,ET.ParseError):pass
+        arxiv_id=re.fullmatch(r'10\.48550/arxiv\.(\d{4}\.\d{4,5}(?:v\d+)?)',str(work.get('doi','')).lower())
+        if arxiv_id:
+            records.append(self._arxiv_content(arxiv_id.group(1)))
         if not records:records=[{'id':'gap-'+hashlib.sha256(json_bytes(work)).hexdigest()[:24],'status':'unavailable','reason':'no public abstract or supported full text','coverage':'unknown'}]
         return records
+
+    def _arxiv_content(self,identifier):
+        """Research-use full text from a confirmed arXiv identity, not arbitrary URLs."""
+        url='https://export.arxiv.org/pdf/'+identifier
+        key=hashlib.sha256(('arxiv-text/1.0'+url).encode()).hexdigest();path=self.cache_dir/('content-'+key+'.json')
+        if path.exists():
+            item=json.loads(path.read_text())
+            if item['status']=='ok' or self.clock()-item['retrieved_at']<600:return item
+        item={'id':'content-'+key[:24],'url':url,'retrieved_at':self.clock(),'coverage':'unknown','status':'unavailable','provider':'arxiv'}
+        try:
+            # One connection and at least three seconds between requests across local processes.
+            import fcntl
+            with (self.cache_dir/'arxiv-rate.lock').open('a+') as lock:
+                fcntl.flock(lock,fcntl.LOCK_EX);stamp=self.cache_dir/'arxiv-rate-time.json'
+                if self.rate_limit:
+                    previous=json.loads(stamp.read_text()).get('time',0) if stamp.exists() else 0
+                    time.sleep(max(0,3-(time.time()-previous)))
+                try:status,body=self.transport(url)
+                finally:
+                    if self.rate_limit:write_json_atomic(stamp,{'time':time.time()})
+            item['http_status']=status
+            if status!=200 or len(body)>MAX_BYTES or not body.startswith(b'%PDF-'):raise EvidenceError('public PDF unavailable')
+            import pymupdf
+            with pymupdf.open(stream=body,filetype='pdf') as document:
+                if document.page_count>200:raise EvidenceError('public PDF exceeds page limit')
+                text='\n'.join(page.get_text() for page in document)
+            if not text.strip():raise EvidenceError('public PDF has no readable text')
+            digest=hashlib.sha256(body).hexdigest()
+            item.update(id='content-'+hashlib.sha256((url+digest).encode()).hexdigest()[:24],status='ok',level='full_text',
+                text=text[:100000],coverage='full_text' if len(text)<=100000 else 'truncated_full_text',response_sha256=digest)
+            pdf_path=self.cache_dir/('arxiv-'+digest+'.pdf')
+            try:
+                with pdf_path.open('xb') as stream:stream.write(body)
+            except FileExistsError:pass
+        except (OSError,ValueError,TypeError,RuntimeError) as error:item['reason']=type(error).__name__
+        write_json_atomic(path,item);return item

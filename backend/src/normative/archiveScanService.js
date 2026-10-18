@@ -4,20 +4,22 @@ const { randomUUID } = require('crypto');
 const db = require('../database/db_runtime');
 const { LOCAL_RULES, isLocalRuleId, runLocalFiveRules } = require('./localFiveRulePaperLintService');
 const { getSixRules, isSixRuleId, runSixRules } = require('./sixRulePaperLintService');
+const { getCompilerRules, isCompilerRuleId, runCompilerRules } = require('./paperCompilerService');
 const { mergePaperLintResults } = require('./reviewPilotPaperLintService');
 
 const DEFAULT_ROOT = '/opt/sjtu-archive-479';
 function getArchiveRules() {
-  return [...LOCAL_RULES, ...getSixRules()].sort((a, b) => a.number - b.number);
+  return [...LOCAL_RULES, ...getSixRules(), ...getCompilerRules()].sort((a, b) => a.number - b.number);
 }
 async function runArchiveRules(pdfPath, ruleIds) {
   const localIds = ruleIds.filter(isLocalRuleId);
   const sixIds = ruleIds.filter(isSixRuleId);
   const localResult = localIds.length ? await runLocalFiveRules(pdfPath, localIds) : null;
   const sixResult = sixIds.length ? await runSixRules(pdfPath, sixIds) : null;
-  return localResult && sixResult
-    ? mergePaperLintResults(localResult, sixResult, ruleIds)
-    : localResult || sixResult;
+  const compilerIds = ruleIds.filter(isCompilerRuleId);
+  const compilerResult = compilerIds.length ? await runCompilerRules(pdfPath, compilerIds) : null;
+  const parts = [localResult, sixResult, compilerResult].filter(Boolean);
+  return parts.length > 1 ? mergePaperLintResults(parts[0], {rule_runs:parts.slice(1).flatMap(p=>p.rule_runs)}, ruleIds) : parts[0];
 }
 function problem(status, message) {
   const error = new Error(message);
@@ -121,17 +123,19 @@ function createArchiveScanService({
         worker = null;
       });
   }
-  async function startJob({ userId, ruleIds }) {
+  async function startJob({ userId, ruleIds, externalProcessingConsent = false }) {
     if (
       !Array.isArray(ruleIds) ||
       !ruleIds.length ||
       new Set(ruleIds).size !== ruleIds.length ||
-      !ruleIds.every((id) => isLocalRuleId(id) || isSixRuleId(id))
+      !ruleIds.every((id) => isLocalRuleId(id) || isSixRuleId(id) || isCompilerRuleId(id))
     )
       throw problem(400, '请选择已开放的归档扫描规则');
     const selectedRules = getArchiveRules().filter((rule) => ruleIds.includes(rule.rule_id));
     if (selectedRules.some((rule) => !rule.available))
       throw problem(400, '所选规则暂不可用，请联系管理员配置检测服务');
+    if (selectedRules.some(rule => rule.uses_external_model) && !externalProcessingConsent)
+      throw problem(400, '运行引用语义规则前，请确认论文相关文本允许发送至外部 API');
     ruleIds = selectedRules.map((rule) => rule.rule_id);
     if (worker || (await db.get("SELECT id FROM archive_scan_jobs WHERE status='running' LIMIT 1")))
       throw problem(409, '已有归档扫描任务正在运行');

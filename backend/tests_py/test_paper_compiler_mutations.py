@@ -37,3 +37,12 @@ def test_body_mutation_rebuilds_reference_uses_without_source_impersonation(tmp_
     uses=[n for n in changed['nodes'] if n['kind']=='ReferenceUse']
     assert len(uses)==1 and uses[0]['provenance'][0]['kind']=='synthetic'
     validate_ir(changed,tmp_path)
+
+def test_bibliography_edit_invalidates_source_derived_attributes(tmp_path):
+    ir,_=fixture(tmp_path)
+    ir['nodes'][-1]['attrs'].update(resource_type='journal_article',fields={'title':'Hello'})
+    changed,_=mutate(ir,recipe(ir))
+    attrs=changed['nodes'][-1]['attrs']
+    assert attrs['resource_type']['state']=='unknown'
+    assert attrs['fields']=={}
+    assert attrs['key']=='1'

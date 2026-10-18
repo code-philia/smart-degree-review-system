@@ -53,6 +53,7 @@ export default function ArchiveScanPage() {
   const [catalog, setCatalog] = useState<ArchiveCatalog | null>(null);
   const [jobs, setJobs] = useState<ArchiveJob[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
+  const [externalConsent, setExternalConsent] = useState(false);
   const [activeJob, setActiveJob] = useState<ArchiveJob | null>(null);
   const [documents, setDocuments] = useState<ArchiveDocumentPage | null>(null);
   const [ruleFilter, setRuleFilter] = useState('');
@@ -143,7 +144,7 @@ export default function ArchiveScanPage() {
     setBusy(true);
     setError(null);
     try {
-      const { job } = await startArchiveJob(ids);
+      const { job } = await (externalConsent ? startArchiveJob(ids, true) : startArchiveJob(ids));
       setSelected([]);
       setRuleFilter('');
       setOutcomeFilter('');
@@ -277,6 +278,7 @@ export default function ArchiveScanPage() {
                 </article>
               ))}
             </div>
+            {selectedRules.some(rule => rule.uses_external_model) ? <label className="mt-4 flex items-start gap-2 text-sm text-slate-600"><input type="checkbox" checked={externalConsent} onChange={event => setExternalConsent(event.target.checked)} />我确认本次归档论文的相关文本允许发送至外部 API 进行检查。</label> : null}
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-100 bg-blue-50/60 px-4 py-3">
               <p className="text-sm text-slate-600">
                 {selectedRules.length
@@ -284,7 +286,7 @@ export default function ArchiveScanPage() {
                   : '勾选规则后开始批量扫描'}
               </p>
               <Button
-                disabled={!selectedRules.length || busy || running}
+                disabled={!selectedRules.length || busy || running || (selectedRules.some(rule => rule.uses_external_model) && !externalConsent)}
                 onClick={() => void launch(selectedRules.map((rule) => rule.rule_id))}
               >
                 {busy ? <LoaderCircle className="mr-2 size-4 animate-spin" /> : <Play className="mr-2 size-4" />}

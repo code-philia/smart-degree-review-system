@@ -1,0 +1,66 @@
+const { execFile } = require('child_process');
+const { promisify } = require('util');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const { summarizeRuleRuns } = require('./localFiveRulePaperLintService');
+const exec = promisify(execFile);
+const SCRIPT = path.resolve(__dirname, '../../scripts/paper_compiler_cli.py');
+const DEFINITIONS = [[31, '文内引注与文后参考文献格式'], [32, '引用的外部文献不存在'], [33, '引用目的与被引内容无关']];
+const IDS = new Set(DEFINITIONS.map(([n]) => `sjtu_rule_${n}`));
+const TERMINAL = new Set(['PASS','VIOLATION','UNKNOWN','ERROR','NOT_APPLICABLE']);
+function failure(status, code, message) { return Object.assign(new Error(message), { status, code }); }
+function isCompilerRuleId(id) { return IDS.has(id); }
+function packagePath(number) { return path.join(process.env.PAPER_COMPILER_PACKAGE_ROOT || '', String(number)); }
+function getCompilerRules() {
+  return DEFINITIONS.map(([number,title]) => ({number, rule_id:`sjtu_rule_${number}`, title:`规则 ${number} · ${title}`,
+    description:'依据原文与可追溯外部证据检查；证据不足会显示无法判定。', default_severity:'warning', default_enabled:false,
+    execution_mode:'semantic', uses_external_model:true, source:'sjtu-paper-compiler',
+    available:process.env.PAPER_COMPILER_ENABLED === '1' && Boolean(process.env.PAPER_COMPILER_PACKAGE_ROOT) && fs.existsSync(path.join(packagePath(number),'manifest.json')) }));
+}
+async function runJsonProcess(command,args,{signal,timeoutMs=1200000,maxBytes=64*1024*1024}={}) {
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs<1 || timeoutMs>7200000 || !Number.isSafeInteger(maxBytes) || maxBytes<1 || maxBytes>128*1024*1024) throw new TypeError('Invalid compiler resource budget');
+  if(signal?.aborted) throw failure(504,'COMPILER_ABORTED','规则编译检测已取消');
+  let stdout;
+  try { ({stdout}=await exec(command,args,{signal,timeout:timeoutMs,maxBuffer:maxBytes,encoding:'utf8',windowsHide:true,killSignal:'SIGKILL',env:{...process.env,PYTHONIOENCODING:'utf-8'}})); }
+  catch(error) {
+    if(error.code==='ERR_CHILD_PROCESS_STDIO_MAXBUFFER') throw failure(502,'COMPILER_OUTPUT_LIMIT','规则编译检测输出超过资源上限');
+    if(signal?.aborted || error.name==='AbortError' || error.killed) throw failure(504,'COMPILER_INTERRUPTED','规则编译检测超时或已取消');
+    throw failure(error.code==='ENOENT'?503:502,'COMPILER_PROCESS_FAILED','规则编译检测未完成，请检查运行记录');
+  }
+  try { const result=JSON.parse(stdout);if(!result || typeof result!=='object' || Array.isArray(result))throw new Error();return result; }
+  catch { throw failure(502,'COMPILER_INVALID_JSON','规则编译检测返回了无效结果'); }
+}
+function toCompilerResult(output,selectedRuleIds) {
+  if(output?.schema_version!=='paper-check/1.0' || !Array.isArray(output.rules))throw failure(502,'COMPILER_INVALID_REPORT','规则编译检测结果不完整');
+  const ruleRuns=selectedRuleIds.map(ruleId=>{
+    if(!IDS.has(ruleId))throw failure(400,'COMPILER_UNKNOWN_RULE','未知编译规则');
+    const rows=output.rules.filter(r=>String(r.rule_id)===ruleId.slice(10));
+    const raw=rows[0];
+    if(rows.length!==1 || !TERMINAL.has(raw?.status) || !Array.isArray(raw.results) || raw.results.some(r=>!TERMINAL.has(r.status)))throw failure(502,'COMPILER_PARTIAL_REPORT','所选规则缺少完整终态记录');
+    const findings=raw.results.filter(r=>r.status==='VIOLATION').map((r,index)=>({finding_id:`${ruleId}_${index+1}`,rule_id:ruleId,
+      message:r.message || '发现规则不符合项',suggestion:null,location:r.location_mode==='synthetic'?null:r.location || null,anchors:[],
+      evidence:r.display_evidence || [],source_kind:r.location_mode,node_id:r.node_id,check_id:r.check_id}));
+    const diagnostics=raw.results.filter(r=>['UNKNOWN','ERROR'].includes(r.status)).map(r=>({node_id:r.node_id,check_id:r.check_id,status:r.status,reasons:r.reasons || [],evidence:r.display_evidence || []}));
+    const unknown=raw.counts?.UNKNOWN || 0;
+    return {rule_run_id:`run_${ruleId}`,rule_id:ruleId,severity:'warning',params:null,
+      execution_status:raw.status==='ERROR'?'error':'completed',evidence_mode:findings.some(f=>f.source_kind==='synthetic')?'derived':'native',
+      outcome:findings.length?'issues_found':raw.status==='PASS'?'passed':raw.status==='NOT_APPLICABLE'?'not_applicable':'inconclusive',
+      message:raw.status==='UNKNOWN' || unknown || raw.coverage?.incomplete_scopes?.length ? `${unknown} 项证据不足；未覆盖的内容保留无法判定。` : null,
+      findings,compiler_diagnostics:diagnostics,coverage:raw.coverage,compiler_counts:raw.counts,package_sha256:raw.package_sha256};
+  });
+  return {type:'paper_lint',paper_title:'上传论文',ruleset:{id:'paper-compiler-phase1',name:'引用规则编译检测',version_number:1,version_label:'首轮候选版本'},rule_runs:ruleRuns,summary:summarizeRuleRuns(ruleRuns)};
+}
+async function runCompilerRules(pdfPath,selectedRuleIds,options={}) {
+  const catalog=getCompilerRules();
+  if(!selectedRuleIds.length || new Set(selectedRuleIds).size!==selectedRuleIds.length || selectedRuleIds.some(id=>!IDS.has(id)))throw failure(400,'COMPILER_UNKNOWN_RULE','请选择有效编译规则');
+  if(selectedRuleIds.some(id=>!catalog.find(r=>r.rule_id===id).available))throw failure(503,'COMPILER_UNAVAILABLE','引用规则尚未启用或规则包未配置');
+  const resultRoot=process.env.PAPER_COMPILER_RESULT_ROOT || '/data/results/paper-compiler/website';
+  await fs.promises.mkdir(resultRoot,{recursive:true,mode:0o700});
+  const output=path.join(resultRoot,crypto.randomUUID()+'.json');
+  const args=[SCRIPT,'check','--pdf',pdfPath,'--out',output,'--stdout-report','--phase','website','--phase-budget','1000',
+    ...selectedRuleIds.flatMap(id=>['--package',packagePath(id.slice(10))])];
+  const raw=await runJsonProcess(process.env.PAPER_COMPILER_PYTHON || 'python3',args,options);
+  return toCompilerResult(raw,selectedRuleIds);
+}
+module.exports={getCompilerRules,isCompilerRuleId,runCompilerRules,toCompilerResult,runJsonProcess};

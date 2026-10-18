@@ -5,6 +5,7 @@ const defaultExampleService = require('./paperLintExampleService');
 const paperLintReportRepository = require('./paperLintReportRepository');
 const { sendPrivatePdf } = require('./privatePdfResponse');
 const defaultJobService = require('./paperLintJobService');
+const { isCompilerRuleId } = require('./paperCompilerService');
 const { isSixRuleId } = require('./sixRulePaperLintService');
 
 const allowedRoles = ['STUDENT', 'SUPERVISOR', 'SCHOOL_ADMIN', 'COLLEGE_ADMIN'];
@@ -106,7 +107,7 @@ function createReviewPilotPaperLintRouter(service = defaultService, exampleServi
           .map((value) => value.trim())
           .filter(Boolean);
         const externalProcessingConsent = req.get('x-paper-lint-external-processing-consent') === 'confirmed';
-        if (selectedRuleIds.some(isSixRuleId)) {
+        if (selectedRuleIds.some(id => isSixRuleId(id) || isCompilerRuleId(id))) {
           service.validatePdf(req.body);
           const normalizedRuleIds = await service.normalizeSelectedRuleIds(selectedRuleIds, externalProcessingConsent);
           const job = await jobService.enqueue({

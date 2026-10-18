@@ -32,6 +32,11 @@ ATTRS = {
     'IndexEntry': {'printed_locator': str, 'selector': dict},
     'Abstract': {'abstract_kind': str},
 }
+ATTRIBUTE_ENUMS = {'BibliographyEntry': {'resource_type': [
+    'book','book_chapter','journal_article','newspaper_article','conference','thesis',
+    'report','standard','patent','webpage','archive','map','dataset','preprint',
+    'collection','computer_program','database','other']}}
+
 IR_KEYS = set('schema_version model_version document_id revision source_artifacts root_id nodes coverage profile layout metadata extensions'.split())
 REQUIRED_IR = IR_KEYS - {'layout', 'metadata', 'extensions'}
 FORBIDDEN = {'oracle', 'expected', 'expected_diagnostics', 'expected_status', 'mutation_target', 'target_rule', 'ground_truth', 'gold_label'}
@@ -270,3 +275,21 @@ def validate_analysis(ir: dict, analysis: dict) -> None:
         elif isinstance(value,list):
             for child in value:verify_observations(child)
     verify_observations(analysis['results'])
+    attributes=analysis.get('node_attributes',{})
+    require(isinstance(attributes,dict),'resolved node attributes must be an object')
+    for node_id,values in attributes.items():
+        require(node_id in nodes and isinstance(values,dict),'unknown resolved attribute node')
+        declared={**COMMON,**ATTRS.get(nodes[node_id]['kind'],{})}
+        for name,observation in values.items():
+            require(name in declared and isinstance(observation,dict) and 'state' in observation,'undeclared or untyped resolved attribute')
+            if observation.get('state')=='observed':
+                typ=declared[name]
+                if isinstance(typ,tuple):typ=tuple(t for t in typ if t is not dict)
+                value=observation.get('value')
+                require(isinstance(value,typ) and not (typ is int and isinstance(value,bool)),'resolved attribute type mismatch')
+                require(bool(observation.get('evidence_ids')),'resolved attribute requires evidence')
+                source=nodes[node_id]['attrs'].get(name)
+                if source is not None and not (isinstance(source,dict) and source.get('state') in {'unknown','not_applicable'}):
+                    known=source.get('value') if isinstance(source,dict) and source.get('state')=='observed' else source
+                    require(known==value,'resolved attribute conflicts with known source')
+    _observations(attributes);verify_observations(attributes)

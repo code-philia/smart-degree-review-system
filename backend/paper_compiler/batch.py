@@ -31,7 +31,9 @@ def run_batch(manifest:Path,config:dict,output_root:Path):
     runner=config['runner'];stop=threading.Event()
     def process(item):
         folder=root/'items'/item['id'];checkpoint=folder/'checkpoint.json'
-        if checkpoint.exists():return load(checkpoint)
+        if checkpoint.exists():
+            if file_hash(item['input_path'])!=item['sha256']:raise ValueError('completed frozen input changed')
+            return load(checkpoint)
         if stop.is_set():return {'id':item['id'],'status':'pending','reason':'budget cap reached'}
         try:
             path=Path(item['input_path'])

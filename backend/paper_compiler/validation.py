@@ -24,19 +24,31 @@ def compiler_controls(rule_id):
     if str(rule_id)!='31':return []
     def make(name,typ='J',remove=None,optional=False):
         ii=copy.deepcopy(ir);aa=copy.deepcopy(a)
-        values={'authors':['Smith A'],'title':'A title','type_code':typ,'year':'2020','container':'Journal'}
-        if typ=='D':values['institution']='Example University'
-        if typ=='S':values['standard_number']='GB/T 1234—2020'
+        ii['nodes'][1]['attrs']['resource_type']={'J':'journal_article','M':'book','D':'thesis','EB':'webpage','S':'standard','P':'patent'}.get(typ,'unknown')
+        aa['paper_ir_sha256']=ir_hash(ii)
+        values={'authors':['Smith A'],'title':'A title','type_code':typ}
+        if typ=='J':values.update(container='Journal',year='2020')
+        if typ=='D':values.update(institution='Example University',year='2020')
+        if typ=='S':values={'standard_number':'GB/T 1234—2020','title':'A title','type_code':'S'}
         if typ=='P':values['patent_number']='CN123456789A'
         if typ in {'EB','PP','DS'}:values.update(carrier_code='OL',url='https://example.org/work',access_date='2024-06-01')
+        available_fields=list(values)
         if remove:values.pop(remove,None)
+        title=values.get('title','');code=values.get('type_code','');author='Smith A. ' if 'authors' in values else ''
+        if typ=='J':text=f"[1] {author}{title}[{code}]. Journal, 2020."
+        elif typ=='D':text=f"[1] {author}{title}[{code}]. {values.get('institution','')}, 2020."
+        elif typ=='S':text=f"[1] {values.get('standard_number','')} {title}[{code}]."
+        elif typ=='P':text=f"[1] {author}{title}: {values.get('patent_number','')}[{code}]."
+        else:text=f"[1] {author}{title}[{code}/OL][{values.get('access_date','')}]. https://example.org/work."
+        ii['nodes'][1]['text']=text;aa['paper_ir_sha256']=ir_hash(ii)
         fields={name:observed(values[name],['control-evidence']) if name in values else {'state':'confirmed_absent','search_scope':'entry','evidence_ids':['entry']} for name in FIELD_TYPES}
         aa['results']={'bibliography_fields':{'entry':fields},
             'bibliography_shape':{'entry':{'electronic':observed(typ in {'EB','PP','DS'},['entry']),'type_bracketed':observed(remove!='type_code',['entry']),'label_bracketed':observed(True,['entry']),'system':observed('numeric',['entry']),'field_sequence':observed(list(values),['entry'])}},
-            'external_work':{'entry':{'exists':observed(True,['control-evidence']),'available_fields':observed(['authors','year','container'],['control-evidence'])}},
+            'external_work':{'entry':{'exists':observed(True,['control-evidence']),'available_fields':observed(available_fields,['control-evidence'])}},
             'bibliography_order':{'entry':{'position':observed(1,['entry']),'numeric_value':observed(1,['entry'])}},
             'citation_order':{'use':{'numeric_value':observed(1,['use']),'first_appearance_rank':observed(1,['use']),'is_first_use':observed(True,['use'])}}}
-        return {'id':'31-'+name,'ir':ii,'analysis':aa,'status':'PASS' if remove is None or optional else 'VIOLATION'}
+        basis_ids={'title':['general'],'type_code':['general'],'institution':['8.7'],'access_date':['8.11'],'standard_number':['8.8-8.9'],'patent_number':['8.10']}
+        return {'id':'31-'+name,'ir':ii,'analysis':aa,'status':'PASS' if remove is None or optional else 'VIOLATION','basis_ids':['gbt7714-2025:'+x for x in basis_ids.get(remove,[])]}
     return [make('journal-without-optional-doi'),make('missing-title',remove='title'),make('missing-type-code',remove='type_code'),
         make('thesis-valid',typ='D'),make('thesis-missing-institution',typ='D',remove='institution'),
         make('web-valid',typ='EB'),make('web-missing-access-date',typ='EB',remove='access_date'),

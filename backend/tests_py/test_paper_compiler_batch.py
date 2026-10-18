@@ -50,3 +50,10 @@ def test_evaluator_does_not_send_oracle_to_runner_and_freezes_report(tmp_path):
         calls.append(path);assert path in [original,mp];return report('PASS' if path==original else 'VIOLATION')
     r=evaluate(m,tmp_path/'report',runner);evaluate(m,tmp_path/'report',runner)
     assert len(calls)==2 and r['by_rule']['31']['detected']==1
+
+
+def test_completed_batch_cannot_silently_reuse_a_changed_source(tmp_path):
+    from paper_compiler.batch import run_batch
+    m=manifest(tmp_path);config={'pipeline_version':'v1','runner':lambda p:{}}
+    run_batch(m,config,tmp_path/'out');(tmp_path/'source.pdf').write_bytes(b'changed')
+    with pytest.raises(ValueError,match='changed'):run_batch(m,config,tmp_path/'out')

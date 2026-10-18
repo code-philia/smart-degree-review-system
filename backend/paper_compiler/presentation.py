@@ -9,7 +9,7 @@ def present(ir,report):
         for item in items:
             if item.get('kind')=='synthetic':return None
             if item.get('bbox') is not None and item.get('page_index') in pages:found.append(item)
-            nested=sources(item.get('ancestor_provenance',[]))
+            nested=sources(item.get('ancestor_provenance',[])+item.get('input_provenance',[]))
             if nested is None:return None
             found.extend(nested)
         return found
@@ -25,11 +25,13 @@ def present(ir,report):
                     'width':h if rotation in [90,270] else w,'height':w if rotation in [90,270] else h,'page_number':span['page_index']+1})
             row['location']={'type':'pdf_bbox','page_number':rects[0]['page_number'],'bounding_rect':rects[0],'rects':rects,'text_excerpt':str(node.get('text') or '')[:1000]} if rects else None
             display=[]
+            assessment=row.get('assessment',{})
+            if assessment.get('intent_quote'):display.append({'id':'intent-'+str(row.get('node_id')),'kind':'citation_purpose','quote':assessment['intent_quote']})
             for eid in row.get('evidence_ids',[]):
                 item=evidence.get(eid,{})
                 display.append({'id':eid,'kind':item.get('kind','source_node'),'provider':item.get('provider'),
                     'url':item.get('query_url') or item.get('source_url') or item.get('url'),
-                    'quote':str(item.get('quote') or item.get('text') or nodes.get(eid,{}).get('text') or '')[:1000]})
+                    'quote':str(assessment.get('evidence_quote') if eid in assessment.get('evidence_ids',[]) else item.get('quote') or item.get('text') or nodes.get(eid,{}).get('text') or '')[:3000]})
             row['display_evidence']=display
     # Full evidence remains in the saved check artifact; the UI protocol carries selected excerpts.
     output.pop('evidence',None);output.pop('bindings',None)

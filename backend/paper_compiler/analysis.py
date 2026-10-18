@@ -9,7 +9,7 @@ from .registry import REGISTRY,FIELD_TYPES
 from .identity import resolve_identity
 from .citations import citation_context
 
-VERSION='shared-analysis/1.1'
+VERSION='shared-analysis/1.4'
 def unknown(reason):return {'state':'unknown','reason':reason}
 def observed(value,ids):return {'state':'observed','value':value,'evidence_ids':list(dict.fromkeys(ids))}
 def _norm(text):return re.sub(r'\s+',' ',str(text)).strip()
@@ -80,6 +80,7 @@ If the entry contains several concatenated works or incomplete boundary, set com
             results[node['id']]=facts
             a['coverage'][node['id']]={'status':'complete' if complete else 'partial','protocol':'bibliography-fields/1.1'}
     _entry_shapes(ir,a)
+    _resource_attributes(ir,a)
     return a
 
 def _value(fields,name,default=None):
@@ -98,6 +99,22 @@ def _entry_shapes(ir,a):
         results[n['id']]={'electronic':electronic,'type_bracketed':observed(bool(marker),[n['id']]),
             'label_bracketed':observed(bool(re.match(r'^\s*[\[［]\d+[\]］]',text)),[n['id']]),
             'system':observed('numeric' if str(key).isdigit() else 'author_year',[n['id']]),'field_sequence':observed(seq,[n['id']])}
+
+def _resource_attributes(ir,a):
+    resolved=a.setdefault('node_attributes',{})
+    names={'M':'book','J':'journal_article','N':'newspaper_article','C':'conference','D':'thesis','R':'report',
+        'S':'standard','P':'patent','EB':'webpage','A':'archive','CM':'map','DS':'dataset','PP':'preprint',
+        'G':'collection','CP':'computer_program','DB':'database','Z':'other'}
+    for node in ir['nodes']:
+        if node['kind']!='BibliographyEntry':continue
+        original=node['attrs'].get('resource_type')
+        if original is not None and not (isinstance(original,dict) and original.get('state') in {'unknown','not_applicable'}):continue
+        fields=a['results'].get('bibliography_fields',{}).get(node['id'],{});item=fields.get('type_code',{})
+        code=_value(fields,'type_code');kind=names.get(str(code).upper()) if code else None
+        if kind=='book' and re.search(r'[\]］]\s*//',node['text']):kind='book_chapter'
+        observation=observed(kind,item.get('evidence_ids',[])+[node['id']]) if kind else unknown('resource type not established from the source marker')
+        resolved[node['id']]={'resource_type':observation}
+
 
 def bind_references(ir,a):
     entries=[n for n in ir['nodes'] if n['kind']=='BibliographyEntry'];bindings=[]
@@ -149,13 +166,18 @@ Only use unrelated with positive explicit evidence that the cited work cannot se
     return {**observed(relation=='related',[item['id']]),'purpose':result.get('purpose'),'intent_quote':result['intent_quote'],
         'evidence_quote':result['evidence_quote'],'content_range':list(evidence_span),'reason':result.get('reason',''),'basis':basis}
 
-def enrich(ir,rule_packages,*,client,gateway,cache_dir:Path):
+def enrich(ir,rule_packages,*,client,gateway,cache_dir:Path,snapshot_id=None):
     required={name for package in rule_packages for name in package['rule_ir']['requires']}
-    fingerprint=hashlib.sha256(json_bytes({'ir':ir_hash(ir),'version':VERSION,'capabilities':REGISTRY,'required':sorted(required)})).hexdigest()
+    from datetime import datetime,timezone
+    from .evidence import VERSION as EVIDENCE_VERSION,CONTENT_VERSION
+    snapshot_id=snapshot_id or datetime.now(timezone.utc).date().isoformat()
+    config=getattr(client,'config',{})
+    policy={'model':{k:config.get(k) for k in ['MAAS_MODEL','MAAS_MODEL_VERSION']},'offline':client is None,'providers':getattr(gateway,'providers',[]),'evidence_version':EVIDENCE_VERSION,'content_version':CONTENT_VERSION,'snapshot':snapshot_id}
+    fingerprint=hashlib.sha256(json_bytes({'ir':ir_hash(ir),'version':VERSION,'capabilities':REGISTRY,'required':sorted(required),'policy':policy})).hexdigest()
     path=Path(cache_dir)/(fingerprint+'.json')
     if path.exists():
         cached=json.loads(path.read_text());validate_analysis(ir,cached);return cached
-    a=base_analysis(ir);parse_entries(ir,a,client);bind_references(ir,a);citation_syntax(ir,a);ordering_facts(ir,a)
+    a=base_analysis(ir);a['policy']=policy;parse_entries(ir,a,client);bind_references(ir,a);citation_syntax(ir,a);ordering_facts(ir,a)
     if required & {'external_work','citation_relevance'}:
         external=a['results'].setdefault('external_work',{})
         for node in ir['nodes']:

@@ -144,3 +144,41 @@ def test_exact_identifier_disambiguates_same_title_versions():
     one=record();two=record(doi='10.48550/other');two['id']='e2'
     result=resolve_identity({'title':one['work']['title'],'year':2017,'authors':['Vaswani'],'doi':one['work']['doi']},[one,two])
     assert result['state']=='observed' and result['work']['doi']==one['work']['doi']
+
+
+def test_verified_arxiv_work_can_supply_cached_full_text(tmp_path):
+    import pymupdf
+    doc=pymupdf.open();doc.new_page().insert_text((30,30),'Transformer architecture for machine translation.');body=doc.tobytes();doc.close();calls=[]
+    def transport(url):calls.append(url);return 200,body
+    gateway=EvidenceGateway(tmp_path,providers=[],transport=transport)
+    work={'doi':'10.48550/arXiv.1706.03762','title':'Attention Is All You Need'}
+    first=gateway.content(work);second=gateway.content(work)
+    assert len(calls)==1 and calls[0]=='https://export.arxiv.org/pdf/1706.03762'
+    assert first==second and first[0]['level']=='full_text'
+    assert 'machine translation' in first[0]['text'] and first[0]['response_sha256']
+
+
+def test_failed_full_text_fetch_retains_abstract_and_records_gap(tmp_path):
+    gateway=EvidenceGateway(tmp_path,providers=[],transport=lambda url:(429,b''))
+    content=gateway.content({'doi':'10.48550/arXiv.1706.03762','abstract':'An available abstract'})
+    assert any(c.get('level')=='abstract' and c['status']=='ok' for c in content)
+    assert any(c['status']=='unavailable' and c.get('coverage')=='unknown' for c in content)
+
+
+def test_untrusted_work_url_is_never_fetched_as_a_full_text_source(tmp_path):
+    calls=[];gateway=EvidenceGateway(tmp_path,providers=[],transport=lambda url:calls.append(url))
+    gateway.content({'url':'https://example.org/private.pdf','title':'Work'})
+    assert calls==[]
+
+def test_corroborated_repository_identifier_survives_metadata_selection():
+    from paper_compiler.identity import resolve_identity
+    entry={'title':'A sufficiently specific scientific paper','authors':['Smith J'],'year':'2020','doi':'10.1/example'}
+    records=[{'id':'publisher','status':'ok','work':{**entry,'abstract':'Publisher abstract'}},{'id':'repository','status':'ok','work':{**entry,'pmcid':'PMC123456'}}]
+    answer=resolve_identity(entry,records)
+    assert answer['value'] is True and answer['work']['pmcid']=='PMC123456'
+
+def test_multiple_author_initials_match_full_names_without_merging_conflicts():
+    from paper_compiler.identity import _author_match
+    assert _author_match(['Fernando P. Polack'],['Polack FP'])
+    assert not _author_match(['Fernando P. Polack'],['Polack FA'])
+    assert not _author_match(['John Smith'],['James Smith'])

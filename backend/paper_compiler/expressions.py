@@ -2,6 +2,7 @@
 import ast
 from dataclasses import dataclass, field
 import re
+import re2 as safe_regex
 
 from .contracts import validate_analysis
 
@@ -27,6 +28,10 @@ class RuntimeContext:
         bits=path.split('.')
         if bits[0]=='node':
             value=self.node
+            if len(bits)==3 and bits[1]=='attrs':
+                source=value.get('attrs',{}).get(bits[2]);resolved=self.analysis.get('node_attributes',{}).get(value['id'],{}).get(bits[2])
+                if resolved is not None and (source is None or isinstance(source,dict) and source.get('state') in {'unknown','not_applicable'}):
+                    value={**value,'attrs':{**value.get('attrs',{}),bits[2]:resolved}}
             remaining=bits[1:]
             evidence=[self.node['id']]
         elif bits[0]=='facts' and len(bits)>=3:
@@ -71,7 +76,7 @@ def apply_op(op, args):
         elif op=='contains':result=values[1] in values[0]
         elif op=='matches':
             if values[0] is None:return Value(state='unknown',reasons=['no text available'],evidence_ids=evidence)
-            result=bool(re.fullmatch(values[1],values[0]))
+            result=bool(safe_regex.fullmatch(values[1],values[0]))
         elif op=='length':result=len(values[0])
         elif op=='precedes':
             if values[1] not in values[0] or values[2] not in values[0]:return Value(state='unknown',reasons=['ordered field not observed'],evidence_ids=evidence)
@@ -82,7 +87,7 @@ def apply_op(op, args):
         elif op=='ge':result=values[0]>=values[1]
         else:return Value(state='error',reasons=['unsupported expression'])
         return Value(result,evidence_ids=evidence,reasons=reasons)
-    except (TypeError,ValueError,re.error):
+    except (TypeError,ValueError,re.error,safe_regex.error):
         return Value(state='error',reasons=['incompatible runtime field value'],evidence_ids=evidence)
 
 

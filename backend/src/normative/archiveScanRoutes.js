@@ -31,7 +31,7 @@ function createArchiveScanRouter(service = createArchiveScanService()) {
     '/jobs',
     express.json({ limit: '16kb' }),
     handler(async (req, res) => {
-      const job = await service.startJob({ userId: req.user.id, ruleIds: req.body?.selected_rule_ids });
+      const job = await service.startJob({ userId: req.user.id, ruleIds: req.body?.selected_rule_ids, ...(req.body?.external_processing_consent === true ? { externalProcessingConsent: true } : {}) });
       res.status(201).json({ job });
     }),
   );

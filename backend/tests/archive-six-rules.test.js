@@ -29,9 +29,10 @@ afterEach(async () => {
 });
 
 describe('archive scans with six additional rules', () => {
-  it('offers ten rules in numeric order and reflects MinerU availability', () => {
+  it('keeps ten existing rules and exposes three disabled compiler candidates', () => {
     const service = createArchiveScanService({ archiveRoot: root });
-    expect(service.rules.map((rule) => rule.rule_id)).toEqual(ids);
+    expect(service.rules.map((rule) => rule.rule_id)).toEqual([...ids, 'sjtu_rule_31', 'sjtu_rule_32', 'sjtu_rule_33']);
+    expect(service.rules.filter(rule => rule.number >= 31).every(rule => !rule.available)).toBe(true);
     expect(service.rules.filter((rule) => rule.available)).toHaveLength(8);
     process.env.MINERU_API_TOKEN = 'test-token';
     expect(service.rules.filter((rule) => rule.available)).toHaveLength(10);

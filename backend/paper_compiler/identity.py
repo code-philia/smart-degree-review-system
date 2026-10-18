@@ -7,16 +7,20 @@ def _norm(text):return ''.join(c for c in unicodedata.normalize('NFKC',str(text)
 def _author_match(left,right):
     def variants(name):
         words=re.findall(r'[a-z]+',unicodedata.normalize('NFKD',str(name)).casefold())
-        if len(words)==1:return [(words[0],'')]
+        if len(words)==1:return [(words[0],'','',True)]
         if not words:return []
-        return [(words[0],''.join(words[1:])),(words[-1],''.join(words[:-1]))]
+        result=[]
+        for family,given in [(words[0],words[1:]),(words[-1],words[:-1])]:
+            initials=''.join(w if len(w)<=2 else w[0] for w in given)
+            result.append((family,''.join(given),initials,all(len(w)<=2 for w in given)))
+        return result
     for a in left:
         for b in right:
             if _norm(a) and _norm(a)==_norm(b):return True
-            for family,given in variants(a):
-                for other,first in variants(b):
+            for family,given,initials,abbreviated in variants(a):
+                for other,first,other_initials,other_abbreviated in variants(b):
                     if family!=other or len(family)<2:continue
-                    if not given or not first or given==first or (min(len(given),len(first))==1 and given[0]==first[0]):return True
+                    if not given or not first or given==first or ((abbreviated or other_abbreviated) and initials==other_initials):return True
     return False
 
 def resolve_identity(entry:dict,records:list[dict],client=None)->dict:
@@ -49,6 +53,8 @@ def resolve_identity(entry:dict,records:list[dict],client=None)->dict:
         if len(nonempty_dois)>1:return {'state':'unknown','reason':'multiple conflicting work identities','evidence_ids':[c[0]['id'] for c in matches]}
         selected=max(matches,key=lambda c:(c[3],c[4],bool(c[0]['work'].get('abstract'))));work=dict(selected[0]['work'])
         ids=[c[0]['id'] for c in matches];work['evidence_ids']=ids
+        repositories={c[0]['work'].get('pmcid') for c in matches if re.fullmatch(r'PMC\d+',str(c[0]['work'].get('pmcid',''))) and c[0]['work'].get('doi','').lower()==work.get('doi','').lower() and work.get('doi')}
+        if len(repositories)==1:work['pmcid']=repositories.pop()
         conflicts=[]
         if entry.get('doi') and work.get('doi') and entry['doi'].lower()!=work['doi'].lower():conflicts.append('doi')
         return {'state':'observed','value':True,'evidence_ids':ids,'work':work,'metadata_conflicts':conflicts,'method':'corroborated_metadata'}

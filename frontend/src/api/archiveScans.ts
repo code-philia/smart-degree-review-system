@@ -40,8 +40,8 @@ export async function fetchArchiveCatalog(): Promise<ArchiveCatalog> {
 export async function fetchArchiveJobs(): Promise<{ jobs: ArchiveJob[] }> {
   return (await apiClient.get<{ jobs: ArchiveJob[] }>(`${base}/jobs`)).data;
 }
-export async function startArchiveJob(ruleIds: string[]): Promise<{ job: ArchiveJob }> {
-  return (await apiClient.post<{ job: ArchiveJob }>(`${base}/jobs`, { selected_rule_ids: ruleIds }, { timeout: 30000 }))
+export async function startArchiveJob(ruleIds: string[], externalProcessingConsent = false): Promise<{ job: ArchiveJob }> {
+  return (await apiClient.post<{ job: ArchiveJob }>(`${base}/jobs`, { selected_rule_ids: ruleIds, external_processing_consent: externalProcessingConsent }, { timeout: 30000 }))
     .data;
 }
 export async function deleteArchiveJob(id: string): Promise<void> {

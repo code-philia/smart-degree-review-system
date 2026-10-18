@@ -11,8 +11,9 @@ def _find(report,oracle):
 def score_pair(oracle,original,mutant):
     before=_find(original,oracle);after=_find(mutant,oracle)
     result={'rule_id':str(oracle['rule_id']),'parent_sha256':oracle['parent_sha256'],'mutation_id':oracle.get('mutation_id'),
-        'evidence_domain':oracle['evidence_domain'],'before':before,'after':after,'detected':False,'valid_pair':False}
+        'evidence_domain':oracle['evidence_domain'],'expected_status':oracle['status'],'before':before,'after':after,'detected':False,'valid_pair':False}
     if not oracle.get('valid'):outcome='unverified_oracle'
+    elif before=='ERROR':outcome='error'
     elif before!='PASS':outcome='invalid_parent' if before in {'VIOLATION','NOT_APPLICABLE'} else 'undecidable_parent'
     elif after is None:outcome='unlocalizable'
     else:
@@ -30,9 +31,14 @@ def summarize_pairs(records,minimum_parents=100):
     for rid,rows in grouped.items():
         counts=Counter(row['outcome'] for row in rows);valid=[r for r in rows if r['valid_pair']]
         real={r['parent_sha256'] for r in valid if r['evidence_domain'] in {'source_format','real_external','real_citation_purpose'}}
+        negative_real={r['parent_sha256'] for r in valid if r['evidence_domain'] in {'source_format','real_external','real_citation_purpose'} and r.get('expected_status')=='VIOLATION'}
+        expectation={}
+        for status in sorted({r.get('expected_status','UNKNOWN') for r in rows}):
+            group=[r for r in valid if r.get('expected_status')==status]
+            expectation[status]={'valid_pairs':len(group),'successful':sum(r['detected'] for r in group),'unknown':sum(r['after']=='UNKNOWN' for r in group),'error':sum(r['after']=='ERROR' for r in group)}
         detected=sum(r['detected'] for r in valid)
         output[rid]={'candidate_pairs':len(rows),'valid_pairs':len(valid),'detected':detected,'undecidable':counts['undecidable'],
-            'outcomes':dict(counts),'distinct_real_parents':len(real),'target_shortfall':max(0,minimum_parents-len(real)),
+            'outcomes':dict(counts),'distinct_real_parents':len(real),'distinct_real_negative_parents':len(negative_real),'target_shortfall':max(0,minimum_parents-len(negative_real)),'by_expected_status':expectation,
             'detection_rate_including_unknown':detected/len(valid) if valid else None,'domains':dict(Counter(r['evidence_domain'] for r in rows))}
     return {'schema_version':'mutation-evaluation/1.0','by_rule':output,'total_candidate_pairs':len(records),'minimum_real_parents_per_rule':minimum_parents}
 
@@ -40,14 +46,15 @@ def summarize_pairs(records,minimum_parents=100):
 def evaluate(case_manifest,report_root,runner):
     """Read sealed answers only in this evaluator; runner receives normal IR paths."""
     from pathlib import Path
-    from .batch import load,freeze,safe_id
+    from .batch import load,freeze,safe_id,file_hash
     from .storage import write_json_atomic
     from .contracts import validate_ir,ir_hash
     root=Path(report_root);data=load(case_manifest)
     if not data.get('version'):raise ValueError('case version required')
     ids=[safe_id(c['id']) for c in data.get('cases',[])]
     if len(set(ids))!=len(ids):raise ValueError('duplicate evaluation case')
-    freeze(root,{'manifest':data,'evaluator_version':'paired-target/1.0'})
+    files={c['id']:{name:file_hash(c[name]) for name in ['oracle','original','mutant']} for c in data['cases']}
+    freeze(root,{'manifest':data,'evaluator_version':'paired-target/1.1','files':files,'pipeline_version':getattr(runner,'version','unversioned-test-runner')})
     records=[]
     for case in data['cases']:
         checkpoint=root/'cases'/(case['id']+'.json')
