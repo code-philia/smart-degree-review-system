@@ -13,9 +13,11 @@ from urllib.parse import urlencode, quote, urlsplit
 from urllib.request import Request, build_opener, HTTPRedirectHandler, ProxyHandler
 from urllib.error import HTTPError
 from .storage import json_bytes, write_json_atomic
+from .identity import normalize_doi
 
 VERSION='public-evidence/1.2'
 CONTENT_VERSION='public-content/1.1-arxiv'
+DISCOVERY_VERSION='openalex-discovery/1.0'
 MAX_BYTES=4*1024*1024
 HOSTS={'api.crossref.org','api.datacite.org','api.openalex.org','www.ebi.ac.uk','export.arxiv.org'}
 _GROUPS={'crossref':'doi-registration','datacite':'doi-registration','openalex':'aggregated-metadata','europepmc':'pubmed-metadata'}
@@ -102,9 +104,13 @@ def _identity_works(provider,data):
                 'url':d.get('url',''),'type':d.get('types',{}).get('resourceTypeGeneral','')}
     elif provider=='openalex':
         for d in data.get('results',[]):
+            canonical=normalize_doi(d.get('doi'))
+            aliases=sorted({normalize_doi(location.get('doi')) for location in d.get('locations',[])
+                if isinstance(location,dict) and re.fullmatch(r'10\.\d{4,9}/[^\s]{1,250}',normalize_doi(location.get('doi')))}-{canonical})
             index=d.get('abstract_inverted_index') or {};positions={int(i):word for word,indices in index.items() for i in indices if type(i)is int and 0<=i<50000}
             yield {'title':_clean(d.get('display_name','')),'authors':[_clean(a.get('author',{}).get('display_name','')) for a in d.get('authorships',[])],
-                'year':_year(d.get('publication_year')),'doi':(d.get('doi') or '').replace('https://doi.org/','').lower(),
+                'year':_year(d.get('publication_year')),'doi':canonical,'doi_aliases':aliases,
+                'openalex_id':d.get('id') if re.fullmatch(r'https://openalex\.org/W\d+',str(d.get('id',''))) else None,
                 'abstract':_clean(' '.join(positions[i] for i in sorted(positions))), 'url':(d.get('primary_location') or {}).get('landing_page_url',''),'type':d.get('type','')}
     elif provider=='europepmc':
         for d in data.get('resultList',{}).get('result',[]):
@@ -143,14 +149,14 @@ def _works(provider,data):
             extras={'container':((journal.get('journal') or {}).get('title'),'journalInfo.journal.title'),
                 'volume':(journal.get('volume'),'journalInfo.volume'),'issue':(journal.get('issue'),'journalInfo.issueId'),
                 'pages':(item.get('pageInfo'),'pageInfo')}
-        provenance={}
+        provenance=({'openalex_id':'id',**({'doi_aliases':'locations[].doi'} if work.get('doi_aliases') else {})} if provider=='openalex' else {})
         for field,(value,path) in extras.items():
             if isinstance(value,(str,int,float)) and str(value).strip():
                 work[field]=_clean(value);provenance[field]=path
         work['field_provenance']=provenance
         yield work
 
-def _urls(provider,query):
+def _legacy_urls(provider,query):
     title=str(query.get('title','')).strip()[:1000];doi=str(query.get('doi','')).strip().lower()
     if doi and not re.fullmatch(r'10\.\d{4,9}/[^\s]{1,250}',doi):doi=''
     year=_year(query.get('year'));author=' '.join(str(a) for a in query.get('authors',[])[:2])[:120]
@@ -165,6 +171,23 @@ def _urls(provider,query):
     elif provider=='europepmc':
         term='DOI:"'+doi+'"' if doi else 'TITLE:"'+title.replace('"','')+'"'
         if doi or title:yield 'https://www.ebi.ac.uk/europepmc/webservices/rest/search?'+urlencode({'query':term,'format':'json','resultType':'core','pageSize':5})
+
+def _urls(provider,query):
+    normalized={**query,'doi':normalize_doi(query.get('doi'))}
+    if provider!='openalex':
+        yield from _legacy_urls(provider,normalized)
+        return
+    doi=normalized['doi']
+    if re.fullmatch(r'10\.\d{4,9}/[^\s]{1,250}',doi):
+        yield 'https://api.openalex.org/works?'+urlencode({'filter':'doi:https://doi.org/'+doi,'per-page':10})
+    title=str(query.get('title','')).strip()
+    if title:
+        literal=title[:300].replace('\\','\\\\').replace('"','\\"')
+        # Work-level dates can describe a later merged version; verify year after discovery.
+        yield 'https://api.openalex.org/works?'+urlencode({'search.title':'"'+literal+'"','per-page':10})
+        for url in _legacy_urls('openalex',query):
+            if len(url.encode('utf-8'))<4094:yield url
+
 
 class EvidenceGateway:
     def __init__(self,cache_dir,providers=None,transport=None,*,clock=time.time,proxy=None,snapshot_id=None):
@@ -229,17 +252,36 @@ class EvidenceGateway:
             if status!=200:base.update(status='unavailable',error='HTTP_'+str(status),works=[])
             elif len(body)>MAX_BYTES:raise EvidenceError('response too large')
             else:
-                data=json.loads(body);works=list(_works(provider,data))[:5]
+                data=json.loads(body);works=list(_works(provider,data))[:10 if provider=='openalex' else 5]
                 base.update(status='ok' if works else 'empty',works=works)
         except (OSError,ValueError,TypeError,KeyError,IndexError) as error:
             base.update(status='unavailable',error=type(error).__name__,works=[])
         base['id']='retrieval-'+hashlib.sha256(json_bytes(base)).hexdigest()[:24]
         return self._cache_result(path,base)
+    def _lookup_urls(self,query):
+        if not self.snapshot_id:return {provider:list(_urls(provider,query)) for provider in self.providers}
+        key=hashlib.sha256(json_bytes({'providers':self.providers,'query':query})).hexdigest()
+        path=self.cache_dir/('lookup-plan-'+key+'.json')
+        if path.exists():return json.loads(path.read_text())['urls']
+        policy_path=self.cache_dir/'discovery-policy.json'
+        if policy_path.exists():policy=json.loads(policy_path.read_text())
+        else:
+            has_plans=any(self.cache_dir.glob('lookup-plan-*.json'))
+            has_old_cache=any(re.fullmatch(r'[0-9a-f]{64}\.json',p.name) for p in self.cache_dir.glob('*.json'))
+            policy=self._cache_result(policy_path,{'discovery_version':DISCOVERY_VERSION,
+                'legacy':has_old_cache and not has_plans})
+        planner=_legacy_urls if policy['legacy'] else _urls
+        plans={provider:list(planner(provider,query)) for provider in self.providers}
+        # Pin query strategy before I/O. Old snapshots retain their original URLs.
+        return self._cache_result(path,{'schema_version':'public-lookup-plan/1.0',
+            'discovery_version':DISCOVERY_VERSION,'urls':plans})['urls']
+
     def lookup(self,query):
         from concurrent.futures import ThreadPoolExecutor
+        plans=self._lookup_urls(query)
         def retrieve_provider(provider):
             records=[]
-            for url in _urls(provider,query):
+            for url in plans[provider]:
                 result=self._retrieve(provider,url)
                 if not result['works']:records.append({k:v for k,v in result.items() if k!='works'})
                 for index,work in enumerate(result['works']):

@@ -3,6 +3,15 @@ import re
 import unicodedata
 from difflib import SequenceMatcher
 
+def normalize_doi(value):
+    value=str(value or '').strip()
+    return re.sub(r'^(?:doi:\s*|https?://(?:dx\.)?doi\.org/)', '', value, flags=re.I).casefold()
+
+def _work_dois(work):
+    aliases=work.get('doi_aliases',[])
+    values=[work.get('doi','')]+(aliases if isinstance(aliases,list) else [])
+    return {normalize_doi(value) for value in values if normalize_doi(value)}
+
 def _norm(text):return ''.join(c for c in unicodedata.normalize('NFKC',str(text)).casefold() if c.isalnum())
 def _author_match(left,right):
     def variants(name):
@@ -30,7 +39,7 @@ def resolve_identity(entry:dict,records:list[dict],client=None)->dict:
         work=r['work'];other=_norm(work.get('title',''))
         author=_author_match(entry.get('authors',[]),work.get('authors',[]))
         year=entry.get('year') is not None and str(entry['year'])==str(work.get('year'))
-        doi=bool(entry.get('doi')) and entry['doi'].lower()==work.get('doi','').lower()
+        doi=bool(normalize_doi(entry.get('doi'))) and normalize_doi(entry.get('doi')) in _work_dois(work)
         similarity=SequenceMatcher(None,title,other).ratio() if title and other else 0
         author_conflict=bool(entry.get('authors')) and bool(work.get('authors')) and not author
         year_conflict=entry.get('year') is not None and work.get('year') is not None and not year
@@ -47,10 +56,12 @@ def resolve_identity(entry:dict,records:list[dict],client=None)->dict:
     if matches:
         exact=[c for c in matches if c[3]]
         if exact:matches=exact
-        identities={(_norm(c[0]['work'].get('title','')),c[0]['work'].get('doi','')) for c in matches}
+        identities={(_norm(c[0]['work'].get('title','')),normalize_doi(c[0]['work'].get('doi',''))) for c in matches}
         # Several inconsistent records are ambiguous, even if their names look similar.
         nonempty_dois={x[1] for x in identities if x[1]}
-        if len(nonempty_dois)>1:return {'state':'unknown','reason':'multiple conflicting work identities','evidence_ids':[c[0]['id'] for c in matches]}
+        if len(nonempty_dois)>1 and not exact:return {'state':'unknown','reason':'multiple conflicting work identities','evidence_ids':[c[0]['id'] for c in matches]}
+        openalex_ids={c[0]['work'].get('openalex_id') for c in matches if c[0]['work'].get('openalex_id')}
+        if len(openalex_ids)>1:return {'state':'unknown','reason':'multiple conflicting OpenAlex work identities','evidence_ids':[c[0]['id'] for c in matches]}
         selected=max(matches,key=lambda c:(c[3],c[4],bool(c[0]['work'].get('abstract'))));work=dict(selected[0]['work'])
         ids=[c[0]['id'] for c in matches];work['evidence_ids']=ids
         repositories={c[0]['work'].get('pmcid') for c in matches if re.fullmatch(r'PMC\d+',str(c[0]['work'].get('pmcid',''))) and c[0]['work'].get('doi','').lower()==work.get('doi','').lower() and work.get('doi')}
@@ -65,6 +76,6 @@ def resolve_identity(entry:dict,records:list[dict],client=None)->dict:
             elif len(values)>1:work.pop(field,None)
         work['field_sources']=field_sources
         conflicts=[]
-        if entry.get('doi') and work.get('doi') and entry['doi'].lower()!=work['doi'].lower():conflicts.append('doi')
+        if entry.get('doi') and work.get('doi') and normalize_doi(entry['doi']) not in _work_dois(work):conflicts.append('doi')
         return {'state':'observed','value':True,'evidence_ids':ids,'work':work,'metadata_conflicts':conflicts,'method':'corroborated_metadata'}
     return {'state':'unknown','reason':'public retrieval does not establish or exclude this work','evidence_ids':[r['id'] for r in records]}

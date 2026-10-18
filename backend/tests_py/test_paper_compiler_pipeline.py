@@ -65,3 +65,31 @@ def test_check_cli_loads_direct_program_with_frozen_runtime_snapshot(tmp_path):
     assert report['runtime']['freeze'] is True and report['runtime']['generation']==1
     assert report['rules'][0]['results'][0]['status']=='PASS'
     assert report['pipeline_version']
+
+def test_pipeline_version_tracks_semantic_model_configuration(tmp_path):
+    class Client:
+        def __init__(self,version):self.config={'MAAS_MODEL':'same-model','MAAS_MODEL_VERSION':version}
+        def complete_json(self,*args):raise AssertionError('this program needs no model calls')
+    pkg=build_program(candidate(),rule_text='rule',basis=[{'id':'test','text':'basis'}]);ir,_=fixture(tmp_path)
+    reports=[pipeline.detect(ir,[pkg],client=Client(v),gateway=None,cache_dir=tmp_path/'cache')[2] for v in ['v1','v2']]
+    assert reports[0]['pipeline_version']!=reports[1]['pipeline_version']
+    assert reports[0]['analysis_sha256']
+
+def test_plan_cli_turns_natural_language_into_a_task_without_handwritten_scope(tmp_path,monkeypatch):
+    import importlib.util
+    import paper_compiler.llm
+    class Planner:
+        config={}
+        def complete_json(self,*args):
+            return {'target_kinds':['BibliographyEntry'],'generation_guidance':'Generate genuine source edits and verify both labels.','evidence_environment':None}
+    monkeypatch.setattr(paper_compiler.llm,'MaasClient',lambda *a,**kw:Planner())
+    path=Path(__file__).resolve().parents[1]/'scripts'/'paper_compiler_cli.py'
+    spec=importlib.util.spec_from_file_location('planner_cli_test',path);cli=importlib.util.module_from_spec(spec);spec.loader.exec_module(cli)
+    rule=tmp_path/'rule.txt';rule.write_text('Bibliography entries require titles.')
+    basis=tmp_path/'basis.json';basis.write_text(json.dumps([{'id':'norm','text':'Titles are required.'}]))
+    args=cli.parser().parse_args(['plan','--rule-id','unseen-rule','--rule-text',str(rule),'--basis',str(basis),
+        '--out',str(tmp_path/'plan'),'--ledger',str(tmp_path/'ledger.db'),'--cache',str(tmp_path/'cache')])
+    result=cli.execute(args)
+    assert result['status']=='planned'
+    planned=json.loads((tmp_path/'plan'/'plan.json').read_text())
+    assert planned['rule_text']==rule.read_text() and planned['target_kinds']==['BibliographyEntry']

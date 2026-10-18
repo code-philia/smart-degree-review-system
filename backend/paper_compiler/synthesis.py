@@ -19,7 +19,9 @@ Use the supplied allowed Python builtins/methods and helpers. nodes(payload,kind
 fact(payload,capability,node_id,field) returns {state,value?,evidence_ids?,reason?}. Unknown is not false.
 detect MUST return a list of diagnostic dictionaries. Start output=[], append each emit(...) to output, then return output.
 emit(node,status,message,check_id,basis_ids,evidence_ids?,reasons?) returns a dictionary; it has NO side effects and never records anything by itself.
-fact states are observed, unknown, absent or not_applicable, never known. Use observed before reading value.
+fact states are observed, confirmed_absent, unknown or not_applicable, never known or absent. Use observed before reading value.
+confirmed_absent is verified absence in an explicitly complete local source scope and may prove a required local field missing when applicability is established. Unknown is merely insufficient evidence and cannot prove absence.
+Preserve this distinction in source format checks; do not require state=observed for a confirmed_absent fact.
 Use ONLY exact field names declared in the analysis_registry or your analysis_requests. Unknown/missing field means unavailable, not a negative.
 The dependency registry fields are the authoritative interface; do not invent similarly named keys.
 Allowed statuses:
@@ -28,6 +30,7 @@ PASS is compliance, VIOLATION is a proven defect; missing information is UNKNOWN
 re_search/re_matches return booleans; re_findall returns a list; patterns use RE2. Do not call re or other modules.
 Use source text/structure for syntax and only grounded observed facts for semantic requirements.
 The AST, symbol bindings and semantic relations are shared interfaces. Never hardcode source document/node IDs or dataset examples.
+Cover the requested task_target_kinds. A malformed construct may lose its derived child node: use stable source-containing parent targets when necessary, and do not treat an absent parsed construct as automatic compliance.
 Choose reusable requires from the supplied registry. If a necessary fact is absent, declare a reusable analysis_requests item
 {name,targets,fields,instructions}, fields types string/number/boolean/array/object. Its instructions must explain a generic
 source-grounded extraction/analysis, not a constant or memorized answer. No human implementation is needed for a new request.
@@ -49,11 +52,13 @@ def synthesize_program(task,client,output_dir,*,model=None,previous=None,feedbac
     model=copy.deepcopy(model or (previous['model'] if previous else base_model()))
     advertised={k:v for k,v in REGISTRY['capabilities'].items() if k!='citation_relevance'}
     data={'requested_rule_id':str(task['rule_id']),'rule_text':task['rule_text'],'basis':task['basis'],
+        'task_target_kinds':task.get('target_kinds',[]),'generation_guidance':task.get('generation_guidance',''),
         'paper_model':model,'node_kinds':sorted(KINDS|set(model.get('node_types',{}))),
         'base_node_attributes':{kind:list({**COMMON,**ATTRS.get(kind,{})}) for kind in KINDS},
         'analysis_registry':advertised,'python_policy':{'builtins':sorted(BUILTINS),
         'methods':sorted(METHODS),'helpers':sorted(HELPERS)},'feedback':feedback or [],
         'allow_model_refinement':bool(allow_model_refinement),
+        'refinement_policy':('model and generated analysis requests may be refined' if allow_model_refinement else 'Paper Model and existing generated analysis_requests are FIXED after the initial candidate. Preserve analysis_requests and requires exactly; only detection code may be repaired.'),
         'previous_candidate':None if previous is None else {**copy.deepcopy(previous['program_spec']),'code':previous['code']}}
     fingerprint=digest(data)
     input_file=output_dir/'synthesis-input.json';answer_file=output_dir/'synthesis-response.json'
@@ -66,6 +71,8 @@ def synthesize_program(task,client,output_dir,*,model=None,previous=None,feedbac
         candidate=client.complete_json(PROMPT_VERSION,INSTRUCTIONS,data,16384)
         write_json_atomic(answer_file,candidate,exclusive=True)
     if str(candidate.get('rule_id'))!=str(task['rule_id']):raise ValueError('generated rule identity changed')
+    if not allow_model_refinement and previous is not None and (candidate.get('analysis_requests')!=previous['program_spec']['analysis_requests'] or set(candidate.get('requires',[]))!=set(previous['program_spec']['requires'])):
+        raise ValueError('analysis contract and dependencies are fixed for this program-only condition')
     patch=candidate.get('model_patch',{})
     if patch and patch.get('node_types'):
         if not allow_model_refinement:raise ValueError('model is fixed for this experimental condition')

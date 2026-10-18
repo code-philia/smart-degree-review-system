@@ -91,3 +91,7 @@ Node 的 cache 默认仍为 `/data/runtime/paper-compiler`，与现有 CLI 一�
 - T58：尚未发布；只有首次发布标准和准备配置均确认后，才使用既有受限发布入口，并继续维持常驻服务及回滚能力。
 
 首次发布前还需以 `smartdegree` 在服务约束内做只读配置探测、同账本事务、隔离控制目录持久化和无付费启动检查，再进行获授权的真实语义调用及端到端验证。发布不得执行演示数据重置，受保护 CSV 始终另受用户授权约束。
+
+## 私有 OpenAlex 配置的权限补充
+
+evidence loader 会拒绝配置文件的任何组/其他权限位。直接给 root0600 文件增加用户ACL可能令mask映射为0640，仍被拒绝。上线方案应由systemd以root读取原0600 evidence.env作为EnvironmentFile，并将OPENALEX_API_KEY仅注入受控service；或提供服务UID独享0400的凭据文件。不采用给该文件增加普通只读ACL的方案。模型配置、同一个费用账本及SQLite日志父目录的权限分别按实际loader核对。本次仅准备配置方案，未修改生产权限或凭据。

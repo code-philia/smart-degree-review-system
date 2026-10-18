@@ -34,7 +34,13 @@ def detect(ir,packages,*,client,gateway,cache_dir,evidence_environment=None):
     analysis=analyze_programs(materialized,packages,client=client,gateway=gateway,
         cache_dir=Path(cache_dir),evidence_environment=evidence_environment)
     report=check_programs(materialized,analysis,packages)
-    report['pipeline_version']=digest({'model':model,'programs':[p['manifest']['version_id'] for p in packages]})
+    config=getattr(client,'config',{})
+    execution={'semantic_model':{k:config.get(k) for k in ['MAAS_MODEL','MAAS_MODEL_VERSION']},
+               'offline':client is None,'evidence_environment_sha256':digest(evidence_environment),
+               'evidence_snapshot':getattr(gateway,'snapshot_id',None)}
+    report['execution_config']=execution
+    report['analysis_sha256']=digest(analysis)
+    report['pipeline_version']=digest({'model':model,'programs':[p['manifest']['version_id'] for p in packages],'execution':execution})
     return materialized,analysis,report
 
 def save_suite(packages,folder,*,validated=False,validation=None):

@@ -139,6 +139,16 @@ def run_program(package,ir,analysis):
     if ir['model_version']!=package['manifest']['model_version']:raise ProgramError('incompatible paper model version')
     for name,version in package['manifest']['capability_versions'].items():
         if analysis['capability_versions'].get(name)!=version:raise ProgramError('stale analysis capability version: '+name)
+    types={'string':str,'number':(int,float),'boolean':bool,'array':list,'object':dict}
+    for name in package['program_spec']['requires']:
+        fields=package['registry']['capabilities'][name]['fields']
+        for facts in analysis['results'].get(name,{}).values():
+            for field,observation in facts.items():
+                if field not in fields:raise ProgramError('unknown analysis field type: '+name+'.'+field)
+                if observation.get('state')=='observed':
+                    value=observation.get('value');kind=fields[field]
+                    if kind not in types or not isinstance(value,types[kind]) or (kind=='number' and isinstance(value,bool)):
+                        raise ProgramError('analysis field type mismatch: '+name+'.'+field)
     from .runtime import _evidence_check
     _evidence_check(ir,analysis)
     compact=copy.deepcopy(ir)

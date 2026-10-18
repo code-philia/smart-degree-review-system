@@ -22,12 +22,23 @@ def _fingerprint(manifest_path,manifest):
         paths.update(str(Path(case[k]).resolve()) for k in ['ir_path','original_ir_path','oracle_path'])
     return digest({p:hashlib.sha256(Path(p).read_bytes()).hexdigest() for p in sorted(paths)})
 
-def _actual(report,node_id):
-    rows=[r for rule in report.get('rules',[]) for r in rule.get('results',[]) if r.get('node_id')==node_id]
+def _actual(report,node_id,rule_id=None,node_ids=None):
+    if report.get('_execution_error'):
+        return 'ERROR',[{'node_id':node_id,'rule_id':rule_id,'status':'ERROR','message':'execution failed','error_type':report['_execution_error']}]
+    targets=set(node_ids or [node_id])
+    rows=[r for rule in report.get('rules',[]) if rule_id is None or str(rule.get('rule_id'))==str(rule_id) for r in rule.get('results',[]) if r.get('node_id') in targets]
     values={r.get('status') for r in rows}
     for value in ['ERROR','VIOLATION','UNKNOWN','PASS','NOT_APPLICABLE']:
         if value in values:return value,rows
     return 'UNKNOWN',rows
+
+def _subtree(ir,target):
+    nodes={n['id']:n for n in ir['nodes']};found=set();queue=[target]
+    while queue:
+        node_id=queue.pop()
+        if node_id in found or node_id not in nodes:continue
+        found.add(node_id);queue.extend(nodes[node_id]['children'])
+    return found
 
 def _view(ir,target):
     nodes={n['id']:n for n in ir['nodes']}
@@ -74,11 +85,10 @@ def evaluate_cases(package,cases,runner,cache=None):
             if key not in cache:
                 try:cache[key]=runner(package,copy.deepcopy(ir))
                 except BudgetExceeded:raise
-                except Exception as error:cache[key]={'rules':[{'results':[{'node_id':target,
-                    'status':'ERROR','message':'execution failed','error_type':type(error).__name__}]}]}
+                except Exception as error:cache[key]={'_execution_error':type(error).__name__,'rules':[]}
             outputs.append(cache[key])
-        before,before_rows=_actual(outputs[0],target)
-        after,after_rows=_actual(outputs[1],target)
+        before,before_rows=_actual(outputs[0],target,package['program_spec']['rule_id'],_subtree(original,target))
+        after,after_rows=_actual(outputs[1],target,package['program_spec']['rule_id'],_subtree(mutant,target))
         expected=oracle['status']
         correct=before=='PASS' and after==expected
         record={'id':case['id'],'expected':expected,'before':before,'after':after,'correct':correct,
@@ -96,7 +106,7 @@ def evaluate_cases(package,cases,runner,cache=None):
     return {'metrics':_metrics(records),'records':records,'failures':failures}
 
 def run_feedback_loop(task,manifest_path,*,client,output_dir,runner,model=None,max_rounds=5,
-                      control=None,allow_model_refinement=True):
+                      control=None,allow_model_refinement=True,initial_package=None,candidate_validator=None,regression_policy=None,initial_candidate=None,defer_test=False):
     if type(max_rounds) is not int or not 1<=max_rounds<=5:raise FeedbackError('max rounds must be 1..5')
     output_dir=Path(output_dir);output_dir.mkdir(parents=True,exist_ok=True)
     manifest=load(manifest_path)
@@ -104,7 +114,9 @@ def run_feedback_loop(task,manifest_path,*,client,output_dir,runner,model=None,m
         raise FeedbackError('benchmark is not a complete frozen protocol')
     fingerprint=_fingerprint(manifest_path,manifest)
     frozen={'benchmark_sha256':fingerprint,'task_sha256':digest(task),'max_rounds':max_rounds,
-            'allow_model_refinement':bool(allow_model_refinement)}
+            'allow_model_refinement':bool(allow_model_refinement),
+            'initial_version':initial_package['manifest']['version_id'] if initial_package else None,
+            'regression_policy':regression_policy,'initial_candidate_sha256':digest(initial_candidate) if initial_candidate else None,'defer_test':bool(defer_test)}
     frozen_path=output_dir/'frozen.json'
     if frozen_path.exists() and load(frozen_path)!=frozen:raise FeedbackError('frozen experiment inputs changed')
     groups={}
@@ -112,7 +124,7 @@ def run_feedback_loop(task,manifest_path,*,client,output_dir,runner,model=None,m
         old=groups.setdefault(case['parent_group'],case['split'])
         if old!=case['split']:raise FeedbackError('parent group leaks across splits')
     if not frozen_path.exists():write_json_atomic(frozen_path,frozen,exclusive=True)
-    result_file=output_dir/'complete.json'
+    result_file=output_dir/('selected.json' if defer_test else 'complete.json')
     if result_file.exists():return load(result_file)
     cases=[c for c in manifest['cases'] if str(c['rule_id'])==str(task['rule_id'])]
     split={s:[c for c in cases if c['split']==s] for s in ['feedback','validation','test']}
@@ -135,18 +147,41 @@ def run_feedback_loop(task,manifest_path,*,client,output_dir,runner,model=None,m
             else:feedback=record['failures']
             continue
         try:
-            package=synthesize_program(task,client,folder,model=model,previous=previous,
-                feedback=feedback[:12],allow_model_refinement=allow_model_refinement)
+            if index==0 and initial_candidate is not None:
+                from .programs import build_program,save_program
+                from .model_runtime import base_model,extend_model
+                candidate_model=copy.deepcopy(model or base_model())
+                if initial_candidate.get('model_patch',{}).get('node_types'):
+                    candidate_model=extend_model(candidate_model,initial_candidate['model_patch'])
+                package=build_program(initial_candidate,rule_text=task['rule_text'],basis=task['basis'],model=candidate_model)
+                if not (folder/'package'/'manifest.json').exists():save_program(package,folder/'package')
+                write_json_atomic(folder/'initial-reuse.json',{'raw_sha256':digest(initial_candidate),'generation_call':False})
+            elif index==0 and initial_package is not None:
+                from .programs import save_program,verify_program
+                package=copy.deepcopy(initial_package);verify_program(package)
+                if package['input']['rule_text']!=task['rule_text'] or package['input']['basis']!=task['basis'] or package['program_spec']['rule_id']!=str(task['rule_id']):
+                    raise FeedbackError('shared initial candidate does not match task')
+                if not (folder/'package'/'manifest.json').exists():save_program(package,folder/'package')
+                write_json_atomic(folder/'initial-reuse.json',{'version_id':package['manifest']['version_id'],'generation_call':False})
+            else:
+                package=synthesize_program(task,client,folder,model=model,previous=previous,
+                    feedback=feedback[:12],allow_model_refinement=allow_model_refinement)
             if index==0:baseline=package
             fb=evaluate_cases(package,split['feedback'],runner,cache)
             validation=evaluate_cases(package,split['validation'],runner,cache)
+            cross=candidate_validator(package) if candidate_validator is not None else {'passed':True,'failures':[]}
+            if not isinstance(cross,dict) or type(cross.get('passed')) is not bool:
+                raise FeedbackError('invalid cross-rule validation result')
+            if not cross['passed']:
+                fb['failures']+=cross.get('failures') or [{'failure_types':['cross_rule_regression'],'reason':'cross-rule validation failed'}]
             write_json_atomic(folder/'feedback.json',fb)
             write_json_atomic(folder/'validation-evaluation.json',validation)
             record={'round':index,'status':'evaluated','version_id':package['manifest']['version_id'],
                 'model_version':package['model']['version'],'package_path':str((folder/'package').resolve()),
                 'feedback_metrics':fb['metrics'],'validation_metrics':validation['metrics'],
-                'validation_score':validation['metrics']['strict_balanced_accuracy']}
-            write_json_atomic(folder/'package'/'validation.json',{'status':'passed',
+                'validation_score':validation['metrics']['strict_balanced_accuracy'] if cross['passed'] else -1,
+                'cross_rule_validation':cross}
+            write_json_atomic(folder/'package'/'validation.json',{'status':'passed' if cross['passed'] else 'regression_rejected',
                 'behavior_evaluated':True,'feedback_metrics':fb['metrics'],'validation_metrics':validation['metrics']})
             previous=package;model=package['model'];feedback=fb['failures']
             if record['validation_score']>best_score:
@@ -157,6 +192,7 @@ def run_feedback_loop(task,manifest_path,*,client,output_dir,runner,model=None,m
             break
         except Exception as error:
             feedback=[{'failure_types':['compile_or_contract'],'error_type':type(error).__name__,'reason':str(error)[:3000]}]
+            if index==0 and initial_candidate is not None:feedback[0]['failed_candidate']=initial_candidate
             record={'round':index,'status':'candidate_failed','failures':feedback}
         write_json_atomic(checkpoint,record);rounds.append(record)
         if record['status']=='evaluated' and not feedback:
@@ -166,7 +202,21 @@ def run_feedback_loop(task,manifest_path,*,client,output_dir,runner,model=None,m
                 'best_version':None,'remaining_feedback_errors':len(feedback)}
         write_json_atomic(output_dir/'partial.json',result)
         return result
+    if _fingerprint(manifest_path,manifest)!=fingerprint:raise FeedbackError('frozen experiment inputs changed during execution')
     package,record=best
+    if stop_reason=='budget_limit':
+        result={'status':'incomplete','stop_reason':'budget_limit','rounds_completed':len(rounds),'rounds':rounds,
+            'best_version':package['manifest']['version_id'],'best_package_path':record['package_path'],
+            'remaining_feedback_errors':record['feedback_metrics']['strict_errors'],'benchmark_sha256':fingerprint}
+        write_json_atomic(output_dir/'partial.json',result)
+        return result
+    if defer_test:
+        result={'status':'selected_pending_test','stop_reason':stop_reason,'rounds_completed':len(rounds),'rounds':rounds,
+            'initial_version':baseline['manifest']['version_id'] if baseline else None,'best_version':package['manifest']['version_id'],
+            'best_package_path':record['package_path'],'remaining_feedback_errors':record['feedback_metrics']['strict_errors'],
+            'benchmark_sha256':fingerprint,'deferred_test':True}
+        write_json_atomic(result_file,result,exclusive=True)
+        return result
     try:
         final_test=evaluate_cases(package,split['test'],runner,cache)
         baseline_test=evaluate_cases(baseline,split['test'],runner,cache) if baseline else {'metrics':None,'records':[]}

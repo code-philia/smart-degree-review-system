@@ -96,3 +96,12 @@ def test_manifest_cannot_spoof_model_or_capability_contract():
     p['manifest']['model_version']='paper-model/spoofed'
     with pytest.raises(ProgramError,match='model'):
         verify_program(p)
+
+def test_program_checks_declared_analysis_field_types_even_with_valid_versions(tmp_path):
+    from paper_compiler.programs import build_program,run_program,ProgramError
+    ir,a=fixture(tmp_path);c=candidate();c['requires']=['bibliography_fields']
+    p=build_program(c,rule_text='rule',basis=[{'id':'test','text':'basis'}])
+    a['capability_versions']=p['manifest']['capability_versions']
+    a['results']['bibliography_fields']={'entry':{'title':{'state':'observed','value':True,'evidence_ids':[]}}}
+    with pytest.raises(ProgramError,match='type'):
+        run_program(p,ir,a)

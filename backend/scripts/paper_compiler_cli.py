@@ -10,12 +10,14 @@ from paper_compiler.contracts import validate_ir
 
 def parser():
     p=argparse.ArgumentParser();sub=p.add_subparsers(dest='command',required=True)
-    for name in ['build','compile','synthesize','loop','check','batch','evaluate','budget']:
+    for name in ['build','compile','plan','plan-batch','synthesize','loop','check','batch','evaluate','budget']:
         s=sub.add_parser(name);s.add_argument('--config',default=os.environ.get('PAPER_COMPILER_CONFIG','/data/apps/smart-degree-review/config/paper-model-huawei.env'))
         s.add_argument('--ledger',default='/data/runtime/paper-compiler/budget.sqlite3');s.add_argument('--budget',default='200')
         s.add_argument('--phase',default='pilot');s.add_argument('--phase-budget',default='5');s.add_argument('--cache',default='/data/runtime/paper-compiler')
         s.add_argument('--evidence-snapshot');s.add_argument('--freeze-evidence',action='store_true');s.add_argument('--model-fingerprint');s.add_argument('--offline',action='store_true');s.add_argument('--out',type=Path);s.add_argument('--package',action='append',default=[])
         if name=='build':s.add_argument('--pdf',required=True,type=Path)
+        if name in ['plan','plan-batch']:
+            s.add_argument('--basis',required=name=='plan',type=Path);s.add_argument('--rule-id',required=name=='plan');s.add_argument('--rule-text',required=name=='plan',type=Path);s.add_argument('--rules',required=name=='plan-batch',type=Path);s.add_argument('--evidence-environments',type=Path);s.add_argument('--allow-constructed',action='store_true');s.add_argument('--paper-model',type=Path)
         if name=='compile':
             s.add_argument('--rule-id',required=True);s.add_argument('--rule-text',type=Path);s.add_argument('--basis',type=Path);s.add_argument('--partitioned',action='store_true')
         if name=='check':
@@ -53,6 +55,18 @@ def execute(args):
     ledger=BudgetLedger(args.ledger,args.budget)
     client=None if args.offline else MaasClient(args.config,ledger,Path(args.cache)/'model-cache',args.phase,args.phase_budget,max_attempts=1)
     if client and args.model_fingerprint and model_fingerprint(client.config)!=args.model_fingerprint:raise ValueError('effective model configuration changed')
+    if args.command in ['plan','plan-batch']:
+        from paper_compiler.task_planner import plan_task,plan_tasks
+        if client is None:raise ValueError('task planning requires the configured API')
+        kwargs={'client':client,'model':json.loads(args.paper_model.read_text()) if args.paper_model else None,
+            'allowed_context_origins':('real','constructed') if args.allow_constructed else ('real',),
+            'evidence_environments':json.loads(args.evidence_environments.read_text()) if args.evidence_environments else (),
+            'output_dir':args.out}
+        if args.command=='plan':
+            plan_task(args.rule_id,args.rule_text.read_text(),json.loads(args.basis.read_text()),**kwargs)
+            return {'status':'planned','task_path':str(args.out/'plan.json'),'budget':ledger.summary()}
+        tasks=plan_tasks(json.loads(args.rules.read_text()),**kwargs)
+        return {'status':'planned','tasks':len(tasks),'output':str(args.out),'budget':ledger.summary()}
     gateway=None if args.offline else EvidenceGateway(Path(args.cache)/'public-evidence',proxy=os.environ.get('PAPER_COMPILER_PUBLIC_PROXY','http://127.0.0.1:18892'),snapshot_id=args.evidence_snapshot if args.freeze_evidence or args.command in ['batch','evaluate'] else None)
     packages=[load_package(path) for path in args.package]
     def detect_generated(ir,programs,environment=None):
