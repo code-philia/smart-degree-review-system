@@ -343,3 +343,147 @@ def test_resume_rejects_changed_semantic_runtime_even_with_same_declared_version
     monkeypatch.setattr(study,'_sha',lambda path:'0'*64 if Path(path).name=='program_analysis.py' else original(path))
     with pytest.raises(ValueError,match='frozen study artifact changed'):
         study.run_study(tasks,manifest,client=Model(),output_dir=out,runner=runner,max_rounds=1)
+
+
+class ReservedInitialAnalysisModel(Model):
+    """A joint repair can remove an invalid contract; program_only cannot."""
+    def __init__(self, pause_fixed_repair=None):
+        super().__init__()
+        self.pause_fixed_repair = pause_fixed_repair
+
+    def complete_json(self, task, instructions, data, max_tokens):
+        blocked = data['requested_rule_id'] == 'blocked'
+        initial = not data.get('feedback')
+        fixed_repair = blocked and not initial and not data['allow_model_refinement']
+        if fixed_repair and self.pause_fixed_repair == 'budget':
+            raise BudgetExceeded('fake cumulative budget exhausted before fixed repair')
+        if fixed_repair and self.pause_fixed_repair == 'interrupted':
+            raise KeyboardInterrupt('fake interrupted process before fixed repair')
+        answer = super().complete_json(task, instructions, data, max_tokens)
+        if blocked and (initial or fixed_repair):
+            answer['requires'] = ['citation_relevance']
+            answer['analysis_requests'] = [{
+                'name': 'citation_relevance',
+                'targets': ['BibliographyEntry'],
+                'fields': {'related': 'boolean'},
+                'instructions': 'Read only the supplied source.'}]
+        return answer
+
+
+def test_exhausted_frozen_invalid_contract_does_not_block_all_heldout_results(tmp_path):
+    tasks, manifest, splits = benchmark(tmp_path, ('healthy', 'blocked'))
+    out = tmp_path / 'study'
+    calls = []
+    model = ReservedInitialAnalysisModel()
+    result = api()(tasks, manifest, client=model, output_dir=out,
+                   runner=runner_for(out, splits, calls), max_rounds=2)
+
+    blocked = result['conditions']['program_only']['rules']['blocked']
+    assert blocked['rounds_completed'] == 2
+    assert blocked['stop_reason'] == 'round_limit'
+    assert all(r['status'] == 'candidate_failed' for r in blocked['rounds'])
+    assert all('already registered' in r['failures'][0]['reason'] for r in blocked['rounds'])
+    assert len([d for d in model.requests if not d['feedback'] and
+                d['requested_rule_id'] == 'blocked']) == 1
+    raw = json.loads(Path(result['initial']['blocked']['raw_path']).read_text())
+    assert raw['analysis_requests'][0]['name'] == 'citation_relevance'
+    assert (out / 'conditions' / 'joint' / 'suite' / 'manifest.json').is_file()
+
+    # Exhausting the allowed rounds is a terminal failed selection, not an
+    # interrupted study. All condition selections (including this failure)
+    # must freeze before any heldout evaluation, with no program fabricated.
+    assert result['status'] == 'completed', (
+        'A frozen invalid contract exhausted every round but prevented the '
+        'otherwise selected conditions from reaching heldout evaluation: '
+        + result.get('stop_reason', ''))
+    assert (out / 'selection-frozen.json').is_file()
+    assert any(split == 'test' for _, split, _ in calls)
+    assert result['conditions']['joint']['rules']['blocked']['final_test']['metrics']['strict_balanced_accuracy'] == 1
+    failed = result['conditions']['program_only']['rules']['blocked']['final_test']['metrics']
+    assert failed['cases'] == 2 and failed['errors'] == 2
+    assert failed['strict_balanced_accuracy'] == 0
+    assert result['conditions']['program_only']['rules']['healthy']['final_test']['metrics']['cases'] == 2
+    assert result['has_failed_selections'] is True
+    condition = result['conditions']['program_only']
+    failure = {'status': 'terminal_failure', 'reason': 'no_executable_candidate',
+               'stop_reason': 'round_limit', 'rounds_completed': 2}
+    assert condition['failed_selections'] == {'blocked': failure}
+    assert condition['has_complete_executable_suite'] is False
+    frozen = json.loads((out / 'selection-frozen.json').read_text())
+    assert frozen['conditions']['program_only']['failed_selections'] == {'blocked': failure}
+    assert set(frozen['conditions']['program_only']['program_versions']) == {'healthy'}
+    from paper_compiler.pipeline import load_suite
+    assert [p['program_spec']['rule_id'] for p in load_suite(condition['suite_path'])] == ['healthy']
+    validation = json.loads((Path(condition['suite_path']) / 'validation.json').read_text())
+    assert validation['complete_rule_coverage'] is False
+    assert validation['failed_selections'] == {'blocked': failure}
+    final = blocked['final_test']
+    assert final['metrics']['mutant_detection_rate'] is None
+    assert final['metrics']['control_false_positive_rate'] is None
+    for groups in final['groups'].values():
+        for metrics in groups.values():
+            assert metrics['mutant_detection_rate'] is None
+            assert metrics['control_false_positive_rate'] is None
+    for row in final['records']:
+        assert row['before'] == row['after'] == 'ERROR'
+        assert row['correct'] is False and row['execution_performed'] is False
+        assert row['failure_types'] == ['no_executable_candidate']
+    before = (len(model.requests), len(calls))
+    again = api()(tasks, manifest, client=model, output_dir=out,
+                  runner=runner_for(out, splits, calls), max_rounds=2)
+    assert again == result and (len(model.requests), len(calls)) == before
+    failed_round = next(p for p in (out / 'conditions' / 'program_only').glob('task-*/round-001/round.json')
+                        if json.loads(p.read_text())['status'] == 'candidate_failed')
+    failed_round.write_text('{}')
+    with pytest.raises(ValueError, match='integrity|hash'):
+        api()(tasks, manifest, client=model, output_dir=out,
+              runner=runner_for(out, splits, calls), max_rounds=2)
+    assert (len(model.requests), len(calls)) == before
+
+
+@pytest.mark.parametrize('pause', ['budget', 'interrupted'])
+def test_unfinished_invalid_contract_selection_stays_incomplete_without_heldout(tmp_path, pause):
+    tasks, manifest, splits = benchmark(tmp_path, ('healthy', 'blocked'))
+    out = tmp_path / 'study'
+    calls = []
+    model = ReservedInitialAnalysisModel(pause_fixed_repair=pause)
+    invoke = lambda: api()(tasks, manifest, client=model, output_dir=out,
+                          runner=runner_for(out, splits, calls), max_rounds=2)
+    if pause == 'interrupted':
+        with pytest.raises(KeyboardInterrupt, match='fake interrupted'):
+            invoke()
+        result = json.loads((out / 'checkpoint.json').read_text())
+        assert result['stop_reason'] == 'interrupted'
+    else:
+        result = invoke()
+        assert result['stop_reason'] == 'budget_limit_selection'
+        blocked = result['conditions']['program_only']['rules']['blocked']
+        assert blocked['rounds_completed'] == 1
+        assert blocked['stop_reason'] == 'budget_limit'
+    assert result['status'] == 'incomplete'
+    assert (out / 'checkpoint.json').is_file()
+    assert not (out / 'summary.json').exists()
+    assert not (out / 'selection-frozen.json').exists()
+    assert not any(split == 'test' for _, split, _ in calls)
+
+
+def test_zero_successful_selections_have_no_fake_suite_or_package(tmp_path):
+    tasks, manifest, splits = benchmark(tmp_path, ('blocked',))
+    out = tmp_path / 'study'
+    calls = []
+    result = api()(tasks, manifest, client=ReservedInitialAnalysisModel(), output_dir=out,
+                   runner=runner_for(out, splits, calls), max_rounds=2)
+    assert result['status'] == 'completed'
+    condition = result['conditions']['program_only']
+    assert condition['suite_version'] is None and condition['suite_path'] is None
+    assert condition['has_complete_executable_suite'] is False
+    assert not (out / 'conditions' / 'program_only' / 'suite').exists()
+    assert condition['failed_selections']['blocked']['status'] == 'terminal_failure'
+    frozen = json.loads((out / 'selection-frozen.json').read_text())
+    assert frozen['conditions']['program_only']['program_versions'] == {}
+    assert frozen['conditions']['program_only']['suite_version'] is None
+    metrics = condition['rules']['blocked']['final_test']['metrics']
+    assert metrics['cases'] == 2 and metrics['errors'] == 2
+    assert metrics['strict_balanced_accuracy'] == 0
+    assert metrics['mutant_detection_rate'] is None
+    assert metrics['control_false_positive_rate'] is None

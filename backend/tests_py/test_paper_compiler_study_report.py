@@ -244,3 +244,107 @@ def test_initial_preparation_charge_is_exported_as_a_separate_stage(tmp_path):
     stage = result['stage_resources']['initial_preparation']
     assert stage['spent_cny_delta'] == '0.013494' and stage['api_requests_delta'] == '1'
     assert stage['included_in_study_interval_total'] is False
+
+
+
+def failed_selection_study(tmp_path, *, all_failed=False, round_limit=5):
+    """TEST ONLY: terminal protocol records, never a formal study or real API result."""
+    import shutil
+    from paper_compiler.pipeline import save_suite
+    from paper_compiler.programs import load_program
+    source, summary = study(tmp_path)
+    selected_path=source/'selection-frozen.json'; selected=json.loads(selected_path.read_text())
+    protocol_path=source/'protocol.json'; protocol=json.loads(protocol_path.read_text());protocol['max_rounds']=round_limit
+    protocol_path.write_text(json.dumps(protocol))
+    current=summary['conditions']['program_only']; frozen=selected['conditions']['program_only']
+    failed_ids=['alpha','beta'] if all_failed else ['alpha']
+    metadata={'status':'terminal_failure','reason':'no_executable_candidate','stop_reason':'round_limit','rounds_completed':round_limit}
+    current['failed_selections']={rid:copy.deepcopy(metadata) for rid in failed_ids}
+    frozen['failed_selections']=copy.deepcopy(current['failed_selections'])
+    current['has_complete_executable_suite']=False;frozen['has_complete_executable_suite']=False
+    for rid in failed_ids:
+        loop=current['rules'][rid];folder=source/'conditions'/'program_only'/('task-'+api()._digest(rid)[:12])
+        baseline=copy.deepcopy(loop['baseline_test']);final=copy.deepcopy(loop['final_test'])
+        for record in final['records']:
+            record.update(before='ERROR',after='ERROR',correct=False,execution_performed=False,failure_types=['no_executable_candidate'])
+        final['metrics'].update(strict_balanced_accuracy=0,mutant_detection_rate=None,control_false_positive_rate=None,errors=len(final['records']),unknown=0,strict_errors=len(final['records']))
+        final['failures']=copy.deepcopy(final['records'])
+        assert folder.is_relative_to(source);shutil.rmtree(folder);folder.mkdir()
+        rounds=[]
+        for index in range(round_limit):
+            row={'round':index,'status':'candidate_failed','failures':[{'failure_types':['compile_or_contract'],'error_type':'ProgramError','reason':'fixed initial analysis contract invalid'}]}
+            target=folder/f'round-{index:03d}';target.mkdir();(target/'round.json').write_text(json.dumps(row));rounds.append(row)
+        loop.update(status='incomplete',stop_reason='round_limit',rounds_completed=round_limit,rounds=rounds,best_version=None,best_package_path=None,pending_round=None,final_test=final)
+        (folder/'heldout-final.json').write_text(json.dumps(final));(folder/'heldout-shared-initial.json').write_text(json.dumps(baseline))
+        frozen['program_versions'].pop(rid)
+    if all_failed:
+        current.update(suite_path=None,suite_version=None,model_version=None);frozen['suite_version']=None
+    else:
+        remaining=current['rules']['beta'];partial=source/'conditions'/'program_only'/'partial-suite'
+        manifest=save_suite([load_program(remaining['best_package_path'])],partial,validated=True,
+                            validation={'complete_rule_coverage':False,'failed_selections':current['failed_selections']})
+        current.update(suite_path=str(partial),suite_version=manifest['version_id']);frozen['suite_version']=manifest['version_id']
+    (source/'summary.json').write_text(json.dumps(summary));selected_path.write_text(json.dumps(selected));reindex(source)
+    return source
+
+
+def reindex(source):
+    (source/'artifact-index.json').write_text(json.dumps({'schema_version':'paper-study-artifacts/1.0','files':{
+        str(p.relative_to(source)):hashlib.sha256(p.read_bytes()).hexdigest() for p in source.rglob('*')
+        if p.is_file() and p.name not in {'artifact-index.json','checkpoint.json'}}}))
+
+
+@pytest.mark.parametrize('all_failed,round_limit',[(False,5),(True,3)])
+def test_terminal_failed_selection_is_scored_without_hiding_other_actual_heldout(tmp_path,all_failed,round_limit):
+    source=failed_selection_study(tmp_path,all_failed=all_failed,round_limit=round_limit)
+    result=api().build_report(source,tmp_path/'test-only-report',test_only=True)
+    assert result['source_status']=='completed' and result['status']=='completed_with_failures'
+    assert result['heldout_available'] and not result['protocol_errors']
+    rows={(r['condition'],r['rule_id']):r for r in result['comparison']}
+    failed=rows['program_only','alpha']
+    assert failed['status']=='ERROR' and failed['strict_balanced_accuracy']==0 and failed['errors']==2
+    assert failed['selection_status']=='terminal_failure' and failed['execution_performed'] is False
+    assert failed['semantic_detection_metrics'] is None and failed['mutant_detection_rate'] is None and failed['control_false_positive_rate'] is None
+    assert 'no executable candidate' in failed['execution_note'].lower()
+    assert rows['joint','alpha']['strict_balanced_accuracy']==1 and rows['initial','alpha']['strict_balanced_accuracy']==.5
+    assert result['failed_selections']['program_only']['alpha']['rounds_completed']==round_limit
+    assert result['model_changes']['condition_changed']['program_only'] is None
+    assert (tmp_path/'test-only-report/figures/heldout.png').is_file()
+    assert 'failed selection' in (tmp_path/'test-only-report/report.md').read_text().lower()
+    if all_failed:assert rows['program_only','beta']['strict_balanced_accuracy']==0
+    else:assert rows['program_only','beta']['strict_balanced_accuracy'] is not None
+
+
+@pytest.mark.parametrize('damage',[
+    'missing_partition','overlap','metadata_mismatch','budget','frozen','interrupted',
+    'record_not_error','record_execution_missing','record_failure_missing','diagnostic_zero',
+    'missing_round','empty_round_evidence','partial_suite_claims_complete','partial_validation_claims_complete'])
+def test_unproven_or_mismatched_failed_selection_never_unlocks_heldout(tmp_path,damage,monkeypatch):
+    source=failed_selection_study(tmp_path);module=api()
+    summary=json.loads((source/'summary.json').read_text());selection=json.loads((source/'selection-frozen.json').read_text())
+    current=summary['conditions']['program_only'];frozen=selection['conditions']['program_only'];loop=current['rules']['alpha']
+    folder=source/'conditions/program_only'/('task-'+module._digest('alpha')[:12])
+    if damage=='missing_partition':current['failed_selections']={};frozen['failed_selections']={}
+    elif damage=='overlap':frozen['program_versions']['alpha']='invented-version'
+    elif damage=='metadata_mismatch':current['failed_selections']['alpha']['rounds_completed']=4
+    elif damage in {'budget','frozen','interrupted'}:loop['stop_reason']=damage
+    elif damage.startswith('record_'):
+        record=loop['final_test']['records'][0]
+        if damage=='record_not_error':record['before']='PASS'
+        elif damage=='record_execution_missing':record.pop('execution_performed')
+        else:record.pop('failure_types')
+        (folder/'heldout-final.json').write_text(json.dumps(loop['final_test']))
+    elif damage=='diagnostic_zero':
+        loop['final_test']['metrics']['mutant_detection_rate']=0
+        (folder/'heldout-final.json').write_text(json.dumps(loop['final_test']))
+    elif damage=='missing_round':loop['rounds'].pop();loop['rounds_completed']=4
+    elif damage=='empty_round_evidence':
+        loop['rounds'][0]['failures']=[];(folder/'round-000/round.json').write_text(json.dumps(loop['rounds'][0]))
+    elif damage=='partial_suite_claims_complete':current['has_complete_executable_suite']=True
+    else:
+        validation=Path(current['suite_path'])/'validation.json';value=json.loads(validation.read_text());value['complete_rule_coverage']=True;validation.write_text(json.dumps(value))
+    (source/'summary.json').write_text(json.dumps(summary));(source/'selection-frozen.json').write_text(json.dumps(selection));reindex(source)
+    monkeypatch.setattr(module,'_plots',lambda *_:{'renderer':'not_needed_for_rejection_test','files':[]})
+    result=module.build_report(source,tmp_path/'test-only-report',test_only=True)
+    assert result['status']=='ERROR' and not result['heldout_available'] and result['protocol_errors']
+    assert all(r['strict_balanced_accuracy'] is None for r in result['comparison'])

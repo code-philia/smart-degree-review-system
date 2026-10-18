@@ -182,6 +182,15 @@ def _cross_validator(condition, rid, suite, raw, cases, runner, initial_model):
     return validate
 
 
+def _evaluation_metrics(records):
+    metrics = _metrics(records)
+    if all(row.get('execution_performed') is False for row in records):
+        # Strict zero credit remains meaningful; diagnostic rates need an
+        # actual detector execution, including within reported subgroups.
+        metrics.update(mutant_detection_rate=None, control_false_positive_rate=None)
+    return metrics
+
+
 def _grouped(evaluation, cases, rid):
     by_id = {c['id']: c for c in cases}
     output = {}
@@ -194,21 +203,37 @@ def _grouped(evaluation, cases, rid):
                 oracle = _read(case['oracle_path'])
                 key = oracle.get('mutation_type', oracle.get('operation', 'unspecified'))
             groups[str(key or 'unspecified')].append(record)
-        output[axis] = {key: {**_metrics(records), 'parent_groups': len({r['parent_group'] for r in records}),
+        output[axis] = {key: {**_evaluation_metrics(records), 'parent_groups': len({r['parent_group'] for r in records}),
                              'after_statuses': dict(Counter(r['after'] for r in records))}
                         for key, records in groups.items()}
     return output
 
 
-def _failed_baseline(cases):
+def _failed_evaluation(cases, *, reason, failure_type):
     records = []
     for case in cases:
         oracle = _read(case['oracle_path'])
         records.append({'id': case['id'], 'expected': oracle['status'], 'before': 'ERROR', 'after': 'ERROR',
                         'correct': False, 'target_node_id': oracle.get('target_node_id', case.get('target_node_id')),
                         'parent_group': case['parent_group'], 'context_origin': case.get('context_origin'),
-                        'evidence_domain': case.get('evidence_domain'), 'reason': 'shared initial candidate failed to compile'})
-    return {'metrics': _metrics(records), 'records': records, 'failures': records}
+                        'evidence_domain': case.get('evidence_domain'), 'reason': reason,
+                        'execution_performed': False, 'failure_types': [failure_type]})
+    return {'metrics': _evaluation_metrics(records), 'records': records, 'failures': records}
+
+
+def _failed_baseline(cases):
+    return _failed_evaluation(cases, reason='shared initial candidate failed to compile',
+                              failure_type='initial_candidate_failed_to_compile')
+
+
+def _terminal_selection_failure(loop, max_rounds):
+    rounds = loop.get('rounds', [])
+    return (loop.get('stop_reason') == 'round_limit' and
+            loop.get('rounds_completed') == max_rounds and
+            not loop.get('best_package_path') and not loop.get('best_version') and
+            isinstance(rounds, list) and len(rounds) == max_rounds and
+            [r.get('round') for r in rounds] == list(range(max_rounds)) and
+            all(r.get('status') == 'candidate_failed' and r.get('failures') for r in rounds))
 
 
 def run_study(tasks, manifest_path, *, client, output_dir, runner, max_rounds=5, initial_model=None):
@@ -258,6 +283,7 @@ def run_study(tasks, manifest_path, *, client, output_dir, runner, max_rounds=5,
     def finish(reason, complete=False):
         usage = interval.close('completed' if complete else reason)
         result.update(status='completed' if complete else 'incomplete', stop_reason=reason,
+                      has_failed_selections=any(c.get('failed_selections') for c in result['conditions'].values()),
                       elapsed_seconds=usage['elapsed_seconds'], resource_usage=usage,
                       budget=deepcopy(usage['budget_after']) if usage['budget_after'] is not None else _budget(None),
                       finished_at=datetime.now(timezone.utc).isoformat())
@@ -338,7 +364,8 @@ def run_study(tasks, manifest_path, *, client, output_dir, runner, max_rounds=5,
         for condition in CONDITIONS:
             condition_out = out / 'conditions' / condition
             state = dict(initial_packages)
-            condition_result = {'rules': {}, 'allow_model_refinement': condition == 'joint'}
+            condition_result = {'rules': {}, 'allow_model_refinement': condition == 'joint',
+                                'failed_selections': {}}
             result['conditions'][condition] = condition_result
             for task in tasks:
                 # Recheck all frozen bytes before each selection, including resumes.
@@ -364,16 +391,29 @@ def run_study(tasks, manifest_path, *, client, output_dir, runner, max_rounds=5,
                 if 'budget' in loop.get('stop_reason', ''):
                     return finish('budget_limit_selection')
                 if loop.get('status') != 'selected_pending_test' or not loop.get('best_package_path'):
+                    if _terminal_selection_failure(loop, max_rounds):
+                        condition_result['failed_selections'][rid] = {
+                            'status': 'terminal_failure', 'reason': 'no_executable_candidate',
+                            'stop_reason': 'round_limit', 'rounds_completed': max_rounds}
+                        state.pop(rid, None)
+                        continue
                     return finish('no_executable_selected_candidate')
                 state[rid] = load_program(loop['best_package_path'])
                 # Selected packages all share the latest accepted compatible model.
                 accepted_model = shared_model([p for name, p in state.items() if name != rid] + [state[rid]])
                 state = {str(p['program_spec']['rule_id']): p for p in rebind(list(state.values()), accepted_model)}
             _compatible(list(state.values()))
-            suite = save_suite(list(state.values()), condition_out / 'suite', validated=True,
-                validation={'protocol': VERSION, 'selection_only': True, 'heldout_evaluated': False,
-                            'regression_policy': protocol['regression_policy']})
-            condition_result.update(suite_version=suite['version_id'], suite_path=str((condition_out / 'suite').resolve()), model_version=suite['model']['version'])
+            complete_suite = not condition_result['failed_selections'] and len(state) == len(tasks)
+            condition_result['has_complete_executable_suite'] = complete_suite
+            if state:
+                suite = save_suite(list(state.values()), condition_out / 'suite', validated=True,
+                    validation={'protocol': VERSION, 'selection_only': True, 'heldout_evaluated': False,
+                                'regression_policy': protocol['regression_policy'],
+                                'complete_rule_coverage': complete_suite,
+                                'failed_selections': condition_result['failed_selections']})
+                condition_result.update(suite_version=suite['version_id'], suite_path=str((condition_out / 'suite').resolve()), model_version=suite['model']['version'])
+            else:
+                condition_result.update(suite_version=None, suite_path=None, model_version=common_model['version'])
             selected[condition] = state
         if _manifest(manifest_path, tasks)[1] != benchmark_hash:
             raise ValueError('frozen benchmark changed before heldout evaluation')
@@ -382,7 +422,9 @@ def run_study(tasks, manifest_path, *, client, output_dir, runner, max_rounds=5,
             'shared_initial': {rid: p['manifest']['version_id'] for rid, p in initial_packages.items()},
             'invalid_initial': sorted(set(raw) - set(initial_packages)),
             'conditions': {name: {'suite_version': result['conditions'][name]['suite_version'],
-                'program_versions': {rid: p['manifest']['version_id'] for rid, p in selected[name].items()}}
+                'program_versions': {rid: p['manifest']['version_id'] for rid, p in selected[name].items()},
+                'has_complete_executable_suite': result['conditions'][name]['has_complete_executable_suite'],
+                'failed_selections': result['conditions'][name]['failed_selections']}
                 for name in CONDITIONS}}
         _immutable(out / 'selection-frozen.json', selection)
         result['selection_frozen_path'] = str((out / 'selection-frozen.json').resolve())
@@ -395,7 +437,14 @@ def run_study(tasks, manifest_path, *, client, output_dir, runner, max_rounds=5,
                 final_path, base_path = folder / 'heldout-final.json', folder / 'heldout-shared-initial.json'
                 if final_path.exists(): final = _read(final_path)
                 else:
-                    final = evaluate_cases(selected[condition][rid], heldout, runner, cache)
+                    if rid in selected[condition]:
+                        final = evaluate_cases(selected[condition][rid], heldout, runner, cache)
+                    else:
+                        if rid not in result['conditions'][condition]['failed_selections']:
+                            raise ValueError('unfrozen missing selected candidate')
+                        final = _failed_evaluation(heldout,
+                            reason='no executable candidate after exhausting permitted rounds',
+                            failure_type='no_executable_candidate')
                     final['groups'] = _grouped(final, heldout, rid); _immutable(final_path, final)
                 if base_path.exists(): baseline = _read(base_path)
                 else:

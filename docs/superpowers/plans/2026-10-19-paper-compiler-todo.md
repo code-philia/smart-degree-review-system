@@ -10,8 +10,8 @@
 
 - T19环境验收完成：全集已知的114条受控库、2.2独立双判且盲上下文核验的12违规＋1身份保持对照子集，以及真实开放检索7探针（6存在／1 UNKNOWN／0“证明不存在”）。证据framework-20261019/t19-environment-acceptance.json及[开放诊断](../../research/open-retrieval-diagnostics-20261019.md)。100＋30配额和正式冻结仍由T35—T39单独验收，未提前勾选。
 
-- 最新整体验证：compiler **645 passed**，运行期间runtime源哈希未变；Node **248 passed/11 skipped**；前端 **152 passed**、构建成功。最终compiler日志development/compiler-all-quota-1792358400.log，Node日志/data/tmp/paper-compiler-final-node-lft4trxa/vitest.log。T56已归档并校验运行时源码/提示与包版本；T60已实现默认可靠反馈后1违规+1合规局部验证，缺口保旧，实际规则上线联调仍待T57。
-- 逐轮和预算中断的资源侧车、同轮续记、study累计和独立初稿费用现已接入，原账本200元不变；shared_ledger_interval可能含并发，不作精确任务归因。正式方案补充见framework-20261019/study-protocol-v3.json，旧方案保留。
+- 最新整体验证：compiler **665 passed**，运行期间runtime源哈希未变；Node **248 passed/11 skipped**；前端 **152 passed**、构建成功。最终compiler日志development/compiler-all-terminal-1792359128.log，Node日志/data/tmp/paper-compiler-final-node-lft4trxa/vitest.log。T56已归档并校验运行时源码/提示与包版本；T60已实现默认可靠反馈后1违规+1合规局部验证，缺口保旧，实际规则上线联调仍待T57。
+- 逐轮和预算中断的资源侧车、同轮续记、study累计和独立初稿费用现已接入，原账本200元不变；shared_ledger_interval可能含并发，不作精确任务归因。正式方案及失败终态补充见framework-20261019/study-protocol-v4.json，v3及旧方案保留。
 
 - T21已修复并验收：规则真值与构造准入按purpose分离，初稿raw／package／共享重建／planner及offline/online反馈均有隔离回归；2.2标签先判真值再按实际状态验收。旧raw及拒绝保留；仅32干净首次初稿替换旧污染版，33失败初稿不重抽。
 
@@ -22,7 +22,7 @@
 - 上一阶段回归：**557 passed**；当时Node后端回归：**242 passed, 11 skipped**。10项重要审阅问题已以RED→GREEN修复，见[审阅记录](../../research/review-findings-20261019.md)。
 - [费用与工作量预检](../../research/cost-preflight-20261019.md)及[479篇扫描入口](../../research/corpus-protocol.md)已交付；准备完成不代表正式扫描或研究成绩已完成。
 
-- 三条自然语言任务、规范核验与预注册方案：`framework-20261019/tasks-v3.json`、`standard-audit.json`、`study-protocol-v3.json`；提供标准PDF的实际SHA256与规范资源一致。正式benchmark未最终冻结，T35—T46仍单独验收。
+- 三条自然语言任务、规范核验与预注册方案：`framework-20261019/tasks-v3.json`、`standard-audit.json`、`study-protocol-v4.json`；提供标准PDF的实际SHA256与规范资源一致。正式benchmark未最终冻结，T35—T46仍单独验收。
 - 新增验收：[真实 API 与在线开关记录](../../research/real-api-smoke-20261019.md)；[方法与新流程图](../../research/paper-compiler-framework.md)。真实新代码晋级与真实PDF复检均在隔离环境完成，网站生产未发布。
 - T18/T22补强完成：原/变异局部、真实编辑及被引正文角色门为通用约束；旧弱候选不计正式数，完成快照恢复也须重验。正式v2仍在构造，T35—T39保持未完成。
 - 每次网站任务默认2轮候选、5元与1200秒持久化上限；全部API仍受同一200元累计账本约束，缓存、uncertain预留及恢复不重置均已测试；首次发布配置单独验收。
@@ -158,8 +158,8 @@ IR 变异及合规对照 → 另行验证 → 冻结数据与标签
 - [x] T40 保存同一新路径的第 0 轮一次生成程序作为基线，不能用人工修好的旧规则包替代。
 - [ ] T41 分别运行三条规则的自动反馈迭代，保留全部轮次、候选、反馈、回归、版本、费用与耗时。
 - [ ] T42 比较固定模型、只修订程序的条件与允许模型／分析共同修订的完整闭环；使用相同数据划分和证据环境，记录初始状态及各条件调用量。
-- [ ] T43 按验证集严格平衡正确率选择已执行候选；违规与合规分别计正确比例，UNKNOWN／ERROR 不给正确分。
-- [ ] T44 冻结候选后评测独立测试集，同时评价初稿基线。若结束后重放各轮绘制测试曲线，不据此重新选择或修订。
+- [ ] T43 按验证集严格平衡正确率选择已执行候选；违规与合规分别计正确比例，UNKNOWN／ERROR 不给正确分；轮次耗尽仍无可执行候选时冻结明确失败，不伪造版本。
+- [ ] T44 冻结全部成功或失败选择结果后评测独立测试集，同时评价初稿基线；失败逐例记 ERROR 并注明未执行检测。若结束后重放各轮绘制测试曲线，不据此重新选择或修订。
 - [ ] T45 按规则、变异类型与来源统计检出率、误报率、UNKNOWN／ERROR、严格正确率、定位、有效样本、母本、成本与耗时。
 - [ ] T46 如实报告未改善、模型扩展是否实际发生、未解决错误及未完成项，不强制制造收敛或声称形式化正确性。
 

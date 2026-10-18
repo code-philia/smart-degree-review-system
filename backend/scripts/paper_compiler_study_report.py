@@ -215,6 +215,71 @@ def _round_data(reader, summary, initial_model):
     return rows, examples, patches
 
 
+
+def _failure_partition(reader, condition, selected, current, rules, protocol, indexed):
+    errors=[];prefix=condition+': '
+    versions=selected.get('program_versions',{});failed=selected.get('failed_selections',{})
+    if not isinstance(versions,dict) or not isinstance(failed,dict):return [prefix+'invalid selection partition']
+    if (set(versions)|set(failed)!=set(rules) or set(versions)&set(failed) or
+            any(not isinstance(v,str) or not v.strip() for v in versions.values())):
+        errors.append(prefix+'successful/failed selections do not partition the rule inventory')
+    if failed!=current.get('failed_selections',{}):errors.append(prefix+'failed selection metadata differs from summary')
+    if selected.get('suite_version')!=current.get('suite_version'):errors.append(prefix+'selection/suite mismatch')
+    if not failed:
+        if current.get('has_complete_executable_suite') is False or selected.get('has_complete_executable_suite') is False:
+            errors.append(prefix+'complete selection is declared partial without failed rules')
+        return errors
+    if current.get('has_complete_executable_suite') is not False or selected.get('has_complete_executable_suite') is not False:
+        errors.append(prefix+'failed selection cannot claim a complete executable suite')
+    limit=protocol.get('max_rounds')
+    for rid,metadata in failed.items():
+        label=prefix+str(rid)+': ';loop=current.get('rules',{}).get(rid,{})
+        expected={'status':'terminal_failure','reason':'no_executable_candidate','stop_reason':'round_limit','rounds_completed':limit}
+        if (type(limit) is not int or not 1<=limit<=5 or not isinstance(metadata,dict) or
+                any(metadata.get(key)!=value for key,value in expected.items()) or type(metadata.get('rounds_completed')) is not int):
+            errors.append(label+'invalid terminal failure metadata');continue
+        rounds=loop.get('rounds',[])
+        if (loop.get('stop_reason')!='round_limit' or loop.get('rounds_completed')!=limit or
+                loop.get('best_version') is not None or loop.get('best_package_path') is not None or
+                loop.get('pending_round') is not None or not isinstance(rounds,list) or len(rounds)!=limit):
+            errors.append(label+'failure was not a completed round exhaustion');continue
+        for index,record in enumerate(rounds):
+            path=Path('conditions')/condition/('task-'+_digest(str(rid))[:12])/f'round-{index:03d}'/'round.json'
+            evidence=record.get('failures',[]) if isinstance(record,dict) else []
+            if (not isinstance(record,dict) or record.get('round')!=index or record.get('status')!='candidate_failed' or
+                    not isinstance(evidence,list) or not any(isinstance(e,dict) and e.get('failure_types') and
+                    (e.get('reason') or e.get('message') or e.get('error_type')) for e in evidence) or
+                    str(path) not in indexed or reader.read(path)!=record):
+                errors.append(label+'missing or mismatched failed-round evidence');break
+    if not versions:
+        if current.get('suite_version') is not None or current.get('suite_path') is not None:
+            errors.append(prefix+'zero executable programs must not have a suite')
+        return errors
+    suite_path=current.get('suite_path')
+    if not isinstance(suite_path,str):return errors+[prefix+'partial suite path missing']
+    try:
+        suite=reader.path(suite_path);manifest=reader.read(suite/'manifest.json');validation=reader.read(suite/'validation.json')
+    except ValueError:return errors+[prefix+'partial suite escapes study root']
+    if (not isinstance(manifest,dict) or not isinstance(validation,dict) or
+            str((suite/'manifest.json').relative_to(reader.root)) not in indexed or
+            str((suite/'validation.json').relative_to(reader.root)) not in indexed or
+            manifest.get('version_id')!=current.get('suite_version') or
+            sorted(manifest.get('program_versions',[]))!=sorted(versions.values()) or
+            validation.get('status')!='passed' or validation.get('complete_rule_coverage') is not False or
+            validation.get('failed_selections')!=failed):
+        errors.append(prefix+'partial suite coverage/versions do not match the failure partition')
+    return errors
+
+
+def _failed_evaluation_valid(evaluation):
+    records=evaluation.get('records',[]);metrics=evaluation.get('metrics')
+    if not records or not isinstance(metrics,dict):return False
+    if any(record.get('before')!='ERROR' or record.get('after')!='ERROR' or record.get('correct') is not False or
+           record.get('execution_performed') is not False or record.get('failure_types')!=['no_executable_candidate'] for record in records):return False
+    strict=metric_row(records)['strict_balanced_accuracy']
+    return (metrics.get('strict_balanced_accuracy')==strict and metrics.get('errors')==len(records) and
+            all(metrics.get(name) is None for name in ['mutant_detection_rate','control_false_positive_rate','precision','recall','f1']))
+
 def _plots(out, report, plot_libs):
     if plot_libs is not None: sys.path.insert(0, str(Path(plot_libs).resolve()))
     os.environ.setdefault('MPLCONFIGDIR', '/data/cache/paper-compiler-matplotlib')
@@ -248,7 +313,7 @@ def _plots(out, report, plot_libs):
         ax.set(xticks=range(len(rules)), xticklabels=labels, ylabel='Strict balanced accuracy', ylim=(0, 1.15),
                title=banner+'Frozen heldout comparison')
         ax.grid(axis='y', alpha=.2); ax.set_axisbelow(True); ax.legend(frameon=False, loc='upper left', bbox_to_anchor=(1, 1))
-        fig.text(.01, -.04, 'All valid cases remain in denominators. ERROR baselines retain recorded strict failure scores; semantic metrics are unavailable.', fontsize=8)
+        fig.text(.01, -.04, 'All valid cases remain in denominators. ERROR failure scores reflect unavailable execution; semantic metrics are not measured.', fontsize=8)
         save(fig, 'heldout')
     measured = [r for r in report['rounds'] if any(r.get(split+'_strict_balanced_accuracy') is not None for split in ('feedback', 'validation'))]
     if measured:
@@ -302,8 +367,7 @@ def build_report(study_root, output_dir, *, interventions=None, test_only=False,
         for condition in ('joint', 'program_only'):
             selected = selection.get('conditions', {}).get(condition, {})
             current = summary.get('conditions', {}).get(condition, {})
-            if set(selected.get('program_versions', {})) != set(rules) or selected.get('suite_version') != current.get('suite_version'):
-                protocol_errors.append(condition+': selection/suite mismatch')
+            protocol_errors.extend(_failure_partition(reader,condition,selected,current,rules,protocol,indexed))
             for rid in rules:
                 loop = current.get('rules', {}).get(rid, {})
                 folder = Path('conditions')/condition/('task-'+_digest(rid)[:12])
@@ -315,10 +379,14 @@ def build_report(study_root, output_dir, *, interventions=None, test_only=False,
                             len(records) != len(expected) or {r.get('id') for r in records} != expected or
                             any(r.get('expected') not in {'PASS', 'VIOLATION'} for r in records)):
                         protocol_errors.append(condition+'/'+rid+': missing or mismatched actual heldout '+field)
+                    elif field=='final_test' and rid in selected.get('failed_selections',{}) and not _failed_evaluation_valid(evaluation):
+                        protocol_errors.append(condition+'/'+rid+': terminal failure grading is not explicit ERROR without execution')
         heldout = not protocol_errors
     if source_status == 'completed' and not heldout:
         status = 'ERROR'
         if not protocol_errors: protocol_errors.append('completed study lacks verified frozen selection and actual heldout records')
+    failed_selections={condition:current.get('failed_selections',{}) for condition,current in summary.get('conditions',{}).items() if current.get('failed_selections')}
+    if heldout and failed_selections:status='completed_with_failures'
     comparison, groups = [], []
     by_case = {c['id']: c for c in benchmark.get('cases', [])}
     for rid in rules:
@@ -329,6 +397,9 @@ def build_report(study_root, output_dir, *, interventions=None, test_only=False,
             if condition == 'initial' and summary.get('initial', {}).get(rid, {}).get('status') == 'invalid_initial' and heldout:
                 row['execution_note'] = 'Initial compile failed; recorded strict failure scoring only; semantic detection not executed.'
                 row['semantic_detection_metrics'] = None
+            if heldout and condition!='initial' and rid in failed_selections.get(condition,{}):
+                row.update(selection_status='terminal_failure',execution_performed=False,semantic_detection_metrics=None,
+                    execution_note='Failed selection: no executable candidate after the recorded round limit; strict failure scoring only, semantic detection not executed.')
             comparison.append(row)
             if isinstance(evaluation, dict):
                 for axis in ('context_origin', 'evidence_domain', 'mutation_type'):
@@ -341,11 +412,13 @@ def build_report(study_root, output_dir, *, interventions=None, test_only=False,
     else: rounds, examples, patches = [], [], []
     selected_changes = []
     for condition in ('joint', 'program_only'):
-        model = reader.read(Path('conditions')/condition/'suite/manifest.json') if integrity['status'] != 'failed' else None
+        current=summary.get('conditions',{}).get(condition,{})
+        suite=current.get('suite_path') or Path('conditions')/condition/'suite'
+        model = reader.read(Path(suite)/'manifest.json') if integrity['status'] != 'failed' and current.get('has_complete_executable_suite') is not False else None
         selected_changes.append(model['model'].get('node_types') != shared['model'].get('node_types') if model and shared.get('model') else None)
     report = {'schema_version': VERSION, 'status': status, 'source_status': source_status, 'stop_reason': summary.get('stop_reason'),
         'test_only': bool(test_only), 'heldout_available': bool(heldout), 'integrity': integrity, 'protocol_errors': protocol_errors, 'comparison': comparison, 'rounds': rounds,
-        'groups': groups, 'cost': _cost(summary), 'stage_resources': stage_resources, 'manual_effort': _manual(interventions),
+        'groups': groups, 'failed_selections':failed_selections, 'cost': _cost(summary), 'stage_resources': stage_resources, 'manual_effort': _manual(interventions),
         'model_changes': {'candidate_changes': sum(row.get('model_changed') is True for row in rounds) if any(row.get('model_changed') is not None for row in rounds) else None,
             'selected_condition_changes': sum(selected_changes) if all(v is not None for v in selected_changes) else None,
             'condition_changed': dict(zip(('joint', 'program_only'), selected_changes))},
@@ -382,6 +455,7 @@ def build_report(study_root, output_dir, *, interventions=None, test_only=False,
         'Human effort: `'+json.dumps(report['manual_effort'], sort_keys=True)+'`.', '',
         'Observed model changes: `'+json.dumps(report['model_changes'], sort_keys=True)+'`.', '',
         'Protocol errors: `'+json.dumps(protocol_errors)+'`.', '',
+        'Terminal failed selections: `'+json.dumps(failed_selections,sort_keys=True)+'`. Failed selection rows have no executable candidate and no semantic detection; they retain explicit ERROR grading only.', '',
         'Recorded strict failure scores retain their valid denominators. An initial compile failure has no semantic detection metrics; an absent evaluation has no score.', '',
         'The separate CSV files retain effective denominators, source/evidence strata and candidate round observations. Existing feedback examples and generated code diffs are supplied as JSON; generated code lines are not human code counts.', '', *['- '+item for item in report['limitations']]])
     for name in report['plots']['files']:
