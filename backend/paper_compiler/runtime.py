@@ -10,7 +10,11 @@ from .storage import json_bytes
 def _hash(data):return hashlib.sha256(data).hexdigest()
 
 def load_package(folder):
-    folder=Path(folder);manifest=json.loads((folder/'manifest.json').read_text());rule=json.loads((folder/'rule-ir.json').read_text())
+    folder=Path(folder);manifest=json.loads((folder/'manifest.json').read_text())
+    if manifest.get('schema_version')=='paper-program/2.0':
+        from .programs import load_program
+        return load_program(folder)
+    rule=json.loads((folder/'rule-ir.json').read_text())
     inputs=json.loads((folder/'input.json').read_text());code=(folder/'checks.py').read_text();registry=inputs['registry']
     checks={'code_sha256':_hash(code.encode()),'rule_ir_sha256':_hash(json_bytes(rule)),
         'rule_text_sha256':_hash(inputs['rule_text'].encode()),'standards_sha256':_hash(json_bytes(inputs['basis'])), 'registry_sha256':_hash(json_bytes(registry))}

@@ -10,9 +10,9 @@ from paper_compiler.contracts import validate_ir
 
 def parser():
     p=argparse.ArgumentParser();sub=p.add_subparsers(dest='command',required=True)
-    for name in ['build','compile','check','batch','evaluate','budget']:
+    for name in ['build','compile','synthesize','loop','check','batch','evaluate','budget']:
         s=sub.add_parser(name);s.add_argument('--config',default=os.environ.get('PAPER_COMPILER_CONFIG','/data/apps/smart-degree-review/config/paper-model-huawei.env'))
-        s.add_argument('--ledger',default='/data/runtime/paper-compiler/budget.sqlite3');s.add_argument('--budget',default='1000')
+        s.add_argument('--ledger',default='/data/runtime/paper-compiler/budget.sqlite3');s.add_argument('--budget',default='200')
         s.add_argument('--phase',default='pilot');s.add_argument('--phase-budget',default='5');s.add_argument('--cache',default='/data/runtime/paper-compiler')
         s.add_argument('--evidence-snapshot');s.add_argument('--freeze-evidence',action='store_true');s.add_argument('--model-fingerprint');s.add_argument('--offline',action='store_true');s.add_argument('--out',type=Path);s.add_argument('--package',action='append',default=[])
         if name=='build':s.add_argument('--pdf',required=True,type=Path)
@@ -21,10 +21,23 @@ def parser():
         if name=='check':
             group=s.add_mutually_exclusive_group(required=True);group.add_argument('--ir',type=Path);group.add_argument('--pdf',type=Path)
             s.add_argument('--analysis',type=Path);s.add_argument('--analysis-out',type=Path);s.add_argument('--stdout-report',action='store_true')
+            s.add_argument('--online',action='store_true');s.add_argument('--control-root',default=os.environ.get('PAPER_COMPILER_CONTROL_ROOT','/data/runtime/paper-compiler/online'));s.add_argument('--runtime-resources',type=Path);s.add_argument('--online-max-rounds',type=int,default=2)
         if name in ['batch','evaluate']:s.add_argument('--manifest',required=True,type=Path);s.add_argument('--workers',type=int,default=1)
+        if name in ['synthesize','loop']:
+            s.add_argument('--task',required=True,type=Path)
+            if name=='loop':s.add_argument('--manifest',required=True,type=Path);s.add_argument('--max-rounds',type=int,default=5);s.add_argument('--fixed-model',action='store_true');s.add_argument('--resources',type=Path)
+    c=sub.add_parser('control');c.add_argument('--action',required=True,choices=['status','freeze','unfreeze','history','rollback']);c.add_argument('--control-root',default=os.environ.get('PAPER_COMPILER_CONTROL_ROOT','/data/runtime/paper-compiler/online'));c.add_argument('--version')
     return p
 
 def execute(args):
+    if args.command=='control':
+        from paper_compiler.runtime_control import RuntimeControl
+        control=RuntimeControl(args.control_root)
+        if args.action=='status':return control.snapshot()
+        if args.action in ['freeze','unfreeze']:return control.set_freeze(args.action=='freeze',actor='admin-cli')
+        if args.action=='history':return {'events':control.events()}
+        if not args.version:raise ValueError('--version required for rollback')
+        return control.rollback(args.version,actor='admin-cli')
     if args.command=='budget':return BudgetLedger(args.ledger,args.budget).summary()
     if args.out is None:raise ValueError('--out is required')
     if args.command in ['build','check']:
@@ -38,14 +51,33 @@ def execute(args):
     from paper_compiler.frontend import build_paper
     from paper_compiler.analysis import enrich
     ledger=BudgetLedger(args.ledger,args.budget)
-    client=None if args.offline else MaasClient(args.config,ledger,Path(args.cache)/'model-cache',args.phase,args.phase_budget)
+    client=None if args.offline else MaasClient(args.config,ledger,Path(args.cache)/'model-cache',args.phase,args.phase_budget,max_attempts=1)
     if client and args.model_fingerprint and model_fingerprint(client.config)!=args.model_fingerprint:raise ValueError('effective model configuration changed')
     gateway=None if args.offline else EvidenceGateway(Path(args.cache)/'public-evidence',proxy=os.environ.get('PAPER_COMPILER_PUBLIC_PROXY','http://127.0.0.1:18892'),snapshot_id=args.evidence_snapshot if args.freeze_evidence or args.command in ['batch','evaluate'] else None)
     packages=[load_package(path) for path in args.package]
+    def detect_generated(ir,programs,environment=None):
+        from paper_compiler.pipeline import detect
+        return detect(ir,programs,client=client,gateway=gateway,cache_dir=Path(args.cache),evidence_environment=environment)
+    if args.command in ['synthesize','loop']:
+        task=json.loads(args.task.read_text())
+        if client is None:raise ValueError('program synthesis needs model API')
+        if args.command=='synthesize':
+            from paper_compiler.synthesis import synthesize_program
+            package=synthesize_program(task,client,args.out)
+            return {'status':'generated_candidate','manifest':package['manifest'],'budget':ledger.summary()}
+        from paper_compiler.feedback_loop import run_feedback_loop
+        resources=json.loads(args.resources.read_text()) if args.resources else {}
+        result=run_feedback_loop(task,args.manifest,client=client,output_dir=args.out,
+            runner=lambda package,ir:detect_generated(ir,[package],resources.get('evidence_environment'))[2],
+            max_rounds=args.max_rounds,allow_model_refinement=not args.fixed_model)
+        return {**result,'budget':ledger.summary()}
+
     def build(path):return build_paper(path,client=client)
     def run(path):
         if not packages:raise ValueError('at least one verified --package is required')
         ir=build(path) if path.suffix.lower()=='.pdf' else json.loads(path.read_text());validate_ir(ir)
+        if all(p['manifest'].get('schema_version')=='paper-program/2.0' for p in packages):
+            return detect_generated(ir,packages)[2]
         a=enrich(ir,packages,client=client,gateway=gateway,cache_dir=Path(args.cache)/'analysis',snapshot_id=args.evidence_snapshot)
         return check(ir,a,packages)
     if args.command=='build':
@@ -70,8 +102,45 @@ def execute(args):
         if args.analysis_out and (args.analysis_out.exists() or args.analysis_out==args.out):raise FileExistsError('analysis output must be new and distinct')
         if not packages:raise ValueError('at least one verified --package is required')
         ir=build(args.pdf) if args.pdf else json.loads(args.ir.read_text());validate_ir(ir)
-        a=json.loads(args.analysis.read_text()) if args.analysis else enrich(ir,packages,client=client,gateway=gateway,cache_dir=Path(args.cache)/'analysis',snapshot_id=args.evidence_snapshot)
-        result=check(ir,a,packages)
+        runtime=None
+        environment=None
+        resources=json.loads(args.runtime_resources.read_text()) if args.runtime_resources else {}
+        environment=resources.get('evidence_environment')
+        if args.online:
+            from paper_compiler.runtime_control import RuntimeControl
+            control=RuntimeControl(args.control_root);snapshot=control.snapshot()
+            if snapshot.get('active_path'):
+                from paper_compiler.pipeline import load_suite
+                packages=load_suite(snapshot['active_path'])
+            runtime={**snapshot,'mode':'frozen' if snapshot['freeze'] else 'adaptive'}
+        generated=[p for p in packages if p['manifest'].get('schema_version')=='paper-program/2.0']
+        legacy=[p for p in packages if p not in generated]
+        if generated:
+            if args.analysis:
+                from paper_compiler.model_runtime import apply_model
+                from paper_compiler.pipeline import shared_model,rebind
+                from paper_compiler.programs import check_programs,digest
+                model=shared_model(generated);generated=rebind(generated,model)
+                ir=apply_model(ir,model,client=client);a=json.loads(args.analysis.read_text())
+                result=check_programs(ir,a,generated)
+                result['pipeline_version']=digest([p['manifest'] for p in generated])
+            elif args.online and not runtime['freeze'] and client is not None:
+                from paper_compiler.online_loop import online_refine
+                episode=Path(args.control_root)/'episodes'/__import__('uuid').uuid4().hex
+                updated=online_refine(ir,generated,client=client,gateway=gateway,cache_dir=Path(args.cache),
+                    control=control,output_dir=episode,resources=resources,max_rounds=args.online_max_rounds)
+                ir,a,result=updated['ir'],updated['analysis'],updated['report']
+                runtime={**runtime,**updated['runtime']}
+            else:ir,a,result=detect_generated(ir,generated,environment)
+        else:
+            a=json.loads(args.analysis.read_text()) if args.analysis else enrich(ir,legacy,client=client,gateway=gateway,cache_dir=Path(args.cache)/'analysis',snapshot_id=args.evidence_snapshot)
+            result=check(ir,a,legacy)
+            result['pipeline_version']=hashlib.sha256(json_bytes([p['manifest'] for p in legacy])).hexdigest()
+        if generated and legacy:
+            old_analysis=enrich(ir,legacy,client=client,gateway=gateway,cache_dir=Path(args.cache)/'analysis',snapshot_id=args.evidence_snapshot)
+            old_report=check(ir,old_analysis,legacy);result['rules']+=old_report['rules']
+            result['evidence']+=old_report['evidence']
+        if runtime is not None:result['runtime']=runtime
         if args.analysis_out:write_json_atomic(args.analysis_out,a,exclusive=True)
         write_json_atomic(args.out,result,exclusive=True)
         if args.stdout_report:

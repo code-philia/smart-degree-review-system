@@ -18,7 +18,7 @@ function getCompilerRules() {
     execution_mode:'semantic', uses_external_model:true, source:'sjtu-paper-compiler',
     available:process.env.PAPER_COMPILER_ENABLED === '1' && Boolean(process.env.PAPER_COMPILER_PACKAGE_ROOT) && fs.existsSync(path.join(packagePath(number),'manifest.json')) }));
 }
-async function runJsonProcess(command,args,{signal,timeoutMs=1200000,maxBytes=64*1024*1024}={}) {
+async function runJsonProcess(command,args,{signal,timeoutMs=1200000,maxBytes=64*1024*1024,allowArray=false}={}) {
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs<1 || timeoutMs>7200000 || !Number.isSafeInteger(maxBytes) || maxBytes<1 || maxBytes>128*1024*1024) throw new TypeError('Invalid compiler resource budget');
   if(signal?.aborted) throw failure(504,'COMPILER_ABORTED','规则编译检测已取消');
   let stdout;
@@ -28,11 +28,17 @@ async function runJsonProcess(command,args,{signal,timeoutMs=1200000,maxBytes=64
     if(signal?.aborted || error.name==='AbortError' || error.killed) throw failure(504,'COMPILER_INTERRUPTED','规则编译检测超时或已取消');
     throw failure(error.code==='ENOENT'?503:502,'COMPILER_PROCESS_FAILED','规则编译检测未完成，请检查运行记录');
   }
-  try { const result=JSON.parse(stdout);if(!result || typeof result!=='object' || Array.isArray(result))throw new Error();return result; }
+  try { const result=JSON.parse(stdout);if(!result || typeof result!=='object' || (Array.isArray(result) && !allowArray))throw new Error();return result; }
   catch { throw failure(502,'COMPILER_INVALID_JSON','规则编译检测返回了无效结果'); }
 }
 function toCompilerResult(output,selectedRuleIds) {
   if(output?.schema_version!=='paper-check/1.0' || !Array.isArray(output.rules))throw failure(502,'COMPILER_INVALID_REPORT','规则编译检测结果不完整');
+  const asVersion=value=>typeof value==='string' && value.trim() ? value : null;
+  const runtimeVersion=asVersion(output.runtime?.active_version) || asVersion(output.runtime_version);
+  const pipelineVersion=asVersion(output.pipeline_version) || asVersion(output.pipeline?.version_id);
+  const versionLabel=runtimeVersion || pipelineVersion || '兼容规则包';
+  const runtimeSnapshot=typeof output.runtime?.freeze==='boolean' && Number.isSafeInteger(output.runtime.generation) && output.runtime.generation>=0
+    ? {freeze:output.runtime.freeze,generation:output.runtime.generation,active_version:runtimeVersion} : null;
   const ruleRuns=selectedRuleIds.map(ruleId=>{
     if(!IDS.has(ruleId))throw failure(400,'COMPILER_UNKNOWN_RULE','未知编译规则');
     const rows=output.rules.filter(r=>String(r.rule_id)===ruleId.slice(10));
@@ -48,9 +54,10 @@ function toCompilerResult(output,selectedRuleIds) {
       execution_status:raw.status==='ERROR'?'error':'completed',evidence_mode:findings.some(f=>f.source_kind==='synthetic')?'derived':'native',
       outcome:findings.length?'issues_found':raw.status==='PASS'?'passed':raw.status==='NOT_APPLICABLE'?'not_applicable':'inconclusive',
       message:raw.status==='UNKNOWN' || unknown || raw.coverage?.incomplete_scopes?.length ? `${unknown} 项证据不足；未覆盖的内容保留无法判定。` : null,
-      findings,compiler_diagnostics:diagnostics,coverage:raw.coverage,compiler_counts:raw.counts,package_sha256:raw.package_sha256};
+      findings,compiler_diagnostics:diagnostics,coverage:raw.coverage,compiler_counts:raw.counts,package_sha256:raw.package_sha256,
+      runtime_version:runtimeVersion,pipeline_version:pipelineVersion,runtime_snapshot:runtimeSnapshot};
   });
-  return {type:'paper_lint',paper_title:'上传论文',ruleset:{id:'paper-compiler-phase1',name:'引用规则编译检测',version_number:1,version_label:'首轮候选版本'},rule_runs:ruleRuns,summary:summarizeRuleRuns(ruleRuns)};
+  return {type:'paper_lint',paper_title:'上传论文',runtime:runtimeSnapshot,ruleset:{id:'paper-compiler',name:'引用规则编译检测',version_number:1,version_label:`引用规则 · ${versionLabel}`},rule_runs:ruleRuns,summary:summarizeRuleRuns(ruleRuns)};
 }
 async function runCompilerRules(pdfPath,selectedRuleIds,options={}) {
   const catalog=getCompilerRules();
@@ -59,9 +66,25 @@ async function runCompilerRules(pdfPath,selectedRuleIds,options={}) {
   const resultRoot=process.env.PAPER_COMPILER_RESULT_ROOT || '/data/results/paper-compiler/website';
   await fs.promises.mkdir(resultRoot,{recursive:true,mode:0o700});
   const output=path.join(resultRoot,crypto.randomUUID()+'.json');
-  const args=[SCRIPT,'check','--pdf',pdfPath,'--out',output,'--stdout-report','--phase','website','--phase-budget','1000',
+  const args=[SCRIPT,'check','--pdf',pdfPath,'--out',output,'--stdout-report','--online','--control-root',controlRoot(),'--cache',process.env.PAPER_COMPILER_CACHE_ROOT || '/data/runtime/paper-compiler','--phase','website','--phase-budget','200','--budget','200',
     ...selectedRuleIds.flatMap(id=>['--package',packagePath(id.slice(10))])];
   const raw=await runJsonProcess(process.env.PAPER_COMPILER_PYTHON || 'python3',args,options);
   return toCompilerResult(raw,selectedRuleIds);
 }
-module.exports={getCompilerRules,isCompilerRuleId,runCompilerRules,toCompilerResult,runJsonProcess};
+function controlRoot() { return path.resolve(process.env.PAPER_COMPILER_CONTROL_ROOT || '/data/runtime/paper-compiler/online'); }
+async function runCompilerControl(action,{version}={}) {
+  if(!['status','freeze','unfreeze','history','rollback'].includes(action))throw failure(400,'COMPILER_CONTROL_ACTION','请选择有效管理操作');
+  if(action==='rollback' && (typeof version!=='string' || !version.trim()))throw failure(400,'COMPILER_CONTROL_VERSION','请选择有效历史版本');
+  if(process.env.PAPER_COMPILER_ENABLED!=='1')throw failure(503,'COMPILER_UNAVAILABLE','自动迭代管理尚未启用，请联系管理员配置检测服务');
+  const args=[SCRIPT,'control','--action',action,'--control-root',controlRoot()];
+  if(action==='rollback')args.push('--version',version);
+  let result=await runJsonProcess(process.env.PAPER_COMPILER_PYTHON || 'python3',args,{timeoutMs:45000,maxBytes:4*1024*1024,allowArray:action==='history'});
+  if(action==='history' && !Array.isArray(result) && Array.isArray(result.events))result=result.events;
+  const valid=action==='history'
+    ? Array.isArray(result) && result.every(item=>item && typeof item==='object' && !Array.isArray(item))
+    : !Array.isArray(result) && typeof result.freeze==='boolean' && Number.isSafeInteger(result.generation) && result.generation>=0 &&
+      (result.active_version===null || typeof result.active_version==='string') && (result.active_path===null || typeof result.active_path==='string');
+  if(!valid)throw failure(502,'COMPILER_CONTROL_INVALID','自动迭代管理状态不完整');
+  return result;
+}
+module.exports={getCompilerRules,isCompilerRuleId,runCompilerRules,toCompilerResult,runJsonProcess,runCompilerControl};

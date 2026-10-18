@@ -76,6 +76,8 @@ export type PaperLintFinding = {
   check_id?: string;
 };
 
+export type PaperLintRuntimeSnapshot = { freeze: boolean; generation: number; active_version: string | null };
+
 export type PaperLintRuleRun = {
   rule_run_id: string;
   rule_id: string;
@@ -90,6 +92,9 @@ export type PaperLintRuleRun = {
   compiler_counts?: Record<string, number>;
   coverage?: { incomplete_scopes: string[] };
   package_sha256?: string;
+  runtime_snapshot?: PaperLintRuntimeSnapshot | null;
+  runtime_version?: string | null;
+  pipeline_version?: string | null;
 };
 
 export type PaperLintSummary = {
@@ -106,6 +111,7 @@ export type PaperLintSummary = {
 };
 
 export type PaperLintResult = {
+  runtime?: PaperLintRuntimeSnapshot | null;
   type: 'paper_lint';
   paper_title: string;
   ruleset: {

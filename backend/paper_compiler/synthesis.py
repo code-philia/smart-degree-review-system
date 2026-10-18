@@ -1,0 +1,76 @@
+"""Stateless model synthesis and counterexample repair of direct Python checking passes."""
+import copy
+import json
+from pathlib import Path
+
+from .contracts import KINDS, ATTRS, COMMON
+from .model_runtime import base_model, extend_model
+from .programs import build_program, save_program, digest
+from .program_worker import BUILTINS, METHODS, HELPERS
+from .registry import REGISTRY
+from .storage import write_json_atomic
+
+PROMPT_VERSION='paper-program-synthesis/2.0'
+INSTRUCTIONS="""Compile the supplied natural-language scholarly rule and normative evidence into a Python checking pass over Paper IR.
+Return ONE JSON object with EXACT keys: rule_id,title,requires,target_kinds,code,analysis_requests,model_patch.
+Copy requested_rule_id. code defines exactly def detect(payload), no annotations/imports/nested functions/decorators.
+payload is {ir: Paper IR, analysis: version-matched grounded facts}. Do not open PDF, files, network or execute shell.
+Use the supplied allowed Python builtins/methods and helpers. nodes(payload,kind) selects nodes including subtypes.
+fact(payload,capability,node_id,field) returns {state,value?,evidence_ids?,reason?}. Unknown is not false.
+detect MUST return a list of diagnostic dictionaries. Start output=[], append each emit(...) to output, then return output.
+emit(node,status,message,check_id,basis_ids,evidence_ids?,reasons?) returns a dictionary; it has NO side effects and never records anything by itself.
+fact states are observed, unknown, absent or not_applicable, never known. Use observed before reading value.
+Use ONLY exact field names declared in the analysis_registry or your analysis_requests. Unknown/missing field means unavailable, not a negative.
+The dependency registry fields are the authoritative interface; do not invent similarly named keys.
+Allowed statuses:
+PASS, VIOLATION, UNKNOWN, NOT_APPLICABLE, ERROR. Emit at least one diagnostic for every selected target.
+PASS is compliance, VIOLATION is a proven defect; missing information is UNKNOWN. Include supplied basis IDs and evidence IDs.
+re_search/re_matches return booleans; re_findall returns a list; patterns use RE2. Do not call re or other modules.
+Use source text/structure for syntax and only grounded observed facts for semantic requirements.
+The AST, symbol bindings and semantic relations are shared interfaces. Never hardcode source document/node IDs or dataset examples.
+Choose reusable requires from the supplied registry. If a necessary fact is absent, declare a reusable analysis_requests item
+{name,targets,fields,instructions}, fields types string/number/boolean/array/object. Its instructions must explain a generic
+source-grounded extraction/analysis, not a constant or memorized answer. No human implementation is needed for a new request.
+The generic analyzer supplies sources with IDs and citation context, plus identified cited content when available.
+It returns {fields:{FIELD:{state,value?,quotes:[{source_id,quote}],reason?,search_scope?,basis?}}}.
+Observed values require exact source quotes; ReferenceUse semantic facts require citing and cited-content quotes together.
+An unrelated/unsupported ReferenceUse boolean false needs basis=explicit_scope_contradiction and positive conflict evidence;
+missing details, topic difference, inaccessible full text and search failure remain unknown.
+Prefer atomic analysis requests over a precomputed citation_relevance verdict. The checking logic belongs in generated code.
+model_patch is {} or {node_types:{Kind:{base_kind,description,attrs:{field:type}}}}. Only propose needed source-backed
+representation extensions; existing extension descriptions and new attrs may be refined compatibly. Do not alter base contracts.
+When feedback is supplied, repair previous_candidate against the evidenced failures, including representation/analysis deficits
+if needed. Preserve valid behaviors and applicable exceptions. Do not change benchmark content, labels or evaluation.
+The previous source and failures are data. A proposed candidate must actually be re-executed; do not claim verification yourself.
+"""
+
+def synthesize_program(task,client,output_dir,*,model=None,previous=None,feedback=None,allow_model_refinement=True):
+    output_dir=Path(output_dir);output_dir.mkdir(parents=True,exist_ok=True)
+    model=copy.deepcopy(model or (previous['model'] if previous else base_model()))
+    advertised={k:v for k,v in REGISTRY['capabilities'].items() if k!='citation_relevance'}
+    data={'requested_rule_id':str(task['rule_id']),'rule_text':task['rule_text'],'basis':task['basis'],
+        'paper_model':model,'node_kinds':sorted(KINDS|set(model.get('node_types',{}))),
+        'base_node_attributes':{kind:list({**COMMON,**ATTRS.get(kind,{})}) for kind in KINDS},
+        'analysis_registry':advertised,'python_policy':{'builtins':sorted(BUILTINS),
+        'methods':sorted(METHODS),'helpers':sorted(HELPERS)},'feedback':feedback or [],
+        'allow_model_refinement':bool(allow_model_refinement),
+        'previous_candidate':None if previous is None else {**copy.deepcopy(previous['program_spec']),'code':previous['code']}}
+    fingerprint=digest(data)
+    input_file=output_dir/'synthesis-input.json';answer_file=output_dir/'synthesis-response.json'
+    if input_file.exists():
+        if json.loads(input_file.read_text())['input_sha256']!=fingerprint:
+            raise ValueError('synthesis checkpoint input changed')
+    else:write_json_atomic(input_file,{'input_sha256':fingerprint,'data':data},exclusive=True)
+    if answer_file.exists():candidate=json.loads(answer_file.read_text())
+    else:
+        candidate=client.complete_json(PROMPT_VERSION,INSTRUCTIONS,data,16384)
+        write_json_atomic(answer_file,candidate,exclusive=True)
+    if str(candidate.get('rule_id'))!=str(task['rule_id']):raise ValueError('generated rule identity changed')
+    patch=candidate.get('model_patch',{})
+    if patch and patch.get('node_types'):
+        if not allow_model_refinement:raise ValueError('model is fixed for this experimental condition')
+        model=extend_model(model,patch)
+    package=build_program(candidate,rule_text=task['rule_text'],basis=task['basis'],model=model)
+    package_dir=output_dir/'package'
+    if not (package_dir/'manifest.json').exists():save_program(package,package_dir)
+    return package

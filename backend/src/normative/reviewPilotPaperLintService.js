@@ -258,10 +258,13 @@ function mergePaperLintResults(existingResult, localResult, selectedRuleIds) {
     if (!run) throw createHttpError(502, `规则 ${ruleId} 没有返回检测结果`);
     return run;
   });
+  const compilerVersions = [...new Set(ruleRuns.filter(run => isCompilerRuleId(run.rule_id))
+    .map(run => run.runtime_version || run.pipeline_version).filter(Boolean))];
   return {
     ...existingResult,
+    runtime: ruleRuns.find(run => run.runtime_snapshot)?.runtime_snapshot || existingResult.runtime || null,
     ruleset: { id: 'smart-degree-combined-pdf-lint', name: '基础规则检测',
-      version_number: 1, version_label: '当前本地版本' },
+      version_number: 1, version_label: '当前本地版本' + (compilerVersions.length ? ` · 引用规则 ${compilerVersions.join('、')}` : '') },
     rule_runs: ruleRuns,
     summary: summarizeRuleRuns(ruleRuns),
   };

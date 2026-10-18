@@ -133,12 +133,27 @@ def _span(span, sources, pages, source_texts):
                 -.01 <= box[1] <= box[3] <= page['height'] + .01, 'bbox exceeds page')
 
 
+def _ir_model_types(ir):
+    extensions = ir.get('extensions', {})
+    require(isinstance(extensions, dict), 'IR extensions must be an object')
+    model_types = {}
+    if 'paper_model' in extensions:
+        from .model_runtime import _resolve_types, validate_model
+        model = extensions['paper_model']
+        validate_model(model)
+        require(ir['model_version'] == model['version'], 'IR model version mismatch')
+        model_types = _resolve_types(model['node_types'])
+    else:
+        require(ir['model_version'] == MODEL_VERSION, 'unsupported model version')
+    return model_types
+
+
 def validate_ir(ir: dict, source_root: Path | None = None) -> None:
     require(isinstance(ir, dict), 'IR must be an object')
     reject_answers(ir)
     require(REQUIRED_IR <= ir.keys() and not ir.keys() - IR_KEYS, 'unknown or missing IR fields')
     require(ir['schema_version'] == SCHEMA_VERSION, 'unsupported schema version')
-    require(ir['model_version'] == MODEL_VERSION, 'unsupported model version')
+    model_types = _ir_model_types(ir)
     for key in ['document_id', 'revision', 'root_id']:
         require(isinstance(ir[key], str) and bool(ir[key]), key + ' must be a nonempty string')
     require(isinstance(ir['profile'], dict) and isinstance(ir['coverage'], dict), 'profile/coverage must be objects')
@@ -181,15 +196,16 @@ def validate_ir(ir: dict, source_root: Path | None = None) -> None:
         require(isinstance(node, dict) and set(node) == {'id', 'kind', 'text', 'children', 'attrs', 'provenance'}, 'invalid node fields')
         nid = node['id']
         require(isinstance(nid, str) and nid and nid not in nodes, 'duplicate/invalid node id')
-        require(node['kind'] in KINDS, 'unknown node kind')
+        require(node['kind'] in KINDS or node['kind'] in model_types, 'unknown node kind')
         require(node['text'] is None or isinstance(node['text'], str), 'node text must be string or null')
         require(isinstance(node['children'], list) and all(isinstance(c, str) for c in node['children']), 'invalid children')
         require(len(set(node['children'])) == len(node['children']), 'duplicate children')
         require(isinstance(node['attrs'], dict), 'attrs must be an object')
-        schema = {**COMMON, **ATTRS.get(node['kind'], {})}
+        schema = model_types[node['kind']][1] if node['kind'] in model_types else {**COMMON, **ATTRS.get(node['kind'], {})}
         require(not node['attrs'].keys() - schema.keys(), 'unknown node attribute')
         for key, value in node['attrs'].items():
-            require(isinstance(value, schema[key]) and not (schema[key] is int and isinstance(value, bool)), 'wrong attribute type: ' + key)
+            valid = _number(value) if schema[key] == (int, float) else isinstance(value, schema[key]) and not (schema[key] is int and isinstance(value, bool))
+            require(valid, 'wrong attribute type: ' + key)
         selector = node['attrs'].get('selector')
         if selector is not None:
             require(isinstance(selector.get('kind'), str) and isinstance(selector.get('value'), str), 'invalid selector')
@@ -228,6 +244,18 @@ def validate_analysis(ir: dict, analysis: dict) -> None:
     require(analysis.get('paper_ir_sha256') == ir_hash(ir), 'stale analysis hash')
     require(analysis.get('schema_version') == 'paper-analysis/1.0', 'unsupported analysis schema')
     require(analysis.get('model_version') == ir['model_version'], 'analysis model version mismatch')
+    model_types = _ir_model_types(ir)
+    definitions = ir.get('extensions', {}).get('paper_model', {}).get('node_types', {})
+
+    def kind_is(actual, expected):
+        while actual in model_types:
+            if actual == expected:
+                return True
+            actual = definitions[actual]['base_kind']
+        return actual == expected
+
+    def base_kind(kind):
+        return model_types[kind][0] if kind in model_types else kind
     for key in ['capability_versions', 'results', 'coverage']:
         require(isinstance(analysis.get(key), dict), 'analysis missing ' + key)
     nodes = {n['id']: n for n in ir['nodes']}
@@ -244,14 +272,14 @@ def validate_analysis(ir: dict, analysis: dict) -> None:
     for binding in analysis.get('bindings', []):
         require(isinstance(binding, dict) and binding.get('use_id') in nodes, 'unknown binding use')
         use = nodes[binding['use_id']]
-        require(use['kind'] == 'ReferenceUse', 'binding use must be ReferenceUse')
+        require(kind_is(use['kind'], 'ReferenceUse'), 'binding use must be ReferenceUse')
         require(binding.get('status') in {'resolved', 'unresolved', 'ambiguous'}, 'invalid binding status')
         targets = binding.get('target_ids')
         require(isinstance(targets, list) and all(t in nodes for t in targets), 'unknown binding target')
         if binding['status'] == 'resolved':
             require(bool(targets), 'resolved binding needs target')
             expected_kind = use['attrs'].get('expected_kind')
-            require(all(nodes[t]['kind'] == expected_kind for t in targets), 'binding target type mismatch')
+            require(all(kind_is(nodes[t]['kind'], expected_kind) for t in targets), 'binding target type mismatch')
     endpoints = {**nodes, **entities}
     edge_types = {'identifies': ({'BibliographyEntry'}, {'ExternalWork'}),
                   'refers_to': ({'ReferenceUse'}, KINDS),
@@ -263,8 +291,8 @@ def validate_analysis(ir: dict, analysis: dict) -> None:
         require(isinstance(edge, dict) and edge.get('type') in edge_types, 'unknown edge type')
         require(edge.get('from') in endpoints and edge.get('to') in endpoints, 'unknown edge endpoint')
         left, right = edge_types[edge['type']]
-        require(left is None or endpoints[edge['from']]['kind'] in left, 'edge source type mismatch')
-        require(right is None or endpoints[edge['to']]['kind'] in right, 'edge target type mismatch')
+        require(left is None or base_kind(endpoints[edge['from']]['kind']) in left, 'edge source type mismatch')
+        require(right is None or base_kind(endpoints[edge['to']]['kind']) in right, 'edge target type mismatch')
         require(all(e in evidence for e in edge.get('evidence_ids', [])), 'unknown edge evidence')
     _observations(analysis['results'])
     def verify_observations(value):
@@ -279,14 +307,16 @@ def validate_analysis(ir: dict, analysis: dict) -> None:
     require(isinstance(attributes,dict),'resolved node attributes must be an object')
     for node_id,values in attributes.items():
         require(node_id in nodes and isinstance(values,dict),'unknown resolved attribute node')
-        declared={**COMMON,**ATTRS.get(nodes[node_id]['kind'],{})}
+        kind=nodes[node_id]['kind']
+        declared=model_types[kind][1] if kind in model_types else {**COMMON,**ATTRS.get(kind,{})}
         for name,observation in values.items():
             require(name in declared and isinstance(observation,dict) and 'state' in observation,'undeclared or untyped resolved attribute')
             if observation.get('state')=='observed':
                 typ=declared[name]
                 if isinstance(typ,tuple):typ=tuple(t for t in typ if t is not dict)
                 value=observation.get('value')
-                require(isinstance(value,typ) and not (typ is int and isinstance(value,bool)),'resolved attribute type mismatch')
+                valid=_number(value) if typ == (int,float) else isinstance(value,typ) and not (typ is int and isinstance(value,bool))
+                require(valid,'resolved attribute type mismatch')
                 require(bool(observation.get('evidence_ids')),'resolved attribute requires evidence')
                 source=nodes[node_id]['attrs'].get(name)
                 if source is not None and not (isinstance(source,dict) and source.get('state') in {'unknown','not_applicable'}):

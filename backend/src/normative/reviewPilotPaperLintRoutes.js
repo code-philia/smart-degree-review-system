@@ -5,10 +5,12 @@ const defaultExampleService = require('./paperLintExampleService');
 const paperLintReportRepository = require('./paperLintReportRepository');
 const { sendPrivatePdf } = require('./privatePdfResponse');
 const defaultJobService = require('./paperLintJobService');
-const { isCompilerRuleId } = require('./paperCompilerService');
+const defaultCompilerService = require('./paperCompilerService');
+const { isCompilerRuleId } = defaultCompilerService;
 const { isSixRuleId } = require('./sixRulePaperLintService');
 
 const allowedRoles = ['STUDENT', 'SUPERVISOR', 'SCHOOL_ADMIN', 'COLLEGE_ADMIN'];
+const managementRoles = ['SCHOOL_ADMIN', 'COLLEGE_ADMIN'];
 
 function sendError(error, res, next) {
   if (error?.type === 'entity.too.large') {
@@ -20,8 +22,27 @@ function sendError(error, res, next) {
   }
 }
 
-function createReviewPilotPaperLintRouter(service = defaultService, exampleService = defaultExampleService, jobService = defaultJobService) {
+function createReviewPilotPaperLintRouter(service = defaultService, exampleService = defaultExampleService, jobService = defaultJobService, compilerService = defaultCompilerService) {
   const router = express.Router();
+
+  router.get('/control', requireAuth({ allowedRoles: managementRoles }), async (_req, res, next) => {
+    try { res.json(await compilerService.runCompilerControl('status')); }
+    catch (error) { sendError(error, res, next); }
+  });
+  router.put('/control/freeze', requireAuth({ allowedRoles: managementRoles }), express.json({ limit: '4kb' }), async (req, res, next) => {
+    if (typeof req.body?.freeze !== 'boolean') return res.status(400).json({ code: 400, message: '冻结设置必须为布尔值' });
+    try { return res.json(await compilerService.runCompilerControl(req.body.freeze ? 'freeze' : 'unfreeze')); }
+    catch (error) { return sendError(error, res, next); }
+  });
+  router.get('/control/history', requireAuth({ allowedRoles: managementRoles }), async (_req, res, next) => {
+    try { res.json(await compilerService.runCompilerControl('history')); }
+    catch (error) { sendError(error, res, next); }
+  });
+  router.post('/control/rollback', requireAuth({ allowedRoles: managementRoles }), express.json({ limit: '4kb' }), async (req, res, next) => {
+    if (typeof req.body?.version_id !== 'string' || !req.body.version_id.trim()) return res.status(400).json({ code: 400, message: '请选择有效历史版本' });
+    try { return res.json(await compilerService.runCompilerControl('rollback', { version: req.body.version_id })); }
+    catch (error) { return sendError(error, res, next); }
+  });
 
   router.get('/examples', requireAuth({ allowedRoles }), async (_req, res, next) => {
     try {
