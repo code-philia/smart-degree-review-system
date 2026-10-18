@@ -85,7 +85,9 @@ class ExternalModel:
             status = "PASS" if status == "VIOLATION" else "VIOLATION"
         quote = "invented quote" if self.mode == "bad_quote" else "The method uses gradients."
         return {"valid": True, "original_compliant": self.mode != "bad_original", "status": status, "reason": "Source comparison.",
-                "quotes": [{"source_id": "evidence-s1", "quote": quote}], "basis_ids": ["b1"]}
+                "quotes": [{"source_id": "evidence-s1", "quote": quote},
+                           {"source_id":"original-node","quote":data["original_node"]["text"]},
+                           {"source_id":"mutated-node","quote":data["mutated_node"]["text"]}], "basis_ids": ["b1"]}
 
 
 def run(tmp_path, paths, model=None, tasks=None, negatives=1, controls=1, output="out", batches=1):
@@ -291,7 +293,8 @@ def test_omitted_source_selection_does_not_send_unrelated_full_library_to_labele
             assert all(s["id"] != "unrelated" for s in data["sources"])
             assert data["controlled_catalog"] == []
             result=super().complete_json(call_task,instructions,data,max_tokens)
-            result["quotes"]=[{"source_id":"original-node","quote":data["original_node"]["text"]}]
+            result["quotes"]=[{"source_id":"original-node","quote":data["original_node"]["text"]},
+                              {"source_id":"mutated-node","quote":data["mutated_node"]["text"]}]
             return result
     resources={**RESOURCES,"sources":[*RESOURCES["sources"],{"id":"unrelated","text":"Unrelated long full text."*1000}]}
     result=builder().build_benchmark([task()],[parent(tmp_path)],client=LocalEvidence(),output_dir=tmp_path/"out",
@@ -521,6 +524,7 @@ def test_bound_citation_roles_use_actual_context_and_confirmed_work_and_reject_m
             assert data["mutated_reference_entries"][0]["id"]=="entry"
             assert data["evidence_requirements"]["sources"]["original_cited_work_content"]==[{"source_id":"evidence-s1"}]
             answer=super().complete_json(call_task,instructions,data,max_tokens)
+            answer["quotes"] = [q for q in answer["quotes"] if q["source_id"] not in ["original-node","mutated-node"]]
             answer["quotes"] += [{"source_id":"original-node","quote":"[1]" if self.marker else data["original_node"]["text"]},
                 {"source_id":"mutated-node","quote":"[1]" if self.marker else data["mutated_node"]["text"]}]
             return answer
@@ -560,3 +564,42 @@ def test_proposal_excerpts_are_bounded_without_truncating_label_work_evidence(tm
     result=builder().build_benchmark([{**task(),"proposal_source_char_limit":40}],[parent(tmp_path)],client=ExcerptModel(),
         output_dir=tmp_path/"out",resources=resources,negatives_per_rule=1,controls_per_rule=1,max_proposal_batches=1)
     assert result["summary"]["generic"]["violations"]==1
+
+
+def test_preexcluded_edit_is_rejected_before_expensive_ir_mutation(tmp_path,monkeypatch):
+    path=parent(tmp_path);warm=run(tmp_path,[path],output="smoke")
+    cases=json.loads(Path(warm["manifest_path"]).read_text())["cases"]
+    negative=next(json.loads(Path(c["oracle_path"]).read_text()) for c in cases if json.loads(Path(c["oracle_path"]).read_text())["status"]=="VIOLATION")
+    resources={**RESOURCES,"excluded_edits":[{"parent_group":negative["parent_group"],"source_edit":negative["source_edit"]}]}
+    original=builder().mutate;calls=[]
+    def counted(*args,**kwargs):calls.append(1);return original(*args,**kwargs)
+    monkeypatch.setattr(builder(),"mutate",counted)
+    result=builder().build_benchmark([task()],[path],client=ExternalModel(),output_dir=tmp_path/"formal",resources=resources,
+        negatives_per_rule=1,controls_per_rule=1,max_proposal_batches=1)
+    assert result["summary"]["generic"]["controls"]==1
+    assert len(calls)==1
+
+
+def test_unconfigured_unfamiliar_task_cannot_accept_norm_only_labels(tmp_path):
+    class NormOnly(ExternalModel):
+        def complete_json(self,call_task,instructions,data,max_tokens):
+            answer=super().complete_json(call_task,instructions,data,max_tokens)
+            if call_task != "benchmark-proposals/2.0":answer["quotes"]=[{"source_id":"b1","quote":"Use evidence for the stated purpose."}]
+            return answer
+    unfamiliar=task("unseen-future-rule")
+    assert "required_source_roles" not in unfamiliar and "semantic_requirements" not in unfamiliar
+    result=run(tmp_path,[parent(tmp_path)],NormOnly(),tasks=[unfamiliar])
+    assert result["summary"]["unseen-future-rule"]["violations"]==0
+    assert result["summary"]["unseen-future-rule"]["controls"]==0
+
+
+def test_completed_legacy_snapshot_is_rechecked_against_baseline_local_evidence(tmp_path):
+    path=parent(tmp_path);result=run(tmp_path,[path]);mp=Path(result["manifest_path"]);manifest=json.loads(mp.read_text())
+    # A self-consistent historical snapshot, rather than a corrupt artifact.
+    for case in manifest["cases"]:
+        op=Path(case["oracle_path"]);oracle=json.loads(op.read_text());oracle.pop("evidence_requirements",None)
+        for side in ["label","review"]:oracle[side]["quotes"]=[{"source_id":"b1","quote":"Use evidence for the stated purpose."}]
+        op.write_text(json.dumps(oracle));manifest["artifact_sha256"][str(op)]=hashlib.sha256(op.read_bytes()).hexdigest()
+    mp.write_text(json.dumps(manifest))
+    with pytest.raises(ValueError,match="evidence|role"):
+        run(tmp_path,[path])

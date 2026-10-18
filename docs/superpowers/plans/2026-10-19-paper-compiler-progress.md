@@ -18,3 +18,12 @@ R31 smoke-v3 loop completed 5 real API rounds with no heldout gain (strict balan
 Real online API probe achieved verified missed defect→API repair→IR rebuild/rerun→atomic suite promotion, then frozen/resumed checks reused promoted version; evidence online-resource-type-cli-v2.json and online-two-modes-summary.json.
 
 Verified additional markers T16/T23/T31/T47/T59/T61/T62/T66/T67/T68/T70/T71/T72: real-api-smoke-20261019.md and linked raw artifacts, exact API provenance and remaining errors retained. Reopen T18/T22 after discovering weak label-source-role acceptance; all old benchmark candidates pending stronger revalidation, never treated as final300.
+
+2026-10-19 latest user goal explicitly resumes TODO execution again after a requested stop and says not to pause without reason. The stop was honored (R32 smoke process2643770 terminated; two uncertain requests retained); now goal is active, implementation and benchmark construction continue. Runtime default remains freeze=false.
+
+Final review: 10 Important findings regraded by actual effect and fixed in one pass, RED→GREEN; no Critical established. See docs/research/review-findings-20261019.md for each reproduction/remedy. Unified compiler suite557 passed; Node full242 passed/11 skipped in isolated test DB. Intermediate RED logs retained, not final failures.
+Final: minor (deferred): planner accepts string-shaped normative basis unsupported downstream; current formal tasks all use canonical id/text records.
+Final: Ruling: uniform dual-source ReferenceUse auditing is independent of faulty generated dependencies — prevents unsupported feedback; cost is fewer auto-repairs when cited content is unavailable.
+Final: Ruling: bounded32-case online regression inventory is hashed into each compatible release — protects recent verified fixes without leaking formal heldout answers; cost is no unlimited automated protection beyond the retained window.
+
+Task markers now verified additionally T07/T18/T22/T26/T33/T63/T64/T65. Grounded CitationIntent and typed observation evidence graph materialize in new analyzer2.3, unknown facts create no proven semantic edges. Online task scope uses same SQLite cumulative200 budget, default5 CNY/1200seconds before any PDF/model call, no retry/reset. Corpus22 tests and inventory479 hashes verified; actual full scan not run. Formal v2 construction continues; historical weak v1 excluded. No production deployment or permission/key changes.

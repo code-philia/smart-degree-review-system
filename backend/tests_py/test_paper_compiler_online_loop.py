@@ -346,3 +346,18 @@ def test_second_online_round_receives_actual_schema_error_and_failed_raw_candida
     assert failure['failed_candidate']['code']==FIX
     assert result['runtime']['rounds'][0]['status']=='candidate_failed'
     assert result['runtime']['rounds'][1]['status']=='evaluated'
+
+def test_citation_auditor_cannot_lose_safeguards_when_program_omits_analysis(tmp_path):
+    from paper_compiler.online_loop import _ground_judgments
+    ir=paper(tmp_path)
+    entry=candidate("def detect(payload):\n    return [emit(n,'PASS','Accepted') for n in nodes(payload,'ReferenceUse')]")
+    entry['target_kinds']=['ReferenceUse']
+    generated=build_program(entry,rule_text='The cited work must support this citation purpose.',
+        basis=[{'id':'project-term','text':'Check citation purpose against the identified cited work.'}])
+    node=next(n for n in ir['nodes'] if n['id']=='use')
+    data={'node':node,'citation_context':{'node_id':'p'},'sources':[
+        {'source_id':'paper:p','origin':'paper','node_id':'p','text':'We apply tree models [1].','complete':True}]}
+    answer={'judgments':[{'rule_id':'word','node_id':'use','status':'VIOLATION',
+        'reason':'A different topic.','basis_ids':['project-term'],'basis':'topic_mismatch',
+        'quotes':[{'source_id':'paper:p','quote':'We apply tree models'}]}]}
+    assert _ground_judgments(answer,{('word','use'):(data,generated,node)},ir)=={}

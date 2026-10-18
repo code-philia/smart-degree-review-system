@@ -17,9 +17,9 @@
 
 Node 控制调用固定为 `paper_compiler_cli.py control --action status|freeze|unfreeze|history|rollback --control-root PATH`，回滚另传 `--version ID`。请求不能指定运行目录、脚本或任意命令。尚未启用编译服务时返回 503，配置页面继续显示其余管理内容。
 
-检测继续使用 `check --pdf ... --out ... --stdout-report`，并传入 `--online --control-root PATH --cache PATH --phase website --phase-budget 200 --budget 200`。Node 不根据冻结状态拒绝检测；Python 在线执行器负责阻止冻结后的修订和晋级，必要的语义 API 仍可使用原有同意流程与预算约束。目录首次发现仍使用 `PAPER_COMPILER_PACKAGE_ROOT/31`、`32`、`33` 下的 `manifest.json`，后续完整版本由 Python 从运行控制的 `active_path` 加载。
+检测继续使用 `check --pdf ... --out ... --stdout-report`，并传入 `--online --control-root PATH --cache PATH --phase website --phase-budget 200 --budget 200`。Node 不根据冻结状态拒绝检测；Python 在线执行器负责阻止冻结后的修订和晋级，必要的语义 API 仍可使用原有同意流程与预算约束。目录首次发现仍使用 `PAPER_COMPILER_PACKAGE_ROOT/31`、`32`、`33` 下的 `manifest.json`；Node把全部已配置规则传作release inventory，用户所选仅控制报告子集。后续完整版本从同一父快照的 `active_path` 加载，保留其余规则并回归后再原子晋级。
 
-报告保留 `paper-check/1.0` 协议。网页适配器优先使用 `runtime.active_version`、其次 `pipeline_version` 作为版本标签，并在每条运行记录保存 `runtime_version`、`pipeline_version` 及含冻结状态和 generation 的 `runtime_snapshot`；混合旧规则的报告也保留该标签。缺少新元数据的历史报告显示兼容包说明，不再固定写成“首轮候选版本”。
+报告保留 `paper-check/1.0` 协议。网页适配器优先使用显式 `runtime.report_version.suite_version`、其次 `pipeline_version` 作为结论版本标签，`runtime.current_snapshot` 单独表示当前全局活动状态，并在每条运行记录保存 `runtime_version`、`pipeline_version` 及含冻结状态和 generation 的 `runtime_snapshot`；混合旧规则的报告也保留该标签。缺少新元数据的历史报告显示兼容包说明，不再固定写成“首轮候选版本”。
 
 对应代码：`backend/src/normative/paperCompilerService.js`、`reviewPilotPaperLintRoutes.js`、`reviewPilotPaperLintService.js`；前端为 `frontend/src/api/compilerControl.ts`、`src/components/paperLint/CompilerRuntimeControl.tsx` 和既有 `RuleConfigPage.tsx`。
 
@@ -95,3 +95,5 @@ Node 的 cache 默认仍为 `/data/runtime/paper-compiler`，与现有 CLI 一�
 ## 私有 OpenAlex 配置的权限补充
 
 evidence loader 会拒绝配置文件的任何组/其他权限位。直接给 root0600 文件增加用户ACL可能令mask映射为0640，仍被拒绝。上线方案应由systemd以root读取原0600 evidence.env作为EnvironmentFile，并将OPENALEX_API_KEY仅注入受控service；或提供服务UID独享0400的凭据文件。不采用给该文件增加普通只读ACL的方案。模型配置、同一个费用账本及SQLite日志父目录的权限分别按实际loader核对。本次仅准备配置方案，未修改生产权限或凭据。
+
+单任务默认5元/1200秒，通过同账本scope约束所有模型调用；原200元累计上限仍保留。成功在线版本携带最多32个已确认在线回归案例及哈希，下次晋级必须自动复检；正式独立测试不进入该库存。当前审阅修复与557/242项验证见 research/review-findings-20261019.md，发布仍待正式研究与用户上线要求。

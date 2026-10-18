@@ -18,7 +18,7 @@ from .evidence import VERSION as EVIDENCE_VERSION, CONTENT_VERSION
 from .registry import REGISTRY
 from .storage import json_bytes, write_json_atomic
 
-VERSION = 'generated-analysis-runtime/2.1'
+VERSION = 'generated-analysis-runtime/2.3'
 TASK = 'generated-analysis/2.0'
 TYPES = {'string': str, 'number': (int, float), 'boolean': bool, 'array': list, 'object': dict}
 GROUNDING_POLICY = """
@@ -28,8 +28,8 @@ Return {"fields":{"FIELD":{"state":"observed|unknown|confirmed_absent|not_applic
 "search_scope":["exact source IDs searched completely"],"basis":"explicit_support|explicit_scope_contradiction|direct_observation|insufficient|missing_detail|topic_mismatch"}}}.
 Return only declared fields with the declared value types. Every observed fact needs exact, nonempty source quotes.
 For ReferenceUse targets, ground semantic observations in BOTH the citing context and identified cited-work content.
-Boolean false for a citation semantic fact requires explicit_scope_contradiction and positive source evidence that excludes
-this use. Missing details, no mention in full text, retrieval failure, or global topic/domain mismatch cannot prove irrelevance.
+Every citation inference requires explicit_support or explicit_scope_contradiction, regardless of field name, type or polarity.
+A claimed contradiction (including unrelated=True or a relation string) requires positive source evidence excluding this use. Missing details, no mention in full text, retrieval failure, or global topic/domain mismatch cannot prove irrelevance.
 confirmed_absent is only a local extraction conclusion over supplied COMPLETE sources, with the entire searched source quoted;
 it is never a statement that a referenced real-world work or semantic relationship does not exist.
 not_applicable requires a reason and source evidence establishing inapplicability. Otherwise return unknown with a reason.
@@ -293,14 +293,20 @@ def _ground_fields(request, raw, data, reference):
             purpose_quotes = [s['quote'] for s in spans if s.get('node_id') == context_id]
             if not any(re.search(r'[A-Za-z\u4e00-\u9fff]{2,}', quote) for quote in purpose_quotes):
                 continue
-        if state == 'observed' and reference and item['value'] is False:
-            if item.get('basis') != 'explicit_scope_contradiction' or not reason:
+        if state == 'observed' and reference:
+            basis = item.get('basis')
+            if basis not in {'explicit_support', 'explicit_scope_contradiction'} or not reason:
                 continue
+            # A generator can choose any field name or polarity. Evidence policy
+            # therefore cannot be conditional only on literal boolean False.
             if re.search(r'(?:not|never|no).{0,32}(?:mention|discuss|state|describe|appear|find)|not mentioned|absence of|missing detail|topic mismatch|different (?:topic|domain)|未提及|没有提到|未涉及|主题不|领域不同', reason, re.I):
                 continue
-            external_quotes = ' '.join(s['quote'] for s in spans if s['origin'] == 'external')
-            if not re.search(r'\b(?:no|not|never|exclusively|only|excludes?|cannot)\b|不|无|仅|排除|没有|未', external_quotes, re.I):
+            if item['value'] is False and basis != 'explicit_scope_contradiction':
                 continue
+            if basis == 'explicit_scope_contradiction':
+                external_quotes = ' '.join(s['quote'] for s in spans if s['origin'] == 'external')
+                if not re.search(r'\b(?:no|not|never|exclusively|only|excludes?|cannot)\b|不|无|仅|排除|没有|未', external_quotes, re.I):
+                    continue
         ids = list(dict.fromkeys(span['id'] for span in spans))
         if state == 'confirmed_absent':
             scope = item.get('search_scope')
@@ -322,6 +328,42 @@ def _ground_fields(request, raw, data, reference):
         evidence.update({span['id']: span for span in spans})
     return facts, list(evidence.values())
 
+
+
+def _citation_graph(ir, analysis, node, data, capability, facts):
+    observed = {name: fact for name, fact in facts.items() if fact['state'] == 'observed'}
+    if not observed:
+        return
+    context = data.get('citation_context')
+    if not context or not context.get('text'):
+        return
+    evidence = {item['id']: item for item in analysis['evidence']}
+    paper_ids = sorted({eid for fact in observed.values() for eid in fact.get('evidence_ids', [])
+                        if evidence[eid].get('node_id') == context['node_id']})
+    intent_id = 'intent-' + _hash([ir['document_id'], node['id'], context])[:24]
+    if not any(e['id'] == intent_id for e in analysis['entities']):
+        analysis['entities'].append({'id': intent_id, 'kind': 'CitationIntent', 'use_id': node['id'],
+            'context': deepcopy(context), 'derivation': 'grounded_citing_context',
+            'evidence_ids': paper_ids})
+        analysis['edges'].extend([
+            {'type': 'uses', 'from': node['id'], 'to': intent_id, 'evidence_ids': paper_ids},
+            {'type': 'derived_from', 'from': intent_id, 'to': context['node_id'], 'evidence_ids': paper_ids}])
+    for name, fact in observed.items():
+        observation_id = 'semantic-' + _hash([ir_hash(ir), capability, node['id'], name, fact])[:24]
+        analysis['entities'].append({'id': observation_id, 'kind': 'SemanticObservation',
+            'capability': capability, 'field': name, 'target_node_id': node['id'], **deepcopy(fact)})
+        analysis['edges'].append({'type': 'describes', 'from': observation_id, 'to': intent_id,
+                                  'evidence_ids': fact['evidence_ids']})
+        works = {evidence[eid]['work_id'] for eid in fact['evidence_ids']
+                 if evidence[eid].get('origin') == 'external'}
+        for work_id in sorted(works):
+            # The cited content supports this grounded observation. Its value
+            # remains explicit; arbitrary field polarity is not guessed.
+            analysis['edges'].append({'type': 'supports', 'from': work_id, 'to': observation_id,
+                                      'evidence_ids': fact['evidence_ids']})
+            if fact.get('basis') == 'explicit_scope_contradiction':
+                analysis['edges'].append({'type': 'contradicts', 'from': work_id, 'to': intent_id,
+                                          'evidence_ids': fact['evidence_ids']})
 
 def _read_json(path):
     try:
@@ -420,6 +462,8 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
             output[node['id']] = facts
             for item in evidence:
                 _add_evidence(analysis, item)
+            if reference:
+                _citation_graph(ir, analysis, node, data, name, facts)
             # Cache only validated JSON values and grounded declared fields.
             cleaned = {'fields': {}}
             raw_fields = raw.get('fields', {}) if isinstance(raw, dict) else {}

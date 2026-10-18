@@ -1,4 +1,5 @@
 """The only paid-model transport; every attempt is metered before it is sent."""
+from contextlib import contextmanager
 from decimal import Decimal
 import hashlib
 import json
@@ -75,6 +76,24 @@ def model_fingerprint(config):
     return hashlib.sha256(json_bytes(public_model_config(config))).hexdigest()
 
 
+@contextmanager
+def _request_slot(limits=None):
+    # Queueing is part of the task deadline. Reserve only once a transport slot
+    # is available, so an unsent queued request never consumes a reservation.
+    if limits is None:
+        acquired = _PROCESS_SLOTS.acquire()
+    else:
+        acquired = _PROCESS_SLOTS.acquire(timeout=limits.remaining())
+    if not acquired:
+        raise BudgetExceeded('scope deadline exhausted waiting for transport slot')
+    try:
+        if limits is not None:
+            limits.remaining()
+        yield
+    finally:
+        _PROCESS_SLOTS.release()
+
+
 class MaasClient:
     def __init__(self, config_path, ledger, cache_dir, phase, phase_limit_cny,
                  *, transport=None, max_attempts=2, retry_delay=1, timeout=120):
@@ -119,50 +138,52 @@ class MaasClient:
         headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + self.config['MAAS_API_KEY']}
         last_category = 'unavailable'
         for attempt in range(self.max_attempts):
-            request_id = uuid.uuid4().hex
-            self.ledger.reserve(request_id, reservation, self.phase, self.phase_limit_cny)
-            started = time.monotonic()
-            record = {'request_id': request_id, 'input_hash': key, 'task': task,
-                      'phase': self.phase, 'attempt': attempt + 1, 'model': payload['model'],
-                      'model_version': self.config.get('MAAS_MODEL_VERSION'), 'rate_version': RATE_VERSION,
-                      'rate_source': RATE_SOURCE, 'reserved_cny': str(reservation)}
-            try:
-                with _PROCESS_SLOTS:
-                    response = self.transport(ALLOWED_BASE + '/chat/completions', headers, payload, self.timeout)
-            except Exception as error:
-                last_category = 'timeout' if isinstance(error, TimeoutError) else 'transport'
-                self.ledger.mark_uncertain(request_id, last_category)
-                record['status'] = last_category
-            else:
-                usage = _usage(response)
-                if usage is None:
-                    last_category = 'missing_usage'
+            with _request_slot(getattr(self, '_request_limits', None)):
+                request_id = uuid.uuid4().hex
+                self.ledger.reserve(request_id, reservation, self.phase, self.phase_limit_cny)
+                started = time.monotonic()
+                record = {'request_id': request_id, 'input_hash': key, 'task': task,
+                          'phase': self.phase, 'attempt': attempt + 1, 'model': payload['model'],
+                          'model_version': self.config.get('MAAS_MODEL_VERSION'), 'rate_version': RATE_VERSION,
+                          'rate_source': RATE_SOURCE, 'reserved_cny': str(reservation)}
+                try:
+                    limits = getattr(self, '_request_limits', None)
+                    timeout = self.timeout if limits is None else min(float(self.timeout), limits.remaining())
+                    response = self.transport(ALLOWED_BASE + '/chat/completions', headers, payload, timeout)
+                except Exception as error:
+                    last_category = 'timeout' if isinstance(error, TimeoutError) else 'transport'
                     self.ledger.mark_uncertain(request_id, last_category)
                     record['status'] = last_category
                 else:
-                    charge = (Decimal(usage['prompt_tokens']) * INPUT_PER_MILLION + Decimal(usage['completion_tokens']) * OUTPUT_PER_MILLION) / 1_000_000
-                    self.ledger.settle(request_id, usage, charge)
-                    record.update(usage=usage, conservative_cost_cny=str(charge))
-                    try:
-                        choice = response['choices'][0]
-                        record['finish_reason'] = choice.get('finish_reason')
-                        record['output_content'] = choice.get('message', {}).get('content')
-                        if choice.get('finish_reason') != 'stop':
-                            raise ValueError('incomplete output')
-                        content = choice['message']['content']
-                        result = json.loads(content)
-                        if not isinstance(result, dict):
-                            raise ValueError('expected object')
-                    except (KeyError, IndexError, TypeError, ValueError):
-                        last_category = 'invalid_output'
+                    usage = _usage(response)
+                    if usage is None:
+                        last_category = 'missing_usage'
+                        self.ledger.mark_uncertain(request_id, last_category)
                         record['status'] = last_category
                     else:
-                        record.update(status='completed', elapsed_seconds=round(time.monotonic()-started, 3), result=result)
-                        write_json_atomic(self.cache_dir/'attempts'/(request_id+'.json'), record, exclusive=True)
-                        write_json_atomic(cache_file, {'input_hash': key, 'result': result, 'request_id': request_id, 'usage': usage})
-                        return result
-            record['elapsed_seconds'] = round(time.monotonic()-started, 3)
-            write_json_atomic(self.cache_dir/'attempts'/(request_id+'.json'), record, exclusive=True)
+                        charge = (Decimal(usage['prompt_tokens']) * INPUT_PER_MILLION + Decimal(usage['completion_tokens']) * OUTPUT_PER_MILLION) / 1_000_000
+                        self.ledger.settle(request_id, usage, charge)
+                        record.update(usage=usage, conservative_cost_cny=str(charge))
+                        try:
+                            choice = response['choices'][0]
+                            record['finish_reason'] = choice.get('finish_reason')
+                            record['output_content'] = choice.get('message', {}).get('content')
+                            if choice.get('finish_reason') != 'stop':
+                                raise ValueError('incomplete output')
+                            content = choice['message']['content']
+                            result = json.loads(content)
+                            if not isinstance(result, dict):
+                                raise ValueError('expected object')
+                        except (KeyError, IndexError, TypeError, ValueError):
+                            last_category = 'invalid_output'
+                            record['status'] = last_category
+                        else:
+                            record.update(status='completed', elapsed_seconds=round(time.monotonic()-started, 3), result=result)
+                            write_json_atomic(self.cache_dir/'attempts'/(request_id+'.json'), record, exclusive=True)
+                            write_json_atomic(cache_file, {'input_hash': key, 'result': result, 'request_id': request_id, 'usage': usage})
+                            return result
+                record['elapsed_seconds'] = round(time.monotonic()-started, 3)
+                write_json_atomic(self.cache_dir/'attempts'/(request_id+'.json'), record, exclusive=True)
             if attempt + 1 < self.max_attempts:
                 time.sleep(self.retry_delay * 2**attempt)
         raise ModelError('model request failed after bounded attempts: ' + last_category) from None

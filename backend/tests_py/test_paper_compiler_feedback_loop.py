@@ -232,3 +232,23 @@ def test_budget_stop_keeps_selection_partial_and_can_resume_same_inputs(tmp_path
     client.allowed=True
     result=run_feedback_loop(task,manifest,**kwargs)
     assert result['status']=='selected_pending_test' and result['rounds_completed']==2
+
+def test_rejected_offline_revision_is_supplied_with_grounded_counterexamples(tmp_path):
+    from paper_compiler.feedback_loop import run_feedback_loop
+    from paper_compiler.programs import check_programs
+    class RejectThenRepair(ExternalModel):
+        def complete_json(self,task,instructions,data,max_tokens):
+            self.requests.append(copy.deepcopy(data))
+            if len(self.requests)==1:
+                return candidate("def detect(payload):\n    return [emit(n,'PASS','initial','text',['test']) for n in nodes(payload,'BibliographyEntry')]")
+            if len(self.requests)==2:
+                return {**candidate(CODE),'unexpected_note':'must be removed'}
+            return candidate(CODE)
+    model=RejectThenRepair()
+    result=run_feedback_loop({'rule_id':'new-rule','rule_text':'Hello','basis':[{'id':'test','text':'Hello'}]},
+        make_cases(tmp_path),client=model,output_dir=tmp_path/'loop',
+        runner=lambda p,ir:check_programs(ir,base_analysis(ir),[p]),max_rounds=3)
+    failed=model.requests[2]['feedback']
+    assert any(row.get('failed_candidate',{}).get('unexpected_note')=='must be removed' for row in failed)
+    assert any('expected' in row for row in failed)
+    assert result['rounds_completed']==3 and result['final_test']['strict_balanced_accuracy']==1

@@ -191,8 +191,16 @@ def run_feedback_loop(task,manifest_path,*,client,output_dir,runner,model=None,m
             write_json_atomic(folder/'budget-stop.json',{'status':'budget_exhausted','round':index})
             break
         except Exception as error:
-            feedback=[{'failure_types':['compile_or_contract'],'error_type':type(error).__name__,'reason':str(error)[:3000]}]
-            if index==0 and initial_candidate is not None:feedback[0]['failed_candidate']=initial_candidate
+            failure={'failure_types':['compile_or_contract'],'error_type':type(error).__name__,'reason':str(error)[:3000]}
+            raw=folder/'synthesis-response.json'
+            if raw.is_file():
+                try:failure['failed_candidate']=load(raw)
+                except (OSError,ValueError):failure['failed_response_unavailable']=True
+            elif index==0 and initial_candidate is not None:
+                failure['failed_candidate']=copy.deepcopy(initial_candidate)
+            # The failed response is first so the bounded repair packet cannot
+            # truncate it; retain the independently grounded semantic failures.
+            feedback=[failure,*[row for row in feedback if 'compile_or_contract' not in row.get('failure_types',[])]]
             record={'round':index,'status':'candidate_failed','failures':feedback}
         write_json_atomic(checkpoint,record);rounds.append(record)
         if record['status']=='evaluated' and not feedback:

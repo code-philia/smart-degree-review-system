@@ -23,7 +23,7 @@ def parser():
         if name=='check':
             group=s.add_mutually_exclusive_group(required=True);group.add_argument('--ir',type=Path);group.add_argument('--pdf',type=Path)
             s.add_argument('--analysis',type=Path);s.add_argument('--analysis-out',type=Path);s.add_argument('--stdout-report',action='store_true')
-            s.add_argument('--online',action='store_true');s.add_argument('--control-root',default=os.environ.get('PAPER_COMPILER_CONTROL_ROOT','/data/runtime/paper-compiler/online'));s.add_argument('--runtime-resources',type=Path);s.add_argument('--online-max-rounds',type=int,default=2)
+            s.add_argument('--release-package',action='append',default=[]);s.add_argument('--online',action='store_true');s.add_argument('--control-root',default=os.environ.get('PAPER_COMPILER_CONTROL_ROOT','/data/runtime/paper-compiler/online'));s.add_argument('--runtime-resources',type=Path);s.add_argument('--online-max-rounds',type=int,default=2);s.add_argument('--online-task-budget',default='5');s.add_argument('--online-timeout-seconds',type=int,default=1200)
         if name in ['batch','evaluate']:s.add_argument('--manifest',required=True,type=Path);s.add_argument('--workers',type=int,default=1)
         if name in ['synthesize','loop']:
             s.add_argument('--task',required=True,type=Path)
@@ -54,6 +54,10 @@ def execute(args):
     from paper_compiler.analysis import enrich
     ledger=BudgetLedger(args.ledger,args.budget)
     client=None if args.offline else MaasClient(args.config,ledger,Path(args.cache)/'model-cache',args.phase,args.phase_budget,max_attempts=1)
+    if client is not None and args.command=='check' and args.online:
+        from paper_compiler.request_limits import bounded_client
+        scope_id='online-task/'+hashlib.sha256(str(args.out.resolve()).encode()).hexdigest()
+        client=bounded_client(client,scope_id,max_cost_cny=args.online_task_budget,timeout_seconds=args.online_timeout_seconds)
     if client and args.model_fingerprint and model_fingerprint(client.config)!=args.model_fingerprint:raise ValueError('effective model configuration changed')
     if args.command in ['plan','plan-batch']:
         from paper_compiler.task_planner import plan_task,plan_tasks
@@ -116,6 +120,7 @@ def execute(args):
         if args.analysis_out and (args.analysis_out.exists() or args.analysis_out==args.out):raise FileExistsError('analysis output must be new and distinct')
         if not packages:raise ValueError('at least one verified --package is required')
         ir=build(args.pdf) if args.pdf else json.loads(args.ir.read_text());validate_ir(ir)
+        selected_rule_ids={str(p.get('program_spec',p.get('rule_ir',{}))['rule_id']) for p in packages}
         runtime=None
         environment=None
         resources=json.loads(args.runtime_resources.read_text()) if args.runtime_resources else {}
@@ -123,10 +128,11 @@ def execute(args):
         if args.online:
             from paper_compiler.runtime_control import RuntimeControl
             control=RuntimeControl(args.control_root);snapshot=control.snapshot()
-            if snapshot.get('active_path'):
-                from paper_compiler.pipeline import load_suite
-                packages=load_suite(snapshot['active_path'])
-            runtime={**snapshot,'mode':'frozen' if snapshot['freeze'] else 'adaptive'}
+            from paper_compiler.pipeline import release_inventory
+            inventory=[load_package(path) for path in args.release_package]
+            packages=release_inventory([*packages,*inventory],snapshot)
+            runtime={**snapshot,'mode':'frozen' if snapshot['freeze'] else 'adaptive',
+                'release_rule_ids':[str(p.get('program_spec',p.get('rule_ir',{}))['rule_id']) for p in packages]}
         generated=[p for p in packages if p['manifest'].get('schema_version')=='paper-program/2.0']
         legacy=[p for p in packages if p not in generated]
         if generated:
@@ -142,7 +148,7 @@ def execute(args):
                 from paper_compiler.online_loop import online_refine
                 episode=Path(args.control_root)/'episodes'/__import__('uuid').uuid4().hex
                 updated=online_refine(ir,generated,client=client,gateway=gateway,cache_dir=Path(args.cache),
-                    control=control,output_dir=episode,resources=resources,max_rounds=args.online_max_rounds)
+                    control=control,output_dir=episode,resources=resources,max_rounds=args.online_max_rounds,parent_snapshot=snapshot)
                 ir,a,result=updated['ir'],updated['analysis'],updated['report']
                 runtime={**runtime,**updated['runtime']}
             else:ir,a,result=detect_generated(ir,generated,environment)
@@ -154,7 +160,17 @@ def execute(args):
             old_analysis=enrich(ir,legacy,client=client,gateway=gateway,cache_dir=Path(args.cache)/'analysis',snapshot_id=args.evidence_snapshot)
             old_report=check(ir,old_analysis,legacy);result['rules']+=old_report['rules']
             result['evidence']+=old_report['evidence']
-        if runtime is not None:result['runtime']=runtime
+        if runtime is not None:
+            if 'report_version' not in runtime:
+                from paper_compiler.pipeline import report_suite_version
+                runtime['report_version']={'suite_version':report_suite_version(generated,snapshot) if generated else None,
+                    'program_versions':[row.get('program_version') for row in result['rules']],
+                    'model_version':ir['model_version'],'pipeline_version':result.get('pipeline_version')}
+            runtime.setdefault('current_snapshot',control.snapshot())
+            if callable(getattr(client,'scope_summary',None)):runtime['task_limits']=client.scope_summary()
+            result['runtime']=runtime
+            result['rules']=[row for row in result['rules'] if str(row['rule_id']) in selected_rule_ids]
+
         if args.analysis_out:write_json_atomic(args.analysis_out,a,exclusive=True)
         write_json_atomic(args.out,result,exclusive=True)
         if args.stdout_report:

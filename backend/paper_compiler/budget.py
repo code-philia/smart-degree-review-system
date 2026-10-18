@@ -2,6 +2,7 @@
 from contextlib import contextmanager
 from decimal import Decimal, ROUND_CEILING
 import json
+import math
 import os
 import sqlite3
 import time
@@ -38,6 +39,12 @@ class BudgetLedger:
                   id TEXT PRIMARY KEY, phase TEXT NOT NULL, reserved_micro INTEGER NOT NULL,
                   charged_micro INTEGER, status TEXT NOT NULL, created_at REAL NOT NULL,
                   updated_at REAL NOT NULL, usage_json TEXT, reason TEXT);
+                CREATE TABLE IF NOT EXISTS request_scopes (
+                  request_id TEXT PRIMARY KEY, scope_id TEXT NOT NULL);
+                CREATE INDEX IF NOT EXISTS request_scopes_by_scope ON request_scopes(scope_id);
+                CREATE TABLE IF NOT EXISTS scopes (
+                  id TEXT PRIMARY KEY, limit_micro INTEGER NOT NULL,
+                  timeout_seconds REAL NOT NULL, created_at REAL NOT NULL, deadline_at REAL NOT NULL);
             """)
             conn.execute('BEGIN IMMEDIATE')
             previous = conn.execute("SELECT value FROM settings WHERE key='limit_micro'").fetchone()
@@ -56,7 +63,47 @@ class BudgetLedger:
         finally:
             conn.close()
 
-    def reserve(self, request_id, max_cost_cny, phase, phase_limit_cny):
+    def ensure_scope(self, scope_id, max_cost_cny, timeout_seconds):
+        """Create an additional task cap once; resuming never resets cost or deadline."""
+        if not isinstance(scope_id, str) or not scope_id.strip() or len(scope_id) > 200:
+            raise ValueError('scope id must be a nonempty string of at most 200 characters')
+        limit = micros(max_cost_cny)
+        if isinstance(timeout_seconds, bool):
+            raise ValueError('scope timeout must be positive and finite')
+        timeout = float(timeout_seconds)
+        if limit <= 0 or not math.isfinite(timeout) or timeout <= 0:
+            raise ValueError('scope cost and timeout must be positive and finite')
+        with self._connection() as conn:
+            conn.execute('BEGIN IMMEDIATE')
+            old = conn.execute('SELECT limit_micro,timeout_seconds FROM scopes WHERE id=?', (scope_id,)).fetchone()
+            if old and (old[0] != limit or old[1] != timeout):
+                raise ValueError('existing scope limit or timeout cannot be changed')
+            if not old:
+                now = time.time()
+                conn.execute('INSERT INTO scopes VALUES (?,?,?,?,?)',
+                             (scope_id, limit, timeout, now, now + timeout))
+            conn.commit()
+        return self.scope_summary(scope_id)
+
+    def scope_summary(self, scope_id):
+        with self._connection() as conn:
+            scope = conn.execute('SELECT limit_micro,timeout_seconds,created_at,deadline_at FROM scopes WHERE id=?',
+                                 (scope_id,)).fetchone()
+            if not scope:
+                raise ValueError('unknown scope')
+            rows = conn.execute("""SELECT r.reserved_micro,r.charged_micro,r.status FROM requests r
+                JOIN request_scopes s ON r.id=s.request_id WHERE s.scope_id=?""", (scope_id,)).fetchall()
+        committed = sum(r[1] if r[1] is not None else r[0] for r in rows)
+        return {'scope_id': scope_id, 'limit_cny': money(scope[0]),
+                'spent_cny': money(sum(r[1] or 0 for r in rows)), 'committed_cny': money(committed),
+                'remaining_cny': money(max(0, scope[0] - committed)), 'requests': len(rows),
+                'uncertain_requests': sum(r[2] == 'uncertain' for r in rows),
+                'inflight_requests': sum(r[2] == 'reserved' for r in rows),
+                'timeout_seconds': scope[1], 'created_at': scope[2], 'deadline_at': scope[3],
+                'remaining_seconds': max(0, scope[3] - time.time()),
+                'cost_accounting': 'same_cumulative_ledger'}
+
+    def reserve(self, request_id, max_cost_cny, phase, phase_limit_cny, *, scope_id=None):
         reserve, phase_limit = micros(max_cost_cny), micros(phase_limit_cny)
         if not request_id or not phase or reserve <= 0 or phase_limit <= 0:
             raise ValueError('request, phase and positive reservation/limit required')
@@ -69,15 +116,28 @@ class BudgetLedger:
             old_phase = conn.execute('SELECT limit_micro FROM phases WHERE name=?', (phase,)).fetchone()
             if old_phase and old_phase[0] != phase_limit:
                 raise ValueError('existing phase limit cannot be changed')
+            now = time.time()
+            if scope_id is not None:
+                scope = conn.execute('SELECT limit_micro,deadline_at FROM scopes WHERE id=?', (scope_id,)).fetchone()
+                if not scope:
+                    raise ValueError('scope must be registered before reservation')
+                if now >= scope[1]:
+                    raise BudgetExceeded('scope deadline exhausted')
+                used_scope = conn.execute("""SELECT COALESCE(SUM(COALESCE(r.charged_micro,r.reserved_micro)),0)
+                    FROM requests r JOIN request_scopes s ON r.id=s.request_id WHERE s.scope_id=?""",
+                    (scope_id,)).fetchone()[0]
+                if used_scope + reserve > scope[0]:
+                    raise BudgetExceeded('authorized scope budget exhausted')
             total = conn.execute('SELECT COALESCE(SUM(COALESCE(charged_micro, reserved_micro)),0) FROM requests').fetchone()[0]
             used_phase = conn.execute('SELECT COALESCE(SUM(COALESCE(charged_micro,reserved_micro)),0) FROM requests WHERE phase=?', (phase,)).fetchone()[0]
             limit = int(conn.execute("SELECT value FROM settings WHERE key='limit_micro'").fetchone()[0])
             if total + reserve > limit or used_phase + reserve > phase_limit:
                 raise BudgetExceeded('authorized cumulative or phase budget exhausted')
             conn.execute('INSERT OR IGNORE INTO phases VALUES (?,?)', (phase, phase_limit))
-            now = time.time()
             conn.execute('INSERT INTO requests VALUES (?,?,?,?,?,?,?,?,?)',
                          (request_id, phase, reserve, None, 'reserved', now, now, None, None))
+            if scope_id is not None:
+                conn.execute('INSERT INTO request_scopes VALUES (?,?)', (request_id, scope_id))
             conn.commit()
         return request_id
 

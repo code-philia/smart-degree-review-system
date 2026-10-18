@@ -113,12 +113,13 @@ def _load_parents(paths):
             source_path = Path(source['path'])
             source['path'] = str((source_path if source_path.is_absolute() else path.parent/source_path).resolve())
         pid = ir['document_id']
-        if pid in parents and ir_hash(parents[pid]['ir']) != ir_hash(ir):
+        parent_hash = ir_hash(ir)
+        if pid in parents and parents[pid]['ir_sha256'] != parent_hash:
             raise ValueError('parent_id identifies different IR contents')
         # Different parser versions of the same source cannot enter different sets.
         source_hashes = sorted({s['sha256'] for s in ir['source_artifacts']})
         group = 'parent-' + _digest(source_hashes)[:24]
-        parents[pid] = {'ir': ir, 'path': str(path), 'group': group,
+        parents[pid] = {'ir': ir, 'ir_sha256':parent_hash, 'path': str(path), 'group': group,
                         'context_origin': ir.get('metadata', {}).get('context_origin', 'real')}
     if not parents:
         raise ValueError('at least one parent is required')
@@ -302,15 +303,19 @@ def _validate_label(answer, sources, basis_ids, requirements=None):
     if basis_ids and not used_basis:
         return 'missing applicable basis IDs'
     requirements = requirements or {}
-    for role in requirements.get('required',[]):
+    required = list(dict.fromkeys(['original_local','mutated_local']+requirements.get('required',[])))
+    role_sources = copy.deepcopy(requirements.get('sources',{}))
+    role_sources.setdefault('original_local',[{'source_id':'original-node'}])
+    role_sources.setdefault('mutated_local',[{'source_id':'mutated-node'}])
+    for role in required:
         matched = False
-        for spec in requirements.get('sources',{}).get(role,[]):
+        for spec in role_sources.get(role,[]):
             sid = spec['source_id']; text = sources.get(sid,'')
             for quote in quotes:
                 if quote['source_id'] != sid:
                     continue
                 value = quote['quote']
-                minimum = max(requirements.get('min_quote_content_chars',1), spec.get('min_content_chars',1))
+                minimum = max(4,requirements.get('min_quote_content_chars',4), spec.get('min_content_chars',4))
                 if sum(c.isalpha() for c in value) < minimum:
                     continue
                 span = spec.get('span')
@@ -328,8 +333,8 @@ def _validate_label(answer, sources, basis_ids, requirements=None):
 
 
 def _evidence_requirements(task, source_records, basis_ids, edit):
-    requirements = {'required':copy.deepcopy(task.get('required_source_roles',[])),
-                    'min_quote_content_chars':task.get('semantic_requirements',{}).get('min_quote_content_chars',1),
+    requirements = {'required':list(dict.fromkeys(['original_local','mutated_local']+task.get('required_source_roles',[]))),
+                    'min_quote_content_chars':max(4,task.get('semantic_requirements',{}).get('min_quote_content_chars',4)),
                     'sources':{}}
     roles = requirements['sources']
     for source in source_records:
@@ -345,7 +350,41 @@ def _evidence_requirements(task, source_records, basis_ids, edit):
     return requirements
 
 
-def _candidate(task, proposal, parents, resources):
+def _reference_use_data(original, changed, target_id):
+    originals={n['id']:n for n in original['nodes']}; mutants={n['id']:n for n in changed['nodes']}
+    target=originals[target_id]; changed_target=mutants[target_id]
+    original_key=target['attrs'].get('selector',{}).get('value')
+    mutated_key=changed_target['attrs'].get('selector',{}).get('value')
+    return {'original_context':citation_context(original,target_id),
+            'mutated_context':citation_context(changed,target_id),
+            'original_reference_entries':[_node_view(n) for n in original['nodes'] if n['kind']=='BibliographyEntry' and str(n['attrs'].get('key'))==str(original_key)],
+            'mutated_reference_entries':[_node_view(n) for n in changed['nodes'] if n['kind']=='BibliographyEntry' and str(n['attrs'].get('key'))==str(mutated_key)]}
+
+
+def _bind_citation_requirements(task, pid, resources, data, requirements):
+    semantic = task.get('semantic_requirements',{})
+    if semantic.get('require_bound_citation_context'):
+        if data['original_target']['kind'] != 'ReferenceUse':
+            raise ValueError('bound citation context requires a citation-use target')
+        original_entries = data['original_reference_entries']; mutated_entries = data['mutated_reference_entries']
+        if len(original_entries)!=1 or len(mutated_entries)!=1:
+            raise ValueError('citation binding is unresolved or ambiguous')
+        if semantic.get('preserve_reference_bindings') and (
+                original_entries[0]['text'] != mutated_entries[0]['text'] or
+                data['original_context']['selector'] != data['mutated_context']['selector']):
+            raise ValueError('citation binding changed despite preservation requirement')
+        content_specs = requirements['sources'].get('cited_work_content',[])
+        for side,entries in [('original',original_entries),('mutated',mutated_entries)]:
+            bound_seeds = [seed for seed in resources.get('citation_seeds',[])
+                if seed.get('parent_id')==pid and seed.get('bibliography_entry')==entries[0]['text']]
+            bound_ids = {sid for seed in bound_seeds for sid in seed.get('source_ids',[]) if seed.get('work')}
+            requirements['sources'][side+'_cited_work_content'] = [copy.deepcopy(spec) for spec in content_specs if spec['source_id'] in bound_ids]
+            data[side+'_confirmed_work_bindings'] = [{k:copy.deepcopy(seed[k]) for k in ['work','source_ids','bibliography_entry'] if k in seed} for seed in bound_seeds]
+        data['original_citation_context'] = copy.deepcopy(data['original_context'])
+        data['mutated_citation_context'] = copy.deepcopy(data['mutated_context'])
+
+
+def _candidate(task, proposal, parents, resources, seen=None):
     if not isinstance(proposal, dict):
         raise ValueError('proposal must be an object')
     pid = proposal.get('parent_id')
@@ -383,8 +422,10 @@ def _candidate(task, proposal, parents, resources):
         provided_span['resolved_from_unique_quote'] = True
     # One content edit in one source group counts once, including across tasks.
     edit_hash = _digest({'parent_group':parent['group'], **edit})
+    if seen is not None and edit_hash in seen:
+        raise ValueError('duplicate source edit')
     case_id = 'case-' + _digest({'edit':edit_hash,'rule_id':str(task['rule_id'])})[:32]
-    recipe = {**edit, 'parent_sha256':ir_hash(ir), 'operation':'replace_text',
+    recipe = {**edit, 'parent_sha256':parent['ir_sha256'], 'operation':'replace_text',
               'mutation_id':case_id, 'rule_id':str(task['rule_id']),
               'target_node_id':proposal['target_node_id'], 'status':'UNKNOWN',
               'evidence_domain':proposal['evidence_domain']}
@@ -393,7 +434,7 @@ def _candidate(task, proposal, parents, resources):
     changed_nodes = {n['id']:n for n in changed['nodes']}
     if proposal['target_node_id'] not in changed_nodes:
         raise ValueError('target disappeared after citation rebuilding')
-    if ir_hash(changed) == ir_hash(ir):
+    if ir_hash(changed) == parent['ir_sha256']:
         raise ValueError('mutant is identical to original')
     basis = _basis_sources(task)
     source_records = copy.deepcopy(resources.get('sources', []))
@@ -436,41 +477,39 @@ def _candidate(task, proposal, parents, resources):
             'sources':source_records,
             'controlled_catalog':copy.deepcopy(resources.get('controlled_catalog', [])) if catalog_domain else []}
     if target['kind']=='ReferenceUse':
-        data['original_context'] = citation_context(ir,target['id'])
-        data['mutated_context'] = citation_context(changed,target['id'])
-        keys = {target['attrs'].get('selector',{}).get('value'),
-                changed_nodes[target['id']]['attrs'].get('selector',{}).get('value')}
-        data['original_reference_entries'] = [_node_view(n) for n in ir['nodes']
-            if n['kind']=='BibliographyEntry' and str(n['attrs'].get('key')) in keys]
-        data['mutated_reference_entries'] = [_node_view(n) for n in changed['nodes']
-            if n['kind']=='BibliographyEntry' and str(n['attrs'].get('key')) in keys]
+        data.update(_reference_use_data(ir,changed,target['id']))
     basis_ids = {s['id'] for s in basis}
     requirements = _evidence_requirements(task,source_records,basis_ids,edit)
-    semantic = task.get('semantic_requirements',{})
-    if semantic.get('require_bound_citation_context'):
-        if target['kind'] != 'ReferenceUse':
-            raise ValueError('bound citation context requires a citation-use target')
-        original_entries = data['original_reference_entries']; mutated_entries = data['mutated_reference_entries']
-        if len(original_entries)!=1 or len(mutated_entries)!=1:
-            raise ValueError('citation binding is unresolved or ambiguous')
-        if semantic.get('preserve_reference_bindings') and (
-                original_entries[0]['text'] != mutated_entries[0]['text'] or
-                data['original_context']['selector'] != data['mutated_context']['selector']):
-            raise ValueError('citation binding changed despite preservation requirement')
-        content_specs = requirements['sources'].get('cited_work_content',[])
-        for side,entries in [('original',original_entries),('mutated',mutated_entries)]:
-            bound_seeds = [seed for seed in resources.get('citation_seeds',[])
-                if seed.get('parent_id')==pid and seed.get('bibliography_entry')==entries[0]['text']]
-            bound_ids = {sid for seed in bound_seeds for sid in seed.get('source_ids',[]) if seed.get('work')}
-            requirements['sources'][side+'_cited_work_content'] = [copy.deepcopy(spec) for spec in content_specs if spec['source_id'] in bound_ids]
-            data[side+'_confirmed_work_bindings'] = [{k:copy.deepcopy(seed[k]) for k in ['work','source_ids','bibliography_entry'] if k in seed} for seed in bound_seeds]
-        data['original_citation_context'] = copy.deepcopy(data['original_context'])
-        data['mutated_citation_context'] = copy.deepcopy(data['mutated_context'])
+    _bind_citation_requirements(task,pid,resources,data,requirements)
     for role in requirements['required']:
         if not requirements['sources'].get(role):
             raise ValueError('required source role is unavailable for confirmed binding: '+role)
     data['evidence_requirements'] = requirements
     return case_id, edit_hash, parent, changed, oracle, data, sources, basis_ids
+
+
+def _validate_completed_evidence(manifest, tasks, parents, resources):
+    tasks_by_id={str(t['rule_id']):t for t in tasks}
+    originals={p['ir_sha256']:(pid,p['ir']) for pid,p in parents.items()}
+    for case in manifest['cases']:
+        oracle=_read(case['oracle_path']); changed=_read(case['ir_path'])
+        task=tasks_by_id[str(case['rule_id'])]; pid,original=originals[oracle['parent_sha256']]
+        nodes={n['id']:n for n in original['nodes']}; mutants={n['id']:n for n in changed['nodes']}
+        edit=oracle['source_edit']; target_id=case['target_node_id']
+        basis=_basis_sources(task); basis_ids={b['id'] for b in basis}
+        bank=copy.deepcopy(resources.get('sources',[]))+basis+[
+            {'id':'original-node','text':nodes[edit['node_id']]['text']},
+            {'id':'mutated-node','text':mutants[edit['node_id']]['text']}]
+        sources={source['id']:source['text'] for source in bank}
+        requirements=_evidence_requirements(task,bank,basis_ids,edit)
+        data={'original_target':_node_view(nodes[target_id])}
+        if nodes[target_id]['kind']=='ReferenceUse':data.update(_reference_use_data(original,changed,target_id))
+        _bind_citation_requirements(task,pid,resources,data,requirements)
+        for side in ['label','review']:
+            reason=_validate_label(oracle[side],sources,basis_ids,requirements)
+            if reason:raise ValueError('completed benchmark evidence no longer satisfies policy: '+reason)
+        if oracle.get('valid') is not True or oracle['label']['status']!=oracle['review']['status'] or oracle['status']!=oracle['label']['status']:
+            raise ValueError('completed benchmark evidence or labels disagree')
 
 
 def _split_targets(total):
@@ -562,7 +601,7 @@ def build_benchmark(tasks: list[dict], parents: list[Path], *, client, output_di
     output = Path(output_dir).resolve(); output.mkdir(parents=True,exist_ok=True)
     model = public_model_config(getattr(client,'config',{}))
     config = {'schema_version':SCHEMA, 'tasks':tasks, 'resources':resources,
-              'parents':{pid:{'ir_sha256':ir_hash(p['ir']),'parent_group':p['group']} for pid,p in records.items()},
+              'parents':{pid:{'ir_sha256':p['ir_sha256'],'parent_group':p['group']} for pid,p in records.items()},
               'negatives_per_rule':negatives_per_rule, 'controls_per_rule':controls_per_rule,
               'seed':seed,'model':model,
               'prompt_sha256':{'proposals':_digest(PROPOSAL_INSTRUCTIONS),
@@ -575,11 +614,12 @@ def build_benchmark(tasks: list[dict], parents: list[Path], *, client, output_di
             for path,digest in previous['artifact_sha256'].items():
                 if hashlib.sha256(Path(path).read_bytes()).hexdigest()!=digest:
                     raise ValueError('frozen artifact integrity mismatch')
+            _validate_completed_evidence(previous,tasks,records,resources)
             return {'manifest_path':str(manifest_path),'summary':previous['summary'],
                     'frozen_manifest_sha256':hashlib.sha256(manifest_path.read_bytes()).hexdigest()}
     originals = {}
     for pid,record in records.items():
-        path = output/'originals'/(ir_hash(record['ir'])+'.json')
+        path = output/'originals'/(record['ir_sha256']+'.json')
         _immutable(path,record['ir']); originals[pid]=str(path)
     _immutable(output/'resources.json',resources)
     excluded = resources.get('excluded_edits',[])
@@ -620,7 +660,7 @@ def build_benchmark(tasks: list[dict], parents: list[Path], *, client, output_di
                         break
                     audit={'rule_id':rid,'batch':batch,'index':index,'proposal':proposal}
                     try:
-                        cid,edit_hash,parent,changed,oracle,label_data,sources,basis_ids = _candidate(task,proposal,records,resources)
+                        cid,edit_hash,parent,changed,oracle,label_data,sources,basis_ids = _candidate(task,proposal,records,resources,seen)
                     except (ValueError,TypeError,KeyError) as error:
                         rejected.append({**audit,'reason':str(error)});continue
                     if edit_hash in seen:

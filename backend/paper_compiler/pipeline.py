@@ -43,7 +43,7 @@ def detect(ir,packages,*,client,gateway,cache_dir,evidence_environment=None):
     report['pipeline_version']=digest({'model':model,'programs':[p['manifest']['version_id'] for p in packages],'execution':execution})
     return materialized,analysis,report
 
-def save_suite(packages,folder,*,validated=False,validation=None):
+def save_suite(packages,folder,*,validated=False,validation=None,regression_cases=None):
     folder=Path(folder);folder.mkdir(parents=True,exist_ok=True)
     model=shared_model(packages);packages=rebind(packages,model)
     names=[]
@@ -56,6 +56,14 @@ def save_suite(packages,folder,*,validated=False,validation=None):
         names.append(name)
     content={'schema_version':'paper-suite/1.0','model':model,'packages':names,
              'program_versions':[p['manifest']['version_id'] for p in packages]}
+    if regression_cases is not None:
+        if not isinstance(regression_cases,list):raise ValueError('online regressions must be a list')
+        content['online_regression_sha256']=digest(regression_cases)
+        content['online_regression_count']=len(regression_cases)
+        regression_path=folder/'online-regressions.json'
+        if regression_path.exists() and json.loads(regression_path.read_text())!=regression_cases:
+            raise ValueError('suite regression inventory is immutable')
+        if not regression_path.exists():write_json_atomic(regression_path,regression_cases,exclusive=True)
     manifest={**content,'version_id':digest(content)}
     target=folder/'manifest.json'
     if target.exists() and json.loads(target.read_text())!=manifest:raise ValueError('suite is immutable')
@@ -71,6 +79,10 @@ def load_suite(folder):
     content={k:v for k,v in manifest.items() if k!='version_id'}
     if manifest.get('schema_version')!='paper-suite/1.0' or digest(content)!=manifest.get('version_id'):
         raise ValueError('suite hash mismatch')
+    if 'online_regression_sha256' in manifest:
+        cases=json.loads((folder/'online-regressions.json').read_text())
+        if not isinstance(cases,list) or digest(cases)!=manifest['online_regression_sha256'] or len(cases)!=manifest.get('online_regression_count'):
+            raise ValueError('suite regression inventory hash mismatch')
     packages=[]
     for name,version in zip(manifest['packages'],manifest['program_versions'],strict=True):
         if not isinstance(name,str) or Path(name).name!=name:raise ValueError('unsafe suite path')
@@ -79,3 +91,28 @@ def load_suite(folder):
             raise ValueError('incompatible suite program')
         packages.append(package)
     return packages
+
+
+def release_inventory(configured,snapshot):
+    """Merge the complete configured inventory with the pinned active release.
+
+    Active definitions take precedence; newly configured rules are retained.
+    A selected report subset never becomes the release inventory.
+    """
+    active=load_suite(snapshot['active_path']) if snapshot.get('active_path') else []
+    def rid(package):
+        return str(package.get('program_spec',package.get('rule_ir',{}))['rule_id'])
+    active_ids={rid(p) for p in active}
+    merged={rid(p):p for p in configured if rid(p) not in active_ids}
+    for package in active:merged[rid(package)]=package
+    packages=list(merged.values())
+    generated=[p for p in packages if p['manifest'].get('schema_version')=='paper-program/2.0']
+    legacy=[p for p in packages if p not in generated]
+    return rebind(generated,shared_model(generated))+legacy if generated else legacy
+
+
+def report_suite_version(packages,snapshot):
+    if not snapshot.get('active_path'):return None
+    active=load_suite(snapshot['active_path'])
+    versions=sorted(p['manifest']['version_id'] for p in packages)
+    return snapshot['active_version'] if versions==sorted(p['manifest']['version_id'] for p in active) else None

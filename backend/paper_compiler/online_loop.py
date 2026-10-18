@@ -5,7 +5,7 @@ from pathlib import Path
 
 from .budget import BudgetExceeded
 from .contracts import ir_hash, validate_ir
-from .pipeline import detect, load_suite, save_suite
+from .pipeline import detect, load_suite, save_suite, shared_model, rebind, release_inventory, report_suite_version
 from .program_analysis import _base_kind, _ground_fields, _hash, _target_data
 from .programs import target_nodes
 from .runtime_control import RuntimeFrozen, VersionConflict
@@ -85,29 +85,37 @@ def _statuses(report):
 
 def _packet(ir, analysis, packages, gateway, environment, *, limit):
     targets, sources_by_key, content_cache = [], {}, {}
+    strata = []
     for package in packages:
-        for node in target_nodes(package, ir).values():
-            if len(targets) >= limit:
-                break
-            data, ready = _target_data(ir, analysis, node, gateway, environment, content_cache)
-            # Registry metadata is normal evidence; no generated verdict or report
-            # is fed to either independent labeling context.
-            metadata = {name: deepcopy(values[node['id']]) for name, values in analysis['results'].items()
-                        if name in {'bibliography_fields', 'external_work'} and node['id'] in values}
-            for values in metadata.values():
-                for fact in values.values():
-                    for eid in fact.get('evidence_ids', []):
-                        evidence = next((e for e in analysis['evidence'] if e['id'] == eid), None)
-                        if evidence and evidence.get('kind') == 'controlled_catalog_scope':
-                            data['sources'].append({'source_id': 'evidence:' + eid, 'origin': 'external',
-                                'content_id': eid, 'work_id': '', 'text': json.dumps(evidence, sort_keys=True),
-                                'coverage': 'complete_catalog', 'complete': True})
-            item = {'rule_id': str(package['program_spec']['rule_id']), 'node_id': node['id'],
-                'rule_text': package['input']['rule_text'], 'basis': deepcopy(package['input']['basis']),
-                'sources': data['sources'], 'node': deepcopy(node), 'metadata': metadata,
-                'citation_context': data.get('citation_context'), 'source_ready': ready}
-            targets.append(item)
-            sources_by_key[(item['rule_id'], node['id'])] = (data, package, node)
+        rid = str(package['program_spec']['rule_id'])
+        ordered = sorted(target_nodes(package, ir).values(),
+            key=lambda node: _hash([ir['document_id'], ir.get('revision'), rid, node['id']]))
+        strata.append([(package, node) for node in ordered])
+    selected = []
+    while len(selected) < limit and any(strata):
+        for stratum in strata:
+            if stratum and len(selected) < limit:
+                selected.append(stratum.pop(0))
+    for package, node in selected:
+        data, ready = _target_data(ir, analysis, node, gateway, environment, content_cache)
+        # Registry metadata is normal evidence; no generated verdict or report
+        # is fed to either independent labeling context.
+        metadata = {name: deepcopy(values[node['id']]) for name, values in analysis['results'].items()
+                    if name in {'bibliography_fields', 'external_work'} and node['id'] in values}
+        for values in metadata.values():
+            for fact in values.values():
+                for eid in fact.get('evidence_ids', []):
+                    evidence = next((e for e in analysis['evidence'] if e['id'] == eid), None)
+                    if evidence and evidence.get('kind') == 'controlled_catalog_scope':
+                        data['sources'].append({'source_id': 'evidence:' + eid, 'origin': 'external',
+                            'content_id': eid, 'work_id': '', 'text': json.dumps(evidence, sort_keys=True),
+                            'coverage': 'complete_catalog', 'complete': True})
+        item = {'rule_id': str(package['program_spec']['rule_id']), 'node_id': node['id'],
+            'rule_text': package['input']['rule_text'], 'basis': deepcopy(package['input']['basis']),
+            'sources': data['sources'], 'node': deepcopy(node), 'metadata': metadata,
+            'citation_context': data.get('citation_context'), 'source_ready': ready}
+        targets.append(item)
+        sources_by_key[(item['rule_id'], node['id'])] = (data, package, node)
     return {'targets': targets}, sources_by_key
 
 
@@ -190,7 +198,7 @@ def _ground_judgments(answer, views, ir):
         if not isinstance(used, list) or not all(isinstance(v, str) for v in used) or not set(used) <= basis or basis and not used:
             continue
         reference = _base_kind(ir, node['kind']) == 'ReferenceUse'
-        semantic = reference and bool(package['program_spec'].get('analysis_requests'))
+        semantic = reference  # audit evidence cannot depend on the faulty program's dependencies
         value = row['status'] == 'PASS' if semantic else row['status']
         typ = 'boolean' if semantic else 'string'
         grounded_norms = _normative_quotes(row, package, data)
@@ -232,7 +240,27 @@ def _gate(before, after, truths, regression_before, regression_after):
             'verified_regression_cases': len(regression_after)}
 
 
-def online_refine(ir, packages, *, client, gateway, cache_dir, control, output_dir, resources=None, max_rounds=2):
+
+def _regression_inventory(parent, resources, current=None):
+    cases = []
+    if parent.get('active_path'):
+        folder = Path(parent['active_path'])
+        manifest = json.loads((folder / 'manifest.json').read_text())
+        if 'online_regression_sha256' in manifest:
+            load_suite(folder)  # verify inventory and package integrity together
+            cases.extend(json.loads((folder / 'online-regressions.json').read_text()))
+    cases.extend(resources.get('regression_cases', []))
+    if current is not None:
+        cases.append(current)
+    unique = {}
+    for case in cases:
+        _resources({'regression_cases': [case]})
+        key = _hash({'ir': ir_hash(case['ir']), 'expected': case['expected']})
+        unique[key] = deepcopy(case)
+    # A bounded, versioned online inventory; never reads formal test data.
+    return list(unique.values())[-32:]
+
+def online_refine(ir, packages, *, client, gateway, cache_dir, control, output_dir, resources=None, max_rounds=2, parent_snapshot=None):
     """Detect, independently verify local feedback, and CAS-promote an improving suite.
 
     resources may contain evidence_environment, max_audit_targets (default eight),
@@ -244,7 +272,8 @@ def online_refine(ir, packages, *, client, gateway, cache_dir, control, output_d
     resources = _resources(resources)
     validate_ir(ir)
     packages = list(packages)
-    parent = control.snapshot()
+    parent = deepcopy(parent_snapshot) if parent_snapshot is not None else control.snapshot()
+    packages = release_inventory(packages, parent)
     config = getattr(client, 'config', {})
     run_id = _hash({'ir': ir_hash(ir), 'packages': [p['manifest']['version_id'] for p in packages],
                     'parent': parent, 'model': {k: config.get(k) for k in ['MAAS_MODEL', 'MAAS_MODEL_VERSION']}})
@@ -264,7 +293,7 @@ def online_refine(ir, packages, *, client, gateway, cache_dir, control, output_d
                                               cache_dir=Path(cache_dir), evidence_environment=environment)
         runtime['status'] = 'budget_limit'
     result = {'packages': packages, 'ir': materialized, 'analysis': analysis, 'report': report, 'runtime': runtime}
-    runtime['report_version'] = {'suite_version': parent['active_version'],
+    runtime['report_version'] = {'suite_version': report_suite_version(packages,parent),
         'program_versions': [rule['program_version'] for rule in report.get('rules', [])],
         'model_version': materialized['model_version'], 'pipeline_version': report.get('pipeline_version')}
 
@@ -304,7 +333,8 @@ def online_refine(ir, packages, *, client, gateway, cache_dir, control, output_d
                                                                      'protocol': runtime['protocol']})
         if not failures:
             return finish('no_reliable_feedback')
-        regressions = resources.get('regression_cases', [])
+        regressions = _regression_inventory(parent, resources)
+        runtime['inherited_regression_cases'] = len(regressions)
         regression_before = []
         for case in regressions:
             refining_client.check()
@@ -312,6 +342,7 @@ def online_refine(ir, packages, *, client, gateway, cache_dir, control, output_d
                                    cache_dir=Path(cache_dir), evidence_environment=case.get('evidence_environment', environment))
             regression_before.append((case, checked))
         previous = {str(p['program_spec']['rule_id']): p for p in packages}
+        working_model = shared_model(packages)
         for index in range(max_rounds):
             refining_client.check()
             round_folder = folder / ('round-' + str(index).zfill(3))
@@ -332,9 +363,12 @@ def online_refine(ir, packages, *, client, gateway, cache_dir, control, output_d
                     synthesis_folder = round_folder / ('rule-' + _hash(rid)[:12])
                     active_response = synthesis_folder / 'synthesis-response.json'
                     candidate = synthesize_program(task, refining_client, synthesis_folder,
-                        model=previous[rid]['model'], previous=previous[rid], feedback=feedback)
+                        model=working_model, previous=previous[rid], feedback=feedback)
+                    working_model = candidate['model']
                     previous[rid] = candidate
                     candidates.append(candidate)
+                candidates = rebind(candidates, working_model)
+                previous = {rid: rebind([p], working_model)[0] for rid, p in previous.items()}
                 refining_client.check()
                 new_ir, new_analysis, new_report = detect(ir, candidates, client=refining_client, gateway=gateway,
                                                          cache_dir=Path(cache_dir), evidence_environment=environment)
@@ -355,7 +389,12 @@ def online_refine(ir, packages, *, client, gateway, cache_dir, control, output_d
                 if gate['passed']:
                     refining_client.check()
                     suite_path = round_folder / 'suite'
-                    manifest = save_suite(candidates, suite_path, validated=True, validation={
+                    current_case = {'id': 'online-' + run_id[:24], 'verified': True, 'origin': 'online-regression',
+                        'label_protocol': runtime['protocol'], 'label_evidence_sha256': _hash(list(verified.values())),
+                        'ir': materialized, 'expected': [{'rule_id': key[0], 'node_id': key[1], 'status': status}
+                                                        for key, status in truths.items()]}
+                    inventory = _regression_inventory(parent, resources, current_case)
+                    manifest = save_suite(candidates, suite_path, validated=True, regression_cases=inventory, validation={
                         'protocol': runtime['protocol'], 'input_sha256': ir_hash(ir), 'gate': gate,
                         'parent_version': parent['active_version'], 'parent_generation': parent['generation'],
                         'verified_targets': len(verified), 'online_evaluation': True})

@@ -93,3 +93,56 @@ def test_plan_cli_turns_natural_language_into_a_task_without_handwritten_scope(t
     assert result['status']=='planned'
     planned=json.loads((tmp_path/'plan'/'plan.json').read_text())
     assert planned['rule_text']==rule.read_text() and planned['target_kinds']==['BibliographyEntry']
+
+def test_online_cli_preserves_full_release_when_requested_rule_differs_from_active_partial_suite(tmp_path):
+    import subprocess,sys
+    from paper_compiler.runtime_control import RuntimeControl
+    programs=[]
+    for rid in ['31','32','33']:
+        spec=candidate();spec['rule_id']=rid
+        pkg=build_program(spec,rule_text='Check entry',basis=[{'id':'test','text':'Check entry'}])
+        folder=tmp_path/rid;save_program(pkg,folder);programs.append((pkg,folder))
+    control=RuntimeControl(tmp_path/'control')
+    active=pipeline.save_suite([programs[0][0]],tmp_path/'active',validated=True,validation={'fixture':True})
+    control.promote(active['version_id'],tmp_path/'active',None,expected_generation=0);control.set_freeze(True)
+    ir,_=fixture(tmp_path);source=tmp_path/'input.json';source.write_text(json.dumps(ir))
+    script=Path(__file__).resolve().parents[1]/'scripts'/'paper_compiler_cli.py'
+    command=[sys.executable,str(script),'check','--ir',str(source),'--out',str(tmp_path/'report.json'),
+        '--package',str(programs[1][1]),'--online','--control-root',str(tmp_path/'control'),'--offline',
+        '--cache',str(tmp_path/'cache'),'--ledger',str(tmp_path/'budget.sqlite3'),'--stdout-report']
+    for pkg,folder in programs:command.extend(['--release-package',str(folder)])
+    result=subprocess.run(command,capture_output=True,text=True)
+    assert result.returncode==0,result.stdout+result.stderr
+    report=json.loads(result.stdout)
+    assert [row['rule_id'] for row in report['rules']]==['32']
+    assert set(report['runtime']['release_rule_ids'])=={'31','32','33'}
+
+def test_online_cli_bounds_all_model_stages_before_building_pdf(tmp_path,monkeypatch):
+    import importlib.util
+    import paper_compiler.llm,paper_compiler.frontend,paper_compiler.request_limits
+    class Client:
+        config={}
+        def complete_json(self,*args):raise AssertionError('no real API')
+    raw=Client();wrapped=Client();events=[]
+    monkeypatch.setattr(paper_compiler.llm,'MaasClient',lambda *a,**kw:raw)
+    def bound(client,scope_id,max_cost_cny='5',timeout_seconds=1200):
+        assert client is raw and scope_id.startswith('online-task/')
+        assert str(max_cost_cny)=='5' and timeout_seconds==1200
+        events.append('bounded');return wrapped
+    monkeypatch.setattr(paper_compiler.request_limits,'bounded_client',bound)
+    ir,_=fixture(tmp_path)
+    def build(*args,client=None,**kw):
+        assert events==['bounded'] and client is wrapped
+        events.append('pdf');return ir
+    monkeypatch.setattr(paper_compiler.frontend,'build_paper',build)
+    pkg=build_program(candidate(),rule_text='Entry',basis=[{'id':'test','text':'Entry'}])
+    folder=tmp_path/'program';save_program(pkg,folder)
+    from paper_compiler.runtime_control import RuntimeControl
+    RuntimeControl(tmp_path/'control').set_freeze(True)
+    path=Path(__file__).resolve().parents[1]/'scripts'/'paper_compiler_cli.py'
+    spec=importlib.util.spec_from_file_location('bounded_cli_test',path);cli=importlib.util.module_from_spec(spec);spec.loader.exec_module(cli)
+    args=cli.parser().parse_args(['check','--pdf',str(tmp_path/'input.pdf'),'--out',str(tmp_path/'output.json'),
+        '--package',str(folder),'--online','--control-root',str(tmp_path/'control'),
+        '--cache',str(tmp_path/'cache'),'--ledger',str(tmp_path/'ledger.db')])
+    assert cli.execute(args)['status']=='completed'
+    assert events==['bounded','pdf']

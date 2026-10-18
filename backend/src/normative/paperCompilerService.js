@@ -34,11 +34,14 @@ async function runJsonProcess(command,args,{signal,timeoutMs=1200000,maxBytes=64
 function toCompilerResult(output,selectedRuleIds) {
   if(output?.schema_version!=='paper-check/1.0' || !Array.isArray(output.rules))throw failure(502,'COMPILER_INVALID_REPORT','规则编译检测结果不完整');
   const asVersion=value=>typeof value==='string' && value.trim() ? value : null;
-  const runtimeVersion=asVersion(output.runtime?.active_version) || asVersion(output.runtime_version);
+  const explicitReport=output.runtime?.report_version;
+  const runtimeVersion=explicitReport ? asVersion(explicitReport.suite_version) : asVersion(output.runtime?.active_version) || asVersion(output.runtime_version);
   const pipelineVersion=asVersion(output.pipeline_version) || asVersion(output.pipeline?.version_id);
   const versionLabel=runtimeVersion || pipelineVersion || '兼容规则包';
-  const runtimeSnapshot=typeof output.runtime?.freeze==='boolean' && Number.isSafeInteger(output.runtime.generation) && output.runtime.generation>=0
-    ? {freeze:output.runtime.freeze,generation:output.runtime.generation,active_version:runtimeVersion} : null;
+  const state=explicitReport ? output.runtime?.current_snapshot || output.runtime : output.runtime;
+  const runtimeSnapshot=typeof state?.freeze==='boolean' && Number.isSafeInteger(state.generation) && state.generation>=0
+    ? {freeze:state.freeze,generation:state.generation,active_version:asVersion(state.active_version),
+        ...(explicitReport ? {report_version:runtimeVersion} : {})} : null;
   const ruleRuns=selectedRuleIds.map(ruleId=>{
     if(!IDS.has(ruleId))throw failure(400,'COMPILER_UNKNOWN_RULE','未知编译规则');
     const rows=output.rules.filter(r=>String(r.rule_id)===ruleId.slice(10));
@@ -67,7 +70,8 @@ async function runCompilerRules(pdfPath,selectedRuleIds,options={}) {
   await fs.promises.mkdir(resultRoot,{recursive:true,mode:0o700});
   const output=path.join(resultRoot,crypto.randomUUID()+'.json');
   const args=[SCRIPT,'check','--pdf',pdfPath,'--out',output,'--stdout-report','--online','--control-root',controlRoot(),'--cache',process.env.PAPER_COMPILER_CACHE_ROOT || '/data/runtime/paper-compiler','--phase','website','--phase-budget','200','--budget','200',
-    ...selectedRuleIds.flatMap(id=>['--package',packagePath(id.slice(10))])];
+    ...selectedRuleIds.flatMap(id=>['--package',packagePath(id.slice(10))]),
+    ...catalog.filter(rule=>rule.available).flatMap(rule=>['--release-package',packagePath(rule.number)])];
   const raw=await runJsonProcess(process.env.PAPER_COMPILER_PYTHON || 'python3',args,options);
   return toCompilerResult(raw,selectedRuleIds);
 }

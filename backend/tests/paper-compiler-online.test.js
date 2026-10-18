@@ -90,3 +90,26 @@ describe('online compiler CLI boundary', () => {
     await expect(service.runCompilerControl('rollback')).rejects.toMatchObject({ status: 400 });
   });
 });
+
+it('passes every configured package as the promotion inventory while keeping the requested subset', async () => {
+  const {root,capture}=transport(report);
+  for(const id of ['32','33']) {
+    fs.mkdirSync(path.join(root,'packages',id),{recursive:true});
+    fs.writeFileSync(path.join(root,'packages',id,'manifest.json'),'{}');
+  }
+  await service.runCompilerRules('/data/tmp/input.pdf',['sjtu_rule_31']);
+  const argv=JSON.parse(fs.readFileSync(capture,'utf8'));
+  const values=flag=>argv.flatMap((x,i)=>x===flag?[argv[i+1]]:[]);
+  expect(values('--release-package').sort()).toEqual(['31','32','33'].map(id=>path.join(root,'packages',id)).sort());
+  expect(values('--package')).toEqual([path.join(root,'packages','31')]);
+});
+it('uses the exact report release while preserving the distinct currently active release', () => {
+  const output={...report,runtime:{freeze:false,generation:7,active_version:'old',
+    report_version:{suite_version:'evaluated'},current_snapshot:{freeze:false,generation:8,active_version:'concurrent'}}};
+  const result=service.toCompilerResult(output,['sjtu_rule_31']);
+  expect(result.rule_runs[0].runtime_version).toBe('evaluated');
+  expect(result.ruleset.version_label).toContain('evaluated');
+  expect(result.runtime.active_version).toBe('concurrent');
+  expect(result.runtime.generation).toBe(8);
+  expect(result.runtime.report_version).toBe('evaluated');
+});

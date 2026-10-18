@@ -336,3 +336,36 @@ def test_invalid_package_model_definition_is_rejected(tmp_path):
     broken=package();broken['model']['version']='forged-model-version'
     with pytest.raises(ContractError):
         run(tmp_path,paper(tmp_path),[broken],Model())
+
+@pytest.mark.parametrize('name,typ,value', [('unrelated','boolean',True),('contradiction','boolean',True),('relation','string','unrelated')])
+def test_citation_topic_mismatch_is_unknown_regardless_of_field_encoding(name,typ,value):
+    from paper_compiler.program_analysis import _ground_fields
+    data={'citation_context':{'node_id':'p'},'sources':[
+        {'source_id':'paper:p','origin':'paper','node_id':'p','text':'We apply tree models.','complete':True},
+        {'source_id':'external:work','origin':'external','content_id':'work','work_id':'identified','text':'An inventory of coins.','complete':True}]}
+    raw={'fields':{name:{'state':'observed','value':value,'basis':'topic_mismatch',
+        'reason':'The topics differ.','quotes':[{'source_id':s['source_id'],'quote':s['text']} for s in data['sources']]}}}
+    facts,evidence=_ground_fields({'fields':{name:typ}},raw,data,True)
+    assert facts[name]['state']=='unknown'
+    assert not evidence
+
+def test_grounded_citation_observations_materialize_purpose_and_work_evidence_graph(tmp_path):
+    ir=paper(tmp_path)
+    analysis=run(tmp_path,ir,[package('ReferenceUse',{'related':'boolean'})],
+                 Model(grounded_reference),Gateway())
+    intent=next(e for e in analysis['entities'] if e['kind']=='CitationIntent')
+    assert intent['use_id']=='use' and intent['context']['node_id']=='p'
+    assert intent['context']['text']=='We apply tree models [1].'
+    fact=next(e for e in analysis['entities'] if e['kind']=='SemanticObservation')
+    assert fact['capability']=='method_facts' and fact['field']=='related'
+    assert fact['value'] is True and fact['evidence_ids']
+    work=next(e for e in analysis['entities'] if e['kind']=='ExternalWork')
+    assert any(e['type']=='supports' and e['from']==work['id'] and e['to']==fact['id'] for e in analysis['edges'])
+    assert any(e['type']=='describes' and e['from']==fact['id'] and e['to']==intent['id'] for e in analysis['edges'])
+    validate_analysis(ir,analysis)
+
+def test_unknown_citation_facts_do_not_create_observed_semantic_graph_edges(tmp_path):
+    ir=paper(tmp_path)
+    analysis=run(tmp_path,ir,[package('ReferenceUse',{'related':'boolean'})],Model(),Gateway(empty=True))
+    assert not any(e['kind']=='SemanticObservation' for e in analysis['entities'])
+    assert not any(e['type'] in {'supports','contradicts'} for e in analysis['edges'])

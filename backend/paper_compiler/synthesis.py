@@ -37,7 +37,7 @@ source-grounded extraction/analysis, not a constant or memorized answer. No huma
 The generic analyzer supplies sources with IDs and citation context, plus identified cited content when available.
 It returns {fields:{FIELD:{state,value?,quotes:[{source_id,quote}],reason?,search_scope?,basis?}}}.
 Observed values require exact source quotes; ReferenceUse semantic facts require citing and cited-content quotes together.
-An unrelated/unsupported ReferenceUse boolean false needs basis=explicit_scope_contradiction and positive conflict evidence;
+Any claimed ReferenceUse contradiction, including unrelated=True or a relation string, needs basis=explicit_scope_contradiction and positive conflict evidence;
 missing details, topic difference, inaccessible full text and search failure remain unknown.
 Prefer atomic analysis requests over a precomputed citation_relevance verdict. The checking logic belongs in generated code.
 model_patch is {} or {node_types:{Kind:{base_kind,description,attrs:{field:type}}}}. Only propose needed source-backed
