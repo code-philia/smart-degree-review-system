@@ -8,12 +8,16 @@
 
 ## 当前完成证据（持续更新）
 
+- 预评测v6补充：同篇文献字段抽取也按opt-in模式最多8条，旧mode1双条/6000/原prompt与缓存键不变。保留逐entry原文/值/类型/完整性验证；抽取空缺仍UNKNOWN、无隐藏重试。26新测试、114分析测试与48 CLI测试通过；全compiler726通过，79源码/测试哈希稳定。该配置统一用于基线、两条件、corpus与最终网站；真实质量/速度/费用仍待测。
+
+- T20通过：真实优先池与从真实文献构造的IR均已获得独立双上下文标签；四种来源/状态各1代表，根核验原始答复角色引句、正文文件/文本哈希及精确切片、盲输入禁键，证据framework-20261019/T20-environment-acceptance.json。编号清单现52/72。仅验来源/标注流程，满100＋30及最终来源重叠仍待T35—T39。
+
 - 正式检测评测前固定同篇IR/同一分析请求的批量执行，`PAPER_COMPILER_ANALYSIS_BATCH_SIZE=8`，旧默认仍为1。每节点独立证据门、缓存、UNKNOWN与分母不变，批次不跨论文；同一IR投影和哈希只计算一次。批量72项、CLI指纹48项与compiler700项通过，48运行时/CLI/测试文件前后哈希一致。真实吞吐、费用和模型答复变化仍待正式实验测量，不将模拟客户端提速当实测结果。
 
 - T19环境验收完成：全集已知的114条受控库、2.2独立双判且盲上下文核验的12违规＋1身份保持对照子集，以及真实开放检索7探针（6存在／1 UNKNOWN／0“证明不存在”）。证据framework-20261019/t19-environment-acceptance.json及[开放诊断](../../research/open-retrieval-diagnostics-20261019.md)。100＋30配额和正式冻结仍由T35—T39单独验收，未提前勾选。
 
-- 最新整体验证：compiler **700 passed**，运行期间runtime源哈希未变；Node **248 passed/11 skipped**；前端 **152 passed**、构建成功。最终compiler日志development/compiler-all-batch-1792360458.log，Node日志/data/tmp/paper-compiler-final-node-lft4trxa/vitest.log。T56已归档并校验运行时源码/提示与包版本；T60已实现默认可靠反馈后1违规+1合规局部验证，缺口保旧，实际规则上线联调仍待T57。
-- 逐轮和预算中断的资源侧车、同轮续记、study累计和独立初稿费用现已接入，原账本200元不变；shared_ledger_interval可能含并发，不作精确任务归因。正式方案及失败终态补充见framework-20261019/study-protocol-v5.json，v3/v4及旧方案保留。
+- 最新整体验证：compiler **726 passed**，运行期间runtime源哈希未变；Node **248 passed/11 skipped**；前端 **152 passed**、构建成功。最终compiler日志development/compiler-all-bibliography-batch-1792363700.log，Node日志/data/tmp/paper-compiler-final-node-lft4trxa/vitest.log。T56已归档并校验运行时源码/提示与包版本；T60已实现默认可靠反馈后1违规+1合规局部验证，缺口保旧，实际规则上线联调仍待T57。
+- 逐轮和预算中断的资源侧车、同轮续记、study累计和独立初稿费用现已接入，原账本200元不变；shared_ledger_interval可能含并发，不作精确任务归因。正式方案及失败终态补充见framework-20261019/study-protocol-v6.json，v3/v4及旧方案保留。
 
 - T21已修复并验收：规则真值与构造准入按purpose分离，初稿raw／package／共享重建／planner及offline/online反馈均有隔离回归；2.2标签先判真值再按实际状态验收。旧raw及拒绝保留；仅32干净首次初稿替换旧污染版，33失败初稿不重抽。
 
@@ -24,7 +28,7 @@
 - 上一阶段回归：**557 passed**；当时Node后端回归：**242 passed, 11 skipped**。10项重要审阅问题已以RED→GREEN修复，见[审阅记录](../../research/review-findings-20261019.md)。
 - [费用与工作量预检](../../research/cost-preflight-20261019.md)及[479篇扫描入口](../../research/corpus-protocol.md)已交付；准备完成不代表正式扫描或研究成绩已完成。
 
-- 三条自然语言任务、规范核验与预注册方案：`framework-20261019/tasks-v3.json`、`standard-audit.json`、`study-protocol-v5.json`；提供标准PDF的实际SHA256与规范资源一致。正式benchmark未最终冻结，T35—T46仍单独验收。
+- 三条自然语言任务、规范核验与预注册方案：`framework-20261019/tasks-v3.json`、`standard-audit.json`、`study-protocol-v6.json`；提供标准PDF的实际SHA256与规范资源一致。正式benchmark未最终冻结，T35—T46仍单独验收。
 - 新增验收：[真实 API 与在线开关记录](../../research/real-api-smoke-20261019.md)；[方法与新流程图](../../research/paper-compiler-framework.md)。真实新代码晋级与真实PDF复检均在隔离环境完成，网站生产未发布。
 - T18/T22补强完成：原/变异局部、真实编辑及被引正文角色门为通用约束；旧弱候选不计正式数，完成快照恢复也须重验。正式v2仍在构造，T35—T39保持未完成。
 - 每次网站任务默认2轮候选、5元与1200秒持久化上限；全部API仍受同一200元累计账本约束，缓存、uncertain预留及恢复不重置均已测试；首次发布配置单独验收。
@@ -117,7 +121,7 @@ IR 变异及合规对照 → 另行验证 → 冻结数据与标签
 - [x] T17 通用变异引擎在 IR 上应用带前置条件的修改，记录来源、操作、位置、随机种子与父子哈希，重建受影响分析。
 - [x] T18 分开检查结构合法性与规则标签正确性；验证原始局部是否合规、变异是否造成目标违规。禁止直接改派生存在性、相关性或诊断来制造“有效变异”。
 - [x] T19 建立 R32 全集已知的受控文献环境，构造和验证不存在变体及身份保持对照；另行运行真实开放检索，未命中保留 UNKNOWN。
-- [ ] T20 R33 优先提取真实引用语境，必要时根据真实文献构造引用句；以分开的调用与上下文标注、复核，检查语境及被引内容的原文证据引句。
+- [x] T20 R33 优先提取真实引用语境，必要时根据真实文献构造引用句；以分开的调用与上下文标注、复核，检查语境及被引内容的原文证据引句。
 - [x] T21 将答案、目标及 oracle 密封在评测侧；标注复核不以检测器预测作为答案，构造和验证的对话历史不进入检测程序生成或修订。
 - [x] T22 保留无效、冲突、证据不足与无法定位的候选及原因；合成来源标注 synthetic，不伪造 PDF 坐标，不计入有效样本。
 - [x] T23 改进 OpenAlex 题名检索和候选身份核验，复用公开来源与缓存，记录元数据、摘要及全文覆盖缺口。

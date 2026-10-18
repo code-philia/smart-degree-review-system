@@ -1,6 +1,7 @@
 """Shared source-grounded passes, external identity, and citation-purpose analysis."""
 import hashlib
 import json
+import os
 import re
 from pathlib import Path
 from .contracts import ir_hash,validate_analysis
@@ -10,6 +11,61 @@ from .identity import resolve_identity
 from .citations import citation_context
 
 VERSION='shared-analysis/1.5'
+BIBLIOGRAPHY_INSTRUCTIONS="""Extract bibliographic fields from exactly the supplied entry text. Do not judge any rule.
+Return {entries:[{id,complete:boolean,fields:{FIELD:{state:'observed',value:STRING_OR_ARRAY,quote:EXACT_SOURCE_SUBSTRING}},absent:[FIELD_NAMES_CONFIRMED_NOT_PRESENT]}]}.
+Use the supplied field names/types. Include observed fields only in fields; list explicitly confirmed absent names in absent. Omitted names stay unknown. complete means this is one readable complete entry, not that all fields are present.
+Never invent or correct metadata. Preserve punctuation and spelling; whitespace across wrapped lines may be collapsed. Each observed value must occur inside its quote. Authors are an array of transcribed author names.
+type_code and carrier_code exclude brackets; date/access_date exclude brackets; year is a string. title excludes authors and resource marker. institution is the degree granting institution for a thesis. conference is the meeting name. DOI/URL are optional source fields; omit them only as confirmed_absent after examining the entire entry.
+If the entry contains several concatenated works or incomplete boundary, set complete=false; absences then remain unknown.
+"""
+
+BIBLIOGRAPHY_BATCH_INSTRUCTIONS = """
+This batch contains independent bibliography entries from one paper.
+Keep the original entries response schema and use only the supplied entry IDs.
+Transcribe each field solely from that entry's own text; never borrow another
+entry's quote, authors, metadata or completeness. Return every supplied entry.
+An omitted or uncertain field remains unknown. Complete describes only that
+entry's readable boundary; absence does not establish any external-world fact.
+Do not judge document compliance or whether the referenced work exists.
+"""
+
+
+def bibliography_execution_policy():
+    """Public extraction settings; mode1 retains the historical two-entry request."""
+    raw = os.environ.get('PAPER_COMPILER_ANALYSIS_BATCH_SIZE', '1').strip()
+    if raw not in {str(n) for n in range(1, 9)}:
+        raise ValueError('PAPER_COMPILER_ANALYSIS_BATCH_SIZE must be an integer from 1 to 8')
+    opt_in = raw != '1'
+    size = int(raw) if opt_in else 2
+    instructions = BIBLIOGRAPHY_INSTRUCTIONS + (BIBLIOGRAPHY_BATCH_INSTRUCTIONS if opt_in else '')
+    return {'schema_version':'bibliography-execution/1.0', 'opt_in':opt_in,
+            'protocol':'bibliography-entry-batch/1.0' if opt_in else 'bibliography-fields/1.1',
+            'task':'bibliography-fields/1.1', 'batch_size':size,
+            'input_soft_limit_bytes':128*1024 if opt_in else None,
+            'max_tokens_per_entry':3000, 'minimum_batch_max_tokens':6000,
+            'max_tokens_per_batch':min(16384, max(6000, 3000*size)),
+            'prompt_sha256':hashlib.sha256(instructions.encode()).hexdigest()}
+
+
+def _bibliography_data(batch):
+    return {'field_types':FIELD_TYPES,'entries':[{'id':n['id'],'text':n['text']} for n in batch]}
+
+
+def _bibliography_batches(entries, size, soft_limit):
+    if soft_limit is None:
+        for start in range(0, len(entries), size):
+            yield entries[start:start+size]
+        return
+    batch = []
+    for node in entries:
+        candidate = batch + [node]
+        if batch and (len(candidate) > size or len(json.dumps(_bibliography_data(candidate), ensure_ascii=False, separators=(',', ':'), allow_nan=False).encode('utf-8')) > soft_limit):
+            yield batch
+            batch = []
+        batch.append(node)
+    if batch:
+        yield batch
+
 def unknown(reason):return {'state':'unknown','reason':reason}
 def observed(value,ids):return {'state':'observed','value':value,'evidence_ids':list(dict.fromkeys(ids))}
 def _norm(text):return re.sub(r'\s+',' ',str(text)).strip()
@@ -55,21 +111,18 @@ def _extract_field(node,name,item,complete,a):
     _add_evidence(a,{'id':eid,'kind':'source_span','node_id':node['id'],'start':start,'end':end,'quote':quote})
     return {**observed(value,[eid]),'source_range':[start,end]}
 
-def parse_entries(ir,a,client,*,batch_size=2):
+def parse_entries(ir,a,client,*,batch_size=None):
     entries=[n for n in ir['nodes'] if n['kind']=='BibliographyEntry']
     results=a['results'].setdefault('bibliography_fields',{})
-    instructions="""Extract bibliographic fields from exactly the supplied entry text. Do not judge any rule.
-Return {entries:[{id,complete:boolean,fields:{FIELD:{state:'observed',value:STRING_OR_ARRAY,quote:EXACT_SOURCE_SUBSTRING}},absent:[FIELD_NAMES_CONFIRMED_NOT_PRESENT]}]}.
-Use the supplied field names/types. Include observed fields only in fields; list explicitly confirmed absent names in absent. Omitted names stay unknown. complete means this is one readable complete entry, not that all fields are present.
-Never invent or correct metadata. Preserve punctuation and spelling; whitespace across wrapped lines may be collapsed. Each observed value must occur inside its quote. Authors are an array of transcribed author names.
-type_code and carrier_code exclude brackets; date/access_date exclude brackets; year is a string. title excludes authors and resource marker. institution is the degree granting institution for a thesis. conference is the meeting name. DOI/URL are optional source fields; omit them only as confirmed_absent after examining the entire entry.
-If the entry contains several concatenated works or incomplete boundary, set complete=false; absences then remain unknown.
-"""
-    for start in range(0,len(entries),batch_size):
-        batch=entries[start:start+batch_size]
+    execution = bibliography_execution_policy() if batch_size is None else None
+    opt_in = bool(execution and execution['opt_in'])
+    if batch_size is None:batch_size = execution['batch_size']
+    instructions = BIBLIOGRAPHY_INSTRUCTIONS + (BIBLIOGRAPHY_BATCH_INSTRUCTIONS if opt_in else '')
+    for batch in _bibliography_batches(entries, batch_size, execution['input_soft_limit_bytes'] if opt_in else None):
+        max_tokens = min(16384, max(6000, 3000*len(batch))) if opt_in else 6000
         if client is None:
             answer={}
-        else:answer=client.complete_json('bibliography-fields/1.1',instructions,{'field_types':FIELD_TYPES,'entries':[{'id':n['id'],'text':n['text']} for n in batch]},6000)
+        else:answer=client.complete_json('bibliography-fields/1.1',instructions,_bibliography_data(batch),max_tokens)
         raw={item.get('id'):item for item in answer.get('entries',[]) if isinstance(item,dict)}
         for node in batch:
             item=raw.get(node['id'],{});complete=item.get('complete') is True;fields=item.get('fields',{})
@@ -200,6 +253,8 @@ def enrich(ir,rule_packages,*,client,gateway,cache_dir:Path,snapshot_id=None):
     snapshot_id=snapshot_id or datetime.now(timezone.utc).date().isoformat()
     config=getattr(client,'config',{})
     policy={'model':{k:config.get(k) for k in ['MAAS_MODEL','MAAS_MODEL_VERSION']},'offline':client is None,'providers':getattr(gateway,'providers',[]),'evidence_version':EVIDENCE_VERSION,'content_version':CONTENT_VERSION,'snapshot':snapshot_id,'frozen_evidence':getattr(gateway,'snapshot_id',None)}
+    bibliography_policy = bibliography_execution_policy()
+    if bibliography_policy['opt_in']:policy['bibliography'] = bibliography_policy
     fingerprint=hashlib.sha256(json_bytes({'ir':ir_hash(ir),'version':VERSION,'capabilities':plan,'required':sorted(required),'policy':policy})).hexdigest()
     path=Path(cache_dir)/(fingerprint+'.json')
     if path.exists():
