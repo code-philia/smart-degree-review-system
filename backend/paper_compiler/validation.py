@@ -46,11 +46,52 @@ def compiler_controls(rule_id):
             'bibliography_shape':{'entry':{'electronic':observed(typ in {'EB','PP','DS'},['entry']),'type_bracketed':observed(remove!='type_code',['entry']),'label_bracketed':observed(True,['entry']),'system':observed('numeric',['entry']),'field_sequence':observed(list(values),['entry'])}},
             'external_work':{'entry':{'exists':observed(True,['control-evidence']),'available_fields':observed(available_fields,['control-evidence'])}},
             'bibliography_order':{'entry':{'position':observed(1,['entry']),'numeric_value':observed(1,['entry'])}},
-            'citation_order':{'use':{'numeric_value':observed(1,['use']),'first_appearance_rank':observed(1,['use']),'is_first_use':observed(True,['use'])}}}
+            'citation_order':{'use':{'system':observed('numeric',['use']),'numeric_value':observed(1,['use']),'first_appearance_rank':observed(1,['use']),'is_first_use':observed(True,['use'])}}}
         basis_ids={'title':['general'],'type_code':['general'],'institution':['8.7'],'access_date':['8.11'],'standard_number':['8.8-8.9'],'patent_number':['8.10']}
         return {'id':'31-'+name,'ir':ii,'analysis':aa,'status':'PASS' if remove is None or optional else 'VIOLATION','basis_ids':['gbt7714-2025:'+x for x in basis_ids.get(remove,[])]}
-    return [make('journal-without-optional-doi'),make('missing-title',remove='title'),make('missing-type-code',remove='type_code'),
+    cases=[make('journal-without-optional-doi'),make('missing-title',remove='title'),make('missing-type-code',remove='type_code'),
         make('thesis-valid',typ='D'),make('thesis-missing-institution',typ='D',remove='institution'),
         make('web-valid',typ='EB'),make('web-missing-access-date',typ='EB',remove='access_date'),
         make('standard-valid',typ='S'),make('standard-missing-number',typ='S',remove='standard_number'),
         make('patent-valid',typ='P'),make('patent-missing-application-number',typ='P',remove='patent_number')]
+
+    from .analysis import citation_syntax
+    for index,text in enumerate(['[1]','[1,3]','[1-3]','[1,3-5]','(Smith, 2020)','Smith (2020)']):
+        case=make('body-valid-'+str(index));ii=case['ir'];aa=case['analysis']
+        case['diagnostic']='Valid citation notation: singleton and grouped numeric forms may omit comma or range symbols; author-year narrative form includes an author prefix outside parentheses, so opening is the first author character, not the year parenthesis.'
+        style='numeric' if text.startswith('[') else 'author_year'
+        ii['nodes'][0]['children'].append('group')
+        ii['nodes'].append({'id':'group','kind':'CitationGroup','text':text,'children':[],
+            'attrs':{'style':style,'marker':text,'superscript':False},'provenance':[{'kind':'synthetic','operation_id':'independent-body-control'}]})
+        if style=='author_year':
+            ii['nodes'][1]['text']='Smith A. 2020. A title[J]. Journal.'
+            ii['nodes'][1]['attrs']['key']='Smith|2020'
+            ii['nodes'][2]['text']=text;ii['nodes'][2]['attrs']['selector']={'kind':'author_year','value':'Smith|2020'}
+            shape=aa['results']['bibliography_shape']['entry'];shape['system']=observed(style,['entry']);shape['label_bracketed']=observed(False,['entry'])
+            shape['field_sequence']=observed(['authors','year','title','type_code','container'],['entry'])
+            aa['results']['bibliography_order']['entry']['numeric_value']=unknown('author-year entry')
+            aa['results']['citation_order']['use']['system']=observed(style,['use'])
+            aa['results']['citation_order']['use']['numeric_value']=unknown('author-year citation')
+        aa['paper_ir_sha256']=ir_hash(ii);citation_syntax(ii,aa)
+        aa['results']['citation_syntax']['group']['automatic_footnote']=observed(False,['group'])
+        cases.append(case)
+    repeated=copy.deepcopy(next(c for c in cases if c['id']=='31-body-valid-0'))
+    repeated['id']='31-repeated-numeric-use'
+    repeated['analysis']['results']['citation_order']['use']['is_first_use']=observed(False,['use'])
+    cases.append(repeated)
+    grouped=copy.deepcopy(next(c for c in cases if c['id']=='31-body-valid-4'))
+    grouped['id']='31-grouped-author-year'
+    group=next(n for n in grouped['ir']['nodes'] if n['id']=='group');group['text']='(Smith, 2020; Jones, 2021)';group['attrs']['marker']=group['text']
+    grouped['analysis']['paper_ir_sha256']=ir_hash(grouped['ir']);citation_syntax(grouped['ir'],grouped['analysis'])
+    grouped['analysis']['results']['citation_syntax']['group']['automatic_footnote']=observed(False,['group'])
+    cases.append(grouped)
+    malformed=copy.deepcopy(next(c for c in cases if c['id']=='31-body-valid-1'))
+    malformed['id']='31-numeric-semicolon';malformed['status']='VIOLATION';malformed['basis_ids']=['gbt7714-2025:9.1-9.2']
+    group=next(n for n in malformed['ir']['nodes'] if n['id']=='group');group['text']='[1;3]';group['attrs']['marker']=group['text']
+    malformed['analysis']['paper_ir_sha256']=ir_hash(malformed['ir']);citation_syntax(malformed['ir'],malformed['analysis'])
+    malformed['analysis']['results']['citation_syntax']['group']['automatic_footnote']=observed(False,['group'])
+    cases.append(malformed)
+    wrapped=make('physical-line-wrap',typ='EB')
+    wrapped['ir']['nodes'][1]['text']=wrapped['ir']['nodes'][1]['text'].replace(' https://','\nhttps://')
+    wrapped['analysis']['paper_ir_sha256']=ir_hash(wrapped['ir']);cases.append(wrapped)
+    return cases

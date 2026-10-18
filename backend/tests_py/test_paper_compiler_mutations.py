@@ -45,4 +45,14 @@ def test_bibliography_edit_invalidates_source_derived_attributes(tmp_path):
     attrs=changed['nodes'][-1]['attrs']
     assert attrs['resource_type']['state']=='unknown'
     assert attrs['fields']=={}
-    assert attrs['key']=='1'
+    assert attrs['key']['state']=='unknown'
+
+@pytest.mark.parametrize('replacement,expected',[('9','9'),('',None)])
+def test_numeric_label_edit_rebuilds_key_and_reference_binding(tmp_path,replacement,expected):
+    from paper_compiler.analysis import base_analysis,bind_references
+    ir,_=fixture(tmp_path);ir['nodes'][-1]['text']='[1] Hello[J].'
+    change=recipe(ir);change.update(start=1,end=2,old_text='1',replacement=replacement)
+    changed,_=mutate(ir,change);key=changed['nodes'][-1]['attrs']['key']
+    assert key==expected if expected else key['state']=='unknown'
+    a=base_analysis(changed);bindings=bind_references(changed,a)
+    assert all(b['status']=='unresolved' for b in bindings)

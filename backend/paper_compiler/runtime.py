@@ -58,6 +58,7 @@ def check(ir,analysis,rule_packages):
         elif counts['PASS']:status='PASS'
         else:status='NOT_APPLICABLE'
         rules.append({'rule_id':rule['rule_id'],'title':rule['title'],'status':status,'counts':dict(counts),'results':results,
+            'basis_catalog':[{**b,'kind':'standard' if b['id'].startswith('gbt') else 'project'} for b in package.get('input',{}).get('basis',[])],
             'coverage':{'incomplete_scopes':gaps},'package_sha256':_hash(json_bytes(manifest))})
     return {'schema_version':'paper-check/1.0','document_id':ir['document_id'],'paper_ir_sha256':ir_hash(ir),
         'rules':rules,'evidence':analysis['evidence'],'bindings':analysis.get('bindings',[]),'coverage':ir['coverage']}

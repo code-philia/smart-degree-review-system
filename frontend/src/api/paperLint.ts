@@ -58,8 +58,9 @@ export type PaperLintFindingAnchor = {
   location: PaperLintLocation;
 };
 
+export type PaperLintBasis = { id: string; kind?: string; text?: string; pdf_pages?: number[] };
 export type PaperLintEvidence = { id: string; kind?: string; provider?: string | null; url?: string | null; quote?: string };
-export type CompilerDiagnostic = { node_id?: string | null; check_id: string; status: 'UNKNOWN' | 'ERROR'; reasons: string[]; evidence: PaperLintEvidence[] };
+export type CompilerDiagnostic = { node_id?: string | null; check_id: string; status: 'UNKNOWN' | 'ERROR'; reasons: string[]; evidence: PaperLintEvidence[]; basis_details?: PaperLintBasis[] };
 
 export type PaperLintFinding = {
   finding_id: string;
@@ -69,6 +70,7 @@ export type PaperLintFinding = {
   location?: PaperLintLocation | null;
   anchors?: PaperLintFindingAnchor[];
   evidence?: PaperLintEvidence[];
+  basis_details?: PaperLintBasis[];
   source_kind?: string;
   node_id?: string;
   check_id?: string;

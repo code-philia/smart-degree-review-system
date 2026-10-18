@@ -113,7 +113,7 @@ def test_compact_explicit_absence_is_scoped_and_omissions_stay_unknown(tmp_path)
 
 def test_model_or_evidence_snapshot_change_invalidates_analysis_cache(tmp_path):
     from paper_compiler.analysis import enrich
-    ir,_=fixture(tmp_path);packages=[{'rule_ir':{'requires':['bibliography_fields']}}]
+    ir,_=fixture(tmp_path);packages=[{'rule_ir':{'requires':['bibliography_fields']},'registry':__import__('paper_compiler.registry',fromlist=['REGISTRY']).REGISTRY}]
     class CountingModel(FieldModel):
         calls=0
         def __init__(self,version):super().__init__({});self.config={'MAAS_MODEL_VERSION':version}
@@ -140,3 +140,40 @@ def test_extracted_resource_type_drives_real_conditional_checks_without_changing
     assert ir_hash(ir)==before
     a['node_attributes'][node['id']]['resource_type']['value']=False
     with pytest.raises(ValueError,match='attribute type'):validate_analysis(ir,a)
+
+def test_compiled_generated_capability_runs_through_normal_enrichment(tmp_path):
+    from paper_compiler.compiler import compile_rule
+    from paper_compiler.analysis import enrich
+    from paper_compiler.runtime import check
+    from paper_compiler.registry import REGISTRY
+    from test_paper_compiler_capabilities import REQUEST,CandidateModel
+    class Model:
+        def complete_json(self,task,instructions,data,max_tokens):
+            if task.startswith('capability-builder'):
+                return CandidateModel("def analyze(payload):\n    return {'word_count':len(payload['node']['text'].split())}\n").complete_json(task,instructions,data,max_tokens)
+            return {'rule_id':'limit','title':'At most three words','requires':['word_count'],'on_missing':'UNKNOWN',
+                'checks':[{'id':'limit','target_kind':'Paragraph','when':{'op':'literal','value':True},
+                'assert':{'op':'le','args':[{'op':'field','path':'facts.word_count.word_count'},{'op':'literal','value':3}]},'basis':[],'message':'Too long'}]}
+    package=compile_rule('At most three words',[],REGISTRY,Model(),tmp_path/'package',capability_requests=[REQUEST])
+    ir,_=fixture(tmp_path)
+    node=next(n for n in ir['nodes'] if n['kind']=='Paragraph');node['text']='alpha beta gamma'
+    a=enrich(ir,[package],client=None,gateway=None,cache_dir=tmp_path/'cache')
+    assert a['results']['word_count'][node['id']]['word_count']['value']==3
+    assert a['capability_versions']['word_count']==package['manifest']['capability_versions']['word_count']
+    assert check(ir,a,[package])['rules'][0]['counts']['PASS']==1
+    node['text']='alpha beta gamma delta'
+    a=enrich(ir,[package],client=None,gateway=None,cache_dir=tmp_path/'cache')
+    assert check(ir,a,[package])['rules'][0]['counts']['VIOLATION']==1
+    import copy
+    other=copy.deepcopy(package);other['registry']['capabilities']['word_count']['version']='conflicting'
+    with pytest.raises(ValueError,match='conflict'):enrich(ir,[package,other],client=None,gateway=None,cache_dir=tmp_path/'cache')
+
+def test_partial_external_metadata_nonmembership_is_unknown(tmp_path):
+    from paper_compiler.expressions import RuntimeContext,apply_op,literal
+    ir,a=fixture(tmp_path)
+    a['results']['external_work']={'entry':{'available_fields':{'state':'observed','value':['title'],'complete':False,'evidence_ids':['e1']}}}
+    ctx=RuntimeContext(ir,a);ctx.node=ir['nodes'][-1]
+    known=ctx.field('facts.external_work.available_fields')
+    assert apply_op('contains',[known,literal('title')]).value is True
+    assert apply_op('contains',[known,literal('volume')]).state=='unknown'
+    assert apply_op('in',[literal('publisher'),known]).state=='unknown'

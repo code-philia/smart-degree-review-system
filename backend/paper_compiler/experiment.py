@@ -1,5 +1,5 @@
 """Frozen experiment harness. Oracle construction never runs in the detector."""
-import hashlib,json,os,re,subprocess,sys,tempfile,time,uuid
+import hashlib,json,os,re,subprocess,sys,tempfile,time,uuid,threading
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -8,8 +8,9 @@ from .storage import write_json_atomic
 from .batch import file_hash,load,freeze
 from .mutations import mutate
 from .evaluation import score_pair,summarize_pairs
+from .budget import BudgetExceeded
 
-VERSION='first-round/1.0'
+VERSION='first-round/1.1'
 MARKER=re.compile(r'[\[［](?:M|J|N|C|D|R|S|P|EB|A|CM|DS|PP|G|CP|DB|Z)(?:/(?:MT|DK|CD|OL|MM))?[\]］]')
 
 def recipe(ir,node,check,rid,start,end,replacement,status,domain,basis):
@@ -70,7 +71,8 @@ def detector(ir_path,folder,settings):
     script=Path(__file__).resolve().parents[1]/'scripts'/'paper_compiler_cli.py'
     with tempfile.TemporaryDirectory(prefix='input-',dir=folder) as tmp:
         work=Path(tmp);write_json_atomic(work/'input.json',load(ir_path),exclusive=True)
-        command=[sys.executable,str(script),'check','--ir',str(work/'input.json'),'--out',str(report),'--analysis-out',str(analysis)]
+        command=[sys.executable,str(script),'check','--ir',str(work/'input.json'),'--out',str(report),'--analysis-out',str(analysis),'--freeze-evidence']
+        if settings.get('model-fingerprint'):command.extend(['--model-fingerprint',settings['model-fingerprint']])
         for name in ['config','ledger','budget','phase','phase-budget','cache','evidence-snapshot']:
             command.extend(['--'+name,str(settings[name])])
         for package in settings['packages']:command.extend(['--package',str(package)])
@@ -79,7 +81,11 @@ def detector(ir_path,folder,settings):
             record={'returncode':proc.returncode,'stdout':proc.stdout[:1000000],'stderr':proc.stderr[-2000:]}
         except subprocess.TimeoutExpired:record={'returncode':-1,'error':'detector_timeout'}
         write_json_atomic(folder/'process.json',record,exclusive=True)
-        if record['returncode']:raise RuntimeError('isolated detector failed; process artifact retained')
+        if record['returncode']:
+            try:error=json.loads(record.get('stdout','').strip().splitlines()[-1])
+            except (ValueError,IndexError):error={}
+            if error.get('error_type')=='BudgetExceeded':raise BudgetExceeded('isolated detector exhausted authorized budget')
+            raise RuntimeError('isolated detector failed; process artifact retained')
     return load(report),load(analysis)
 
 def inventory(pdf_root,out):
@@ -111,12 +117,13 @@ def run_round(inventory_path,output,settings,replacement_path,minimum=100,worker
     from .frontend import build_paper
     from .runtime import load_package
     from .budget import BudgetLedger
-    from .llm import MaasClient
+    from .llm import MaasClient,load_config,public_model_config,model_fingerprint
     from .evidence import EvidenceGateway
     from .citations import citation_context
     import fcntl
     if type(workers)is not int or not 1<=workers<=3:raise ValueError('workers must be 1..3')
     output=Path(output);data=load(inventory_path)
+    effective=load_config(settings['config']);settings={**settings,'model-fingerprint':model_fingerprint(effective),'effective-model':public_model_config(effective),'freeze-evidence':True}
     sources={str(p.relative_to(Path(__file__).parents[1])):file_hash(p) for p in Path(__file__).parent.rglob('*') if p.suffix in {'.py','.json'}}
     sources['scripts/paper_compiler_cli.py']=file_hash(Path(__file__).parents[1]/'scripts/paper_compiler_cli.py')
     packages=[load_package(p) for p in settings['packages']];replacement=load(replacement_path)
@@ -127,14 +134,19 @@ def run_round(inventory_path,output,settings,replacement_path,minimum=100,worker
     if (output/'complete.json').exists():return load(output/'summary.json')
     ledger=BudgetLedger(settings['ledger'],settings['budget'])
     client=MaasClient(settings['config'],ledger,Path(settings['cache'])/'model-cache',settings['phase'],settings['phase-budget'])
-    gateway=EvidenceGateway(Path(settings['cache'])/'public-evidence',proxy=os.environ.get('PAPER_COMPILER_PUBLIC_PROXY','http://127.0.0.1:18892'))
+    if model_fingerprint(client.config)!=settings['model-fingerprint']:raise ValueError('effective model configuration changed')
+    gateway=EvidenceGateway(Path(settings['cache'])/'public-evidence',proxy=os.environ.get('PAPER_COMPILER_PUBLIC_PROXY','http://127.0.0.1:18892'),snapshot_id=settings['evidence-snapshot'])
     marker_check=format_check(next(p for p in packages if p['rule_ir']['rule_id']=='31'))
     work=replacement['identity']['work']
     replacement_text='Polack F P, Thomas S J, Kitchin N, et al. Safety and Efficacy of the BNT162b2 mRNA Covid-19 Vaccine[J]. New England Journal of Medicine, 2020, 383: 2603-2615. DOI: 10.1056/NEJMoa2034577.'
+    budget_stop=threading.Event()
     def process(item):
         folder=output/'parents'/item['id'];checkpoint=folder/'checkpoint.json'
         if file_hash(item['path'])!=item['sha256']:raise ValueError('frozen PDF changed')
-        if checkpoint.exists():return load(checkpoint)
+        if checkpoint.exists():
+            saved=load(checkpoint)
+            if saved['status']=='budget_exhausted':budget_stop.set()
+            return saved
         folder.mkdir(parents=True,exist_ok=True);records=[];exclusions=[];cases=[]
         def progress(state):
             result={'id':item['id'],'pdf_sha256':item['sha256'],'status':state,'records':records,'exclusions':exclusions,'cases':cases}
@@ -149,12 +161,15 @@ def run_round(inventory_path,output,settings,replacement_path,minimum=100,worker
             write_json_atomic(casefolder/'input.json',mutant,exclusive=True)
             write_json_atomic(casefolder/'sealed-oracle.json',oracle,exclusive=True)
             cases.append({'id':cid,'original':str(folder/'original.json'),'mutant':str(casefolder/'input.json'),'oracle':str(casefolder/'sealed-oracle.json')})
+            case_budget_exhausted=False
             try:
                 changed,_=detector(casefolder/'input.json',output/'detector'/cid,settings)
                 row=score_pair(oracle,original,changed)
             except Exception as error:
+                case_budget_exhausted=isinstance(error,BudgetExceeded)
                 row={'rule_id':oracle['rule_id'],'parent_sha256':oracle['parent_sha256'],'mutation_id':cid,'expected_status':oracle['status'],'evidence_domain':oracle['evidence_domain'],'valid_pair':False,'detected':False,'before':None,'after':'ERROR','outcome':'error','error_type':type(error).__name__}
             write_json_atomic(casefolder/'score.json',row,exclusive=True);records.append(row);progress('running')
+            if case_budget_exhausted:raise BudgetExceeded('authorized budget exhausted during case')
         try:
             original_path=folder/'original.json'
             ir=build_paper(Path(item['path']),client=client);write_json_atomic(original_path,ir,exclusive=True)
@@ -198,7 +213,9 @@ def run_round(inventory_path,output,settings,replacement_path,minimum=100,worker
             if not made:exclusions.append({'rule_id':'33','reason':'no independently supported replacement among up to three eligible uses','oracle_candidates':trials})
             state='completed'
         except Exception as error:
-            state='error';exclusions.append({'rule_id':'all','reason':type(error).__name__,'detail':str(error)[:300]})
+            state='budget_exhausted' if isinstance(error,BudgetExceeded) else 'error'
+            if state=='budget_exhausted':budget_stop.set()
+            exclusions.append({'rule_id':'all','reason':type(error).__name__,'detail':str(error)[:300]})
         result=progress(state);write_json_atomic(checkpoint,result,exclusive=True);return result
     with (output/'run.lock').open('a') as lock:
         try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
@@ -210,10 +227,11 @@ def run_round(inventory_path,output,settings,replacement_path,minimum=100,worker
             summary=summarize_pairs(records,minimum)
             summary.update(parents_attempted=len(completed),archive_distinct=len(items),unassessed_parents=len(items)-len(completed),
                 exclusions=[{'parent':p['id'],**e} for p in completed for e in p['exclusions']],parent_states=dict(Counter(p['status'] for p in completed)),budget=ledger.summary())
+            reached=all(summary['by_rule'].get(rid,{}).get('distinct_real_parents',0)>=minimum for rid in ['31','32','33'])
+            summary['stop_reason']='budget_exhausted' if budget_stop.is_set() or ledger.summary()['blocked'] else 'target_reached' if reached else 'inventory_exhausted' if len(completed)==len(items) else 'running'
             write_json_atomic(output/'summary.json',summary)
             write_json_atomic(output/'cases.json',{'version':VERSION,'minimum_parents':minimum,'cases':[c for p in completed for c in p['cases']]})
             print(json.dumps({'parents':len(completed),'by_rule':{rid:{k:v for k,v in r.items() if k in {'valid_pairs','distinct_real_parents','distinct_real_negative_parents'}} for rid,r in summary['by_rule'].items()},'budget':ledger.summary()}),flush=True)
-            if all(summary['by_rule'].get(rid,{}).get('distinct_real_parents',0)>=minimum for rid in ['31','32','33']):break
-            if ledger.summary()['blocked']:break
-        write_json_atomic(output/'complete.json',{'version':VERSION,'finished_at':time.time(),'summary_sha256':file_hash(output/'summary.json'),'budget':ledger.summary()},exclusive=True)
+            if reached or budget_stop.is_set() or ledger.summary()['blocked']:break
+        write_json_atomic(output/'complete.json',{'version':VERSION,'stop_reason':summary['stop_reason'],'finished_at':time.time(),'summary_sha256':file_hash(output/'summary.json'),'budget':ledger.summary()},exclusive=True)
         return summary

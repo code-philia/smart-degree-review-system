@@ -56,3 +56,11 @@ describe('compiler adapter', () => {
     if(oldDir===undefined)delete process.env.REVIEW_PILOT_BACKEND_DIR;else process.env.REVIEW_PILOT_BACKEND_DIR=oldDir;
   }
  });
+
+it('preserves normative basis for findings and uncertain diagnostics',()=>{
+  const value=raw('VIOLATION');value.rules[0].basis_catalog=[{id:'gbt7714-2025:8.7',text:'Degree granting institution required',kind:'standard'}];
+  value.rules[0].results[0].basis=['gbt7714-2025:8.7'];
+  const found=service.toCompilerResult(value,['sjtu_rule_31']).rule_runs[0].findings[0];
+  expect(found.basis_details[0].id).toBe('gbt7714-2025:8.7');
+  expect(found.basis_details[0].kind).toBe('standard');
+});

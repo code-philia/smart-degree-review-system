@@ -250,3 +250,68 @@ def test_field_sequence_cannot_be_used_as_a_character_sequence():
     r['checks'][0]['assert']={'op':'precedes','args':[{'op':'field','path':'facts.bibliography_shape.field_sequence'},{'op':'literal','value':'/'},{'op':'literal','value':'OL'}]}
     with pytest.raises(CompilationError,match='sequence'):
         validate_rule_ir(r,actual_registry)
+
+def test_body_citation_false_positive_is_rejected_by_withheld_controls(tmp_path):
+    from paper_compiler.validation import compiler_controls
+    from paper_compiler.registry import REGISTRY as actual_registry
+    class BadModel:
+        def complete_json(self,*args):
+            s=spec();s['rule_id']='31';s['requires']=['bibliography_fields','citation_syntax']
+            s['checks'].append({'id':'bad-comma-required','target_kind':'CitationGroup','when':{'op':'equals','args':[{'op':'field','path':'facts.citation_syntax.system'},{'op':'literal','value':'numeric'}]},'assert':{'op':'contains','args':[{'op':'field','path':'facts.citation_syntax.separators'},{'op':'literal','value':','}]},'basis':[],'message':'Missing comma'})
+            return s
+    cases=[c for c in compiler_controls('31') if c['status']=='PASS']
+    with pytest.raises(CompilationError,match='independent behavior'):
+        compile_rule('Citation format',[],actual_registry,BadModel(),tmp_path/'out',validation_cases=cases,max_attempts=1)
+
+def test_physical_line_wrap_is_equivalent_for_lexical_punctuation():
+    from paper_compiler.expressions import apply_op,literal
+    for text in ['[1] A title[J/OL]. https://example.org','[1] A title[J/OL].\nhttps://example.org']:
+        assert apply_op('matches',[literal(text),literal('.*/[A-Z]{2}.*')]).value is True
+
+def test_field_order_template_must_guard_each_optional_field():
+    from paper_compiler.registry import REGISTRY as actual_registry
+    r=rule();r['registry_version']=actual_registry['version'];r['requires']=['bibliography_shape','bibliography_fields']
+    r['checks'][0]['assert']={'op':'precedes','args':[{'op':'field','path':'facts.bibliography_shape.field_sequence'},{'op':'literal','value':'year'},{'op':'literal','value':'pages'}]}
+    with pytest.raises(CompilationError,match='applicability guards'):validate_rule_ir(r,actual_registry)
+
+def test_semantic_failure_names_candidate_checks_without_leaking_test_inputs(tmp_path):
+    ir,a=fixture(tmp_path)
+    class Retry:
+        calls=0
+        def complete_json(self,task,instructions,data,max_tokens):
+            self.calls+=1
+            candidate=spec()
+            if self.calls==1:candidate['checks'][0]['assert']={'op':'not','args':[candidate['checks'][0]['assert']]}
+            else:
+                assert candidate['checks'][0]['id'] in data['previous_failure']
+                assert data['previous_candidate']['checks'][0]['assert']['op']=='not'
+                assert 'Hello' not in data['previous_failure']
+                assert 'ir' not in data and 'analysis' not in data
+            return candidate
+    model=Retry()
+    compile_rule('Require title',[],REGISTRY,model,tmp_path/'out',validation_cases=[{'id':'independent-positive','ir':ir,'analysis':a,'status':'PASS'}])
+    assert model.calls==2
+
+def test_regex_parenthesis_characters_inside_character_classes_are_not_groups():
+    from paper_compiler.compiler import _pattern
+    from paper_compiler.expressions import apply_op,literal
+    pattern=r'.*\([^()]*,[^()]*\).*'
+    _pattern(pattern)
+    assert apply_op('matches',[literal('(Smith, 2020)'),literal(pattern)]).value is True
+    assert apply_op('matches',[literal('Smith (2020)'),literal(pattern)]).value is False
+    with pytest.raises(CompilationError):_pattern(r'(a+)+')
+
+def test_partitioned_rule_has_separate_bounded_union_limit(tmp_path):
+    from paper_compiler.compiler import compile_partitioned_rule
+    import copy
+    ir,a=fixture(tmp_path)
+    class ManyChecks:
+        def complete_json(self,*args):
+            candidate=spec();original=candidate['checks'][0]
+            candidate['checks']=[{**copy.deepcopy(original),'id':'check-'+str(i)} for i in range(100)]
+            return candidate
+    package=compile_partitioned_rule('Require title',[{'id':'one','text':'Title'},{'id':'two','text':'Also title'}],REGISTRY,ManyChecks(),tmp_path/'out',validation_cases=[{'id':'valid','ir':ir,'analysis':a,'status':'PASS'}])
+    assert len(package['rule_ir']['checks'])==200
+    oversized=copy.deepcopy(package['rule_ir'])
+    oversized['checks']=[{**oversized['checks'][0],'id':str(i)} for i in range(513)]
+    with pytest.raises(CompilationError,match='checks'):validate_rule_ir(oversized,REGISTRY)

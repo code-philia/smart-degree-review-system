@@ -55,6 +55,15 @@ def resolve_identity(entry:dict,records:list[dict],client=None)->dict:
         ids=[c[0]['id'] for c in matches];work['evidence_ids']=ids
         repositories={c[0]['work'].get('pmcid') for c in matches if re.fullmatch(r'PMC\d+',str(c[0]['work'].get('pmcid',''))) and c[0]['work'].get('doi','').lower()==work.get('doi','').lower() and work.get('doi')}
         if len(repositories)==1:work['pmcid']=repositories.pop()
+        # Merge corroborated optional fields only when their nonempty values agree.
+        field_sources={}
+        for field in ['container','volume','issue','pages','publisher','place','institution','version']:
+            supplied=[(c[0]['id'],c[0]['work'][field],c[0]['work'].get('field_provenance',{}).get(field)) for c in matches if c[0]['work'].get(field)]
+            values={str(v).strip() for _,v,_ in supplied}
+            if len(values)==1:
+                work[field]=supplied[0][1];field_sources[field]=[{'evidence_id':eid,'provider_field':path} for eid,_,path in supplied]
+            elif len(values)>1:work.pop(field,None)
+        work['field_sources']=field_sources
         conflicts=[]
         if entry.get('doi') and work.get('doi') and entry['doi'].lower()!=work['doi'].lower():conflicts.append('doi')
         return {'state':'observed','value':True,'evidence_ids':ids,'work':work,'metadata_conflicts':conflicts,'method':'corroborated_metadata'}

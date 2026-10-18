@@ -57,3 +57,19 @@ def test_completed_batch_cannot_silently_reuse_a_changed_source(tmp_path):
     m=manifest(tmp_path);config={'pipeline_version':'v1','runner':lambda p:{}}
     run_batch(m,config,tmp_path/'out');(tmp_path/'source.pdf').write_bytes(b'changed')
     with pytest.raises(ValueError,match='changed'):run_batch(m,config,tmp_path/'out')
+
+@pytest.mark.parametrize('crash_name',['started.json','result.json','attempt-1.json'])
+def test_crash_windows_do_not_rerun_paid_work_or_lose_completed_result(tmp_path,monkeypatch,crash_name):
+    import paper_compiler.batch as batch
+    from paper_compiler.storage import write_json_atomic as real_write
+    class Crash(BaseException):pass
+    calls=[];m=manifest(tmp_path);config={'pipeline_version':'v1','runner':lambda p:calls.append(p) or {'status':'ok'}}
+    def interrupted(path,value,**kwargs):
+        real_write(path,value,**kwargs)
+        if path.name==crash_name:raise Crash()
+    monkeypatch.setattr(batch,'write_json_atomic',interrupted)
+    with pytest.raises(Crash):batch.run_batch(m,config,tmp_path/'out')
+    count=len(calls);monkeypatch.setattr(batch,'write_json_atomic',real_write)
+    result=batch.run_batch(m,config,tmp_path/'out')
+    assert len(calls)==count
+    assert result['counts']==({'error':1} if crash_name=='started.json' else {'completed':1})

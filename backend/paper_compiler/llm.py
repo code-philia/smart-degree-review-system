@@ -67,6 +67,14 @@ def _usage(response):
     return {key: usage[key] for key in keys}
 
 
+def public_model_config(config):
+    return {'endpoint':config.get('MAAS_BASE_URL','').rstrip('/'),'model':config.get('MAAS_MODEL'),
+        'declared_version':config.get('MAAS_MODEL_VERSION'),'adapter_version':2,'rate_version':RATE_VERSION}
+
+def model_fingerprint(config):
+    return hashlib.sha256(json_bytes(public_model_config(config))).hexdigest()
+
+
 class MaasClient:
     def __init__(self, config_path, ledger, cache_dir, phase, phase_limit_cny,
                  *, transport=None, max_attempts=2, retry_delay=1, timeout=120):

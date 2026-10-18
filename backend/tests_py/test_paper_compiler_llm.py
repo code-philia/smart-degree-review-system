@@ -120,3 +120,10 @@ def test_invalid_output_preserves_finish_reason_and_content_for_diagnosis(tmp_pa
     record=json.loads(next((tmp_path/'cache/attempts').glob('*.json')).read_text())
     assert record['finish_reason']=='length'
     assert record['output_content'].startswith('```json')
+
+def test_effective_model_fingerprint_binds_versions_but_not_credentials():
+    from paper_compiler.llm import public_model_config,model_fingerprint
+    a={'MAAS_BASE_URL':'https://api.modelarts-maas.com/openai/v1','MAAS_MODEL':'deepseek-v4.1-flash','MAAS_MODEL_VERSION':'one','MAAS_API_KEY':'private-one'}
+    assert 'API_KEY' not in str(public_model_config(a))
+    assert model_fingerprint(a)==model_fingerprint({**a,'MAAS_API_KEY':'rotated'})
+    assert model_fingerprint(a)!=model_fingerprint({**a,'MAAS_MODEL_VERSION':'two'})

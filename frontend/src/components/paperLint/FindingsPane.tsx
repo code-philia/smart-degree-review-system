@@ -155,7 +155,7 @@ export function FindingsPane({
                   </Button>
                 ) : null}
                 {active && item.finding.source_kind === 'synthetic' ? <p className="mt-2 text-xs text-slate-600">该处来自变异内容，未标记为原始 PDF 中的文本。</p> : null}
-                {active && item.finding.evidence?.length ? <EvidenceLinks items={item.finding.evidence} /> : null}
+                {active && (item.finding.evidence?.length || item.finding.basis_details?.length) ? <EvidenceLinks items={item.finding.evidence || []} basis={item.finding.basis_details} /> : null}
                 {active && item.finding.suggestion ? (
                   <div className="mt-3 rounded-lg bg-white p-3 text-xs leading-5 text-slate-600">
                     <strong className="text-slate-800">修改建议：</strong>

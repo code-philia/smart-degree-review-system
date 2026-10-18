@@ -20,7 +20,7 @@ ATTRS = {
     'Section': {'number': str, 'level': int}, 'Heading': {'number': str, 'level': int},
     'ReferenceUse': {'namespace': str, 'expected_kind': str, 'selector': dict, 'use_role': (str, dict)},
     'CitationGroup': {'style': (str, dict), 'marker': str, 'superscript': (bool, dict)},
-    'BibliographyEntry': {'key': str, 'resource_type': (str, dict), 'fields': dict},
+    'BibliographyEntry': {'key': (str, dict), 'resource_type': (str, dict), 'fields': dict},
     'Bibliography': {'style': (str, dict), 'bibliography_kind': str},
     'Figure': {'visual_kind': str, 'asset': (str, dict)}, 'FigurePanel': {'asset': (str, dict)},
     'TableCell': {'row': int, 'column': int, 'rowspan': int, 'colspan': int, 'unit': (str, dict)},

@@ -11,6 +11,7 @@ from .contracts import validate_analysis
 class Value:
     value: object = None
     state: str = 'known'
+    complete: bool = True
     reasons: list = field(default_factory=list)
     evidence_ids: list = field(default_factory=list)
 
@@ -48,7 +49,7 @@ class RuntimeContext:
                 return Value(state='error',reasons=['unresolved evidence id'])
             if value['state']=='observed':
                 if not evidence:return Value(state='unknown',reasons=['observation has no evidence: '+path])
-                return Value(value.get('value'),evidence_ids=list(evidence))
+                return Value(value.get('value'),evidence_ids=list(evidence),complete=value.get('complete',True))
             if value['state']=='confirmed_absent':
                 if not evidence or not value.get('search_scope'):
                     return Value(state='unknown',reasons=['absence has no scope/evidence'])
@@ -66,6 +67,9 @@ def apply_op(op, args):
     if any(a.state=='error' for a in args):return Value(state='error',reasons=reasons,evidence_ids=evidence)
     if any(a.state!='known' for a in args):return Value(state='unknown',reasons=reasons,evidence_ids=evidence)
     values=[a.value for a in args]
+    if op in {'length','equals','present'} and any(not a.complete for a in args):return Value(state='unknown',reasons=['partial observation does not establish absence or completeness'],evidence_ids=evidence)
+    if op=='contains' and not args[0].complete and values[1] not in values[0]:return Value(state='unknown',reasons=['metadata availability not established'],evidence_ids=evidence)
+    if op=='in' and not args[1].complete and values[0] not in values[1]:return Value(state='unknown',reasons=['metadata availability not established'],evidence_ids=evidence)
     try:
         if op=='present':result=values[0] is not None and values[0]!='' and values[0]!=[]
         elif op=='all':result=all(v is True for v in values)
@@ -76,7 +80,8 @@ def apply_op(op, args):
         elif op=='contains':result=values[1] in values[0]
         elif op=='matches':
             if values[0] is None:return Value(state='unknown',reasons=['no text available'],evidence_ids=evidence)
-            result=bool(safe_regex.fullmatch(values[1],values[0]))
+            options=safe_regex.Options();options.dot_nl=True
+            result=bool(safe_regex.fullmatch(values[1],values[0],options=options))
         elif op=='length':result=len(values[0])
         elif op=='precedes':
             if values[1] not in values[0] or values[2] not in values[0]:return Value(state='unknown',reasons=['ordered field not observed'],evidence_ids=evidence)

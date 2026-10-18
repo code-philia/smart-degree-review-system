@@ -9,7 +9,7 @@ from .registry import REGISTRY,FIELD_TYPES
 from .identity import resolve_identity
 from .citations import citation_context
 
-VERSION='shared-analysis/1.4'
+VERSION='shared-analysis/1.5'
 def unknown(reason):return {'state':'unknown','reason':reason}
 def observed(value,ids):return {'state':'observed','value':value,'evidence_ids':list(dict.fromkeys(ids))}
 def _norm(text):return re.sub(r'\s+',' ',str(text)).strip()
@@ -98,7 +98,7 @@ def _entry_shapes(ir,a):
         seq=[name for _,name in sorted((item['source_range'][0],name) for name,item in fields.items() if 'source_range' in item)]
         results[n['id']]={'electronic':electronic,'type_bracketed':observed(bool(marker),[n['id']]),
             'label_bracketed':observed(bool(re.match(r'^\s*[\[［]\d+[\]］]',text)),[n['id']]),
-            'system':observed('numeric' if str(key).isdigit() else 'author_year',[n['id']]),'field_sequence':observed(seq,[n['id']])}
+            'system':unknown('entry label unresolved') if isinstance(key,dict) else observed('numeric' if str(key).isdigit() else 'author_year',[n['id']]),'field_sequence':observed(seq,[n['id']])}
 
 def _resource_attributes(ir,a):
     resolved=a.setdefault('node_attributes',{})
@@ -140,7 +140,7 @@ def citation_syntax(ir,a):
     for n in ir['nodes']:
         if n['kind']!='CitationGroup':continue
         text=n['text'].strip();numeric=bool(re.fullmatch(r'[\[［][\d\s,，;；\-–—−]+[\]］]',text))
-        results[n['id']]={k:observed(v,[n['id']]) for k,v in {'system':'numeric' if numeric else 'author_year','opening':text[:1],'closing':text[-1:],
+        results[n['id']]={k:observed(v,[n['id']]) for k,v in {'system':'numeric' if numeric else 'author_year','form':'bracketed' if numeric else 'parenthetical' if text[:1] in '(（' else 'narrative','opening':text[:1],'closing':text[-1:],
             'separators':re.findall(r'[,，;；]',text),'range_separators':re.findall(r'[\-–—−]',text),'numbers':re.findall(r'\d+',text) if numeric else []}.items()}
         results[n['id']]['automatic_footnote']=unknown('automatic numbering cannot be established from PDF text')
 
@@ -166,18 +166,48 @@ Only use unrelated with positive explicit evidence that the cited work cannot se
     return {**observed(relation=='related',[item['id']]),'purpose':result.get('purpose'),'intent_quote':result['intent_quote'],
         'evidence_quote':result['evidence_quote'],'content_range':list(evidence_span),'reason':result.get('reason',''),'basis':basis}
 
+def capability_plan(packages):
+    plan={}
+    for package in packages:
+        for name in package['rule_ir']['requires']:
+            cap=package['registry']['capabilities'][name]
+            if name in plan and plan[name]!=cap:raise ValueError('conflicting capability versions: '+name)
+            plan[name]=cap
+    for name,cap in plan.items():
+        if name in REGISTRY['capabilities']:
+            if cap['version']!=REGISTRY['capabilities'][name]['version']:raise ValueError('unsupported builtin capability version: '+name)
+        elif cap.get('implementation')!='isolated_pure_python':raise ValueError('unsupported capability implementation: '+name)
+        elif hashlib.sha256(Path(cap['code_path']).read_bytes()).hexdigest()!=cap['code_sha256']:raise ValueError('capability code hash mismatch')
+    return plan
+
+def generated_passes(ir,a,plan):
+    from .capabilities import run_capability
+    for name,cap in plan.items():
+        if name in REGISTRY['capabilities']:continue
+        output=a['results'].setdefault(name,{})
+        for node in ir['nodes']:
+            if node['kind'] not in cap['targets']:continue
+            if node.get('text') is None:
+                output[node['id']]={field:unknown('source text unavailable for generated analysis') for field in cap['fields']};continue
+            values=run_capability(cap,{'node':node,'facts':{}})
+            output[node['id']]={field:observed(value,[node['id']]) for field,value in values.items()}
+    return a
+
 def enrich(ir,rule_packages,*,client,gateway,cache_dir:Path,snapshot_id=None):
-    required={name for package in rule_packages for name in package['rule_ir']['requires']}
+    plan=capability_plan(rule_packages);required=set(plan)
     from datetime import datetime,timezone
     from .evidence import VERSION as EVIDENCE_VERSION,CONTENT_VERSION
     snapshot_id=snapshot_id or datetime.now(timezone.utc).date().isoformat()
     config=getattr(client,'config',{})
-    policy={'model':{k:config.get(k) for k in ['MAAS_MODEL','MAAS_MODEL_VERSION']},'offline':client is None,'providers':getattr(gateway,'providers',[]),'evidence_version':EVIDENCE_VERSION,'content_version':CONTENT_VERSION,'snapshot':snapshot_id}
-    fingerprint=hashlib.sha256(json_bytes({'ir':ir_hash(ir),'version':VERSION,'capabilities':REGISTRY,'required':sorted(required),'policy':policy})).hexdigest()
+    policy={'model':{k:config.get(k) for k in ['MAAS_MODEL','MAAS_MODEL_VERSION']},'offline':client is None,'providers':getattr(gateway,'providers',[]),'evidence_version':EVIDENCE_VERSION,'content_version':CONTENT_VERSION,'snapshot':snapshot_id,'frozen_evidence':getattr(gateway,'snapshot_id',None)}
+    fingerprint=hashlib.sha256(json_bytes({'ir':ir_hash(ir),'version':VERSION,'capabilities':plan,'required':sorted(required),'policy':policy})).hexdigest()
     path=Path(cache_dir)/(fingerprint+'.json')
     if path.exists():
         cached=json.loads(path.read_text());validate_analysis(ir,cached);return cached
-    a=base_analysis(ir);a['policy']=policy;parse_entries(ir,a,client);bind_references(ir,a);citation_syntax(ir,a);ordering_facts(ir,a)
+    a=base_analysis(ir);a['policy']=policy
+    a['capability_versions'].update({name:cap['version'] for name,cap in plan.items()})
+    if required & {'bibliography_fields','bibliography_shape','external_work','citation_relevance'}:parse_entries(ir,a,client)
+    bind_references(ir,a);citation_syntax(ir,a);ordering_facts(ir,a)
     if required & {'external_work','citation_relevance'}:
         external=a['results'].setdefault('external_work',{})
         for node in ir['nodes']:
@@ -193,7 +223,7 @@ def enrich(ir,rule_packages,*,client,gateway,cache_dir:Path,snapshot_id=None):
                 work=identity['work'];eid='work-'+hashlib.sha256(json_bytes(work)).hexdigest()[:24]
                 if not any(e['id']==eid for e in a['entities']):a['entities'].append({'id':eid,'kind':'ExternalWork',**work})
                 a['edges'].append({'type':'identifies','from':node['id'],'to':eid,'evidence_ids':identity['evidence_ids']})
-                external[node['id']]['available_fields']=observed([name for name in FIELD_TYPES if work.get(name)],identity['evidence_ids'])
+                external[node['id']]['available_fields']={**observed([name for name in FIELD_TYPES if work.get(name)],identity['evidence_ids']),'complete':False}
             else:external[node['id']]['available_fields']=unknown('work identity unresolved')
     if 'citation_relevance' in required:
         relevant=a['results'].setdefault('citation_relevance',{});nodes={n['id']:n for n in ir['nodes']};entities={e['id']:e for e in a['entities']}
@@ -221,6 +251,7 @@ def enrich(ir,rule_packages,*,client,gateway,cache_dir:Path,snapshot_id=None):
             if result.get('state')=='observed':
                 iid='intent-'+use_id;a['entities'].append({'id':iid,'kind':'CitationIntent','use_id':use_id,'purpose':result.get('purpose'),'quote':result.get('intent_quote')})
                 a['edges'].append({'type':'relevant_to' if result['value'] else 'contradicts','from':work['id'],'to':iid,'evidence_ids':result['evidence_ids']})
+    generated_passes(ir,a,plan)
     validate_analysis(ir,a);write_json_atomic(path,a);return a
 
 
@@ -234,6 +265,6 @@ def ordering_facts(ir,a):
         if node['kind']!='ReferenceUse':continue
         selector=node['attrs'].get('selector',{});value=str(selector.get('value',''));first=value not in seen
         if first:seen[value]=len(seen)+1
-        citations[node['id']]={'numeric_value':observed(int(value),[node['id']]) if selector.get('kind')=='numeric' and value.isdigit() else unknown('not a numeric citation'),
+        citations[node['id']]={'system':observed(selector.get('kind','unknown'),[node['id']]),'numeric_value':observed(int(value),[node['id']]) if selector.get('kind')=='numeric' and value.isdigit() else unknown('not a numeric citation'),
             'first_appearance_rank':observed(seen[value],[node['id']]) if complete else unknown('incomplete citation extraction prevents ordinal judgment'),
             'is_first_use':observed(first,[node['id']]) if complete else unknown('earlier unobserved citations are possible')}

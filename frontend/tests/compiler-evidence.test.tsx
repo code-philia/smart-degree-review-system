@@ -12,3 +12,10 @@ describe('compiler evidence display',()=>{
   expect(screen.getAllByRole('link')).toHaveLength(1);
  });
 });
+
+it('shows the actual normative clause alongside evidence',()=>{
+ render(<EvidenceLinks items={[]} basis={[{id:'gbt7714-2025:8.7',kind:'standard',text:'学位授予单位'}]} />);
+ expect(screen.getByText('标准依据')).toBeTruthy();
+ expect(screen.getByText('gbt7714-2025:8.7')).toBeTruthy();
+ expect(screen.getByText('学位授予单位')).toBeTruthy();
+});

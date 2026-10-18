@@ -182,3 +182,101 @@ def test_multiple_author_initials_match_full_names_without_merging_conflicts():
     assert _author_match(['Fernando P. Polack'],['Polack FP'])
     assert not _author_match(['Fernando P. Polack'],['Polack FA'])
     assert not _author_match(['John Smith'],['James Smith'])
+
+def test_crossref_optional_metadata_and_field_provenance_are_retained(tmp_path):
+    data=crossref();raw=data['message']['items'][0]
+    raw.update(volume='12',issue='3',page='20-25',**{'container-title':['Journal of Tests'],'publisher':'Example Press'})
+    _,http=transport(data)
+    work=EvidenceGateway(tmp_path,providers=['crossref'],transport=http).lookup({'title':'Attention Is All You Need'})[0]['work']
+    assert {k:work[k] for k in ['volume','issue','pages','container','publisher']}=={'volume':'12','issue':'3','pages':'20-25','container':'Journal of Tests','publisher':'Example Press'}
+    assert work['field_provenance']['volume']=='volume'
+
+def test_frozen_evidence_does_not_refresh_after_live_cache_expiry(tmp_path):
+    now=[1000];calls=[]
+    def http(url):
+        calls.append(url);return 200,json.dumps(crossref(title='Version '+str(len(calls)))).encode()
+    frozen=EvidenceGateway(tmp_path,providers=['crossref'],transport=http,clock=lambda:now[0],snapshot_id='round-one')
+    one=frozen.lookup({'title':'target'});now[0]+=90000
+    again=EvidenceGateway(tmp_path,providers=['crossref'],transport=http,clock=lambda:now[0],snapshot_id='round-one').lookup({'title':'target'})
+    assert one==again and len(calls)==1
+    two=EvidenceGateway(tmp_path,providers=['crossref'],transport=http,clock=lambda:now[0],snapshot_id='round-two').lookup({'title':'target'})
+    assert two!=one and len(calls)==2
+
+def test_frozen_failure_and_content_are_pinned(tmp_path):
+    calls=[]
+    def http(url):calls.append(url);return 503,b''
+    g=EvidenceGateway(tmp_path,providers=['crossref'],transport=http,snapshot_id='fixed')
+    query={'title':'target'};first=g.lookup(query)
+    g.clock=lambda:10**12
+    assert g.lookup(query)==first
+    work={'title':'target','pmcid':'PMC123456','doi':'10.1234/test'}
+    a=g.content(work);b=g.content(work)
+    assert a==b and len(calls)==2
+
+def test_concurrent_snapshot_queries_observe_one_immutable_winner(tmp_path):
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+    counter=[0];barrier=threading.Barrier(2)
+    def http(url):
+        counter[0]+=1
+        return 200,json.dumps(crossref(title='Concurrent version '+str(counter[0]))).encode()
+    gateway=EvidenceGateway(tmp_path,providers=['crossref'],transport=http,snapshot_id='concurrent')
+    save=gateway._cache_result
+    def synchronized_save(path,value):
+        barrier.wait(timeout=5)
+        return save(path,value)
+    gateway._cache_result=synchronized_save
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        values=list(pool.map(gateway.lookup,[{'title':'target'},{'title':'target'}]))
+    assert values[0]==values[1] and counter[0]==2
+    gateway._cache_result=save
+    assert gateway.lookup({'title':'target'})==values[0] and counter[0]==2
+
+def test_independent_providers_overlap_io_but_keep_deterministic_record_order(tmp_path):
+    import threading,time
+    active=[0];maximum=[0];lock=threading.Lock()
+    gateway=EvidenceGateway(tmp_path,providers=['crossref','datacite'],transport=lambda url:None)
+    def retrieve(provider,url):
+        with lock:active[0]+=1;maximum[0]=max(maximum[0],active[0])
+        time.sleep(.04 if provider=='crossref' else .01)
+        with lock:active[0]-=1
+        return {'provider':provider,'id':provider,'works':[],'status':'empty'}
+    gateway._retrieve=retrieve
+    records=gateway.lookup({'title':'work'})
+    assert maximum[0]==2
+    assert [r['provider'] for r in records]==['crossref','datacite']
+
+def test_provider_admission_is_shared_across_processes_and_snapshots(tmp_path):
+    import multiprocessing,time
+    if 'fork' not in multiprocessing.get_all_start_methods():pytest.skip('POSIX development service')
+    ctx=multiprocessing.get_context('fork');events=ctx.Queue()
+    def worker(ident):
+        def http(url):
+            events.put(('start',ident,time.time()));time.sleep(.15)
+            events.put(('end',ident,time.time()))
+            return 200,b'{"message":{"items":[]}}'
+        gateway=EvidenceGateway(tmp_path,providers=['crossref'],transport=http,snapshot_id=str(ident))
+        gateway.rate_limit=True;gateway.lookup({'title':'work-'+str(ident)})
+    children=[ctx.Process(target=worker,args=(i,)) for i in range(2)]
+    for child in children:child.start()
+    for child in children:child.join(8);assert child.exitcode==0
+    values=[events.get(timeout=2) for _ in range(4)]
+    starts=sorted((t,i) for kind,i,t in values if kind=='start')
+    ends={i:t for kind,i,t in values if kind=='end'}
+    assert starts[1][0]-starts[0][0]>=.9
+    assert ends[starts[0][1]]<=starts[1][0]
+
+def test_retry_after_defers_new_queries_across_gateway_instances(tmp_path):
+    calls=[]
+    class Limited(tuple):
+        headers={'retry-after':'3600'}
+    def http(url):
+        calls.append(url)
+        return Limited((429,b''))
+    one=EvidenceGateway(tmp_path,providers=['crossref'],transport=http,snapshot_id='one');one.rate_limit=True
+    two=EvidenceGateway(tmp_path,providers=['crossref'],transport=http,snapshot_id='two');two.rate_limit=True
+    first=one.lookup({'title':'first'});second=two.lookup({'title':'different'})
+    assert len(calls)==1
+    assert first[0]['http_status']==429 and second[0]['status']=='unavailable'
+    assert second[0]['request_sent'] is False
+    assert second[0]['deferred_reason']=='provider_retry_after_or_backoff'

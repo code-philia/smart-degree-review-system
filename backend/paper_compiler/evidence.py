@@ -12,15 +12,22 @@ from urllib.request import Request, build_opener, HTTPRedirectHandler, ProxyHand
 from urllib.error import HTTPError
 from .storage import json_bytes, write_json_atomic
 
-VERSION='public-evidence/1.1'
+VERSION='public-evidence/1.2'
 CONTENT_VERSION='public-content/1.1-arxiv'
 MAX_BYTES=4*1024*1024
 HOSTS={'api.crossref.org','api.datacite.org','api.openalex.org','www.ebi.ac.uk','export.arxiv.org'}
 _GROUPS={'crossref':'doi-registration','datacite':'doi-registration','openalex':'aggregated-metadata','europepmc':'pubmed-metadata'}
 _locks={name:threading.Lock() for name in _GROUPS}
-_last={name:0.0 for name in _GROUPS}
 
 class EvidenceError(ValueError):pass
+
+class HTTPResponse(tuple):
+    def __new__(cls,status,body,headers=None,request_sent=True):
+        item=super().__new__(cls,(status,body))
+        item.headers={str(k).lower():str(v) for k,v in (headers or {}).items()}
+        item.request_sent=request_sent
+        return item
+
 
 def validate_url(url):
     p=urlsplit(url)
@@ -38,16 +45,16 @@ def _http(url,proxy=None):
         with opener.open(Request(url,headers={'User-Agent':'SJTU-PaperCompiler/1.0 (scholarly citation validation)','Accept':'application/json, application/xml'}),timeout=20) as response:
             data=response.read(MAX_BYTES+1)
             if len(data)>MAX_BYTES:raise EvidenceError('response too large')
-            return response.status,data
+            return HTTPResponse(response.status,data,dict(response.headers))
     except HTTPError as error:
-        return error.code,b''
+        return HTTPResponse(error.code,b'',dict(error.headers))
 
 def _clean(text):return re.sub(r'\s+',' ',html.unescape(re.sub('<[^>]+>',' ',str(text or '')))).strip()
 def _year(value):
     try:return int(str(value)[:4])
     except (ValueError,TypeError):return None
 
-def _works(provider,data):
+def _identity_works(provider,data):
     if provider=='crossref':
         message=data.get('message',{});items=message.get('items',[message] if message.get('DOI') else [])
         for d in items:
@@ -73,6 +80,44 @@ def _works(provider,data):
                 'year':_year(d.get('pubYear')),'doi':d.get('doi','').lower(),'abstract':_clean(d.get('abstractText','')), 'pmcid':d.get('pmcid',''),
                 'url':'https://europepmc.org/article/'+str(d.get('source','MED'))+'/'+str(d.get('id','')),'type':'article'}
 
+def _works(provider,data):
+    if provider=='crossref':
+        message=data.get('message',{});raw=message.get('items',[message] if message.get('DOI') else [])
+    elif provider=='datacite':
+        raw=data.get('data',[]);raw=raw if isinstance(raw,list) else [raw]
+        raw=[x.get('attributes',{}) for x in raw]
+    elif provider=='openalex':raw=data.get('results',[])
+    else:raw=data.get('resultList',{}).get('result',[])
+    for work,item in zip(_identity_works(provider,data),raw):
+        if provider=='crossref':
+            extras={'container':((item.get('container-title') or [''])[0],'container-title[0]'),
+                'volume':(item.get('volume'),'volume'),'issue':(item.get('issue'),'issue'),
+                'pages':(item.get('page'),'page'),'publisher':(item.get('publisher'),'publisher'),
+                'place':(item.get('publisher-location'),'publisher-location')}
+        elif provider=='datacite':
+            publisher=item.get('publisher');publisher=publisher.get('name') if isinstance(publisher,dict) else publisher
+            container=item.get('container') or {}
+            extras={'publisher':(publisher,'publisher'),'container':(container.get('title'),'container.title'),
+                'volume':(container.get('volume'),'container.volume'),'issue':(container.get('issue'),'container.issue'),
+                'pages':(container.get('firstPage'),'container.firstPage'),'version':(item.get('version'),'version')}
+        elif provider=='openalex':
+            b=item.get('biblio') or {};source=(item.get('primary_location') or {}).get('source') or {}
+            pages='-'.join(str(v) for v in [b.get('first_page'),b.get('last_page')] if v)
+            extras={'container':(source.get('display_name'),'primary_location.source.display_name'),
+                'volume':(b.get('volume'),'biblio.volume'),'issue':(b.get('issue'),'biblio.issue'),
+                'pages':(pages,'biblio.first_page,last_page')}
+        else:
+            journal=item.get('journalInfo') or {}
+            extras={'container':((journal.get('journal') or {}).get('title'),'journalInfo.journal.title'),
+                'volume':(journal.get('volume'),'journalInfo.volume'),'issue':(journal.get('issue'),'journalInfo.issueId'),
+                'pages':(item.get('pageInfo'),'pageInfo')}
+        provenance={}
+        for field,(value,path) in extras.items():
+            if isinstance(value,(str,int,float)) and str(value).strip():
+                work[field]=_clean(value);provenance[field]=path
+        work['field_provenance']=provenance
+        yield work
+
 def _urls(provider,query):
     title=str(query.get('title','')).strip()[:1000];doi=str(query.get('doi','')).strip().lower()
     if doi and not re.fullmatch(r'10\.\d{4,9}/[^\s]{1,250}',doi):doi=''
@@ -90,22 +135,61 @@ def _urls(provider,query):
         if doi or title:yield 'https://www.ebi.ac.uk/europepmc/webservices/rest/search?'+urlencode({'query':term,'format':'json','resultType':'core','pageSize':5})
 
 class EvidenceGateway:
-    def __init__(self,cache_dir,providers=None,transport=None,*,clock=time.time,proxy=None):
-        self.cache_dir=Path(cache_dir);self.cache_dir.mkdir(parents=True,exist_ok=True)
+    def __init__(self,cache_dir,providers=None,transport=None,*,clock=time.time,proxy=None,snapshot_id=None):
+        self.snapshot_id=snapshot_id;self.rate_dir=Path(cache_dir);self.rate_dir.mkdir(parents=True,exist_ok=True)
+        self.cache_dir=self.rate_dir/'snapshots'/hashlib.sha256(str(snapshot_id).encode()).hexdigest() if snapshot_id else self.rate_dir
+        self.cache_dir.mkdir(parents=True,exist_ok=True)
         self.providers=['crossref','datacite','openalex','europepmc'] if providers is None else list(providers)
         if any(p not in _GROUPS for p in self.providers):raise EvidenceError('unknown provider')
         self.transport=transport or (lambda url:_http(url,proxy));self.clock=clock;self.rate_limit=transport is None
+    def _cache_result(self,path,value):
+        if self.snapshot_id:
+            try:write_json_atomic(path,value,exclusive=True)
+            except FileExistsError:return json.loads(path.read_text())
+        else:write_json_atomic(path,value)
+        return value
+    def _fetch(self,provider,url):
+        with _locks[provider]:
+            if not self.rate_limit:return self.transport(url)
+            import fcntl
+            from email.utils import parsedate_to_datetime
+            state_path=self.rate_dir/(provider+'-rate-state.json')
+            # One in-flight request per provider across all local processes.
+            with (self.rate_dir/(provider+'-rate.lock')).open('a+') as lock:
+                fcntl.flock(lock,fcntl.LOCK_EX)
+                state=json.loads(state_path.read_text()) if state_path.exists() else {}
+                now=time.time();until=state.get('cooldown_until',0)
+                if until>now:return HTTPResponse(429,b'',{'retry-after':str(until-now)},request_sent=False)
+                time.sleep(max(0,1-(now-state.get('last_started',0))))
+                state['last_started']=time.time()
+                # Persist admission before I/O, including failed or interrupted requests.
+                write_json_atomic(state_path,state)
+                response=self.transport(url);status,_=response
+                if status==429:
+                    failures=state.get('rate_limit_failures',0)+1;delay=min(3600,60*2**min(failures-1,6))
+                    header=getattr(response,'headers',{}).get('retry-after')
+                    if header:
+                        try:seconds=float(header)
+                        except ValueError:
+                            try:seconds=parsedate_to_datetime(header).timestamp()-time.time()
+                            except (ValueError,TypeError,OverflowError):seconds=delay
+                        if seconds==seconds and abs(seconds)!=float('inf'):delay=max(delay,seconds)
+                    state.update(rate_limit_failures=failures,cooldown_until=time.time()+delay)
+                elif status==200:state.update(rate_limit_failures=0,cooldown_until=0)
+                write_json_atomic(state_path,state)
+                return response
+
     def _retrieve(self,provider,url):
         validate_url(url);key=hashlib.sha256((VERSION+'\n'+url).encode()).hexdigest();path=self.cache_dir/(key+'.json')
         if path.exists():
             cached=json.loads(path.read_text())
             ttl=86400 if cached['status'] in {'ok','empty'} else 600
-            if 0<=self.clock()-cached['retrieved_at']<ttl:return cached
+            if self.snapshot_id or 0<=self.clock()-cached['retrieved_at']<ttl:return cached
         base={'provider':provider,'url':url,'retrieved_at':self.clock(),'source_group':_GROUPS[provider],'coverage':'partial_index','version':VERSION}
         try:
-            with _locks[provider]:
-                if self.rate_limit:time.sleep(max(0,1-(time.monotonic()-_last[provider])))
-                status,body=self.transport(url);_last[provider]=time.monotonic()
+            response=self._fetch(provider,url);status,body=response
+            base['request_sent']=getattr(response,'request_sent',True)
+            if not base['request_sent']:base['deferred_reason']='provider_retry_after_or_backoff'
             base.update(http_status=status,response_sha256=hashlib.sha256(body).hexdigest())
             if status!=200:base.update(status='unavailable',error='HTTP_'+str(status),works=[])
             elif len(body)>MAX_BYTES:raise EvidenceError('response too large')
@@ -115,19 +199,30 @@ class EvidenceGateway:
         except (OSError,ValueError,TypeError,KeyError,IndexError) as error:
             base.update(status='unavailable',error=type(error).__name__,works=[])
         base['id']='retrieval-'+hashlib.sha256(json_bytes(base)).hexdigest()[:24]
-        write_json_atomic(path,base)
-        return base
+        return self._cache_result(path,base)
     def lookup(self,query):
-        records=[]
-        for provider in self.providers:
+        from concurrent.futures import ThreadPoolExecutor
+        def retrieve_provider(provider):
+            records=[]
             for url in _urls(provider,query):
                 result=self._retrieve(provider,url)
                 if not result['works']:records.append({k:v for k,v in result.items() if k!='works'})
                 for index,work in enumerate(result['works']):
                     item={k:v for k,v in result.items() if k!='works'};item['id']=result['id']+'-'+str(index);item['work']=work
                     records.append(item)
-        return records
+            return records
+        if not self.providers:return []
+        # Independent providers overlap I/O; each provider keeps its existing lock,
+        # request interval and URL order. map preserves the configured provider order.
+        with ThreadPoolExecutor(max_workers=min(4,len(self.providers))) as pool:
+            return [item for records in pool.map(retrieve_provider,self.providers) for item in records]
     def content(self,work):
+        if not self.snapshot_id:return self._content(work)
+        key=hashlib.sha256(json_bytes({'version':CONTENT_VERSION,'work':work})).hexdigest();path=self.cache_dir/('content-map-'+key+'.json')
+        if path.exists():return json.loads(path.read_text())
+        return self._cache_result(path,self._content(work))
+
+    def _content(self,work):
         records=[]
         if work.get('abstract'):
             records.append({'id':'content-'+hashlib.sha256(json_bytes(work)).hexdigest()[:24],'status':'ok','level':'abstract','text':work['abstract'],
@@ -140,15 +235,17 @@ class EvidenceGateway:
             if path.exists():records.append(json.loads(path.read_text()))
             else:
                 try:
-                    validate_url(url);status,body=self.transport(url)
+                    validate_url(url);status,body=self._fetch('europepmc',url)
                     if status!=200 or len(body)>MAX_BYTES:raise EvidenceError('full text unavailable')
                     xml=ET.fromstring(body);body_node=xml.find('body')
                     if body_node is None:raise EvidenceError('full text body absent')
                     text=' '.join(body_node.itertext())
                     item={'id':'content-'+key[:24],'status':'ok','level':'full_text','text':text[:180000], 'coverage':'full_text' if len(text)<=180000 else 'truncated_full_text',
                         'url':url,'retrieved_at':self.clock(),'response_sha256':hashlib.sha256(body).hexdigest(),'source_evidence_ids':work.get('evidence_ids',[])}
-                    write_json_atomic(path,item);records.append(item)
-                except (OSError,ValueError,ET.ParseError):pass
+                    item=self._cache_result(path,item);records.append(item)
+                except (OSError,ValueError,ET.ParseError) as error:
+                    if self.snapshot_id:
+                        item=self._cache_result(path,{'id':'content-'+key[:24],'status':'unavailable','url':url,'coverage':'unknown','reason':type(error).__name__,'retrieved_at':self.clock()});records.append(item)
         arxiv_id=re.fullmatch(r'10\.48550/arxiv\.(\d{4}\.\d{4,5}(?:v\d+)?)',str(work.get('doi','')).lower())
         if arxiv_id:
             records.append(self._arxiv_content(arxiv_id.group(1)))
@@ -161,13 +258,13 @@ class EvidenceGateway:
         key=hashlib.sha256(('arxiv-text/1.0'+url).encode()).hexdigest();path=self.cache_dir/('content-'+key+'.json')
         if path.exists():
             item=json.loads(path.read_text())
-            if item['status']=='ok' or self.clock()-item['retrieved_at']<600:return item
+            if self.snapshot_id or item['status']=='ok' or self.clock()-item['retrieved_at']<600:return item
         item={'id':'content-'+key[:24],'url':url,'retrieved_at':self.clock(),'coverage':'unknown','status':'unavailable','provider':'arxiv'}
         try:
             # One connection and at least three seconds between requests across local processes.
             import fcntl
-            with (self.cache_dir/'arxiv-rate.lock').open('a+') as lock:
-                fcntl.flock(lock,fcntl.LOCK_EX);stamp=self.cache_dir/'arxiv-rate-time.json'
+            with (self.rate_dir/'arxiv-rate.lock').open('a+') as lock:
+                fcntl.flock(lock,fcntl.LOCK_EX);stamp=self.rate_dir/'arxiv-rate-time.json'
                 if self.rate_limit:
                     previous=json.loads(stamp.read_text()).get('time',0) if stamp.exists() else 0
                     time.sleep(max(0,3-(time.time()-previous)))
@@ -189,4 +286,4 @@ class EvidenceGateway:
                 with pdf_path.open('xb') as stream:stream.write(body)
             except FileExistsError:pass
         except (OSError,ValueError,TypeError,RuntimeError) as error:item['reason']=type(error).__name__
-        write_json_atomic(path,item);return item
+        return self._cache_result(path,item)

@@ -23,6 +23,9 @@ def mutate(ir:dict,recipe:dict):
     node['provenance']=[{'kind':'synthetic','operation_id':recipe['mutation_id'],'ancestor_provenance':copy.deepcopy(node['provenance'])}]
     if node['kind']=='BibliographyEntry':
         node['attrs']={**node['attrs'],'resource_type':{'state':'unknown','reason':'source content changed; rederive type'},'fields':{}}
+        label=re.match(r'^\s*[\[［](\d{1,4})[\]］]',node['text'])
+        node['attrs']['key']=label.group(1) if label else {'state':'unknown','reason':'label must be rederived from changed source'}
+        if not label:changed['coverage']['bibliography']={'status':'partial','reason':'changed entry label unresolved'}
     if node['kind'] in {'Paragraph','Caption'}:
         # Re-derive all citation uses to avoid stale spans and IDs; untouched paragraphs retain their source provenance.
         remove={n['id'] for n in changed['nodes'] if n['kind'] in {'CitationGroup','ReferenceUse'}}

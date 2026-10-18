@@ -38,10 +38,11 @@ function toCompilerResult(output,selectedRuleIds) {
     const rows=output.rules.filter(r=>String(r.rule_id)===ruleId.slice(10));
     const raw=rows[0];
     if(rows.length!==1 || !TERMINAL.has(raw?.status) || !Array.isArray(raw.results) || raw.results.some(r=>!TERMINAL.has(r.status)))throw failure(502,'COMPILER_PARTIAL_REPORT','所选规则缺少完整终态记录');
+    const basisDetails=r=>(r.basis || []).map(id=>(raw.basis_catalog || []).find(b=>b.id===id) || {id,kind:id.startsWith('gbt')?'standard':'project'});
     const findings=raw.results.filter(r=>r.status==='VIOLATION').map((r,index)=>({finding_id:`${ruleId}_${index+1}`,rule_id:ruleId,
       message:r.message || '发现规则不符合项',suggestion:null,location:r.location_mode==='synthetic'?null:r.location || null,anchors:[],
-      evidence:r.display_evidence || [],source_kind:r.location_mode,node_id:r.node_id,check_id:r.check_id}));
-    const diagnostics=raw.results.filter(r=>['UNKNOWN','ERROR'].includes(r.status)).map(r=>({node_id:r.node_id,check_id:r.check_id,status:r.status,reasons:r.reasons || [],evidence:r.display_evidence || []}));
+      evidence:r.display_evidence || [],basis_details:basisDetails(r),source_kind:r.location_mode,node_id:r.node_id,check_id:r.check_id}));
+    const diagnostics=raw.results.filter(r=>['UNKNOWN','ERROR'].includes(r.status)).map(r=>({node_id:r.node_id,check_id:r.check_id,status:r.status,reasons:r.reasons || [],evidence:r.display_evidence || [],basis_details:basisDetails(r)}));
     const unknown=raw.counts?.UNKNOWN || 0;
     return {rule_run_id:`run_${ruleId}`,rule_id:ruleId,severity:'warning',params:null,
       execution_status:raw.status==='ERROR'?'error':'completed',evidence_mode:findings.some(f=>f.source_kind==='synthetic')?'derived':'native',
