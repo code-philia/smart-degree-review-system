@@ -16,3 +16,8 @@ Baseline: 144 failed, 2000 passed, 26 skipped, 79 subtests passed before new pac
 Task 1: complete (commit 71a7994; 34 contract tests passed).
 Task 2: complete pending commit; 13 budget/adapter tests plus 34 contract tests passed. Real structured call succeeded: 70 input + 15 output tokens, conservative CNY 0.000260. Durable budget at /data/runtime/paper-compiler/budget.sqlite3, limit CNY 1000; pilot cap CNY 5.
 Task 3: in progress. Ruling: frontend reads raw PyMuPDF observations directly rather than routing through old graphic ownership/normalization passes; this preserves exact characters and avoids invoking legacy detector semantics. Shared existing PyMuPDF dependency retained.
+
+Task 2 committed: 67672aa.
+Task 3 source frontend milestone: 8 tests passed, 3 real archive PDFs produced typed source IR in 1.1–2.2 seconds each. Bibliography/usage coverage remains provisional; semantic boundary verification is pending Task 6.
+Task 4 complete: 23 compiler/capability tests (including bounded candidate retry and actual missing-capability dispatch). A real candidate failed static policy and was retained; policy now supports pure isinstance guards and forbids recursion. Actual model-generated capability passed 4 withheld cases plus an extra 5-word case. Live natural-language rules changed the compiled threshold 1 -> 3; generated/interpreted behavior independently compared on the same source PDF. Live artifacts /data/results/paper-compiler/development/compiler-live-v2. Total conservative API cost CNY 0.009048 across 5 calls.
+Task 5 in progress: public provider tests and live server reachability passed. A same-title reupload with a different year was correctly not accepted; added author/year constrained discovery.
