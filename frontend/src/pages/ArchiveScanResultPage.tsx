@@ -1,5 +1,5 @@
 import { ArrowLeft, CircleAlert, FileSearch, MapPin } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   archivePdfUrl,
@@ -8,6 +8,11 @@ import {
   type ArchiveCatalog,
   type ArchiveDocument,
 } from '../api/archiveScans';
+import {
+  evaluateArchiveFindingRepairSuggestion,
+  fetchArchiveFindingRepairSuggestions,
+  type RepairSuggestion,
+} from '../api/repairSuggestions';
 import { useAuthSession } from '../auth/AuthSessionProvider';
 import { PaperLintWorkspace } from '../components/paperLint/Workspace';
 import { flattenPaperLintFindings } from '../components/paperLint/model';
@@ -25,6 +30,14 @@ export default function ArchiveScanResultPage() {
   const [document, setDocument] = useState<ArchiveDocument | null>(null);
   const [catalog, setCatalog] = useState<ArchiveCatalog | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [repairSuggestionByFindingKey, setRepairSuggestionByFindingKey] = useState<
+    Record<string, RepairSuggestion | undefined>
+  >({});
+  const [repairSuggestionErrorByFindingKey, setRepairSuggestionErrorByFindingKey] = useState<
+    Record<string, string | undefined>
+  >({});
+  const [repairSuggestionLoadingKey, setRepairSuggestionLoadingKey] = useState<string | null>(null);
+  const loadedRepairSuggestionKeys = useRef(new Set<string>());
   const allowed = user?.role === 'SCHOOL_ADMIN' || user?.role === 'COLLEGE_ADMIN';
   useEffect(() => {
     if (!allowed || !jobId || !documentId) return;
@@ -45,6 +58,52 @@ export default function ArchiveScanResultPage() {
   }, [allowed, jobId, documentId]);
   const inconclusive = document?.result?.rule_runs.some((run) => run.outcome === 'inconclusive') || false;
   const findings = useMemo(() => (document?.result ? flattenPaperLintFindings(document.result) : []), [document]);
+  const loadRepairSuggestion = useCallback(
+    async (item: (typeof findings)[number]) => {
+      if (!jobId || !documentId || loadedRepairSuggestionKeys.current.has(item.key)) return;
+      loadedRepairSuggestionKeys.current.add(item.key);
+      setRepairSuggestionLoadingKey(item.key);
+      setRepairSuggestionErrorByFindingKey((current) => ({ ...current, [item.key]: undefined }));
+      try {
+        const suggestions = await fetchArchiveFindingRepairSuggestions({
+          job_id: jobId,
+          document_id: documentId,
+          rule_id: item.ruleRun.rule_id,
+          finding_id: item.finding.finding_id,
+        });
+        if (suggestions[0]) setRepairSuggestionByFindingKey((current) => ({ ...current, [item.key]: suggestions[0] }));
+      } catch (cause) {
+        setRepairSuggestionErrorByFindingKey((current) => ({
+          ...current,
+          [item.key]: cause instanceof Error ? cause.message : '修复建议暂不可用',
+        }));
+      } finally {
+        setRepairSuggestionLoadingKey((current) => (current === item.key ? null : current));
+      }
+    },
+    [documentId, jobId],
+  );
+  const generateRepairSuggestion = async (item: (typeof findings)[number]) => {
+    if (!jobId || !documentId) return;
+    setRepairSuggestionLoadingKey(item.key);
+    setRepairSuggestionErrorByFindingKey((current) => ({ ...current, [item.key]: undefined }));
+    try {
+      const { response } = await evaluateArchiveFindingRepairSuggestion({
+        job_id: jobId,
+        document_id: documentId,
+        rule_id: item.ruleRun.rule_id,
+        finding_id: item.finding.finding_id,
+      });
+      setRepairSuggestionByFindingKey((current) => ({ ...current, [item.key]: response }));
+    } catch (cause) {
+      setRepairSuggestionErrorByFindingKey((current) => ({
+        ...current,
+        [item.key]: cause instanceof Error ? cause.message : '修复建议暂不可用',
+      }));
+    } finally {
+      setRepairSuggestionLoadingKey((current) => (current === item.key ? null : current));
+    }
+  };
   if (status === 'loading') return <LoadingState label="正在验证权限…" />;
   if (!allowed) return <ErrorState title="无权查看归档论文" message="请使用学院管理员或学校管理员账号登录。" />;
   if (error) return <ErrorState title="检测结果暂不可用" message={error} />;
@@ -122,6 +181,11 @@ export default function ArchiveScanResultPage() {
             openPdfUrl={archivePdfUrl(jobId!, documentId!)}
             findings={findings}
             rules={catalog.rules}
+            repairSuggestionByFindingKey={repairSuggestionByFindingKey}
+            repairSuggestionLoadingKey={repairSuggestionLoadingKey}
+            repairSuggestionErrorByFindingKey={repairSuggestionErrorByFindingKey}
+            onLoadRepairSuggestion={loadRepairSuggestion}
+            onGenerateRepairSuggestion={generateRepairSuggestion}
           />
         </>
       ) : (

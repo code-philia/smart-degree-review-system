@@ -1,5 +1,5 @@
 const ALLOWED_STATUSES = new Set(['suggested', 'insufficient_context', 'evidence_conflict']);
-const PROMPT_VERSION = 'repair-model-initial-v2';
+const PROMPT_VERSION = 'repair-model-actions-v2';
 const MAX_EVIDENCE_ITEMS = 8;
 const MAX_EVIDENCE_CHARS = 12000;
 
@@ -36,16 +36,31 @@ function buildMessages(request) {
   const evidence = boundedEvidence(request.evidence);
   const expected = {
     status: 'suggested | insufficient_context | evidence_conflict',
-    suggestion: 'string',
-    rationale: 'string',
     actions: [{ instruction: 'string', evidence_ids: ['evidence id'] }],
-    missing_context: ['string'],
-    evidence_ids: ['evidence id'],
   };
   return [
     {
       role: 'system',
-      content: `你是学位论文规范问题的修复建议助手。只可依据提供的规则、告警和证据作答；不得补造图表、公式、数据、参考文献、作者或实验事实。输出一个 JSON 对象，不要 markdown。状态仅可为 suggested、insufficient_context、evidence_conflict。若能提出不虚构、可验证的操作步骤，即使候选修改目标不唯一，也应使用 suggested，并明确写出“若…则…”的条件和需要核对的位置。仅当无法提出安全且有用的操作步骤时，才使用 insufficient_context；图表内容不可见本身不构成 insufficient_context，除非无法说明应核对什么。只有补取证据直接反驳或明显不支持原告警时，使用 evidence_conflict。actions 和 evidence_ids 只能引用输入中给出的 evidence_id。JSON 结构：${JSON.stringify(expected)}`,
+      content: `你是学位论文规范问题的修复建议助手。你的任务是根据规则、告警和证据，为论文作者提供简明、准确、可执行的修复建议。
+
+## 基本约束
+
+- 只能依据提供的规则、告警和证据作答。
+- 不得补造图表、公式、数据、参考文献、作者或实验事实。
+- 不得将未经证实的推测表述为确定事实。
+- 每步 evidence_ids 只能引用输入中已有的证据 ID。
+
+## 修复建议生成原则
+
+1. **以修改为中心**：直接说明需要修改的位置、对象和方式，而不是描述完整的排查过程。
+2. **简洁优先**：每条建议原则上为 1～2 句话，避免重复告警内容、冗长解释和无必要的技术细节。
+3. **合并相关操作**：针对同一修改目标的定位、核对和修改应尽量合并为一条建议，不得为了体现完整性而拆分步骤。
+4. **保留必要条件**：如果修改目标不唯一，使用简短的“若……则……”说明不同处理方式，不必穷举缺乏证据支持的可能性。
+5. **突出用户行动**：优先使用“将……修改为……”“补充……”“删除……”“核对……后调整……”等表达。
+6. **避免流程化表述**：除非必要，不输出全文检索、记录上下文、重新编译、检查编号连续性等辅助操作。
+7. **控制建议数量**：能够通过一条建议完整表达的，不拆分为多条；只有涉及独立修改目标时才分别给出。
+
+输出一个 JSON 对象，不要 markdown。状态仅可为 suggested、insufficient_context、evidence_conflict。若证据不足，actions 应写明下一步需要补取或核对什么；只有补取证据直接反驳或明显不支持原告警时，使用 evidence_conflict。JSON 结构：${JSON.stringify(expected)}`,
     },
     {
       role: 'user',
@@ -73,10 +88,7 @@ function validateModelAnswer(answer, request) {
     }
     return [...new Set(ids)];
   };
-  if (typeof answer.suggestion !== 'string' || !answer.suggestion.trim() || typeof answer.rationale !== 'string' || !answer.rationale.trim()) {
-    throw problem(502, '修复建议模型缺少建议或依据');
-  }
-  if (!Array.isArray(answer.actions) || !Array.isArray(answer.missing_context)) {
+  if (!Array.isArray(answer.actions) || answer.actions.length === 0) {
     throw problem(502, '修复建议模型返回了无效操作步骤');
   }
   const actions = answer.actions.map((action) => {
@@ -87,11 +99,7 @@ function validateModelAnswer(answer, request) {
   });
   return {
     status: answer.status,
-    suggestion: answer.suggestion.trim(),
-    rationale: answer.rationale.trim(),
     actions,
-    missing_context: answer.missing_context.filter((item) => typeof item === 'string' && item.trim()).map((item) => item.trim()),
-    evidence_ids: normalizeIds(answer.evidence_ids),
   };
 }
 
@@ -117,7 +125,7 @@ async function proposeRepair(request, { fetchImpl = fetch } = {}) {
   }
   const answer = validateModelAnswer(parseJson(payload?.choices?.[0]?.message?.content), request);
   return {
-    schema_version: 'repair-response-v1', source: request.source,
+    schema_version: 'repair-response-v2', source: request.source,
     rule_id: request.rule.rule_id, finding_id: request.finding.finding_id,
     ...answer,
     provenance: {

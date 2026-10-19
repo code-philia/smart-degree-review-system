@@ -10,7 +10,7 @@ initializeDatabase()
   .then(async () => {
     await createArchiveScanService().resumeJobs();
     await paperLintJobService.resumeJobs();
-    app.listen(port, () => {
+    app.listen(port, '127.0.0.1', () => {
       console.log(`Backend listening at http://127.0.0.1:${port}`);
     });
   })

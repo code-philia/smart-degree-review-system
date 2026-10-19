@@ -70,3 +70,45 @@ describe('PDF rule filter order', () => {
     ).toEqual(['全部检查项', '规则 2', '规则 11', '规则 15']);
   });
 });
+
+describe('repair suggestion card', () => {
+  it('renders a generated suggestion and lets the parent request one', () => {
+    const onGenerateRepairSuggestion = vi.fn();
+    const onLoadRepairSuggestion = vi.fn();
+    render(
+      <FindingsPane
+        findings={[item]}
+        rules={[]}
+        activeFindingKey="finding-99"
+        activeAnchorId={null}
+        onFindingClick={vi.fn()}
+        onAnchorClick={vi.fn()}
+        onLoadRepairSuggestion={onLoadRepairSuggestion}
+        onGenerateRepairSuggestion={onGenerateRepairSuggestion}
+        repairSuggestionByFindingKey={{
+          'finding-99': {
+            schema_version: 'repair-response-v2',
+            rule_id: 'sjtu_rule_24',
+            finding_id: 'finding-99',
+            status: 'suggested',
+            actions: [{ instruction: '检查文末条目。', evidence_ids: ['e1'] }],
+            provenance: {
+              provider: 'huawei_maas',
+              model: 'test-model',
+              model_version: 'v1',
+              prompt_version: 'test-v1',
+              context_sha256: 'x',
+              generated_at: '2026-10-19T00:00:00.000Z',
+            },
+            usage: { input_tokens: 1, output_tokens: 1, attempts: 1 },
+          },
+        }}
+      />,
+    );
+    expect(screen.getByText('检查文末条目。')).toBeInTheDocument();
+    expect(screen.queryByText('请对照 PDF 原文核查此处，并按论文规范修订。')).not.toBeInTheDocument();
+    expect(onLoadRepairSuggestion).toHaveBeenCalledWith(item);
+    fireEvent.click(screen.getByRole('button', { name: '重新获取建议' }));
+    expect(onGenerateRepairSuggestion).toHaveBeenCalledWith(item);
+  });
+});
