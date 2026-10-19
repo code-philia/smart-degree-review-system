@@ -26,6 +26,11 @@ function problem(status, message) {
   error.status = status;
   return error;
 }
+function archiveRuleOutcome(run) {
+  return run.execution_status === 'completed' && run.publication_status === 'NO_ALERT'
+    ? 'no_alert'
+    : run.outcome;
+}
 function decodeJob(row) {
   return row && { ...row, selected_rule_ids: JSON.parse(row.selected_rule_ids_json) };
 }
@@ -89,7 +94,7 @@ function createArchiveScanService({
         await db.run("UPDATE archive_scan_documents SET status='running' WHERE id=?", [doc.id]);
         const pdf = await safePdfPath(doc.relative_path);
         const result = await detector(pdf, job.selected_rule_ids);
-        const outcomes = Object.fromEntries(result.rule_runs.map((run) => [run.rule_id, run.outcome]));
+        const outcomes = Object.fromEntries(result.rule_runs.map((run) => [run.rule_id, archiveRuleOutcome(run)]));
         const inconclusive = Object.values(outcomes).includes('inconclusive') ? 1 : 0;
         await db.withTransaction(async (tx) => {
           await tx.run(
@@ -239,4 +244,4 @@ function createArchiveScanService({
     archivePdfPath,
   };
 }
-module.exports = { createArchiveScanService, listArchivePdfs };
+module.exports = { createArchiveScanService, listArchivePdfs, archiveRuleOutcome };

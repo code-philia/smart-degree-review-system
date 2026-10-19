@@ -215,3 +215,28 @@ it('requires explicit external processing consent before creating a compiler arc
     if(oldRoot===undefined)delete process.env.PAPER_COMPILER_PACKAGE_ROOT;else process.env.PAPER_COMPILER_PACKAGE_ROOT=oldRoot;
   }
 });
+
+
+it('records published compiler NO_ALERT without treating it as inconclusive or passed', async () => {
+  const oldEnabled=process.env.PAPER_COMPILER_ENABLED, oldRoot=process.env.PAPER_COMPILER_PACKAGE_ROOT;
+  const packages=path.join(archive,'packages');
+  fs.mkdirSync(path.join(packages,'31'),{recursive:true});
+  fs.writeFileSync(path.join(packages,'31/manifest.json'),'{}');
+  process.env.PAPER_COMPILER_ENABLED='1';process.env.PAPER_COMPILER_PACKAGE_ROOT=packages;
+  try {
+    const service=createArchiveScanService({archiveRoot:archive,detector:async(_file,ids)=>({
+      rule_runs:ids.map(rule_id=>({rule_id,execution_status:'completed',outcome:'inconclusive',publication_status:'NO_ALERT',findings:[]})),
+      summary:{finding_count:0},
+    })});
+    const job=await service.startJob({userId:'admin',ruleIds:['sjtu_rule_31'],externalProcessingConsent:true});
+    await service.waitForIdle();
+    expect((await service.getJob(job.id)).inconclusive_count).toBe(0);
+    const rows=await service.listDocuments(job.id,{ruleId:'sjtu_rule_31',outcome:'no_alert'});
+    expect(rows.total).toBe(2);
+    expect(rows.items[0].rule_outcomes.sjtu_rule_31).toBe('no_alert');
+    expect((await service.listDocuments(job.id,{outcome:'passed'})).total).toBe(0);
+  } finally {
+    if(oldEnabled===undefined)delete process.env.PAPER_COMPILER_ENABLED;else process.env.PAPER_COMPILER_ENABLED=oldEnabled;
+    if(oldRoot===undefined)delete process.env.PAPER_COMPILER_PACKAGE_ROOT;else process.env.PAPER_COMPILER_PACKAGE_ROOT=oldRoot;
+  }
+});

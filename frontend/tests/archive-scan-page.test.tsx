@@ -278,3 +278,19 @@ describe('archive counts follow the selected rule', () => {
     expect(row).not.toHaveTextContent('无法判定');
   });
 });
+
+
+it('displays a compiler archive NO_ALERT as no alarm with the matching filter', async () => {
+  const ids=[31,32,33].map(number=>`sjtu_rule_${number}`);
+  const job={...savedJob,id:'compiler-final',selected_rule_ids:ids,total_count:479,completed_count:479,inconclusive_count:0};
+  vi.mocked(fetchArchiveCatalog).mockResolvedValue({rules:ids.map(rule_id=>({...rules[0],rule_id,title:rule_id})) as never,paper_count:479});
+  vi.mocked(fetchArchiveJobs).mockResolvedValue({jobs:[job as never]});
+  vi.mocked(fetchArchiveJob).mockResolvedValue({job:job as never});
+  vi.mocked(fetchArchiveDocuments).mockResolvedValue({items:[{id:'no-alert',job_id:job.id,filename:'no-alert.pdf',relative_path:'no-alert.pdf',status:'completed',finding_count:0,rule_outcomes:Object.fromEntries(ids.map(id=>[id,'no_alert']))}] as never,total:479,page:1,page_size:25,finding_count:0});
+  renderPage();
+  const row=await screen.findByRole('link',{name:/no-alert.pdf/});
+  expect(row).toHaveTextContent('未触发告警');
+  expect(row).not.toHaveTextContent('通过');
+  expect(screen.getByRole('option',{name:'未触发告警'})).toHaveValue('no_alert');
+  expect(screen.queryByText('无法判定',{exact:true})).not.toBeInTheDocument();
+});

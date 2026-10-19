@@ -66,6 +66,8 @@ export default function ArchiveScanPage() {
   const [error, setError] = useState<string | null>(null);
   const canAccess = !!user && adminRoles.has(user.role);
   const currentJobId = searchParams.get('job');
+  const hasPublicationRules = activeJob?.selected_rule_ids.some((id) => /^sjtu_rule_(31|32|33)$/.test(id)) || false;
+  const publicationOnlyJob = !!activeJob?.selected_rule_ids.length && activeJob.selected_rule_ids.every((id) => /^sjtu_rule_(31|32|33)$/.test(id));
   const refreshJobs = useCallback(async () => {
     const { jobs: next } = await fetchArchiveJobs();
     setJobs(next);
@@ -395,12 +397,12 @@ export default function ArchiveScanPage() {
                           : '已完成'}
                     </span>
                   </div>
-                  <div className="mt-5 grid gap-3 sm:grid-cols-5">
+                  <div className={`mt-5 grid gap-3 ${publicationOnlyJob ? 'sm:grid-cols-4' : 'sm:grid-cols-5'}`}>
                     {[
                       ['总论文', activeJob.total_count, FolderOpen],
                       ['已完成', activeJob.completed_count, CheckCircle2],
                       ['失败', activeJob.failed_count, CircleAlert],
-                      ['无法判定', activeJob.inconclusive_count, CircleAlert],
+                      ...(publicationOnlyJob ? [] : [['无法判定', activeJob.inconclusive_count, CircleAlert]]),
                       ['发现问题', documents?.finding_count ?? activeJob.finding_count, FileSearch],
                     ].map(([label, value, Icon]) => {
                       const Glyph = Icon as typeof FolderOpen;
@@ -469,8 +471,11 @@ export default function ArchiveScanPage() {
                     >
                       <option value="">全部结果</option>
                       <option value="issues_found">发现问题</option>
-                      <option value="passed">通过</option>
-                      <option value="inconclusive">无法判定</option>
+                      {hasPublicationRules && <option value="no_alert">未触发告警</option>}
+                      {!publicationOnlyJob && <>
+                        <option value="passed">通过</option>
+                        <option value="inconclusive">无法判定</option>
+                      </>}
                       <option value="failed">检测失败</option>
                     </select>
                   </div>
@@ -505,6 +510,8 @@ export default function ArchiveScanPage() {
                                       ? '无法判定'
                                       : outcomes.includes('issues_found')
                                         ? '发现问题'
+                                        : outcomes.includes('no_alert') && outcomes.every((outcome) => outcome === 'no_alert' || outcome === 'passed')
+                                          ? '未触发告警'
                                         : outcomes.every((outcome) => outcome === 'passed')
                                           ? '通过'
                                           : '未检测'}
