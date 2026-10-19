@@ -4,7 +4,9 @@ const require = createRequire(import.meta.url);
 const { createTestDatabaseHarness } = require('../src/database/test_harness');
 const {
   buildArchiveRepairRequest,
+  findRepairSuggestion,
   listArchiveRepairSuggestions,
+  saveRepairSuggestion,
 } = require('../src/normative/repairSuggestionService');
 
 const harness = createTestDatabaseHarness({ label: 'repair-suggestion' });
@@ -45,5 +47,27 @@ describe('archive repair suggestion interfaces', () => {
     ]);
     expect(request.context_sha256).toHaveLength(64);
     expect(await listArchiveRepairSuggestions(input)).toEqual([]);
+  });
+
+  it('caches a response by evidence context, model, model version and prompt version', async () => {
+    const input = { jobId: 'job-1', documentId: 'doc-1', ruleId: 'sjtu_rule_15', findingId: 'sjtu_rule_15_1' };
+    const request = await buildArchiveRepairRequest(input);
+    const response = {
+      schema_version: 'repair-response-v1', source: request.source, rule_id: input.ruleId, finding_id: input.findingId,
+      status: 'suggested', suggestion: '补充正文引用。', rationale: '图题已定位。',
+      actions: [], missing_context: [], evidence_ids: ['legacy-evidence-1'],
+      provenance: {
+        provider: 'huawei_maas', model: 'test-model', model_version: 'model-v1',
+        prompt_version: 'prompt-v1', context_sha256: request.context_sha256, generated_at: '2026-10-19T00:00:00.000Z',
+      },
+      usage: { input_tokens: 1, output_tokens: 1, attempts: 1 },
+    };
+    await saveRepairSuggestion(request, response);
+    expect(await findRepairSuggestion(request, {
+      model: 'test-model', modelVersion: 'model-v1', promptVersion: 'prompt-v1',
+    })).toEqual(response);
+    expect(await findRepairSuggestion(request, {
+      model: 'test-model', modelVersion: 'model-v2', promptVersion: 'prompt-v1',
+    })).toBeNull();
   });
 });

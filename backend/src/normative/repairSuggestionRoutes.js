@@ -2,6 +2,7 @@ const express = require('express');
 const { requireAuth } = require('../auth/authMiddleware');
 const service = require('./repairSuggestionService');
 const { buildArchiveRepairRequestWithPdfContext } = require('./repairEvidenceService');
+const { PROMPT_VERSION, proposeRepair } = require('./repairModelProposalService');
 
 const ALLOWED_ROLES = ['COLLEGE_ADMIN', 'SCHOOL_ADMIN'];
 
@@ -31,6 +32,26 @@ function createRepairSuggestionRouter() {
   }));
   router.get('/archive-findings/context', handler(async (req, res) => {
     res.json({ request: await buildArchiveRepairRequestWithPdfContext(archiveFindingIds(req)) });
+  }));
+  router.post('/archive-findings/evaluate', express.json({ limit: '16kb' }), handler(async (req, res) => {
+    const values = {
+      jobId: req.body?.job_id, documentId: req.body?.document_id,
+      ruleId: req.body?.rule_id, findingId: req.body?.finding_id,
+    };
+    if (!Object.values(values).every((value) => typeof value === 'string' && value.trim())) {
+      res.status(400).json({ code: 400, message: '需要 job_id、document_id、rule_id 和 finding_id' });
+      return;
+    }
+    const request = await buildArchiveRepairRequestWithPdfContext(values);
+    const model = process.env.MAAS_MODEL;
+    const modelVersion = process.env.MAAS_MODEL_VERSION || 'unknown';
+    const cached = model ? await service.findRepairSuggestion(request, {
+      model, modelVersion, promptVersion: PROMPT_VERSION,
+    }) : null;
+    if (cached) { res.json({ response: cached, cached: true }); return; }
+    const response = await proposeRepair(request);
+    await service.saveRepairSuggestion(request, response);
+    res.status(201).json({ response, cached: false });
   }));
   router.get('/archive-findings', handler(async (req, res) => {
     res.json({ suggestions: await service.listArchiveRepairSuggestions({

@@ -219,7 +219,7 @@ async function initializeDatabase(options = {}) {
       prompt_version TEXT NOT NULL,
       response_json TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE (job_id, document_id, rule_id, finding_id, context_sha256, model, prompt_version)
+      UNIQUE (job_id, document_id, rule_id, finding_id, context_sha256, model, model_version, prompt_version)
     );`);
     await runStatement(database, `CREATE INDEX IF NOT EXISTS idx_repair_suggestions_finding
       ON repair_suggestions (job_id, document_id, rule_id, finding_id, created_at DESC);`);

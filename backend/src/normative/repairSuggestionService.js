@@ -1,3 +1,4 @@
+const { randomUUID } = require('crypto');
 const db = require('../database/db_runtime');
 const { buildLegacyRepairRequest } = require('./legacyRepairAdapter');
 
@@ -29,6 +30,32 @@ async function buildArchiveRepairRequest({ jobId, documentId, ruleId, findingId 
   return buildLegacyRepairRequest(await getArchiveFinding(jobId, documentId, ruleId, findingId));
 }
 
+async function findRepairSuggestion(request, { model, modelVersion, promptVersion }) {
+  const row = await db.get(
+    `SELECT response_json FROM repair_suggestions
+      WHERE job_id=? AND document_id=? AND rule_id=? AND finding_id=?
+        AND context_sha256=? AND model=? AND model_version=? AND prompt_version=?`,
+    [request.source.job_id, request.source.document_id, request.rule.rule_id, request.finding.finding_id,
+      request.context_sha256, model, modelVersion, promptVersion],
+  );
+  return row ? JSON.parse(row.response_json) : null;
+}
+
+async function saveRepairSuggestion(request, response) {
+  await db.run(
+    `INSERT INTO repair_suggestions
+      (id, source_kind, job_id, document_id, document_sha256, detector_version, rule_id, finding_id,
+       context_sha256, status, provider, model, model_version, prompt_version, response_json)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    [randomUUID(), request.source.kind, request.source.job_id, request.source.document_id,
+      request.source.document_sha256, request.source.detector_version, request.rule.rule_id,
+      request.finding.finding_id, request.context_sha256, response.status, response.provenance.provider,
+      response.provenance.model, response.provenance.model_version, response.provenance.prompt_version,
+      JSON.stringify(response)],
+  );
+  return response;
+}
+
 async function listArchiveRepairSuggestions({ jobId, documentId, ruleId, findingId }) {
   const clauses = [];
   const params = [];
@@ -44,5 +71,7 @@ async function listArchiveRepairSuggestions({ jobId, documentId, ruleId, finding
 module.exports = {
   getArchiveFinding,
   buildArchiveRepairRequest,
+  findRepairSuggestion,
+  saveRepairSuggestion,
   listArchiveRepairSuggestions,
 };
