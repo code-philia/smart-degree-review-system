@@ -305,9 +305,11 @@ def test_cli_uses_one_metered_client_and_task_data_for_evidence_environment(tmp_
     def detect(ir,packages,**kwargs):
         captured['environments'].append(kwargs['evidence_environment'])
         assert kwargs['client'] is captured['client']
-        return ir,{},{}
+        analysis=base_analysis(ir)
+        return ir,analysis,{'paper_ir_sha256':analysis['paper_ir_sha256'],'rules':[]}
     def run(tasks,manifest,**kwargs):
-        for task in tasks:kwargs['runner']({'program_spec':{'rule_id':task['rule_id']}},{})
+        paper,_=fixture(tmp_path)
+        for task in tasks:kwargs['runner']({'program_spec':{'rule_id':task['rule_id']}},paper)
         assert kwargs['client'] is captured['client']
         return {'status':'completed'}
     monkeypatch.setattr(llm,'MaasClient',FakeClient)
@@ -515,7 +517,11 @@ def study_cli_policy_fixture(tmp_path,monkeypatch,*,real_study=False):
         def __init__(self,*args,**kwargs):pass
     check=runner_for(out,splits,[])
     monkeypatch.setattr(llm,'MaasClient',client);monkeypatch.setattr(evidence,'EvidenceGateway',Gateway)
-    monkeypatch.setattr(pipeline,'detect',lambda ir,packages,**kwargs:(ir,{},check(packages[0],ir)))
+    def detect(ir,packages,**kwargs):
+        from paper_compiler.model_runtime import apply_model
+        materialized=apply_model(ir,packages[0]['model'])
+        return materialized,base_analysis(materialized),check(packages[0],ir)
+    monkeypatch.setattr(pipeline,'detect',detect)
     actual=study.run_study
     if real_study:
         # Keep parallel runtime implementation edits outside this policy-only test.

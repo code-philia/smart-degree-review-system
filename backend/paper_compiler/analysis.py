@@ -11,6 +11,7 @@ from .identity import resolve_identity
 from .citations import citation_context
 
 VERSION='shared-analysis/1.5'
+BIBLIOGRAPHY_EXTRACTION_POLICY='source-linewrap-preserve-hyphen/1.0'
 BIBLIOGRAPHY_INSTRUCTIONS="""Extract bibliographic fields from exactly the supplied entry text. Do not judge any rule.
 Return {entries:[{id,complete:boolean,fields:{FIELD:{state:'observed',value:STRING_OR_ARRAY,quote:EXACT_SOURCE_SUBSTRING}},absent:[FIELD_NAMES_CONFIRMED_NOT_PRESENT]}]}.
 Use the supplied field names/types. Include observed fields only in fields; list explicitly confirmed absent names in absent. Omitted names stay unknown. complete means this is one readable complete entry, not that all fields are present.
@@ -44,7 +45,8 @@ def bibliography_execution_policy():
             'input_soft_limit_bytes':128*1024 if opt_in else None,
             'max_tokens_per_entry':3000, 'minimum_batch_max_tokens':6000,
             'max_tokens_per_batch':min(16384, max(6000, 3000*size)),
-            'prompt_sha256':hashlib.sha256(instructions.encode()).hexdigest()}
+            'prompt_sha256':hashlib.sha256(instructions.encode()).hexdigest(),
+            'extraction_policy':BIBLIOGRAPHY_EXTRACTION_POLICY}
 
 
 def _bibliography_data(batch):
@@ -93,6 +95,17 @@ def _add_evidence(a,item):
     if not any(old['id']==item['id'] for old in a['evidence']):a['evidence'].append(item)
     return item['id']
 
+def _linewrap_transcription(quote):
+    # Join only a single physical line break after an alphanumeric hyphen.
+    # Keep the hyphen and record exactly which source whitespace was removed.
+    pattern=r'(?<=[^\W_])-(?P<gap>[ \t]*(?:\r\n|\n|\r)[ \t]*)(?=[^\W_])'
+    spans=[match.span('gap') for match in re.finditer(pattern,quote)]
+    pieces=[];offset=0
+    for start,end in spans:
+        pieces.append(quote[offset:start]);offset=end
+    pieces.append(quote[offset:])
+    return ''.join(pieces),spans
+
 def _extract_field(node,name,item,complete,a):
     if not isinstance(item,dict):return unknown('field not returned by extraction')
     if item.get('state')=='confirmed_absent' and complete:
@@ -104,11 +117,21 @@ def _extract_field(node,name,item,complete,a):
     try:
         start,end=locate_quote(node['text'],item.get('quote'))
         quote=node['text'][start:end]
-        # Transcription may join whitespace but may not replace or invent content.
-        if any(_norm(v) not in _norm(quote) for v in (value if isinstance(value,list) else [value])):raise ValueError('value not supported by quote')
+        # Plain whitespace transcription remains supported. Any additional
+        # line-wrap joining requires an exact source quote and a reversible map.
+        values=value if isinstance(value,list) else [value]
+        joins=[]
+        if any(_norm(v) not in _norm(quote) for v in values):
+            joined,joins=_linewrap_transcription(quote)
+            if item.get('quote')!=quote or not joins or any(_norm(v) not in _norm(joined) for v in values):
+                raise ValueError('value not supported by quote')
     except ValueError:return unknown('untraceable field extraction')
     eid='span-'+hashlib.sha256(json_bytes([node['id'],name,start,end,quote])).hexdigest()[:24]
-    _add_evidence(a,{'id':eid,'kind':'source_span','node_id':node['id'],'start':start,'end':end,'quote':quote})
+    evidence={'id':eid,'kind':'source_span','node_id':node['id'],'start':start,'end':end,'quote':quote}
+    if joins:
+        evidence.update(transcription_policy=BIBLIOGRAPHY_EXTRACTION_POLICY,
+                        linewrap_join_ranges=[[start+a,start+b] for a,b in joins])
+    _add_evidence(a,evidence)
     return {**observed(value,[eid]),'source_range':[start,end]}
 
 def parse_entries(ir,a,client,*,batch_size=None):
@@ -254,7 +277,11 @@ def enrich(ir,rule_packages,*,client,gateway,cache_dir:Path,snapshot_id=None):
     config=getattr(client,'config',{})
     policy={'model':{k:config.get(k) for k in ['MAAS_MODEL','MAAS_MODEL_VERSION']},'offline':client is None,'providers':getattr(gateway,'providers',[]),'evidence_version':EVIDENCE_VERSION,'content_version':CONTENT_VERSION,'snapshot':snapshot_id,'frozen_evidence':getattr(gateway,'snapshot_id',None)}
     bibliography_policy = bibliography_execution_policy()
-    if bibliography_policy['opt_in']:policy['bibliography'] = bibliography_policy
+    bibliography_required=bool(required & {'bibliography_fields','bibliography_shape','external_work','citation_relevance'})
+    if bibliography_policy['opt_in']:
+        policy['bibliography']={k:v for k,v in bibliography_policy.items()
+                                if k!='extraction_policy' or bibliography_required}
+    if bibliography_required:policy['bibliography_extraction']=BIBLIOGRAPHY_EXTRACTION_POLICY
     fingerprint=hashlib.sha256(json_bytes({'ir':ir_hash(ir),'version':VERSION,'capabilities':plan,'required':sorted(required),'policy':policy})).hexdigest()
     path=Path(cache_dir)/(fingerprint+'.json')
     if path.exists():

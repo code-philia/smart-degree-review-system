@@ -32,11 +32,17 @@ def run(tmp_path,client,**kwargs):
     return run_feedback_loop(TASK,manifest,client=client,output_dir=tmp_path/'loop',
         runner=lambda p,ir:check_programs(ir,base_analysis(ir),[p]),**kwargs)
 
-def test_initial_default_fingerprint_is_byte_compatible(tmp_path):
-    synthesize_program(TASK,Client([candidate(CODE)]),tmp_path)
-    saved=json.loads((tmp_path/'synthesis-input.json').read_text())
-    assert saved['input_sha256']=='21cbda1c79f06a7f55559d2cec1eaf825f6c61cf87e044418af4421c548480a0'
-    assert hashlib.sha256(INSTRUCTIONS.encode()).hexdigest()=='e75cb886e9791ef3d93a6e850fa578e569aae13fea38590e0df215ea26515078'
+def test_initial_namespace_contract_is_deterministic_and_explicit(tmp_path):
+    from paper_compiler.programs import digest
+    from paper_compiler.registry import REGISTRY
+    for name in ['first', 'second']:
+        synthesize_program(TASK,Client([candidate(CODE)]),tmp_path/name)
+    saved=json.loads((tmp_path/'first/synthesis-input.json').read_text())
+    repeated=json.loads((tmp_path/'second/synthesis-input.json').read_text())
+    assert saved==repeated
+    assert saved['input_sha256']==digest(saved['data'])
+    assert saved['data']['reserved_analysis_names']==sorted(REGISTRY['capabilities'])
+    assert 'reserved_analysis_names' in INSTRUCTIONS
     assert 'repair_context' not in saved['data']
 
 def test_offline_noop_history_changes_next_real_attempt_and_counts_five(tmp_path):

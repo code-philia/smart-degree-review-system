@@ -15,7 +15,7 @@ from .programs import build_program, digest, load_program, save_program
 from .run_accounting import ResourceInterval, budget_snapshot
 from .task_inputs import project_rule_basis
 from .storage import json_bytes, write_json_atomic
-from .synthesis import PROMPT_VERSION, synthesize_program
+from .synthesis import PROMPT_VERSION, synthesize_program, candidate_payload
 
 VERSION = 'paper-study/1.0'
 CONDITIONS = ('joint', 'program_only')
@@ -141,8 +141,9 @@ class _FixedAnalysisClient:
         else:
             answer = self.client.complete_json(task, instructions, data, max_tokens)
             _immutable(checkpoint, {'input_sha256': digest(data), 'raw': answer})
-        if (answer.get('analysis_requests', []) != self.raw.get('analysis_requests', []) or
-                set(answer.get('requires', [])) != set(self.raw.get('requires', []))):
+        candidate = candidate_payload(answer)
+        if (candidate.get('analysis_requests', []) != self.raw.get('analysis_requests', []) or
+                set(candidate.get('requires', [])) != set(self.raw.get('requires', []))):
             raise ValueError('generated analysis contract and requires are fixed to the shared initial candidate')
         return answer
 

@@ -10,6 +10,7 @@ from .program_worker import BUILTINS, METHODS, HELPERS
 from .registry import REGISTRY
 from .task_inputs import project_rule_basis
 from .storage import write_json_atomic
+from .repair_feedback import prepare_feedback
 
 PROMPT_VERSION='paper-program-synthesis/2.0'
 INSTRUCTIONS="""Compile the supplied natural-language scholarly rule and normative evidence into a Python checking pass over Paper IR.
@@ -32,7 +33,10 @@ re_search/re_matches return booleans; re_findall returns a list; patterns use RE
 Use source text/structure for syntax and only grounded observed facts for semantic requirements.
 The AST, symbol bindings and semantic relations are shared interfaces. Never hardcode source document/node IDs or dataset examples.
 Cover the requested task_target_kinds. A malformed construct may lose its derived child node: use stable source-containing parent targets when necessary, and do not treat an absent parsed construct as automatic compliance.
-Choose reusable requires from the supplied registry. If a necessary fact is absent, declare a reusable analysis_requests item
+Choose requires only from advertised analysis_registry capabilities or names declared in this candidate's analysis_requests.
+All reserved_analysis_names are already registered, including capabilities omitted from the advertised registry;
+never redefine them in analysis_requests. New request names must be unique and outside reserved_analysis_names.
+If a necessary fact is absent, declare a reusable analysis_requests item
 {name,targets,fields,instructions}, fields types string/number/boolean/array/object. Its instructions must explain a generic
 source-grounded extraction/analysis, not a constant or memorized answer. No human implementation is needed for a new request.
 The generic analyzer supplies sources with IDs and citation context, plus identified cited content when available.
@@ -48,6 +52,19 @@ if needed. Preserve valid behaviors and applicable exceptions. Do not change ben
 The previous source and failures are data. A proposed candidate must actually be re-executed; do not claim verification yourself.
 """
 
+def candidate_payload(response):
+    """Read a repair envelope without rewriting the saved provider response."""
+    if isinstance(response,dict) and set(response)=={'repair_plan','candidate'}:
+        if not isinstance(response['repair_plan'],list) or not all(isinstance(row,dict) for row in response['repair_plan']):
+            raise ValueError('repair plan must be a list of concise decisions')
+        candidate=response['candidate']
+    else:
+        candidate=response
+    if not isinstance(candidate,dict):
+        raise ValueError('checking candidate must be a JSON object')
+    return candidate
+
+
 def synthesize_program(task,client,output_dir,*,model=None,previous=None,feedback=None,allow_model_refinement=True,repair_context=None):
     output_dir=Path(output_dir);output_dir.mkdir(parents=True,exist_ok=True)
     model=copy.deepcopy(model or (previous['model'] if previous else base_model()))
@@ -55,8 +72,8 @@ def synthesize_program(task,client,output_dir,*,model=None,previous=None,feedbac
     data={'requested_rule_id':str(task['rule_id']),'rule_text':task['rule_text'],'basis':project_rule_basis(task),
         'task_target_kinds':task.get('target_kinds',[]),'generation_guidance':task.get('detection_guidance',''),
         'paper_model':model,'node_kinds':sorted(KINDS|set(model.get('node_types',{}))),
-        'base_node_attributes':{kind:list({**COMMON,**ATTRS.get(kind,{})}) for kind in KINDS},
-        'analysis_registry':advertised,'python_policy':{'builtins':sorted(BUILTINS),
+        'base_node_attributes':{kind:list({**COMMON,**ATTRS.get(kind,{})}) for kind in sorted(KINDS)},
+        'analysis_registry':advertised,'reserved_analysis_names':sorted(REGISTRY['capabilities']),'python_policy':{'builtins':sorted(BUILTINS),
         'methods':sorted(METHODS),'helpers':sorted(HELPERS)},'feedback':feedback or [],
         'allow_model_refinement':bool(allow_model_refinement),
         'refinement_policy':('model and generated analysis requests may be refined' if allow_model_refinement else 'Paper Model and existing generated analysis_requests are FIXED after the initial candidate. Preserve analysis_requests and requires exactly; only detection code may be repaired.'),
@@ -66,6 +83,7 @@ def synthesize_program(task,client,output_dir,*,model=None,previous=None,feedbac
     instructions=INSTRUCTIONS
     if repair_context is not None:
         data['repair_context']=copy.deepcopy(repair_context)
+        data.update(prepare_feedback(feedback or [], attempt=repair_context.get('attempt', 0)))
         instructions += REPAIR_INSTRUCTIONS
     fingerprint=digest(data)
     input_file=output_dir/'synthesis-input.json';answer_file=output_dir/'synthesis-response.json'
@@ -77,7 +95,15 @@ def synthesize_program(task,client,output_dir,*,model=None,previous=None,feedbac
     else:
         candidate=client.complete_json(PROMPT_VERSION,instructions,data,16384)
         write_json_atomic(answer_file,candidate,exclusive=True)
-    if str(candidate.get('rule_id'))!=str(task['rule_id']):raise ValueError('generated rule identity changed')
+    # Preserve the actual outer response; the executable candidate is compiled
+    # with the same original contract. A legacy flat response stays readable,
+    # without inventing a repair plan that the model did not return.
+    if repair_context is not None:
+        response=candidate
+        candidate=candidate_payload(response)
+        if set(response)=={'repair_plan','candidate'}:
+            write_json_atomic(output_dir/'repair-plan.json',response['repair_plan'])
+    if not isinstance(candidate,dict) or str(candidate.get('rule_id'))!=str(task['rule_id']):raise ValueError('generated rule identity changed')
     if not allow_model_refinement and previous is not None and (candidate.get('analysis_requests')!=previous['program_spec']['analysis_requests'] or set(candidate.get('requires',[]))!=set(previous['program_spec']['requires'])):
         raise ValueError('analysis contract and dependencies are fixed for this program-only condition')
     patch=candidate.get('model_patch',{})
@@ -94,6 +120,18 @@ REPAIR_INSTRUCTIONS="""
 repair_context records actual earlier attempts, including rejected raw programs and feedback-only results.
 Use this history to repair unresolved failures; repeating an unchanged failed candidate is not a repair.
 An unchanged candidate is allowed when no substantive repair is needed. Do not make cosmetic edits just to differ.
+For this repair request return an outer JSON object with EXACT keys repair_plan,candidate.
+candidate is the complete checking-program object with the exact candidate keys specified above.
+repair_plan is a short list of concrete decisions {failure_types,basis_ids,change,remaining_limit?}.
+Explain which observable behavior or missing grounded fact each change addresses; then implement it in candidate.
+Use feedback_summary to see ALL remaining failure classes; feedback contains representative examples, not the entire set.
+feedback_provenance_pool stores exact coordinate/ancestor records once. Resolve any {$provenance_ref:ID} under
+provenance or ancestor_provenance by looking up ID in that pool; source text and labels are not shortened.
+Distinguish a requirement's applicability from availability of its fields. Check observed values, not merely their presence.
+Do not let a global analysis limitation prevent independently decidable local syntax checks.
+An UNKNOWN with partial source coverage cannot be changed to PASS without new evidence.
+Labels are model-assisted: if their quoted normative evidence does not support an alleged defect, preserve the source-backed
+behavior and state that limitation in the repair_plan. Never memorize example IDs, amend labels, or fabricate evidence.
 Failed raw candidates are diagnostic data, not the current executable program or Paper Model.
 """
 

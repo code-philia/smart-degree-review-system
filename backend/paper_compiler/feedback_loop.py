@@ -11,6 +11,7 @@ from .run_accounting import ResourceInterval
 from .task_inputs import project_rule_basis, project_feedback_evidence
 from .storage import write_json_atomic
 from .synthesis import synthesize_program, repair_history_entry, revision_effect
+from .repair_context import project_feedback_context
 
 class FeedbackError(ValueError):
     pass
@@ -105,6 +106,10 @@ def evaluate_cases(package,cases,runner,cache=None):
                     (['false_negative'] if expected=='VIOLATION' and after!='VIOLATION' else [])+
                     (['false_positive_mutant'] if expected=='PASS' and after=='VIOLATION' else [])+
                     (['insufficient_or_execution'] if {before,after}&{'ERROR','UNKNOWN','NOT_APPLICABLE'} else [])})
+            for name, output in zip(('analysis_original', 'analysis_mutant'), outputs):
+                projection = project_feedback_context(output, [target])
+                if projection is not None:
+                    failures[-1][name] = projection
     return {'metrics':_metrics(records),'records':records,'failures':failures}
 
 def run_feedback_loop(task,manifest_path,*,client,output_dir,runner,model=None,max_rounds=5,
@@ -177,7 +182,7 @@ def run_feedback_loop(task,manifest_path,*,client,output_dir,runner,model=None,m
                 write_json_atomic(folder/'initial-reuse.json',{'version_id':package['manifest']['version_id'],'generation_call':False})
             else:
                 package=synthesize_program(task,client,folder,model=model,previous=previous,
-                    feedback=feedback[:12],allow_model_refinement=allow_model_refinement,
+                    feedback=feedback,allow_model_refinement=allow_model_refinement,
                     **({'repair_context':{'attempt':index,'history':history}} if index else {}))
             if index==0:baseline=package
             interval.checkpoint()

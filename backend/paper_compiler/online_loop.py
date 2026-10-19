@@ -12,6 +12,7 @@ from .programs import target_nodes, load_program
 from .runtime_control import RuntimeFrozen, VersionConflict
 from .task_inputs import project_feedback_evidence
 from .storage import write_json_atomic
+from .repair_context import attach_feedback_context, project_feedback_context
 from .synthesis import synthesize_program, repair_history_entry, revision_effect
 
 AUDIT_POLICY = """Independently check the supplied scholarly rule against each supplied source target.
@@ -179,7 +180,7 @@ def _normative_quotes(row, package, data):
     return document_quotes, list(evidence.values())
 
 
-def _ground_judgments(answer, views, ir):
+def _ground_judgments(answer, views, ir, *, client=None, review_receipts=None):
     result = {}
     entries = answer.get('judgments', []) if isinstance(answer, dict) else []
     if not isinstance(entries, list):
@@ -210,7 +211,14 @@ def _ground_judgments(answer, views, ir):
         document_quotes, normative_evidence = grounded_norms
         item = {'state': 'observed', 'value': value, 'quotes': document_quotes,
                 'reason': row['reason'], 'basis': row.get('basis')}
-        facts, evidence = _ground_fields({'fields': {'judgment': typ}}, {'fields': {'judgment': item}}, data, semantic)
+        request = {'fields': {'judgment': typ}}
+        raw = {'fields': {'judgment': item}}
+        from .conflict_review import resolve_review
+        prior = (review_receipts or {}).get(key)
+        proofs, receipt, _ = resolve_review(request, raw, data, client=client, receipt=prior) if semantic else ({}, None, None)
+        if review_receipts is not None and receipt is not None:
+            review_receipts[key] = receipt
+        facts, evidence = _ground_fields(request, raw, data, semantic, conflict_verifications=proofs)
         if facts['judgment']['state'] != 'observed':
             continue
         if row.get('basis') == 'complete_local_scope':
@@ -254,10 +262,19 @@ def _gate(before, after, truths, regression_before, regression_after):
             'verified_local_controls': sum(c.get('validation_role') == 'local-control' for c, _ in regression_after)}
 
 
+def _with_analysis_context(failures, report):
+    enriched=[]
+    for failure in failures:
+        node_id=failure.get('node_id')
+        context=project_feedback_context(report,[node_id]) if node_id is not None else None
+        enriched.append({**failure,'analysis_context':context} if context is not None else failure)
+    return enriched
+
+
 def _case_failures(case, report):
     statuses = _statuses(report)
     nodes = {n['id']: n for n in case['ir']['nodes']}
-    return [{'rule_id': str(row['rule_id']), 'node_id': row['node_id'], 'case_id': case['id'],
+    failures = [{'rule_id': str(row['rule_id']), 'node_id': row['node_id'], 'case_id': case['id'],
              'expected': row['status'], 'actual': statuses.get((str(row['rule_id']), row['node_id']), 'UNKNOWN'),
              'source': deepcopy(nodes.get(row['node_id'])), 'origin': 'online-regression',
              'source_edit': deepcopy(case.get('source_edit')), 'label_evidence': project_feedback_evidence(case.get('label_evidence')),
@@ -265,6 +282,7 @@ def _case_failures(case, report):
              'failure_types': ['independently_verified_local_mutation_difference']}
             for row in case['expected']
             if statuses.get((str(row['rule_id']), row['node_id']), 'UNKNOWN') != row['status']]
+    return _with_analysis_context(failures,report)
 
 
 
@@ -352,8 +370,19 @@ def online_refine(ir, packages, *, client, gateway, cache_dir, control, output_d
         packet, views = _packet(materialized, analysis, packages, gateway, environment, limit=limit)
         if not packet['targets']:
             return finish('no_reliable_feedback')
-        first = _ground_judgments(_call(refining_client, 'online-evidence-audit/1.0', packet, folder), views, materialized)
-        second = _ground_judgments(_call(refining_client, 'online-evidence-review/1.0', packet, folder), views, materialized)
+        from .conflict_review import POLICY as CONFLICT_POLICY
+        def grounded_audit(task):
+            answer = _call(refining_client, task, packet, folder)
+            receipt_path = folder / (task.split('/')[0] + '-conflict-review.json')
+            saved = json.loads(receipt_path.read_text()) if receipt_path.exists() else {}
+            receipts = {tuple(row['target']): row['receipt'] for row in saved.get('records', [])}
+            try:
+                return _ground_judgments(answer, views, materialized, client=refining_client, review_receipts=receipts)
+            finally:
+                write_json_atomic(receipt_path, {'policy':CONFLICT_POLICY, 'records':[
+                    {'target':list(key),'receipt':value} for key,value in receipts.items()]})
+        first = grounded_audit('online-evidence-audit/1.0')
+        second = grounded_audit('online-evidence-review/1.0')
         verified = {key: {**first[key], 'review_evidence': second[key]['evidence']}
                     for key in first.keys() & second.keys() if first[key]['status'] == second[key]['status']}
         truths = {key: row['status'] for key, row in verified.items()}
@@ -361,6 +390,7 @@ def online_refine(ir, packages, *, client, gateway, cache_dir, control, output_d
         failures = [{**row, 'expected': row['status'], 'actual': baseline.get(key, 'UNKNOWN'),
                      'source': deepcopy(views[key][0]['node']), 'failure_types': ['independently_verified_online_difference']}
                     for key, row in verified.items() if baseline.get(key, 'UNKNOWN') != row['status']]
+        failures = _with_analysis_context(failures,attach_feedback_context(report,materialized,analysis))
         runtime['verified_targets'] = len(verified)
         runtime['reliable_feedback'] = len(failures)
         write_json_atomic(folder / 'verified-online-regression.json', {'ir': materialized, 'judgments': list(verified.values()),
@@ -392,11 +422,11 @@ def online_refine(ir, packages, *, client, gateway, cache_dir, control, output_d
         regression_before = []
         for case in regressions:
             refining_client.check()
-            _, _, checked = detect(case['ir'], packages, client=refining_client, gateway=gateway,
+            checked_ir, checked_analysis, checked = detect(case['ir'], packages, client=refining_client, gateway=gateway,
                                    cache_dir=Path(cache_dir), evidence_environment=case.get('evidence_environment', environment))
             regression_before.append((case, checked))
             if case in local_cases:
-                failures.extend(_case_failures(case, checked))
+                failures.extend(_case_failures(case, attach_feedback_context(checked,checked_ir,checked_analysis)))
         runtime['reliable_feedback'] = len(failures)
         write_json_atomic(folder/'baseline-regressions.json',
                           [{'case_id': case['id'], 'report': checked} for case, checked in regression_before])
@@ -458,10 +488,12 @@ def online_refine(ir, packages, *, client, gateway, cache_dir, control, output_d
                 new_ir, new_analysis, new_report = detect(ir, candidates, client=refining_client, gateway=gateway,
                                                          cache_dir=Path(cache_dir), evidence_environment=environment)
                 regression_after = []
+                regression_context_after = {}
                 for case in regressions:
                     refining_client.check()
-                    _, _, checked = detect(case['ir'], candidates, client=refining_client, gateway=gateway,
+                    checked_ir, checked_analysis, checked = detect(case['ir'], candidates, client=refining_client, gateway=gateway,
                                            cache_dir=Path(cache_dir), evidence_environment=case.get('evidence_environment', environment))
+                    regression_context_after[case['id']] = attach_feedback_context(checked,checked_ir,checked_analysis)
                     regression_after.append((case, checked))
                 gate = _gate(report, new_report, truths, regression_before, regression_after)
                 # Commit repair state only after the entire candidate executes.
@@ -505,9 +537,11 @@ def online_refine(ir, packages, *, client, gateway, cache_dir, control, output_d
                 case_reports = {case['id']: checked for case, checked in regression_after}
                 failures = [{**row, 'candidate_status': _statuses(case_reports.get(row.get('case_id'), new_report)).get(
                              (row['rule_id'], row.get('node_id')), 'UNKNOWN'), 'validation_gate': gate} for row in failures]
+                current_context=attach_feedback_context(new_report,new_ir,new_analysis)
+                failures=[_with_analysis_context([row],regression_context_after.get(row.get('case_id'),current_context))[0] for row in failures]
                 known = {(row.get('case_id'), row['rule_id'], row.get('node_id')) for row in failures}
                 for case, checked in regression_after:
-                    for failure in _case_failures(case, checked):
+                    for failure in _case_failures(case, regression_context_after[case['id']]):
                         key = (failure['case_id'], failure['rule_id'], failure['node_id'])
                         if key not in known:
                             failures.append({**failure, 'candidate_status': failure['actual'], 'validation_gate': gate})

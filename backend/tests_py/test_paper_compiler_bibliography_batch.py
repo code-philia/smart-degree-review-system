@@ -1,4 +1,4 @@
-"""Bibliography batching is opt-in; legacy requests and both cache layers stay valid."""
+"""Bibliography batching is opt-in; MaaS requests stay valid, derived policy is versioned."""
 import copy
 import hashlib
 import json
@@ -135,20 +135,35 @@ def test_cross_entry_quotes_types_missing_values_and_absence_stay_grounded(tmp_p
 
 
 @pytest.mark.parametrize('configured',[None,'1'])
-def test_legacy_default_requests_and_whole_analysis_cache_key_are_unchanged(tmp_path, monkeypatch, configured):
+def test_legacy_default_requests_unchanged_but_derived_cache_rejects_old_unknown(tmp_path, monkeypatch, configured):
     monkeypatch.delenv('PAPER_COMPILER_ANALYSIS_BATCH_SIZE',raising=False)
     if configured is not None:monkeypatch.setenv('PAPER_COMPILER_ANALYSIS_BATCH_SIZE',configured)
-    ir=paper(tmp_path,5);client=Fields(); result=enrich(tmp_path,ir,client)
-    assert [len(c[2]['entries']) for c in client.calls]==[2,2,1]
-    assert all(c[0]=='bibliography-fields/1.1' and c[1]==LEGACY_PROMPT and c[3]==6000 for c in client.calls)
-    assert hashlib.sha256(client.calls[0][1].encode()).hexdigest()=='d4e2fcdb87683ce541880ef7b02872c8e2a9d777369b88242786bf91c911acce'
+    ir=paper(tmp_path,5);client=Fields()
     old_policy={'model':client.config,'offline':False,'providers':[],'evidence_version':'public-evidence/1.2',
                 'content_version':'public-content/1.1-arxiv','snapshot':'fixed','frozen_evidence':None}
-    expected_key=hashlib.sha256(json_bytes({'ir':ir_hash(ir),'version':'shared-analysis/1.5',
-        'capabilities':{'bibliography_fields':REGISTRY['capabilities']['bibliography_fields']},
-        'required':['bibliography_fields'],'policy':old_policy})).hexdigest()
-    assert result['policy']==old_policy
-    assert [p.name for p in (tmp_path/'analysis-cache').glob('*.json')]==[expected_key+'.json']
+    def cache_key(policy):
+        return hashlib.sha256(json_bytes({'ir':ir_hash(ir),'version':'shared-analysis/1.5',
+            'capabilities':{'bibliography_fields':REGISTRY['capabilities']['bibliography_fields']},
+            'required':['bibliography_fields'],'policy':policy})).hexdigest()
+    # A valid pre-extraction-policy derived cache can contain UNKNOWN, but must
+    # not hide the new extraction behavior. The raw MaaS cache remains reusable.
+    old=runtime.base_analysis(ir);runtime.parse_entries(ir,old,None);old['policy']=old_policy
+    old['capability_versions']['bibliography_fields']=REGISTRY['capabilities']['bibliography_fields']['version']
+    validate_analysis(ir,old)
+    cache=tmp_path/'analysis-cache';cache.mkdir()
+    old_path=cache/(cache_key(old_policy)+'.json');old_path.write_bytes(json_bytes(old))
+    old_bytes=old_path.read_bytes()
+    assert all(row['title']['state']=='unknown' for row in old['results']['bibliography_fields'].values())
+    result=enrich(tmp_path,ir,client)
+    expected_data=[{'field_types':FIELD_TYPES,'entries':[{'id':n['id'],'text':n['text']} for n in ir['nodes'][offset:offset+2]]}
+                   for offset in (1,3,5)]
+    assert client.calls==[('bibliography-fields/1.1',LEGACY_PROMPT,data,6000) for data in expected_data]
+    assert hashlib.sha256(client.calls[0][1].encode()).hexdigest()=='d4e2fcdb87683ce541880ef7b02872c8e2a9d777369b88242786bf91c911acce'
+    new_policy={**old_policy,'bibliography_extraction':'source-linewrap-preserve-hyphen/1.0'}
+    assert result['policy']==new_policy and cache_key(new_policy)!=cache_key(old_policy)
+    assert {p.name for p in cache.glob('*.json')}=={cache_key(old_policy)+'.json',cache_key(new_policy)+'.json'}
+    assert old_path.read_bytes()==old_bytes
+    assert all(row['title']['state']=='observed' for row in result['results']['bibliography_fields'].values())
     assert 'bibliography' not in program_analysis.analysis_execution_policy()
     assert enrich(tmp_path,ir,client)==result and len(client.calls)==3
 

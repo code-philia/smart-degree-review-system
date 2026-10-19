@@ -19,6 +19,7 @@ from .model_runtime import classification_execution_policy, validate_model
 from .evidence import VERSION as EVIDENCE_VERSION, CONTENT_VERSION
 from .registry import REGISTRY
 from .storage import json_bytes, write_json_atomic
+from .conflict_review import POLICY as CONFLICT_POLICY, resolve_review
 
 VERSION = 'generated-analysis-runtime/2.3'
 TASK = 'generated-analysis/2.0'
@@ -74,6 +75,7 @@ def analysis_execution_policy():
     if serialization != LEGACY_INPUT_SERIALIZATION:
         policy['input_serialization'] = serialization
     policy['response_decoder'] = response_decoder_policy()
+    policy['conflict_review'] = CONFLICT_POLICY
     return policy
 
 
@@ -306,7 +308,7 @@ def _correct_type(value, typ):
     return True
 
 
-def _ground_fields(request, raw, data, reference):
+def _ground_fields(request, raw, data, reference, *, conflict_verifications=None):
     sources = {source['source_id']: source for source in data['sources']}
     facts, evidence = {}, {}
     fields = raw.get('fields', {}) if isinstance(raw, dict) else {}
@@ -356,6 +358,7 @@ def _ground_fields(request, raw, data, reference):
             purpose_quotes = [s['quote'] for s in spans if s.get('node_id') == context_id]
             if not any(re.search(r'[A-Za-z\u4e00-\u9fff]{2,}', quote) for quote in purpose_quotes):
                 continue
+        verified_conflict = None
         if state == 'observed' and reference:
             basis = item.get('basis')
             if basis not in {'explicit_support', 'explicit_scope_contradiction'} or not reason:
@@ -369,7 +372,10 @@ def _ground_fields(request, raw, data, reference):
             if basis == 'explicit_scope_contradiction':
                 external_quotes = ' '.join(s['quote'] for s in spans if s['origin'] == 'external')
                 if not re.search(r'\b(?:no|not|never|exclusively|only|excludes?|cannot)\b|不|无|仅|排除|没有|未', external_quotes, re.I):
-                    continue
+                    from .conflict_review import trusted_verification
+                    verified_conflict = trusted_verification(item, data, conflict_verifications)
+                    if verified_conflict is None:
+                        continue
         ids = list(dict.fromkeys(span['id'] for span in spans))
         if state == 'confirmed_absent':
             scope = item.get('search_scope')
@@ -388,6 +394,8 @@ def _ground_fields(request, raw, data, reference):
             for key in ['reason', 'basis']:
                 if isinstance(item.get(key), str):
                     facts[name][key] = item[key]
+        if verified_conflict is not None:
+            facts[name]['conflict_verification'] = verified_conflict
         evidence.update({span['id']: span for span in spans})
     return facts, list(evidence.values())
 
@@ -446,6 +454,8 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
     if evidence_environment is not None:
         reject_answers(evidence_environment)
     capabilities, requests = _plan(packages)
+    reference_requests = any(any(_base_kind(ir, n['kind']) == 'ReferenceUse' and _matches(ir, n['kind'], r['targets'])
+                                 for n in ir['nodes']) for r in requests.values())
     models = [package.get('model') for package in packages]
     definitions = [{'model': package.get('model'), 'requests': package['program_spec'].get('analysis_requests', []),
                     'generation': package.get('manifest', {}).get('version_id')} for package in packages]
@@ -455,7 +465,10 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
               'model': {k: config.get(k) for k in ['MAAS_MODEL', 'MAAS_MODEL_VERSION']},
               'offline': client is None, 'environment': _hash(evidence_environment), 'runtime': VERSION,
               'grounding_policy': _hash(GROUNDING_POLICY), 'evidence_version': EVIDENCE_VERSION,
-              'content_version': CONTENT_VERSION, 'response_decoder': execution_policy['response_decoder']}
+              'content_version': CONTENT_VERSION, 'response_decoder': execution_policy['response_decoder'],
+              'conflict_review': CONFLICT_POLICY}
+    if reference_requests or any(name.startswith('bibliography_') or name in {'external_work', 'citation_binding', 'citation_order'} for name in capabilities):
+        policy['bibliography_extraction'] = bibliography_execution_policy()['extraction_policy']
     if batch_size > 1:
         policy['generated_batch'] = execution_policy
     serialization = input_serialization_policy(config.get('PAPER_COMPILER_INPUT_SERIALIZATION'))
@@ -478,8 +491,6 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
     known = set(capabilities) & REGISTRY['capabilities'].keys()
     # New programs obtain citation semantics only from their generated requests.
     known.discard('citation_relevance')
-    reference_requests = any(any(_base_kind(ir, n['kind']) == 'ReferenceUse' and _matches(ir, n['kind'], r['targets'])
-                                 for n in ir['nodes']) for r in requests.values())
     if reference_requests:
         known.update({'bibliography_fields', 'external_work'})
     controlled = isinstance(evidence_environment, dict) and evidence_environment.get('domain') == 'controlled_catalog'
@@ -517,10 +528,32 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
         output = analysis['results'].setdefault(name, {})
         pending = []
 
-        def commit(item, raw):
+        def ground(item, raw, review_record=None, review_client=None):
+            proofs, record, review_reason = resolve_review(request, raw, item['data'],
+                client=review_client, receipt=review_record) if item['reference'] else ({}, None, None)
+            facts, evidence = _ground_fields(request, raw, item['data'], item['reference'],
+                conflict_verifications=proofs)
+            if review_reason:
+                from .conflict_review import prepare_review
+                candidates = {x['id'] for x in prepare_review(request, raw, item['data'])['items']}
+                from .conflict_review import _key as conflict_key
+                for field, fact in facts.items():
+                    raw_item = raw.get('fields', {}).get(field, {}) if isinstance(raw, dict) else {}
+                    if fact['state'] != 'unknown':
+                        continue
+                    try:
+                        key = conflict_key(raw_item, item['data'])
+                    except (TypeError, ValueError):
+                        # An unrelated ill-typed producer field keeps its own UNKNOWN reason.
+                        continue
+                    if key in candidates:
+                        fact['reason'] = review_reason
+            return facts, evidence, record
+
+        def commit(item, raw, review_record=None):
             node, data, reference = item['node'], item['data'], item['reference']
             key, node_path = item['key'], item['node_path']
-            facts, evidence = _ground_fields(request, raw, data, reference)
+            facts, evidence, review_record = ground(item, raw, review_record, client)
             output[node['id']] = facts
             for item in evidence:
                 _add_evidence(analysis, item)
@@ -545,7 +578,19 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
                 if fact['state'] == 'observed':
                     clean['value'] = deepcopy(fact['value'])
                 cleaned['fields'][field] = clean
-            write_json_atomic(node_path, {'key': key, 'raw': cleaned, 'facts': facts, 'evidence': evidence})
+            producer_raw = deepcopy(cleaned)
+            if review_record is not None:
+                for field, raw_item in raw_fields.items():
+                    if field not in request['fields'] or not isinstance(raw_item, dict):
+                        continue
+                    try:
+                        json_bytes(raw_item)
+                    except (TypeError, ValueError):
+                        continue
+                    if raw_item.get('basis') == 'explicit_scope_contradiction':
+                        producer_raw['fields'][field] = deepcopy(raw_item)
+            write_json_atomic(node_path, {'key': key, 'raw': cleaned, 'producer_raw': producer_raw,
+                'conflict_review': review_record, 'facts': facts, 'evidence': evidence})
         def flush():
             if not pending:
                 return
@@ -573,10 +618,11 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
             node_cached = _read_json(node_path)
             usable = False
             if isinstance(node_cached, dict) and node_cached.get('key') == key and 'raw' in node_cached:
-                facts, evidence = _ground_fields(request, node_cached['raw'], data, reference)
+                cached_raw = node_cached.get('producer_raw', node_cached['raw'])
+                facts, evidence, _ = ground(item, cached_raw, node_cached.get('conflict_review'))
                 usable = facts == node_cached.get('facts') and evidence == node_cached.get('evidence')
             if usable:
-                commit(item, node_cached['raw'])
+                commit(item, cached_raw, node_cached.get('conflict_review'))
             elif client is None or not ready or not data['sources']:
                 commit(item, {})
             elif batch_size == 1:

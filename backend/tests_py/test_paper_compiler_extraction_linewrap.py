@@ -1,0 +1,76 @@
+"""Source-preserving layout normalization; all extraction clients are local fakes."""
+import copy
+import pytest
+from paper_compiler import analysis
+from paper_compiler.registry import REGISTRY
+from test_paper_compiler_compiler import fixture
+
+
+def extract(text, value, quote=None):
+    state = {'evidence': []}
+    node = {'id': 'entry', 'text': text}
+    result = analysis._extract_field(node, 'title',
+        {'state': 'observed', 'value': value, 'quote': text if quote is None else quote}, True, state)
+    return result, state['evidence']
+
+
+@pytest.mark.parametrize('wrap', ['-\n', '-\r\n', '-\n  ', '- \n\t'])
+def test_exact_quote_linewrap_keeps_hyphen_and_source_offsets(wrap):
+    quote = 'security best practices vio' + wrap + 'lation'
+    text = '[9] SHAMIM S I. ' + quote + '[C].'
+    value = 'security best practices vio-lation'
+    fact, evidence = extract(text, value, quote)
+    start = text.index(quote)
+    assert fact['state'] == 'observed'
+    assert fact['value'] == value
+    assert fact['source_range'] == [start, start + len(quote)]
+    assert evidence[0]['quote'] == quote
+    assert text[evidence[0]['start']:evidence[0]['end']] == quote
+    assert evidence[0]['transcription_policy'] == analysis.BIBLIOGRAPHY_EXTRACTION_POLICY
+    assert all(text[a:b].isspace() for a,b in evidence[0]['linewrap_join_ranges'])
+
+
+@pytest.mark.parametrize('text,value,quote', [
+    ('security vio-\nlation', 'security violation', None),
+    ('security vio-\nlation', 'security vio-lution', None),
+    ('security best practices vio-\nlation', 'security vio-lation', None),
+    ('security vio-\n\nlation', 'security vio-lation', None),
+    ('security vio-\n \nlation', 'security vio-lation', None),
+    ('security vio- lation', 'security vio-lation', None),
+    ('security vio-\nlation', 'security vio-lation', 'security vio-lation'),
+    ('security vio-\nlation', 'security vio-lation', 'security vio- lation'),
+    ('security vio-\n_lation', 'security vio-_lation', None),
+])
+def test_linewrap_never_invents_changes_omits_or_crosses_paragraphs(text,value,quote):
+    fact,evidence=extract(text,value,quote)
+    assert fact['state']=='unknown'
+    assert evidence==[]
+
+
+def test_existing_plain_whitespace_transcription_stays_supported():
+    fact,evidence=extract('A study of\nneural networks', 'study of neural networks', 'study of neural networks')
+    assert fact['state']=='observed'
+    assert evidence[0]['quote']=='study of\nneural networks'
+
+
+@pytest.mark.parametrize('size',['1','8'])
+def test_extraction_policy_invalidates_derived_cache_without_changing_model_request(tmp_path,monkeypatch,size):
+    monkeypatch.setenv('PAPER_COMPILER_ANALYSIS_BATCH_SIZE',size)
+    ir,_=fixture(tmp_path)
+    packages=[{'rule_ir':{'requires':['bibliography_fields']},'registry':REGISTRY}]
+    class LocalModel:
+        config={'MAAS_MODEL':'local-fake','MAAS_MODEL_VERSION':'test'}
+        def __init__(self):self.requests=[]
+        def complete_json(self,*args):
+            self.requests.append(copy.deepcopy(args))
+            return {'entries':[{'id':'entry','complete':True,'fields':{'title':{'state':'observed','value':'Hello','quote':'Hello'}}}]}
+    client=LocalModel()
+    def run():return analysis.enrich(ir,packages,client=client,gateway=None,cache_dir=tmp_path/'cache',snapshot_id='test-only')
+    monkeypatch.setattr(analysis,'BIBLIOGRAPHY_EXTRACTION_POLICY','test-policy-old',raising=False)
+    run();run()
+    assert len(client.requests)==1
+    monkeypatch.setattr(analysis,'BIBLIOGRAPHY_EXTRACTION_POLICY','test-policy-new')
+    run()
+    assert len(client.requests)==2
+    assert client.requests[0]==client.requests[1], 'existing raw response key must stay unchanged'
+    assert analysis.bibliography_execution_policy()['extraction_policy']=='test-policy-new'

@@ -9,10 +9,13 @@ def run(*args):return subprocess.run([sys.executable,str(SCRIPT),*map(str,args)]
 
 def test_cli_offline_build_and_existing_output_are_safe(tmp_path):
     pdf=tmp_path/'paper.pdf';doc=pymupdf.open();doc.new_page().insert_text((72,72),'Test paper');doc.save(pdf);doc.close()
-    out=tmp_path/'paper.json';r=run('build','--pdf',pdf,'--out',out,'--offline')
+    out=tmp_path/'paper.json'
+    args=('build','--pdf',pdf,'--out',out,'--offline','--ledger',tmp_path/'TEST_ONLY-budget.sqlite3',
+          '--cache',tmp_path/'TEST_ONLY-cache')
+    r=run(*args)
     assert r.returncode==0,r.stderr+r.stdout
     assert json.loads(r.stdout)['status']=='completed' and out.exists()
-    before=out.read_bytes();r=run('build','--pdf',pdf,'--out',out,'--offline')
+    before=out.read_bytes();r=run(*args)
     assert r.returncode==1 and out.read_bytes()==before
 
 def test_cli_budget_does_not_require_api_credentials(tmp_path):

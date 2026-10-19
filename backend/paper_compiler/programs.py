@@ -151,7 +151,7 @@ def run_program(package,ir,analysis):
                         raise ProgramError('analysis field type mismatch: '+name+'.'+field)
     from .runtime import _evidence_check
     _evidence_check(ir,analysis)
-    compact=copy.deepcopy(ir)
+    compact=copy.deepcopy({key:value for key,value in ir.items() if key!='layout'})
     compact['layout']={'pages':[{k:v for k,v in p.items() if k in {'page_index','width','height','rotation'}}
                                 for p in ir.get('layout',{}).get('pages',[])]}
     rows=execute_pure(package['code'],{'ir':compact,'analysis':analysis})

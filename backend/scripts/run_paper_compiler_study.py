@@ -32,6 +32,7 @@ def execute(args):
     from paper_compiler.evidence import EvidenceGateway
     from paper_compiler.llm import MaasClient
     from paper_compiler.pipeline import detect
+    from paper_compiler.repair_context import attach_feedback_context
     from paper_compiler.programs import digest
     from paper_compiler.study import run_study
     from paper_compiler.program_analysis import analysis_execution_policy
@@ -61,8 +62,10 @@ def execute(args):
             environment = resources.get('evidence_environment')
             if not isinstance(environment, dict) or environment.get('domain') != 'controlled_catalog':
                 raise ValueError('task requires an explicit controlled catalog resource')
-        return detect(ir, [package], client=client, gateway=gateway, cache_dir=args.cache,
-                      evidence_environment=environment)[2]
+        materialized, analysis, report = detect(
+            ir, [package], client=client, gateway=gateway, cache_dir=args.cache,
+            evidence_environment=environment)
+        return attach_feedback_context(report, materialized, analysis)
     runner.study_fingerprint = digest({'evidence_snapshot': snapshot, 'resources': resources,
         'task_environments': {key: task.get('evidence_environment') for key, task in by_id.items()},
         'providers': gateway.providers, 'analysis_execution_policy': analysis_policy})
