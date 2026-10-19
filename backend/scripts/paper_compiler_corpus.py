@@ -347,7 +347,7 @@ def execute(args):
         if args.rule: _require(len(args.rule) == len(set(args.rule)) and set(args.rule) == {p['program_spec']['rule_id'] for p in packages}, 'declared final rule set does not match suite')
         if not args.offline: _require(args.ledger.is_file(), 'use the existing shared budget ledger; new ledgers are forbidden')
         ledger = None if args.offline else BudgetLedger(args.ledger, Decimal(args.budget))
-        client = None if args.offline else MaasClient(args.config, ledger, args.cache/'model-cache', args.phase, Decimal(args.phase_budget), max_attempts=1, json_output=args.publication_review)
+        client = None if args.offline else MaasClient(args.config, ledger, args.cache/'model-cache', args.phase, Decimal(args.phase_budget), max_attempts=1, json_output=args.publication_review, semantic_thinking=args.publication_review)
         gateway = None if args.offline else EvidenceGateway(args.cache/'public-evidence', snapshot_id=args.evidence_snapshot,
             proxy=os.environ.get('PAPER_COMPILER_PUBLIC_PROXY', 'http://127.0.0.1:18892'))
         def runner(path, folder):

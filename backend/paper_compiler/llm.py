@@ -144,13 +144,16 @@ def _request_slot(limits=None):
 class MaasClient:
     def __init__(self, config_path, ledger, cache_dir, phase, phase_limit_cny,
                  *, transport=None, max_attempts=2, retry_delay=1, timeout=120, input_serialization=None,
-                 program_synthesis_thinking=False, json_output=False):
+                 program_synthesis_thinking=False, json_output=False, semantic_thinking=False):
         if type(max_attempts) is not int or not 1 <= max_attempts <= 3:
             raise ValueError('max_attempts must be 1..3')
         if type(program_synthesis_thinking) is not bool:
             raise ValueError('program_synthesis_thinking must be a boolean')
         if type(json_output) is not bool:
             raise ValueError('json_output must be a boolean')
+        if type(semantic_thinking) is not bool:
+            raise ValueError('semantic_thinking must be a boolean')
+        self.semantic_thinking = semantic_thinking
         self.json_output = json_output
         self.program_synthesis_thinking = program_synthesis_thinking
         self.input_serialization = input_serialization_policy(input_serialization)
@@ -179,14 +182,17 @@ class MaasClient:
         ]
         payload = {'model': self.config['MAAS_MODEL'], 'messages': messages,
                    'max_completion_tokens': max_tokens, 'stream': False, 'temperature': 0,
-                   'chat_template_kwargs': {'thinking': self.program_synthesis_thinking and
-                       task.split('/', 1)[0] == 'paper-program-synthesis'}}
+                   'chat_template_kwargs': {'thinking': (
+                       self.program_synthesis_thinking and task.split('/', 1)[0] == 'paper-program-synthesis') or (
+                       self.semantic_thinking and task.split('/', 1)[0] in {
+                           'generated-analysis', 'generated-analysis-batch',
+                           'grounded-observations-flat', 'positive-conflict-review'})}}
         # Keep verified extraction/classification cache keys unchanged. The
         # new format constraint is for semantic observations and alert review.
         if self.json_output and task.split('/', 1)[0] in {
                 'generated-analysis', 'generated-analysis-batch',
                 'grounded-observations-flat', 'publication-evidence-audit',
-                'publication-evidence-review'}:
+                'publication-evidence-review', 'positive-conflict-review'}:
             payload['response_format'] = {'type': 'json_object'}
         fingerprint = {'task': task, 'model_version': self.config.get('MAAS_MODEL_VERSION'),
                        'endpoint': ALLOWED_BASE, 'adapter_version': 2, 'payload': payload}
@@ -226,7 +232,8 @@ class MaasClient:
                 if 'response_format' in payload:
                     record['response_format'] = payload['response_format']
                 if payload['chat_template_kwargs']['thinking']:
-                    record['program_synthesis_thinking'] = True
+                    label = 'program_synthesis_thinking' if task.split('/', 1)[0] == 'paper-program-synthesis' else 'semantic_thinking'
+                    record[label] = True
                 try:
                     limits = getattr(self, '_request_limits', None)
                     timeout = self.timeout if limits is None else min(float(self.timeout), limits.remaining())
