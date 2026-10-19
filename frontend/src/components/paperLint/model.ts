@@ -61,3 +61,17 @@ export function findingPageLabel(item: PaperLintFindingItem): string | null {
     .sort((a, b) => a - b);
   return values.length ? values.join('、') : null;
 }
+
+export function compilerPublicationLabel(run: PaperLintRuleRun): string | null {
+  if (!['sjtu_rule_31', 'sjtu_rule_32', 'sjtu_rule_33'].includes(run.rule_id) || !run.publication_status) return null;
+  if (run.execution_status === 'error') return '执行失败';
+  return run.publication_status === 'ALERT' ? '发现问题' : '未触发告警';
+}
+
+export function compilerPublicationSummary(result: PaperLintResult): string | null {
+  if (!result.rule_runs.some((run) => compilerPublicationLabel(run) !== null)) return null;
+  if (result.summary.finding_count) return null;
+  if (result.summary.error_rule_count) return '部分规则执行失败';
+  if (result.summary.unsupported_rule_count) return null;
+  return '未触发告警';
+}

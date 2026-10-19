@@ -10,7 +10,7 @@ import {
 } from '../api/paperLint';
 import { CompilerDiagnostics } from '../components/paperLint/CompilerEvidence';
 import { PaperLintWorkspace } from '../components/paperLint/Workspace';
-import { flattenPaperLintFindings } from '../components/paperLint/model';
+import { compilerPublicationLabel, compilerPublicationSummary, flattenPaperLintFindings } from '../components/paperLint/model';
 import { Card, ErrorState, LoadingState, PageHeader, StatusBadge } from '../components/ui';
 
 const outcomeLabels = { passed: '通过', issues_found: '发现问题', inconclusive: '无法判定', not_applicable: '不适用' };
@@ -57,7 +57,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="已完成检测"
+        eyebrow={report.result.rule_runs.some((run) => run.publication_status && run.execution_status === 'error') ? '部分检测执行失败' : '已完成检测'}
         title={
           report.result.paper_title === '上传论文'
             ? report.source_filename
@@ -94,13 +94,13 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
                     : 'success'
             }
           >
-            {summary.finding_count
+            {compilerPublicationSummary(report.result) || (summary.finding_count
               ? `待处理 ${summary.finding_count} 项`
               : summary.unsupported_rule_count + summary.error_rule_count
                 ? '部分规则无法判定'
                 : isThirty
                   ? '规则检查通过'
-                  : '基础检查通过'}
+                  : '基础检查通过')}
           </StatusBadge>
         }
       >
@@ -138,7 +138,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
                 {run.message ? <p className="mt-1 text-xs text-slate-600">{run.message}</p> : null}
                 <CompilerDiagnostics items={run.compiler_diagnostics} />
               </div>
-              <StatusBadge tone={outcomeTones[run.outcome]}>{outcomeLabels[run.outcome]}</StatusBadge>
+              <StatusBadge tone={outcomeTones[run.outcome]}>{compilerPublicationLabel(run) || outcomeLabels[run.outcome]}</StatusBadge>
             </div>
           ))}
         </div>

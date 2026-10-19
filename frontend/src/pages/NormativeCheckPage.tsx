@@ -13,7 +13,7 @@ import {
   type PaperLintRule,
 } from '../api/paperLint';
 import { PaperLintWorkspace } from '../components/paperLint/Workspace';
-import { flattenPaperLintFindings } from '../components/paperLint/model';
+import { compilerPublicationLabel, compilerPublicationSummary, flattenPaperLintFindings } from '../components/paperLint/model';
 import { THIRTY_RULE_IDS } from '../utils/paperLintRuleGroups';
 import {
   Button,
@@ -493,11 +493,11 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
                       : 'success'
                 }
               >
-                {response.result.summary.finding_count
+                {compilerPublicationSummary(response.result) || (response.result.summary.finding_count
                   ? `发现 ${response.result.summary.finding_count} 项问题`
                   : response.result.summary.unsupported_rule_count + response.result.summary.error_rule_count
                     ? '部分规则无法判定'
-                    : '未发现问题'}
+                    : '未发现问题')}
               </StatusBadge>
             }
           >
@@ -534,7 +534,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
                       </span>
                       {run.message ? <p className="mt-1 text-xs text-slate-500">{run.message}</p> : null}
                     </div>
-                    <StatusBadge tone={outcomeTones[run.outcome]}>{outcomeLabels[run.outcome]}</StatusBadge>
+                    <StatusBadge tone={outcomeTones[run.outcome]}>{compilerPublicationLabel(run) || outcomeLabels[run.outcome]}</StatusBadge>
                   </div>
                 ))}
               </div>

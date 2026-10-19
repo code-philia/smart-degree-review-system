@@ -10,7 +10,7 @@ import {
 } from '../api/archiveScans';
 import { useAuthSession } from '../auth/AuthSessionProvider';
 import { PaperLintWorkspace } from '../components/paperLint/Workspace';
-import { flattenPaperLintFindings } from '../components/paperLint/model';
+import { compilerPublicationLabel, compilerPublicationSummary, flattenPaperLintFindings } from '../components/paperLint/model';
 import { ErrorState, LoadingState, PageHeader } from '../components/ui';
 
 const outcomeLabel: Record<string, string> = {
@@ -94,7 +94,7 @@ export default function ArchiveScanResultPage() {
               <span
                 className={`rounded-full px-3 py-1 text-sm font-black ${findings.length ? 'bg-amber-50 text-amber-700' : inconclusive ? 'bg-slate-100 text-slate-700' : 'bg-emerald-50 text-emerald-700'}`}
               >
-                {findings.length ? `${findings.length} 处问题` : inconclusive ? '部分规则无法判定' : '未发现问题'}
+                {compilerPublicationSummary(document.result) || (findings.length ? `${findings.length} 处问题` : inconclusive ? '部分规则无法判定' : '未发现问题')}
               </span>
             </div>
             <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -106,7 +106,7 @@ export default function ArchiveScanResultPage() {
                   <p
                     className={`mt-2 text-sm font-semibold ${run.outcome === 'issues_found' ? 'text-amber-700' : run.outcome === 'passed' ? 'text-emerald-700' : 'text-slate-600'}`}
                   >
-                    {outcomeLabel[run.outcome] || '无法判定'} · {run.findings.length} 处
+                    {compilerPublicationLabel(run) || outcomeLabel[run.outcome] || '无法判定'} · {run.findings.length} 处
                   </p>
                   {run.message && <p className="mt-1 text-xs text-slate-500">{run.message}</p>}
                 </div>

@@ -317,6 +317,7 @@ def parser():
     p.add_argument('--cache', type=Path, default=Path('/data/runtime/paper-compiler')); p.add_argument('--budget', default='200')
     p.add_argument('--phase', default='final-corpus'); p.add_argument('--phase-budget', default='200'); p.add_argument('--evidence-snapshot')
     p.add_argument('--offline', action='store_true')
+    p.add_argument('--publication-review', action='store_true')
     return p
 
 
@@ -354,6 +355,12 @@ def execute(args):
             ir = build_paper(path, client=client) if path.suffix.lower() == '.pdf' else _load(path)
             middle = ledger.summary() if ledger else None
             materialized, analysis, report = detect(ir, packages, client=client, gateway=gateway, cache_dir=args.cache)
+            if args.publication_review:
+                from paper_compiler.publication_gate import audit_positives
+                reviewed = audit_positives(materialized, analysis, report, packages, client=client, gateway=gateway,
+                    output_dir=folder/'publication')
+                report['publication'] = {'public': reviewed['public'],
+                    'artifact': str(Path(reviewed['internal']['output_dir'])/'result.json')}
             after = ledger.summary() if ledger else None
             return {'ir': materialized, 'analysis': analysis, 'report': report,
                     'stage_costs': {'frontend': _cost(before, middle), 'pipeline': _cost(middle, after)}}
@@ -362,6 +369,7 @@ def execute(args):
             'offline': args.offline, 'ledger': str(args.ledger.resolve()), 'cache': str(args.cache.resolve()),
             'budget': args.budget, 'phase': args.phase, 'phase_budget': args.phase_budget,
             'analysis_execution_policy': analysis_policy}
+        if args.publication_review: runner.fingerprint['publication_review'] = True
         if ledger: runner.meter = ledger.summary
         return run_corpus(args.inventory, args.suite, args.out, runner=runner, expected_documents=args.expected_documents)
     write_json_atomic(args.out, value, exclusive=True)

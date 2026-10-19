@@ -86,6 +86,7 @@ export type PaperLintRuleRun = {
   execution_status: PaperLintExecutionStatus;
   evidence_mode?: 'native' | 'derived' | 'unsupported' | null;
   outcome: PaperLintOutcome;
+  publication_status?: 'ALERT' | 'NO_ALERT';
   message?: string | null;
   findings: PaperLintFinding[];
   compiler_diagnostics?: CompilerDiagnostic[];

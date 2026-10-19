@@ -14,7 +14,7 @@ function isCompilerRuleId(id) { return IDS.has(id); }
 function packagePath(number) { return path.join(process.env.PAPER_COMPILER_PACKAGE_ROOT || '', String(number)); }
 function getCompilerRules() {
   return DEFINITIONS.map(([number,title]) => ({number, rule_id:`sjtu_rule_${number}`, title:`规则 ${number} · ${title}`,
-    description:'依据原文与可追溯外部证据检查；证据不足会显示无法判定。', default_severity:'warning', default_enabled:false,
+    description:'仅展示经规范与原文复核确认的告警。', default_severity:'warning', default_enabled:false,
     execution_mode:'semantic', uses_external_model:true, source:'sjtu-paper-compiler',
     available:process.env.PAPER_COMPILER_ENABLED === '1' && Boolean(process.env.PAPER_COMPILER_PACKAGE_ROOT) && fs.existsSync(path.join(packagePath(number),'manifest.json')) }));
 }
@@ -37,6 +37,9 @@ async function runJsonProcess(command,args,{signal,timeoutMs=1200000,maxBytes=64
 }
 function toCompilerResult(output,selectedRuleIds) {
   if(output?.schema_version!=='paper-check/1.0' || !Array.isArray(output.rules))throw failure(502,'COMPILER_INVALID_REPORT','规则编译检测结果不完整');
+  const publication=output.publication?.public;
+  if(publication && (!['ALERT','NO_ALERT'].includes(publication.status) || !Array.isArray(publication.findings) ||
+      (publication.status==='NO_ALERT' && publication.findings.length)))throw failure(502,'COMPILER_INVALID_REPORT','告警复核结果不完整');
   const asVersion=value=>typeof value==='string' && value.trim() ? value : null;
   const executionReason=value=>value?.error_type==='ProgramError' && typeof value.reason==='string' && value.reason.length<=1000 && value.reason.trim() ? value.reason : null;
   const refinementMessage=new Map([
@@ -63,19 +66,30 @@ function toCompilerResult(output,selectedRuleIds) {
     const raw=rows[0];
     if(rows.length!==1 || !TERMINAL.has(raw?.status) || !Array.isArray(raw.results) || raw.results.some(r=>!TERMINAL.has(r.status)))throw failure(502,'COMPILER_PARTIAL_REPORT','所选规则缺少完整终态记录');
     const basisDetails=r=>(r.basis || []).map(id=>(raw.basis_catalog || []).find(b=>b.id===id) || {id,kind:id.startsWith('gbt')?'standard':'project'});
-    const findings=raw.results.filter(r=>r.status==='VIOLATION').map((r,index)=>({finding_id:`${ruleId}_${index+1}`,rule_id:ruleId,
+    let findings=raw.results.filter(r=>r.status==='VIOLATION').map((r,index)=>({finding_id:`${ruleId}_${index+1}`,rule_id:ruleId,
       message:r.message || '发现规则不符合项',suggestion:null,location:r.location_mode==='synthetic'?null:r.location || null,anchors:[],
       evidence:r.display_evidence || [],basis_details:basisDetails(r),source_kind:r.location_mode,node_id:r.node_id,check_id:r.check_id}));
-    const diagnostics=raw.results.filter(r=>['UNKNOWN','ERROR'].includes(r.status)).map(r=>({node_id:r.node_id,check_id:r.check_id,status:r.status,reasons:r.reasons || [],evidence:r.display_evidence || [],basis_details:basisDetails(r)}));
+    if(publication) findings=raw.status==='ERROR' ? [] : publication.findings.filter(f=>String(f.rule_id)===ruleId.slice(10)).map((f,index)=>{
+      const source=raw.results.find(r=>r.node_id===f.node_id && r.location_mode!=='synthetic' && r.location) || {};
+      const spans=(f.evidence || []).flat();
+      const basisIds=[...new Set(spans.filter(e=>e.kind==='normative_span').map(e=>e.basis_id))];
+      return {finding_id:`${ruleId}_confirmed_${index+1}`,rule_id:ruleId,node_id:f.node_id,
+        message:f.message || '发现经规范与原文复核确认的问题',suggestion:null,location:source.location || null,anchors:[],
+        source_kind:source.location?'source':'unlocated',
+        evidence:spans.map((e,i)=>({id:`confirmed-${index}-${i}`,kind:e.kind,quote:e.quote})),
+        basis_details:basisIds.map(id=>(raw.basis_catalog || []).find(b=>b.id===id) || {id})};
+    });
+    const diagnostics=publication ? [] : raw.results.filter(r=>['UNKNOWN','ERROR'].includes(r.status)).map(r=>({node_id:r.node_id,check_id:r.check_id,status:r.status,reasons:r.reasons || [],evidence:r.display_evidence || [],basis_details:basisDetails(r)}));
     const unknown=raw.counts?.UNKNOWN || 0;
     const reason=raw.status==='ERROR' ? executionReason(raw.execution_error) : null;
     return {rule_run_id:`run_${ruleId}`,rule_id:ruleId,severity:'warning',params:null,
       execution_status:raw.status==='ERROR'?'error':'completed',evidence_mode:findings.some(f=>f.source_kind==='synthetic')?'derived':'native',
-      outcome:findings.length?'issues_found':raw.status==='PASS'?'passed':raw.status==='NOT_APPLICABLE'?'not_applicable':'inconclusive',
-      message:[raw.status==='UNKNOWN' || unknown || raw.coverage?.incomplete_scopes?.length ? `${unknown} 项证据不足；未覆盖的内容保留无法判定。` : null,
+      outcome:findings.length?'issues_found':publication?'inconclusive':raw.status==='PASS'?'passed':raw.status==='NOT_APPLICABLE'?'not_applicable':'inconclusive',
+      ...(publication ? {publication_status:findings.length?'ALERT':'NO_ALERT'} : {}),
+      message:publication ? (raw.status==='ERROR' ? `规则执行失败${reason ? '：'+reason : ''}` : findings.length ? '发现经复核确认的告警' : '未触发告警') : [raw.status==='UNKNOWN' || unknown || raw.coverage?.incomplete_scopes?.length ? `${unknown} 项证据不足；未覆盖的内容保留无法判定。` : null,
         reason ? `规则执行异常：${reason}` : null, refinementMessage, baselineMessage].filter(Boolean).join(' ') || null,
       compiler_runtime_status:typeof output.runtime?.status==='string' ? output.runtime.status : null,
-      findings,compiler_diagnostics:diagnostics,coverage:raw.coverage,compiler_counts:raw.counts,package_sha256:raw.package_sha256,
+      findings,compiler_diagnostics:diagnostics,...(publication ? {} : {coverage:raw.coverage,compiler_counts:raw.counts}),package_sha256:raw.package_sha256,
       runtime_version:runtimeVersion,pipeline_version:pipelineVersion,runtime_snapshot:runtimeSnapshot};
   });
   return {type:'paper_lint',paper_title:'上传论文',runtime:runtimeSnapshot,ruleset:{id:'paper-compiler',name:'引用规则编译检测',version_number:1,version_label:`引用规则 · ${versionLabel}`},rule_runs:ruleRuns,summary:summarizeRuleRuns(ruleRuns)};
@@ -99,6 +113,7 @@ async function runCompilerRules(pdfPath,selectedRuleIds,options={}) {
     ...selectedRuleIds.flatMap(id=>['--package',packagePath(id.slice(10))]),
     ...catalog.filter(rule=>rule.available).flatMap(rule=>['--release-package',packagePath(rule.number)])];
   const raw=await runJsonProcess(process.env.PAPER_COMPILER_PYTHON || 'python3',args,options);
+  if(!raw.publication?.public)throw failure(502,'COMPILER_PUBLICATION_MISSING','告警复核尚未完成');
   return toCompilerResult(raw,selectedRuleIds);
 }
 function controlRoot() { return path.resolve(process.env.PAPER_COMPILER_CONTROL_ROOT || '/data/runtime/paper-compiler/online'); }

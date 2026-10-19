@@ -21,6 +21,7 @@ def parser():
         if name=='compile':
             s.add_argument('--rule-id',required=True);s.add_argument('--rule-text',type=Path);s.add_argument('--basis',type=Path);s.add_argument('--partitioned',action='store_true')
         if name=='check':
+            s.add_argument('--publication-review',action='store_true')
             group=s.add_mutually_exclusive_group(required=True);group.add_argument('--ir',type=Path);group.add_argument('--pdf',type=Path)
             s.add_argument('--analysis',type=Path);s.add_argument('--analysis-out',type=Path);s.add_argument('--stdout-report',action='store_true')
             s.add_argument('--release-package',action='append',default=[]);s.add_argument('--online',action='store_true');s.add_argument('--control-root',default=os.environ.get('PAPER_COMPILER_CONTROL_ROOT','/data/runtime/paper-compiler/online'));s.add_argument('--runtime-resources',type=Path);s.add_argument('--online-max-rounds',type=int,default=2);s.add_argument('--online-task-budget',default='5');s.add_argument('--online-timeout-seconds',type=int,default=1200)
@@ -150,6 +151,7 @@ def execute(args):
                 updated=online_refine(ir,generated,client=client,gateway=gateway,cache_dir=Path(args.cache),
                     control=control,output_dir=episode,resources=resources,max_rounds=args.online_max_rounds,parent_snapshot=snapshot)
                 ir,a,result=updated['ir'],updated['analysis'],updated['report']
+                generated=updated['packages']
                 runtime={**runtime,**updated['runtime']}
             else:ir,a,result=detect_generated(ir,generated,environment)
         else:
@@ -171,6 +173,15 @@ def execute(args):
             result['runtime']=runtime
             result['rules']=[row for row in result['rules'] if str(row['rule_id']) in selected_rule_ids]
 
+        publication_packages=[p for p in generated if str(p['program_spec']['rule_id']) in selected_rule_ids & {'31','32','33'}]
+        if publication_packages and (args.online or args.publication_review):
+            from paper_compiler.publication_gate import audit_positives
+            publication_ids={str(p['program_spec']['rule_id']) for p in publication_packages}
+            publication_report={**result,'rules':[row for row in result['rules'] if str(row['rule_id']) in publication_ids]}
+            reviewed=audit_positives(ir,a,publication_report,publication_packages,client=client,gateway=gateway,
+                output_dir=args.out.parent/(args.out.stem+'-publication'),evidence_environment=environment)
+            result['publication']={'public':reviewed['public'],
+                'artifact':str(Path(reviewed['internal']['output_dir'])/'result.json')}
         if args.analysis_out:write_json_atomic(args.analysis_out,a,exclusive=True)
         write_json_atomic(args.out,result,exclusive=True)
         if args.stdout_report:
