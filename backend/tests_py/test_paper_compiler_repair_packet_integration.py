@@ -34,7 +34,9 @@ def test_repair_uses_diverse_feedback_and_retains_raw_decisions(tmp_path):
     assert package['code'] == CODE
     data = client.calls[0]
     assert data['feedback_summary']['total_failures'] == 31
-    assert len(data['feedback']) == 12
+    assert len(data['feedback']) == 4
+    assert data['feedback_summary']['selected_examples'] == 4
+    assert data['feedback_summary']['omitted_examples'] == 27
     assert '30' in data['feedback_summary']['selected_ids']
     assert json.loads((tmp_path / 'synthesis-response.json').read_text()) == raw
     assert json.loads((tmp_path / 'repair-plan.json').read_text()) == raw['repair_plan']

@@ -262,6 +262,16 @@ def _gate(before, after, truths, regression_before, regression_after):
             'verified_local_controls': sum(c.get('validation_role') == 'local-control' for c, _ in regression_after)}
 
 
+def _execution_failures(report):
+    """Execution is an unlabeled observed failure, never a semantic expectation."""
+    return [{'rule_id':str(rule['rule_id']),'failure_types':['execution_error'],
+             **deepcopy(rule['execution_error']),
+             'paper_ir_sha256':report['paper_ir_sha256'],
+             'analysis_sha256':report['analysis_sha256'],
+             'pipeline_version':report['pipeline_version']}
+            for rule in report.get('rules',[]) if 'execution_error' in rule]
+
+
 def _with_analysis_context(failures, report):
     enriched=[]
     for failure in failures:
@@ -337,11 +347,17 @@ def online_refine(ir, packages, *, client, gateway, cache_dir, control, output_d
     refining_client = _GuardedClient(client, control, parent) if client is not None else None
     try:
         materialized, analysis, report = detect(ir, packages, client=detection_client, gateway=gateway,
-                                              cache_dir=Path(cache_dir), evidence_environment=environment)
+                                              cache_dir=Path(cache_dir), evidence_environment=environment,
+                                              recover_program_errors=True)
     except BudgetExceeded:
         materialized, analysis, report = detect(ir, packages, client=None, gateway=None,
-                                              cache_dir=Path(cache_dir), evidence_environment=environment)
+                                              cache_dir=Path(cache_dir), evidence_environment=environment,
+                                              recover_program_errors=True)
         runtime['status'] = 'budget_limit'
+    execution_failures = _execution_failures(report)
+    failed_rules = {row['rule_id'] for row in execution_failures}
+    if execution_failures:
+        runtime['initial_execution_failures'] = deepcopy(execution_failures)
     result = {'packages': packages, 'ir': materialized, 'analysis': analysis, 'report': report, 'runtime': runtime}
     runtime['report_version'] = {'suite_version': report_suite_version(packages,parent),
         'program_versions': [rule['program_version'] for rule in report.get('rules', [])],
@@ -362,6 +378,8 @@ def online_refine(ir, packages, *, client, gateway, cache_dir, control, output_d
         return finish('frozen')
     if client is None:
         return finish('no_client')
+    if execution_failures and not mutation_policy(resources)['enabled']:
+        return finish('mutation_validation_required')
     limit = resources.get('max_audit_targets', 8)
     if type(limit) is not int or not 1 <= limit <= 64:
         raise ValueError('online audit target limit must be 1..64')
@@ -391,6 +409,7 @@ def online_refine(ir, packages, *, client, gateway, cache_dir, control, output_d
                      'source': deepcopy(views[key][0]['node']), 'failure_types': ['independently_verified_online_difference']}
                     for key, row in verified.items() if baseline.get(key, 'UNKNOWN') != row['status']]
         failures = _with_analysis_context(failures,attach_feedback_context(report,materialized,analysis))
+        failures.extend(deepcopy(execution_failures))
         runtime['verified_targets'] = len(verified)
         runtime['reliable_feedback'] = len(failures)
         write_json_atomic(folder / 'verified-online-regression.json', {'ir': materialized, 'judgments': list(verified.values()),
@@ -423,7 +442,12 @@ def online_refine(ir, packages, *, client, gateway, cache_dir, control, output_d
         for case in regressions:
             refining_client.check()
             checked_ir, checked_analysis, checked = detect(case['ir'], packages, client=refining_client, gateway=gateway,
-                                   cache_dir=Path(cache_dir), evidence_environment=case.get('evidence_environment', environment))
+                                   cache_dir=Path(cache_dir), evidence_environment=case.get('evidence_environment', environment),
+                                    recover_program_errors=bool(execution_failures))
+            baseline_errors = _execution_failures(checked)
+            if any(row['rule_id'] not in failed_rules for row in baseline_errors):
+                runtime['unrecoverable_baseline_failures'] = baseline_errors
+                return finish('execution_error_unrecoverable')
             regression_before.append((case, checked))
             if case in local_cases:
                 failures.extend(_case_failures(case, attach_feedback_context(checked,checked_ir,checked_analysis)))
@@ -496,6 +520,8 @@ def online_refine(ir, packages, *, client, gateway, cache_dir, control, output_d
                     regression_context_after[case['id']] = attach_feedback_context(checked,checked_ir,checked_analysis)
                     regression_after.append((case, checked))
                 gate = _gate(report, new_report, truths, regression_before, regression_after)
+                if execution_failures and gate['remaining_feedback_errors']:
+                    gate['passed'] = False
                 # Commit repair state only after the entire candidate executes.
                 # A failed raw response or partial suite never replaces it.
                 working_model = attempt_model

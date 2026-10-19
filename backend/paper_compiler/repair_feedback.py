@@ -59,7 +59,7 @@ def _diagnostic_counts(rows, side):
                 key=lambda item: (-item[1], json_bytes(item[0])))]
 
 
-def prepare_feedback(feedback, *, attempt=0, limit=12):
+def prepare_feedback(feedback, *, attempt=0, limit=4):
     """Return a bounded diverse example list, full counts, and exact provenance.
 
     Repeated coordinates/ancestor records are stored once and referenced. Source

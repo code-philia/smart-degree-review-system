@@ -26,7 +26,7 @@ ORACLE_PROTOCOL = 'benchmark-oracle/2.2'
 LABEL_CONTRACT = {
     'protocol':ORACLE_PROTOCOL,
     'valid':'An admissible, genuinely changed and sufficiently evidenced candidate. Both VIOLATION and changed compliant PASS can be valid=true; valid does not mean violation.',
-    'original_compliant':'The original local target independently satisfies rule truth only. Mutation-admission conditions do not apply to original compliance.',
+    'original_compliant':'The entire original evaluated target, including relevant descendant scope, satisfies all applicable rule obligations, not only the edited obligation. Outside-target/whole-paper obligations are not certified. Mutation-admission conditions do not apply to original compliance.',
     'status':'The actual edited target status under the rule: VIOLATION, PASS or UNKNOWN. No expected answer is supplied.',
 }
 
@@ -75,7 +75,11 @@ a synonym for VIOLATION: a genuinely changed compliant PASS control can and
 should be valid=true when supported by evidence. FIRST infer actual status from
 rule_text and projected task.basis alone. THEN apply only admission_policy
 conditions for that actual status. VIOLATION admission never invalidates a PASS
-control. Original compliance is rule truth only. Return {valid:bool,
+control. Original compliance is rule truth only.
+Assess all applicable obligations within the evaluated target scope, not only the edited obligation.
+Include relevant target descendants when supplied. Outside-target obligations do not certify or invalidate this target.
+If required target-scope evidence is unavailable, retain UNKNOWN; do not assume complete compliance.
+Return {valid:bool,
 original_compliant:bool,status:'VIOLATION'|'PASS'|'UNKNOWN',reason:str,
 quotes:[{source_id,quote}],basis_ids:[str]}. Quotes must be verbatim, nonempty
 substrings of supplied sources, and sufficient to support the local judgment.
@@ -97,7 +101,11 @@ status. valid means admissible and sufficiently evidenced, not VIOLATION; a
 genuinely changed compliant PASS control may be valid=true. FIRST determine
 actual status from rule_text and projected task.basis; THEN apply conditional
 admission only for that actual status. VIOLATION-only conditions do not apply
-to a PASS. Original compliance is rule truth only. Independently
+to a PASS. Original compliance is rule truth only.
+Assess all applicable obligations within the evaluated target scope, not only the edited obligation.
+Include relevant target descendants when supplied. Outside-target obligations do not certify or invalidate this target.
+If required target-scope evidence is unavailable, retain UNKNOWN; do not assume complete compliance.
+Independently
 exclude reasonable alternative purposes; do not turn missing details into a
 negative. Return {valid:bool,original_compliant:bool,
 status:'VIOLATION'|'PASS'|'UNKNOWN',reason:str,

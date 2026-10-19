@@ -1,7 +1,7 @@
 """One shared version of the paper model and compatible generated checking passes."""
 import copy,json,hashlib
 from pathlib import Path
-from .programs import build_program,save_program,load_program,check_programs,digest
+from .programs import build_program,save_program,load_program,check_programs,digest,ProgramError
 from .model_runtime import base_model,extend_model,apply_model
 from .storage import write_json_atomic
 from .contracts import ir_hash
@@ -31,7 +31,31 @@ def rebind(packages,model):
                                     basis=package['input']['basis'],model=model))
     return result
 
-def detect(ir,packages,*,client,gateway,cache_dir,evidence_environment=None):
+def _checking_baseline(ir, analysis, packages):
+    """Keep real completed rules and attributable checking failures, without node labels."""
+    report=check_programs(ir,analysis,[])
+    for package in packages:
+        try:
+            checked=check_programs(ir,analysis,[package])
+        except ProgramError as error:
+            if getattr(error,'execution_failure',False) is not True:
+                raise
+            spec=package['program_spec']
+            scopes={{'BibliographyEntry':'bibliography','ReferenceUse':'reference_uses',
+                     'CitationGroup':'reference_uses'}.get(k,k) for k in spec['target_kinds']}
+            gaps=[scope for scope in sorted(scopes) if ir['coverage'].get(scope,{}).get('status')!='complete']
+            report['rules'].append({'rule_id':spec['rule_id'],'title':spec['title'],'status':'ERROR',
+                'counts':{},'results':[],'basis_catalog':package['input']['basis'],
+                'coverage':{'incomplete_scopes':gaps},'package_sha256':digest(package['manifest']),
+                'program_version':package['manifest']['version_id'],'model_version':ir['model_version'],
+                'execution_error':{'error_type':'ProgramError','reason':str(error)[:1000],
+                                   'program_version':package['manifest']['version_id']}})
+        else:
+            report['rules'].extend(checked['rules'])
+    return report
+
+
+def detect(ir,packages,*,client,gateway,cache_dir,evidence_environment=None,recover_program_errors=False):
     if not packages:raise ValueError('at least one package required')
     from .program_analysis import analyze_programs
     model=shared_model(packages)
@@ -39,7 +63,8 @@ def detect(ir,packages,*,client,gateway,cache_dir,evidence_environment=None):
     materialized=apply_model(ir,model,client=client)
     analysis=analyze_programs(materialized,packages,client=client,gateway=gateway,
         cache_dir=Path(cache_dir),evidence_environment=evidence_environment)
-    report=check_programs(materialized,analysis,packages)
+    report=(_checking_baseline(materialized,analysis,packages) if recover_program_errors
+            else check_programs(materialized,analysis,packages))
     config=getattr(client,'config',{})
     execution={'semantic_model':{k:config.get(k) for k in ['MAAS_MODEL','MAAS_MODEL_VERSION']},
                'offline':client is None,'evidence_environment_sha256':digest(evidence_environment),

@@ -30,6 +30,9 @@ The dependency registry fields are the authoritative interface; do not invent si
 Allowed statuses:
 PASS, VIOLATION, UNKNOWN, NOT_APPLICABLE, ERROR. Emit at least one diagnostic for every selected target.
 PASS is compliance, VIOLATION is a proven defect; missing information is UNKNOWN. Include supplied basis IDs and evidence IDs.
+For each selected target, cover every applicable rule obligation and implement a PASS path when grounded evidence establishes that obligation's requirements; target-level PASS requires all applicable obligations satisfied.
+UNKNOWN must identify a specific unresolved obligation that applies to this target and the exact missing evidence or unimplemented decision step; a generic inability to prove every possible requirement or uncertainty about unrelated targets is not a sufficient reason.
+Assess completeness at each obligation's actual source scope: complete local evidence cannot establish document-wide compliance, and unrelated document gaps cannot erase an independently decidable local result. Never convert genuine unknown evidence or an unimplemented applicable obligation to PASS. Use NOT_APPLICABLE only with grounded non-applicability.
 re_search/re_matches return booleans; re_findall returns a list; patterns use RE2. Do not call re or other modules.
 Use source text/structure for syntax and only grounded observed facts for semantic requirements.
 The AST, symbol bindings and semantic relations are shared interfaces. Never hardcode source document/node IDs or dataset examples.

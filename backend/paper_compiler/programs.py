@@ -18,7 +18,10 @@ VERSION='paper-program/2.0'
 STATUSES={'PASS','VIOLATION','UNKNOWN','NOT_APPLICABLE','ERROR'}
 
 class ProgramError(ValueError):
-    pass
+    def __init__(self, *args, execution_failure=False):
+        super().__init__(*args)
+        # Only host checking/output boundaries opt in; preconditions default out.
+        self.execution_failure = execution_failure is True
 
 def digest(value):
     return hashlib.sha256(json_bytes(value)).hexdigest()
@@ -146,12 +149,12 @@ def execute_pure(code,payload,entry='detect'):
             input=request,capture_output=True,timeout=12,
             env={'PATH':os.defpath,'PYTHONIOENCODING':'utf-8','LANG':'C.UTF-8'})
     except (subprocess.TimeoutExpired,OSError) as error:raise ProgramError('isolated execution timed out or unavailable') from error
-    if len(process.stdout)>8*1024*1024:raise ProgramError('isolated program rejected')
+    if len(process.stdout)>8*1024*1024:raise ProgramError('isolated program rejected',execution_failure=process.returncode==0)
     if process.returncode:
         reason=_worker_error_reason(process.stderr,code) if process.returncode==2 else None
-        raise ProgramError('isolated program rejected'+(': '+reason if reason is not None else ''))
+        raise ProgramError('isolated program rejected'+(': '+reason if reason is not None else ''),execution_failure=reason is not None)
     try:return json.loads(process.stdout)
-    except (ValueError,UnicodeError) as error:raise ProgramError('invalid program output') from error
+    except (ValueError,UnicodeError) as error:raise ProgramError('invalid program output',execution_failure=True) from error
 
 def target_nodes(package,ir):
     from .program_worker import nodes
@@ -181,22 +184,22 @@ def run_program(package,ir,analysis):
     compact['layout']={'pages':[{k:v for k,v in p.items() if k in {'page_index','width','height','rotation'}}
                                 for p in ir.get('layout',{}).get('pages',[])]}
     rows=execute_pure(package['code'],{'ir':compact,'analysis':analysis})
-    if not isinstance(rows,list) or len(rows)>50000:raise ProgramError('diagnostics must be a bounded list')
+    if not isinstance(rows,list) or len(rows)>50000:raise ProgramError('diagnostics must be a bounded list',execution_failure=True)
     targets=target_nodes(package,ir)
     basis_ids={b['id'] for b in package['input']['basis']}
     evidence_ids={n['id'] for n in ir['nodes']}|{e['id'] for e in analysis.get('evidence',[])}
     output=[];seen=set()
     for row in rows:
         if not isinstance(row,dict) or row.get('node_id') not in targets or row.get('status') not in STATUSES:
-            raise ProgramError('invalid diagnostic target or status')
+            raise ProgramError('invalid diagnostic target or status',execution_failure=True)
         if not isinstance(row.get('check_id'),str) or not row['check_id'] or not isinstance(row.get('message'),str):
-            raise ProgramError('diagnostic identity and message required')
+            raise ProgramError('diagnostic identity and message required',execution_failure=True)
         if not isinstance(row.get('basis',[]),list) or not set(row.get('basis',[]))<=basis_ids:
-            raise ProgramError('unknown diagnostic basis')
+            raise ProgramError('unknown diagnostic basis',execution_failure=True)
         if not isinstance(row.get('evidence_ids',[]),list) or not set(row.get('evidence_ids',[]))<=evidence_ids:
-            raise ProgramError('unknown diagnostic evidence')
+            raise ProgramError('unknown diagnostic evidence',execution_failure=True)
         if row['status'] in {'PASS','VIOLATION'} and not row.get('evidence_ids'):
-            raise ProgramError('conclusive diagnostic requires evidence')
+            raise ProgramError('conclusive diagnostic requires evidence',execution_failure=True)
         node=targets[row['node_id']]
         output.append({**row,'rule_id':package['program_spec']['rule_id'],
                        'provenance':copy.deepcopy(node['provenance']),'reasons':row.get('reasons',[])})

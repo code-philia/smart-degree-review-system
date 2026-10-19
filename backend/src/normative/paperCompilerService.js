@@ -38,12 +38,17 @@ async function runJsonProcess(command,args,{signal,timeoutMs=1200000,maxBytes=64
 function toCompilerResult(output,selectedRuleIds) {
   if(output?.schema_version!=='paper-check/1.0' || !Array.isArray(output.rules))throw failure(502,'COMPILER_INVALID_REPORT','规则编译检测结果不完整');
   const asVersion=value=>typeof value==='string' && value.trim() ? value : null;
+  const executionReason=value=>value?.error_type==='ProgramError' && typeof value.reason==='string' && value.reason.length<=1000 && value.reason.trim() ? value.reason : null;
   const refinementMessage=new Map([
     ['budget_limit','自动迭代因API预算或时限停止；已完成的检测结果保留，未完成项无法判定。'],
     ['mutation_validation_incomplete','自动迭代验证尚未完成，继续使用当前版本；本次检测结果保留。'],
     ['candidate_rejected','自动迭代候选未通过验证，继续使用当前版本；本次检测结果保留。'],
     ['audit_or_execution_error','自动迭代未完成，继续使用当前版本；本次检测结果保留。'],
+    ['execution_error_unrecoverable','自动迭代因基线执行异常停止，继续使用当前版本；本次检测结果保留。'],
   ]).get(output.runtime?.status) || null;
+  const baselineReasons=output.runtime?.status==='execution_error_unrecoverable' && Array.isArray(output.runtime.unrecoverable_baseline_failures)
+    ? output.runtime.unrecoverable_baseline_failures.slice(0,3).map(executionReason).filter(Boolean) : [];
+  const baselineMessage=baselineReasons.length ? `基线执行异常：${baselineReasons.join('；')}` : null;
   const explicitReport=output.runtime?.report_version;
   const runtimeVersion=explicitReport ? asVersion(explicitReport.suite_version) : asVersion(output.runtime?.active_version) || asVersion(output.runtime_version);
   const pipelineVersion=asVersion(output.pipeline_version) || asVersion(output.pipeline?.version_id);
@@ -63,11 +68,12 @@ function toCompilerResult(output,selectedRuleIds) {
       evidence:r.display_evidence || [],basis_details:basisDetails(r),source_kind:r.location_mode,node_id:r.node_id,check_id:r.check_id}));
     const diagnostics=raw.results.filter(r=>['UNKNOWN','ERROR'].includes(r.status)).map(r=>({node_id:r.node_id,check_id:r.check_id,status:r.status,reasons:r.reasons || [],evidence:r.display_evidence || [],basis_details:basisDetails(r)}));
     const unknown=raw.counts?.UNKNOWN || 0;
+    const reason=raw.status==='ERROR' ? executionReason(raw.execution_error) : null;
     return {rule_run_id:`run_${ruleId}`,rule_id:ruleId,severity:'warning',params:null,
       execution_status:raw.status==='ERROR'?'error':'completed',evidence_mode:findings.some(f=>f.source_kind==='synthetic')?'derived':'native',
       outcome:findings.length?'issues_found':raw.status==='PASS'?'passed':raw.status==='NOT_APPLICABLE'?'not_applicable':'inconclusive',
       message:[raw.status==='UNKNOWN' || unknown || raw.coverage?.incomplete_scopes?.length ? `${unknown} 项证据不足；未覆盖的内容保留无法判定。` : null,
-        refinementMessage].filter(Boolean).join(' ') || null,
+        reason ? `规则执行异常：${reason}` : null, refinementMessage, baselineMessage].filter(Boolean).join(' ') || null,
       compiler_runtime_status:typeof output.runtime?.status==='string' ? output.runtime.status : null,
       findings,compiler_diagnostics:diagnostics,coverage:raw.coverage,compiler_counts:raw.counts,package_sha256:raw.package_sha256,
       runtime_version:runtimeVersion,pipeline_version:pipelineVersion,runtime_snapshot:runtimeSnapshot};
