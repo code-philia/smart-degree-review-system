@@ -8,6 +8,12 @@
 
 ## 当前完成证据（持续更新）
 
+- 通用闭环／JSON修复已完成代码验收：整套compiler802 passed、2170 deselected，83个源码/测试文件前后哈希稳定（development/compiler-all-repair-history-json-1792377119.json）。修订仅加入真实反馈历史，无验证/测试成绩、随机nonce或强迫改动；同轮恢复不重复生成，失败候选不替换有效模型。解码仅接受单个对象及可选单层围栏，字段/来源门与费用保留。根核验19份旧失败围栏仅解码外壳通过，旧ERROR不改；18份初稿字节及31/32版本不变，33仍原始编译失败，0API。此为通用框架人工修复，不是正式自动迭代成绩；T41—T46仍待study-v5实际完成，57/72不变。
+
+- 当前闭环修复检查点：study-v4的R31第0—2轮已执行，但第1轮API原样返回旧代码，第2轮相同输入又命中该答复缓存；没有真实代码修订，不能计为改进或收敛。另已逐条定位18个ERROR：19份返回均为单层json围栏中的合法对象，被外层解析拒绝。已结束空转并保留全部原始记录；正在修复通用反馈历史与严格JSON外层解码，随后以同一390例、18份原始初稿、最多5轮在study-v5重新比较。此为看过R31反馈/验证执行结果后的通用框架修正，留出尚未评测；不宣称完全事前注册，也不把人工框架修复归为自动规则改进。累计支出164.913428元、占用166.687148元、剩余33.312852元，12笔uncertain保留，0在途；编号57/72不变。证据framework-correction-plan-04.json及diagnostics/study-v4-r31-round000-modelerror-readonly.json。
+
+- 正式 study-v4 运行检查点：2026-10-19 01:49:16 UTC，source33908a093152、protocol-v7与完整mode8/Unicode策略的实际runner指纹已独立核验（78e10f7f1e1320b6667d298480988949ffcab7623cd3043d22f3cc0c3d1a1440）；当前joint/R31第0轮仍运行，无整轮/选择/留出成绩，57/72不变。首个完整IR有137节、210条文献及401处引用；生成初稿要求external_work，冷检索开销保留。累计支出163.325382元、占用165.242702元、剩余34.757298元。本轮新增支出3.207252元，不将启动或API返回计为实验完成。网站v7的57文件/44源码根核验通过；479执行清单已更新339/v7/v6/Unicode，但最终三规则包、真实网页与全量执行仍待各自验收。
+
 - 通用章节分类成本修复已验证：首个study-v3 attempt实际发生2次约50万prompt token的整篇章节分类，一处变动使137节的请求键全部变化；现opt-in模式按完整source pool及最多8节/128KiB软界分批，显式unicode-json/1.0保留中文。默认legacy请求/缓存保持，非legacy事实缓存隔离，中断保留uncertain并抛出。26专项、289受影响及全compiler752通过，81源码/测试前后hash一致；证据development/compiler-all-classification-unicode-1792370999.json。新tokens/质量/速度/费用仍待实测，冷分批输入总量略增，不宣传普遍提速。
 
 - study-v3首attempt已因上述开销SIGINT中断（无完整轮次、修订、选择或留出结果）；已花2.195170元及中断预留0.142692元全部保留，当前总支出160.118130／占用161.891850／剩余38.108150元，12uncertain、0在途。后续正式比较使用study-v4，18份原始初稿文件逐字复制，不重抽或手修33；数据仍benchmark-v4、T35—T39完成、编号57/72。
@@ -26,7 +32,7 @@
 
 - T19环境验收完成：全集已知的114条受控库、2.2独立双判且盲上下文核验的12违规＋1身份保持对照子集，以及真实开放检索7探针（6存在／1 UNKNOWN／0“证明不存在”）。证据framework-20261019/t19-environment-acceptance.json及[开放诊断](../../research/open-retrieval-diagnostics-20261019.md)。100＋30配额和正式冻结仍由T35—T39单独验收，未提前勾选。
 
-- 最新整体验证：compiler **726 passed**，运行期间runtime源哈希未变；Node **248 passed/11 skipped**；前端 **152 passed**、构建成功。最终compiler日志development/compiler-all-bibliography-batch-1792363700.log，Node日志/data/tmp/paper-compiler-final-node-lft4trxa/vitest.log。T56已归档并校验运行时源码/提示与包版本；T60已实现默认可靠反馈后1违规+1合规局部验证，缺口保旧，实际规则上线联调仍待T57。
+- 上一冻结版整体验证：compiler **726 passed**，运行期间runtime源哈希未变；Node **248 passed/11 skipped**；前端 **152 passed**、构建成功。最终compiler日志development/compiler-all-bibliography-batch-1792363700.log，Node日志/data/tmp/paper-compiler-final-node-lft4trxa/vitest.log。T56已归档并校验运行时源码/提示与包版本；T60已实现默认可靠反馈后1违规+1合规局部验证，缺口保旧，实际规则上线联调仍待T57。
 - 逐轮和预算中断的资源侧车、同轮续记、study累计和独立初稿费用现已接入，原账本200元不变；shared_ledger_interval可能含并发，不作精确任务归因。正式方案及失败终态补充见framework-20261019/study-protocol-v6.json，v3/v4及旧方案保留。
 
 - T21已修复并验收：规则真值与构造准入按purpose分离，初稿raw／package／共享重建／planner及offline/online反馈均有隔离回归；2.2标签先判真值再按实际状态验收。旧raw及拒绝保留；仅32干净首次初稿替换旧污染版，33失败初稿不重抽。

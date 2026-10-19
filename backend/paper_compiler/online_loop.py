@@ -8,11 +8,11 @@ from .contracts import ir_hash, validate_ir
 from .online_mutants import build_online_cases, mutation_policy
 from .pipeline import detect, load_suite, save_suite, shared_model, rebind, release_inventory, report_suite_version
 from .program_analysis import _base_kind, _ground_fields, _hash, _target_data
-from .programs import target_nodes
+from .programs import target_nodes, load_program
 from .runtime_control import RuntimeFrozen, VersionConflict
 from .task_inputs import project_feedback_evidence
 from .storage import write_json_atomic
-from .synthesis import synthesize_program
+from .synthesis import synthesize_program, repair_history_entry, revision_effect
 
 AUDIT_POLICY = """Independently check the supplied scholarly rule against each supplied source target.
 No detector predictions or generated checking code are supplied. They must not be guessed.
@@ -404,11 +404,32 @@ def online_refine(ir, packages, *, client, gateway, cache_dir, control, output_d
             return finish('no_reliable_feedback')
         previous = {str(p['program_spec']['rule_id']): p for p in packages}
         working_model = shared_model(packages)
+        history = {rid: [] for rid in previous}
+        previous_paths = {}
         for index in range(max_rounds):
             refining_client.check()
             round_folder = folder / ('round-' + str(index).zfill(3))
             round_folder.mkdir(exist_ok=True)
+            checkpoint = round_folder / 'round.json'
+            if checkpoint.is_file():
+                saved = json.loads(checkpoint.read_text())
+                state = saved.get('repair_state')
+                if state is not None:
+                    failures = state['feedback']
+                    working_model = state['model']
+                    previous_paths = state['package_paths']
+                    for rid, path in previous_paths.items():
+                        previous[rid] = load_program(path)
+                    previous = {rid: rebind([p], working_model)[0] for rid, p in previous.items()}
+                    for rid, entry in saved.get('repair_history', {}).items():
+                        history[rid].append(entry)
+                    runtime['rounds'].append(saved)
+                    runtime['candidate_validation'] = 'failed' if saved['status']=='evaluated' else 'not_run'
+                    continue
             candidates = []
+            attempt_model = working_model
+            attempt_previous = dict(previous)
+            attempted = {}
             record = {'round': index, 'status': 'candidate_failed'}
             active_rule = None
             active_response = None
@@ -423,13 +444,16 @@ def online_refine(ir, packages, *, client, gateway, cache_dir, control, output_d
                     active_rule = rid
                     synthesis_folder = round_folder / ('rule-' + _hash(rid)[:12])
                     active_response = synthesis_folder / 'synthesis-response.json'
+                    attempted[rid] = {'folder': synthesis_folder}
                     candidate = synthesize_program(task, refining_client, synthesis_folder,
-                        model=working_model, previous=previous[rid], feedback=feedback)
-                    working_model = candidate['model']
-                    previous[rid] = candidate
+                        model=attempt_model, previous=previous[rid], feedback=feedback,
+                        repair_context={'attempt': index+1, 'history': history[rid]})
+                    attempted[rid]['package'] = candidate
+                    attempted[rid]['effect'] = revision_effect(previous[rid], candidate)
+                    attempt_model = candidate['model']
+                    attempt_previous[rid] = candidate
                     candidates.append(candidate)
-                candidates = rebind(candidates, working_model)
-                previous = {rid: rebind([p], working_model)[0] for rid, p in previous.items()}
+                candidates = rebind(candidates, attempt_model)
                 refining_client.check()
                 new_ir, new_analysis, new_report = detect(ir, candidates, client=refining_client, gateway=gateway,
                                                          cache_dir=Path(cache_dir), evidence_environment=environment)
@@ -440,6 +464,12 @@ def online_refine(ir, packages, *, client, gateway, cache_dir, control, output_d
                                            cache_dir=Path(cache_dir), evidence_environment=case.get('evidence_environment', environment))
                     regression_after.append((case, checked))
                 gate = _gate(report, new_report, truths, regression_before, regression_after)
+                # Commit repair state only after the entire candidate executes.
+                # A failed raw response or partial suite never replaces it.
+                working_model = attempt_model
+                previous = {rid: rebind([p], working_model)[0] for rid, p in attempt_previous.items()}
+                previous_paths.update({rid: str((item['folder']/'package').resolve()) for rid,item in attempted.items()})
+                record['revision_effect'] = {rid: item['effect'] for rid,item in attempted.items()}
                 runtime['candidate_validation'] = 'passed' if gate['passed'] else 'failed'
                 runtime['promotion_gate_passed'] = gate['passed']
                 record.update(status='evaluated', gate=gate,
@@ -502,7 +532,19 @@ def online_refine(ir, packages, *, client, gateway, cache_dir, control, output_d
                     record['failures'] = [failure]
                 if not any(old is record for old in runtime['rounds']):
                     runtime['rounds'].append(record)
-            write_json_atomic(round_folder / 'round.json', record)
+            entries = {}
+            for rid, item in attempted.items():
+                raw_path = item['folder']/'synthesis-response.json'
+                raw = json.loads(raw_path.read_text()) if raw_path.is_file() else None
+                entries[rid] = repair_history_entry(index+1, record['status'],
+                    package=item.get('package') if record['status']=='evaluated' else None,
+                    raw=raw, failures=[row for row in failures if row['rule_id']==rid],
+                    feedback_metrics=record.get('gate'), effect=item.get('effect'))
+                history[rid].append(entries[rid])
+            record['repair_history'] = entries
+            record['repair_state'] = {'feedback': deepcopy(failures), 'model': deepcopy(working_model),
+                                      'package_paths': dict(previous_paths)}
+            write_json_atomic(checkpoint, record)
         return finish('candidate_rejected')
     except BudgetExceeded:
         return finish('budget_limit')

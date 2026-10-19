@@ -10,7 +10,7 @@ from .programs import digest,load_program
 from .run_accounting import ResourceInterval
 from .task_inputs import project_rule_basis, project_feedback_evidence
 from .storage import write_json_atomic
-from .synthesis import synthesize_program
+from .synthesis import synthesize_program, repair_history_entry, revision_effect
 
 class FeedbackError(ValueError):
     pass
@@ -132,11 +132,13 @@ def run_feedback_loop(task,manifest_path,*,client,output_dir,runner,model=None,m
     split={s:[c for c in cases if c['split']==s] for s in ['feedback','validation','test']}
     if any(not split[s] for s in split):raise FeedbackError('all three disjoint sets are required')
     previous=None;feedback=[];best=None;best_score=-1;baseline=None;rounds=[];cache={};stop_reason='round_limit';pending_round=None
+    history=[]
     for index in range(max_rounds):
         if control is not None and control.snapshot()['freeze']:
             stop_reason='frozen';break
         folder=output_dir/f'round-{index:03d}';folder.mkdir(exist_ok=True)
         checkpoint=folder/'round.json'
+        before=previous
         if checkpoint.exists():
             record=load(checkpoint);rounds.append(record)
             if record.get('package_path'):
@@ -145,8 +147,15 @@ def run_feedback_loop(task,manifest_path,*,client,output_dir,runner,model=None,m
                 feedback=load(folder/'feedback.json')['failures']
                 if record['validation_score']>best_score:
                     best_score=record['validation_score'];best=(package,record)
-                if not feedback:stop_reason='feedback_converged';break
             else:feedback=record['failures']
+            entry=record.get('repair_history')
+            if entry is None:
+                raw=load(folder/'synthesis-response.json') if (folder/'synthesis-response.json').is_file() else next((f.get('failed_candidate') for f in feedback if f.get('failed_candidate')),None)
+                entry=repair_history_entry(index,record['status'],package=previous if record.get('package_path') else None,
+                    raw=raw,failures=feedback,feedback_metrics=record.get('feedback_metrics'),
+                    effect=revision_effect(before,previous) if record.get('package_path') else None)
+            history.append(entry)
+            if record['status']=='evaluated' and not feedback:stop_reason='feedback_converged';break
             continue
         interval=ResourceInterval(client,folder/'resource-usage.json')
         try:
@@ -168,7 +177,8 @@ def run_feedback_loop(task,manifest_path,*,client,output_dir,runner,model=None,m
                 write_json_atomic(folder/'initial-reuse.json',{'version_id':package['manifest']['version_id'],'generation_call':False})
             else:
                 package=synthesize_program(task,client,folder,model=model,previous=previous,
-                    feedback=feedback[:12],allow_model_refinement=allow_model_refinement)
+                    feedback=feedback[:12],allow_model_refinement=allow_model_refinement,
+                    **({'repair_context':{'attempt':index,'history':history}} if index else {}))
             if index==0:baseline=package
             interval.checkpoint()
             fb=evaluate_cases(package,split['feedback'],runner,cache)
@@ -186,7 +196,7 @@ def run_feedback_loop(task,manifest_path,*,client,output_dir,runner,model=None,m
                 'model_version':package['model']['version'],'package_path':str((folder/'package').resolve()),
                 'feedback_metrics':fb['metrics'],'validation_metrics':validation['metrics'],
                 'validation_score':validation['metrics']['strict_balanced_accuracy'] if cross['passed'] else -1,
-                'cross_rule_validation':cross}
+                'cross_rule_validation':cross,'revision_effect':revision_effect(before,package)}
             write_json_atomic(folder/'package'/'validation.json',{'status':'passed' if cross['passed'] else 'regression_rejected',
                 'behavior_evaluated':True,'feedback_metrics':fb['metrics'],'validation_metrics':validation['metrics']})
             previous=package;model=package['model'];feedback=fb['failures']
@@ -213,6 +223,11 @@ def run_feedback_loop(task,manifest_path,*,client,output_dir,runner,model=None,m
         except BaseException:
             interval.close('interrupted')
             raise
+        raw=next((f.get('failed_candidate') for f in feedback if f.get('failed_candidate')),None)
+        record['repair_history']=repair_history_entry(index,record['status'],
+            package=package if record['status']=='evaluated' else None,raw=raw,failures=feedback,
+            feedback_metrics=record.get('feedback_metrics'),effect=record.get('revision_effect'))
+        history.append(record['repair_history'])
         record['resource_usage']=interval.close(record['status'])
         write_json_atomic(checkpoint,record);rounds.append(record)
         if record['status']=='evaluated' and not feedback:

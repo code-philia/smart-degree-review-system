@@ -23,6 +23,7 @@ _MAX_RESPONSE_BYTES = 8 * 1024 * 1024
 _PROCESS_SLOTS = threading.BoundedSemaphore(3)
 LEGACY_INPUT_SERIALIZATION = 'legacy-ascii-json/1.0'
 UNICODE_INPUT_SERIALIZATION = 'unicode-json/1.0'
+RESPONSE_DECODER_VERSION = 'model-json-decoder/1.0'
 
 
 class ModelError(RuntimeError):
@@ -68,6 +69,32 @@ def _usage(response):
     if any(type(usage.get(k)) is not int or usage[k] < 0 for k in keys):
         return None
     return {key: usage[key] for key in keys}
+
+
+def response_decoder_policy():
+    """Public output-envelope semantics; not part of the provider request key."""
+    return {'schema_version': RESPONSE_DECODER_VERSION,
+            'envelopes': ['json_object', 'single_optional_json_fence'],
+            'finish_reason': 'stop', 'repair': False}
+
+
+def _reject_json_constant(value):
+    raise ValueError('non-finite JSON number')
+
+
+def _decode_json_object(content):
+    if not isinstance(content, str):
+        raise ValueError('expected JSON text')
+    value = content.strip(' \t\r\n')
+    if value.startswith('```'):
+        wrapped = re.fullmatch(r'```(?:json)?[ \t]*\r?\n(.*)\r?\n```', value, re.DOTALL)
+        if wrapped is None:
+            raise ValueError('expected exactly one JSON fence')
+        value = wrapped.group(1)
+    result = json.loads(value, parse_constant=_reject_json_constant)
+    if not isinstance(result, dict):
+        raise ValueError('expected object')
+    return result
 
 
 def input_serialization_policy(value=None):
@@ -165,7 +192,8 @@ class MaasClient:
                 record = {'request_id': request_id, 'input_hash': key, 'task': task,
                           'phase': self.phase, 'attempt': attempt + 1, 'model': payload['model'],
                           'model_version': self.config.get('MAAS_MODEL_VERSION'), 'rate_version': RATE_VERSION,
-                          'rate_source': RATE_SOURCE, 'reserved_cny': str(reservation)}
+                          'rate_source': RATE_SOURCE, 'reserved_cny': str(reservation),
+                          'response_decoder': response_decoder_policy()}
                 if self.input_serialization != LEGACY_INPUT_SERIALIZATION:
                     record['input_serialization'] = self.input_serialization
                 try:
@@ -199,9 +227,7 @@ class MaasClient:
                             if choice.get('finish_reason') != 'stop':
                                 raise ValueError('incomplete output')
                             content = choice['message']['content']
-                            result = json.loads(content)
-                            if not isinstance(result, dict):
-                                raise ValueError('expected object')
+                            result = _decode_json_object(content)
                         except (KeyError, IndexError, TypeError, ValueError):
                             last_category = 'invalid_output'
                             record['status'] = last_category

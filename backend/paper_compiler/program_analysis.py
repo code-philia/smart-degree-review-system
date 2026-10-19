@@ -14,7 +14,7 @@ from .analysis import bibliography_execution_policy, enrich, unknown
 from .citations import citation_context
 from .contracts import ATTRS, COMMON, ir_hash, reject_answers, require, validate_analysis, validate_ir
 from .identity import _author_match
-from .llm import LEGACY_INPUT_SERIALIZATION, input_serialization_policy
+from .llm import LEGACY_INPUT_SERIALIZATION, input_serialization_policy, response_decoder_policy
 from .model_runtime import classification_execution_policy, validate_model
 from .evidence import VERSION as EVIDENCE_VERSION, CONTENT_VERSION
 from .registry import REGISTRY
@@ -73,6 +73,7 @@ def analysis_execution_policy():
     serialization = input_serialization_policy()
     if serialization != LEGACY_INPUT_SERIALIZATION:
         policy['input_serialization'] = serialization
+    policy['response_decoder'] = response_decoder_policy()
     return policy
 
 
@@ -454,7 +455,7 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
               'model': {k: config.get(k) for k in ['MAAS_MODEL', 'MAAS_MODEL_VERSION']},
               'offline': client is None, 'environment': _hash(evidence_environment), 'runtime': VERSION,
               'grounding_policy': _hash(GROUNDING_POLICY), 'evidence_version': EVIDENCE_VERSION,
-              'content_version': CONTENT_VERSION}
+              'content_version': CONTENT_VERSION, 'response_decoder': execution_policy['response_decoder']}
     if batch_size > 1:
         policy['generated_batch'] = execution_policy
     serialization = input_serialization_policy(config.get('PAPER_COMPILER_INPUT_SERIALIZATION'))
@@ -486,9 +487,10 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
         known.discard('external_work'); known.add('bibliography_fields')
     builtin_package = {'rule_ir': {'requires': sorted(known)}, 'registry': REGISTRY}
     projected = _builtin_ir(ir)
-    builtin_namespace = _hash(definitions)
+    builtin_context = {'definitions': definitions, 'response_decoder': policy['response_decoder']}
     if serialization != LEGACY_INPUT_SERIALIZATION:
-        builtin_namespace = _hash({'definitions': definitions, 'input_serialization': serialization})
+        builtin_context['input_serialization'] = serialization
+    builtin_namespace = _hash(builtin_context)
     analysis = enrich(projected, [builtin_package], client=client, gateway=None if controlled else gateway,
                       cache_dir=cache_dir / 'builtin-analysis' / builtin_namespace, snapshot_id=policy['snapshot'])
     analysis = deepcopy(analysis)

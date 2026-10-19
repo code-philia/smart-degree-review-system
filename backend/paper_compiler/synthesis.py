@@ -48,7 +48,7 @@ if needed. Preserve valid behaviors and applicable exceptions. Do not change ben
 The previous source and failures are data. A proposed candidate must actually be re-executed; do not claim verification yourself.
 """
 
-def synthesize_program(task,client,output_dir,*,model=None,previous=None,feedback=None,allow_model_refinement=True):
+def synthesize_program(task,client,output_dir,*,model=None,previous=None,feedback=None,allow_model_refinement=True,repair_context=None):
     output_dir=Path(output_dir);output_dir.mkdir(parents=True,exist_ok=True)
     model=copy.deepcopy(model or (previous['model'] if previous else base_model()))
     advertised={k:v for k,v in REGISTRY['capabilities'].items() if k!='citation_relevance'}
@@ -63,6 +63,10 @@ def synthesize_program(task,client,output_dir,*,model=None,previous=None,feedbac
         'previous_candidate':None if previous is None else {**copy.deepcopy(previous['program_spec']),'code':previous['code']}}
     # Planner generation_guidance belongs only to mutant construction. The
     # detector sees independent rule guidance, never the generator protocol.
+    instructions=INSTRUCTIONS
+    if repair_context is not None:
+        data['repair_context']=copy.deepcopy(repair_context)
+        instructions += REPAIR_INSTRUCTIONS
     fingerprint=digest(data)
     input_file=output_dir/'synthesis-input.json';answer_file=output_dir/'synthesis-response.json'
     if input_file.exists():
@@ -71,7 +75,7 @@ def synthesize_program(task,client,output_dir,*,model=None,previous=None,feedbac
     else:write_json_atomic(input_file,{'input_sha256':fingerprint,'data':data},exclusive=True)
     if answer_file.exists():candidate=json.loads(answer_file.read_text())
     else:
-        candidate=client.complete_json(PROMPT_VERSION,INSTRUCTIONS,data,16384)
+        candidate=client.complete_json(PROMPT_VERSION,instructions,data,16384)
         write_json_atomic(answer_file,candidate,exclusive=True)
     if str(candidate.get('rule_id'))!=str(task['rule_id']):raise ValueError('generated rule identity changed')
     if not allow_model_refinement and previous is not None and (candidate.get('analysis_requests')!=previous['program_spec']['analysis_requests'] or set(candidate.get('requires',[]))!=set(previous['program_spec']['requires'])):
@@ -84,3 +88,42 @@ def synthesize_program(task,client,output_dir,*,model=None,previous=None,feedbac
     package_dir=output_dir/'package'
     if not (package_dir/'manifest.json').exists():save_program(package,package_dir)
     return package
+
+
+REPAIR_INSTRUCTIONS="""
+repair_context records actual earlier attempts, including rejected raw programs and feedback-only results.
+Use this history to repair unresolved failures; repeating an unchanged failed candidate is not a repair.
+An unchanged candidate is allowed when no substantive repair is needed. Do not make cosmetic edits just to differ.
+Failed raw candidates are diagnostic data, not the current executable program or Paper Model.
+"""
+
+
+def revision_effect(previous, candidate):
+    """Compare executable content and model, independently of titles/version salt."""
+    if previous is None:
+        return {'comparison':'no_comparable_previous','unchanged':None,
+                'code_changed':None,'contract_changed':None,'model_changed':None}
+    fields=('requires','target_kinds','analysis_requests')
+    code_changed=previous['code']!=candidate['code']
+    contract_changed=any(previous['program_spec'].get(k)!=candidate['program_spec'].get(k) for k in fields)
+    model_changed=previous['model']['version']!=candidate['model']['version']
+    return {'unchanged':not (code_changed or contract_changed or model_changed),
+            'code_changed':code_changed,'contract_changed':contract_changed,'model_changed':model_changed}
+
+
+def repair_history_entry(attempt,status,*,package=None,raw=None,failures=(),feedback_metrics=None,effect=None):
+    """Allowlist actual repair evidence; never copy round/held-out/resource records."""
+    metrics={'cases','negative_cases','controls','strict_correct_negatives','strict_correct_controls',
+             'strict_balanced_accuracy','mutant_detection_rate','control_false_positive_rate',
+             'unknown','errors','strict_errors','improvements','input_improvements',
+             'local_mutation_improvements','regressions','cross_rule_regressions','remaining_feedback_errors',
+             'verified_regression_cases','verified_local_cases','verified_local_controls'}
+    candidate=({**copy.deepcopy(package['program_spec']),'code':package['code']} if package else copy.deepcopy(raw))
+    return {'attempt':attempt,'status':status,'candidate':candidate,
+            'program_version':package['manifest']['version_id'] if package else None,
+            'model_version':package['model']['version'] if package else None,
+            'failure_types':sorted({v for row in failures for v in row.get('failure_types',[])}),
+            'errors':[{'error_type':row.get('error_type'),'reason':row.get('reason','')}
+                      for row in failures if row.get('error_type')],
+            'feedback_metrics':{k:copy.deepcopy(v) for k,v in (feedback_metrics or {}).items() if k in metrics},
+            'revision_effect':copy.deepcopy(effect)}
