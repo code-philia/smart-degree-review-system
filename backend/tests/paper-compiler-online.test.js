@@ -9,7 +9,7 @@ const originals = {};
 const folders = [];
 function env(name, value) { if (!(name in originals)) originals[name] = process.env[name]; process.env[name] = value; }
 afterEach(() => { for (const [name, value] of Object.entries(originals)) { if (value === undefined) delete process.env[name]; else process.env[name] = value; delete originals[name]; } for (const folder of folders.splice(0)) fs.rmSync(folder, { recursive: true, force: true }); });
-const report = { schema_version: 'paper-check/1.0', pipeline_version: 'pipeline-20261019', runtime: { freeze: true, generation: 3, active_version: 'release-v2' }, rules: [{ rule_id: '31', status: 'PASS', results: [], counts: { PASS: 1 }, coverage: { incomplete_scopes: [] } }] };
+const report = { schema_version: 'paper-check/1.0', pipeline_version: 'pipeline-20261019', publication: {public: {status: 'NO_ALERT', findings: []}}, rules: [{ rule_id: '31', status: 'PASS', results: [], counts: { PASS: 1 }, coverage: { incomplete_scopes: [] } }] };
 function transport(output) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'compiler-online-test-')); folders.push(root);
   const capture = path.join(root, 'argv.json');
@@ -20,7 +20,7 @@ function transport(output) {
   fs.mkdirSync(path.join(root, 'packages', '31'), { recursive: true }); fs.writeFileSync(path.join(root, 'packages', '31', 'manifest.json'), '{}');
   return { root, capture };
 }
-describe('online compiler CLI boundary', () => {
+describe('fixed compiler CLI boundary', () => {
   it('normalizes the CLI history envelope to the HTTP event array', async () => {
     transport({ events: [{ action: 'set_freeze', freeze: true }] });
     expect(await service.runCompilerControl('history')).toEqual([{ action: 'set_freeze', freeze: true }]);
@@ -45,14 +45,14 @@ describe('online compiler CLI boundary', () => {
     const { capture, root } = transport(report);
     const result = await service.runCompilerRules('/data/tmp/input.pdf', ['sjtu_rule_31']);
     const argv = JSON.parse(fs.readFileSync(capture, 'utf8'));
-    expect(argv).toContain('--online'); expect(argv).toContain('--stdout-report');
-    expect(argv[argv.indexOf('--control-root') + 1]).toBe(path.join(root, 'control'));
+    expect(argv).toContain('--publication-review'); expect(argv).toContain('--stdout-report');
+    for(const flag of ['--online','--release-package','--control-root','--online-max-rounds'])expect(argv).not.toContain(flag);
     expect(argv[argv.indexOf('--phase-budget') + 1]).toBe('200');
     expect(argv[argv.indexOf('--budget') + 1]).toBe('200');
-    expect(result.ruleset.version_label).toContain('release-v2');
-    expect(result.rule_runs[0].runtime_version).toBe('release-v2');
+    expect(result.ruleset.version_label).toContain('pipeline-20261019');
+    expect(result.rule_runs[0].runtime_version).toBeNull();
     expect(result.rule_runs[0].pipeline_version).toBe('pipeline-20261019');
-    expect(result.runtime).toEqual({ freeze: true, generation: 3, active_version: 'release-v2' });
+    expect(result.runtime).toBeNull();
     expect(result.rule_runs[0].runtime_snapshot).toEqual(result.runtime);
   });
   it('uses actual pipeline metadata when no runtime version exists', () => {
@@ -64,8 +64,8 @@ describe('online compiler CLI boundary', () => {
     const compiler = service.toCompilerResult(report, ['sjtu_rule_31']);
     const existing = { rule_runs: [{ rule_id: 'sjtu_rule_18', execution_status: 'completed', outcome: 'passed', severity: 'warning', findings: [] }] };
     const mixed = mergePaperLintResults(existing, compiler, ['sjtu_rule_18', 'sjtu_rule_31']);
-    expect(mixed.ruleset.version_label).toContain('release-v2');
-    expect(mixed.runtime).toEqual({ freeze: true, generation: 3, active_version: 'release-v2' });
+    expect(mixed.ruleset.version_label).toContain('pipeline-20261019');
+    expect(mixed.runtime).toBeNull();
   });
   it('calls the fixed control CLI without passing a PDF or compile operation', async () => {
     const snapshot = { freeze: true, generation: 2, active_version: 'v1', active_path: '/data/runtime/packages/v1' };
@@ -91,7 +91,7 @@ describe('online compiler CLI boundary', () => {
   });
 });
 
-it('passes every configured package as the promotion inventory while keeping the requested subset', async () => {
+it('passes only requested fixed packages and no promotion inventory', async () => {
   const {root,capture}=transport(report);
   for(const id of ['32','33']) {
     fs.mkdirSync(path.join(root,'packages',id),{recursive:true});
@@ -100,7 +100,8 @@ it('passes every configured package as the promotion inventory while keeping the
   await service.runCompilerRules('/data/tmp/input.pdf',['sjtu_rule_31']);
   const argv=JSON.parse(fs.readFileSync(capture,'utf8'));
   const values=flag=>argv.flatMap((x,i)=>x===flag?[argv[i+1]]:[]);
-  expect(values('--release-package').sort()).toEqual(['31','32','33'].map(id=>path.join(root,'packages',id)).sort());
+  expect(values('--release-package')).toEqual([]);
+  expect(argv).not.toContain('--online');expect(argv).toContain('--publication-review');
   expect(values('--package')).toEqual([path.join(root,'packages','31')]);
 });
 it('uses the exact report release while preserving the distinct currently active release', () => {
@@ -121,26 +122,12 @@ it.each([
   const program="process.stdout.write(JSON.stringify({status:'error',error_type:"+JSON.stringify(errorType)+"}));process.exit(1)";
   await expect(service.runJsonProcess(process.execPath,['-e',program])).rejects.toMatchObject({status,code});
 });
-it('preserves completed detection while explaining an adaptive-loop budget stop', () => {
-  const output={...report,runtime:{...report.runtime,freeze:false,status:'budget_limit'}};
+it('does not display old automatic-loop metadata in confirmed-only fixed reports', () => {
+  const output={...report,runtime:{status:'candidate_rejected'}};
   const result=service.toCompilerResult(output,['sjtu_rule_31']);
-  expect(result.rule_runs[0].outcome).toBe('passed');
-  expect(result.rule_runs[0].message).toContain('预算');
-  expect(result.rule_runs[0].compiler_runtime_status).toBe('budget_limit');
-});
-
-it.each([
-  ['mutation_validation_incomplete','验证尚未完成'],
-  ['candidate_rejected','未通过验证'],
-  ['audit_or_execution_error','未完成'],
-])('explains %s while preserving the completed detection', (status,reason) => {
-  const output={...report,runtime:{...report.runtime,freeze:false,status}};
-  const result=service.toCompilerResult(output,['sjtu_rule_31']);
-  expect(result.rule_runs[0].outcome).toBe('passed');
-  expect(result.rule_runs[0].execution_status).toBe('completed');
-  expect(result.rule_runs[0].message).toContain(reason);
-  expect(result.rule_runs[0].message).toContain('当前版本');
-  expect(result.rule_runs[0].compiler_runtime_status).toBe(status);
+  expect(result.rule_runs[0].outcome).toBe('inconclusive');
+  expect(result.rule_runs[0].message).toBe('未触发告警');
+  expect(result.rule_runs[0].message).not.toMatch(/自动|迭代|修复/);
 });
 
 // Public argv-only shims: no Python detector, config, ledger or API is opened.

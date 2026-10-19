@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import RuleDraftImportPanel from '../components/RuleDraftImportPanel';
-import { CompilerRuntimeControl } from '../components/paperLint/CompilerRuntimeControl';
 import { useAuthSession } from '../auth/AuthSessionProvider';
 import {
   fetchRuleConfigurations,
@@ -82,7 +81,6 @@ function RuleConfigPage() {
         title="基础规则检测规则配置"
         actions={<span className="rounded-full bg-[#3D8BFF] px-4 py-2 text-sm font-bold text-white">{roleLabel}</span>}
       />
-      <CompilerRuntimeControl />
       <section className="mx-auto max-w-7xl overflow-hidden rounded-2xl border border-[#D8DDE6] shadow-sm">
         <section>
           <div className="bg-[#243E66] px-5 py-3 text-lg font-bold text-white">可视化显性规则配置</div>

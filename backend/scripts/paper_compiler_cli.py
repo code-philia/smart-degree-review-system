@@ -33,6 +33,10 @@ def parser():
     return p
 
 def execute(args):
+    if args.command in {'compile','plan','plan-batch','synthesize','loop'}:
+        raise ValueError('code/model generation is disabled; use fixed detectors')
+    if args.command=='check' and args.online:
+        raise ValueError('online automatic repair is disabled; use fixed check --publication-review')
     if args.command=='control':
         from paper_compiler.runtime_control import RuntimeControl
         control=RuntimeControl(args.control_root)
@@ -54,8 +58,8 @@ def execute(args):
     from paper_compiler.frontend import build_paper
     from paper_compiler.analysis import enrich
     ledger=BudgetLedger(args.ledger,args.budget)
-    client=None if args.offline else MaasClient(args.config,ledger,Path(args.cache)/'model-cache',args.phase,args.phase_budget,max_attempts=1)
-    if client is not None and args.command=='check' and args.online:
+    client=None if args.offline else MaasClient(args.config,ledger,Path(args.cache)/'model-cache',args.phase,args.phase_budget,max_attempts=1,json_output=True)
+    if client is not None and args.command=='check':
         from paper_compiler.request_limits import bounded_client
         scope_id='online-task/'+hashlib.sha256(str(args.out.resolve()).encode()).hexdigest()
         client=bounded_client(client,scope_id,max_cost_cny=args.online_task_budget,timeout_seconds=args.online_timeout_seconds)
@@ -122,18 +126,9 @@ def execute(args):
         if not packages:raise ValueError('at least one verified --package is required')
         ir=build(args.pdf) if args.pdf else json.loads(args.ir.read_text());validate_ir(ir)
         selected_rule_ids={str(p.get('program_spec',p.get('rule_ir',{}))['rule_id']) for p in packages}
-        runtime=None
         environment=None
         resources=json.loads(args.runtime_resources.read_text()) if args.runtime_resources else {}
         environment=resources.get('evidence_environment')
-        if args.online:
-            from paper_compiler.runtime_control import RuntimeControl
-            control=RuntimeControl(args.control_root);snapshot=control.snapshot()
-            from paper_compiler.pipeline import release_inventory
-            inventory=[load_package(path) for path in args.release_package]
-            packages=release_inventory([*packages,*inventory],snapshot)
-            runtime={**snapshot,'mode':'frozen' if snapshot['freeze'] else 'adaptive',
-                'release_rule_ids':[str(p.get('program_spec',p.get('rule_ir',{}))['rule_id']) for p in packages]}
         generated=[p for p in packages if p['manifest'].get('schema_version')=='paper-program/2.0']
         legacy=[p for p in packages if p not in generated]
         if generated:
@@ -145,14 +140,6 @@ def execute(args):
                 ir=apply_model(ir,model,client=client);a=json.loads(args.analysis.read_text())
                 result=check_programs(ir,a,generated)
                 result['pipeline_version']=digest([p['manifest'] for p in generated])
-            elif args.online and not runtime['freeze'] and client is not None:
-                from paper_compiler.online_loop import online_refine
-                episode=Path(args.control_root)/'episodes'/__import__('uuid').uuid4().hex
-                updated=online_refine(ir,generated,client=client,gateway=gateway,cache_dir=Path(args.cache),
-                    control=control,output_dir=episode,resources=resources,max_rounds=args.online_max_rounds,parent_snapshot=snapshot)
-                ir,a,result=updated['ir'],updated['analysis'],updated['report']
-                generated=updated['packages']
-                runtime={**runtime,**updated['runtime']}
             else:ir,a,result=detect_generated(ir,generated,environment)
         else:
             a=json.loads(args.analysis.read_text()) if args.analysis else enrich(ir,legacy,client=client,gateway=gateway,cache_dir=Path(args.cache)/'analysis',snapshot_id=args.evidence_snapshot)
@@ -162,19 +149,8 @@ def execute(args):
             old_analysis=enrich(ir,legacy,client=client,gateway=gateway,cache_dir=Path(args.cache)/'analysis',snapshot_id=args.evidence_snapshot)
             old_report=check(ir,old_analysis,legacy);result['rules']+=old_report['rules']
             result['evidence']+=old_report['evidence']
-        if runtime is not None:
-            if 'report_version' not in runtime:
-                from paper_compiler.pipeline import report_suite_version
-                runtime['report_version']={'suite_version':report_suite_version(generated,snapshot) if generated else None,
-                    'program_versions':[row.get('program_version') for row in result['rules']],
-                    'model_version':ir['model_version'],'pipeline_version':result.get('pipeline_version')}
-            runtime.setdefault('current_snapshot',control.snapshot())
-            if callable(getattr(client,'scope_summary',None)):runtime['task_limits']=client.scope_summary()
-            result['runtime']=runtime
-            result['rules']=[row for row in result['rules'] if str(row['rule_id']) in selected_rule_ids]
-
         publication_packages=[p for p in generated if str(p['program_spec']['rule_id']) in selected_rule_ids & {'31','32','33'}]
-        if publication_packages and (args.online or args.publication_review):
+        if publication_packages and args.publication_review:
             from paper_compiler.publication_gate import audit_positives
             publication_ids={str(p['program_spec']['rule_id']) for p in publication_packages}
             publication_report={**result,'rules':[row for row in result['rules'] if str(row['rule_id']) in publication_ids]}

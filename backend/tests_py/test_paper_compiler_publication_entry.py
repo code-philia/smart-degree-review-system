@@ -29,7 +29,7 @@ def fake_review(monkeypatch):
     return calls
 
 
-@pytest.mark.parametrize('flag',['--online','--publication-review'])
+@pytest.mark.parametrize('flag',['--publication-review'])
 def test_check_reviews_final_report_once_and_keeps_internal_review_private(tmp_path,monkeypatch,flag):
     module=entry('paper_compiler_cli.py');ir,_=fixture(tmp_path)
     ip=tmp_path/'ir.json';write_json_atomic(ip,ir)
@@ -66,3 +66,21 @@ def test_corpus_flag_reviews_detect_output_once_without_online_refinement(tmp_pa
     assert Path(result['report']['publication']['artifact']).is_file()
     assert captured['fingerprint']['publication_review'] is True
     assert result['report']['rules']==calls[0][2]['rules']
+
+
+def test_removed_online_entry_rejects_before_ledger_client_or_repair(tmp_path,monkeypatch):
+    module=entry('paper_compiler_cli.py')
+    monkeypatch.setattr(module,'BudgetLedger',lambda *a,**k:pytest.fail('fixed entry must reject before opening ledger'))
+    args=module.parser().parse_args(['check','--ir',str(tmp_path/'never-read.json'),'--out',str(tmp_path/'never-written.json'),'--online'])
+    with pytest.raises(ValueError,match='online|fixed|disabled'):
+        module.execute(args)
+    assert not (tmp_path/'never-written.json').exists()
+
+
+@pytest.mark.parametrize('command',['compile','plan','plan-batch','synthesize','loop'])
+def test_code_and_model_generation_entry_is_disabled(command,monkeypatch):
+    from types import SimpleNamespace
+    module=entry('paper_compiler_cli.py')
+    monkeypatch.setattr(module,'BudgetLedger',lambda *a,**k:pytest.fail('generation must not open ledger'))
+    with pytest.raises(ValueError,match='generation|fixed|disabled'):
+        module.execute(SimpleNamespace(command=command))

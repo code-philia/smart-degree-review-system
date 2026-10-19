@@ -109,9 +109,8 @@ async function runCompilerRules(pdfPath,selectedRuleIds,options={}) {
   const resultRoot=process.env.PAPER_COMPILER_RESULT_ROOT || '/data/results/paper-compiler/website';
   await fs.promises.mkdir(resultRoot,{recursive:true,mode:0o700});
   const output=path.join(resultRoot,crypto.randomUUID()+'.json');
-  const args=[SCRIPT,'check','--pdf',pdfPath,'--out',output,'--stdout-report','--online','--control-root',controlRoot(),'--cache',process.env.PAPER_COMPILER_CACHE_ROOT || '/data/runtime/paper-compiler','--phase','website','--phase-budget',phaseBudget,'--budget',totalBudget,
-    ...selectedRuleIds.flatMap(id=>['--package',packagePath(id.slice(10))]),
-    ...catalog.filter(rule=>rule.available).flatMap(rule=>['--release-package',packagePath(rule.number)])];
+  const args=[SCRIPT,'check','--pdf',pdfPath,'--out',output,'--stdout-report','--publication-review','--cache',process.env.PAPER_COMPILER_CACHE_ROOT || '/data/runtime/paper-compiler','--phase','website','--phase-budget',phaseBudget,'--budget',totalBudget,
+    ...selectedRuleIds.flatMap(id=>['--package',packagePath(id.slice(10))])];
   const raw=await runJsonProcess(process.env.PAPER_COMPILER_PYTHON || 'python3',args,options);
   if(!raw.publication?.public)throw failure(502,'COMPILER_PUBLICATION_MISSING','告警复核尚未完成');
   return toCompilerResult(raw,selectedRuleIds);

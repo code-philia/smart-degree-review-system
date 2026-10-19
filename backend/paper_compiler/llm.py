@@ -142,11 +142,14 @@ def _request_slot(limits=None):
 class MaasClient:
     def __init__(self, config_path, ledger, cache_dir, phase, phase_limit_cny,
                  *, transport=None, max_attempts=2, retry_delay=1, timeout=120, input_serialization=None,
-                 program_synthesis_thinking=False):
+                 program_synthesis_thinking=False, json_output=False):
         if type(max_attempts) is not int or not 1 <= max_attempts <= 3:
             raise ValueError('max_attempts must be 1..3')
         if type(program_synthesis_thinking) is not bool:
             raise ValueError('program_synthesis_thinking must be a boolean')
+        if type(json_output) is not bool:
+            raise ValueError('json_output must be a boolean')
+        self.json_output = json_output
         self.program_synthesis_thinking = program_synthesis_thinking
         self.input_serialization = input_serialization_policy(input_serialization)
         self.config = load_config(config_path)
@@ -176,6 +179,8 @@ class MaasClient:
                    'max_completion_tokens': max_tokens, 'stream': False, 'temperature': 0,
                    'chat_template_kwargs': {'thinking': self.program_synthesis_thinking and
                        task.split('/', 1)[0] == 'paper-program-synthesis'}}
+        if self.json_output:
+            payload['response_format'] = {'type': 'json_object'}
         fingerprint = {'task': task, 'model_version': self.config.get('MAAS_MODEL_VERSION'),
                        'endpoint': ALLOWED_BASE, 'adapter_version': 2, 'payload': payload}
         if self.input_serialization != LEGACY_INPUT_SERIALIZATION:
@@ -211,6 +216,8 @@ class MaasClient:
                           'response_decoder': response_decoder_policy()}
                 if self.input_serialization != LEGACY_INPUT_SERIALIZATION:
                     record['input_serialization'] = self.input_serialization
+                if self.json_output:
+                    record['response_format'] = {'type': 'json_object'}
                 if payload['chat_template_kwargs']['thinking']:
                     record['program_synthesis_thinking'] = True
                 try:
