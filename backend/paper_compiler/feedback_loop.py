@@ -6,7 +6,7 @@ from pathlib import Path
 
 from .budget import BudgetExceeded
 from .contracts import validate_ir,ir_hash
-from .programs import digest,load_program
+from .programs import digest,load_program,ProgramError
 from .run_accounting import ResourceInterval
 from .task_inputs import project_rule_basis, project_feedback_evidence
 from .storage import write_json_atomic
@@ -27,7 +27,9 @@ def _fingerprint(manifest_path,manifest):
 
 def _actual(report,node_id,rule_id=None,node_ids=None):
     if report.get('_execution_error'):
-        return 'ERROR',[{'node_id':node_id,'rule_id':rule_id,'status':'ERROR','message':'execution failed','error_type':report['_execution_error']}]
+        row={'node_id':node_id,'rule_id':rule_id,'status':'ERROR','message':'execution failed','error_type':report['_execution_error']}
+        if '_execution_reason' in report:row['reason']=report['_execution_reason']
+        return 'ERROR',[row]
     targets=set(node_ids or [node_id])
     rows=[r for rule in report.get('rules',[]) if rule_id is None or str(rule.get('rule_id'))==str(rule_id) for r in rule.get('results',[]) if r.get('node_id') in targets]
     values={r.get('status') for r in rows}
@@ -88,6 +90,7 @@ def evaluate_cases(package,cases,runner,cache=None):
             if key not in cache:
                 try:cache[key]=runner(package,copy.deepcopy(ir))
                 except BudgetExceeded:raise
+                except ProgramError as error:cache[key]={'_execution_error':type(error).__name__,'_execution_reason':str(error)[:1000],'rules':[]}
                 except Exception as error:cache[key]={'_execution_error':type(error).__name__,'rules':[]}
             outputs.append(cache[key])
         before,before_rows=_actual(outputs[0],target,package['program_spec']['rule_id'],_subtree(original,target))

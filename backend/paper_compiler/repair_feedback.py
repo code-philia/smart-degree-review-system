@@ -50,6 +50,15 @@ def _select(rows, limit, attempt):
     return selected
 
 
+def _diagnostic_counts(rows, side):
+    """Count raw diagnostic occurrences, preserving the two fields separately."""
+    counts = Counter((item.get('check_id'), item.get('status'))
+                     for row in rows for item in row.get(side, []))
+    return [{'check_id': pair[0], 'status': pair[1], 'count': count}
+            for pair, count in sorted(counts.items(),
+                key=lambda item: (-item[1], json_bytes(item[0])))]
+
+
 def prepare_feedback(feedback, *, attempt=0, limit=12):
     """Return a bounded diverse example list, full counts, and exact provenance.
 
@@ -89,7 +98,11 @@ def prepare_feedback(feedback, *, attempt=0, limit=12):
                 'selected_examples': len(selected), 'omitted_examples': len(rows) - len(selected),
                 'selected_ids': [rows[i]['id'] for i in selected if 'id' in rows[i]],
                 'failure_types': dict(sorted(Counter(t for row in rows for t in row.get('failure_types', [])).items())),
-                'expected_statuses': dict(sorted(Counter(str(row['expected']) for row in rows if 'expected' in row).items()))}}
+                'expected_statuses': dict(sorted(Counter(str(row['expected']) for row in rows if 'expected' in row).items())),
+                'before_statuses': dict(sorted(Counter(str(row['before']) for row in rows if 'before' in row).items())),
+                'after_statuses': dict(sorted(Counter(str(row['after']) for row in rows if 'after' in row).items())),
+                'diagnostic_counts': {side: _diagnostic_counts(rows, side)
+                                      for side in ('actual_original', 'actual_mutant')}}}
 
 
 def restore_feedback(packet):

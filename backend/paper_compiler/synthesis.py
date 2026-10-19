@@ -126,6 +126,7 @@ candidate is the complete checking-program object with the exact candidate keys 
 repair_plan is a short list of concrete decisions {failure_types,basis_ids,change,remaining_limit?}.
 Explain which observable behavior or missing grounded fact each change addresses; then implement it in candidate.
 Use feedback_summary to see ALL remaining failure classes; feedback contains representative examples, not the entire set.
+Use the raw before_statuses, after_statuses and side-specific diagnostic_counts in feedback_summary to trace frequent observed outcomes back to previous_candidate.code before choosing repairs.
 feedback_provenance_pool stores exact coordinate/ancestor records once. Resolve any {$provenance_ref:ID} under
 provenance or ancestor_provenance by looking up ID in that pool; source text and labels are not shortened.
 Distinguish a requirement's applicability from availability of its fields. Check observed values, not merely their presence.

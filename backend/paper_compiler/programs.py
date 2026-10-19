@@ -12,7 +12,7 @@ import sys
 from .contracts import validate_ir, validate_analysis, reject_answers, ir_hash
 from .storage import json_bytes, write_json_atomic
 from .registry import REGISTRY
-from .program_worker import validate_code
+from .program_worker import validate_code, ERROR_PREFIX, ERROR_MESSAGE_LIMIT, ERROR_LINE_LIMIT, ERROR_RECORD_LIMIT
 
 VERSION='paper-program/2.0'
 STATUSES={'PASS','VIOLATION','UNKNOWN','NOT_APPLICABLE','ERROR'}
@@ -112,6 +112,29 @@ def load_program(path):
     verify_program(package)
     return package
 
+
+def _worker_error_reason(stderr,code):
+    if not isinstance(stderr,bytes) or not stderr.endswith(b'\n'):return None
+    line=stderr[-(ERROR_RECORD_LIMIT+2):][:-1].rsplit(b'\n',1)[-1]
+    prefix=ERROR_PREFIX.encode('ascii')
+    if len(line)>ERROR_RECORD_LIMIT or not line.startswith(prefix):return None
+    def unique_object(pairs):
+        if len({key for key,_ in pairs})!=len(pairs):raise ValueError('duplicate error field')
+        return dict(pairs)
+    try:record=json.loads(line[len(prefix):].decode('utf-8'),object_pairs_hook=unique_object)
+    except (ValueError,UnicodeError):return None
+    if not isinstance(record,dict) or set(record)!={'type','message','generated_lines'}:return None
+    name,message,lines=record['type'],record['message'],record['generated_lines']
+    if not isinstance(name,str) or not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]{0,63}',name):return None
+    if not isinstance(message,str) or len(message)>ERROR_MESSAGE_LIMIT:return None
+    if (not isinstance(lines,list) or len(lines)>ERROR_LINE_LIMIT or
+            any(type(n) is not int or not 1<=n<=len(code.splitlines()) for n in lines)):
+        return None
+    if lines!=sorted(set(lines)):return None
+    location=' at <paper-program> lines '+','.join(str(n) for n in lines) if lines else ''
+    return name+location+': '+message
+
+
 def execute_pure(code,payload,entry='detect'):
     reject_answers(payload)
     try:validate_code(code,entry)
@@ -123,7 +146,10 @@ def execute_pure(code,payload,entry='detect'):
             input=request,capture_output=True,timeout=12,
             env={'PATH':os.defpath,'PYTHONIOENCODING':'utf-8','LANG':'C.UTF-8'})
     except (subprocess.TimeoutExpired,OSError) as error:raise ProgramError('isolated execution timed out or unavailable') from error
-    if process.returncode or len(process.stdout)>8*1024*1024:raise ProgramError('isolated program rejected')
+    if len(process.stdout)>8*1024*1024:raise ProgramError('isolated program rejected')
+    if process.returncode:
+        reason=_worker_error_reason(process.stderr,code) if process.returncode==2 else None
+        raise ProgramError('isolated program rejected'+(': '+reason if reason is not None else ''))
     try:return json.loads(process.stdout)
     except (ValueError,UnicodeError) as error:raise ProgramError('invalid program output') from error
 

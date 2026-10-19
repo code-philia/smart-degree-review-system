@@ -17,6 +17,11 @@ DENIED = (ast.Import,ast.ImportFrom,ast.ClassDef,ast.While,ast.AsyncFunctionDef,
           ast.Global,ast.Nonlocal,ast.Delete,ast.With,ast.AsyncWith,ast.Yield,ast.YieldFrom,
           ast.Try,ast.Raise,ast.Lambda)
 
+ERROR_PREFIX = 'PAPER_PROGRAM_ERROR/1 '
+ERROR_MESSAGE_LIMIT = 1000
+ERROR_LINE_LIMIT = 8
+ERROR_RECORD_LIMIT = 16 * 1024
+
 def validate_code(code, entry='detect'):
     if entry not in {'detect','propose','analyze'} or not isinstance(code,str) or len(code)>64000:
         raise ValueError('invalid generated program')
@@ -39,6 +44,12 @@ def validate_code(code, entry='detect'):
                 if node.func.id not in BUILTINS|HELPERS:raise ValueError('unsafe call')
             elif not isinstance(node.func,ast.Attribute) or node.func.attr not in METHODS:
                 raise ValueError('indirect call forbidden')
+            if (isinstance(node.func,ast.Name) and node.func.id in {'re_search','re_matches','re_findall'}
+                    and node.args and isinstance(node.args[0],ast.Constant) and isinstance(node.args[0].value,str)):
+                options=re2.Options();options.log_errors=False
+                try:re2.compile(node.args[0].value,options=options)
+                except re2.error as error:
+                    raise ValueError(f'invalid RE2 literal pattern at line {node.args[0].lineno}: {str(error)[:ERROR_MESSAGE_LIMIT]}') from error
         if isinstance(node,ast.BinOp) and isinstance(node.op,(ast.Pow,ast.MatMult)):
             raise ValueError('unbounded arithmetic')
     return tree
@@ -88,8 +99,21 @@ def main():
     if len(output)>8*1024*1024:raise ValueError('output limit')
     sys.stdout.write(output)
 
+def _error_record(error):
+    lines=set();trace=error.__traceback__
+    while trace is not None:
+        if trace.tb_frame.f_code.co_filename=='<paper-program>':lines.add(trace.tb_lineno)
+        trace=trace.tb_next
+    return {'type':type(error).__name__[:64],'message':str(error)[:ERROR_MESSAGE_LIMIT],
+            'generated_lines':sorted(lines)[:ERROR_LINE_LIMIT]}
+
+
 if __name__=='__main__':
     try:main()
-    except Exception:
-        sys.stderr.write('generated program execution rejected\n')
+    except Exception as error:
+        try:
+            record=json.dumps(_error_record(error),ensure_ascii=True,allow_nan=False,separators=(',',':'))
+            sys.stderr.write('\n'+ERROR_PREFIX+record+'\n')
+        except Exception:
+            sys.stderr.write('generated program execution rejected\n')
         sys.exit(2)
