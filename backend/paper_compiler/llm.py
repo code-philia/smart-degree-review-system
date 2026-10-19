@@ -23,7 +23,7 @@ _MAX_RESPONSE_BYTES = 8 * 1024 * 1024
 _PROCESS_SLOTS = threading.BoundedSemaphore(3)
 LEGACY_INPUT_SERIALIZATION = 'legacy-ascii-json/1.0'
 UNICODE_INPUT_SERIALIZATION = 'unicode-json/1.0'
-RESPONSE_DECODER_VERSION = 'model-json-decoder/1.0'
+RESPONSE_DECODER_VERSION = 'model-json-decoder/1.1'
 
 
 class ModelError(RuntimeError):
@@ -76,7 +76,7 @@ def _usage(response):
 def response_decoder_policy():
     """Public output-envelope semantics; not part of the provider request key."""
     return {'schema_version': RESPONSE_DECODER_VERSION,
-            'envelopes': ['json_object', 'single_optional_json_fence'],
+            'envelopes': ['json_object', 'single_optional_json_fence', 'single_extra_closing_brace'],
             'finish_reason': 'stop', 'repair': False}
 
 
@@ -93,7 +93,13 @@ def _decode_json_object(content):
         if wrapped is None:
             raise ValueError('expected exactly one JSON fence')
         value = wrapped.group(1)
-    result = json.loads(value, parse_constant=_reject_json_constant)
+    value = value.strip(' \t\r\n')
+    try:
+        result = json.loads(value, parse_constant=_reject_json_constant)
+    except json.JSONDecodeError:
+        result, end = json.JSONDecoder(parse_constant=_reject_json_constant).raw_decode(value)
+        if value[end:].strip(' \t\r\n') != '}':
+            raise ValueError('expected one object or single extra closing-brace envelope') from None
     if not isinstance(result, dict):
         raise ValueError('expected object')
     return result

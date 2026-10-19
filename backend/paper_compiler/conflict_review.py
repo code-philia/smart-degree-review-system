@@ -8,6 +8,7 @@ from copy import deepcopy
 import hashlib
 import re
 from .storage import json_bytes
+from .llm import response_decoder_policy
 
 POLICY = 'positive-conflict-witness/2.3'
 COMPLETE_WORK_BASIS = 'complete_work_unsupported_attribution'
@@ -340,7 +341,8 @@ scheduler are introduced. Budget/Frozen exceptions are never downgraded.
     if not packet['items']:
         return {}, None, None
     projected = model_input(packet)
-    identity = {'task':TASK,'instructions':INSTRUCTIONS,'data':projected}
+    identity = {'task':TASK,'instructions':INSTRUCTIONS,'data':projected,
+                'response_decoder':response_decoder_policy()}
     semantic_thinking = (getattr(client, 'semantic_thinking', False) is True if client is not None else
                          isinstance(receipt, dict) and receipt.get('semantic_thinking') is True)
     if semantic_thinking:
@@ -357,7 +359,8 @@ scheduler are introduced. Budget/Frozen exceptions are never downgraded.
         return replay(receipt)
     if client is None:
         return {}, None, 'independent contradiction review unavailable offline'
-    record = {'policy':POLICY,'input_hash':digest,'task':TASK,'max_tokens':max_tokens}
+    record = {'policy':POLICY,'input_hash':digest,'task':TASK,'max_tokens':max_tokens,
+              'response_decoder':response_decoder_policy()}
     if semantic_thinking:
         record['semantic_thinking'] = True
     try:

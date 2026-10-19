@@ -3,7 +3,7 @@ import re
 import unicodedata
 from urllib.parse import urlsplit
 
-IDENTITY_POLICY = 'source-backed-arxiv-url-pin/1.2'
+IDENTITY_POLICY = 'source-backed-arxiv-url-pin/1.3'
 from difflib import SequenceMatcher
 
 def normalize_doi(value):
@@ -60,6 +60,32 @@ def _author_match(left,right):
                     if not given or not first or given==first or ((abbreviated or other_abbreviated) and initials==other_initials):return True
     return False
 
+
+def _explicit_subtitle_supported(entry, work):
+    """Accept omitted subtitles only with exact main title and independent metadata."""
+    left = unicodedata.normalize('NFKC', str(entry.get('title', '')))
+    right = unicodedata.normalize('NFKC', str(work.get('title', '')))
+    expanded, plain = (left, right) if ':' in left and ':' not in right else (right, left)
+    if ':' not in expanded or ':' in plain:
+        return False
+    main, subtitle = expanded.split(':', 1)
+    if not subtitle.strip() or len(_norm(main)) < 24 or _norm(main) != _norm(plain):
+        return False
+    authors = entry.get('authors', [])
+    other = work.get('authors', [])
+    # One coinciding surname is not sufficient for this additional acceptance path.
+    if (not isinstance(authors, list) or not isinstance(other, list) or
+            len({_norm(a) for a in authors if _norm(a)}) < 2):
+        return False
+    remaining = list(other)
+    for author in authors:
+        matching = next((i for i, candidate in enumerate(remaining)
+                         if _author_match([author], [candidate])), None)
+        if matching is None:
+            return False
+        remaining.pop(matching)
+    return entry.get('year') is not None and str(entry['year']) == str(work.get('year'))
+
 def resolve_identity(entry:dict,records:list[dict],client=None)->dict:
     candidates=[];title=_norm(entry.get('title',''))
     for r in records:
@@ -79,7 +105,12 @@ def resolve_identity(entry:dict,records:list[dict],client=None)->dict:
         if possible:
             answer=client.complete_json('work-identity/1.0', 'Decide whether a candidate describes the same work. Return same_work:boolean,candidate_id:string,reason:string,title_relation:string,author_supported:boolean,year_supported:boolean. A translated title may match with independent author and year support. A similar topic alone cannot. Never claim nonexistence.', {'entry':entry,'candidates':[{'id':c[0]['id'],'work':c[0]['work']} for c in possible]},1200)
             chosen=[c for c in possible if c[0]['id']==answer.get('candidate_id')]
-            if answer.get('same_work') is True and answer.get('title_relation') in {'translation','same','minor_variation'} and answer.get('author_supported') is True and answer.get('year_supported') is True:
+            relation = answer.get('title_relation')
+            relation_supported = relation in {'translation','same','minor_variation'}
+            if relation in {'shortened_title', 'shortened_title_match', 'translated_or_variant'}:
+                relation_supported = bool(chosen) and all(
+                    _explicit_subtitle_supported(entry, c[0]['work']) for c in chosen)
+            if answer.get('same_work') is True and relation_supported and answer.get('author_supported') is True and answer.get('year_supported') is True:
                 matches=chosen
     if matches:
         exact=[c for c in matches if c[3]]
