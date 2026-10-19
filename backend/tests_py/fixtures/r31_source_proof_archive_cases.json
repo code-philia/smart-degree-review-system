@@ -1,0 +1,1356 @@
+[
+  {
+    "node_id": "n1719",
+    "payload": {
+      "ir": {
+        "nodes": [
+          {
+            "attrs": {
+              "key": "66"
+            },
+            "children": [],
+            "id": "n1719",
+            "kind": "BibliographyEntry",
+            "provenance": [
+              {
+                "bbox": [
+                  85.03900146484375,
+                  274.9465026855469,
+                  102.53199768066406,
+                  285.4465026855469
+                ],
+                "coordinate_system": "unrotated_top_left_points",
+                "kind": "source",
+                "line_id": "p60-b11-l0",
+                "node_text_end": 4,
+                "node_text_start": 0,
+                "page_index": 60,
+                "printed_page_label": null,
+                "rotation": 0,
+                "source_id": "pdf",
+                "text_offsets": [
+                  0,
+                  4
+                ]
+              },
+              {
+                "bbox": [
+                  114.48799896240234,
+                  274.9465026855469,
+                  524.4185180664062,
+                  285.4465026855469
+                ],
+                "coordinate_system": "unrotated_top_left_points",
+                "kind": "source",
+                "line_id": "p60-b11-l1",
+                "node_text_end": 75,
+                "node_text_start": 5,
+                "page_index": 60,
+                "printed_page_label": null,
+                "rotation": 0,
+                "source_id": "pdf",
+                "text_offsets": [
+                  0,
+                  70
+                ]
+              },
+              {
+                "bbox": [
+                  114.48799896240234,
+                  290.9465026855469,
+                  524.41845703125,
+                  301.4465026855469
+                ],
+                "coordinate_system": "unrotated_top_left_points",
+                "kind": "source",
+                "line_id": "p60-b12-l0",
+                "node_text_end": 144,
+                "node_text_start": 76,
+                "page_index": 60,
+                "printed_page_label": null,
+                "rotation": 0,
+                "source_id": "pdf",
+                "text_offsets": [
+                  0,
+                  68
+                ]
+              },
+              {
+                "bbox": [
+                  114.48799896240234,
+                  306.9465026855469,
+                  524.4100341796875,
+                  317.4465026855469
+                ],
+                "coordinate_system": "unrotated_top_left_points",
+                "kind": "source",
+                "line_id": "p60-b13-l0",
+                "node_text_end": 241,
+                "node_text_start": 145,
+                "page_index": 60,
+                "printed_page_label": null,
+                "rotation": 0,
+                "source_id": "pdf",
+                "text_offsets": [
+                  0,
+                  96
+                ]
+              },
+              {
+                "bbox": [
+                  114.48797607421875,
+                  322.9465026855469,
+                  258.5579833984375,
+                  333.4465026855469
+                ],
+                "coordinate_system": "unrotated_top_left_points",
+                "kind": "source",
+                "line_id": "p60-b14-l0",
+                "node_text_end": 273,
+                "node_text_start": 242,
+                "page_index": 60,
+                "printed_page_label": null,
+                "rotation": 0,
+                "source_id": "pdf",
+                "text_offsets": [
+                  0,
+                  31
+                ]
+              }
+            ],
+            "text": "[66]\nFRAGA S, de QUERÉTARO MÉXICO. N ESQ. MARIANO ESCOBEDO C S. SCREEN TASK\nEXPERIMENTS FOR EEG SIGNALS BASED ON SSVEP BRAIN COMPUTER INTERFACE.\n[J/OL]. International Journal of Approximate Reasoning, 2018, 6: 1718-1732. https://api.semantic\nscholar.org/CorpusID:125642419."
+          }
+        ]
+      },
+      "analysis": {
+        "coverage": {
+          "n1719": {
+            "protocol": "bibliography-fields/1.1",
+            "status": "complete"
+          }
+        },
+        "results": {
+          "bibliography_fields": {
+            "n1719": {
+              "access_date": {
+                "evidence_ids": [
+                  "n1719"
+                ],
+                "search_scope": "n1719",
+                "state": "confirmed_absent"
+              },
+              "archive_number": {
+                "evidence_ids": [
+                  "n1719"
+                ],
+                "search_scope": "n1719",
+                "state": "confirmed_absent"
+              },
+              "authors": {
+                "evidence_ids": [
+                  "span-f239c78c790f2bb9c3386230"
+                ],
+                "source_range": [
+                  5,
+                  144
+                ],
+                "state": "observed",
+                "value": [
+                  "FRAGA S",
+                  "de QUERÉTARO MÉXICO. N ESQ. MARIANO ESCOBEDO C S. SCREEN TASK EXPERIMENTS FOR EEG SIGNALS BASED ON SSVEP BRAIN COMPUTER INTERFACE."
+                ]
+              },
+              "carrier_code": {
+                "evidence_ids": [
+                  "n1719"
+                ],
+                "search_scope": "n1719",
+                "state": "confirmed_absent"
+              },
+              "conference": {
+                "evidence_ids": [
+                  "n1719"
+                ],
+                "search_scope": "n1719",
+                "state": "confirmed_absent"
+              },
+              "conference_year": {
+                "evidence_ids": [
+                  "n1719"
+                ],
+                "search_scope": "n1719",
+                "state": "confirmed_absent"
+              },
+              "container": {
+                "evidence_ids": [
+                  "span-e25884873275dfaf7cb69ef8"
+                ],
+                "source_range": [
+                  153,
+                  199
+                ],
+                "state": "observed",
+                "value": "International Journal of Approximate Reasoning"
+              },
+              "date": {
+                "evidence_ids": [
+                  "n1719"
+                ],
+                "search_scope": "n1719",
+                "state": "confirmed_absent"
+              },
+              "doi": {
+                "evidence_ids": [
+                  "n1719"
+                ],
+                "search_scope": "n1719",
+                "state": "confirmed_absent"
+              },
+              "institution": {
+                "evidence_ids": [
+                  "n1719"
+                ],
+                "search_scope": "n1719",
+                "state": "confirmed_absent"
+              },
+              "issue": {
+                "evidence_ids": [
+                  "n1719"
+                ],
+                "search_scope": "n1719",
+                "state": "confirmed_absent"
+              },
+              "pages": {
+                "evidence_ids": [
+                  "span-19f20216b8214be415d555fc"
+                ],
+                "source_range": [
+                  210,
+                  219
+                ],
+                "state": "observed",
+                "value": "1718-1732"
+              },
+              "patent_number": {
+                "evidence_ids": [
+                  "n1719"
+                ],
+                "search_scope": "n1719",
+                "state": "confirmed_absent"
+              },
+              "place": {
+                "evidence_ids": [
+                  "n1719"
+                ],
+                "search_scope": "n1719",
+                "state": "confirmed_absent"
+              },
+              "platform": {
+                "evidence_ids": [
+                  "n1719"
+                ],
+                "search_scope": "n1719",
+                "state": "confirmed_absent"
+              },
+              "publisher": {
+                "evidence_ids": [
+                  "n1719"
+                ],
+                "search_scope": "n1719",
+                "state": "confirmed_absent"
+              },
+              "report_number": {
+                "evidence_ids": [
+                  "n1719"
+                ],
+                "search_scope": "n1719",
+                "state": "confirmed_absent"
+              },
+              "scale": {
+                "evidence_ids": [
+                  "n1719"
+                ],
+                "search_scope": "n1719",
+                "state": "confirmed_absent"
+              },
+              "size": {
+                "evidence_ids": [
+                  "n1719"
+                ],
+                "search_scope": "n1719",
+                "state": "confirmed_absent"
+              },
+              "standard_number": {
+                "evidence_ids": [
+                  "n1719"
+                ],
+                "search_scope": "n1719",
+                "state": "confirmed_absent"
+              },
+              "subtitle": {
+                "evidence_ids": [
+                  "n1719"
+                ],
+                "search_scope": "n1719",
+                "state": "confirmed_absent"
+              },
+              "title": {
+                "evidence_ids": [
+                  "n1719"
+                ],
+                "search_scope": "n1719",
+                "state": "confirmed_absent"
+              },
+              "type_code": {
+                "evidence_ids": [
+                  "span-743ded43913f1312de45e7e1"
+                ],
+                "source_range": [
+                  145,
+                  151
+                ],
+                "state": "observed",
+                "value": "J/OL"
+              },
+              "url": {
+                "evidence_ids": [
+                  "span-88344d962b647305c8208cc1"
+                ],
+                "source_range": [
+                  221,
+                  272
+                ],
+                "state": "observed",
+                "value": "https://api.semantic scholar.org/CorpusID:125642419"
+              },
+              "version": {
+                "evidence_ids": [
+                  "n1719"
+                ],
+                "search_scope": "n1719",
+                "state": "confirmed_absent"
+              },
+              "volume": {
+                "evidence_ids": [
+                  "span-3dedc6037a11e139bbd07057"
+                ],
+                "source_range": [
+                  1,
+                  2
+                ],
+                "state": "observed",
+                "value": "6"
+              },
+              "year": {
+                "evidence_ids": [
+                  "span-de6e832d6212d4a8830402e4"
+                ],
+                "source_range": [
+                  201,
+                  205
+                ],
+                "state": "observed",
+                "value": "2018"
+              }
+            }
+          },
+          "bibliography_order": {
+            "n1719": {
+              "numeric_value": {
+                "evidence_ids": [
+                  "n1719"
+                ],
+                "state": "observed",
+                "value": 66
+              },
+              "position": {
+                "evidence_ids": [
+                  "n1719"
+                ],
+                "state": "observed",
+                "value": 66
+              }
+            }
+          },
+          "bibliography_shape": {
+            "n1719": {
+              "electronic": {
+                "evidence_ids": [
+                  "n1719"
+                ],
+                "state": "observed",
+                "value": true
+              },
+              "field_sequence": {
+                "evidence_ids": [
+                  "n1719"
+                ],
+                "state": "observed",
+                "value": [
+                  "volume",
+                  "authors",
+                  "type_code",
+                  "container",
+                  "year",
+                  "pages",
+                  "url"
+                ]
+              },
+              "label_bracketed": {
+                "evidence_ids": [
+                  "n1719"
+                ],
+                "state": "observed",
+                "value": true
+              },
+              "system": {
+                "evidence_ids": [
+                  "n1719"
+                ],
+                "state": "observed",
+                "value": "numeric"
+              },
+              "type_bracketed": {
+                "evidence_ids": [
+                  "n1719"
+                ],
+                "state": "observed",
+                "value": true
+              }
+            }
+          },
+          "external_work": {
+            "n1719": {
+              "available_fields": {
+                "reason": "work identity unresolved",
+                "state": "unknown"
+              },
+              "exists": {
+                "evidence_ids": [],
+                "reason": "public retrieval does not establish or exclude this work",
+                "state": "unknown"
+              }
+            }
+          }
+        },
+        "evidence": []
+      }
+    },
+    "provenance": {
+      "result_path": "/data/results/paper-compiler/framework-20261019/corpus-fixed-479-r31-manifestation-003/official-shard-09/items/pdf-052934c10c2f32c32a7c/result.json",
+      "result_sha256": "b0ff8966e550638219ab1b941e5aa87a7b179555224042bf1651da5abadc962d"
+    }
+  },
+  {
+    "node_id": "n1496",
+    "payload": {
+      "ir": {
+        "nodes": [
+          {
+            "attrs": {
+              "key": "40"
+            },
+            "children": [],
+            "id": "n1496",
+            "kind": "BibliographyEntry",
+            "provenance": [
+              {
+                "bbox": [
+                  85.03900146484375,
+                  312.9465026855469,
+                  102.53199768066406,
+                  323.4465026855469
+                ],
+                "coordinate_system": "unrotated_top_left_points",
+                "kind": "source",
+                "line_id": "p86-b13-l0",
+                "node_text_end": 4,
+                "node_text_start": 0,
+                "page_index": 86,
+                "printed_page_label": null,
+                "rotation": 0,
+                "source_id": "pdf",
+                "text_offsets": [
+                  0,
+                  4
+                ]
+              },
+              {
+                "bbox": [
+                  114.48799896240234,
+                  312.9465026855469,
+                  524.4080810546875,
+                  323.4465026855469
+                ],
+                "coordinate_system": "unrotated_top_left_points",
+                "kind": "source",
+                "line_id": "p86-b13-l1",
+                "node_text_end": 104,
+                "node_text_start": 5,
+                "page_index": 86,
+                "printed_page_label": null,
+                "rotation": 0,
+                "source_id": "pdf",
+                "text_offsets": [
+                  0,
+                  99
+                ]
+              },
+              {
+                "bbox": [
+                  114.48799896240234,
+                  328.9465026855469,
+                  153.27499389648438,
+                  339.4465026855469
+                ],
+                "coordinate_system": "unrotated_top_left_points",
+                "kind": "source",
+                "line_id": "p86-b14-l0",
+                "node_text_end": 114,
+                "node_text_start": 105,
+                "page_index": 86,
+                "printed_page_label": null,
+                "rotation": 0,
+                "source_id": "pdf",
+                "text_offsets": [
+                  0,
+                  9
+                ]
+              }
+            ],
+            "text": "[40]\nSD Association. SD Specifications Part 1: Physical Layer Simplified Specification[S]. Version 6.00.\n2017: 39."
+          }
+        ]
+      },
+      "analysis": {
+        "coverage": {
+          "n1496": {
+            "protocol": "bibliography-fields/1.1",
+            "status": "complete"
+          }
+        },
+        "results": {
+          "bibliography_fields": {
+            "n1496": {
+              "access_date": {
+                "evidence_ids": [
+                  "n1496"
+                ],
+                "search_scope": "n1496",
+                "state": "confirmed_absent"
+              },
+              "archive_number": {
+                "evidence_ids": [
+                  "n1496"
+                ],
+                "search_scope": "n1496",
+                "state": "confirmed_absent"
+              },
+              "authors": {
+                "evidence_ids": [
+                  "span-1bb4ab5ea2e98272428b858e"
+                ],
+                "source_range": [
+                  5,
+                  19
+                ],
+                "state": "observed",
+                "value": [
+                  "SD Association"
+                ]
+              },
+              "carrier_code": {
+                "evidence_ids": [
+                  "n1496"
+                ],
+                "search_scope": "n1496",
+                "state": "confirmed_absent"
+              },
+              "conference": {
+                "evidence_ids": [
+                  "n1496"
+                ],
+                "search_scope": "n1496",
+                "state": "confirmed_absent"
+              },
+              "conference_year": {
+                "evidence_ids": [
+                  "n1496"
+                ],
+                "search_scope": "n1496",
+                "state": "confirmed_absent"
+              },
+              "container": {
+                "evidence_ids": [
+                  "n1496"
+                ],
+                "search_scope": "n1496",
+                "state": "confirmed_absent"
+              },
+              "date": {
+                "evidence_ids": [
+                  "n1496"
+                ],
+                "search_scope": "n1496",
+                "state": "confirmed_absent"
+              },
+              "doi": {
+                "evidence_ids": [
+                  "n1496"
+                ],
+                "search_scope": "n1496",
+                "state": "confirmed_absent"
+              },
+              "institution": {
+                "evidence_ids": [
+                  "n1496"
+                ],
+                "search_scope": "n1496",
+                "state": "confirmed_absent"
+              },
+              "issue": {
+                "evidence_ids": [
+                  "n1496"
+                ],
+                "search_scope": "n1496",
+                "state": "confirmed_absent"
+              },
+              "pages": {
+                "evidence_ids": [
+                  "span-318251740d5373ac9299895c"
+                ],
+                "source_range": [
+                  111,
+                  113
+                ],
+                "state": "observed",
+                "value": "39"
+              },
+              "patent_number": {
+                "evidence_ids": [
+                  "n1496"
+                ],
+                "search_scope": "n1496",
+                "state": "confirmed_absent"
+              },
+              "place": {
+                "evidence_ids": [
+                  "n1496"
+                ],
+                "search_scope": "n1496",
+                "state": "confirmed_absent"
+              },
+              "platform": {
+                "evidence_ids": [
+                  "n1496"
+                ],
+                "search_scope": "n1496",
+                "state": "confirmed_absent"
+              },
+              "publisher": {
+                "evidence_ids": [
+                  "n1496"
+                ],
+                "search_scope": "n1496",
+                "state": "confirmed_absent"
+              },
+              "report_number": {
+                "evidence_ids": [
+                  "n1496"
+                ],
+                "search_scope": "n1496",
+                "state": "confirmed_absent"
+              },
+              "scale": {
+                "evidence_ids": [
+                  "n1496"
+                ],
+                "search_scope": "n1496",
+                "state": "confirmed_absent"
+              },
+              "size": {
+                "evidence_ids": [
+                  "n1496"
+                ],
+                "search_scope": "n1496",
+                "state": "confirmed_absent"
+              },
+              "standard_number": {
+                "evidence_ids": [
+                  "n1496"
+                ],
+                "search_scope": "n1496",
+                "state": "confirmed_absent"
+              },
+              "subtitle": {
+                "evidence_ids": [
+                  "n1496"
+                ],
+                "search_scope": "n1496",
+                "state": "confirmed_absent"
+              },
+              "title": {
+                "evidence_ids": [
+                  "span-a92c68d86148d092ca4ce346"
+                ],
+                "source_range": [
+                  21,
+                  86
+                ],
+                "state": "observed",
+                "value": "SD Specifications Part 1: Physical Layer Simplified Specification"
+              },
+              "type_code": {
+                "evidence_ids": [
+                  "span-f4f9ab613e867674f1e22a5b"
+                ],
+                "source_range": [
+                  86,
+                  89
+                ],
+                "state": "observed",
+                "value": "S"
+              },
+              "url": {
+                "evidence_ids": [
+                  "n1496"
+                ],
+                "search_scope": "n1496",
+                "state": "confirmed_absent"
+              },
+              "version": {
+                "evidence_ids": [
+                  "span-d856033848a4ba500d06c31f"
+                ],
+                "source_range": [
+                  91,
+                  103
+                ],
+                "state": "observed",
+                "value": "6.00"
+              },
+              "volume": {
+                "evidence_ids": [
+                  "n1496"
+                ],
+                "search_scope": "n1496",
+                "state": "confirmed_absent"
+              },
+              "year": {
+                "evidence_ids": [
+                  "span-990a6e06061b59e1efe1cc5b"
+                ],
+                "source_range": [
+                  105,
+                  109
+                ],
+                "state": "observed",
+                "value": "2017"
+              }
+            }
+          },
+          "bibliography_order": {
+            "n1496": {
+              "numeric_value": {
+                "evidence_ids": [
+                  "n1496"
+                ],
+                "state": "observed",
+                "value": 40
+              },
+              "position": {
+                "evidence_ids": [
+                  "n1496"
+                ],
+                "state": "observed",
+                "value": 40
+              }
+            }
+          },
+          "bibliography_shape": {
+            "n1496": {
+              "electronic": {
+                "evidence_ids": [
+                  "n1496"
+                ],
+                "state": "observed",
+                "value": false
+              },
+              "field_sequence": {
+                "evidence_ids": [
+                  "n1496"
+                ],
+                "state": "observed",
+                "value": [
+                  "authors",
+                  "title",
+                  "type_code",
+                  "version",
+                  "year",
+                  "pages"
+                ]
+              },
+              "label_bracketed": {
+                "evidence_ids": [
+                  "n1496"
+                ],
+                "state": "observed",
+                "value": true
+              },
+              "system": {
+                "evidence_ids": [
+                  "n1496"
+                ],
+                "state": "observed",
+                "value": "numeric"
+              },
+              "type_bracketed": {
+                "evidence_ids": [
+                  "n1496"
+                ],
+                "state": "observed",
+                "value": true
+              }
+            }
+          },
+          "external_work": {
+            "n1496": {
+              "available_fields": {
+                "reason": "work identity unresolved",
+                "state": "unknown"
+              },
+              "exists": {
+                "evidence_ids": [
+                  "retrieval-235621e6afc608e2dcf9bce3",
+                  "retrieval-50d43b8eff2b13cc900426e1",
+                  "retrieval-7258f414d938ec98e7c61434",
+                  "retrieval-5ead4bdb273ecb724282c35b"
+                ],
+                "reason": "public retrieval does not establish or exclude this work",
+                "state": "unknown"
+              }
+            }
+          }
+        },
+        "evidence": [
+          {
+            "coverage": "partial_index",
+            "deferred_reason": "provider_cache_only",
+            "id": "retrieval-235621e6afc608e2dcf9bce3",
+            "provider": "crossref",
+            "request_sent": false,
+            "retrieved_at": 1792420370.874834,
+            "source_group": "doi-registration",
+            "status": "unavailable",
+            "url": "https://api.crossref.org/works?query.bibliographic=SD+Specifications+Part+1%3A+Physical+Layer+Simplified+Specification&rows=5&query.author=SD+Association&filter=from-pub-date%3A2017%2Cuntil-pub-date%3A2017",
+            "version": "public-evidence/1.2"
+          },
+          {
+            "coverage": "partial_index",
+            "deferred_reason": "provider_cache_only",
+            "id": "retrieval-50d43b8eff2b13cc900426e1",
+            "provider": "datacite",
+            "request_sent": false,
+            "retrieved_at": 1792420370.8750432,
+            "source_group": "doi-registration",
+            "status": "unavailable",
+            "url": "https://api.datacite.org/dois?query=titles.title%3A%22SD+Specifications+Part+1%3A+Physical+Layer+Simplified+Specification%22+AND+publicationYear%3A2017&page%5Bsize%5D=5",
+            "version": "public-evidence/1.2"
+          },
+          {
+            "coverage": "partial_index",
+            "deferred_reason": "provider_retry_after_or_backoff",
+            "error": "HTTP_429",
+            "http_status": 429,
+            "id": "retrieval-7258f414d938ec98e7c61434",
+            "provider": "openalex",
+            "request_sent": false,
+            "response_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "retrieved_at": 1792414988.4434662,
+            "source_group": "aggregated-metadata",
+            "status": "unavailable",
+            "url": "https://api.openalex.org/works?search=SD+Specifications+Part+1%3A+Physical+Layer+Simplified+Specification&per-page=5&filter=publication_year%3A2017",
+            "version": "public-evidence/1.2"
+          },
+          {
+            "coverage": "partial_index",
+            "deferred_reason": "provider_cache_only",
+            "id": "retrieval-5ead4bdb273ecb724282c35b",
+            "provider": "europepmc",
+            "request_sent": false,
+            "retrieved_at": 1792420370.8753114,
+            "source_group": "pubmed-metadata",
+            "status": "unavailable",
+            "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=TITLE%3A%22SD+Specifications+Part+1%3A+Physical+Layer+Simplified+Specification%22&format=json&resultType=core&pageSize=5",
+            "version": "public-evidence/1.2"
+          }
+        ]
+      }
+    },
+    "provenance": {
+      "result_path": "/data/results/paper-compiler/framework-20261019/corpus-fixed-479-r31-manifestation-003/official-shard-03/items/pdf-01617dedcc05b8c90773/result.json",
+      "result_sha256": "b96cc8aefe92d34e85888ff2f4c426b44c019f7f2219ee3de4dac8801c452398"
+    }
+  },
+  {
+    "node_id": "n1501",
+    "payload": {
+      "ir": {
+        "nodes": [
+          {
+            "attrs": {
+              "key": "45"
+            },
+            "children": [],
+            "id": "n1501",
+            "kind": "BibliographyEntry",
+            "provenance": [
+              {
+                "bbox": [
+                  85.03900146484375,
+                  535.9464721679688,
+                  102.53199768066406,
+                  546.4464721679688
+                ],
+                "coordinate_system": "unrotated_top_left_points",
+                "kind": "source",
+                "line_id": "p86-b26-l0",
+                "node_text_end": 4,
+                "node_text_start": 0,
+                "page_index": 86,
+                "printed_page_label": null,
+                "rotation": 0,
+                "source_id": "pdf",
+                "text_offsets": [
+                  0,
+                  4
+                ]
+              },
+              {
+                "bbox": [
+                  114.48799896240234,
+                  535.1484375,
+                  524.4158935546875,
+                  546.4464721679688
+                ],
+                "coordinate_system": "unrotated_top_left_points",
+                "kind": "source",
+                "line_id": "p86-b26-l1",
+                "node_text_end": 91,
+                "node_text_start": 5,
+                "page_index": 86,
+                "printed_page_label": null,
+                "rotation": 0,
+                "source_id": "pdf",
+                "text_offsets": [
+                  0,
+                  86
+                ]
+              },
+              {
+                "bbox": [
+                  114.48797607421875,
+                  551.9464721679688,
+                  439.10198974609375,
+                  562.4464721679688
+                ],
+                "coordinate_system": "unrotated_top_left_points",
+                "kind": "source",
+                "line_id": "p86-b27-l0",
+                "node_text_end": 169,
+                "node_text_start": 92,
+                "page_index": 86,
+                "printed_page_label": null,
+                "rotation": 0,
+                "source_id": "pdf",
+                "text_offsets": [
+                  0,
+                  77
+                ]
+              }
+            ],
+            "text": "[45]\nUSB Implementers’Forum. HID Usage Tables for Universal Serial Bus (USB)[S/OL]. Version\n1.21. 2020 [2025-04-09]. https://www.usb.org/sites/default/files/hut1_21.pdf."
+          }
+        ]
+      },
+      "analysis": {
+        "coverage": {
+          "n1501": {
+            "protocol": "bibliography-fields/1.1",
+            "status": "complete"
+          }
+        },
+        "results": {
+          "bibliography_fields": {
+            "n1501": {
+              "access_date": {
+                "evidence_ids": [
+                  "span-5bddd6bd0a44bf17e7522804"
+                ],
+                "source_range": [
+                  103,
+                  115
+                ],
+                "state": "observed",
+                "value": "2025-04-09"
+              },
+              "archive_number": {
+                "evidence_ids": [
+                  "n1501"
+                ],
+                "search_scope": "n1501",
+                "state": "confirmed_absent"
+              },
+              "authors": {
+                "evidence_ids": [
+                  "span-9a9cdb65495c44bb15efcddb"
+                ],
+                "source_range": [
+                  5,
+                  27
+                ],
+                "state": "observed",
+                "value": [
+                  "USB Implementers’Forum"
+                ]
+              },
+              "carrier_code": {
+                "evidence_ids": [
+                  "span-9fad1c4d2e35ababff5ac74c"
+                ],
+                "source_range": [
+                  76,
+                  82
+                ],
+                "state": "observed",
+                "value": "OL"
+              },
+              "conference": {
+                "evidence_ids": [
+                  "n1501"
+                ],
+                "search_scope": "n1501",
+                "state": "confirmed_absent"
+              },
+              "conference_year": {
+                "evidence_ids": [
+                  "n1501"
+                ],
+                "search_scope": "n1501",
+                "state": "confirmed_absent"
+              },
+              "container": {
+                "evidence_ids": [
+                  "n1501"
+                ],
+                "search_scope": "n1501",
+                "state": "confirmed_absent"
+              },
+              "date": {
+                "evidence_ids": [
+                  "n1501"
+                ],
+                "search_scope": "n1501",
+                "state": "confirmed_absent"
+              },
+              "doi": {
+                "evidence_ids": [
+                  "n1501"
+                ],
+                "search_scope": "n1501",
+                "state": "confirmed_absent"
+              },
+              "institution": {
+                "evidence_ids": [
+                  "n1501"
+                ],
+                "search_scope": "n1501",
+                "state": "confirmed_absent"
+              },
+              "issue": {
+                "evidence_ids": [
+                  "n1501"
+                ],
+                "search_scope": "n1501",
+                "state": "confirmed_absent"
+              },
+              "pages": {
+                "evidence_ids": [
+                  "n1501"
+                ],
+                "search_scope": "n1501",
+                "state": "confirmed_absent"
+              },
+              "patent_number": {
+                "evidence_ids": [
+                  "n1501"
+                ],
+                "search_scope": "n1501",
+                "state": "confirmed_absent"
+              },
+              "place": {
+                "evidence_ids": [
+                  "n1501"
+                ],
+                "search_scope": "n1501",
+                "state": "confirmed_absent"
+              },
+              "platform": {
+                "evidence_ids": [
+                  "n1501"
+                ],
+                "search_scope": "n1501",
+                "state": "confirmed_absent"
+              },
+              "publisher": {
+                "evidence_ids": [
+                  "n1501"
+                ],
+                "search_scope": "n1501",
+                "state": "confirmed_absent"
+              },
+              "report_number": {
+                "evidence_ids": [
+                  "n1501"
+                ],
+                "search_scope": "n1501",
+                "state": "confirmed_absent"
+              },
+              "scale": {
+                "evidence_ids": [
+                  "n1501"
+                ],
+                "search_scope": "n1501",
+                "state": "confirmed_absent"
+              },
+              "size": {
+                "evidence_ids": [
+                  "n1501"
+                ],
+                "search_scope": "n1501",
+                "state": "confirmed_absent"
+              },
+              "standard_number": {
+                "evidence_ids": [
+                  "n1501"
+                ],
+                "search_scope": "n1501",
+                "state": "confirmed_absent"
+              },
+              "subtitle": {
+                "evidence_ids": [
+                  "n1501"
+                ],
+                "search_scope": "n1501",
+                "state": "confirmed_absent"
+              },
+              "title": {
+                "evidence_ids": [
+                  "span-4ef0320c24a32c5e0eee4128"
+                ],
+                "source_range": [
+                  29,
+                  76
+                ],
+                "state": "observed",
+                "value": "HID Usage Tables for Universal Serial Bus (USB)"
+              },
+              "type_code": {
+                "evidence_ids": [
+                  "span-0c8ed14da666a0028ff302d8"
+                ],
+                "source_range": [
+                  76,
+                  82
+                ],
+                "state": "observed",
+                "value": "S"
+              },
+              "url": {
+                "evidence_ids": [
+                  "span-7d7c0c8a5b5edb19e2bb0b1e"
+                ],
+                "source_range": [
+                  117,
+                  168
+                ],
+                "state": "observed",
+                "value": "https://www.usb.org/sites/default/files/hut1_21.pdf"
+              },
+              "version": {
+                "evidence_ids": [
+                  "span-024d08a434667b9076409b3d"
+                ],
+                "source_range": [
+                  84,
+                  96
+                ],
+                "state": "observed",
+                "value": "1.21"
+              },
+              "volume": {
+                "evidence_ids": [
+                  "n1501"
+                ],
+                "search_scope": "n1501",
+                "state": "confirmed_absent"
+              },
+              "year": {
+                "evidence_ids": [
+                  "span-82b123b76c7e88a2a90feb47"
+                ],
+                "source_range": [
+                  98,
+                  102
+                ],
+                "state": "observed",
+                "value": "2020"
+              }
+            }
+          },
+          "bibliography_order": {
+            "n1501": {
+              "numeric_value": {
+                "evidence_ids": [
+                  "n1501"
+                ],
+                "state": "observed",
+                "value": 45
+              },
+              "position": {
+                "evidence_ids": [
+                  "n1501"
+                ],
+                "state": "observed",
+                "value": 45
+              }
+            }
+          },
+          "bibliography_shape": {
+            "n1501": {
+              "electronic": {
+                "evidence_ids": [
+                  "n1501"
+                ],
+                "state": "observed",
+                "value": true
+              },
+              "field_sequence": {
+                "evidence_ids": [
+                  "n1501"
+                ],
+                "state": "observed",
+                "value": [
+                  "authors",
+                  "title",
+                  "carrier_code",
+                  "type_code",
+                  "version",
+                  "year",
+                  "access_date",
+                  "url"
+                ]
+              },
+              "label_bracketed": {
+                "evidence_ids": [
+                  "n1501"
+                ],
+                "state": "observed",
+                "value": true
+              },
+              "system": {
+                "evidence_ids": [
+                  "n1501"
+                ],
+                "state": "observed",
+                "value": "numeric"
+              },
+              "type_bracketed": {
+                "evidence_ids": [
+                  "n1501"
+                ],
+                "state": "observed",
+                "value": true
+              }
+            }
+          },
+          "external_work": {
+            "n1501": {
+              "available_fields": {
+                "reason": "work identity unresolved",
+                "state": "unknown"
+              },
+              "exists": {
+                "evidence_ids": [
+                  "retrieval-a56a570c8315feb8334943af",
+                  "retrieval-ec64c8647e6975913a103763",
+                  "retrieval-6dbc0538b334f4058c85edb7",
+                  "retrieval-261339da034511b5bdae6117"
+                ],
+                "reason": "public retrieval does not establish or exclude this work",
+                "state": "unknown"
+              }
+            }
+          }
+        },
+        "evidence": [
+          {
+            "coverage": "partial_index",
+            "deferred_reason": "provider_cache_only",
+            "id": "retrieval-a56a570c8315feb8334943af",
+            "provider": "crossref",
+            "request_sent": false,
+            "retrieved_at": 1792420370.884968,
+            "source_group": "doi-registration",
+            "status": "unavailable",
+            "url": "https://api.crossref.org/works?query.bibliographic=HID+Usage+Tables+for+Universal+Serial+Bus+%28USB%29&rows=5&query.author=USB+Implementers%E2%80%99Forum&filter=from-pub-date%3A2020%2Cuntil-pub-date%3A2020",
+            "version": "public-evidence/1.2"
+          },
+          {
+            "coverage": "partial_index",
+            "deferred_reason": "provider_cache_only",
+            "id": "retrieval-ec64c8647e6975913a103763",
+            "provider": "datacite",
+            "request_sent": false,
+            "retrieved_at": 1792420370.8854065,
+            "source_group": "doi-registration",
+            "status": "unavailable",
+            "url": "https://api.datacite.org/dois?query=titles.title%3A%22HID+Usage+Tables+for+Universal+Serial+Bus+%28USB%29%22+AND+publicationYear%3A2020&page%5Bsize%5D=5",
+            "version": "public-evidence/1.2"
+          },
+          {
+            "coverage": "partial_index",
+            "deferred_reason": "provider_retry_after_or_backoff",
+            "error": "HTTP_429",
+            "http_status": 429,
+            "id": "retrieval-6dbc0538b334f4058c85edb7",
+            "provider": "openalex",
+            "request_sent": false,
+            "response_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "retrieved_at": 1792420370.885342,
+            "source_group": "aggregated-metadata",
+            "status": "unavailable",
+            "url": "https://api.openalex.org/works?search=HID+Usage+Tables+for+Universal+Serial+Bus+%28USB%29&per-page=5&filter=publication_year%3A2020",
+            "version": "public-evidence/1.2"
+          },
+          {
+            "coverage": "partial_index",
+            "deferred_reason": "provider_cache_only",
+            "id": "retrieval-261339da034511b5bdae6117",
+            "provider": "europepmc",
+            "request_sent": false,
+            "retrieved_at": 1792420370.8852556,
+            "source_group": "pubmed-metadata",
+            "status": "unavailable",
+            "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=TITLE%3A%22HID+Usage+Tables+for+Universal+Serial+Bus+%28USB%29%22&format=json&resultType=core&pageSize=5",
+            "version": "public-evidence/1.2"
+          }
+        ]
+      }
+    },
+    "provenance": {
+      "result_path": "/data/results/paper-compiler/framework-20261019/corpus-fixed-479-r31-manifestation-003/official-shard-03/items/pdf-01617dedcc05b8c90773/result.json",
+      "result_sha256": "b96cc8aefe92d34e85888ff2f4c426b44c019f7f2219ee3de4dac8801c452398"
+    }
+  }
+]

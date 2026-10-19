@@ -11,7 +11,7 @@ from .citations import attach_citations
 from .contracts import SCHEMA_VERSION, MODEL_VERSION, validate_ir
 from .llm import ModelError
 
-FRONTEND_VERSION='pdf-source-frontend/1.4'
+FRONTEND_VERSION='pdf-source-frontend/1.5'
 BIB_HEADING=re.compile(r'^(?:参考文献|參考文獻|References|Bibliography)\s*$',re.I)
 ENTRY=re.compile(r'^\s*(?:[\[［](\d{1,4})[\]］]|(\d{1,4})[.、．])\s*')
 NUMBERED_HEADING=re.compile(r'^(?:(第[一二三四五六七八九十百\d]+章)\s*|((?:\d+\.)*\d+)\s+)(\S.{0,65})$')
@@ -21,6 +21,18 @@ BACK_HEADING=re.compile(r'^(?:致\s*谢|Acknowledg(?:e)?ments?|附录(?:[A-Z一�
 def _box(chars,width,height):
     b=[min(c['bbox'][0] for c in chars),min(c['bbox'][1] for c in chars),max(c['bbox'][2] for c in chars),max(c['bbox'][3] for c in chars)]
     return [max(0,min(width,b[0])),max(0,min(height,b[1])),max(0,min(width,b[2])),max(0,min(height,b[3]))]
+
+
+def _entry_columns(line):
+    """Use source character positions, never the numeric value, for list columns."""
+    marker=ENTRY.match(line['text'])
+    if not marker:return None,None
+    marker_end=len(line['text'][:marker.end()].rstrip())
+    chars=line.get('chars',[])
+    label=[c for c in chars if c['end']<=marker_end and c['text'].strip()]
+    content=[c for c in chars if c['start']>=marker.end() and c['text'].strip()]
+    return (label[-1]['bbox'][2] if label else None,
+            content[0]['bbox'][0] if content else None)
 
 
 def _observe(pdf):
@@ -195,6 +207,7 @@ def build_paper(pdf: Path, *, client=None, layout_cache=None) -> dict:
     consumed_heading_lines=set();bibliography_end=None
     bibliography=None;current_entry=None;section_stack=[];mode='front';paragraph=None;previous_line=None;entry_counter=0
     entry_numbering=None
+    entry_marker_right=None;entry_content_left=None
     title_added=False
     def append_line(nid,page,line):
         node=by_id[nid];offset=len(node['text'])+1
@@ -248,6 +261,15 @@ def build_paper(pdf: Path, *, client=None, layout_cache=None) -> dict:
                             marker=None
                     elif marker_style!=entry_numbering:
                         marker=None
+                if (marker and current_entry is not None and
+                        entry_marker_right is not None and entry_content_left is not None):
+                    # A bracketed date in the hanging-indent content column is
+                    # a continuation. A new column and right-aligned labels remain valid.
+                    tolerance=max(1.0,line['font_size']*.12)
+                    candidate_left=line['bbox'][0]
+                    if (candidate_left>entry_marker_right+tolerance and
+                            abs(candidate_left-entry_content_left)<=tolerance):
+                        marker=None
                 # Once a numbered list is established, publication years,
                 # volumes and arXiv continuation lines do not start new entries.
                 starts_author=bool(entry_numbering is None and re.match(r'^[A-Za-z\u4e00-\u9fff]',text) and re.search(r'\b(?:18|19|20)\d{2}\b',text) and
@@ -257,7 +279,11 @@ def build_paper(pdf: Path, *, client=None, layout_cache=None) -> dict:
                     entry_counter+=1
                     key=(marker.group(1) or marker.group(2)) if marker else 'author-year-'+str(entry_counter)
                     current_entry=add('BibliographyEntry',line['text'],bibliography,{'key':key},[(page,line)])
-                else:append_line(current_entry,page,line)
+                    entry_marker_right,entry_content_left=_entry_columns(line) if marker else (None,None)
+                else:
+                    if entry_marker_right is not None and entry_content_left is None:
+                        entry_content_left=line['bbox'][0]
+                    append_line(current_entry,page,line)
                 previous_line=(page,line);continue
             heading=NUMBERED_HEADING.fullmatch(text)
             named_heading=bool(len(text)<70 and line['font_size']>=normal*1.22 and not re.search(r'[。.!?]$',text))

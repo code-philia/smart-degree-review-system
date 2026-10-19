@@ -18,6 +18,7 @@ CODE = r"""def detect(payload):
     basis = BASIS_IDS
     types = ['M','J','N','C','D','R','S','P','EB','A','CM','DS','PP','G','CP','DB','Z']
     carriers = ['MT','DK','CD','OL','MM']
+    standard_pattern = r'(?i)\b(?:GB(?:/T|/Z)?|ISO(?:/IEC)?|IEC|RFC|IEEE|EN|ASTM|DIN|BS|ITU[- ]?[TR])\s*(?:[A-Z]{1,4}\s*)?[0-9]+(?:[.:/–-][A-Za-z0-9]+)*'
     expected = {'book':'M','book_chapter':'M','journal_article':'J','newspaper_article':'N','conference':'C','thesis':'D','report':'R','standard':'S','patent':'P','webpage':'EB','archive':'A','map':'CM','dataset':'DS','preprint':'PP','collection':'G','computer_program':'CP','database':'DB','other':'Z'}
     analysis = payload.get('analysis', {})
     for node in nodes(payload, 'BibliographyEntry'):
@@ -29,7 +30,13 @@ CODE = r"""def detect(payload):
         evidence = [node['id']]
         title = fields.get('title', {})
         if title.get('state') == 'confirmed_absent' and complete:
-            failures.append('缺少必备题名')
+            # A model may merge the real title into authors. Only an empty
+            # literal slot before the type marker proves this omission.
+            title_prefix = re_findall(r'^\s*(?:[\[［]\s*[0-9]+\s*[\]］]\s*)?([\s\S]*?)[\[［]\s*[A-Za-z]{1,3}(?:\s*/\s*[A-Za-z]{1,3})*\s*[\]］]', text)
+            if title_prefix and not title_prefix[0].strip(' \t\r\n.。,:;、，：；-–—'):
+                failures.append('缺少必备题名')
+            else:
+                gaps.append('原文题名前缀非空或边界未定，不能凭字段抽取缺失认定缺少题名')
         elif title.get('state') != 'observed':
             gaps.append('题名抽取不足')
         # Overlapping extracted roles cannot establish a publication year.
@@ -71,6 +78,10 @@ CODE = r"""def detect(payload):
         known_types = []
         type_evidence = []
         bound_page_evidence = []
+        bound_standard_numbers = []
+        bound_standard_evidence = []
+        source_versions = re_findall(r'(?i)\bversion\s+([0-9]+(?:\.[0-9]+)*)', text)
+        source_parts = re_findall(r'(?i)\bpart\s+([0-9]+(?:[.-][0-9]+)*)', text)
         source_year = fields.get('year', {})
         source_year_range = source_year.get('source_range')
         year_role_known = source_year.get('state') == 'observed' and isinstance(source_year.get('value'), str) and isinstance(source_year_range, list) and len(source_year_range) == 2
@@ -117,6 +128,11 @@ CODE = r"""def detect(payload):
                     type_evidence.append(record['id'])
                     if isinstance(work.get('pages'), str) and work['pages'].strip():
                         bound_page_evidence.append(record['id'])
+                    identifier = work.get('standard_number')
+                    standard_version_bound = all(str(work.get('version') or '').strip() == v for v in source_versions) and all(str(work.get('part') or '').strip() == v for v in source_parts)
+                    if work_type == 'standard' and standard_version_bound and isinstance(identifier, str) and re_matches(standard_pattern, identifier.strip()):
+                        bound_standard_numbers.append(''.join(re_findall(r'[A-Za-z0-9]+', identifier.lower())))
+                        bound_standard_evidence.append(record['id'])
         verified_kind = known_types[0] if known_types and len(set(known_types)) == 1 else None
         # The declared code still selects its format grammar, without claiming
         # that the actual work has been independently classified.
@@ -221,6 +237,18 @@ CODE = r"""def detect(payload):
         access_present = fields.get('url', {}).get('state') == 'observed' or fields.get('doi', {}).get('state') == 'observed' or re_search(r'(?i)(?:[a-z][a-z0-9+.-]*://|www\.|doi:|10\.[0-9]{4,9}/|arxiv:(?:[0-9]{4}\.[0-9]{4,5}|[a-z][a-z0-9.\-]*/[0-9]{7})(?:v[0-9]+)?)', compact_source)
         for name in required:
             field = fields.get(name, {})
+            if name == 'standard_number':
+                # Version/Part text is not proof of a separate standard number.
+                # Any explicit original standard identifier defeats a model's
+                # absence claim; conflicting identifiers need separate evidence.
+                if re_search(standard_pattern, text):
+                    continue
+                if complete and field.get('state') == 'confirmed_absent' and verified_kind == 'standard' and bound_standard_numbers and len(set(bound_standard_numbers)) == 1:
+                    failures.append('同一引用版本的独立元数据已证实存在标准编号，但完整条目未著录')
+                    evidence.extend(bound_standard_evidence)
+                else:
+                    gaps.append('标准编号及其版本身份未由独立同版本证据确证')
+                continue
             if name == 'access_date' and re_search(r'[\[［]\s*[0-9]{4}-[0-9]{2}-[0-9]{2}\s*[\]］]', tail):
                 if field.get('state') == 'confirmed_absent':
                     gaps.append('原文已有括号日期，不能根据字段抽取缺失认定未著录引用日期')
