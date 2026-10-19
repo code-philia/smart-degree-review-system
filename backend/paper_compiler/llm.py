@@ -112,6 +112,8 @@ def public_model_config(config):
     serialization = input_serialization_policy(config.get('PAPER_COMPILER_INPUT_SERIALIZATION'))
     if serialization != LEGACY_INPUT_SERIALIZATION:
         result['input_serialization'] = serialization
+    if config.get('PAPER_COMPILER_PROGRAM_SYNTHESIS_THINKING') is True:
+        result['program_synthesis_thinking'] = True
     return result
 
 
@@ -139,12 +141,18 @@ def _request_slot(limits=None):
 
 class MaasClient:
     def __init__(self, config_path, ledger, cache_dir, phase, phase_limit_cny,
-                 *, transport=None, max_attempts=2, retry_delay=1, timeout=120, input_serialization=None):
+                 *, transport=None, max_attempts=2, retry_delay=1, timeout=120, input_serialization=None,
+                 program_synthesis_thinking=False):
         if type(max_attempts) is not int or not 1 <= max_attempts <= 3:
             raise ValueError('max_attempts must be 1..3')
+        if type(program_synthesis_thinking) is not bool:
+            raise ValueError('program_synthesis_thinking must be a boolean')
+        self.program_synthesis_thinking = program_synthesis_thinking
         self.input_serialization = input_serialization_policy(input_serialization)
         self.config = load_config(config_path)
         self.config['PAPER_COMPILER_INPUT_SERIALIZATION'] = self.input_serialization
+        if program_synthesis_thinking:
+            self.config['PAPER_COMPILER_PROGRAM_SYNTHESIS_THINKING'] = True
         self.ledger = ledger
         self.cache_dir = Path(cache_dir)
         self.phase = phase
@@ -154,7 +162,8 @@ class MaasClient:
         self.retry_delay = retry_delay
         self.timeout = timeout
 
-    def complete_json(self, task: str, instructions: str, data: dict, max_tokens: int) -> dict:
+    def request_fingerprint(self, task: str, instructions: str, data: dict, max_tokens: int) -> dict:
+        """The actual public wire request identity, also usable by a request guard."""
         if not isinstance(task, str) or not task or not isinstance(instructions, str) or not isinstance(data, dict):
             raise ValueError('task/instructions/data types are invalid')
         if type(max_tokens) is not int or not 1 <= max_tokens <= 16384:
@@ -165,11 +174,17 @@ class MaasClient:
         ]
         payload = {'model': self.config['MAAS_MODEL'], 'messages': messages,
                    'max_completion_tokens': max_tokens, 'stream': False, 'temperature': 0,
-                   'chat_template_kwargs': {'thinking': False}}
+                   'chat_template_kwargs': {'thinking': self.program_synthesis_thinking and
+                       task.split('/', 1)[0] == 'paper-program-synthesis'}}
         fingerprint = {'task': task, 'model_version': self.config.get('MAAS_MODEL_VERSION'),
                        'endpoint': ALLOWED_BASE, 'adapter_version': 2, 'payload': payload}
         if self.input_serialization != LEGACY_INPUT_SERIALIZATION:
             fingerprint['input_serialization'] = self.input_serialization
+        return fingerprint
+
+    def complete_json(self, task: str, instructions: str, data: dict, max_tokens: int) -> dict:
+        fingerprint = self.request_fingerprint(task, instructions, data, max_tokens)
+        payload = fingerprint['payload']
         key = hashlib.sha256(json_bytes(fingerprint)).hexdigest()
         cache_file = self.cache_dir / 'responses' / (key + '.json')
         if cache_file.is_file():
@@ -196,6 +211,8 @@ class MaasClient:
                           'response_decoder': response_decoder_policy()}
                 if self.input_serialization != LEGACY_INPUT_SERIALIZATION:
                     record['input_serialization'] = self.input_serialization
+                if payload['chat_template_kwargs']['thinking']:
+                    record['program_synthesis_thinking'] = True
                 try:
                     limits = getattr(self, '_request_limits', None)
                     timeout = self.timeout if limits is None else min(float(self.timeout), limits.remaining())
