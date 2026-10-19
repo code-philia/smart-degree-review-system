@@ -9,9 +9,9 @@ import hashlib
 import re
 from .storage import json_bytes
 
-POLICY = 'positive-conflict-witness/1.0'
+POLICY = 'positive-conflict-witness/2.1'
 COMPLETE_WORK_BASIS = 'complete_work_unsupported_attribution'
-COMPLETE_WORK_POLICY = 'complete-work-attribution-witness/1.0'
+COMPLETE_WORK_POLICY = 'complete-work-attribution-witness/2.0'
 TASK = 'positive-conflict-review/1.0'
 INSTRUCTIONS = """Independently assess each supplied citation assertion using only its permitted sources.
 No analysis answer, detector output, benchmark label, desired conclusion, or prior review is supplied.
@@ -27,13 +27,22 @@ Return {"results":{"REVIEW_ALIAS":{"decision":"confirmed_conflict|supported_nonc
 "citation_purpose":"assertion|comparison|criticism|rebuttal|unknown",
 "relation":"affirmation_vs_denial|mutually_exclusive_values|explicit_scope_exclusion|unknown",
 "reason":"source-grounded explanation of the incompatibility, entity, property, scope and purpose",
-"witness":{"citing":{"quote_span_id":"one supplied exact chunk ID","entity":"canonical entity",
-"property":"canonical property","value":"asserted value","scope":"canonical scope"},
-"cited":{"quote_span_id":"one supplied exact chunk ID","entity":"same canonical entity",
-"property":"same canonical property","value":"incompatible value","scope":"same canonical scope"}}}}}.
+"alignment":{"entity":"one independently resolved canonical entity","property":"one compared property","scope":"one comparable scope"},
+"witness":{"citing":{"quote_span_id":"one supplied exact chunk ID","value":"asserted value"},
+"cited":{"quote_span_id":"one supplied exact chunk ID","value":"incompatible value"}}}}}.
+Resolve the common alignment independently from the permitted sources. Declare entity/property/scope
+ONCE in alignment, not inside each witness. Keep same_entity/same_property/same_scope true only if
+both selected assertions actually concern that entity/property/scope; otherwise return insufficient.
+No producer conclusion is supplied and none may be used to fill alignment.
 The results keys must be the exact short nodes[].node.id aliases (review-0, review-1, and so on), never citation_context.node_id or a source ID.
 The quote_spans table provides the entire supplied sources as ordered exact chunks of at most 1000 characters, plus exact assertion subspans. Read ALL full_source chunks for a complete-work decision; no body text has been dropped. Choose witness quote_span_id only from that node's permitted source_ids. For a positive conflict choose chunks contained in its supplied assertion_span_ids; for complete-work attribution the cited witness may choose an actual scope chunk anywhere in its complete full-text source.
 Use each node's source_ids only. Do not borrow evidence between nodes. Keep insufficient targets unknown.
+Evaluate positive conflict FIRST: if source-bound assertions establish mutually exclusive values
+for the same entity, property and comparable scope, return confirmed_conflict. This takes precedence
+even when the complete work also fails to support the attributed claim. Use
+confirmed_unsupported_attribution ONLY when no such positive conflict is established and the separate
+complete-work scope requirements below are all satisfied. These decisions are not interchangeable;
+never relabel missing support as a positive contradiction. If neither is established, use insufficient.
 A separate complete-work decision is available ONLY for a concrete contribution, method or result
 explicitly attributed to the identified cited work. If the supplied complete=true, coverage=full_text
 sources establish that this exact attribution is outside the actual work's contribution/method/result
@@ -43,7 +52,7 @@ contribution|method|result, and full_text_source_ids listing ALL supplied comple
 for that work. Keep same_entity/same_property/same_scope true only when those comparisons are resolved.
 The citing witness must quote the actual attribution; the cited witness must quote the work's own
 substantive scope/contribution/method/result statements from a supplied complete full-text source.
-Select only the provided quote_span_id in each witness; do not transcribe quote text or source IDs. The host copies exactly that supplied contiguous chunk. The witness entity, property and scope use the SAME canonical wording on both sides. The values
+Select only the provided quote_span_id in each witness; do not transcribe quote text or source IDs. The host copies exactly that supplied contiguous chunk. The shared alignment identifies the entity, property and scope actually established for both source-bound assertions. The values
 explain the attributed contribution versus the work's actual scope. This is not a claim of a positive
 contradiction. Do not infer this decision from an abstract, topic distance, a single absent detail,
 retrieval failure, or an unspecified inability to prove everything. Do not apply it to background,
@@ -108,7 +117,7 @@ def prepare_review(request, raw, data):
             continue
         complete_work = item.get('basis') == COMPLETE_WORK_BASIS
         reason = item.get('reason')
-        if not isinstance(reason, str) or not reason.strip() or (not complete_work and re.search(r'\b(?:not|never|no)\b.{0,32}(?:mention|discuss|state|describe|appear|find)|not mentioned|absence of|missing detail|topic mismatch|different (?:topic|domain)|未提及|没有提到|未涉及|主题不|领域不同', reason, re.I)):
+        if not isinstance(reason, str) or not reason.strip():
             continue
         quotes = item.get('quotes')
         if not isinstance(quotes, list) or not quotes:
@@ -199,7 +208,7 @@ def model_input(packet):
                                'assertion_span_ids': ids})
         node['assertions'] = assertions
     result['schema_version'] = POLICY
-    result['response_contract'] = 'strict-review-alias+exact-witness-span/1.0'
+    result['response_contract'] = 'strict-review-alias+exact-witness-span+shared-alignment/2.0'
     return result
 
 def accept_review(packet, answer):
@@ -241,6 +250,11 @@ Semantic truth is model-assisted; this validates source binding and witness shap
                 continue
         if not isinstance(row.get('reason'), str) or not row['reason'].strip():
             continue
+        alignment = row.get('alignment')
+        if not isinstance(alignment, dict) or any(not isinstance(alignment.get(k), str) or not alignment[k].strip()
+                for k in ['entity','property','scope']):
+            continue
+        alignment = {k: alignment[k] for k in ['entity','property','scope']}
         witness = row.get('witness')
         if not isinstance(witness, dict):
             continue
@@ -250,14 +264,14 @@ Semantic truth is model-assisted; this validates source binding and witness shap
             a = witness.get(side)
             if (not isinstance(a, dict) or 'quote' in a or 'source_id' in a or
                     not isinstance(a.get('quote_span_id'), str) or
-                    any(not isinstance(a.get(k), str) or not a[k].strip()
-                        for k in ['entity','property','value','scope'])):
+                    any(k in a for k in ['entity','property','scope']) or
+                    not isinstance(a.get('value'), str) or not a['value'].strip()):
                 break
             selected = quote_spans.get(a['quote_span_id'])
             if selected is None:
                 break
             # Only an explicitly selected provided span is expanded, never repaired or inferred.
-            a = {**a, 'source_id': selected['source_id'], 'quote': selected['text']}
+            a = {**a, **alignment, 'source_id': selected['source_id'], 'quote': selected['text']}
             source = sources.get(a['source_id'])
             if not source or source.get('origin') != origin or a['quote'] not in source['text']:
                 break

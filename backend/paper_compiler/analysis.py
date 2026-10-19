@@ -7,7 +7,7 @@ from pathlib import Path
 from .contracts import ir_hash,validate_analysis
 from .storage import json_bytes,write_json_atomic
 from .registry import REGISTRY,FIELD_TYPES
-from .identity import resolve_identity
+from .identity import resolve_identity, IDENTITY_POLICY
 from .citations import citation_context
 
 VERSION='shared-analysis/1.5'
@@ -282,6 +282,8 @@ def enrich(ir,rule_packages,*,client,gateway,cache_dir:Path,snapshot_id=None):
         policy['bibliography']={k:v for k,v in bibliography_policy.items()
                                 if k!='extraction_policy' or bibliography_required}
     if bibliography_required:policy['bibliography_extraction']=BIBLIOGRAPHY_EXTRACTION_POLICY
+    if required & {'external_work','citation_relevance'}:
+        policy['identity_resolution'] = IDENTITY_POLICY
     fingerprint=hashlib.sha256(json_bytes({'ir':ir_hash(ir),'version':VERSION,'capabilities':plan,'required':sorted(required),'policy':policy})).hexdigest()
     path=Path(cache_dir)/(fingerprint+'.json')
     if path.exists():
@@ -299,7 +301,11 @@ def enrich(ir,rule_packages,*,client,gateway,cache_dir:Path,snapshot_id=None):
             query['authors']=query.get('authors') or []
             records=gateway.lookup(query) if gateway and query.get('title') else []
             for record in records:_add_evidence(a,record)
-            identity=resolve_identity(query,records,client=client)
+            identity_entry = dict(query)
+            source_url = _value(fields, 'url')
+            if isinstance(source_url, str) and source_url.strip():
+                identity_entry['url'] = source_url
+            identity=resolve_identity(identity_entry,records,client=client)
             external[node['id']]={'exists':{k:v for k,v in identity.items() if k not in {'work','metadata_conflicts','method'}}}
             if identity.get('value') is True:
                 work=identity['work'];eid='work-'+hashlib.sha256(json_bytes(work)).hexdigest()[:24]

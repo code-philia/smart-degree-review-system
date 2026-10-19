@@ -44,10 +44,11 @@ def test_source_change_invalidates_review_receipt():
     f['data']['sources'][0]['text']+=' new context'
     resolve(f,client,receipt);assert client.calls==2
 
-def test_old_success_or_missing_topic_paths_do_not_call_review():
-    for change in [{'basis':'explicit_support'},{'reason':'The source never mentions this fact.'}]:
-        f=deepcopy(FIXTURES[0]);f['raw']['fields']['conflict'].update(change)
-        assert resolve(f,Reviewer(AssertionError('unexpected review')))[0]=={}
+def test_support_does_not_call_review_but_reason_words_cannot_skip_review():
+    f=deepcopy(FIXTURES[0]);f['raw']['fields']['conflict']['basis']='explicit_support'
+    assert resolve(f,Reviewer(AssertionError('unexpected review')))[0]=={}
+    f=deepcopy(FIXTURES[0]);f['raw']['fields']['conflict']['reason']='The source never mentions this fact.'
+    client=Reviewer();resolve(f,client);assert client.calls==1
 
 class AnalysisModel(Model):
     max_attempts=1

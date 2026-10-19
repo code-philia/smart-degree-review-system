@@ -13,7 +13,7 @@ import unicodedata
 from .analysis import bibliography_execution_policy, enrich, unknown
 from .citations import citation_context
 from .contracts import ATTRS, COMMON, ir_hash, reject_answers, require, validate_analysis, validate_ir
-from .identity import _author_match
+from .identity import _author_match, IDENTITY_POLICY
 from .llm import LEGACY_INPUT_SERIALIZATION, input_serialization_policy, response_decoder_policy, ModelError
 from .model_runtime import classification_execution_policy, validate_model
 from .evidence import VERSION as EVIDENCE_VERSION, CONTENT_VERSION
@@ -429,8 +429,6 @@ def _ground_fields(request, raw, data, reference, *, conflict_verifications=None
                 continue
             # A generator can choose any field name or polarity. Evidence policy
             # therefore cannot be conditional only on literal boolean False.
-            if basis != 'complete_work_unsupported_attribution' and re.search(r'\b(?:not|never|no)\b.{0,32}(?:mention|discuss|state|describe|appear|find)|not mentioned|absence of|missing detail|topic mismatch|different (?:topic|domain)|未提及|没有提到|未涉及|主题不|领域不同', reason, re.I):
-                continue
             if item['value'] is False and basis not in {'explicit_scope_contradiction', 'complete_work_unsupported_attribution'}:
                 continue
             if basis == 'complete_work_unsupported_attribution':
@@ -544,6 +542,10 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
               'conflict_review': CONFLICT_POLICY}
     if semantic_thinking:
         policy['semantic_thinking'] = True
+        if reference_requests:
+            policy['thinking_reference_batch_limit'] = 2
+    if reference_requests or set(capabilities) & {'external_work', 'citation_relevance'}:
+        policy['identity_resolution'] = IDENTITY_POLICY
     if reference_requests or any(name.startswith('bibliography_') or name in {'external_work', 'citation_binding', 'citation_order'} for name in capabilities):
         policy['bibliography_extraction'] = bibliography_execution_policy()['extraction_policy']
     if batch_size > 1:
@@ -718,7 +720,8 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
                 commit(item, raw)
             else:
                 candidate = _batch_data([*pending, item])
-                if pending and (candidate is None or _batch_utf8_bytes(candidate) > BATCH_INPUT_SOFT_BYTES):
+                pending_limit = min(batch_size, 2) if semantic_thinking and (reference or any(i['reference'] for i in pending)) else batch_size
+                if pending and (len(pending) >= pending_limit or candidate is None or _batch_utf8_bytes(candidate) > BATCH_INPUT_SOFT_BYTES):
                     flush()
                 single = _batch_data([item])
                 if single is None:
@@ -727,7 +730,8 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
                     commit(item, {})
                     continue
                 pending.append(item)
-                if len(pending) >= batch_size or _batch_utf8_bytes(single) > BATCH_INPUT_SOFT_BYTES:
+                pending_limit = min(batch_size, 2) if semantic_thinking and any(i['reference'] for i in pending) else batch_size
+                if len(pending) >= pending_limit or _batch_utf8_bytes(single) > BATCH_INPUT_SOFT_BYTES:
                     flush()
         flush()
     validate_analysis(ir, analysis)

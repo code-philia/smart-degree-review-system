@@ -39,6 +39,14 @@ CODE = r"""def detect(payload):
             failures.append('缺少必备题名')
         elif title.get('state') != 'observed':
             gaps.append('题名抽取不足')
+        # Overlapping extracted roles cannot establish a publication year.
+        year = fields.get('year', {})
+        title_range = title.get('source_range')
+        year_range = year.get('source_range')
+        if title.get('state') == 'observed' and year.get('state') == 'observed' and isinstance(title_range, list) and isinstance(year_range, list) and len(title_range) == 2 and len(year_range) == 2:
+            if all(isinstance(v, int) for v in title_range + year_range) and 0 <= title_range[0] <= year_range[0] < year_range[1] <= title_range[1] <= len(text):
+                if year_range[1] - year_range[0] == 4 and text[year_range[0]:year_range[1]] == str(year.get('value')):
+                    gaps.append('题名与出版年份的来源范围重叠，字段角色未确立')
         tail = text
         value = title.get('value')
         if title.get('state') == 'observed' and isinstance(value, str) and value in text:
@@ -115,6 +123,25 @@ CODE = r"""def detect(payload):
             field = fields.get(name, {})
             if field.get('state') == 'observed' and not re_matches(r'[0-9]{4}-[0-9]{2}-[0-9]{2}', field.get('value', '')):
                 failures.append('已著录日期不符合YYYY-MM-DD：' + name)
+        # Use the grounded container boundary, not the extractor's first year.
+        container = fields.get('container', {})
+        container_range = container.get('source_range')
+        container_value = container.get('value')
+        if container.get('state') == 'observed' and isinstance(container_value, str) and container_value.strip() and isinstance(container_range, list) and len(container_range) == 2:
+            if all(isinstance(v, int) for v in container_range) and 0 <= container_range[0] < container_range[1] <= len(text):
+                container_source = text[container_range[0]:container_range[1]]
+                if ''.join(container_source.split()) == ''.join(container_value.split()):
+                    before_container = text[:container_range[0]]
+                    after_container = text[container_range[1]:]
+                    if kind == 'journal_article' and code == 'J':
+                        front_year = re_findall(r'[\[［]J(?:\s*/\s*[A-Z]{2})?[\]］]\s*[.。]\s*((?:18|19|20|21)[0-9]{2})\s*[.。]\s*$', before_container)
+                        journal_year = re_findall(r'^\s*[,，]\s*((?:18|19|20|21)[0-9]{2})\s*[,，:：]', after_container)
+                        if front_year and journal_year and front_year[0] == journal_year[0]:
+                            failures.append('期刊类型标识与刊名之间重复插入出版年')
+                    if kind == 'conference' and code == 'C':
+                        adjacent_years = re_findall(r'^\s*[.。]\s*((?:18|19|20|21)[0-9]{2})\s*[,，]\s*((?:18|19|20|21)[0-9]{2})\s*[:：]\s*[0-9]+(?:\s*[-–]\s*[0-9]+)?\s*[.。]?\s*$', after_container)
+                        if adjacent_years and adjacent_years[0][0] == adjacent_years[0][1]:
+                            failures.append('会议容器后的出版段相邻重复同一出版年')
         end_year = re_findall(r'[.。]\s*((?:18|19|20|21)[0-9]{2})[.。]?\s*$', tail)
         publication_years = re_findall(r'((?:18|19|20|21)[0-9]{2})\s*[,，:：]\s*[0-9][0-9\s,，()（）:：\-–]*[.。]', tail)
         if end_year and end_year[-1] in publication_years:

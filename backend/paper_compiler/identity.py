@@ -1,6 +1,9 @@
 """Work identity is separate from identifier correctness and search success."""
 import re
 import unicodedata
+from urllib.parse import urlsplit
+
+IDENTITY_POLICY = 'source-backed-arxiv-url-pin/1.0'
 from difflib import SequenceMatcher
 
 def normalize_doi(value):
@@ -11,6 +14,31 @@ def _work_dois(work):
     aliases=work.get('doi_aliases',[])
     values=[work.get('doi','')]+(aliases if isinstance(aliases,list) else [])
     return {normalize_doi(value) for value in values if normalize_doi(value)}
+
+def _arxiv_identifier(value):
+    if not isinstance(value, str):
+        return None
+    value = value.strip()
+    doi = normalize_doi(value)
+    match = re.fullmatch(r'10\.48550/arxiv\.(\d{2}(?:0[1-9]|1[0-2])\.\d{4,5}(?:v\d+)?)', doi)
+    if match:
+        return match.group(1)
+    try:
+        parsed = urlsplit(value)
+        if (parsed.scheme.lower() not in {'http', 'https'} or parsed.hostname not in
+                {'arxiv.org', 'www.arxiv.org', 'export.arxiv.org'} or parsed.username or parsed.password or
+                parsed.port not in {None, 80, 443}):
+            return None
+    except ValueError:
+        return None
+    match = re.fullmatch(r'/(?:abs|pdf)/(\d{2}(?:0[1-9]|1[0-2])\.\d{4,5}(?:v\d+)?)(?:\.pdf)?/?', parsed.path)
+    return match.group(1).lower() if match else None
+
+
+def _work_arxiv_identifiers(work):
+    return {identifier for value in [*_work_dois(work), work.get('url')]
+            if (identifier := _arxiv_identifier(value)) is not None}
+
 
 def _norm(text):return ''.join(c for c in unicodedata.normalize('NFKC',str(text)).casefold() if c.isalnum())
 def _author_match(left,right):
@@ -55,7 +83,15 @@ def resolve_identity(entry:dict,records:list[dict],client=None)->dict:
                 matches=chosen
     if matches:
         exact=[c for c in matches if c[3]]
-        if exact:matches=exact
+        source_arxiv = _arxiv_identifier(entry.get('url'))
+        url_exact = [c for c in matches if source_arxiv and source_arxiv in _work_arxiv_identifiers(c[0]['work'])]
+        if exact:
+            if url_exact and not any(c in url_exact for c in exact):
+                return {'state':'unknown','reason':'conflicting explicit DOI and arXiv URL identities',
+                        'evidence_ids':[c[0]['id'] for c in matches]}
+            matches=exact
+        elif url_exact:
+            matches=url_exact
         identities={(_norm(c[0]['work'].get('title','')),normalize_doi(c[0]['work'].get('doi',''))) for c in matches}
         # Several inconsistent records are ambiguous, even if their names look similar.
         nonempty_dois={x[1] for x in identities if x[1]}
@@ -77,5 +113,5 @@ def resolve_identity(entry:dict,records:list[dict],client=None)->dict:
         work['field_sources']=field_sources
         conflicts=[]
         if entry.get('doi') and work.get('doi') and normalize_doi(entry['doi']) not in _work_dois(work):conflicts.append('doi')
-        return {'state':'observed','value':True,'evidence_ids':ids,'work':work,'metadata_conflicts':conflicts,'method':'corroborated_metadata'}
+        return {'state':'observed','value':True,'evidence_ids':ids,'work':work,'metadata_conflicts':conflicts,'method':'source_backed_arxiv_url' if url_exact and not exact else 'corroborated_metadata'}
     return {'state':'unknown','reason':'public retrieval does not establish or exclude this work','evidence_ids':[r['id'] for r in records]}

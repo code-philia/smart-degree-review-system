@@ -36,7 +36,7 @@ def test_grounded_background_or_comparison_support_has_real_pass_path(tmp_path,m
  row,_,_=execute(tmp_path,Semantic(reason='The source explicitly supports the background use even though the present application is different.'))
  assert row['status']=='PASS' and row['evidence_ids']
 
-@pytest.mark.parametrize('model',[Semantic('unknown'),Semantic('contradicted','explicit_support'),Semantic('contradicted','explicit_scope_contradiction','Different topic alone suggests irrelevance.'),Semantic('contradicted','explicit_scope_contradiction',bad_quote=True)])
+@pytest.mark.parametrize('model',[Semantic('unknown'),Semantic('contradicted','explicit_support'),Semantic('contradicted','explicit_scope_contradiction',bad_quote=True)])
 def test_uncertainty_role_mismatch_topic_only_or_bad_quote_never_alarms(tmp_path,monkeypatch,model):
  monkeypatch.setenv('PAPER_COMPILER_ANALYSIS_BATCH_SIZE','1')
  row,_,_=execute(tmp_path,model)
@@ -62,3 +62,9 @@ def test_builder_uses_callers_shared_model_basis_and_rule_without_mutation():
     assert p['input']['basis']==basis==before and p['model']==model
     assert p['input']['rule_text']=='Caller supplied general citation support rule.'
     assert "['local-norm']" in p['code'] and 'BASIS_IDS' not in p['code']
+
+
+def test_topic_only_reason_without_positive_source_or_review_proof_never_alarms(tmp_path,monkeypatch):
+ monkeypatch.setenv('PAPER_COMPILER_ANALYSIS_BATCH_SIZE','1')
+ row,_,_=execute(tmp_path,Semantic('contradicted','explicit_scope_contradiction','Different topic alone suggests irrelevance.'),Gateway(text='The work discusses measurements and background examples.'))
+ assert row['status']=='UNKNOWN'

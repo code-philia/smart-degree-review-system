@@ -29,11 +29,11 @@ def answer_wire(data):
             'same_entity': True, 'same_property': True, 'same_scope': True,
             'citation_purpose': 'assertion', 'attribution_kind': 'contribution',
             'relation': BASIS, 'reason': 'The asserted theorem is attributed as a contribution, while the complete work establishes its contribution as configuration detection and remediation.',
-            'full_text_source_ids': [s['source_id'] for s in data['sources'] if s['origin'] == 'external' and s.get('complete') is True and s.get('coverage') == 'full_text'], 'witness': {
+            'full_text_source_ids': [s['source_id'] for s in data['sources'] if s['origin'] == 'external' and s.get('complete') is True and s.get('coverage') == 'full_text'], 'alignment': {'entity': 'identified work', 'property': 'contribution', 'scope': 'this work'}, 'witness': {
                 'citing': {'quote_span_id': citing['assertion_span_ids'][0],
-                    'entity': 'identified work', 'property': 'contribution', 'scope': 'this work', 'value': 'termination proof'},
+                    'value': 'termination proof'},
                 'cited': {'quote_span_id': cited['assertion_span_ids'][0],
-                    'entity': 'identified work', 'property': 'contribution', 'scope': 'this work', 'value': 'configuration detection and remediation'}}}
+                    'value': 'configuration detection and remediation'}}}
     return {'results': results}
 
 def answer(packet):

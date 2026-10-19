@@ -14,7 +14,7 @@ def answered_wire(data):
     for node in data['nodes']:
         paper=next(q for q in node['assertions'] if q['origin']=='paper')
         ext=next(q for q in reversed(node['assertions']) if q['origin']=='external')
-        results[node['node']['id']]={'decision':'confirmed_conflict','same_entity':True,'same_property':True,'same_scope':True,'citation_purpose':'assertion','relation':'affirmation_vs_denial','reason':'The cited method positively has the property the citing assertion denies.','witness':{'citing':{'quote_span_id':paper['assertion_span_ids'][0],'entity':'cited method','property':'method capability','value':'denied','scope':'this method'},'cited':{'quote_span_id':ext['assertion_span_ids'][0],'entity':'cited method','property':'method capability','value':'affirmed','scope':'this method'}}}
+        results[node['node']['id']]={'decision':'confirmed_conflict','same_entity':True,'same_property':True,'same_scope':True,'citation_purpose':'assertion','relation':'affirmation_vs_denial','reason':'The cited method positively has the property the citing assertion denies.','alignment':{'entity':'cited method','property':'method capability','scope':'this method'},'witness':{'citing':{'quote_span_id':paper['assertion_span_ids'][0],'value':'denied'},'cited':{'quote_span_id':ext['assertion_span_ids'][0],'value':'affirmed'}}}
     return {'results':results}
 
 def answered(packet):
@@ -94,10 +94,12 @@ def test_no_conflict_proposal_means_no_review_items():
     assert review.prepare_review(f['request'],f['raw'],f['data'])['items']==[]
 
 @pytest.mark.parametrize('reason',['The paper never mentions this method.','A different topic is discussed.'])
-def test_absence_or_topic_reason_remains_unknown_even_with_review(reason):
+def test_absence_or_topic_reason_without_independent_proof_remains_unknown(reason):
     assert review is not None
     f=deepcopy(FIXTURES[0]);f['raw']['fields']['conflict']['reason']=reason
-    packet=review.prepare_review(f['request'],f['raw'],f['data']);proofs=review.accept_review(packet,answered(packet))
+    packet=review.prepare_review(f['request'],f['raw'],f['data']);answer=answered(packet)
+    for row in answer['results'].values():row['decision']='insufficient'
+    proofs=review.accept_review(packet,answer)
     facts,_=_ground_fields(f['request'],f['raw'],f['data'],True,conflict_verifications=proofs)
     assert facts['conflict']['state']=='unknown'
 
