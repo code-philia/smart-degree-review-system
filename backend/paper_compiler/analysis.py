@@ -276,6 +276,8 @@ def enrich(ir,rule_packages,*,client,gateway,cache_dir:Path,snapshot_id=None):
     snapshot_id=snapshot_id or datetime.now(timezone.utc).date().isoformat()
     config=getattr(client,'config',{})
     policy={'model':{k:config.get(k) for k in ['MAAS_MODEL','MAAS_MODEL_VERSION']},'offline':client is None,'providers':getattr(gateway,'providers',[]),'evidence_version':EVIDENCE_VERSION,'content_version':CONTENT_VERSION,'snapshot':snapshot_id,'frozen_evidence':getattr(gateway,'snapshot_id',None)}
+    live=getattr(gateway,'live_providers',None)
+    if live is not None and list(live)!=list(getattr(gateway,'providers',[])):policy['live_providers']=list(live)
     bibliography_policy = bibliography_execution_policy()
     bibliography_required=bool(required & {'bibliography_fields','bibliography_shape','external_work','citation_relevance'})
     if bibliography_policy['opt_in']:

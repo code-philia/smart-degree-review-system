@@ -126,12 +126,15 @@ def analysis_execution_policy():
     if raw not in {str(n) for n in range(1, 9)}:
         raise ValueError('PAPER_COMPILER_ANALYSIS_BATCH_SIZE must be an integer from 1 to 8')
     size = int(raw)
+    from .evidence import live_evidence_providers
+    live=live_evidence_providers()
     policy = {'schema_version': 'generated-analysis-execution/1.0', 'batch_size': size,
             'task': TASK if size == 1 else BATCH_TASK,
             'input_soft_limit_bytes': None if size == 1 else BATCH_INPUT_SOFT_BYTES,
             'max_tokens_per_node': 3000, 'max_tokens_per_batch': min(16384, 3000 * size),
             'source_pool': 'none' if size == 1 else 'exact_records',
             'batch_protocol_sha256': None if size == 1 else hashlib.sha256(BATCH_INSTRUCTIONS.encode()).hexdigest()}
+    if live!=['crossref','datacite','openalex','europepmc']:policy['live_providers']=live
     if size > 1:
         policy['bibliography'] = bibliography_execution_policy()
         policy['classification'] = classification_execution_policy()
@@ -549,6 +552,8 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
               'grounding_policy': _hash(GROUNDING_POLICY), 'evidence_version': EVIDENCE_VERSION,
               'content_version': CONTENT_VERSION, 'response_decoder': execution_policy['response_decoder'],
               'conflict_review': CONFLICT_POLICY}
+    live=getattr(gateway,'live_providers',None)
+    if live is not None and list(live)!=list(getattr(gateway,'providers',[])):policy['live_providers']=list(live)
     if semantic_thinking:
         policy['semantic_thinking'] = True
         if reference_requests:

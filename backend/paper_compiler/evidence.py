@@ -22,8 +22,19 @@ MAX_BYTES=4*1024*1024
 HOSTS={'api.crossref.org','api.datacite.org','api.openalex.org','www.ebi.ac.uk','export.arxiv.org'}
 _GROUPS={'crossref':'doi-registration','datacite':'doi-registration','openalex':'aggregated-metadata','europepmc':'pubmed-metadata'}
 _locks={name:threading.Lock() for name in _GROUPS}
+_openalex_inflight=threading.BoundedSemaphore(4)
 
 class EvidenceError(ValueError):pass
+
+def live_evidence_providers(providers=None,value=None):
+    """Public retrieval scope; configured providers remain available through cache."""
+    providers=list(_GROUPS) if providers is None else list(providers)
+    raw=os.environ.get('PAPER_COMPILER_LIVE_EVIDENCE_PROVIDERS','all') if value is None else value
+    requested=list(_GROUPS) if raw=='all' else ([p.strip() for p in raw.split(',')] if isinstance(raw,str) else list(raw))
+    if not requested or any(p not in _GROUPS for p in requested) or len(set(requested))!=len(requested):
+        raise EvidenceError('invalid live evidence providers')
+    return [p for p in providers if p in requested]
+
 
 class HTTPResponse(tuple):
     def __new__(cls,status,body,headers=None,request_sent=True):
@@ -190,14 +201,15 @@ def _urls(provider,query):
 
 
 class EvidenceGateway:
-    def __init__(self,cache_dir,providers=None,transport=None,*,clock=time.time,proxy=None,snapshot_id=None):
+    def __init__(self,cache_dir,providers=None,transport=None,*,clock=time.time,proxy=None,snapshot_id=None,live_providers=None):
         self.snapshot_id=snapshot_id;self.rate_dir=Path(cache_dir);self.rate_dir.mkdir(parents=True,exist_ok=True)
         self.cache_dir=self.rate_dir/'snapshots'/hashlib.sha256(str(snapshot_id).encode()).hexdigest() if snapshot_id else self.rate_dir
         self.cache_dir.mkdir(parents=True,exist_ok=True)
         self.providers=['crossref','datacite','openalex','europepmc'] if providers is None else list(providers)
         if any(p not in _GROUPS for p in self.providers):raise EvidenceError('unknown provider')
+        self.live_providers=live_evidence_providers(self.providers,live_providers)
         self.transport=transport or (lambda url:_http(url,proxy));self.clock=clock;self.rate_limit=transport is None
-        key=_openalex_key() if self.rate_limit and 'openalex' in self.providers else None
+        key=_openalex_key() if self.rate_limit and 'openalex' in self.live_providers else None
         self.openalex_rate_scope='-authenticated-'+hashlib.sha256(key.encode()).hexdigest()[:16] if key else ''
     def _cache_result(self,path,value):
         if self.snapshot_id:
@@ -205,7 +217,45 @@ class EvidenceGateway:
             except FileExistsError:return json.loads(path.read_text())
         else:write_json_atomic(path,value)
         return value
+    def _fetch_openalex(self,url):
+        """Authenticated only: bounded local I/O, shared five-starts/second admission."""
+        import fcntl
+        from email.utils import parsedate_to_datetime
+        rate_name='openalex'+self.openalex_rate_scope
+        state_path=self.rate_dir/(rate_name+'-rate-state.json')
+        lock_path=self.rate_dir/(rate_name+'-rate.lock')
+        with _openalex_inflight:
+            with _locks['openalex'],lock_path.open('a+') as lock:
+                fcntl.flock(lock,fcntl.LOCK_EX)
+                state=json.loads(state_path.read_text()) if state_path.exists() else {}
+                now=time.time();until=state.get('cooldown_until',0)
+                if until>now:return HTTPResponse(429,b'',{'retry-after':str(until-now)},request_sent=False)
+                time.sleep(max(0,.2-(now-state.get('last_started',0))))
+                state['last_started']=time.time()
+                write_json_atomic(state_path,state)
+            # Neither the process lock nor the admission file lock covers HTTP I/O.
+            response=self.transport(url);status,_=response
+            with _locks['openalex'],lock_path.open('a+') as lock:
+                fcntl.flock(lock,fcntl.LOCK_EX)
+                state=json.loads(state_path.read_text()) if state_path.exists() else {}
+                now=time.time()
+                if status==429:
+                    failures=state.get('rate_limit_failures',0)+1;delay=min(3600,60*2**min(failures-1,6))
+                    header=getattr(response,'headers',{}).get('retry-after')
+                    if header:
+                        try:seconds=float(header)
+                        except ValueError:
+                            try:seconds=parsedate_to_datetime(header).timestamp()-now
+                            except (ValueError,TypeError,OverflowError):seconds=delay
+                        if seconds==seconds and abs(seconds)!=float('inf'):delay=max(delay,seconds)
+                    state.update(rate_limit_failures=failures,cooldown_until=max(state.get('cooldown_until',0),now+delay))
+                elif status==200 and state.get('cooldown_until',0)<=now:
+                    state.update(rate_limit_failures=0,cooldown_until=0)
+                write_json_atomic(state_path,state)
+            return response
+
     def _fetch(self,provider,url):
+        if provider=='openalex' and self.rate_limit and self.openalex_rate_scope:return self._fetch_openalex(url)
         with _locks[provider]:
             if not self.rate_limit:return self.transport(url)
             import fcntl
@@ -244,6 +294,10 @@ class EvidenceGateway:
             ttl=86400 if cached['status'] in {'ok','empty'} else 600
             if self.snapshot_id or 0<=self.clock()-cached['retrieved_at']<ttl:return cached
         base={'provider':provider,'url':url,'retrieved_at':self.clock(),'source_group':_GROUPS[provider],'coverage':'partial_index','version':VERSION}
+        if provider not in self.live_providers:
+            base.update(status='unavailable',request_sent=False,deferred_reason='provider_cache_only',works=[])
+            base['id']='retrieval-'+hashlib.sha256(json_bytes(base)).hexdigest()[:24]
+            return base
         try:
             response=self._fetch(provider,url);status,body=response
             base['request_sent']=getattr(response,'request_sent',True)
