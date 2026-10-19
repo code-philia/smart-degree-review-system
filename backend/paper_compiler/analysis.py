@@ -61,7 +61,7 @@ def _bibliography_batches(entries, size, soft_limit):
     batch = []
     for node in entries:
         candidate = batch + [node]
-        if batch and (len(candidate) > size or len(json.dumps(_bibliography_data(candidate), ensure_ascii=False, separators=(',', ':'), allow_nan=False).encode('utf-8')) > soft_limit):
+        if batch and (len(candidate) > size or len(json.dumps(_bibliography_data(candidate), ensure_ascii=False, separators=(',', ':'), allow_nan=False).encode('utf-8', errors='backslashreplace')) > soft_limit):
             yield batch
             batch = []
         batch.append(node)

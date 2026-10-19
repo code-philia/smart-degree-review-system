@@ -220,7 +220,7 @@ def _classification_batches(candidates, descendants, model, kinds, size):
         trial = pending + [node['id']]
         data = _classification_source_pool(trial, descendants, model, kinds)
         too_large = data is not None and len(json.dumps(data, ensure_ascii=False, allow_nan=False,
-                                  sort_keys=True, separators=(',', ':')).encode('utf-8')) > CLASSIFICATION_INPUT_SOFT_BYTES
+                                  sort_keys=True, separators=(',', ':')).encode('utf-8', errors='backslashreplace')) > CLASSIFICATION_INPUT_SOFT_BYTES
         if pending and (len(trial) > size or data is None or too_large):
             yield _classification_source_pool(pending, descendants, model, kinds)
             pending = [node['id']]

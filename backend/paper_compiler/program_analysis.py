@@ -167,7 +167,7 @@ def _batch_data(items):
 
 def _batch_utf8_bytes(data):
     return len(json.dumps(data, ensure_ascii=False, allow_nan=False, sort_keys=True,
-                          separators=(',', ':')).encode('utf-8'))
+                          separators=(',', ':')).encode('utf-8', errors='backslashreplace'))
 
 
 def _hash(value):

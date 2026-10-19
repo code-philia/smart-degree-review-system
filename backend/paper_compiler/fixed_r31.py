@@ -33,7 +33,7 @@ CODE = r"""def detect(payload):
             # A model may merge the real title into authors. Only an empty
             # literal slot before the type marker proves this omission.
             title_prefix = re_findall(r'^\s*(?:[\[［]\s*[0-9]+\s*[\]］]\s*)?([\s\S]*?)[\[［]\s*[A-Za-z]{1,3}(?:\s*/\s*[A-Za-z]{1,3})*\s*[\]］]', text)
-            if title_prefix and not title_prefix[0].strip(' \t\r\n.。,:;、，：；-–—'):
+            if title_prefix and not re_search(r'[^\s\p{P}]', title_prefix[0]):
                 failures.append('缺少必备题名')
             else:
                 gaps.append('原文题名前缀非空或边界未定，不能凭字段抽取缺失认定缺少题名')
@@ -47,6 +47,7 @@ CODE = r"""def detect(payload):
             if all(isinstance(v, int) for v in title_range + year_range) and 0 <= title_range[0] <= year_range[0] < year_range[1] <= title_range[1] <= len(text):
                 if year_range[1] - year_range[0] == 4 and text[year_range[0]:year_range[1]] == str(year.get('value')):
                     gaps.append('题名与出版年份的来源范围重叠，字段角色未确立')
+        valid_type_present = re_search(r'[\[［]\s*(?:M|J|N|C|D|R|S|P|EB|A|CM|DS|PP|G|CP|DB|Z)(?:\s*/\s*(?:MT|DK|CD|OL|MM))?\s*[\]］]', text)
         tail = text
         value = title.get('value')
         if title.get('state') == 'observed' and isinstance(value, str) and value in text:
@@ -58,7 +59,9 @@ CODE = r"""def detect(payload):
         carrier = pieces[1] if len(pieces) == 2 else ''
         if not marker:
             field = fields.get('type_code', {})
-            if complete and field.get('state') in ['confirmed_absent','observed']:
+            if valid_type_present:
+                gaps.append('原文已有合法类型标识，题名及容器抽取边界不足以证明缺少类型')
+            elif complete and field.get('state') in ['confirmed_absent','observed']:
                 failures.append('缺少方括号内的文献类型标识')
             else:
                 gaps.append('类型标识抽取不足')
@@ -67,7 +70,7 @@ CODE = r"""def detect(payload):
                 failures.append('文献类型代码不在规范附录A内')
             if len(pieces) > 2 or (len(pieces) == 2 and carrier not in carriers):
                 failures.append('载体代码错误或重复')
-            if re_search(r'[\]］]\s*[.。]?\s*[\[［]\s*(?:M|J|N|C|D|R|S|P|EB|A|CM|DS|PP|G|CP|DB|Z|MT|DK|CD|OL|MM)\s*[\]］]', tail):
+            if re_search(r'[\[［]\s*(?:M|J|N|C|D|R|S|P|EB|A|CM|DS|PP|G|CP|DB|Z|MT|DK|CD|OL|MM)(?:\s*/\s*(?:MT|DK|CD|OL|MM))?\s*[\]］]\s*[.。]?\s*[\[［]\s*(?:M|J|N|C|D|R|S|P|EB|A|CM|DS|PP|G|CP|DB|Z|MT|DK|CD|OL|MM)\s*[\]］]', tail):
                 failures.append('类型或载体标识重复或被拆为独立方括号')
         # Actual resource type must come from metadata already bound to this
         # work and cited manifestation; a quoted entry or a same-year alias
@@ -94,6 +97,14 @@ CODE = r"""def detect(payload):
         # Never use alternative_identifiers to promote another manifestation.
         source_dois = [v.lower().rstrip('.。,，;；)）]］') for v in re_findall(r'(?i)10\.[0-9]{4,9}/[^\s<>]+', tail)]
         source_arxiv = re_findall(r'(?i)(?:arxiv:|arxiv\.org/(?:abs|pdf)/)([0-9]{4}\.[0-9]{4,5}|[a-z][a-z0-9.\-]*/[0-9]{7})(?:v[0-9]+)?', ''.join(tail.split()))
+        # A repository locator can be an access copy of an explicitly cited
+        # conference publication. Its repository type alone cannot disprove
+        # that literal publication form or impose preprint-only obligations.
+        conference_access_form = False
+        if code == 'C' and source_arxiv:
+            conference_blocks = re_findall(r'(?i)[\[［]\s*C(?:\s*/\s*OL)?\s*[\]］]\s*//([\s\S]*?)(?:https?://(?:www\.)?arxiv\.org/|arxiv:)', text)
+            if conference_blocks:
+                conference_access_form = re_search(r'(?i)\b(?:proceedings|conference|symposium|workshop|colloquium)\b|会议录|会议论文集|研讨会论文集', conference_blocks[0])
         publication = fields.get('container', {})
         publication_range = publication.get('source_range')
         source_container = ''
@@ -123,6 +134,9 @@ CODE = r"""def detect(payload):
                 if not manifestation_bound:
                     continue
                 work_type = external_types.get(str(work.get('type', '')).lower())
+                if work_type == 'preprint' and conference_access_form:
+                    gaps.append('仓储访问副本的预印本类型不足以排除原文明确著录的会议出版形式')
+                    continue
                 if work_type:
                     known_types.append(work_type)
                     type_evidence.append(record['id'])
@@ -210,10 +224,13 @@ CODE = r"""def detect(payload):
             if marker and not carrier:
                 failures.append('已证实电子资源缺少载体标识')
             required.append('url')
-        if kind == 'webpage' or (code == 'EB' and carrier == 'OL'):
+        # 8.11 excludes other publication forms appearing as webpages.
+        # A declared EB/OL (or PP/DS) plus URL does not establish the actual
+        # applicable resource type; only bound type evidence proves omission.
+        if verified_kind in ['webpage','dataset','preprint']:
             required.append('access_date')
-        if kind in ['dataset','preprint']:
-            required.append('access_date')
+        elif kind in ['webpage','dataset','preprint'] or (code == 'EB' and carrier == 'OL'):
+            gaps.append('引用日期义务的实际适用类型未由同版本独立证据确证')
         if kind == 'preprint':
             required.append('url')
         if kind == 'thesis':
@@ -234,6 +251,9 @@ CODE = r"""def detect(payload):
                     evidence.extend(identity['evidence_ids'])
                     evidence.extend(bound_page_evidence)
         compact_source = ''.join(text.split())
+        # A literal eprint identifier is a locator whose resolution may be
+        # unknown, not proof that the complete source supplied no access path.
+        eprint_locator = re_search(r'(?i)\beprint:(?:[0-9]{4}\.[0-9]{4,5}|[a-z][a-z0-9.\-]*/[0-9]{7})(?:v[0-9]+)?(?:[^A-Za-z0-9]|$)', compact_source)
         access_present = fields.get('url', {}).get('state') == 'observed' or fields.get('doi', {}).get('state') == 'observed' or re_search(r'(?i)(?:[a-z][a-z0-9+.-]*://|www\.|doi:|10\.[0-9]{4,9}/|arxiv:(?:[0-9]{4}\.[0-9]{4,5}|[a-z][a-z0-9.\-]*/[0-9]{7})(?:v[0-9]+)?)', compact_source)
         for name in required:
             field = fields.get(name, {})
@@ -255,6 +275,9 @@ CODE = r"""def detect(payload):
                 continue
             if name == 'url':
                 if access_present:
+                    continue
+                if eprint_locator:
+                    gaps.append('原文已有明确eprint定位标识，访问路径语义尚未解析')
                     continue
                 if complete:
                     failures.append('完整联机或电子资源条目缺少访问路径或永久标识符')
@@ -283,7 +306,7 @@ CODE = r"""def detect(payload):
                         if all(isinstance(v, int) for v in title_range) and 0 <= title_range[0] < title_range[1] <= container_range[0]:
                             if ''.join(text[title_range[0]:title_range[1]].split()) == ''.join(value.split()):
                                 type_position = text[title_range[1]:container_range[0]]
-                                if re_matches(r'\s*(?:[.。]|//)?\s*', type_position):
+                                if not valid_type_present and re_matches(r'\s*(?:[.。]|//)?\s*', type_position):
                                     failures.append('已核验题名与出版容器之间缺少必备类型标识')
                     before_container = text[:container_range[0]]
                     after_container = text[container_range[1]:]
@@ -307,7 +330,20 @@ CODE = r"""def detect(payload):
         if complete and code == 'C' and not access_present:
             terminal_years = re_findall(r'[\[［]\s*C\s*[\]］]\s*//[\s\S]*[.。]\s+((?:18|19|20|21)[0-9]{2})\s*[.。]\s+((?:18|19|20|21)[0-9]{2})[.。]?\s*$', tail)
             if terminal_years and terminal_years[0][0] == terminal_years[0][1]:
-                failures.append('会议出版段末尾相邻重复同一出版年')
+                terminal_pairs = re_findall(r'(((?:18|19|20|21)[0-9]{2})\s*[.。]\s+((?:18|19|20|21)[0-9]{2})[.。]?\s*)$', text)
+                first_is_volume = False
+                if terminal_pairs:
+                    first_start = text.rfind(terminal_pairs[0][0])
+                    first_is_volume = re_search(r'(?i)(?:\bvol(?:ume)?[.。]?|卷)\s*[:：]?\s*$', text[:first_start])
+                    volume = fields.get('volume', {})
+                    volume_range = volume.get('source_range')
+                    if volume.get('state') == 'observed' and volume.get('evidence_ids') and str(volume.get('value')) == terminal_pairs[0][1] and isinstance(volume_range, list) and len(volume_range) == 2:
+                        if all(isinstance(v, int) for v in volume_range) and 0 <= volume_range[0] <= first_start < first_start + 4 <= volume_range[1] <= len(text):
+                            first_is_volume = True
+                if first_is_volume:
+                    gaps.append('末尾相同数值分别具有卷号和出版年角色，不能认定重复出版年')
+                else:
+                    failures.append('会议出版段末尾相邻重复同一出版年')
         if complete and code == 'C':
             orphan_types = re_findall(r'[\[［]C(?:/[A-Z]{2})?[\]］]\s*//[^［］\[\]]+?[.。]\s*(?:18|19|20|21)[0-9]{2}\s*[:：]\s*[0-9]+(?:\s*[-–]\s*[0-9]+)?[.。]\s*[\[［]([A-Z]{1,3})[\]］][.。]?\s*$', tail)
             if any(orphan in types and orphan != code for orphan in orphan_types):
