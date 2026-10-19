@@ -76,7 +76,7 @@ const outcomeTones = {
 
 function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   const isThirty = mode === 'thirty';
-  const title = isThirty ? '30条规则检测' : '基础规则检测';
+  const title = isThirty ? '33条规则检测' : '基础规则检测';
   const { status, user } = useAuthSession();
   const [catalog, setCatalog] = useState<PaperLintCatalogResponse | null>(null);
   const [selectedRuleIds, setSelectedRuleIds] = useState<string[]>([]);
@@ -235,7 +235,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
               <span className="inline-flex rounded-full border border-cyan-200/30 bg-cyan-300/10 px-3 py-1 text-xs font-semibold tracking-wide text-cyan-100">
                 论文规范专项检测
               </span>
-              <h1 className="mt-5 text-3xl font-black tracking-tight sm:text-4xl">30条规则检测</h1>
+              <h1 className="mt-5 text-3xl font-black tracking-tight sm:text-4xl">33条规则检测</h1>
               <p className="mt-3 max-w-2xl text-sm leading-7 text-blue-100/85 sm:text-base">
                 聚焦公式引用、文献引用与目录页码等可定位问题。上传论文后，自主选择已开放规则，逐项查看检测结果和 PDF
                 原文位置。
@@ -245,7 +245,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
               <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
                 <p className="text-3xl font-black">
                   {visibleRules.length}
-                  <span className="ml-1 text-base font-medium">/ 30</span>
+                  <span className="ml-1 text-base font-medium">/ 33</span>
                 </p>
                 <p className="mt-2 text-xs text-blue-100">已开放 {visibleRules.length} 条</p>
               </div>
@@ -271,7 +271,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
       />
 
       <section
-        aria-label={isThirty ? '发起30条规则检测' : '发起基础规则检测'}
+        aria-label={isThirty ? '发起33条规则检测' : '发起基础规则检测'}
         className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6"
       >
         <div className="mb-5 flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-5">

@@ -240,3 +240,13 @@ it('records published compiler NO_ALERT without treating it as inconclusive or p
     if(oldRoot===undefined)delete process.env.PAPER_COMPILER_PACKAGE_ROOT;else process.env.PAPER_COMPILER_PACKAGE_ROOT=oldRoot;
   }
 });
+
+
+it('opens the archive PDF independently of stored report JSON', async () => {
+  const service=createArchiveScanService({archiveRoot:archive,detector:async(_file,ids)=>result(ids)});
+  const job=await service.startJob({userId:'admin',ruleIds:['sjtu_rule_18']});
+  await service.waitForIdle();
+  const doc=(await service.listDocuments(job.id)).items[0];
+  await db.run('UPDATE archive_scan_documents SET result_json=? WHERE id=?',['not-json',doc.id]);
+  expect(await service.archivePdfPath(job.id,doc.id)).toBe(path.join(archive,doc.relative_path));
+});

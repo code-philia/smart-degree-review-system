@@ -1,5 +1,6 @@
 import { Eye, EyeOff, Highlighter, Link2, LoaderCircle, ZoomIn, ZoomOut } from 'lucide-react';
-import type { PDFDocumentProxy } from 'pdfjs-dist';
+import type { PDFDocumentLoadingTask, PDFDocumentProxy } from 'pdfjs-dist';
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, buttonClassName } from '../ui';
 import type { PaperLintFindingItem } from './model';
@@ -58,30 +59,40 @@ export function PdfPane({
   const [density, setDensity] = useState<HighlightDensity>('focus');
   const viewerRef = useRef<PdfViewerHandle | null>(null);
 
+  const sourceUrl = 'url' in file ? file.url : null;
+  const sourceFile = 'url' in file ? null : file;
   useEffect(() => {
     let disposed = false;
-    let loaded: PDFDocumentProxy | null = null;
+    let task: PDFDocumentLoadingTask | null = null;
     setDocument(null);
     setError(null);
-    void Promise.all([import('pdfjs-dist'), import('pdfjs-dist/build/pdf.worker.min.mjs?url')])
-      .then(async ([pdfjs, workerModule]) => {
-        pdfjs.GlobalWorkerOptions.workerSrc = workerModule.default;
-        const task =
-          'url' in file
-            ? pdfjs.getDocument({ url: file.url, withCredentials: true, ...cMapOptions })
-            : pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()), ...cMapOptions });
-        loaded = await task.promise;
-        if (disposed) await loaded.destroy();
-        else setDocument(loaded);
+    void import('pdfjs-dist')
+      .then(async (pdfjs) => {
+        if (disposed) return;
+        pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+        const data = sourceFile ? new Uint8Array(await sourceFile.arrayBuffer()) : undefined;
+        if (disposed) return;
+        task = sourceUrl !== null
+          ? pdfjs.getDocument({
+              url: sourceUrl,
+              withCredentials: true,
+              disableAutoFetch: true,
+              disableStream: true,
+              rangeChunkSize: 262144,
+              ...cMapOptions,
+            })
+          : pdfjs.getDocument({ data, disableAutoFetch: true, ...cMapOptions });
+        const loaded = await task.promise;
+        if (!disposed) setDocument(loaded);
       })
       .catch((loadError: unknown) => {
         if (!disposed) setError(loadError instanceof Error ? loadError.message : 'PDF 加载失败');
       });
     return () => {
       disposed = true;
-      if (loaded) void loaded.destroy();
+      if (task) void task.destroy();
     };
-  }, [file]);
+  }, [sourceUrl, sourceFile]);
 
   const annotationsByPage = useMemo(() => groupAnnotationsByPage(buildAnnotations(findings)), [findings]);
   const activeItem = useMemo(

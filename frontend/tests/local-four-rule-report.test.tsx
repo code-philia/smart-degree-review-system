@@ -19,8 +19,8 @@ vi.mock('../src/api/paperLint', async () => {
   };
 });
 vi.mock('../src/components/paperLint/Workspace', () => ({
-  PaperLintWorkspace: ({ openPdfUrl }: { openPdfUrl?: string }) => (
-    <div data-testid="workspace" data-open-pdf-url={openPdfUrl}>
+  PaperLintWorkspace: ({ openPdfUrl, file }: { openPdfUrl?: string; file?: {url?:string} }) => (
+    <div data-testid="workspace" data-open-pdf-url={openPdfUrl} data-stream-pdf-url={file?.url}>
       PDF 工作区
     </div>
   ),
@@ -128,7 +128,20 @@ describe('saved local four-rule PDF report', () => {
       </MemoryRouter>,
     );
     expect(await screen.findByRole('heading', { name: '待检论文.pdf' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '30条规则检测' })).toHaveAttribute('href', '/thirty-rules-check');
+    expect(screen.getByRole('link', { name: '33条规则检测' })).toHaveAttribute('href', '/thirty-rules-check');
     expect(screen.getByRole('link', { name: '返回历史报告' })).toHaveAttribute('href', '/thirty-rules-check/reports');
   });
+});
+
+
+it('shows a saved report before PDF bytes and the rule catalog have downloaded', async () => {
+  vi.mocked(fetchPaperLintReport).mockResolvedValue(report);
+  vi.mocked(fetchPaperLintReportPdf).mockClear().mockImplementation(()=>new Promise(()=>{}));
+  vi.mocked(fetchReviewPilotPaperLintRules).mockImplementation(()=>new Promise(()=>{}));
+  render(<MemoryRouter initialEntries={['/thirty-rules-check/reports/pdf/report-24']}><Routes>
+    <Route path="/thirty-rules-check/reports/pdf/:reportId" element={<PaperLintReportPage mode="thirty" />} />
+  </Routes></MemoryRouter>);
+  expect(await screen.findByRole('heading',{name:'待检论文.pdf'})).toBeInTheDocument();
+  expect(screen.getByTestId('workspace')).toHaveAttribute('data-stream-pdf-url','/api/normative/paper-lint/reports/report-24/pdf');
+  expect(fetchPaperLintReportPdf).not.toHaveBeenCalled();
 });

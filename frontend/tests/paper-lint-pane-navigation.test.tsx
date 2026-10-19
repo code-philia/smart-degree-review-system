@@ -13,7 +13,7 @@ vi.mock('pdfjs-dist', () => ({
   GlobalWorkerOptions: {},
   getDocument: (options: unknown) => {
     getDocumentOptions(options);
-    return { promise: Promise.resolve({ destroy: async () => undefined }) };
+    return { promise: Promise.resolve({ destroy: async () => undefined }), destroy: vi.fn() };
   },
 }));
 vi.mock('pdfjs-dist/build/pdf.worker.min.mjs?url', () => ({ default: 'test-worker' }));
@@ -77,6 +77,9 @@ describe('PDF pane navigation', () => {
       expect(getDocumentOptions).toHaveBeenCalledWith({
         url: '/api/archive.pdf',
         withCredentials: true,
+        disableAutoFetch: true,
+        disableStream: true,
+        rangeChunkSize: 262144,
         cMapUrl: '/pdfjs-cmaps/',
         cMapPacked: true,
       }),
@@ -87,6 +90,7 @@ describe('PDF pane navigation', () => {
     await waitFor(() =>
       expect(getDocumentOptions).toHaveBeenCalledWith({
         data: expect.any(Uint8Array),
+        disableAutoFetch: true,
         cMapUrl: '/pdfjs-cmaps/',
         cMapPacked: true,
       }),
@@ -196,4 +200,15 @@ describe('PDF pane navigation', () => {
     expect(link).toHaveAttribute('rel', 'noopener noreferrer');
     expect(link).toHaveAttribute('title', '在浏览器打开完整 PDF');
   });
+});
+
+
+it('reuses the same remote PDF when its descriptor object is recreated', async () => {
+  const props={findings:[],activeFindingKey:null,activeAnchorId:null,onFindingClick:vi.fn(),onAnchorClick:vi.fn()};
+  const {rerender}=render(<PdfPane {...props} file={{name:'paper.pdf',url:'/api/unchanged.pdf'}} />);
+  await screen.findByTestId('loaded-pdf-viewer');
+  expect(getDocumentOptions).toHaveBeenCalledTimes(1);
+  rerender(<PdfPane {...props} file={{name:'paper.pdf',url:'/api/unchanged.pdf'}} />);
+  await screen.findByTestId('loaded-pdf-viewer');
+  expect(getDocumentOptions).toHaveBeenCalledTimes(1);
 });

@@ -186,9 +186,9 @@ export default function ArchiveScanPage() {
   if (!canAccess) return <ErrorState title="无权访问归档批量扫描" message="请使用学院管理员或学校管理员账号登录。" />;
   return (
     <div className="space-y-6">
-      <PageHeader title="30条规则检测" description="单篇检测与归档论文批量扫描" />
+      <PageHeader title="33条规则检测" description="单篇检测与归档论文批量扫描" />
       <ModuleTabs
-        ariaLabel="30条规则检测功能导航"
+        ariaLabel="33条规则检测功能导航"
         items={[
           { label: '发起检测', to: '/thirty-rules-check', active: false },
           { label: '历史报告', to: '/thirty-rules-check/reports', active: false },

@@ -202,11 +202,11 @@ function NormativeReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
   return (
     <div>
       <PageHeader
-        title={isThirty ? '30条规则检测' : '基础规则检测'}
-        description={isThirty ? '查看已保存的30条规则专项检测报告。' : '查看本人已保存的基础规则检测记录和报告。'}
+        title={isThirty ? '33条规则检测' : '基础规则检测'}
+        description={isThirty ? '查看已保存的33条规则专项检测报告。' : '查看本人已保存的基础规则检测记录和报告。'}
       />
       <ModuleTabs
-        ariaLabel={isThirty ? '30条规则检测功能导航' : '基础规则检测功能导航'}
+        ariaLabel={isThirty ? '33条规则检测功能导航' : '基础规则检测功能导航'}
         items={[
           { label: '发起检测', to: checkPath, active: false },
           { label: '历史报告', to: historyPath, active: true, count: history.length + pdfReports.length },
@@ -221,7 +221,7 @@ function NormativeReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
         <EmptyState
           title="暂无检测记录"
           description={
-            isThirty ? '完成一次30条规则检测后，报告会出现在这里。' : '完成一次基础规则检测后，报告会出现在这里。'
+            isThirty ? '完成一次33条规则检测后，报告会出现在这里。' : '完成一次基础规则检测后，报告会出现在这里。'
           }
         />
       ) : null}

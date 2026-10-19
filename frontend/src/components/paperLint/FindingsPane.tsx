@@ -84,6 +84,7 @@ export function FindingsPane({
             const active = item.key === activeFindingKey;
             const page = findingPageLabel(item);
             const excerpt = item.finding.location?.text_excerpt || item.finding.anchors?.[0]?.location.text_excerpt;
+            const evidence = (item.finding.evidence || []).filter((entry) => entry.kind !== 'normative_span' && !(entry.kind === 'source_span' && entry.quote === excerpt));
             return (
               <article
                 key={item.key}
@@ -155,7 +156,7 @@ export function FindingsPane({
                   </Button>
                 ) : null}
                 {active && item.finding.source_kind === 'synthetic' ? <p className="mt-2 text-xs text-slate-600">该处来自变异内容，未标记为原始 PDF 中的文本。</p> : null}
-                {active && (item.finding.evidence?.length || item.finding.basis_details?.length) ? <EvidenceLinks items={item.finding.evidence || []} basis={item.finding.basis_details} /> : null}
+                {active && evidence.length ? <EvidenceLinks items={evidence} /> : null}
                 {active && item.finding.suggestion ? (
                   <div className="mt-3 rounded-lg bg-white p-3 text-xs leading-5 text-slate-600">
                     <strong className="text-slate-800">修改建议：</strong>

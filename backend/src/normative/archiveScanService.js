@@ -222,7 +222,9 @@ function createArchiveScanService({
     };
   }
   async function archivePdfPath(jobId, documentId) {
-    const doc = await getDocument(jobId, documentId);
+    await getJob(jobId);
+    const doc = await db.get('SELECT relative_path FROM archive_scan_documents WHERE job_id=? AND id=?', [jobId, documentId]);
+    if (!doc) throw problem(404, '归档论文结果不存在');
     return safePdfPath(doc.relative_path);
   }
   return {

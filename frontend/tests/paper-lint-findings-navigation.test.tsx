@@ -70,3 +70,18 @@ describe('PDF rule filter order', () => {
     ).toEqual(['全部检查项', '规则 2', '规则 11', '规则 15']);
   });
 });
+
+
+it('keeps the issue and source excerpt without printing long rule basis paragraphs in the PDF card', () => {
+  const finding={...item,finding:{...item.finding,
+    location:{...item.finding.location,text_excerpt:'对应论文原文'},
+    basis_details:[{id:'gbt7714-2025:general',kind:'project',text:'冗长的项目规则依据全文'}],
+    evidence:[{id:'norm',kind:'normative_span',quote:'冗长的规范条款全文'},{id:'source',kind:'source_span',quote:'引用证据原文'}],
+  }};
+  render(<FindingsPane findings={[finding as PaperLintFindingItem]} rules={[]} activeFindingKey={item.key} activeAnchorId={null} onFindingClick={vi.fn()} onAnchorClick={vi.fn()} />);
+  expect(screen.getByText(item.finding.message)).toBeInTheDocument();
+  expect(screen.getByText('引用证据原文')).toBeInTheDocument();
+  expect(screen.getByText('原文：对应论文原文')).toBeInTheDocument();
+  expect(screen.queryByText('冗长的项目规则依据全文')).not.toBeInTheDocument();
+  expect(screen.queryByText('冗长的规范条款全文')).not.toBeInTheDocument();
+});

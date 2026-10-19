@@ -57,7 +57,7 @@ export default function ArchiveScanResultPage() {
         description={document.relative_path}
         breadcrumbs={[
           { label: '工作台', to: '/' },
-          { label: '30条规则检测', to: '/thirty-rules-check' },
+          { label: '33条规则检测', to: '/thirty-rules-check' },
           { label: '扫描479篇归档论文', to: back },
           { label: '论文结果' },
         ]}

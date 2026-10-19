@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   fetchPaperLintReport,
-  fetchPaperLintReportPdf,
   fetchReviewPilotPaperLintRules,
   type PaperLintRule,
   type PaperLintRunResponse,
@@ -26,25 +25,24 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
   const historyPath = isThirty ? '/thirty-rules-check/reports' : '/normative-reports';
   const { reportId } = useParams();
   const [report, setReport] = useState<PaperLintRunResponse | null>(null);
-  const [file, setFile] = useState<File | null>(null);
   const [rules, setRules] = useState<PaperLintRule[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!reportId) return;
     let cancelled = false;
-    Promise.all([
-      fetchPaperLintReport(reportId),
-      fetchPaperLintReportPdf(reportId),
-      fetchReviewPilotPaperLintRules().catch(() => null),
-    ])
-      .then(([nextReport, blob, catalog]) => {
-        if (cancelled) return;
-        setReport(nextReport);
-        setFile(new File([blob], nextReport.source_filename, { type: 'application/pdf' }));
-        setRules(catalog?.rules || []);
+    setReport(null);
+    setError(null);
+    void fetchPaperLintReport(reportId)
+      .then((nextReport) => {
+        if (!cancelled) setReport(nextReport);
       })
       .catch((loadError) => !cancelled && setError(loadError instanceof Error ? loadError.message : '报告加载失败'));
+    void fetchReviewPilotPaperLintRules()
+      .then((catalog) => {
+        if (!cancelled) setRules(catalog.rules);
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
@@ -52,8 +50,9 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
 
   const findings = useMemo(() => (report ? flattenPaperLintFindings(report.result) : []), [report]);
   if (error) return <ErrorState title="报告暂不可用" message={error} />;
-  if (!report || !file) return <LoadingState label="正在加载检测报告和原文定位…" />;
+  if (!report) return <LoadingState label="正在加载检测报告和原文定位…" />;
   const { summary } = report.result;
+  const pdfUrl = `/api/normative/paper-lint/reports/${encodeURIComponent(reportId!)}/pdf`;
   return (
     <div className="space-y-6">
       <PageHeader
@@ -67,7 +66,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
         breadcrumbs={[
           { label: '首页', to: '/' },
           {
-            label: isThirty ? '30条规则检测' : '基础规则检测',
+            label: isThirty ? '33条规则检测' : '基础规则检测',
             to: isThirty ? '/thirty-rules-check' : '/normative-check',
           },
           { label: '历史报告', to: historyPath },
@@ -148,8 +147,8 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
         <h2 className="text-lg font-black text-slate-900">逐项处理问题</h2>
       </div>
       <PaperLintWorkspace
-        file={file}
-        openPdfUrl={`/api/normative/paper-lint/reports/${encodeURIComponent(reportId!)}/pdf`}
+        file={{ name: report.source_filename, url: pdfUrl }}
+        openPdfUrl={pdfUrl}
         findings={findings}
         rules={rules}
       />

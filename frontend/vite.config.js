@@ -2,7 +2,8 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { fileURLToPath, URL } from 'node:url';
-import { cpSync, existsSync, readFileSync } from 'node:fs';
+import { cpSync, existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { gzipSync } from 'node:zlib';
 
 const backendPort = Number(process.env.ARC_WEB_PORT || '3000');
 
@@ -31,6 +32,21 @@ function copyPdfCmaps() {
   };
 }
 
+function precompressAssets() {
+  return {
+    name: 'precompress-assets',
+    closeBundle() {
+      const assets = new URL('./dist/assets/', import.meta.url);
+      if (!existsSync(assets)) return;
+      for (const name of readdirSync(assets)) {
+        if (!/\.(?:m?js|css)$/.test(name)) continue;
+        const content = readFileSync(new URL(name, assets));
+        if (content.length > 1024) writeFileSync(new URL(name + '.gz', assets), gzipSync(content, { level: 9 }));
+      }
+    },
+  };
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   resolve: {
@@ -38,7 +54,7 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
-  plugins: [react(), tailwindcss(), copyPdfCmaps()],
+  plugins: [react(), tailwindcss(), copyPdfCmaps(), precompressAssets()],
   test: {
     environment: 'jsdom',
     globals: true,

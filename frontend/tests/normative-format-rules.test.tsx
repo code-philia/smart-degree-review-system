@@ -197,7 +197,9 @@ describe('review-pilot PDF rules review route', () => {
     await user.upload(screen.getByLabelText('上传待审查 PDF'), pdf);
     await user.click(semanticRule);
 
-    expect(screen.getByRole('note')).toHaveTextContent('发送到 DeepSeek 官方 API');
+    expect(screen.getByRole('note')).toHaveTextContent('发送至当前配置的大模型服务');
+    expect(screen.getByRole('note')).toHaveTextContent('华为云 DeepSeek');
+    expect(screen.getByRole('note')).toHaveTextContent('公开文献服务');
     expect(screen.getByRole('button', { name: '开始检查' })).toBeDisabled();
     await user.click(screen.getByRole('checkbox', { name: /我确认该论文相关文本允许发送/ }));
     expect(screen.getByRole('button', { name: '开始检查' })).toBeEnabled();
@@ -267,7 +269,7 @@ describe('four local PDF rules in the 30-rule page', () => {
     renderRoute();
     expect(await screen.findByText('中文论文题名格式')).toBeInTheDocument();
     expect(screen.queryByRole('checkbox', { name: /规则 22/ })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '30条规则检测' })).toHaveAttribute('href', '/thirty-rules-check');
+    expect(screen.getByRole('link', { name: '33条规则检测' })).toHaveAttribute('href', '/thirty-rules-check');
   });
 
   it('lists the local rules and runs a selected one without model consent', async () => {
@@ -337,10 +339,10 @@ describe('four local PDF rules in the 30-rule page', () => {
     renderRoute('/thirty-rules-check');
     await screen.findByRole('checkbox', { name: /规则 22/ });
     await user.click(screen.getByRole('link', { name: '历史报告' }));
-    expect(await screen.findByRole('heading', { name: '30条规则检测' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '33条规则检测' })).toBeInTheDocument();
     expect(
       screen
-        .getAllByRole('link', { name: '30条规则检测' })
+        .getAllByRole('link', { name: '33条规则检测' })
         .find((link) => link.getAttribute('href') === '/thirty-rules-check'),
     ).toHaveAttribute('data-active', 'true');
     expect(screen.getByRole('link', { name: '发起检测' })).toHaveAttribute('href', '/thirty-rules-check');
