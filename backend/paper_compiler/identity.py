@@ -3,7 +3,7 @@ import re
 import unicodedata
 from urllib.parse import urlsplit
 
-IDENTITY_POLICY = 'source-backed-arxiv-url-pin/1.1'
+IDENTITY_POLICY = 'source-backed-arxiv-url-pin/1.2'
 from difflib import SequenceMatcher
 
 def normalize_doi(value):

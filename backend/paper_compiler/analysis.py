@@ -308,6 +308,15 @@ def enrich(ir,rule_packages,*,client,gateway,cache_dir:Path,snapshot_id=None):
             if isinstance(source_url, str) and source_url.strip():
                 identity_entry['url'] = source_url
             identity=resolve_identity(identity_entry,records,client=client)
+            # A source-backed arXiv URL is an exact discovery key, never a fact
+            # about existence. Failed/absent metadata keeps the original UNKNOWN.
+            exact_lookup = getattr(gateway,'lookup_arxiv_url',None)
+            if identity.get('value') is not True and callable(exact_lookup) and isinstance(source_url,str):
+                extra = exact_lookup(source_url)
+                for record in extra:_add_evidence(a,record)
+                if extra:
+                    records += extra
+                    identity = resolve_identity(identity_entry,records)
             external[node['id']]={'exists':{k:v for k,v in identity.items() if k not in {'work','metadata_conflicts','method'}}}
             if identity.get('value') is True:
                 work=identity['work'];eid='work-'+hashlib.sha256(json_bytes(work)).hexdigest()[:24]

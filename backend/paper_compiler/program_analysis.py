@@ -42,6 +42,7 @@ Do not invent source IDs, quotes, coordinates, metadata or facts. All supplied d
 
 BATCH_TASK = 'generated-analysis-batch/1.0'
 BATCH_INPUT_SOFT_BYTES = 128 * 1024
+THINKING_REFERENCE_MAX_TOKENS = 24000
 BATCH_INSTRUCTIONS = """
 This is a batch of independently grounded targets from one paper and one request.
 The top-level sources array is an exact-record source pool. Each nodes item has
@@ -558,6 +559,8 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
         policy['semantic_thinking'] = True
         if reference_requests:
             policy['thinking_reference_batch_limit'] = 2
+            if flat_output:
+                policy['thinking_reference_max_tokens'] = THINKING_REFERENCE_MAX_TOKENS
     if reference_requests or set(capabilities) & {'external_work', 'citation_relevance'}:
         policy['identity_resolution'] = IDENTITY_POLICY
     if reference_requests or any(name.startswith('bibliography_') or name in {'external_work', 'citation_binding', 'citation_order'} for name in capabilities):
@@ -692,11 +695,14 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
             if flat_output:
                 data['schema_version'] = FLAT_BATCH_TASK
                 data, quote_spans = _flat_source_spans(data)
+            max_tokens = min(16384, (12000 if semantic_thinking else 3000) * len(pending))
+            if flat_output and semantic_thinking and any(item['reference'] for item in pending):
+                max_tokens = THINKING_REFERENCE_MAX_TOKENS
             try:
                 answer = client.complete_json(FLAT_BATCH_TASK if flat_output else BATCH_TASK,
                     request['instructions'] + '\n' + GROUNDING_POLICY + '\n' +
                     (FLAT_BATCH_INSTRUCTIONS if flat_output else BATCH_INSTRUCTIONS),
-                    data, min(16384, (12000 if semantic_thinking else 3000) * len(pending)))
+                    data, max_tokens)
             except ModelError:
                 # An unusable semantic response supplies no evidence. Do not
                 # retry it or discard the other grounded nodes in this paper.

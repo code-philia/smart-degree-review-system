@@ -122,8 +122,8 @@ def test_positive_review_cannot_expand_assertion_scope_even_if_producer_claimed_
 
 
 def test_negative_review_policy_versions_reject_old_fact_receipts():
-    assert review.POLICY == 'positive-conflict-witness/2.2'
-    assert review.COMPLETE_WORK_POLICY == 'complete-work-attribution-witness/2.2'
+    assert review.POLICY == 'positive-conflict-witness/2.3'
+    assert review.COMPLETE_WORK_POLICY == 'complete-work-attribution-witness/2.3'
 
 
 @pytest.mark.parametrize('producer_basis,proof_kind', [

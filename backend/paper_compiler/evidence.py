@@ -13,7 +13,7 @@ from urllib.parse import urlencode, quote, urlsplit
 from urllib.request import Request, build_opener, HTTPRedirectHandler, ProxyHandler
 from urllib.error import HTTPError
 from .storage import json_bytes, write_json_atomic
-from .identity import normalize_doi
+from .identity import normalize_doi, _arxiv_identifier
 
 VERSION='public-evidence/1.2'
 CONTENT_VERSION='public-content/1.1-arxiv'
@@ -287,14 +287,16 @@ class EvidenceGateway:
                 write_json_atomic(state_path,state)
                 return response
 
-    def _retrieve(self,provider,url):
+    def _retrieve(self,provider,url,*,source_arxiv=False):
         validate_url(url);key=hashlib.sha256((VERSION+'\n'+url).encode()).hexdigest();path=self.cache_dir/(key+'.json')
         if path.exists():
             cached=json.loads(path.read_text())
             ttl=86400 if cached['status'] in {'ok','empty'} else 600
             if self.snapshot_id or 0<=self.clock()-cached['retrieved_at']<ttl:return cached
         base={'provider':provider,'url':url,'retrieved_at':self.clock(),'source_group':_GROUPS[provider],'coverage':'partial_index','version':VERSION}
-        if provider not in self.live_providers:
+        exact_arxiv = (source_arxiv is True and provider == 'datacite' and re.fullmatch(
+            r'https://api\.datacite\.org/dois/10\.48550%2Farxiv\.\d{2}(?:0[1-9]|1[0-2])\.\d{4,5}(?:v\d+)?', url) is not None)
+        if provider not in self.live_providers and not exact_arxiv:
             base.update(status='unavailable',request_sent=False,deferred_reason='provider_cache_only',works=[])
             base['id']='retrieval-'+hashlib.sha256(json_bytes(base)).hexdigest()[:24]
             return base
@@ -329,6 +331,24 @@ class EvidenceGateway:
         # Pin query strategy before I/O. Old snapshots retain their original URLs.
         return self._cache_result(path,{'schema_version':'public-lookup-plan/1.0',
             'discovery_version':DISCOVERY_VERSION,'urls':plans})['urls']
+
+    def lookup_arxiv_url(self,source_url):
+        """One exact authoritative lookup from an observed source URL; no keyword search."""
+        if ('datacite' not in self.providers or not isinstance(source_url,str) or
+                not source_url.strip().lower().startswith(('http://','https://'))):
+            return []
+        identifier = _arxiv_identifier(source_url)
+        if identifier is None:
+            return []
+        doi = '10.48550/arxiv.'+identifier
+        result = self._retrieve('datacite','https://api.datacite.org/dois/'+quote(doi,safe=''),source_arxiv=True)
+        record = {k:v for k,v in result.items() if k!='works'}
+        works = result.get('works',[])
+        if not works:
+            return [record]
+        if len(works)!=1 or normalize_doi(works[0].get('doi'))!=doi:
+            return [{**record,'status':'unavailable','error':'source_arxiv_identifier_response_mismatch'}]
+        return [{**record,'id':result['id']+'-0','work':works[0]}]
 
     def lookup(self,query):
         from concurrent.futures import ThreadPoolExecutor
