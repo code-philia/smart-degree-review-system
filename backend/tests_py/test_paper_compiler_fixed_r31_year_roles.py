@@ -64,3 +64,9 @@ def test_conference_year_pair_inside_container_is_not_publication_duplicate():
 def test_conference_publication_year_with_identifier_tail(suffix, publication, expected):
     text="AUTHOR A. A useful study[C]//Proceedings of Conference. " + publication + ": 4-6." + suffix
     assert check(text,container="Proceedings of Conference",kind="conference")["status"] == expected
+
+def test_conference_book_form_exception_not_rejected_by_resource_kind():
+    text="AUTHOR A. A useful study[M]//Proceedings of Conference. 2020: 4-6."
+    row=check(text,container="Proceedings of Conference",kind="conference")
+    assert row["status"] == "UNKNOWN"
+    assert "图书形式" in row["message"]

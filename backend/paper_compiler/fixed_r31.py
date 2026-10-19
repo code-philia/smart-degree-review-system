@@ -74,7 +74,10 @@ CODE = r"""def detect(payload):
         if kind in expected:
             evidence.extend(context['evidence_ids'])
             if code in types and code != expected[kind]:
-                failures.append('类型标识与独立来源证实的资源种类不一致')
+                if kind == 'conference' and code == 'M':
+                    gaps.append('会议文献按图书形式著录的规范例外尚未排除')
+                else:
+                    failures.append('类型标识与独立来源证实的资源种类不一致')
         else:
             gaps.append('实际资源种类未确立')
         electronic = fact(payload, 'r31_source_context', node['id'], 'electronic_medium')
