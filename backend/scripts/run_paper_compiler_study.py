@@ -20,6 +20,7 @@ def parser():
     p.add_argument('--config', default='/data/apps/smart-degree-review/config/paper-model-huawei.env')
     p.add_argument('--ledger', type=Path, default=Path('/data/runtime/paper-compiler/budget.sqlite3'))
     p.add_argument('--budget', default='200')
+    p.add_argument('--phase-budget', default='200')
     p.add_argument('--cache', type=Path, default=Path('/data/runtime/paper-compiler'))
     p.add_argument('--paper-model', type=Path)
     p.add_argument('--max-rounds', type=int, default=5)
@@ -36,15 +37,18 @@ def execute(args):
     from paper_compiler.program_analysis import analysis_execution_policy
 
     budget = Decimal(args.budget)
-    if not budget.is_finite() or not 0 < budget <= 200:
-        raise ValueError('study cumulative budget must be positive and at most 200 CNY')
+    if not budget.is_finite() or not 0 < budget <= 400:
+        raise ValueError('study cumulative budget must be positive and at most 400 CNY')
+    phase_budget = Decimal(args.phase_budget)
+    if not phase_budget.is_finite() or not 0 < phase_budget <= 400:
+        raise ValueError('study phase budget must be positive and at most 400 CNY')
     value = json.loads(args.tasks.read_text(encoding='utf-8'))
     tasks = value['tasks'] if isinstance(value, dict) else value
     resources = json.loads(args.resources.read_text(encoding='utf-8')) if args.resources else {}
     initial_model = json.loads(args.paper_model.read_text(encoding='utf-8')) if args.paper_model else None
     analysis_policy = analysis_execution_policy()
     ledger = BudgetLedger(args.ledger, budget)
-    client = MaasClient(args.config, ledger, args.cache / 'model-cache', 'framework-20261019', budget, max_attempts=1)
+    client = MaasClient(args.config, ledger, args.cache / 'model-cache', 'framework-20261019', phase_budget, max_attempts=1)
     snapshot = resources.get('evidence_snapshot') or 'study-' + hashlib.sha256(args.manifest.read_bytes()).hexdigest()[:24]
     gateway = EvidenceGateway(args.cache / 'public-evidence', snapshot_id=snapshot,
         proxy=os.environ.get('PAPER_COMPILER_PUBLIC_PROXY', 'http://127.0.0.1:18892'))

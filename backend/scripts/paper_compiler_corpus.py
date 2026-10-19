@@ -331,8 +331,10 @@ def execute(args):
     else:
         _require(args.suite is not None, '--suite is required')
         _require(bool(args.evidence_snapshot), 'explicit frozen --evidence-snapshot is required')
-        for limit in (args.budget, args.phase_budget):
-            number = Decimal(limit); _require(number.is_finite() and 0 < number <= 200, 'budget limit must be positive and at most 200 CNY')
+        total = Decimal(args.budget)
+        _require(total.is_finite() and 0 < total <= 400, 'cumulative budget limit must be positive and at most 400 CNY')
+        phase = Decimal(args.phase_budget)
+        _require(phase.is_finite() and 0 < phase <= 400, 'phase budget limit must be positive and at most 400 CNY')
         from paper_compiler.frontend import build_paper
         from paper_compiler.pipeline import detect
         from paper_compiler.llm import MaasClient, public_model_config

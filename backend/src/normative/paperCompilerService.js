@@ -74,14 +74,22 @@ function toCompilerResult(output,selectedRuleIds) {
   });
   return {type:'paper_lint',paper_title:'上传论文',runtime:runtimeSnapshot,ruleset:{id:'paper-compiler',name:'引用规则编译检测',version_number:1,version_label:`引用规则 · ${versionLabel}`},rule_runs:ruleRuns,summary:summarizeRuleRuns(ruleRuns)};
 }
+function compilerBudget(name) {
+  const value = process.env[name] === undefined ? '200' : process.env[name].trim();
+  if (!/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(value) || !Number.isFinite(Number(value)) || Number(value) <= 0 || Number(value) > 400)
+    throw failure(503,'COMPILER_BUDGET_CONFIG_INVALID','检测预算配置无效，请联系管理员');
+  return value;
+}
 async function runCompilerRules(pdfPath,selectedRuleIds,options={}) {
   const catalog=getCompilerRules();
   if(!selectedRuleIds.length || new Set(selectedRuleIds).size!==selectedRuleIds.length || selectedRuleIds.some(id=>!IDS.has(id)))throw failure(400,'COMPILER_UNKNOWN_RULE','请选择有效编译规则');
   if(selectedRuleIds.some(id=>!catalog.find(r=>r.rule_id===id).available))throw failure(503,'COMPILER_UNAVAILABLE','引用规则尚未启用或规则包未配置');
+  const totalBudget=compilerBudget('PAPER_COMPILER_BUDGET_CNY');
+  const phaseBudget=compilerBudget('PAPER_COMPILER_PHASE_BUDGET_CNY');
   const resultRoot=process.env.PAPER_COMPILER_RESULT_ROOT || '/data/results/paper-compiler/website';
   await fs.promises.mkdir(resultRoot,{recursive:true,mode:0o700});
   const output=path.join(resultRoot,crypto.randomUUID()+'.json');
-  const args=[SCRIPT,'check','--pdf',pdfPath,'--out',output,'--stdout-report','--online','--control-root',controlRoot(),'--cache',process.env.PAPER_COMPILER_CACHE_ROOT || '/data/runtime/paper-compiler','--phase','website','--phase-budget','200','--budget','200',
+  const args=[SCRIPT,'check','--pdf',pdfPath,'--out',output,'--stdout-report','--online','--control-root',controlRoot(),'--cache',process.env.PAPER_COMPILER_CACHE_ROOT || '/data/runtime/paper-compiler','--phase','website','--phase-budget',phaseBudget,'--budget',totalBudget,
     ...selectedRuleIds.flatMap(id=>['--package',packagePath(id.slice(10))]),
     ...catalog.filter(rule=>rule.available).flatMap(rule=>['--release-package',packagePath(rule.number)])];
   const raw=await runJsonProcess(process.env.PAPER_COMPILER_PYTHON || 'python3',args,options);

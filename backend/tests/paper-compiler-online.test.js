@@ -41,7 +41,7 @@ describe('online compiler CLI boundary', () => {
     expect(fs.existsSync(capture)).toBe(false);
   });
 
-  it('runs detection online with both cumulative and phase budgets capped at 200', async () => {
+  it('retains default cumulative and phase budgets of200 when configuration is absent', async () => {
     const { capture, root } = transport(report);
     const result = await service.runCompilerRules('/data/tmp/input.pdf', ['sjtu_rule_31']);
     const argv = JSON.parse(fs.readFileSync(capture, 'utf8'));
@@ -141,4 +141,34 @@ it.each([
   expect(result.rule_runs[0].message).toContain(reason);
   expect(result.rule_runs[0].message).toContain('当前版本');
   expect(result.rule_runs[0].compiler_runtime_status).toBe(status);
+});
+
+// Public argv-only shims: no Python detector, config, ledger or API is opened.
+it('accepts independently configured400 total and37.5 phase without changing task defaults', async () => {
+  const {capture}=transport(report);
+  env('PAPER_COMPILER_BUDGET_CNY','400');env('PAPER_COMPILER_PHASE_BUDGET_CNY','37.5');
+  await service.runCompilerRules('/data/tmp/input.pdf',['sjtu_rule_31']);
+  const argv=JSON.parse(fs.readFileSync(capture,'utf8'));
+  expect(argv[argv.indexOf('--budget')+1]).toBe('400');
+  expect(argv[argv.indexOf('--phase-budget')+1]).toBe('37.5');
+  expect(argv).not.toContain('--ledger');
+  expect(argv).not.toContain('--online-task-budget');
+  expect(argv).not.toContain('--online-timeout-seconds');
+});
+it('can configure only a phase without raising the default total', async () => {
+  const {capture}=transport(report);env('PAPER_COMPILER_PHASE_BUDGET_CNY','25');
+  await service.runCompilerRules('/data/tmp/input.pdf',['sjtu_rule_31']);
+  const argv=JSON.parse(fs.readFileSync(capture,'utf8'));
+  expect(argv[argv.indexOf('--budget')+1]).toBe('200');
+  expect(argv[argv.indexOf('--phase-budget')+1]).toBe('25');
+});
+it.each([
+  ['PAPER_COMPILER_BUDGET_CNY','0'],['PAPER_COMPILER_BUDGET_CNY','401'],
+  ['PAPER_COMPILER_BUDGET_CNY','NaN'],['PAPER_COMPILER_BUDGET_CNY',''],
+  ['PAPER_COMPILER_PHASE_BUDGET_CNY','-1'],['PAPER_COMPILER_PHASE_BUDGET_CNY','Infinity'],
+  ['PAPER_COMPILER_PHASE_BUDGET_CNY','401'],
+])('rejects invalid %s=%s before spawning a compiler', async (name,value) => {
+  const {capture}=transport(report);env(name,value);
+  await expect(service.runCompilerRules('/data/tmp/input.pdf',['sjtu_rule_31'])).rejects.toMatchObject({status:503,code:'COMPILER_BUDGET_CONFIG_INVALID'});
+  expect(fs.existsSync(capture)).toBe(false);
 });
