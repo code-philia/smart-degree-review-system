@@ -18,6 +18,7 @@ Return ONE JSON object with EXACT keys: rule_id,title,requires,target_kinds,code
 Copy requested_rule_id. code defines exactly def detect(payload), no annotations/imports/nested functions/decorators.
 payload is {ir: Paper IR, analysis: version-matched grounded facts}. Do not open PDF, files, network or execute shell.
 Use the supplied allowed Python builtins/methods and helpers. nodes(payload,kind) selects nodes including subtypes.
+Variable names must never start with '_', including throwaway comprehension or loop targets such as '_'; use public names such as unused instead.
 fact(payload,capability,node_id,field) returns {state,value?,evidence_ids?,reason?}. Unknown is not false.
 detect MUST return a list of diagnostic dictionaries. Start output=[], append each emit(...) to output, then return output.
 emit(node,status,message,check_id,basis_ids,evidence_ids?,reasons?) returns a dictionary; it has NO side effects and never records anything by itself.

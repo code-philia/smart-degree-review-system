@@ -31,7 +31,8 @@ def validate_code(code, entry='detect'):
     for node in ast.walk(tree):
         if isinstance(node,DENIED):raise ValueError('unsafe syntax')
         if isinstance(node,ast.FunctionDef) and node is not fn:raise ValueError('nested functions forbidden')
-        if isinstance(node,ast.Name) and node.id.startswith('_'):raise ValueError('private names forbidden')
+        if isinstance(node,ast.Name) and node.id.startswith('_'):raise ValueError(
+            f'private names forbidden: {node.id!r} at line {node.lineno}, UTF-8 byte column {node.col_offset+1}')
         if isinstance(node,ast.Attribute) and node.attr not in METHODS:raise ValueError('unsafe attribute')
         if isinstance(node,ast.Call):
             if isinstance(node.func,ast.Name):
