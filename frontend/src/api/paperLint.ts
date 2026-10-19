@@ -220,12 +220,12 @@ export async function fetchPaperLintReports(): Promise<PaperLintReportListItem[]
 }
 
 export async function fetchPaperLintReport(reportId: string): Promise<PaperLintRunResponse> {
-  const response = await apiClient.get<PaperLintRunResponse>(`/normative/paper-lint/reports/${reportId}`);
+  const response = await apiClient.get<PaperLintRunResponse>(`/normative/paper-lint/reports/${reportId}`, { timeout: 60_000 });
   return response.data;
 }
 
 export async function fetchPaperLintReportPdf(reportId: string): Promise<Blob> {
-  const response = await apiClient.get<Blob>(`/normative/paper-lint/reports/${reportId}/pdf`, { responseType: 'blob' });
+  const response = await apiClient.get<Blob>(`/normative/paper-lint/reports/${reportId}/pdf`, { responseType: 'blob', timeout: 60_000 });
   return response.data;
 }
 
