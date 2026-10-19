@@ -9,13 +9,16 @@ except ImportError:
     review=None
 FIXTURES=json.loads((Path(__file__).parent/'fixtures'/'r33_positive_conflict_quotes.json').read_text())
 
-def answered(packet):
+def answered_wire(data):
     results={}
-    for item in packet['items']:
-        paper=next(q for q in item['assertions'] if q['origin']=='paper')
-        ext=next(q for q in reversed(item['assertions']) if q['origin']=='external')
-        results[item['id']]={'decision':'confirmed_conflict','same_entity':True,'same_property':True,'same_scope':True,'citation_purpose':'assertion','relation':'affirmation_vs_denial','reason':'The cited method positively has the property the citing assertion denies.','witness':{'citing':{'source_id':paper['source_id'],'quote':paper['quote'],'entity':'cited method','property':'method capability','value':'denied','scope':'this method'},'cited':{'source_id':ext['source_id'],'quote':ext['quote'],'entity':'cited method','property':'method capability','value':'affirmed','scope':'this method'}}}
+    for node in data['nodes']:
+        paper=next(q for q in node['assertions'] if q['origin']=='paper')
+        ext=next(q for q in reversed(node['assertions']) if q['origin']=='external')
+        results[node['node']['id']]={'decision':'confirmed_conflict','same_entity':True,'same_property':True,'same_scope':True,'citation_purpose':'assertion','relation':'affirmation_vs_denial','reason':'The cited method positively has the property the citing assertion denies.','witness':{'citing':{'quote_span_id':paper['assertion_span_ids'][0],'entity':'cited method','property':'method capability','value':'denied','scope':'this method'},'cited':{'quote_span_id':ext['assertion_span_ids'][0],'entity':'cited method','property':'method capability','value':'affirmed','scope':'this method'}}}
     return {'results':results}
+
+def answered(packet):
+    return answered_wire(review.model_input(packet))
 
 @pytest.mark.parametrize('fixture',FIXTURES,ids=lambda x:x['case_id'])
 def test_real_positive_conflict_requires_independent_host_verification(fixture):

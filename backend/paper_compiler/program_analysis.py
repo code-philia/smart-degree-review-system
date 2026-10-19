@@ -28,11 +28,11 @@ GROUNDING_POLICY = """
 Return {"fields":{"FIELD":{"state":"observed|unknown|confirmed_absent|not_applicable",
 "value":VALUE,"quotes":[{"source_id":"one supplied source_id","quote":"exact source substring"}],
 "reason":"reason when uncertain, absent, inapplicable or making a semantic inference",
-"search_scope":["exact source IDs searched completely"],"basis":"explicit_support|explicit_scope_contradiction|direct_observation|insufficient|missing_detail|topic_mismatch"}}}.
+"search_scope":["exact source IDs searched completely"],"basis":"explicit_support|explicit_scope_contradiction|direct_observation|complete_work_unsupported_attribution|insufficient|missing_detail|topic_mismatch"}}}.
 Return only declared fields with the declared value types. Every observed fact needs exact, nonempty source quotes.
 For ReferenceUse targets, ground semantic observations in BOTH the citing context and identified cited-work content.
-Every citation inference requires explicit_support or explicit_scope_contradiction, regardless of field name, type or polarity.
-A claimed contradiction (including unrelated=True or a relation string) requires positive source evidence excluding this use. Missing details, no mention in full text, retrieval failure, or global topic/domain mismatch cannot prove irrelevance.
+Every citation inference requires explicit_support, explicit_scope_contradiction, or complete_work_unsupported_attribution, regardless of field name, type or polarity. The last basis is only for a precise contribution/method/result attribution unsupported by the complete identified work, with complete full-text sources and independent host-reviewed scope evidence; it is distinct from a positive contradiction.
+For explicit_scope_contradiction only, a claimed contradiction (including unrelated=True or a relation string) requires positive source evidence excluding this use. Missing details, no mention in full text, retrieval failure, or global topic/domain mismatch cannot prove that positive contradiction. The separate complete_work_unsupported_attribution basis requires a precisely attributed contribution/method/result, complete identified full-text source scope, and independent host review; generic omissions or topic distance are still insufficient.
 confirmed_absent is only a local extraction conclusion over supplied COMPLETE sources, with the entire searched source quoted;
 it is never a statement that a referenced real-world work or semantic relationship does not exist.
 not_applicable requires a reason and source evidence establishing inapplicability. Otherwise return unknown with a reason.
@@ -425,14 +425,19 @@ def _ground_fields(request, raw, data, reference, *, conflict_verifications=None
         verified_conflict = None
         if state == 'observed' and reference:
             basis = item.get('basis')
-            if basis not in {'explicit_support', 'explicit_scope_contradiction'} or not reason:
+            if basis not in {'explicit_support', 'explicit_scope_contradiction', 'complete_work_unsupported_attribution'} or not reason:
                 continue
             # A generator can choose any field name or polarity. Evidence policy
             # therefore cannot be conditional only on literal boolean False.
-            if re.search(r'(?:not|never|no).{0,32}(?:mention|discuss|state|describe|appear|find)|not mentioned|absence of|missing detail|topic mismatch|different (?:topic|domain)|未提及|没有提到|未涉及|主题不|领域不同', reason, re.I):
+            if basis != 'complete_work_unsupported_attribution' and re.search(r'\b(?:not|never|no)\b.{0,32}(?:mention|discuss|state|describe|appear|find)|not mentioned|absence of|missing detail|topic mismatch|different (?:topic|domain)|未提及|没有提到|未涉及|主题不|领域不同', reason, re.I):
                 continue
-            if item['value'] is False and basis != 'explicit_scope_contradiction':
+            if item['value'] is False and basis not in {'explicit_scope_contradiction', 'complete_work_unsupported_attribution'}:
                 continue
+            if basis == 'complete_work_unsupported_attribution':
+                from .conflict_review import trusted_verification
+                verified_conflict = trusted_verification(item, data, conflict_verifications)
+                if verified_conflict is None or verified_conflict.get('kind') != basis:
+                    continue
             if basis == 'explicit_scope_contradiction':
                 external_quotes = ' '.join(s['quote'] for s in spans if s['origin'] == 'external')
                 if not re.search(r'\b(?:no|not|never|exclusively|only|excludes?|cannot)\b|不|无|仅|排除|没有|未', external_quotes, re.I):
@@ -459,7 +464,7 @@ def _ground_fields(request, raw, data, reference, *, conflict_verifications=None
                 if isinstance(item.get(key), str):
                     facts[name][key] = item[key]
         if verified_conflict is not None:
-            facts[name]['conflict_verification'] = verified_conflict
+            facts[name]['support_verification' if item.get('basis') == 'complete_work_unsupported_attribution' else 'conflict_verification'] = verified_conflict
         evidence.update({span['id']: span for span in spans})
     return facts, list(evidence.values())
 
@@ -513,6 +518,7 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
     validate_ir(ir)
     execution_policy = analysis_execution_policy()
     batch_size = execution_policy['batch_size']
+    semantic_thinking = getattr(client, 'semantic_thinking', False) is True
     flat_output = batch_size > 1 and getattr(client, 'json_output', False) is True
     if flat_output:
         execution_policy = {**execution_policy, 'task': FLAT_BATCH_TASK,
@@ -536,6 +542,8 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
               'grounding_policy': _hash(GROUNDING_POLICY), 'evidence_version': EVIDENCE_VERSION,
               'content_version': CONTENT_VERSION, 'response_decoder': execution_policy['response_decoder'],
               'conflict_review': CONFLICT_POLICY}
+    if semantic_thinking:
+        policy['semantic_thinking'] = True
     if reference_requests or any(name.startswith('bibliography_') or name in {'external_work', 'citation_binding', 'citation_order'} for name in capabilities):
         policy['bibliography_extraction'] = bibliography_execution_policy()['extraction_policy']
     if batch_size > 1:
@@ -656,7 +664,7 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
                         json_bytes(raw_item)
                     except (TypeError, ValueError):
                         continue
-                    if raw_item.get('basis') == 'explicit_scope_contradiction':
+                    if raw_item.get('basis') in {'explicit_scope_contradiction', 'complete_work_unsupported_attribution'}:
                         producer_raw['fields'][field] = deepcopy(raw_item)
             write_json_atomic(node_path, {'key': key, 'raw': cleaned, 'producer_raw': producer_raw,
                 'conflict_review': review_record, 'facts': facts, 'evidence': evidence})
@@ -672,7 +680,7 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
                 answer = client.complete_json(FLAT_BATCH_TASK if flat_output else BATCH_TASK,
                     request['instructions'] + '\n' + GROUNDING_POLICY + '\n' +
                     (FLAT_BATCH_INSTRUCTIONS if flat_output else BATCH_INSTRUCTIONS),
-                    data, min(16384, 3000 * len(pending)))
+                    data, min(16384, (12000 if semantic_thinking else 3000) * len(pending)))
             except ModelError:
                 # An unusable semantic response supplies no evidence. Do not
                 # retry it or discard the other grounded nodes in this paper.
@@ -706,7 +714,7 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
             elif client is None or not ready or not data['sources']:
                 commit(item, {})
             elif batch_size == 1:
-                raw = client.complete_json(TASK, request['instructions'] + '\n' + GROUNDING_POLICY, deepcopy(data), 3000)
+                raw = client.complete_json(TASK, request['instructions'] + '\n' + GROUNDING_POLICY, deepcopy(data), 12000 if semantic_thinking else 3000)
                 commit(item, raw)
             else:
                 candidate = _batch_data([*pending, item])

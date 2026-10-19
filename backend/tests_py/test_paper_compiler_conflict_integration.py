@@ -2,7 +2,7 @@ import json
 from copy import deepcopy
 from pathlib import Path
 import pytest
-from test_paper_compiler_conflict_witness import FIXTURES,answered
+from test_paper_compiler_conflict_witness import FIXTURES,answered,answered_wire
 from test_paper_compiler_program_analysis import Model,Gateway,paper,package,grounded_reference
 from paper_compiler import conflict_review as review
 from paper_compiler.program_analysis import analyze_programs
@@ -16,7 +16,7 @@ class Reviewer:
         self.calls+=1;self.inputs.append(deepcopy(data))
         assert task==review.TASK
         if self.error:raise self.error
-        return answered({'items':[{'id':n['node']['id'],'assertions':n['assertions']} for n in data['nodes']]})
+        return answered_wire(data)
 
 def resolve(f,client,receipt=None):
     assert hasattr(review,'resolve_review'),'independent review orchestration not wired'

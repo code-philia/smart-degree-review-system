@@ -10,6 +10,8 @@ import re
 from .storage import json_bytes
 
 POLICY = 'positive-conflict-witness/1.0'
+COMPLETE_WORK_BASIS = 'complete_work_unsupported_attribution'
+COMPLETE_WORK_POLICY = 'complete-work-attribution-witness/1.0'
 TASK = 'positive-conflict-review/1.0'
 INSTRUCTIONS = """Independently assess each supplied citation assertion using only its permitted sources.
 No analysis answer, detector output, benchmark label, desired conclusion, or prior review is supplied.
@@ -20,16 +22,36 @@ negation keywords alone are neither necessary nor sufficient. A statement about 
 must not be attributed to this work. Missing details, topic differences, unavailable content or
 failure to find support are insufficient. Comparison, criticism and rebuttal are potentially valid
 citation purposes, not automatically violations. If purpose is ambiguous return insufficient.
-Return {"results":{"NODE_ID":{"decision":"confirmed_conflict|supported_nonconflict|insufficient",
+Return {"results":{"REVIEW_ALIAS":{"decision":"confirmed_conflict|supported_nonconflict|insufficient",
 "same_entity":boolean,"same_property":boolean,"same_scope":boolean,
 "citation_purpose":"assertion|comparison|criticism|rebuttal|unknown",
 "relation":"affirmation_vs_denial|mutually_exclusive_values|explicit_scope_exclusion|unknown",
 "reason":"source-grounded explanation of the incompatibility, entity, property, scope and purpose",
-"witness":{"citing":{"source_id":"ID","quote":"exact assertion span","entity":"canonical entity",
+"witness":{"citing":{"quote_span_id":"one supplied exact chunk ID","entity":"canonical entity",
 "property":"canonical property","value":"asserted value","scope":"canonical scope"},
-"cited":{"source_id":"ID","quote":"exact assertion span","entity":"same canonical entity",
+"cited":{"quote_span_id":"one supplied exact chunk ID","entity":"same canonical entity",
 "property":"same canonical property","value":"incompatible value","scope":"same canonical scope"}}}}}.
+The results keys must be the exact short nodes[].node.id aliases (review-0, review-1, and so on), never citation_context.node_id or a source ID.
+The quote_spans table provides the entire supplied sources as ordered exact chunks of at most 1000 characters, plus exact assertion subspans. Read ALL full_source chunks for a complete-work decision; no body text has been dropped. Choose witness quote_span_id only from that node's permitted source_ids. For a positive conflict choose chunks contained in its supplied assertion_span_ids; for complete-work attribution the cited witness may choose an actual scope chunk anywhere in its complete full-text source.
 Use each node's source_ids only. Do not borrow evidence between nodes. Keep insufficient targets unknown.
+A separate complete-work decision is available ONLY for a concrete contribution, method or result
+explicitly attributed to the identified cited work. If the supplied complete=true, coverage=full_text
+sources establish that this exact attribution is outside the actual work's contribution/method/result
+scope and is unsupported after examining the COMPLETE work, return decision
+confirmed_unsupported_attribution, relation complete_work_unsupported_attribution, attribution_kind
+contribution|method|result, and full_text_source_ids listing ALL supplied complete full-text source IDs
+for that work. Keep same_entity/same_property/same_scope true only when those comparisons are resolved.
+The citing witness must quote the actual attribution; the cited witness must quote the work's own
+substantive scope/contribution/method/result statements from a supplied complete full-text source.
+Select only the provided quote_span_id in each witness; do not transcribe quote text or source IDs. The host copies exactly that supplied contiguous chunk. The witness entity, property and scope use the SAME canonical wording on both sides. The values
+explain the attributed contribution versus the work's actual scope. This is not a claim of a positive
+contradiction. Do not infer this decision from an abstract, topic distance, a single absent detail,
+retrieval failure, or an unspecified inability to prove everything. Do not apply it to background,
+comparison, criticism, rebuttal, legitimate method transfer, or the citing author's own new proposal.
+A precise source attribution must be unsupported by the complete identified work, not merely new or
+outside the source's application domain. If that distinction or completeness is unresolved, return
+insufficient. A reviewer may quote a different exact scope statement from the complete supplied body;
+it must not substitute a different citing proposition. Never fabricate a theorem or source evidence.
 """
 _SEAL = object()
 class _Prepared(dict):
@@ -80,12 +102,13 @@ def prepare_review(request, raw, data):
         return packet
     for name in request.get('fields', {}):
         item = fields.get(name)
-        if not isinstance(item, dict) or item.get('state') != 'observed' or item.get('basis') != 'explicit_scope_contradiction':
+        if not isinstance(item, dict) or item.get('state') != 'observed' or item.get('basis') not in {'explicit_scope_contradiction', COMPLETE_WORK_BASIS}:
             continue
         if not _correct_type(item.get('value'), request['fields'][name]):
             continue
+        complete_work = item.get('basis') == COMPLETE_WORK_BASIS
         reason = item.get('reason')
-        if not isinstance(reason, str) or not reason.strip() or re.search(r'(?:not|never|no).{0,32}(?:mention|discuss|state|describe|appear|find)|not mentioned|absence of|missing detail|topic mismatch|different (?:topic|domain)|未提及|没有提到|未涉及|主题不|领域不同', reason, re.I):
+        if not isinstance(reason, str) or not reason.strip() or (not complete_work and re.search(r'\b(?:not|never|no)\b.{0,32}(?:mention|discuss|state|describe|appear|find)|not mentioned|absence of|missing detail|topic mismatch|different (?:topic|domain)|未提及|没有提到|未涉及|主题不|领域不同', reason, re.I)):
             continue
         quotes = item.get('quotes')
         if not isinstance(quotes, list) or not quotes:
@@ -108,7 +131,7 @@ def prepare_review(request, raw, data):
             origins.add(origin)
         external_quotes = ' '.join(q['quote'] for q in assertions if q['origin'] == 'external')
         context_quotes = ' '.join(q['quote'] for q in assertions if q['origin'] == 'paper')
-        if re.search(r'\b(?:no|not|never|exclusively|only|excludes?|cannot)\b|不|无|仅|排除|没有|未', external_quotes, re.I):
+        if not complete_work and re.search(r'\b(?:no|not|never|exclusively|only|excludes?|cannot)\b|不|无|仅|排除|没有|未', external_quotes, re.I):
             continue
         if not re.search(r'[A-Za-z\u4e00-\u9fff]{2,}', context_quotes):
             continue
@@ -117,6 +140,17 @@ def prepare_review(request, raw, data):
             permitted = [s for s in sources if
                 (s.get('origin') == 'paper' and s.get('node_id') == context['node_id']) or
                 (s.get('origin') == 'external' and s.get('work_id') in works)]
+            complete_sources = []
+            if complete_work:
+                quoted_works = {by_id[q['source_id']]['work_id'] for q in assertions if q['origin'] == 'external'}
+                if len(quoted_works) != 1:
+                    continue
+                permitted = [s for s in permitted if s['origin'] == 'paper' or s['work_id'] in quoted_works]
+                complete_sources = [{'source_id': s['source_id'], 'work_id': s['work_id'],
+                    'source_sha256': _hash(s['text'])} for s in permitted if s['origin'] == 'external'
+                    and s.get('complete') is True and s.get('coverage') == 'full_text']
+                if not complete_sources:
+                    continue
             try:
                 key = _key(item, data)
             except (TypeError, ValueError):
@@ -125,7 +159,9 @@ def prepare_review(request, raw, data):
                 continue
             packet['items'].append({'id':key, 'assertions':assertions,
                 'sources':deepcopy(permitted), 'citation_context':deepcopy(context),
-                'identified_work_ids':sorted(works)})
+                'identified_work_ids':sorted(works),
+                'review_kind':COMPLETE_WORK_BASIS if complete_work else 'positive_conflict',
+                'full_text_sources':complete_sources})
     return packet
 
 def model_input(packet):
@@ -133,13 +169,37 @@ def model_input(packet):
     from .program_analysis import _batch_data
     if type(packet) is not _Prepared or packet.get('policy') != POLICY:
         raise ValueError('expected host-prepared review packet')
-    items = [{'data':{'node':{'id':x['id']}, 'sources':x['sources'],
+    items = [{'data':{'node':{'id':'review-' + str(index)}, 'sources':x['sources'],
         'assertions':x['assertions'], 'citation_context':x['citation_context'],
-        'identified_work_ids':x['identified_work_ids']}} for x in packet['items']]
+        'identified_work_ids':x['identified_work_ids']}} for index, x in enumerate(packet['items'])]
     result = _batch_data(items)
     if result is None:
         raise ValueError('conflicting source IDs in review batch')
+    for source in result['sources']:
+        source['source_sha256'] = _hash(source['text'])
+    from .program_analysis import _flat_source_spans
+    result, _ = _flat_source_spans(result)
+    for span in result['quote_spans']:
+        span['scope'] = 'full_source'
+    by_text = {(span['source_id'], span['text']): span['id'] for span in result['quote_spans']}
+    for node in result['nodes']:
+        assertions = []
+        for assertion in node['assertions']:
+            ids = []
+            for start in range(0, len(assertion['quote']), 1000):
+                text = assertion['quote'][start:start + 1000]
+                pair = (assertion['source_id'], text)
+                if pair not in by_text:
+                    sid = 'q' + str(len(result['quote_spans']))
+                    by_text[pair] = sid
+                    result['quote_spans'].append({'id': sid, 'source_id': pair[0],
+                        'text': text, 'scope': 'assertion'})
+                ids.append(by_text[pair])
+            assertions.append({'source_id': assertion['source_id'], 'origin': assertion['origin'],
+                               'assertion_span_ids': ids})
+        node['assertions'] = assertions
     result['schema_version'] = POLICY
+    result['response_contract'] = 'strict-review-alias+exact-witness-span/1.0'
     return result
 
 def accept_review(packet, answer):
@@ -156,18 +216,29 @@ Semantic truth is model-assisted; this validates source binding and witness shap
         _hash(answer)
     except (TypeError, ValueError):
         return verified
+    quote_spans = {span['id']: span for span in model_input(packet)['quote_spans']}
     rows = answer.get('results', {})
     if not isinstance(rows, dict):
         return verified
-    for item in packet['items']:
-        row = rows.get(item['id'])
-        if not isinstance(row, dict) or row.get('decision') != 'confirmed_conflict':
+    for index, item in enumerate(packet['items']):
+        row = rows.get('review-' + str(index))
+        complete_work = item.get('review_kind') == COMPLETE_WORK_BASIS
+        expected = 'confirmed_unsupported_attribution' if complete_work else 'confirmed_conflict'
+        if not isinstance(row, dict) or row.get('decision') != expected:
             continue
         if any(row.get(k) is not True for k in ['same_entity','same_property','same_scope']):
             continue
-        if row.get('citation_purpose') != 'assertion' or row.get('relation') not in {
-                'affirmation_vs_denial','mutually_exclusive_values','explicit_scope_exclusion'}:
+        relations = {COMPLETE_WORK_BASIS} if complete_work else {
+            'affirmation_vs_denial','mutually_exclusive_values','explicit_scope_exclusion'}
+        if row.get('citation_purpose') != 'assertion' or row.get('relation') not in relations:
             continue
+        if complete_work:
+            ids = row.get('full_text_source_ids')
+            expected_ids = {s['source_id'] for s in item['full_text_sources']}
+            if (row.get('attribution_kind') not in {'contribution','method','result'} or
+                    not isinstance(ids, list) or any(not isinstance(x, str) for x in ids) or
+                    len(ids) != len(set(ids)) or set(ids) != expected_ids):
+                continue
         if not isinstance(row.get('reason'), str) or not row['reason'].strip():
             continue
         witness = row.get('witness')
@@ -177,16 +248,26 @@ Semantic truth is model-assisted; this validates source binding and witness shap
         assertions = []
         for side, origin in [('citing','paper'),('cited','external')]:
             a = witness.get(side)
-            if not isinstance(a, dict) or any(not isinstance(a.get(k), str) or not a[k].strip()
-                    for k in ['source_id','quote','entity','property','value','scope']):
+            if (not isinstance(a, dict) or 'quote' in a or 'source_id' in a or
+                    not isinstance(a.get('quote_span_id'), str) or
+                    any(not isinstance(a.get(k), str) or not a[k].strip()
+                        for k in ['entity','property','value','scope'])):
                 break
+            selected = quote_spans.get(a['quote_span_id'])
+            if selected is None:
+                break
+            # Only an explicitly selected provided span is expanded, never repaired or inferred.
+            a = {**a, 'source_id': selected['source_id'], 'quote': selected['text']}
             source = sources.get(a['source_id'])
             if not source or source.get('origin') != origin or a['quote'] not in source['text']:
                 break
             if origin == 'paper' and source.get('node_id') != item['citation_context']['node_id']:
                 break
             # A reviewer may narrow an assertion, but may not substitute unrelated evidence.
-            if not any(q['source_id'] == a['source_id'] and a['quote'] in q['quote'] for q in item['assertions']):
+            if complete_work and origin == 'external':
+                if not any(s['source_id'] == a['source_id'] for s in item['full_text_sources']):
+                    break
+            elif not any(q['source_id'] == a['source_id'] and a['quote'] in q['quote'] for q in item['assertions']):
                 break
             start = source['text'].index(a['quote'])
             assertions.append({**deepcopy(a),'source_range':[start,start+len(a['quote'])],
@@ -199,6 +280,9 @@ Semantic truth is model-assisted; this validates source binding and witness shap
         if left['value'].strip().casefold() == right['value'].strip().casefold():
             continue
         evidence = {'citing':left,'cited':right,'relation':row['relation'],'reason':row['reason']}
+        if complete_work:
+            evidence.update(kind=COMPLETE_WORK_BASIS, full_text_sources=deepcopy(item['full_text_sources']),
+                            attribution_kind=row['attribution_kind'])
         verified[item['id']] = _Verified(_SEAL,item['id'],_hash({'input':model_input(packet),'answer':answer}),evidence)
     return verified
 
@@ -212,7 +296,10 @@ def trusted_verification(item, data, proofs):
     proof = proofs.get(key)
     if type(proof) is not _Verified or proof._seal is not _SEAL or proof.key != key:
         return None
-    return {'policy':POLICY,'review_digest':proof.review_digest,'witness':deepcopy(proof.witness)}
+    complete_work = proof.witness.get('kind') == COMPLETE_WORK_BASIS
+    return {'policy':COMPLETE_WORK_POLICY if complete_work else POLICY,
+            'kind':COMPLETE_WORK_BASIS if complete_work else 'positive_conflict',
+            'review_digest':proof.review_digest,'witness':deepcopy(proof.witness)}
 
 
 def resolve_review(request, raw, data, *, client, receipt=None):
@@ -227,7 +314,12 @@ scheduler are introduced. Budget/Frozen exceptions are never downgraded.
     if not packet['items']:
         return {}, None, None
     projected = model_input(packet)
-    digest = _hash({'task':TASK,'instructions':INSTRUCTIONS,'data':projected})
+    identity = {'task':TASK,'instructions':INSTRUCTIONS,'data':projected}
+    semantic_thinking = (getattr(client, 'semantic_thinking', False) is True if client is not None else
+                         isinstance(receipt, dict) and receipt.get('semantic_thinking') is True)
+    if semantic_thinking:
+        identity['semantic_thinking'] = True
+    digest = _hash(identity)
     def replay(record):
         if record.get('status') == 'completed':
             proofs = accept_review(packet, record.get('answer'))
@@ -238,6 +330,8 @@ scheduler are introduced. Budget/Frozen exceptions are never downgraded.
     if client is None:
         return {}, None, 'independent contradiction review unavailable offline'
     record = {'policy':POLICY,'input_hash':digest,'task':TASK}
+    if semantic_thinking:
+        record['semantic_thinking'] = True
     try:
         # Keep the existing host's guarded/paced client rather than clone credentials.
         underlying = client
@@ -248,7 +342,7 @@ scheduler are introduced. Budget/Frozen exceptions are never downgraded.
             raise ValueError('review requires a single-attempt client')
         if len(packet['items']) > 8 or len(json_bytes(projected)) > 128 * 1024:
             raise ValueError('review batch exceeds existing bounded source-pool limits')
-        answer = client.complete_json(TASK, INSTRUCTIONS, projected, min(6000,1500*len(packet['items'])))
+        answer = client.complete_json(TASK, INSTRUCTIONS, projected, min(16384,12000*len(packet['items'])) if getattr(client, 'semantic_thinking', False) is True else min(6000,1500*len(packet['items'])))
         record.update(status='completed', answer=deepcopy(answer))
     except (BudgetExceeded, RuntimeFrozen, VersionConflict):
         raise
