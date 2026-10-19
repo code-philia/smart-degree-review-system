@@ -77,3 +77,9 @@ def test_body_contiguous_range_and_automatic_numbering_unknown_exception(tmp_pat
     ir["nodes"][-1]["text"]="[22,23]"
     a=base_analysis(ir);a["capability_versions"].update(pkg["manifest"]["capability_versions"]);citation_syntax(ir,a)
     assert next(r for r in run_program(pkg,ir,a) if r["node_id"]=="cg")["status"]!="VIOLATION"
+
+
+def test_declared_online_carrier_requires_access_path_even_if_medium_unknown(tmp_path):
+    row=check(tmp_path,"[1] A study[C/OL]//A Conference. 2020: 1-9.",
+        {"title":"A study","type_code":"C/OL","year":"2020","pages":"1-9"},kind="conference",electronic=False)
+    assert row['status']=='VIOLATION'

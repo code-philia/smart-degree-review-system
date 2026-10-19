@@ -81,6 +81,69 @@ def _scope_ids(ir, node, data):
     return found
 
 
+def _is_fixed_release(packages):
+    from .fixed_r31 import build_r31_package
+    from .fixed_r32 import build_r32_package
+    from .fixed_r33 import build_r33_package
+    builders = {'31': build_r31_package, '32': build_r32_package, '33': build_r33_package}
+    for package in packages:
+        builder = builders.get(str(package['program_spec']['rule_id']))
+        if builder is None:
+            return False
+        expected = builder(model=package['model'], basis=package['input']['basis'],
+                           rule_text=package['input']['rule_text'])
+        if expected['manifest']['version_id'] != package['manifest']['version_id']:
+            return False
+    return bool(packages)
+
+
+def _publish_fixed(ir, analysis, report, packages, positives, output_dir):
+    # These exact, hand-authored programs already enforce their evidence
+    # preconditions. A second LLM vote is not a proof checker: it overturned
+    # finite-catalog exclusion and introduced observed false negatives.
+    from .runtime import _evidence_check
+    _evidence_check(ir, analysis)
+    policy = 'fixed-rule-evidence-publication/1.0'
+    binding = {'policy': policy, 'ir': ir_hash(ir), 'analysis': _hash(analysis),
+               'report': _hash(report), 'programs': [p['manifest']['version_id'] for p in packages]}
+    folder = Path(output_dir) / ('fixed-publication-' + _hash(binding))
+    folder.mkdir(parents=True, exist_ok=True)
+    target = folder / 'result.json'
+    if target.exists():
+        return json.loads(target.read_text())
+    nodes = {n['id']: n for n in ir['nodes']}
+    facts = {e['id']: e for e in analysis.get('evidence', [])}
+    by_rule = {str(p['program_spec']['rule_id']): p for p in packages}
+    findings, decisions = [], []
+    for (rid, nid), rows in sorted(positives.items()):
+        node = nodes[nid]
+        used = {eid for row in rows for eid in row.get('evidence_ids', [])}
+        evidence = [{k: v for k, v in facts[eid].items() if k != 'source_text'}
+                    for eid in sorted(used) if eid in facts]
+        if node.get('text'):
+            evidence.append({'kind': 'source_span', 'origin': 'paper', 'node_id': nid,
+                             'source_id': 'paper:' + nid, 'quote': node['text']})
+        basis_ids = {bid for row in rows for bid in row.get('basis', [])}
+        evidence.extend({'kind': 'normative_span', 'origin': 'normative', 'basis_id': b['id'],
+                         'source_id': b['id'], 'quote': b['text']}
+                        for b in by_rule[rid]['input']['basis'] if b['id'] in basis_ids)
+        findings.append({'rule_id': rid, 'node_id': nid, 'scope': 'rule_node',
+            'status': 'VIOLATION', 'message': '；'.join(dict.fromkeys(row['message'] for row in rows)),
+            'review_reasons': [reason for row in rows for reason in row.get('reasons', [])],
+            'evidence': [evidence], 'verification': 'fixed_program_and_grounded_facts'})
+        decisions.append({'rule_id': rid, 'node_id': nid, 'original_status': 'VIOLATION',
+            'original_results': rows, 'publication_status': 'ALERT', 'proven_pass': False,
+            'reasons': [], 'verification': 'fixed_program_and_grounded_facts'})
+    result = {'public': {'status': 'ALERT' if findings else 'NO_ALERT', 'findings': findings},
+        'internal': {'policy': policy, 'input_sha256': _hash(binding), 'output_dir': str(folder.resolve()),
+            'proposed_positive_nodes': len(positives), 'accounted_positive_nodes': len(decisions),
+            'proven_pass': False, 'decisions': decisions, 'stop_reason': None,
+            'scope': 'Exact fixed programs and source-grounded facts; no model revote or label access.'}}
+    write_json_atomic(folder / 'original-report.json', report, exclusive=True)
+    write_json_atomic(target, result, exclusive=True)
+    return result
+
+
 def audit_positives(ir, analysis, report, packages, *, client, gateway, output_dir,
                     evidence_environment=None, batch_size=8):
     """Return {public, internal}; publish only two source-grounded node violations.
@@ -117,6 +180,8 @@ def audit_positives(ir, analysis, report, packages, *, client, gateway, output_d
                 if key[1] not in targets[rid]:
                     raise ValueError("publication target outside program")
                 positives.setdefault(key, []).append(deepcopy(row))
+    if _is_fixed_release(packages):
+        return _publish_fixed(ir, analysis, report, packages, positives, output_dir)
     binding = {"policy": POLICY, "requirements": REQUIREMENTS, "audit_policy": online_loop.AUDIT_POLICY,
         "ir": ir_hash(ir), "analysis": _hash(analysis), "report": _hash(report),
         "programs": [p["manifest"]["version_id"] for p in packages],

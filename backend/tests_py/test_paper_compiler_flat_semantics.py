@@ -44,3 +44,15 @@ def test_unusable_semantic_response_is_unknown_without_retry(tmp_path,monkeypatc
     model=Broken();result=run(tmp_path,paper(tmp_path,2),model)
     assert model.calls==1
     assert all(x['method']['state']=='unknown' for x in result['results']['method_facts'].values())
+
+
+def test_span_selection_preserves_pdf_newlines_without_model_retyping(tmp_path,monkeypatch):
+    monkeypatch.setenv('PAPER_COMPILER_ANALYSIS_BATCH_SIZE','8')
+    text='We apply tree models\nwith original line breaks [1].'
+    class SpanModel(FlatModel):
+        def complete_json(self,task,instructions,data,max_tokens):
+            span=next(x for x in data['quote_spans'] if x['source_id']=='paper:p0')
+            return {'observations':[{'node_id':'p0','field':'method','state':'observed','value':'tree models','quote_span_ids':[span['id']]}]}
+    result=run(tmp_path,paper(tmp_path,1,texts=[text]),SpanModel())
+    assert result['results']['method_facts']['p0']['method']['state']=='observed'
+    assert any(e.get('quote')==text for e in result['evidence'])

@@ -58,20 +58,40 @@ An uncertain target stays unknown and does not change any other target's result.
 
 FLAT_BATCH_TASK = 'grounded-observations-flat/1.0'
 FLAT_BATCH_INSTRUCTIONS = """
-Return a single JSON object with a FLAT observations array. One record per
-(node_id, field), with state, value when observed, reason, basis and quotes.
-This flat format replaces the nested fields/results wrappers shown above.
-Example: {"observations":[{"node_id":"n1","field":"name","state":"unknown","reason":"source insufficient","quotes":[]},{"node_id":"n2","field":"name","state":"observed","value":"exact value","basis":"direct_observation","reason":"source states value","quotes":[{"source_id":"s2","quote":"exact value"}]}]}.
-Never emit a results object or nested fields object. Return every requested
-field for each supplied node.id, using only that node's permitted source_ids.
-Sources are an exact-record pool; source_ids select the records allowed for
-each target. Ground each observation independently in those exact records.
-Do not borrow another target's citation, content, source or answer. Missing
-or uncertain evidence stays unknown. Preserve all citation grounding rules.
+Return a single JSON object with a FLAT observations array, one record per
+(node_id, field), with state, value when observed, reason and basis.
+For evidence SELECT supplied quote_span_ids instead of copying or reflowing
+source text. This replaces the nested fields/results/quotes formats above.
+Example: {"observations":[{"node_id":"n1","field":"name","state":"unknown","reason":"source insufficient","quote_span_ids":[]},{"node_id":"n2","field":"name","state":"observed","value":"exact value","basis":"direct_observation","reason":"source states value","quote_span_ids":["q2","q3"]}]}.
+The quote_spans array contains exact, ordered chunks of source text, at most
+1000 characters each. The source records retain metadata and source_id;
+read their chunks in order for the full supplied context. Select the chunk
+IDs containing the actual evidence. The runtime copies those exact source
+bytes, preserving original PDF newlines and characters. Never invent IDs.
+Return every declared field for each node.id. Use ONLY quote spans whose
+source_id is in that node's source_ids. Citation inference still requires
+citing context AND the identified cited-work text. Read context before
+judging rhetorical purpose, attribution, quantifiers or contradiction.
+Do not borrow another target's sources or answers. Insufficient evidence
+stays unknown. Do not write program code or modify any document.
 """
 
 
-def _flat_results(answer, pending, request):
+def _flat_source_spans(data):
+    data = deepcopy(data)
+    spans = []
+    for source in data['sources']:
+        text = source.pop('text', '')
+        if not isinstance(text, str):
+            text = ''
+        for start in range(0, len(text), 1000):
+            spans.append({'id': 'q' + str(len(spans)), 'source_id': source['source_id'],
+                          'text': text[start:start + 1000]})
+    data['quote_spans'] = spans
+    return data, {span['id']: span for span in spans}
+
+
+def _flat_results(answer, pending, request, quote_spans=None):
     results = {}
     allowed = {item['node']['id'] for item in pending}
     rows = answer.get('observations', []) if isinstance(answer, dict) else []
@@ -84,8 +104,14 @@ def _flat_results(answer, pending, request):
         if not isinstance(nid, str) or nid not in allowed or not isinstance(field, str) or field not in request['fields']:
             continue
         fields = results.setdefault(nid, {'fields': {}})['fields']
+        observation = {k: v for k, v in row.items() if k not in {'node_id', 'field', 'quote_span_ids'}}
+        if 'quote_span_ids' in row:
+            ids = row['quote_span_ids']
+            valid = isinstance(ids, list) and all(isinstance(i, str) and i in (quote_spans or {}) for i in ids)
+            observation['quotes'] = ([{'source_id': quote_spans[i]['source_id'], 'quote': quote_spans[i]['text']}
+                                      for i in ids] if valid else [])
         fields[field] = ({'state': 'unknown', 'reason': 'duplicate flat observation'}
-                         if field in fields else {k: v for k, v in row.items() if k not in {'node_id', 'field'}})
+                         if field in fields else observation)
     return results
 
 
@@ -632,8 +658,10 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
             if not pending:
                 return
             data = _batch_data(pending)
+            quote_spans = None
             if flat_output:
                 data['schema_version'] = FLAT_BATCH_TASK
+                data, quote_spans = _flat_source_spans(data)
             try:
                 answer = client.complete_json(FLAT_BATCH_TASK if flat_output else BATCH_TASK,
                     request['instructions'] + '\n' + GROUNDING_POLICY + '\n' +
@@ -643,7 +671,7 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
                 # An unusable semantic response supplies no evidence. Do not
                 # retry it or discard the other grounded nodes in this paper.
                 answer = {}
-            results = (_flat_results(answer, pending, request) if flat_output else
+            results = (_flat_results(answer, pending, request, quote_spans) if flat_output else
                        answer.get('results', {}) if isinstance(answer, dict) else {})
             results = results if isinstance(results, dict) else {}
             for item in pending:

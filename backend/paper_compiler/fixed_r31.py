@@ -75,6 +75,10 @@ CODE = r"""def detect(payload):
         if medium_known:
             evidence.extend(electronic['evidence_ids'])
         required = []
+        # /OL is an explicit declaration of online access in this entry.
+        # Its access-path obligation does not need a second medium guess.
+        if carrier == 'OL':
+            required.append('url')
         if is_electronic or kind == 'webpage':
             if marker and not carrier:
                 failures.append('已证实电子资源缺少载体标识')
