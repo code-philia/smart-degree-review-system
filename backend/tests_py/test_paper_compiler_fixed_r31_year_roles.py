@@ -58,3 +58,9 @@ def test_conference_adjacent_duplicate_publication_year():
 def test_conference_year_pair_inside_container_is_not_publication_duplicate():
     text="AUTHOR A. A useful study[C]//Proceedings of Conference 2020, 2020: Workshop series. 2020: 4-6."
     assert check(text,container="Proceedings of Conference 2020, 2020: Workshop series",kind="conference",year_start=text.rindex("2020"))["status"] == "PASS"
+
+@pytest.mark.parametrize("suffix", [" DOI: 10.1234/example.", " https://example.org/work."])
+@pytest.mark.parametrize("publication,expected", [("2020, 2020", "VIOLATION"), ("2020", "PASS")])
+def test_conference_publication_year_with_identifier_tail(suffix, publication, expected):
+    text="AUTHOR A. A useful study[C]//Proceedings of Conference. " + publication + ": 4-6." + suffix
+    assert check(text,container="Proceedings of Conference",kind="conference")["status"] == expected

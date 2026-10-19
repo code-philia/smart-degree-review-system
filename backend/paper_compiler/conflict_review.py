@@ -9,9 +9,9 @@ import hashlib
 import re
 from .storage import json_bytes
 
-POLICY = 'positive-conflict-witness/2.1'
+POLICY = 'positive-conflict-witness/2.2'
 COMPLETE_WORK_BASIS = 'complete_work_unsupported_attribution'
-COMPLETE_WORK_POLICY = 'complete-work-attribution-witness/2.0'
+COMPLETE_WORK_POLICY = 'complete-work-attribution-witness/2.2'
 TASK = 'positive-conflict-review/1.0'
 INSTRUCTIONS = """Independently assess each supplied citation assertion using only its permitted sources.
 No analysis answer, detector output, benchmark label, desired conclusion, or prior review is supplied.
@@ -115,7 +115,6 @@ def prepare_review(request, raw, data):
             continue
         if not _correct_type(item.get('value'), request['fields'][name]):
             continue
-        complete_work = item.get('basis') == COMPLETE_WORK_BASIS
         reason = item.get('reason')
         if not isinstance(reason, str) or not reason.strip():
             continue
@@ -138,10 +137,7 @@ def prepare_review(request, raw, data):
                 valid = False; break
             assertions.append({'source_id':q['source_id'], 'quote':text, 'origin':origin})
             origins.add(origin)
-        external_quotes = ' '.join(q['quote'] for q in assertions if q['origin'] == 'external')
         context_quotes = ' '.join(q['quote'] for q in assertions if q['origin'] == 'paper')
-        if not complete_work and re.search(r'\b(?:no|not|never|exclusively|only|excludes?|cannot)\b|不|无|仅|排除|没有|未', external_quotes, re.I):
-            continue
         if not re.search(r'[A-Za-z\u4e00-\u9fff]{2,}', context_quotes):
             continue
         if valid and origins == {'paper', 'external'}:
@@ -149,17 +145,15 @@ def prepare_review(request, raw, data):
             permitted = [s for s in sources if
                 (s.get('origin') == 'paper' and s.get('node_id') == context['node_id']) or
                 (s.get('origin') == 'external' and s.get('work_id') in works)]
-            complete_sources = []
-            if complete_work:
-                quoted_works = {by_id[q['source_id']]['work_id'] for q in assertions if q['origin'] == 'external'}
-                if len(quoted_works) != 1:
-                    continue
-                permitted = [s for s in permitted if s['origin'] == 'paper' or s['work_id'] in quoted_works]
-                complete_sources = [{'source_id': s['source_id'], 'work_id': s['work_id'],
-                    'source_sha256': _hash(s['text'])} for s in permitted if s['origin'] == 'external'
-                    and s.get('complete') is True and s.get('coverage') == 'full_text']
-                if not complete_sources:
-                    continue
+            # Review resolves the kind independently. Supply actual complete-work
+            # metadata for either negative proposal, without assuming it exists.
+            quoted_works = {by_id[q['source_id']]['work_id'] for q in assertions if q['origin'] == 'external'}
+            if len(quoted_works) != 1:
+                continue
+            permitted = [s for s in permitted if s['origin'] == 'paper' or s['work_id'] in quoted_works]
+            complete_sources = [{'source_id': s['source_id'], 'work_id': s['work_id'],
+                'source_sha256': _hash(s['text'])} for s in permitted if s['origin'] == 'external'
+                and s.get('complete') is True and s.get('coverage') == 'full_text']
             try:
                 key = _key(item, data)
             except (TypeError, ValueError):
@@ -168,8 +162,7 @@ def prepare_review(request, raw, data):
                 continue
             packet['items'].append({'id':key, 'assertions':assertions,
                 'sources':deepcopy(permitted), 'citation_context':deepcopy(context),
-                'identified_work_ids':sorted(works),
-                'review_kind':COMPLETE_WORK_BASIS if complete_work else 'positive_conflict',
+                'identified_work_ids':sorted(quoted_works),
                 'full_text_sources':complete_sources})
     return packet
 
@@ -231,10 +224,10 @@ Semantic truth is model-assisted; this validates source binding and witness shap
         return verified
     for index, item in enumerate(packet['items']):
         row = rows.get('review-' + str(index))
-        complete_work = item.get('review_kind') == COMPLETE_WORK_BASIS
-        expected = 'confirmed_unsupported_attribution' if complete_work else 'confirmed_conflict'
-        if not isinstance(row, dict) or row.get('decision') != expected:
+        if not isinstance(row, dict) or row.get('decision') not in (
+                'confirmed_conflict', 'confirmed_unsupported_attribution'):
             continue
+        complete_work = row['decision'] == 'confirmed_unsupported_attribution'
         if any(row.get(k) is not True for k in ['same_entity','same_property','same_scope']):
             continue
         relations = {COMPLETE_WORK_BASIS} if complete_work else {
@@ -244,7 +237,7 @@ Semantic truth is model-assisted; this validates source binding and witness shap
         if complete_work:
             ids = row.get('full_text_source_ids')
             expected_ids = {s['source_id'] for s in item['full_text_sources']}
-            if (row.get('attribution_kind') not in {'contribution','method','result'} or
+            if (not expected_ids or row.get('attribution_kind') not in {'contribution','method','result'} or
                     not isinstance(ids, list) or any(not isinstance(x, str) for x in ids) or
                     len(ids) != len(set(ids)) or set(ids) != expected_ids):
                 continue
@@ -317,7 +310,7 @@ def trusted_verification(item, data, proofs):
 
 
 def resolve_review(request, raw, data, *, client, receipt=None):
-    """Only review the narrow missing-word branch; replay exact host receipts.
+    """Independently review every eligible negative proposal; replay exact host receipts.
 
 Uses the supplied client's cache, metering and transport policy. No retries or
 scheduler are introduced. Budget/Frozen exceptions are never downgraded.

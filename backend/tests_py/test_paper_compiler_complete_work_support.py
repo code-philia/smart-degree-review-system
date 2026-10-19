@@ -54,9 +54,16 @@ def test_complete_work_non_support_requires_independent_host_proof():
     assert (raw, data) == before
 
 @pytest.mark.parametrize('change', [{'complete': False}, {'coverage': 'abstract'}, {'work_id': 'foreign'}])
-def test_incomplete_or_foreign_work_never_enters_complete_scope_review(change):
+def test_incomplete_or_foreign_work_cannot_mint_complete_scope_proof(change):
     request, raw, data = sample(); data['sources'][1].update(change)
-    assert review.prepare_review(request, raw, data)['items'] == []
+    packet = review.prepare_review(request, raw, data)
+    if change.get('work_id') == 'foreign':
+        assert packet['items'] == []
+    else:
+        # A reviewer may still establish a positive conflict from an abstract,
+        # but cannot attest to unsupported attribution across a complete work.
+        assert packet['items'] and packet['items'][0]['full_text_sources'] == []
+        assert not review.accept_review(packet, answer(packet))
 
 @pytest.mark.parametrize('change', [
     {'decision': 'insufficient'}, {'decision': 'supported_nonconflict'},

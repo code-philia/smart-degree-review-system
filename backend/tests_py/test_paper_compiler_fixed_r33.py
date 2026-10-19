@@ -27,7 +27,13 @@ def execute(tmp_path,model,gateway=None):
 
 def test_positive_contradiction_with_both_exact_sources_emits_violation(tmp_path,monkeypatch):
  monkeypatch.setenv('PAPER_COMPILER_ANALYSIS_BATCH_SIZE','1')
- row,a,p=execute(tmp_path,Semantic('contradicted','explicit_scope_contradiction','The citing statement attributes a capability the cited source expressly denies.'))
+ from paper_compiler.conflict_review import TASK
+ from test_paper_compiler_conflict_witness import answered_wire
+ class ReviewedSemantic(Semantic):
+  def complete_json(self,task,instructions,data,max_tokens):
+   if task==TASK:return answered_wire(data)
+   return super().complete_json(task,instructions,data,max_tokens)
+ row,a,p=execute(tmp_path,ReviewedSemantic('contradicted','explicit_scope_contradiction','The citing statement attributes a capability the cited source expressly denies.'))
  assert row['status']=='VIOLATION' and row['node_id']=='use' and len(row['evidence_ids'])>=2
  ev={e['id']:e for e in a['evidence']};assert {ev[i]['origin'] for i in row['evidence_ids']}=={'paper','external'}
 

@@ -423,6 +423,7 @@ def _ground_fields(request, raw, data, reference, *, conflict_verifications=None
             if not any(re.search(r'[A-Za-z\u4e00-\u9fff]{2,}', quote) for quote in purpose_quotes):
                 continue
         verified_conflict = None
+        observed_value, observed_basis = item.get('value'), item.get('basis')
         if state == 'observed' and reference:
             basis = item.get('basis')
             if basis not in {'explicit_support', 'explicit_scope_contradiction', 'complete_work_unsupported_attribution'} or not reason:
@@ -431,18 +432,26 @@ def _ground_fields(request, raw, data, reference, *, conflict_verifications=None
             # therefore cannot be conditional only on literal boolean False.
             if item['value'] is False and basis not in {'explicit_scope_contradiction', 'complete_work_unsupported_attribution'}:
                 continue
-            if basis == 'complete_work_unsupported_attribution':
+            if basis in {'explicit_scope_contradiction', 'complete_work_unsupported_attribution'}:
                 from .conflict_review import trusted_verification
                 verified_conflict = trusted_verification(item, data, conflict_verifications)
-                if verified_conflict is None or verified_conflict.get('kind') != basis:
+                if verified_conflict is None:
                     continue
-            if basis == 'explicit_scope_contradiction':
-                external_quotes = ' '.join(s['quote'] for s in spans if s['origin'] == 'external')
-                if not re.search(r'\b(?:no|not|never|exclusively|only|excludes?|cannot)\b|不|无|仅|排除|没有|未', external_quotes, re.I):
-                    from .conflict_review import trusted_verification
-                    verified_conflict = trusted_verification(item, data, conflict_verifications)
-                    if verified_conflict is None:
-                        continue
+                kind = verified_conflict.get('kind')
+                reviewed = {
+                    'positive_conflict': ('contradicted', 'explicit_scope_contradiction'),
+                    'complete_work_unsupported_attribution': ('unsupported_attribution', 'complete_work_unsupported_attribution'),
+                }.get(kind)
+                if reviewed is None:
+                    continue
+                # Only this fixed, known relation contract has a declared kind-to-value
+                # mapping. Never infer the polarity or vocabulary of generated fields.
+                if (request.get('name') == 'fixed_citation_support_v1' and
+                        request.get('targets') == ['ReferenceUse'] and
+                        request['fields'] == {'relation': 'string'}):
+                    observed_value, observed_basis = reviewed
+                elif basis != reviewed[1]:
+                    continue
         ids = list(dict.fromkeys(span['id'] for span in spans))
         if state == 'confirmed_absent':
             scope = item.get('search_scope')
@@ -457,12 +466,12 @@ def _ground_fields(request, raw, data, reference, *, conflict_verifications=None
                 continue
             facts[name] = {'state': state, 'reason': reason, 'evidence_ids': ids}
         else:
-            facts[name] = {'state': state, 'value': deepcopy(item['value']), 'evidence_ids': ids}
+            facts[name] = {'state': state, 'value': deepcopy(observed_value), 'evidence_ids': ids}
             for key in ['reason', 'basis']:
                 if isinstance(item.get(key), str):
-                    facts[name][key] = item[key]
+                    facts[name][key] = observed_basis if key == 'basis' else item[key]
         if verified_conflict is not None:
-            facts[name]['support_verification' if item.get('basis') == 'complete_work_unsupported_attribution' else 'conflict_verification'] = verified_conflict
+            facts[name]['support_verification' if verified_conflict['kind'] == 'complete_work_unsupported_attribution' else 'conflict_verification'] = verified_conflict
         evidence.update({span['id']: span for span in spans})
     return facts, list(evidence.values())
 

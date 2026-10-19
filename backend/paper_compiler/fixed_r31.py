@@ -139,7 +139,7 @@ CODE = r"""def detect(payload):
                         if front_year and journal_year and front_year[0] == journal_year[0]:
                             failures.append('期刊类型标识与刊名之间重复插入出版年')
                     if kind == 'conference' and code == 'C':
-                        adjacent_years = re_findall(r'^\s*[.。]\s*((?:18|19|20|21)[0-9]{2})\s*[,，]\s*((?:18|19|20|21)[0-9]{2})\s*[:：]\s*[0-9]+(?:\s*[-–]\s*[0-9]+)?\s*[.。]?\s*$', after_container)
+                        adjacent_years = re_findall(r'^\s*[.。]\s*((?:18|19|20|21)[0-9]{2})\s*[,，]\s*((?:18|19|20|21)[0-9]{2})\s*[:：]\s*[0-9]+(?:\s*[-–]\s*[0-9]+)?\s*(?:[.。]|$)', after_container)
                         if adjacent_years and adjacent_years[0][0] == adjacent_years[0][1]:
                             failures.append('会议容器后的出版段相邻重复同一出版年')
         end_year = re_findall(r'[.。]\s*((?:18|19|20|21)[0-9]{2})[.。]?\s*$', tail)

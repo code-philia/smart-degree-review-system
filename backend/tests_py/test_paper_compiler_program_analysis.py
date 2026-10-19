@@ -161,7 +161,14 @@ def test_missing_detail_or_topic_difference_cannot_prove_a_false_semantic_fact(t
 
 
 def test_positive_source_contradiction_can_support_false_semantic_fact(tmp_path):
-    model=Model(lambda data:grounded_reference(data,False,'explicit_scope_contradiction',
+    from paper_compiler.conflict_review import TASK
+    from test_paper_compiler_conflict_witness import answered_wire
+    class ReviewedModel(Model):
+        def complete_json(self, task, instructions, data, max_tokens):
+            if task == TASK:
+                return answered_wire(data)
+            return super().complete_json(task, instructions, data, max_tokens)
+    model=ReviewedModel(lambda data:grounded_reference(data,False,'explicit_scope_contradiction',
                                             'The quoted source explicitly excludes computational methods.'))
     gateway=Gateway(text='This work exclusively inventories medieval coins and makes no computational contribution.')
     result=run(tmp_path,paper(tmp_path),[package('ReferenceUse',{'related':'boolean'})],model,gateway)
