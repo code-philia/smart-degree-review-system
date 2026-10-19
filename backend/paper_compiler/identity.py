@@ -3,7 +3,7 @@ import re
 import unicodedata
 from urllib.parse import urlsplit
 
-IDENTITY_POLICY = 'source-backed-arxiv-url-pin/1.3'
+IDENTITY_POLICY = 'source-backed-arxiv-url-pin/1.4'
 from difflib import SequenceMatcher
 
 def normalize_doi(value):
@@ -103,7 +103,12 @@ def resolve_identity(entry:dict,records:list[dict],client=None)->dict:
     if not matches and client:
         possible=[c for c in candidates if c[1] and c[2]]
         if possible:
-            answer=client.complete_json('work-identity/1.0', 'Decide whether a candidate describes the same work. Return same_work:boolean,candidate_id:string,reason:string,title_relation:string,author_supported:boolean,year_supported:boolean. A translated title may match with independent author and year support. A similar topic alone cannot. Never claim nonexistence.', {'entry':entry,'candidates':[{'id':c[0]['id'],'work':c[0]['work']} for c in possible]},1200)
+            from .llm import ModelError
+            try:
+                answer=client.complete_json('work-identity/1.0', 'Decide whether a candidate describes the same work. Return same_work:boolean,candidate_id:string,reason:string,title_relation:string,author_supported:boolean,year_supported:boolean. A translated title may match with independent author and year support. A similar topic alone cannot. Never claim nonexistence.', {'entry':entry,'candidates':[{'id':c[0]['id'],'work':c[0]['work']} for c in possible]},1200)
+            except ModelError as error:
+                return {'state':'unknown','reason':'optional identity model unavailable: '+type(error).__name__+': '+str(error),
+                        'evidence_ids':[record['id'] for record in records]}
             chosen=[c for c in possible if c[0]['id']==answer.get('candidate_id')]
             relation = answer.get('title_relation')
             relation_supported = relation in {'translation','same','minor_variation'}

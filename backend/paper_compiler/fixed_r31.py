@@ -72,6 +72,35 @@ CODE = r"""def detect(payload):
         context = fact(payload, 'r31_source_context', node['id'], 'resource_kind')
         kind = context.get('value') if context.get('state') == 'observed' and context.get('evidence_ids') else None
         conference_book_form = False
+        # A literal journal-format publication block can contradict M without
+        # inferring a work's genre from the marker or a familiar title.
+        if kind is None and complete and code == 'M':
+            serial_names = ['container','year','volume','pages']
+            serial_fields = [fields.get(name, {}) for name in serial_names]
+            serial_ranges = []
+            serial_grounded = True
+            for serial_field in serial_fields:
+                serial_range = serial_field.get('source_range')
+                serial_value = serial_field.get('value')
+                if serial_field.get('state') != 'observed' or not serial_field.get('evidence_ids') or not isinstance(serial_value, str) or not serial_value.strip() or not isinstance(serial_range, list) or len(serial_range) != 2:
+                    serial_grounded = False
+                    break
+                if not all(isinstance(v, int) for v in serial_range) or not 0 <= serial_range[0] < serial_range[1] <= len(text):
+                    serial_grounded = False
+                    break
+                if ''.join(text[serial_range[0]:serial_range[1]].split()) != ''.join(serial_value.split()):
+                    serial_grounded = False
+                    break
+                serial_ranges.append(serial_range)
+            book_evidence = any(fields.get(name, {}).get('state') == 'observed' and fields.get(name, {}).get('value') for name in ['publisher','place','edition','version'])
+            if serial_grounded and not book_evidence:
+                container_text = text[serial_ranges[0][0]:serial_ranges[0][1]]
+                ordered = all(serial_ranges[i][1] <= serial_ranges[i+1][0] for i in range(3))
+                publication_tail = text[serial_ranges[0][1]:]
+                if ordered and re_search(r'(?i)学报|期刊|杂志|\b(?:journal|transactions)\b', container_text) and re_matches(r'\s*[,，]\s*(?:18|19|20|21)[0-9]{2}\s*[,，]\s*[0-9]+(?:\s*[(（]\s*[0-9]+\s*[)）])?\s*[:：]\s*[0-9]+(?:\s*[-–]\s*[0-9]+)?\s*[.。]?\s*', publication_tail):
+                    failures.append('图书类型标识与有完整原文字段证据的期刊出版格式矛盾')
+                    for serial_field in serial_fields:
+                        evidence.extend(serial_field['evidence_ids'])
         if kind in expected:
             evidence.extend(context['evidence_ids'])
             if kind in ['book','book_chapter'] and code == 'C':

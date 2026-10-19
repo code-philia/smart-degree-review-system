@@ -9,6 +9,7 @@ import pymupdf
 
 from .citations import attach_citations
 from .contracts import SCHEMA_VERSION, MODEL_VERSION, validate_ir
+from .llm import ModelError
 
 FRONTEND_VERSION='pdf-source-frontend/1.1'
 BIB_HEADING=re.compile(r'^(?:参考文献|參考文獻|References|Bibliography)\s*$',re.I)
@@ -60,7 +61,7 @@ def _observe(pdf):
 def _is_bibliography_heading(text):
     return bool(BIB_HEADING.fullmatch(text.strip()) or re.sub(r'\s+','',text) in {'参考文献','參考文獻'})
 
-def _bibliography_heading(pages,client):
+def _bibliography_heading(pages,client,*,observations=None):
     flat=[(page,line) for page in pages for line in page['lines']];candidates=[]
     for index,(page,line) in enumerate(flat):
         if not _is_bibliography_heading(line['text']):continue
@@ -70,9 +71,17 @@ def _bibliography_heading(pages,client):
             'preceding':[other['text'] for _,other in flat[max(0,index-3):index]],'following':following,'first_numeric_key':numbers[0] if numbers else None})
     if not candidates:return None,'not_found'
     if len(candidates)>1 and client is not None:
-        answer=client.complete_json('bibliography-boundary/1.0',
-            'Identify the start heading of the MAIN actual bibliography from the supplied source candidates. Exclude table-of-contents labels, diagram labels, prompt examples and running headers. Use following bibliographic entries and page position. Return heading_id (one exact supplied ID, or null if unclear) and reason. Do not invent source IDs.',
-            {'page_count':len(pages),'candidates':candidates},1200)
+        try:
+            answer=client.complete_json('bibliography-boundary/1.0',
+                'Identify the start heading of the MAIN actual bibliography from the supplied source candidates. Exclude table-of-contents labels, diagram labels, prompt examples and running headers. Use following bibliographic entries and page position. Return heading_id (one exact supplied ID, or null if unclear) and reason. Do not invent source IDs.',
+                {'page_count':len(pages),'candidates':candidates},1200)
+        except ModelError as error:
+            if observations is not None:
+                observations.append({'task':'bibliography-boundary/1.0','status':'unavailable',
+                    'error_type':type(error).__name__,'error_message':str(error),
+                    'candidate_line_ids':[candidate['id'] for candidate in candidates],
+                    'decision':'unlocated; no candidate inferred after optional model failure'})
+            return None,'model_error_unlocated'
         if answer.get('heading_id') in {c['id'] for c in candidates}:return answer['heading_id'],'model_selected_source_heading'
         if answer.get('heading_id') is not None:raise ValueError('bibliography selector returned an unknown source line')
     # Main bibliography commonly starts at key 1; later diagram labels and running headers do not.
@@ -83,7 +92,8 @@ def build_paper(pdf: Path, *, client=None, layout_cache=None) -> dict:
     pdf=Path(pdf).resolve()
     digest=hashlib.sha256(pdf.read_bytes()).hexdigest()
     pages=_observe(pdf)
-    bibliography_heading,bibliography_method=_bibliography_heading(pages,client)
+    bibliography_observations=[]
+    bibliography_heading,bibliography_method=_bibliography_heading(pages,client,observations=bibliography_observations)
     nodes=[];by_id={}
     def add(kind,text,parent,attrs=None,lines=None,node_id=None):
         nid=node_id or 'n'+str(len(nodes))
@@ -194,6 +204,10 @@ def build_paper(pdf: Path, *, client=None, layout_cache=None) -> dict:
                     'bibliography':{'status':'partial','reason':'main bibliography candidate selected; full field/boundary coverage requires verification'},
                     'reference_uses':{'status':'partial','reason':'numeric and author-year source pass; semantic/OCR coverage verification pending'}},
         'profile':{'id':'archive479-citations-v1'},'metadata':{'frontend_version':FRONTEND_VERSION,'bibliography_heading':bibliography_heading,'bibliography_selection':bibliography_method},'extensions':{}}
+    if bibliography_observations:
+        ir['metadata']['bibliography_observations']=bibliography_observations
+        ir['coverage']['bibliography']={'status':'partial','reason':'main bibliography unlocated after optional model error; no candidate selected'}
+        ir['coverage']['reference_uses']={'status':'partial','reason':'bibliography unlocated; citation binding and semantic coverage remain unverified'}
     attach_citations(ir)
     validate_ir(ir,pdf.parent)
     return ir

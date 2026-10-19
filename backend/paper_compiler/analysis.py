@@ -143,9 +143,16 @@ def parse_entries(ir,a,client,*,batch_size=None):
     instructions = BIBLIOGRAPHY_INSTRUCTIONS + (BIBLIOGRAPHY_BATCH_INSTRUCTIONS if opt_in else '')
     for batch in _bibliography_batches(entries, batch_size, execution['input_soft_limit_bytes'] if opt_in else None):
         max_tokens = min(16384, max(6000, 3000*len(batch))) if opt_in else 6000
+        extraction_error=None
         if client is None:
             answer={}
-        else:answer=client.complete_json('bibliography-fields/1.1',instructions,_bibliography_data(batch),max_tokens)
+        else:
+            from .llm import ModelError
+            try:
+                answer=client.complete_json('bibliography-fields/1.1',instructions,_bibliography_data(batch),max_tokens)
+            except ModelError as error:
+                answer={}
+                extraction_error='optional bibliography field extraction unavailable: '+type(error).__name__+': '+str(error)
         raw={item.get('id'):item for item in answer.get('entries',[]) if isinstance(item,dict)}
         for node in batch:
             item=raw.get(node['id'],{});complete=item.get('complete') is True;fields=item.get('fields',{})
@@ -155,6 +162,9 @@ def parse_entries(ir,a,client,*,batch_size=None):
             facts={name:_extract_field(node,name,fields.get(name),complete,a) for name in FIELD_TYPES}
             results[node['id']]=facts
             a['coverage'][node['id']]={'status':'complete' if complete else 'partial','protocol':'bibliography-fields/1.1'}
+            if extraction_error is not None:
+                results[node['id']]={name:unknown(extraction_error) for name in FIELD_TYPES}
+                a['coverage'][node['id']]['reason']=extraction_error
     _entry_shapes(ir,a)
     _resource_attributes(ir,a)
     return a
