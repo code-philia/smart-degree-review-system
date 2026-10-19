@@ -14,7 +14,8 @@ from .analysis import bibliography_execution_policy, enrich, unknown
 from .citations import citation_context
 from .contracts import ATTRS, COMMON, ir_hash, reject_answers, require, validate_analysis, validate_ir
 from .identity import _author_match
-from .model_runtime import validate_model
+from .llm import LEGACY_INPUT_SERIALIZATION, input_serialization_policy
+from .model_runtime import classification_execution_policy, validate_model
 from .evidence import VERSION as EVIDENCE_VERSION, CONTENT_VERSION
 from .registry import REGISTRY
 from .storage import json_bytes, write_json_atomic
@@ -66,7 +67,12 @@ def analysis_execution_policy():
             'max_tokens_per_node': 3000, 'max_tokens_per_batch': min(16384, 3000 * size),
             'source_pool': 'none' if size == 1 else 'exact_records',
             'batch_protocol_sha256': None if size == 1 else hashlib.sha256(BATCH_INSTRUCTIONS.encode()).hexdigest()}
-    if size > 1:policy['bibliography'] = bibliography_execution_policy()
+    if size > 1:
+        policy['bibliography'] = bibliography_execution_policy()
+        policy['classification'] = classification_execution_policy()
+    serialization = input_serialization_policy()
+    if serialization != LEGACY_INPUT_SERIALIZATION:
+        policy['input_serialization'] = serialization
     return policy
 
 
@@ -451,6 +457,9 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
               'content_version': CONTENT_VERSION}
     if batch_size > 1:
         policy['generated_batch'] = execution_policy
+    serialization = input_serialization_policy(config.get('PAPER_COMPILER_INPUT_SERIALIZATION'))
+    if serialization != LEGACY_INPUT_SERIALIZATION:
+        policy['input_serialization'] = serialization
     paper_ir_sha256 = ir_hash(ir)
     fingerprint = _hash({'ir': paper_ir_sha256, 'packages': definitions, 'capabilities': capabilities, 'policy': policy})
     cache_dir = Path(cache_dir)
@@ -477,8 +486,11 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
         known.discard('external_work'); known.add('bibliography_fields')
     builtin_package = {'rule_ir': {'requires': sorted(known)}, 'registry': REGISTRY}
     projected = _builtin_ir(ir)
+    builtin_namespace = _hash(definitions)
+    if serialization != LEGACY_INPUT_SERIALIZATION:
+        builtin_namespace = _hash({'definitions': definitions, 'input_serialization': serialization})
     analysis = enrich(projected, [builtin_package], client=client, gateway=None if controlled else gateway,
-                      cache_dir=cache_dir / 'builtin-analysis' / _hash(definitions), snapshot_id=policy['snapshot'])
+                      cache_dir=cache_dir / 'builtin-analysis' / builtin_namespace, snapshot_id=policy['snapshot'])
     analysis = deepcopy(analysis)
     analysis['paper_ir_sha256'] = paper_ir_sha256
     for node in ir['nodes']:
