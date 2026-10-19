@@ -213,7 +213,7 @@ def test_classifier_rejects_invalid_batch_policy_before_model_call(tmp_path,monk
     assert not fake.calls
 
 
-def test_transport_failure_keeps_completed_batch_cache_for_explicit_resume(tmp_path,monkeypatch):
+def test_transport_failure_preserves_sections_and_successful_batch_cache(tmp_path,monkeypatch):
     from paper_compiler.llm import ModelError
     monkeypatch.setenv('PAPER_COMPILER_ANALYSIS_BATCH_SIZE','2')
     ir=paper(tmp_path,5);sent=[];fail=[True]
@@ -223,11 +223,31 @@ def test_transport_failure_keeps_completed_batch_cache_for_explicit_resume(tmp_p
         return response('{"classifications":[]}',usage={'prompt_tokens':10,'completion_tokens':5})
     ledger=BudgetLedger(tmp_path/'budget.db',Decimal('200'))
     obj=MaasClient(config(tmp_path),ledger,tmp_path/'cache','test','200',transport=transport,max_attempts=1)
-    with pytest.raises(ModelError):runtime.apply_model(ir,model(),client=obj)
-    assert len(sent)==2 and len(list((tmp_path/'cache/responses').glob('*.json')))==1
+    original=deepcopy(ir)
+    partial=runtime.apply_model(ir,model(),client=obj)
+    assert len(sent)==3 and len(list((tmp_path/'cache/responses').glob('*.json')))==2
+    assert ir==original and [byid(partial,f's{i}')['kind'] for i in range(5)]==['Section']*5
+    assert partial['extensions']['paper_model_classification_failures']==[{
+        'producer':'paper-model-classification-batch/1.0',
+        'section_ids':['s2','s3'],'error_type':'ModelError'}]
+    validate_ir(partial)
     assert ledger.summary()['uncertain_requests']==1
     fail[0]=False
     runtime.apply_model(ir,model(),client=obj)
     assert len(sent)==4
-    assert sent[1]==sent[2] and sent[0]!=sent[2]
+    assert sent[1]==sent[3] and sent[0]!=sent[3]
     assert ledger.summary()['requests']==4 and ledger.summary()['uncertain_requests']==1
+
+
+def test_failed_classifier_batch_keeps_successful_method_nodes(tmp_path,monkeypatch):
+    from paper_compiler.llm import ModelError
+    monkeypatch.setenv('PAPER_COMPILER_ANALYSIS_BATCH_SIZE','2')
+    ir=paper(tmp_path,5)
+    def answer(data):
+        sections=data['sections']
+        if sections[0]['node_id']=='s2':raise ModelError('unavailable model observation')
+        return {'classifications':[{'node_id':x['node_id'],'kind':'Method',
+            'quote':byid(ir,'p'+x['node_id'][1:])['text']} for x in sections]}
+    out=runtime.apply_model(ir,model(),client=Capture(answer))
+    assert [byid(out,f's{i}')['kind'] for i in range(5)]==['Method','Method','Section','Section','Method']
+    validate_ir(out)

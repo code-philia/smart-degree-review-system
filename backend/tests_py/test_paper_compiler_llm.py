@@ -127,3 +127,32 @@ def test_effective_model_fingerprint_binds_versions_but_not_credentials():
     assert 'API_KEY' not in str(public_model_config(a))
     assert model_fingerprint(a)==model_fingerprint({**a,'MAAS_API_KEY':'rotated'})
     assert model_fingerprint(a)!=model_fingerprint({**a,'MAAS_MODEL_VERSION':'two'})
+
+
+def test_model_transport_works_when_ambient_proxy_is_unavailable(monkeypatch):
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    import threading
+    from paper_compiler.llm import _http
+    class Origin(BaseHTTPRequestHandler):
+        def do_POST(self):
+            self.rfile.read(int(self.headers['Content-Length']))
+            body=b'{"accepted":true}'
+            self.send_response(200)
+            self.send_header('Content-Type','application/json')
+            self.send_header('Content-Length',str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        def log_message(self,*args):pass
+    server=ThreadingHTTPServer(('127.0.0.1',0),Origin)
+    thread=threading.Thread(target=server.serve_forever,daemon=True)
+    thread.start()
+    for name in ['HTTP_PROXY','http_proxy','HTTPS_PROXY','https_proxy']:
+        monkeypatch.setenv(name,'http://127.0.0.1:1')
+    monkeypatch.setenv('NO_PROXY','')
+    monkeypatch.setenv('no_proxy','')
+    try:
+        assert _http('http://127.0.0.1:'+str(server.server_port),{}, {'model':'test'},2)=={'accepted':True}
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(2)

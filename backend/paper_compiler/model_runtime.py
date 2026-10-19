@@ -7,6 +7,7 @@ import re
 
 from .contracts import ATTRS, COMMON, KINDS, MODEL_VERSION, reject_answers, require
 from .storage import json_bytes
+from .llm import ModelError
 
 DEFINITION_VERSION = 'paper-model-definition/1.0'
 CLASSIFICATION_VERSION = 'paper-model-classification/1.0'
@@ -256,7 +257,17 @@ def _classify_sections(ir, model, client):
         instructions = CLASSIFICATION_BATCH_INSTRUCTIONS
     accepted = {}
     for data in batches:
-        answer = client.complete_json(policy['task'], instructions, data, 4000)
+        try:
+            answer = client.complete_json(policy['task'], instructions, data, 4000)
+        except ModelError as error:
+            # A Section subtype is optional source-backed enrichment. Preserve
+            # the original Section when its observation is unavailable; other
+            # batches and rules can still use their independent evidence.
+            ir.setdefault('extensions', {}).setdefault('paper_model_classification_failures', []).append({
+                'producer': policy['task'],
+                'section_ids': [section['node_id'] for section in data['sections']],
+                'error_type': type(error).__name__})
+            continue
         entries = answer.get('classifications', []) if isinstance(answer, dict) else []
         if not isinstance(entries, list):
             continue
