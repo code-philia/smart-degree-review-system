@@ -14,7 +14,7 @@ from .analysis import bibliography_execution_policy, enrich, unknown
 from .citations import citation_context
 from .contracts import ATTRS, COMMON, ir_hash, reject_answers, require, validate_analysis, validate_ir
 from .identity import _author_match
-from .llm import LEGACY_INPUT_SERIALIZATION, input_serialization_policy, response_decoder_policy
+from .llm import LEGACY_INPUT_SERIALIZATION, input_serialization_policy, response_decoder_policy, ModelError
 from .model_runtime import classification_execution_policy, validate_model
 from .evidence import VERSION as EVIDENCE_VERSION, CONTENT_VERSION
 from .registry import REGISTRY
@@ -54,6 +54,39 @@ Use the supplied node.id as each key. Return every supplied node, including unkn
 Do not transfer answers, citation contexts, evidence or cited works between nodes.
 An uncertain target stays unknown and does not change any other target's result.
 """
+
+
+FLAT_BATCH_TASK = 'grounded-observations-flat/1.0'
+FLAT_BATCH_INSTRUCTIONS = """
+Return a single JSON object with a FLAT observations array. One record per
+(node_id, field), with state, value when observed, reason, basis and quotes.
+This flat format replaces the nested fields/results wrappers shown above.
+Example: {"observations":[{"node_id":"n1","field":"name","state":"unknown","reason":"source insufficient","quotes":[]},{"node_id":"n2","field":"name","state":"observed","value":"exact value","basis":"direct_observation","reason":"source states value","quotes":[{"source_id":"s2","quote":"exact value"}]}]}.
+Never emit a results object or nested fields object. Return every requested
+field for each supplied node.id, using only that node's permitted source_ids.
+Sources are an exact-record pool; source_ids select the records allowed for
+each target. Ground each observation independently in those exact records.
+Do not borrow another target's citation, content, source or answer. Missing
+or uncertain evidence stays unknown. Preserve all citation grounding rules.
+"""
+
+
+def _flat_results(answer, pending, request):
+    results = {}
+    allowed = {item['node']['id'] for item in pending}
+    rows = answer.get('observations', []) if isinstance(answer, dict) else []
+    if not isinstance(rows, list):
+        return results
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        nid, field = row.get('node_id'), row.get('field')
+        if not isinstance(nid, str) or nid not in allowed or not isinstance(field, str) or field not in request['fields']:
+            continue
+        fields = results.setdefault(nid, {'fields': {}})['fields']
+        fields[field] = ({'state': 'unknown', 'reason': 'duplicate flat observation'}
+                         if field in fields else {k: v for k, v in row.items() if k not in {'node_id', 'field'}})
+    return results
 
 
 def analysis_execution_policy():
@@ -449,6 +482,10 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
     validate_ir(ir)
     execution_policy = analysis_execution_policy()
     batch_size = execution_policy['batch_size']
+    flat_output = batch_size > 1 and getattr(client, 'json_output', False) is True
+    if flat_output:
+        execution_policy = {**execution_policy, 'task': FLAT_BATCH_TASK,
+            'batch_protocol_sha256': hashlib.sha256(FLAT_BATCH_INSTRUCTIONS.encode()).hexdigest()}
     packages = list(packages)
     reject_answers(packages)
     if evidence_environment is not None:
@@ -595,10 +632,19 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
             if not pending:
                 return
             data = _batch_data(pending)
-            answer = client.complete_json(BATCH_TASK,
-                request['instructions'] + '\n' + GROUNDING_POLICY + '\n' + BATCH_INSTRUCTIONS,
-                data, min(16384, 3000 * len(pending)))
-            results = answer.get('results', {}) if isinstance(answer, dict) else {}
+            if flat_output:
+                data['schema_version'] = FLAT_BATCH_TASK
+            try:
+                answer = client.complete_json(FLAT_BATCH_TASK if flat_output else BATCH_TASK,
+                    request['instructions'] + '\n' + GROUNDING_POLICY + '\n' +
+                    (FLAT_BATCH_INSTRUCTIONS if flat_output else BATCH_INSTRUCTIONS),
+                    data, min(16384, 3000 * len(pending)))
+            except ModelError:
+                # An unusable semantic response supplies no evidence. Do not
+                # retry it or discard the other grounded nodes in this paper.
+                answer = {}
+            results = (_flat_results(answer, pending, request) if flat_output else
+                       answer.get('results', {}) if isinstance(answer, dict) else {})
             results = results if isinstance(results, dict) else {}
             for item in pending:
                 raw = results.get(item['node']['id'], {})

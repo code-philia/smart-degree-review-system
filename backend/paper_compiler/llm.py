@@ -179,7 +179,12 @@ class MaasClient:
                    'max_completion_tokens': max_tokens, 'stream': False, 'temperature': 0,
                    'chat_template_kwargs': {'thinking': self.program_synthesis_thinking and
                        task.split('/', 1)[0] == 'paper-program-synthesis'}}
-        if self.json_output:
+        # Keep verified extraction/classification cache keys unchanged. The
+        # new format constraint is for semantic observations and alert review.
+        if self.json_output and task.split('/', 1)[0] in {
+                'generated-analysis', 'generated-analysis-batch',
+                'grounded-observations-flat', 'publication-evidence-audit',
+                'publication-evidence-review'}:
             payload['response_format'] = {'type': 'json_object'}
         fingerprint = {'task': task, 'model_version': self.config.get('MAAS_MODEL_VERSION'),
                        'endpoint': ALLOWED_BASE, 'adapter_version': 2, 'payload': payload}
@@ -216,8 +221,8 @@ class MaasClient:
                           'response_decoder': response_decoder_policy()}
                 if self.input_serialization != LEGACY_INPUT_SERIALIZATION:
                     record['input_serialization'] = self.input_serialization
-                if self.json_output:
-                    record['response_format'] = {'type': 'json_object'}
+                if 'response_format' in payload:
+                    record['response_format'] = payload['response_format']
                 if payload['chat_template_kwargs']['thinking']:
                     record['program_synthesis_thinking'] = True
                 try:

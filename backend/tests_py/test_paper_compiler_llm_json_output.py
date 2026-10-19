@@ -27,3 +27,5 @@ def test_json_constraint_uses_actual_wire_key_cache_and_existing_ledger(tmp_path
     assert (tmp_path/'cache/responses'/(key+'.json')).is_file()
     assert ledger.summary()['requests']==2
     assert ledger.summary()['spent_cny']=='0.001200'
+
+    assert normal.request_fingerprint('bibliography-fields/1.1','Return JSON',data,100)==constrained.request_fingerprint('bibliography-fields/1.1','Return JSON',data,100)
