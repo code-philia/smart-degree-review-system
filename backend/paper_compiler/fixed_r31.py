@@ -291,6 +291,18 @@ CODE = r"""def detect(payload):
         for name in ['access_date']:
             field = fields.get(name, {})
             if field.get('state') == 'observed' and not re_matches(r'[0-9]{4}-[0-9]{2}-[0-9]{2}', field.get('value', '')):
+                access_range = field.get('source_range')
+                shared_year_span = source_year.get('state') == 'observed' and field.get('value') == source_year.get('value') and isinstance(access_range, list) and len(access_range) == 2 and access_range == source_year_range
+                if shared_year_span:
+                    shared_year_span = all(isinstance(v, int) for v in access_range) and 0 <= access_range[0] < access_range[1] <= len(text) and text[access_range[0]:access_range[1]] == str(field.get('value'))
+                if shared_year_span:
+                    access_prefix = text[:access_range[0]]
+                    access_suffix = text[access_range[1]:]
+                    bracketed_date = re_search(r'[\[［]\s*$', access_prefix) and re_search(r'^\s*[\]］]', access_suffix)
+                    explicit_access = re_search(r'(?i)(?:\baccessed(?:\s+on)?|\baccess(?:\s+date)?|\bretrieved(?:\s+on)?|(?:引用|访问|检索)(?:日期|时间|于)?)\s*[:：]?\s*$', access_prefix)
+                    if not bracketed_date and not explicit_access:
+                        gaps.append('出版年与引用日期共用同一来源范围，引用日期角色缺少原文正证')
+                        continue
                 failures.append('已著录日期不符合YYYY-MM-DD：' + name)
         # Use the grounded container boundary, not the extractor's first year.
         container = fields.get('container', {})
@@ -324,7 +336,10 @@ CODE = r"""def detect(payload):
                     if kind == 'conference' and code == 'C':
                         adjacent_years = re_findall(r'^\s*[.。]\s*((?:18|19|20|21)[0-9]{2})\s*[,，.。]\s*((?:18|19|20|21)[0-9]{2})\s*[:：]\s*[0-9]+(?:\s*[-–]\s*[0-9]+)?\s*(?:[.。]|$)', after_container)
                         if adjacent_years and adjacent_years[0][0] == adjacent_years[0][1]:
-                            failures.append('会议容器后的出版段相邻重复同一出版年')
+                            # A conference publication can use a serial's
+                            # year/volume grammar. One extracted year range
+                            # cannot establish two publication-year roles.
+                            gaps.append('会议出版段相同数值的年份及卷号角色未确立，不能仅凭相等认定重复出版年')
         # A terminal duplicate in the declared conference publication segment
         # does not depend on which occurrence the year extractor selected.
         if complete and code == 'C' and not access_present:

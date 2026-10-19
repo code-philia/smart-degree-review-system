@@ -96,7 +96,7 @@ function toCompilerResult(output,selectedRuleIds) {
 }
 function compilerBudget(name) {
   const value = process.env[name] === undefined ? '200' : process.env[name].trim();
-  if (!/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(value) || !Number.isFinite(Number(value)) || Number(value) <= 0 || Number(value) > 400)
+  if (!/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(value) || !Number.isFinite(Number(value)) || Number(value) <= 0 || Number(value) > 500)
     throw failure(503,'COMPILER_BUDGET_CONFIG_INVALID','检测预算配置无效，请联系管理员');
   return value;
 }
