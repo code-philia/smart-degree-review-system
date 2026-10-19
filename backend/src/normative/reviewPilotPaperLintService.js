@@ -8,6 +8,10 @@ const { getSixRules, isSixRuleId, runSixRules, SIX_RULE_TIMEOUT_MS } = require('
 
 const { getCompilerRules, isCompilerRuleId, runCompilerRules } = require('./paperCompilerService');
 
+const RETIRED_RULE_IDS = new Set([
+  'claim_evidence_inconsistency_check',
+  'strong_claim_without_evidence_check',
+]);
 const MAX_PDF_BYTES = 50 * 1024 * 1024;
 const MAX_ENGINE_OUTPUT_BYTES = 30 * 1024 * 1024;
 const ENGINE_TIMEOUT_MS = 5 * 60 * 1000;
@@ -193,7 +197,8 @@ async function getPaperLintCatalog({ refresh = false } = {}) {
     catalogPromise = (async () => {
       try {
         const existing = await runBridge(['--catalog'], 30 * 1000);
-        return { ...existing, rules: [...LOCAL_RULES, ...getSixRules(), ...getCompilerRules(), ...existing.rules] };
+        return { ...existing, rules: [...LOCAL_RULES, ...getSixRules(), ...getCompilerRules(), ...existing.rules]
+          .filter((rule) => !RETIRED_RULE_IDS.has(rule.rule_id)) };
       } catch {
         // A temporary bridge failure must not hide the existing rule catalog indefinitely.
         catalogExpiresAt = 0;
@@ -224,6 +229,8 @@ function validateSelectedRuleIds(catalog, selectedRuleIds) {
     new Set((selectedRuleIds || []).map((ruleId) => String(ruleId).trim()).filter(Boolean)),
   );
   if (normalized.length === 0) throw createHttpError(400, '请至少选择一条审查规则');
+  const retired = normalized.find((ruleId) => RETIRED_RULE_IDS.has(ruleId));
+  if (retired) throw createHttpError(400, `该审查规则已下线：${retired}`);
   const unknown = normalized.find((ruleId) => !knownIds.has(ruleId));
   if (unknown) throw createHttpError(400, `未知的审查规则：${unknown}`);
   const unavailable = catalog.rules.find(
