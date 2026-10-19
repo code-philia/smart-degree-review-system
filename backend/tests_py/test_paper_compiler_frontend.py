@@ -147,3 +147,78 @@ def test_model_selects_only_source_grounded_bibliography_heading(tmp_path):
     pdf=tmp_path/'model-boundary.pdf';doc.save(pdf);doc.close();model=Model();ir=build_paper(pdf,client=model)
     assert model.calls==1
     assert len([n for n in ir['nodes'] if n['kind']=='BibliographyEntry'])==1
+
+
+def test_split_source_acknowledgement_heading_ends_bibliography(tmp_path):
+    path = tmp_path/'split-acknowledgements.pdf'
+    doc = pymupdf.open()
+    page = doc.new_page(width=600, height=800)
+    page.insert_text((60,100), 'References', fontsize=16)
+    page.insert_text((60,140), '[1] Smith. A wrapped reference about', fontsize=12)
+    page = doc.new_page(width=600, height=800)
+    page.insert_text((60,100), 'distributed systems[J]. Journal, 2024, 1: 1-9.', fontsize=12)
+    page.insert_text((250,180), '致', fontsize=16, fontname='china-s')
+    page.insert_text((282,180), '谢', fontsize=16, fontname='china-s')
+    page.insert_text((60,230), 'Thanks to the laboratory.', fontsize=12)
+    page.insert_text((60,270), '[1] Research project, 2023-2026.', fontsize=12)
+    doc.save(path); doc.close()
+    ir = build_paper(path)
+    entries = kinds(ir, 'BibliographyEntry')
+    assert len(entries) == 1
+    assert 'distributed systems' in entries[0]['text']
+    assert 'Thanks' not in entries[0]['text']
+    assert 'Research project' not in entries[0]['text']
+    acknowledgements = kinds(ir, 'Acknowledgements')
+    assert len(acknowledgements) == 1
+    heading = next(n for n in kinds(ir, 'Heading') if n['id'] in acknowledgements[0]['children'])
+    assert ''.join(heading['text'].split()) == '致谢'
+    assert len(heading['provenance']) == 2
+    assert any(n['kind'] == 'Paragraph' and 'Research project' in (n['text'] or '') for n in ir['nodes'])
+
+
+def test_independent_achievement_directory_heading_excludes_projects(tmp_path):
+    path = tmp_path/'achievement-directory.pdf'
+    doc = pymupdf.open()
+    page = doc.new_page(width=600, height=800)
+    page.insert_text((60,100), 'References', fontsize=16)
+    page.insert_text((60,140), '[1] Smith. A genuine work[J]. Journal, 2024.', fontsize=12)
+    page = doc.new_page(width=600, height=800)
+    page.insert_text((200,120), '学术论文和科研成果目录', fontsize=16, fontname='china-s')
+    page.insert_text((60,180), '[1] National research project, 2023-2026.', fontsize=12)
+    doc.save(path); doc.close()
+    ir = build_paper(path)
+    assert len(kinds(ir, 'BibliographyEntry')) == 1
+    assert not any('research project' in n['text'] for n in kinds(ir, 'BibliographyEntry'))
+    assert any(n['kind'] == 'Heading' and n['text'] == '学术论文和科研成果目录' for n in ir['nodes'])
+    assert any(n['kind'] == 'Paragraph' and 'research project' in n['text'] for n in ir['nodes'])
+    assert ir['coverage']['bibliography']['status'] == 'partial'
+
+
+def test_bibliography_keyword_title_and_subheading_do_not_end_cross_page_entries(tmp_path):
+    path = make_pdf(tmp_path, [
+        [('References',100,16),('[1] Smith. A collected work named',140,12),
+         ('Appendix',158,12),('Press, 2024.',176,12)],
+        [('Journal Articles',100,16),('[2] Jones. Acknowledgements and research achievements[J].',140,12),
+         ('Journal of Appendices, 2023, 2: 2-9.',158,12)]])
+    ir = build_paper(path)
+    entries = kinds(ir, 'BibliographyEntry')
+    assert len(entries) == 2
+    assert 'Appendix' in entries[0]['text'] and 'Press, 2024.' in entries[0]['text']
+    assert 'Journal of Appendices' in entries[1]['text']
+    assert not kinds(ir, 'Appendix')
+    assert not kinds(ir, 'Acknowledgements')
+
+
+def test_small_repeated_end_page_header_is_not_appended_to_last_reference(tmp_path):
+    path = make_pdf(tmp_path, [
+        [('Thesis running title',70,9),('References',120,16),
+         ('[1] Smith. A genuine work[J]. Journal, 2024.',160,12)],
+        [('Thesis running title',70,9),('Acknowledgements',90,9),
+         ('Acknowledgements',150,16),('Thanks to the laboratory.',210,12)]])
+    ir = build_paper(path)
+    entry = kinds(ir, 'BibliographyEntry')[0]
+    assert entry['text'] == '[1] Smith. A genuine work[J]. Journal, 2024.'
+    assert {span['page_index'] for span in entry['provenance']} == {0}
+    headers = [n for n in ir['nodes'] if n['attrs'].get('role') == 'running_header']
+    assert any(n['text'] == 'Thesis running title' and n['provenance'][0]['page_index'] == 1 for n in headers)
+    assert any(n['text'] == 'Acknowledgements' and n['provenance'][0]['page_index'] == 1 for n in headers)

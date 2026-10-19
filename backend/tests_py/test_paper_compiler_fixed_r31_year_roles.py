@@ -1,5 +1,6 @@
 """Direct sandbox tests for journal year position and unresolved field roles."""
 import pytest
+from paper_compiler_r31_fixtures import bind_type
 from paper_compiler.programs import execute_pure
 from paper_compiler import fixed_r31
 
@@ -8,6 +9,7 @@ def observed(text, value, start=None):
     return {"state":"observed", "value":value, "source_range":[start,start+len(value)],"evidence_ids":["entry"]}
 
 def check(text, title="A useful study", container="Journal of Studies", kind="journal_article", year_start=None):
+    if year_start is None:year_start=text.index("2020",text.index(container)+len(container))
     fields={"title":observed(text,title), "container":observed(text,container),
             "year":observed(text,"2020",year_start)}
     payload={"ir":{"nodes":[{"id":"entry","kind":"BibliographyEntry","text":text}]},
@@ -16,6 +18,7 @@ def check(text, title="A useful study", container="Journal of Studies", kind="jo
                                     "r31_source_context":{"entry":{
                                       "resource_kind":{"state":"observed","value":kind,"evidence_ids":["entry"]},
                                       "electronic_medium":{"state":"unknown"}}}}}}
+    bind_type(payload["analysis"],"entry",text,kind,year="2020",year_start=year_start)
     return execute_pure(fixed_r31.build_r31_package()["code"], payload)[0]
 
 @pytest.mark.parametrize("marker", ["J", "J/OL"])
@@ -40,7 +43,7 @@ def test_conference_name_year_is_not_extra_publication_year():
 def test_title_publication_year_overlap_is_unknown_not_violation():
     title="A useful study of vio- 2020,\nlation"
     text=f"AUTHOR A. {title}[C]//Proceedings of Conference. 2020: 4-6."
-    row=check(text,title=title,container="Proceedings of Conference",kind="conference")
+    row=check(text,title=title,container="Proceedings of Conference",kind="conference",year_start=text.index("2020"))
     assert row["status"] == "UNKNOWN"
     assert "来源范围重叠" in row["message"]
 

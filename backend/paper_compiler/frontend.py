@@ -11,11 +11,11 @@ from .citations import attach_citations
 from .contracts import SCHEMA_VERSION, MODEL_VERSION, validate_ir
 from .llm import ModelError
 
-FRONTEND_VERSION='pdf-source-frontend/1.1'
+FRONTEND_VERSION='pdf-source-frontend/1.2'
 BIB_HEADING=re.compile(r'^(?:参考文献|參考文獻|References|Bibliography)\s*$',re.I)
 ENTRY=re.compile(r'^\s*(?:[\[［](\d{1,4})[\]］]|(\d{1,4})[.、．])\s*')
 NUMBERED_HEADING=re.compile(r'^(?:(第[一二三四五六七八九十百\d]+章)\s*|((?:\d+\.)*\d+)\s+)(\S.{0,65})$')
-BACK_HEADING=re.compile(r'^(?:致\s*谢|Acknowledg(?:e)?ments|附录\s*[A-Z一二三\d]?|Appendix\s*[A-Z]?|攻读.*成果|个人简历)\s*$',re.I)
+BACK_HEADING=re.compile(r'^(?:致\s*谢|Acknowledg(?:e)?ments|附录\s*[A-Z一二三\d]?|Appendix\s*[A-Z]?|攻读.*成果|学术论文(?:和|与|及)科研成果(?:目录)?|个人简历)\s*$',re.I)
 
 
 def _box(chars,width,height):
@@ -88,6 +88,54 @@ def _bibliography_heading(pages,client,*,observations=None):
     candidates.sort(key=lambda c:(c['first_numeric_key']==1,c['first_numeric_key'] is not None,c['font_size'],c['page_index']),reverse=True)
     return candidates[0]['id'],'structural_candidate_unverified'
 
+def _back_matter_headings(pages, normal):
+    """Find independent source headings, including horizontally split PDF glyphs."""
+    content_sizes = [line['font_size'] for page in pages for line in page['lines']
+        if not _is_bibliography_heading(line['text']) and
+        not BACK_HEADING.fullmatch(re.sub(r'\s+', '', line['text']))]
+    normal = min(normal, statistics.median(content_sizes)) if content_sizes else normal
+    headings = {}
+    for page in pages:
+        lines = page['lines']
+        for index, line in enumerate(lines):
+            parts = [line]
+            for following in lines[index + 1:index + 6]:
+                last = parts[-1]
+                # A PDF can expose spaced heading characters as separate lines.
+                # Join only adjacent fragments on the same physical text baseline.
+                if (abs(following['bbox'][1] - line['bbox'][1]) > line['font_size'] * .25 or
+                        following['bbox'][0] < last['bbox'][2] or
+                        following['bbox'][0] - last['bbox'][2] > line['font_size'] * 3):
+                    break
+                parts.append(following)
+            text = ''.join(part['text'] for part in parts)
+            if not BACK_HEADING.fullmatch(re.sub(r'\s+', '', text)):
+                continue
+            size = min(part['font_size'] for part in parts)
+            bold = all(any(char.get('flags', 0) & 16 for char in part['chars']) for part in parts)
+            gap = line['bbox'][1] - lines[index - 1]['bbox'][3] if index else None
+            if (size >= normal * 1.2 or bold) and (gap is None or gap >= normal * .8):
+                headings[line['id']] = [(page, part) for part in parts]
+    return headings
+
+
+def _back_matter_page_headers(pages, headings, normal):
+    """Keep small, source-corroborated headers before a real back-matter title out of entries."""
+    repeated = Counter(line['text'].strip() for page in pages for line in page['lines']
+        if line['bbox'][1] < page['height'] * .12 and line['font_size'] < normal * .9)
+    headers = set()
+    for parts in headings.values():
+        page, heading = parts[0]
+        title = re.sub(r'\s+', '', ''.join(line['text'] for _, line in parts))
+        for line in page['lines']:
+            if line['id'] == heading['id']:break
+            text = line['text'].strip()
+            if (line['bbox'][1] < page['height'] * .12 and line['font_size'] < normal * .9 and
+                    not ENTRY.match(text) and (repeated[text] >= 2 or re.sub(r'\s+', '', text) in title)):
+                headers.add(line['id'])
+    return headers
+
+
 def build_paper(pdf: Path, *, client=None, layout_cache=None) -> dict:
     pdf=Path(pdf).resolve()
     digest=hashlib.sha256(pdf.read_bytes()).hexdigest()
@@ -120,6 +168,9 @@ def build_paper(pdf: Path, *, client=None, layout_cache=None) -> dict:
             top_bottom[text]+=1
     all_sizes=[line['font_size'] for page in pages for line in page['lines']]
     normal=statistics.median(all_sizes) if all_sizes else 12
+    back_headings=_back_matter_headings(pages,normal)
+    back_page_headers=_back_matter_page_headers(pages,back_headings,normal)
+    consumed_heading_lines=set();bibliography_end=None
     bibliography=None;current_entry=None;section_stack=[];mode='front';paragraph=None;previous_line=None;entry_counter=0
     title_added=False
     def append_line(nid,page,line):
@@ -133,6 +184,10 @@ def build_paper(pdf: Path, *, client=None, layout_cache=None) -> dict:
     for page in pages:
         for line in page['lines']:
             text=line['text'].strip()
+            if line['id'] in consumed_heading_lines:continue
+            if line['id'] in back_page_headers:
+                add('UnknownBlock',line['text'],'paper',{'role':'running_header','reason':'small corroborated header before independent back-matter title'},[(page,line)])
+                continue
             margin=line['bbox'][1]<50 or line['bbox'][3]>page['height']-35
             if margin and top_bottom[text]>=2:
                 add('UnknownBlock',line['text'],'paper',{'role':'running_header' if line['bbox'][1]<50 else 'running_footer','reason':'repeated page margin'},[(page,line)])
@@ -144,11 +199,18 @@ def build_paper(pdf: Path, *, client=None, layout_cache=None) -> dict:
                 if bibliography is None:bibliography=add('Bibliography',None,'back',{'bibliography_kind':'cited_works'},node_id='bibliography')
                 add('Heading',line['text'],bibliography,lines=[(page,line)])
                 mode='bibliography';paragraph=None;current_entry=None;previous_line=None;continue
-            if BACK_HEADING.fullmatch(text):
+            back_lines=back_headings.get(line['id'])
+            if back_lines or (mode!='bibliography' and BACK_HEADING.fullmatch(text)):
+                back_lines=back_lines or [(page,line)]
+                heading_text='\n'.join(part['text'] for _,part in back_lines)
+                if mode=='bibliography':
+                    bibliography_end={'line_ids':[part['id'] for _,part in back_lines],
+                        'page_index':page['page_index'],'method':'independent_source_back_matter_heading'}
+                consumed_heading_lines.update(part['id'] for _,part in back_lines[1:])
                 mode='back';paragraph=None;current_entry=None
-                kind='Appendix' if re.match(r'附录|Appendix',text,re.I) else 'Acknowledgements' if re.match(r'致|Ack',text,re.I) else 'Biography'
+                kind='Appendix' if re.match(r'附录|Appendix',heading_text,re.I) else 'Acknowledgements' if re.match(r'致|Ack',heading_text,re.I) else 'Biography'
                 section_stack=[(1,add(kind,None,'back'))]
-                add('Heading',line['text'],section_stack[-1][1],lines=[(page,line)])
+                add('Heading',heading_text,section_stack[-1][1],lines=back_lines)
                 previous_line=None;continue
             if mode=='bibliography':
                 marker=ENTRY.match(text)
@@ -204,6 +266,7 @@ def build_paper(pdf: Path, *, client=None, layout_cache=None) -> dict:
                     'bibliography':{'status':'partial','reason':'main bibliography candidate selected; full field/boundary coverage requires verification'},
                     'reference_uses':{'status':'partial','reason':'numeric and author-year source pass; semantic/OCR coverage verification pending'}},
         'profile':{'id':'archive479-citations-v1'},'metadata':{'frontend_version':FRONTEND_VERSION,'bibliography_heading':bibliography_heading,'bibliography_selection':bibliography_method},'extensions':{}}
+    if bibliography_end is not None:ir['metadata']['bibliography_end']=bibliography_end
     if bibliography_observations:
         ir['metadata']['bibliography_observations']=bibliography_observations
         ir['coverage']['bibliography']={'status':'partial','reason':'main bibliography unlocated after optional model error; no candidate selected'}

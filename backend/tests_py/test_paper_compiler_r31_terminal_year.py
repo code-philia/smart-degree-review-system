@@ -41,14 +41,14 @@ def generic_verdict(text,kind):
 
 def test_standalone_journal_year_before_doi_not_doi_year():
     original="AUTHOR A. A useful study[J/OL]. Journal of Examples, 2020, 3: 10-14. DOI: 10.1234/example.2020."
-    assert generic_verdict(original,"journal_article")["status"]=="PASS"
+    assert generic_verdict(original,"journal_article")["status"]=="UNKNOWN"
     mutant=original.replace(". DOI:",". 2020. DOI:")
     assert generic_verdict(mutant,"journal_article")["status"]=="VIOLATION"
 
 def test_exact_repeated_type_and_publication_segment_not_shared_venue_alone():
     segment="[C]//Conference on Examples. 2020: 10-14."
     original="AUTHOR A. A useful study"+segment
-    assert generic_verdict(original,"conference")["status"]=="PASS"
+    assert generic_verdict(original,"conference")["status"]=="UNKNOWN"
     assert generic_verdict(original+"\nAnother title "+segment,"conference")["status"]=="VIOLATION"
     distinct=original+"\nAnother title "+segment.replace("10-14","20-24")
     assert generic_verdict(distinct,"conference")["status"]!="VIOLATION"
@@ -73,11 +73,11 @@ def boundary_verdict(kind,marker,publication,venue_field):
 
 def test_conference_boundary_fallback_requires_observed_source_span():
     assert boundary_verdict("conference","[C]//",". 2023, 2023: 10341-\n10350.","conference")["status"]=="VIOLATION"
-    assert boundary_verdict("conference","[C]//",". 2023: 10341-\n10350.","conference")["status"]=="PASS"
+    assert boundary_verdict("conference","[C]//",". 2023: 10341-\n10350.","conference")["status"]=="UNKNOWN"
 
 def test_journal_repeated_year_sequence_requires_separate_volume_and_pages():
     assert boundary_verdict("journal_article","[J].",", 2010, 2010,\n2010, 64(4): 330-342.","container")["status"]=="VIOLATION"
-    assert boundary_verdict("journal_article","[J].",", 2010, 2010(4): 330-342. DOI: 10.1234/x.2010.","container")["status"]=="PASS"
+    assert boundary_verdict("journal_article","[J].",", 2010, 2010(4): 330-342. DOI: 10.1234/x.2010.","container")["status"]=="UNKNOWN"
 
 def test_missing_type_from_exact_title_container_boundary_not_model_absence():
     def inspect(marker="",complete=True,title_range=True,title="A useful [J] notation study"):
@@ -92,6 +92,6 @@ def test_missing_type_from_exact_title_container_boundary_not_model_absence():
                     "r31_source_context":{"entry":{"resource_kind":{"state":"observed","value":"journal_article","evidence_ids":["entry"]}}}}}}
         return execute_pure(fixed_r31.build_r31_package()["code"],payload)[0]
     assert inspect()["status"]=="VIOLATION"
-    assert inspect("[J]")["status"]=="PASS"
+    assert inspect("[J]")["status"]=="UNKNOWN"
     assert inspect(complete=False)["status"]!="VIOLATION"
     assert inspect(title_range=False)["status"]!="VIOLATION"

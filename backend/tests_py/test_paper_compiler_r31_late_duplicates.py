@@ -1,5 +1,6 @@
 import importlib.util,os
 from paper_compiler import fixed_r31
+from paper_compiler_r31_fixtures import bind_type
 from paper_compiler.programs import execute_pure
 if os.environ.get("R31_ASSET_PATH"):
     spec=importlib.util.spec_from_file_location("paper_compiler.late_candidate",os.environ["R31_ASSET_PATH"])
@@ -10,12 +11,15 @@ def run(kind,text,venue=None,url=None,known_pages=False):
     if known_pages:fields["pages"]={"state":"confirmed_absent"}
     if url:fields["url"]={"state":"observed","value":url,"evidence_ids":["url-source"]}
     a={"coverage":{"e":{"status":"complete"}},"results":{"bibliography_fields":{"e":fields},"r31_source_context":{"e":{"resource_kind":{"state":"observed","value":kind,"evidence_ids":["e"]}}}}}
-    if known_pages:a["results"]["external_work"]={"e":{"exists":{"state":"observed","value":True,"evidence_ids":["work"]},"available_fields":{"state":"observed","value":["pages"],"evidence_ids":["pages"]}}}
+    if known_pages:
+        bind_type(a,'e',text,kind,year='2020',year_start=text.index('2020'))
+        a['evidence'][-1]['work']['pages']='4-9'
+        a['results']['external_work']['e']['available_fields']={'state':'observed','value':['pages'],'evidence_ids':['metadata-type-e']}
     return execute_pure(fixed_r31.build_r31_package()["code"],{"ir":{"nodes":[{"id":"e","kind":"BibliographyEntry","text":text}]},"analysis":a})[0]["status"]
 def test_conference_dot_duplicate_before_pages():
     start="A useful study[C]//Example Conference"
     assert run("conference",start+". 2024. 2024: 4-9.","Example Conference")=="VIOLATION"
-    assert run("conference",start+". 2024: 4-9.","Example Conference")=="PASS"
+    assert run("conference",start+". 2024: 4-9.","Example Conference")=="UNKNOWN"
 def test_repeated_url_requires_whole_repeated_publication_block():
     url="https://example.org/paper.pdf"
     block="2018, Example City, Country, February 18-21, 2018. Example Society, 2018. "

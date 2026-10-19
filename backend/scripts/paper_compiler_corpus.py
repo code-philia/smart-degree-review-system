@@ -69,10 +69,14 @@ def inspect_inventory(path, *, rule_ids=(), verify_hashes=False):
             'hashes_verified': len(items) if verify_hashes else 0}
 
 
-def _suite(path):
+def _suite(path, *, candidate_scan=False):
+    _require(type(candidate_scan) is bool, 'candidate scan must be an explicit boolean')
     packages = load_suite(path)
     _require(packages and all(p['manifest']['schema_version'] == 'paper-program/2.0' for p in packages), 'v2 suite required')
-    _require(_load(Path(path)/'validation.json').get('status') == 'passed', 'behavior-validated final candidate suite required')
+    validation = _load(Path(path)/'validation.json')
+    _require(isinstance(validation, dict) and isinstance(validation.get('status'), str), 'suite validation record required')
+    if not candidate_scan:
+        _require(validation['status'] == 'passed', 'behavior-validated final candidate suite required')
     rules = [p['program_spec']['rule_id'] for p in packages]
     _require(len(set(rules)) == len(rules), 'suite contains duplicate rule IDs')
     return packages
@@ -139,6 +143,9 @@ def _summarize(identity, checkpoints, root, packages):
         if checkpoint['status'] == 'completed':
             path = root/'items'/checkpoint['id']/'result.json'
             value = _validate_result(_load(path), packages); ir, analysis, report = value['ir'], value['analysis'], value['report']
+            if identity.get('evaluation'):
+                _require(value.get('evaluation') == identity['evaluation'] and report.get('evaluation') == identity['evaluation'],
+                    'candidate result evaluation mode mismatch')
             for name, stage in value.get('stage_costs', {}).items():
                 if stage:
                     for key, number in stage['delta'].items(): stage_totals[name][key] += Decimal(str(number))
@@ -165,6 +172,13 @@ def _summarize(identity, checkpoints, root, packages):
                     'program_version': rule['program_version'], 'model_version': rule['model_version'],
                     'pipeline_version': report['pipeline_version'], 'result_sha256': checkpoint['result_sha256'],
                     'result_path': str(path), 'object_targets': len(targets), 'objects_reported': len(by_node)})
+                if identity.get('evaluation'):
+                    public = report.get('publication', {}).get('public')
+                    reviewed = isinstance(public, dict)
+                    records[-1].update(release_readiness='not_release_ready', evaluation_mode='candidate_scan',
+                        publication_review_performed=reviewed,
+                        public_status=('ALERT' if any(str(f.get('rule_id')) == str(rule_id)
+                            for f in public.get('findings', [])) else 'NO_ALERT') if reviewed else None)
                 statuses[rule_id][rule['status']] += 1
         else:
             for package in packages:
@@ -173,6 +187,9 @@ def _summarize(identity, checkpoints, root, packages):
                     'rule_id': rule_id, 'status': 'ERROR', 'attempted': checkpoint['attempted'],
                     'error_type': checkpoint['error_type'], 'suite_version': identity['suite']['version_id'],
                     'program_version': package['manifest']['version_id'], 'model_version': package['model']['version']})
+                if identity.get('evaluation'):
+                    records[-1].update(release_readiness='not_release_ready', evaluation_mode='candidate_scan',
+                        publication_review_performed=False, public_status=None)
                 statuses[rule_id]['ERROR'] += 1
     for counts in objects.values():
         for key in ('targets', 'reported', 'missing', 'conclusive', 'full_text', 'abstract_only', 'truncated_full_text', 'unmeasured_documents'):
@@ -192,6 +209,12 @@ def _summarize(identity, checkpoints, root, packages):
                  'stages': {name: {key: str(number) for key, number in totals.items()} for name, totals in stage_totals.items()},
                  'scope': 'shared ledger intervals; concurrent requests may be included'},
         'accuracy_metrics': None, 'limitation': 'Unlabelled corpus statuses and coverage are not precision or recall.'}
+    if identity.get('evaluation'):
+        report.update(identity['evaluation'])
+        reviewed = {row['paper_id'] for row in records if row.get('publication_review_performed')}
+        report['publication_review'] = {'documents_reviewed': len(reviewed),
+            'documents_without_completed_review': len(identity['items']) - len(reviewed),
+            'public_rule_status_counts': dict(Counter(row['public_status'] for row in records if row.get('public_status')))}
     fd, temporary = tempfile.mkstemp(prefix='.records-', dir=root)
     try:
         with os.fdopen(fd, 'w', encoding='utf-8') as stream:
@@ -205,16 +228,20 @@ def _summarize(identity, checkpoints, root, packages):
     return report
 
 
-def run_corpus(inventory, suite, output_dir, *, runner, expected_documents=None):
+def run_corpus(inventory, suite, output_dir, *, runner, expected_documents=None, candidate_scan=False):
     """Run a whole frozen suite once per source; recovery never silently repays an uncertain attempt."""
     import fcntl
-    packages = _suite(suite); items = _inventory(inventory)
+    packages = _suite(suite, candidate_scan=True) if candidate_scan else _suite(suite)
+    items = _inventory(inventory)
     _require(expected_documents is None or len(items) == expected_documents, 'unexpected corpus document count')
     inspect_inventory(inventory, verify_hashes=True)
     _require(isinstance(getattr(runner, 'fingerprint', None), dict), 'runner needs a frozen public fingerprint')
     identity = {'schema_version': VERSION, 'inventory_sha256': file_hash(inventory), 'items': items,
         'suite': _load(Path(suite)/'manifest.json'), 'suite_validation_sha256': file_hash(Path(suite)/'validation.json'),
         'sources': _source_hashes(), 'runner': runner.fingerprint}
+    if candidate_scan:
+        identity['evaluation'] = {'status': 'candidate', 'release_readiness': 'not_release_ready',
+            'evaluation_mode': 'candidate_scan'}
     root = Path(output_dir).resolve(); root.mkdir(parents=True, exist_ok=True)
     with (root/'run.lock').open('a') as lock:
         try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -246,6 +273,9 @@ def run_corpus(inventory, suite, output_dir, *, runner, expected_documents=None)
                     value = runner(Path(item['path']), folder)
                     _require(file_hash(item['path']) == item['sha256'], 'source changed during execution')
                     value = {**value, 'cost': _cost(before, meter())}
+                    if candidate_scan:
+                        value['evaluation'] = dict(identity['evaluation'])
+                        value['report'] = {**value['report'], 'evaluation': dict(identity['evaluation'])}
                     _immutable(result, value); _validate_result(value, packages)
                     record = {**ownership, 'status': 'completed', 'attempted': True, 'result_sha256': file_hash(result), 'cost': value['cost']}
                 except Exception as error:
@@ -257,14 +287,17 @@ def run_corpus(inventory, suite, output_dir, *, runner, expected_documents=None)
 
 
 
-def summarize_run(output_dir, *, suite):
+def summarize_run(output_dir, *, suite, candidate_scan=False):
     """Rebuild derived reports from verified checkpoints without configuration or APIs."""
     import fcntl
-    root = Path(output_dir).resolve(); packages = _suite(suite)
+    root = Path(output_dir).resolve()
+    packages = _suite(suite, candidate_scan=True) if candidate_scan else _suite(suite)
     with (root/'run.lock').open('a') as lock:
         try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError: raise ValueError('corpus output already running') from None
         identity = _load(root/'frozen.json')
+        _require(bool(identity.get('evaluation', {}).get('evaluation_mode') == 'candidate_scan') == candidate_scan,
+            'candidate scan mode must match frozen run')
         _require(identity['suite'] == _load(Path(suite)/'manifest.json') and
                  identity['suite_validation_sha256'] == file_hash(Path(suite)/'validation.json'), 'summary suite changed')
         checkpoints = []
@@ -318,13 +351,17 @@ def parser():
     p.add_argument('--phase', default='final-corpus'); p.add_argument('--phase-budget', default='200'); p.add_argument('--evidence-snapshot')
     p.add_argument('--offline', action='store_true')
     p.add_argument('--publication-review', action='store_true')
+    p.add_argument('--candidate-scan', action='store_true',
+        help='Explicit evaluation only: allow an unvalidated source-matching suite; never records release readiness.')
     return p
 
 
 def execute(args):
+    _require(not args.candidate_scan or args.command in {'run', 'summarize'},
+        '--candidate-scan is only valid for run or summarize')
     if args.command == 'summarize':
         _require(args.suite is not None, '--suite is required')
-        return summarize_run(args.out, suite=args.suite)
+        return summarize_run(args.out, suite=args.suite, candidate_scan=args.candidate_scan)
     _require(args.inventory is not None, '--inventory is required')
     if args.command == 'inspect':
         value = inspect_inventory(args.inventory, rule_ids=args.rule, verify_hashes=args.verify_hashes)
@@ -343,7 +380,7 @@ def execute(args):
         from paper_compiler.evidence import EvidenceGateway
         from paper_compiler.program_analysis import analysis_execution_policy
         analysis_policy = analysis_execution_policy()
-        packages = _suite(args.suite)
+        packages = _suite(args.suite, candidate_scan=True) if args.candidate_scan else _suite(args.suite)
         if args.rule: _require(len(args.rule) == len(set(args.rule)) and set(args.rule) == {p['program_spec']['rule_id'] for p in packages}, 'declared final rule set does not match suite')
         if not args.offline: _require(args.ledger.is_file(), 'use the existing shared budget ledger; new ledgers are forbidden')
         ledger = None if args.offline else BudgetLedger(args.ledger, Decimal(args.budget))
@@ -371,7 +408,8 @@ def execute(args):
             'analysis_execution_policy': analysis_policy}
         if args.publication_review: runner.fingerprint['publication_review'] = True
         if ledger: runner.meter = ledger.summary
-        return run_corpus(args.inventory, args.suite, args.out, runner=runner, expected_documents=args.expected_documents)
+        return run_corpus(args.inventory, args.suite, args.out, runner=runner, expected_documents=args.expected_documents,
+            candidate_scan=args.candidate_scan)
     write_json_atomic(args.out, value, exclusive=True)
     return value
 

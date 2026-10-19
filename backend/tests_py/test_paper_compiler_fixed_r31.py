@@ -17,20 +17,21 @@ class SourceFacts:
     def complete_json(self,task,instructions,data,max_tokens):
         if task=="bibliography-fields/1.1":
             return {"entries":[{"id":e["id"],"complete":True,
-                "fields":{k:{"state":"observed","value":v,"quote":e["text"]} for k,v in self.fields.items()},
+                "fields":{k:{"state":"observed","value":v,"quote":(v if isinstance(v,str) and v in e["text"] else v[0] if isinstance(v,list) and len(v)==1 and v[0] in e["text"] else e["text"])} for k,v in self.fields.items()},
                 "absent":[k for k in FIELD_TYPES if k not in self.fields]} for e in data["entries"]]}
-        assert task=="generated-analysis/2.0"
-        q={"source_id":"paper:"+data["node"]["id"],"quote":data["node"]["text"]}
-        return {"fields":{
-            "resource_kind":{"state":"observed","value":self.kind,"quotes":[q]} if self.kind else {"state":"unknown","reason":"genre not established"},
-            "electronic_medium":{"state":"observed","value":self.electronic,"quotes":[q]},
-        }}
+        raise AssertionError("fixed R31 must not request model genre classification")
 
-def check(tmp_path,text,fields,kind="journal_article",electronic=False):
+def check(tmp_path,text,fields,kind="journal_article",electronic=False,verified=False):
     ir=paper(tmp_path)
     entry=next(n for n in ir["nodes"] if n["kind"]=="BibliographyEntry")
     entry["text"]=text;entry["provenance"]=[{"kind":"synthetic","operation_id":"format-fixture","ancestor_provenance":entry["provenance"]}]
-    ir,a,r=detect(ir,[asset()],client=SourceFacts(fields,kind,electronic),gateway=None,cache_dir=tmp_path/"cache")
+    class PublicMetadata:
+        providers=['fixture_public_catalog'];snapshot_id='fixture-metadata'
+        def lookup(self,query):
+            from paper_compiler_r31_fixtures import TYPES
+            return [{'id':'public-type','provider':self.providers[0],'status':'ok','coverage':'partial_index',
+                     'work':{**query,'type':TYPES[kind],'container':fields.get('container')}}]
+    ir,a,r=detect(ir,[asset()],client=SourceFacts(fields,kind,electronic),gateway=PublicMetadata() if verified else None,cache_dir=tmp_path/"cache")
     return next(row for row in r["rules"][0]["results"] if row["node_id"]==entry["id"])
 
 @pytest.mark.parametrize("text,fields",[
@@ -39,7 +40,9 @@ def check(tmp_path,text,fields,kind="journal_article",electronic=False):
     ("[1] A vio-\nlation study[J/OL]. https://example.org/item",{"title":"A vio-lation study","type_code":"J/OL","url":"https://example.org/item"}),
 ])
 def test_optional_fields_doi_url_and_layout_are_not_universal_obligations(tmp_path,text,fields):
-    assert check(tmp_path,text,fields)["status"]=="PASS"
+    row=check(tmp_path,text,fields)
+    assert row['status']=='UNKNOWN'
+    assert '实际文献类型未由同版本独立元数据确证' in row['message']
 
 @pytest.mark.parametrize("text,fields",[
     ("[1] A study. Journal, 2020.",{"title":"A study","year":"2020"}),
@@ -51,7 +54,9 @@ def test_missing_invalid_and_duplicate_markers_are_violations(tmp_path,text,fiel
     assert check(tmp_path,text,fields)["status"]=="VIOLATION"
 
 def test_verified_resource_kind_conflict_without_title_memorization(tmp_path):
-    assert check(tmp_path,"[1] A study[M]. Journal, 2020.",{"title":"A study","type_code":"M","year":"2020"})["status"]=="VIOLATION"
+    row=check(tmp_path,"[1] AUTHOR A. An unfamiliar research study[M]. Journal, 2020.",
+        {'authors':['AUTHOR A'],'title':'An unfamiliar research study','type_code':'M','year':'2020','container':'Journal'},verified=True)
+    assert row['status']=='VIOLATION' and 'public-type' in row['evidence_ids']
 
 def test_general_webpage_requires_access_date_but_unknown_genre_is_not_topic_inference(tmp_path):
     assert check(tmp_path,"[1] An item[EB/OL]. https://example.org/x",
@@ -88,7 +93,8 @@ def test_declared_online_carrier_requires_access_path_even_if_medium_unknown(tmp
 def test_online_doi_resolver_is_access_path_even_when_extractor_uses_doi_field(tmp_path):
     row=check(tmp_path,"[1] A study[C/OL]//A Conference. 2020: 1-9. https://doi.org/10.1109/abc.2020.1",
         {"title":"A study","type_code":"C/OL","year":"2020","doi":"10.1109/abc.2020.1"},kind="conference",electronic=False)
-    assert row['status']=='PASS'
+    assert row['status']=='UNKNOWN'
+    assert '访问路径' not in row['message'] and '获取路径' not in row['message']
 
 
 def test_complete_online_entry_without_any_path_is_not_hidden_by_unknown_url_field(tmp_path):

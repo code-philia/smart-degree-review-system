@@ -1,7 +1,7 @@
 """Fixed GB/T 7714-2025 checks over Paper IR and grounded source facts.
 
 This is a manually authored detector, not a synthesized or repaired candidate.
-Resource classification is a fixed source-extraction contract, not a verdict.
+Actual work types use identity-bound metadata; ambiguous types never become alarms.
 """
 from copy import deepcopy
 from .programs import build_program
@@ -13,13 +13,6 @@ DEFAULT_BASIS = [
     {"id":"gbt7714-2025:8.11","text":"一般网站网页的题名、类型、载体、引用日期和获取路径必备；以网页形式出现的其他文献按其实际类型处理。"},
     {"id":"gbt7714-2025:9.1-9.2","text":"顺序编码引用用方括号，多个编号用逗号、连续编号用短横线；自动编号有例外，缺少生成信息不得否定例外。"}
 ]
-CONTEXT_NAME = "r31_source_context"
-CONTEXT_INSTRUCTIONS = """Extract resource_kind and electronic_medium from the supplied actual source context, not a compliance verdict.
-resource_kind is one of book, book_chapter, journal_article, newspaper_article, conference, thesis, report, standard, patent, webpage, archive, map, dataset, preprint, collection, computer_program, database, other. Return UNKNOWN if the actual resource cannot be established.
-Do NOT infer actual kind from the [J]/[M]/[C] marker being checked, from a familiar title, or from the paper's topic. Quote the actual publication/container facts establishing the classification. Distinguish conference genre from book publication form: proceedings may also be published as books or book chapters. Report the source-supported publication class, but do not infer that book form alone requires a different bibliography type marker; GB/T 7714-2025 8.6.1 permits C for conference proceedings using book-format publication items. Do not treat a conference mentioned only in a work's topic as conference publication evidence. A Journal container and serial publication facts may support journal_article; a missing or ambiguous venue cannot.
-electronic_medium is observed true only with independent source evidence that the cited resource itself is electronic. A URL/DOI/link or the marker /OL alone does not establish this; URLs may accompany print works. A general website/webpage is electronic. Return unknown rather than guessing.
-An entry title's spelling, automatic PDF line wraps, line-end hyphens, layout whitespace or absent external metadata do not establish a format defect. Do not repair text. Both observed attributes require exact source quotes and source IDs. No previous detector output or labels are available."""
-
 CODE = r"""def detect(payload):
     output = []
     basis = BASIS_IDS
@@ -69,12 +62,72 @@ CODE = r"""def detect(payload):
                 failures.append('载体代码错误或重复')
             if re_search(r'[\]］]\s*[.。]?\s*[\[［]\s*(?:M|J|N|C|D|R|S|P|EB|A|CM|DS|PP|G|CP|DB|Z|MT|DK|CD|OL|MM)\s*[\]］]', tail):
                 failures.append('类型或载体标识重复或被拆为独立方括号')
-        context = fact(payload, 'r31_source_context', node['id'], 'resource_kind')
-        kind = context.get('value') if context.get('state') == 'observed' and context.get('evidence_ids') else None
+        # Actual resource type must come from metadata already bound to this
+        # work and cited manifestation; a quoted entry or a same-year alias
+        # is not independent evidence of this publication form.
+        declared_kind = {'M':'book','J':'journal_article','N':'newspaper_article','C':'conference','D':'thesis','R':'report','S':'standard','P':'patent','EB':'webpage','A':'archive','CM':'map','DS':'dataset','PP':'preprint','G':'collection','CP':'computer_program','DB':'database','Z':'other'}.get(code)
+        external_types = {'journal-article':'journal_article','proceedings-article':'conference','book':'book','monograph':'book','book-chapter':'book_chapter','dissertation':'thesis','thesis':'thesis','report':'report','standard':'standard','patent':'patent','dataset':'dataset','preprint':'preprint','webpage':'webpage'}
+        identity = fact(payload, 'external_work', node['id'], 'exists')
+        known_types = []
+        type_evidence = []
+        bound_page_evidence = []
+        source_year = fields.get('year', {})
+        source_year_range = source_year.get('source_range')
+        year_role_known = source_year.get('state') == 'observed' and isinstance(source_year.get('value'), str) and isinstance(source_year_range, list) and len(source_year_range) == 2
+        if year_role_known:
+            year_role_known = all(isinstance(v, int) for v in source_year_range) and 0 <= source_year_range[0] < source_year_range[1] <= len(text) and source_year_range[1] - source_year_range[0] == 4 and text[source_year_range[0]:source_year_range[1]] == source_year['value']
+            if year_role_known and isinstance(title_range, list) and len(title_range) == 2:
+                if all(isinstance(v, int) for v in title_range) and title_range[0] <= source_year_range[0] < title_range[1]:
+                    year_role_known = False
+        # An explicit DOI takes priority over a link to an access copy.
+        # Never use alternative_identifiers to promote another manifestation.
+        source_dois = [v.lower().rstrip('.。,，;；)）]］') for v in re_findall(r'(?i)10\.[0-9]{4,9}/[^\s<>]+', tail)]
+        source_arxiv = re_findall(r'(?i)(?:arxiv:|arxiv\.org/(?:abs|pdf)/)([0-9]{4}\.[0-9]{4,5}|[a-z][a-z0-9.\-]*/[0-9]{7})(?:v[0-9]+)?', ''.join(tail.split()))
+        publication = fields.get('container', {})
+        publication_range = publication.get('source_range')
+        source_container = ''
+        if publication.get('state') == 'observed' and publication.get('evidence_ids') and isinstance(publication.get('value'), str) and isinstance(publication_range, list) and len(publication_range) == 2:
+            if all(isinstance(v, int) for v in publication_range) and 0 <= publication_range[0] < publication_range[1] <= len(text):
+                container_source = text[publication_range[0]:publication_range[1]]
+                if ''.join(container_source.split()) == ''.join(publication['value'].split()):
+                    source_container = ''.join(re_findall(r'[a-z0-9一-龥]+', container_source.lower()))
+        if year_role_known and identity.get('state') == 'observed' and identity.get('value') is True:
+            for record in analysis.get('evidence', []):
+                if record.get('id') not in identity.get('evidence_ids', []) or record.get('status') != 'ok':
+                    continue
+                work = record.get('work', {})
+                if not isinstance(work, dict) or str(work.get('year')) != source_year['value']:
+                    continue
+                work_doi = str(work.get('doi') or '').lower().replace('https://doi.org/', '').replace('http://doi.org/', '').replace('http://dx.doi.org/', '').replace('https://dx.doi.org/', '').rstrip('.。,，;；)）]］')
+                manifestation_bound = False
+                if source_dois:
+                    manifestation_bound = bool(work_doi and work_doi in source_dois)
+                elif source_arxiv:
+                    work_arxiv = re_findall(r'(?i)(?:arxiv:|arxiv\.org/(?:abs|pdf)/|10\.48550/arxiv\.)([0-9]{4}\.[0-9]{4,5}|[a-z][a-z0-9.\-]*/[0-9]{7})(?:v[0-9]+)?', work_doi + ' ' + str(work.get('url') or ''))
+                    manifestation_bound = any(identifier.lower() in [v.lower() for v in source_arxiv] for identifier in work_arxiv)
+                elif source_container:
+                    metadata_container = work.get('container')
+                    if isinstance(metadata_container, str):
+                        manifestation_bound = source_container == ''.join(re_findall(r'[a-z0-9一-龥]+', metadata_container.lower()))
+                if not manifestation_bound:
+                    continue
+                work_type = external_types.get(str(work.get('type', '')).lower())
+                if work_type:
+                    known_types.append(work_type)
+                    type_evidence.append(record['id'])
+                    if isinstance(work.get('pages'), str) and work['pages'].strip():
+                        bound_page_evidence.append(record['id'])
+        verified_kind = known_types[0] if known_types and len(set(known_types)) == 1 else None
+        # The declared code still selects its format grammar, without claiming
+        # that the actual work has been independently classified.
+        kind = verified_kind or declared_kind
+        context = {'evidence_ids': type_evidence if verified_kind else [node['id']]}
+        if not verified_kind:
+            gaps.append('实际文献类型未由同版本独立元数据确证，仅核查原文声明的著录形式')
         conference_book_form = False
         # A literal journal-format publication block can contradict M without
         # inferring a work's genre from the marker or a familiar title.
-        if kind is None and complete and code == 'M':
+        if complete and code == 'M':
             serial_names = ['container','year','volume','pages']
             serial_fields = [fields.get(name, {}) for name in serial_names]
             serial_ranges = []
@@ -110,21 +163,28 @@ CODE = r"""def detect(payload):
                 if publication.get('state') == 'observed' and publication.get('evidence_ids') and isinstance(publication_value, str) and isinstance(publication_range, list) and len(publication_range) == 2:
                     if all(isinstance(v, int) for v in publication_range) and 0 <= publication_range[0] < publication_range[1] <= len(text):
                         publication_source = text[publication_range[0]:publication_range[1]]
-                        if ''.join(publication_source.split()) == ''.join(publication_value.split()) and re_search(r'(?i)\bproceedings\s+of\b|\b(?:international|annual)\s+(?:conference|colloquium|symposium|workshop)\b|会议录|会议论文集|研讨会论文集', publication_source):
+                        if ''.join(publication_source.split()) == ''.join(publication_value.split()) and re_search(r'(?i)\b(?:proceedings|conference|colloquium|symposium|workshop)\b|会议录|会议论文集|研讨会论文集', publication_source):
                             conference_book_form = True
                             evidence.extend(publication['evidence_ids'])
-            if code in types and code != expected[kind] and not conference_book_form:
-                if kind == 'conference' and code == 'M':
-                    gaps.append('会议文献按图书形式著录的规范例外尚未排除')
+            if verified_kind and code in types and code != expected[kind] and not conference_book_form:
+                if kind == 'conference' and code in ['M', 'J']:
+                    gaps.append('会议文献按图书形式或连续出版物形式著录的规范例外尚未排除')
+                elif kind in ['book', 'book_chapter'] and code in ['C', 'G']:
+                    gaps.append('提供方的图书或书章类型不能排除会议文献或汇编文献形式')
+                elif kind == 'book_chapter' and code == 'J':
+                    gaps.append('汇编书章与连续出版物析出形式尚未区分')
+                elif kind == 'journal_article' and code == 'C' and re_search(r'[\[［]C(?:/[A-Z]{2})?[\]］]\s*//', tail):
+                    gaps.append('连续出版物容器不能单独排除会议析出文献形式')
                 else:
-                    failures.append('类型标识与独立来源证实的资源种类不一致')
+                    failures.append('类型标识与同版本独立元数据确证的资源种类不一致')
         else:
             gaps.append('实际资源种类未确立')
-        electronic = fact(payload, 'r31_source_context', node['id'], 'electronic_medium')
-        medium_known = electronic.get('state') == 'observed' and bool(electronic.get('evidence_ids'))
-        is_electronic = medium_known and electronic.get('value') is True
+        # Webpage form is explicitly electronic. Other resource media cannot
+        # be inferred from a URL, title or a language model's classification.
+        medium_known = kind == 'webpage'
+        is_electronic = medium_known
         if medium_known:
-            evidence.extend(electronic['evidence_ids'])
+            evidence.extend(context['evidence_ids'])
         required = []
         # /OL is an explicit declaration of online access in this entry.
         # Its access-path obligation does not need a second medium guess.
@@ -134,7 +194,7 @@ CODE = r"""def detect(payload):
             if marker and not carrier:
                 failures.append('已证实电子资源缺少载体标识')
             required.append('url')
-        if kind == 'webpage':
+        if kind == 'webpage' or (code == 'EB' and carrier == 'OL'):
             required.append('access_date')
         if kind in ['dataset','preprint']:
             required.append('access_date')
@@ -152,15 +212,19 @@ CODE = r"""def detect(payload):
         if complete and page_scope and page_field.get('state') == 'confirmed_absent':
             identity = fact(payload, 'external_work', node['id'], 'exists')
             available = fact(payload, 'external_work', node['id'], 'available_fields')
-            if identity.get('state') == 'observed' and identity.get('value') is True and identity.get('evidence_ids'):
-                if available.get('state') == 'observed' and isinstance(available.get('value'), list) and 'pages' in available['value'] and available.get('evidence_ids'):
-                    failures.append('同一作品的独立元数据已证实存在页码，但完整条目未著录')
+            if verified_kind and bound_page_evidence:
+                if available.get('state') == 'observed' and isinstance(available.get('value'), list) and 'pages' in available['value'] and any(item in bound_page_evidence for item in available.get('evidence_ids', [])):
+                    failures.append('同一引用版本的独立元数据已证实存在页码，但完整条目未著录')
                     evidence.extend(identity['evidence_ids'])
-                    evidence.extend(available['evidence_ids'])
+                    evidence.extend(bound_page_evidence)
         compact_source = ''.join(text.split())
-        access_present = fields.get('url', {}).get('state') == 'observed' or fields.get('doi', {}).get('state') == 'observed' or re_search(r'(?i)(?:[a-z][a-z0-9+.-]*://|www\.|doi:|10\.[0-9]{4,9}/)', compact_source)
+        access_present = fields.get('url', {}).get('state') == 'observed' or fields.get('doi', {}).get('state') == 'observed' or re_search(r'(?i)(?:[a-z][a-z0-9+.-]*://|www\.|doi:|10\.[0-9]{4,9}/|arxiv:(?:[0-9]{4}\.[0-9]{4,5}|[a-z][a-z0-9.\-]*/[0-9]{7})(?:v[0-9]+)?)', compact_source)
         for name in required:
             field = fields.get(name, {})
+            if name == 'access_date' and re_search(r'[\[［]\s*[0-9]{4}-[0-9]{2}-[0-9]{2}\s*[\]］]', tail):
+                if field.get('state') == 'confirmed_absent':
+                    gaps.append('原文已有括号日期，不能根据字段抽取缺失认定未著录引用日期')
+                continue
             if name == 'url':
                 if access_present:
                     continue
@@ -260,6 +324,11 @@ CODE = r"""def detect(payload):
             failures.append('完整年卷页著录之后又重复追加同一出版年')
         if not complete:
             gaps.append('条目边界或抽取覆盖不完整')
+        unique_failures = []
+        for failure in failures:
+            if failure not in unique_failures:
+                unique_failures.append(failure)
+        failures = unique_failures
         status = 'VIOLATION' if failures else 'UNKNOWN' if gaps else 'PASS'
         message = '；'.join(failures) if failures else '；'.join(gaps) if gaps else '已核查的适用著录义务满足，未强制可选字段。'
         output.append(emit(node, status, message, check_id='bibliographic_format', basis=basis, evidence_ids=list(set(evidence)), reasons=gaps))
@@ -323,14 +392,11 @@ def build_r31_package(*, model=None, basis=None, rule_text=None):
         raise ValueError("R31 requires normative basis")
     if len({b["id"] for b in basis}) != len(basis):
         raise ValueError("duplicate R31 basis IDs")
-    request = {"name":CONTEXT_NAME,"targets":["BibliographyEntry"],
-               "fields":{"resource_kind":"string","electronic_medium":"boolean"},
-               "instructions":CONTEXT_INSTRUCTIONS}
     return build_program({"rule_id":"31","title":"引用与著录格式",
-        "requires":["bibliography_fields","bibliography_shape","citation_syntax","citation_order","external_work",CONTEXT_NAME],
+        "requires":["bibliography_fields","bibliography_shape","citation_syntax","citation_order","external_work"],
         "target_kinds":["BibliographyEntry","Paragraph","CitationGroup","ReferenceUse"],
         "code":CODE.replace("BASIS_IDS",repr([b["id"] for b in basis])),
-        "analysis_requests":[request],"model_patch":{}},
+        "analysis_requests":[],"model_patch":{}},
         rule_text=RULE_TEXT if rule_text is None else rule_text,basis=basis,model=model)
 
 

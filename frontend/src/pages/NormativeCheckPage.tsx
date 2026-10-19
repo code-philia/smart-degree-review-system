@@ -175,7 +175,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
       return;
     }
     if (selectedSemanticRules.length > 0 && !semanticConsent) {
-      setRunError('请先确认论文相关文本允许发送至 DeepSeek 官方 API');
+      setRunError('请先确认论文相关文本允许发送至页面说明的大模型与公开文献服务');
       return;
     }
     setRunning(true);
@@ -425,8 +425,8 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
                 role="note"
               >
                 <p>
-                  已选择 {selectedSemanticRules.length} 条扩展分析检查项。系统会将相关摘要、论点和候选论据文本发送到
-                  DeepSeek 官方 API；请勿上传不允许外发的论文，结果必须由人工复核。
+                  已选择 {selectedSemanticRules.length} 条扩展分析检查项。系统会将相关论文文本发送至当前配置的大模型服务；
+                  引用规则使用华为云 DeepSeek，并会向公开文献服务查询参考文献信息。请勿上传不允许外发的论文，结果需人工复核。
                 </p>
                 <label className="mt-2 flex cursor-pointer items-start gap-2 font-semibold">
                   <input
@@ -435,7 +435,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
                     checked={semanticConsent}
                     onChange={(event) => setSemanticConsent(event.target.checked)}
                   />
-                  <span>我确认该论文相关文本允许发送至 DeepSeek 官方 API</span>
+                  <span>我确认该论文相关文本允许发送至上述大模型与公开文献服务</span>
                 </label>
               </div>
             ) : null}
