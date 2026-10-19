@@ -11,11 +11,11 @@ from .citations import attach_citations
 from .contracts import SCHEMA_VERSION, MODEL_VERSION, validate_ir
 from .llm import ModelError
 
-FRONTEND_VERSION='pdf-source-frontend/1.2'
+FRONTEND_VERSION='pdf-source-frontend/1.3'
 BIB_HEADING=re.compile(r'^(?:参考文献|參考文獻|References|Bibliography)\s*$',re.I)
 ENTRY=re.compile(r'^\s*(?:[\[［](\d{1,4})[\]］]|(\d{1,4})[.、．])\s*')
 NUMBERED_HEADING=re.compile(r'^(?:(第[一二三四五六七八九十百\d]+章)\s*|((?:\d+\.)*\d+)\s+)(\S.{0,65})$')
-BACK_HEADING=re.compile(r'^(?:致\s*谢|Acknowledg(?:e)?ments|附录\s*[A-Z一二三\d]?|Appendix\s*[A-Z]?|攻读.*成果|学术论文(?:和|与|及)科研成果(?:目录)?|个人简历)\s*$',re.I)
+BACK_HEADING=re.compile(r'^(?:致\s*谢|Acknowledg(?:e)?ments?|附录(?:[A-Z一二三\d]+)?(?:[.、:：\-—]?\S.{0,65})?|Appendix(?:[A-Z\d])?(?:[:.\-—]?\S.{0,65})?|攻读.*(?:成果|论文|专利)(?:目录|清单)?|学术论文(?:和|与|及)科研成果(?:目录)?|(?:作者(?:简介|简历)|个人简历)(?:及.*(?:成果|论文|专利)(?:目录)?)?|符号(?:与|和|及)标记[（(]附录[A-Z一二三\d]+[）)])\s*$',re.I)
 
 
 def _box(chars,width,height):

@@ -222,3 +222,18 @@ def test_small_repeated_end_page_header_is_not_appended_to_last_reference(tmp_pa
     headers = [n for n in ir['nodes'] if n['attrs'].get('role') == 'running_header']
     assert any(n['text'] == 'Thesis running title' and n['provenance'][0]['page_index'] == 1 for n in headers)
     assert any(n['text'] == 'Acknowledgements' and n['provenance'][0]['page_index'] == 1 for n in headers)
+
+
+@pytest.mark.parametrize("heading",["攻读博士期间已发表或录用的论文","攻读博士期间申请的专利","攻读学位期间学术论文和科研成果目录","作者简介及攻读学位期间研究成果","Acknowledgement","附录A 实验补充","Appendix A Supplementary Results","符号与标记（附录1）"])
+def test_independent_degree_publication_and_patent_headings_end_bibliography(tmp_path,heading):
+    path=tmp_path/'degree-achievements.pdf';doc=pymupdf.open()
+    page=doc.new_page(width=600,height=800)
+    page.insert_text((60,100),'References',fontsize=16)
+    page.insert_text((60,140),'[1] Smith. A genuine work[J]. Journal, 2024.',fontsize=12)
+    page=doc.new_page(width=600,height=800)
+    page.insert_text((60,100),heading,fontsize=16,fontname='china-s')
+    page.insert_text((60,160),'[1] Author achievement, accepted 2025.',fontsize=12)
+    doc.save(path);doc.close();ir=build_paper(path)
+    assert len(kinds(ir,'BibliographyEntry'))==1
+    assert not any('Author achievement' in n['text'] for n in kinds(ir,'BibliographyEntry'))
+    assert any(n['kind']=='Paragraph' and 'Author achievement' in (n['text'] or '') for n in ir['nodes'])

@@ -10,7 +10,10 @@ import re
 from .storage import json_bytes
 from .llm import response_decoder_policy
 
-POLICY = 'positive-conflict-witness/2.3'
+# Host acceptance changes must not invalidate a successful paid review wire.
+WIRE_POLICY = 'positive-conflict-witness/2.3'
+ACCEPTANCE_POLICY = 'positive-conflict-witness/2.4'
+POLICY = ACCEPTANCE_POLICY
 COMPLETE_WORK_BASIS = 'complete_work_unsupported_attribution'
 COMPLETE_WORK_POLICY = 'complete-work-attribution-witness/2.3'
 TASK = 'positive-conflict-review/1.0'
@@ -220,7 +223,7 @@ def model_input(packet):
             assertions.append({'source_id': assertion['source_id'], 'origin': assertion['origin'],
                                'assertion_span_ids': ids})
         node['assertions'] = assertions
-    result['schema_version'] = POLICY
+    result['schema_version'] = WIRE_POLICY
     result['response_contract'] = 'strict-review-alias+exact-witness-span+shared-alignment/2.0'
     return result
 
@@ -288,6 +291,11 @@ Semantic truth is model-assisted; this validates source binding and witness shap
             source = sources.get(a['source_id'])
             if not source or source.get('origin') != origin or a['quote'] not in source['text']:
                 break
+            # Different values in an abstract can describe different roles,
+            # populations or comparison baselines. Do not seal that inference.
+            if (not complete_work and origin == 'external' and row['relation'] == 'mutually_exclusive_values'
+                    and (source.get('complete') is not True or source.get('coverage') != 'full_text')):
+                break
             if origin == 'paper' and source.get('node_id') != item['citation_context']['node_id']:
                 break
             # A reviewer may narrow an assertion, but may not substitute unrelated evidence.
@@ -342,7 +350,7 @@ scheduler are introduced. Budget/Frozen exceptions are never downgraded.
         return {}, None, None
     projected = model_input(packet)
     identity = {'task':TASK,'instructions':INSTRUCTIONS,'data':projected,
-                'response_decoder':response_decoder_policy()}
+                'response_decoder':response_decoder_policy(), 'acceptance_policy':ACCEPTANCE_POLICY}
     semantic_thinking = (getattr(client, 'semantic_thinking', False) is True if client is not None else
                          isinstance(receipt, dict) and receipt.get('semantic_thinking') is True)
     if semantic_thinking:
@@ -360,7 +368,8 @@ scheduler are introduced. Budget/Frozen exceptions are never downgraded.
     if client is None:
         return {}, None, 'independent contradiction review unavailable offline'
     record = {'policy':POLICY,'input_hash':digest,'task':TASK,'max_tokens':max_tokens,
-              'response_decoder':response_decoder_policy()}
+              'response_decoder':response_decoder_policy(), 'acceptance_policy':ACCEPTANCE_POLICY,
+              'wire_policy':WIRE_POLICY}
     if semantic_thinking:
         record['semantic_thinking'] = True
     try:
