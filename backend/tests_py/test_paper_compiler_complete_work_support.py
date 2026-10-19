@@ -4,13 +4,14 @@ import json
 import pytest
 from paper_compiler import conflict_review as review
 from paper_compiler.program_analysis import _ground_fields, analyze_programs
-from test_paper_compiler_program_analysis import Model, Gateway, paper, package, grounded_reference
+from test_paper_compiler_program_analysis import Model, Gateway, package, grounded_reference
+from paper_compiler_r33_test_fixtures import attributed_paper as paper
 
 BASIS = 'complete_work_unsupported_attribution'
 def sample():
-    citing = 'This cited framework proves termination for all programs [1].'
+    citing = 'The cited work [1] proves termination for all programs.'
     body = 'We present a configuration detection and remediation framework. Our contributions are a detector and a remediation pipeline.'
-    data = {'node': {'id': 'use'}, 'citation_context': {'node_id': 'p', 'text': citing},
+    data = {'node': {'id': 'use', 'kind':'ReferenceUse', 'text':'[1]', 'attrs':{'selector':{'kind':'numeric','value':'1'}}}, 'citation_context': {'node_id': 'p', 'text': citing, 'selector':{'kind':'numeric','value':'1'}},
         'external_works': [{'id': 'work'}], 'sources': [
             {'source_id': 'paper:p', 'origin': 'paper', 'node_id': 'p', 'text': citing, 'complete': True},
             {'source_id': 'external:body', 'origin': 'external', 'work_id': 'work', 'content_id': 'body',

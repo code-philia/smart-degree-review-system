@@ -16,8 +16,8 @@ def test_review_wire_budget_is_recorded_and_receipt_binds_policy_and_actual_budg
     proofs, first, reason = review.resolve_review(request, raw, data, client=client)
     assert proofs and reason is None
     assert first["max_tokens"] == client.token_limits[-1] == 24000
-    assert first["policy"] == "positive-conflict-witness/2.4"
-    assert review.COMPLETE_WORK_POLICY == "complete-work-attribution-witness/2.3"
+    assert first["policy"] == "positive-conflict-witness/2.5"
+    assert review.COMPLETE_WORK_POLICY == "complete-work-attribution-witness/2.5"
     old_policy = dict(first, policy="positive-conflict-witness/2.2")
     review.resolve_review(request, raw, data, client=client, receipt=old_policy)
     assert len(client.calls) == 2

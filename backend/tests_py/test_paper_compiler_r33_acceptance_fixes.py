@@ -47,7 +47,7 @@ def shared_answer(packet):
     wire=review.model_input(packet);node=wire['nodes'][0]
     p=next(a for a in node['assertions'] if a['origin']=='paper');e=next(a for a in node['assertions'] if a['origin']=='external')
     return {'results':{node['node']['id']:{'decision':'confirmed_conflict','same_entity':True,'same_property':True,'same_scope':True,
-        'citation_purpose':'assertion','relation':'mutually_exclusive_values','reason':'The independent source assertions concern the same method property and scope.',
+        'citation_purpose':'assertion','relation':'affirmation_vs_denial','reason':'The independent source assertions concern the same method property and scope.',
         'alignment':{'entity':'identified method','property':'method capability','scope':'method operation'},
         'witness':{'citing':{'quote_span_id':p['assertion_span_ids'][0],'value':'denied'},'cited':{'quote_span_id':e['assertion_span_ids'][0],'value':'affirmed'}}}}}
 

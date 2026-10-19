@@ -237,3 +237,36 @@ def test_independent_degree_publication_and_patent_headings_end_bibliography(tmp
     assert len(kinds(ir,'BibliographyEntry'))==1
     assert not any('Author achievement' in n['text'] for n in kinds(ir,'BibliographyEntry'))
     assert any(n['kind']=='Paragraph' and 'Author achievement' in (n['text'] or '') for n in ir['nodes'])
+
+
+@pytest.mark.parametrize("continuation",["17. https://api.semanticscholar.org/CorpusID:282271478.","2004.06833 [eess.AS]."])
+def test_bracket_numbering_keeps_bare_numeric_continuations(tmp_path,continuation):
+    path=make_pdf(tmp_path,[[('References',100,16),('[1] Author. A genuine title[J/OL]. Journal, 2024,',140,12),(continuation,160,12),('[2] Other. Another title[J]. Journal, 2023.',200,12)]])
+    ir=build_paper(path);entries=kinds(ir,'BibliographyEntry')
+    assert [n['attrs']['key'] for n in entries]==['1','2']
+    assert continuation in entries[0]['text']
+
+def test_bare_numeric_numbering_is_still_supported(tmp_path):
+    path=make_pdf(tmp_path,[[('References',100,16),('1. Author. A genuine title[J]. Journal, 2024.',140,12),('2. Other. Another title[J]. Journal, 2023.',180,12)]])
+    entries=kinds(build_paper(path),'BibliographyEntry')
+    assert [n['attrs']['key'] for n in entries]==['1','2']
+
+
+def test_author_year_list_cannot_switch_to_bare_numbering_on_a_volume_line(tmp_path):
+    path=make_pdf(tmp_path,[[('References',100,16),('Author A. A genuine title. Journal, 2024,',140,12),('17. https://example.org/work.',160,12),('Author B. Another genuine title. Journal, 2023.',210,12)]])
+    entries=kinds(build_paper(path),'BibliographyEntry')
+    assert len(entries)==2
+    assert all(n['attrs']['key'].startswith('author-year-') for n in entries)
+    assert '17. https://example.org/work.' in entries[0]['text']
+    assert entries[1]['text'].startswith('Author B.')
+
+
+def test_split_main_bibliography_heading_is_not_a_reference_entry(tmp_path):
+    path=tmp_path/'split-main-heading.pdf';doc=pymupdf.open();page=doc.new_page(width=600,height=800)
+    page.insert_text((60,60),'参考文献',fontsize=9,fontname='china-s')
+    for i,char in enumerate('参考文献'):page.insert_text((220+i*32,120),char,fontsize=16,fontname='china-s')
+    page.insert_text((60,180),'[1] Author. A genuine title[J]. Journal, 2024.',fontsize=12)
+    doc.save(path);doc.close();ir=build_paper(path);entries=kinds(ir,'BibliographyEntry')
+    assert [n['attrs']['key'] for n in entries]==['1']
+    heading=next(n for n in kinds(ir,'Heading') if len(n['provenance'])==4)
+    assert ''.join(heading['text'].split())=='参考文献'

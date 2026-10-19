@@ -1,6 +1,7 @@
 import copy
 import pytest
-from test_paper_compiler_program_analysis import paper, Model, Gateway
+from test_paper_compiler_program_analysis import Model, Gateway
+from paper_compiler_r33_test_fixtures import attributed_paper as paper
 from paper_compiler.model_runtime import base_model
 from paper_compiler.pipeline import detect
 

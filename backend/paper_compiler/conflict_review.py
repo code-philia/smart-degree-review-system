@@ -12,10 +12,10 @@ from .llm import response_decoder_policy
 
 # Host acceptance changes must not invalidate a successful paid review wire.
 WIRE_POLICY = 'positive-conflict-witness/2.3'
-ACCEPTANCE_POLICY = 'positive-conflict-witness/2.4'
+ACCEPTANCE_POLICY = 'positive-conflict-witness/2.5'
 POLICY = ACCEPTANCE_POLICY
 COMPLETE_WORK_BASIS = 'complete_work_unsupported_attribution'
-COMPLETE_WORK_POLICY = 'complete-work-attribution-witness/2.3'
+COMPLETE_WORK_POLICY = 'complete-work-attribution-witness/2.5'
 TASK = 'positive-conflict-review/1.0'
 THINKING_REVIEW_MAX_TOKENS = 24000
 INSTRUCTIONS = """Independently assess each supplied citation assertion using only its permitted sources.
@@ -103,6 +103,59 @@ def _key(item, data):
     bound = {k: item.get(k) for k in ['state','value','basis','quotes']} if isinstance(item, dict) else item
     return _hash({'policy': POLICY, 'item': bound, 'data': data})
 
+def explicit_source_attribution(data):
+    """Return an exact conservative anchor for ONE numeric citation, or None.
+
+    A nearby citation is not a claim that the cited work introduced the current
+    author's implementation. Ambiguous groups, repeated markers and implicit
+    attribution deliberately remain ineligible for an alert.
+    """
+    if not isinstance(data, dict):
+        return None
+    context, node = data.get('citation_context', {}), data.get('node', {})
+    if not isinstance(context, dict) or not isinstance(node, dict):
+        return None
+    selector = context.get('selector', node.get('attrs', {}).get('selector', {}))
+    if not isinstance(selector, dict) or selector.get('kind') != 'numeric':
+        return None
+    value = selector.get('value')
+    if not isinstance(value, str) or not re.fullmatch(r'[1-9][0-9]*', value):
+        return None
+    marker = r'[\[［]\s*' + re.escape(value) + r'\s*[\]］]'
+    if not isinstance(node.get('text'), str) or not re.fullmatch(marker, node['text']):
+        return None
+    declared = node.get('attrs', {}).get('selector', selector)
+    if declared != selector:
+        return None
+    text = context.get('text')
+    if not isinstance(text, str):
+        return None
+    occurrences = list(re.finditer(marker, text))
+    if len(occurrences) != 1:
+        return None
+    source = next((s for s in data.get('sources', []) if isinstance(s, dict)
+        and s.get('origin') == 'paper' and s.get('node_id') == context.get('node_id')
+        and s.get('text') == text), None)
+    if source is None:
+        return None
+    match = occurrences[0]; before, after = text[:match.start()], text[match.end():]
+    left = re.search(r'(?:文献|被引论文|被引作品|原论文|论文)\s*$', before)
+    right = re.match(r'\s*(?:中|的)?\s*(?:提出|报告|证明|指出|表明|显示|给出|发现|声称|描述|阐述|采用|使用|支持|不支持|不能|能够)', after)
+    if not (left and right):
+        left = re.search(r'(?i)\b(?:(?:the|this)\s+)?(?:cited\s+(?:work|paper|study|framework)|paper|reference|work|study)\s*$', before)
+        right = re.match(r'(?i)\s*(?:(?:does\s+not|never)\s+)?(?:introduces?|proposes?|states?|reports?|proves?|shows?|uses?|supports?|defines?|demonstrates?|establishes?|describes?|has|is)\b', after)
+    if left and right:
+        start, end = left.start(), match.end() + right.end()
+    else:
+        right = re.match(r'\s*中(?:的)?(?:方法|结果|模型|算法|研究|工作)', after)
+        if right:
+            start, end = match.start(), match.end() + right.end()
+        else:
+            return None
+    return {'source_id': source['source_id'], 'selector': value,
+            'source_range': [start, end], 'quote': text[start:end]}
+
+
 def prepare_review(request, raw, data):
     """Project only exact assertion evidence; retain answer binding as opaque hashes."""
     packet = _Prepared(policy=POLICY, items=[])
@@ -186,7 +239,8 @@ def prepare_review(request, raw, data):
             packet['items'].append({'id':key, 'assertions':assertions,
                 'sources':deepcopy(permitted), 'citation_context':deepcopy(context),
                 'identified_work_ids':sorted(quoted_works),
-                'full_text_sources':complete_sources})
+                'full_text_sources':complete_sources,
+                'attribution_anchor':explicit_source_attribution(data)})
     return packet
 
 def model_input(packet):
@@ -250,6 +304,9 @@ Semantic truth is model-assisted; this validates source binding and witness shap
         if not isinstance(row, dict) or row.get('decision') not in (
                 'confirmed_conflict', 'confirmed_unsupported_attribution'):
             continue
+        anchor = item.get('attribution_anchor')
+        if not anchor:
+            continue
         complete_work = row['decision'] == 'confirmed_unsupported_attribution'
         if any(row.get(k) is not True for k in ['same_entity','same_property','same_scope']):
             continue
@@ -296,7 +353,8 @@ Semantic truth is model-assisted; this validates source binding and witness shap
             if (not complete_work and origin == 'external' and row['relation'] == 'mutually_exclusive_values'
                     and (source.get('complete') is not True or source.get('coverage') != 'full_text')):
                 break
-            if origin == 'paper' and source.get('node_id') != item['citation_context']['node_id']:
+            if origin == 'paper' and (source.get('node_id') != item['citation_context']['node_id']
+                    or a['source_id'] != anchor['source_id'] or anchor['quote'] not in a['quote']):
                 break
             # A reviewer may narrow an assertion, but may not substitute unrelated evidence.
             if complete_work and origin == 'external':
@@ -314,7 +372,8 @@ Semantic truth is model-assisted; this validates source binding and witness shap
             continue
         if left['value'].strip().casefold() == right['value'].strip().casefold():
             continue
-        evidence = {'citing':left,'cited':right,'relation':row['relation'],'reason':row['reason']}
+        evidence = {'citing':left,'cited':right,'relation':row['relation'],'reason':row['reason'],
+                    'attribution_anchor':deepcopy(anchor)}
         if complete_work:
             evidence.update(kind=COMPLETE_WORK_BASIS, full_text_sources=deepcopy(item['full_text_sources']),
                             attribution_kind=row['attribution_kind'])

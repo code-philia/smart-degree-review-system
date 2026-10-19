@@ -11,7 +11,7 @@ from .citations import attach_citations
 from .contracts import SCHEMA_VERSION, MODEL_VERSION, validate_ir
 from .llm import ModelError
 
-FRONTEND_VERSION='pdf-source-frontend/1.3'
+FRONTEND_VERSION='pdf-source-frontend/1.4'
 BIB_HEADING=re.compile(r'^(?:参考文献|參考文獻|References|Bibliography)\s*$',re.I)
 ENTRY=re.compile(r'^\s*(?:[\[［](\d{1,4})[\]］]|(\d{1,4})[.、．])\s*')
 NUMBERED_HEADING=re.compile(r'^(?:(第[一二三四五六七八九十百\d]+章)\s*|((?:\d+\.)*\d+)\s+)(\S.{0,65})$')
@@ -61,13 +61,34 @@ def _observe(pdf):
 def _is_bibliography_heading(text):
     return bool(BIB_HEADING.fullmatch(text.strip()) or re.sub(r'\s+','',text) in {'参考文献','參考文獻'})
 
-def _bibliography_heading(pages,client,*,observations=None):
+def _bibliography_heading_parts(pages):
+    """Retain exact source fragments when a PDF splits one heading horizontally."""
+    headings={}
+    for page in pages:
+        lines=page['lines']
+        for index,line in enumerate(lines):
+            parts=[line]
+            for following in lines[index+1:index+6]:
+                last=parts[-1]
+                if (abs(following['bbox'][1]-line['bbox'][1])>line['font_size']*.25 or
+                        following['bbox'][0]<last['bbox'][2] or
+                        following['bbox'][0]-last['bbox'][2]>line['font_size']*3):
+                    break
+                parts.append(following)
+            if _is_bibliography_heading(''.join(part['text'] for part in parts)):
+                headings[line['id']]=[(page,part) for part in parts]
+    return headings
+
+
+def _bibliography_heading(pages,client,*,observations=None,heading_parts=None):
     flat=[(page,line) for page in pages for line in page['lines']];candidates=[]
+    heading_parts=_bibliography_heading_parts(pages) if heading_parts is None else heading_parts
     for index,(page,line) in enumerate(flat):
-        if not _is_bibliography_heading(line['text']):continue
-        following=[other['text'] for _,other in flat[index+1:index+13]]
+        parts=heading_parts.get(line['id'])
+        if not parts:continue
+        following=[other['text'] for _,other in flat[index+len(parts):index+len(parts)+12]]
         markers=[ENTRY.match(t.strip()) for t in following];numbers=[int(m.group(1) or m.group(2)) for m in markers if m]
-        candidates.append({'id':line['id'],'page_index':page['page_index'],'text':line['text'],'font_size':line['font_size'],
+        candidates.append({'id':line['id'],'page_index':page['page_index'],'text':''.join(part['text'] for _,part in parts),'font_size':min(part['font_size'] for _,part in parts),
             'preceding':[other['text'] for _,other in flat[max(0,index-3):index]],'following':following,'first_numeric_key':numbers[0] if numbers else None})
     if not candidates:return None,'not_found'
     if len(candidates)>1 and client is not None:
@@ -141,7 +162,8 @@ def build_paper(pdf: Path, *, client=None, layout_cache=None) -> dict:
     digest=hashlib.sha256(pdf.read_bytes()).hexdigest()
     pages=_observe(pdf)
     bibliography_observations=[]
-    bibliography_heading,bibliography_method=_bibliography_heading(pages,client,observations=bibliography_observations)
+    bibliography_parts=_bibliography_heading_parts(pages)
+    bibliography_heading,bibliography_method=_bibliography_heading(pages,client,observations=bibliography_observations,heading_parts=bibliography_parts)
     nodes=[];by_id={}
     def add(kind,text,parent,attrs=None,lines=None,node_id=None):
         nid=node_id or 'n'+str(len(nodes))
@@ -172,6 +194,7 @@ def build_paper(pdf: Path, *, client=None, layout_cache=None) -> dict:
     back_page_headers=_back_matter_page_headers(pages,back_headings,normal)
     consumed_heading_lines=set();bibliography_end=None
     bibliography=None;current_entry=None;section_stack=[];mode='front';paragraph=None;previous_line=None;entry_counter=0
+    entry_numbering=None
     title_added=False
     def append_line(nid,page,line):
         node=by_id[nid];offset=len(node['text'])+1
@@ -197,7 +220,9 @@ def build_paper(pdf: Path, *, client=None, layout_cache=None) -> dict:
                 continue
             if line['id']==bibliography_heading:
                 if bibliography is None:bibliography=add('Bibliography',None,'back',{'bibliography_kind':'cited_works'},node_id='bibliography')
-                add('Heading',line['text'],bibliography,lines=[(page,line)])
+                parts=bibliography_parts[line['id']]
+                add('Heading','\n'.join(part['text'] for _,part in parts),bibliography,lines=parts)
+                consumed_heading_lines.update(part['id'] for _,part in parts[1:])
                 mode='bibliography';paragraph=None;current_entry=None;previous_line=None;continue
             back_lines=back_headings.get(line['id'])
             if back_lines or (mode!='bibliography' and BACK_HEADING.fullmatch(text)):
@@ -214,7 +239,18 @@ def build_paper(pdf: Path, *, client=None, layout_cache=None) -> dict:
                 previous_line=None;continue
             if mode=='bibliography':
                 marker=ENTRY.match(text)
-                starts_author=bool(re.match(r'^[A-Za-z\u4e00-\u9fff]',text) and re.search(r'\b(?:18|19|20)\d{2}\b',text) and
+                if marker:
+                    marker_style='bracket' if marker.group(1) else 'bare'
+                    if entry_numbering is None:
+                        if marker.group(1) or current_entry is None:
+                            entry_numbering=marker_style
+                        else:
+                            marker=None
+                    elif marker_style!=entry_numbering:
+                        marker=None
+                # Once a numbered list is established, publication years,
+                # volumes and arXiv continuation lines do not start new entries.
+                starts_author=bool(entry_numbering is None and re.match(r'^[A-Za-z\u4e00-\u9fff]',text) and re.search(r'\b(?:18|19|20)\d{2}\b',text) and
                     (current_entry is None or previous_line is None or
                      (page['page_index']==previous_line[0]['page_index'] and line['bbox'][1]-previous_line[1]['bbox'][3]>normal*1.3)))
                 if marker or current_entry is None or starts_author:

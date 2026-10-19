@@ -7,7 +7,11 @@ try:
     from paper_compiler import conflict_review as review
 except ImportError:
     review=None
-FIXTURES=json.loads((Path(__file__).parent/'fixtures'/'r33_positive_conflict_quotes.json').read_text())
+from paper_compiler_r33_test_fixtures import explicit_fixture
+# These positive unit contexts explicitly state source attribution under the new conservative contract.
+# The archived real quotes JSON and experimental oracle remain untouched.
+ARCHIVED_FIXTURES=json.loads((Path(__file__).parent/'fixtures'/'r33_positive_conflict_quotes.json').read_text())
+FIXTURES=[explicit_fixture(f) for f in ARCHIVED_FIXTURES]
 
 def answered_wire(data):
     results={}
@@ -21,7 +25,7 @@ def answered(packet):
     return answered_wire(review.model_input(packet))
 
 @pytest.mark.parametrize('fixture',FIXTURES,ids=lambda x:x['case_id'])
-def test_real_positive_conflict_requires_independent_host_verification(fixture):
+def test_explicit_positive_conflict_requires_independent_host_verification(fixture):
     f=deepcopy(fixture)
     unverified,_=_ground_fields(f['request'],f['raw'],f['data'],True)
     assert unverified['conflict']['state']=='unknown'

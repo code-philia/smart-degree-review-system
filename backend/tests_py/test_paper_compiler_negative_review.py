@@ -54,7 +54,7 @@ def test_fixed_relation_uses_actual_independent_proof_kind_not_producer_category
         producer_basis, proof_kind, expected_value, expected_basis, verification):
     request, raw, data = fixed_sample(producer_basis)
     if proof_kind == 'positive_conflict':
-        data['sources'][0]['text'] = 'The cited framework never proves termination [1].'
+        data['sources'][0]['text'] = 'The cited work [1] never proves termination.'
         data['citation_context']['text'] = data['sources'][0]['text']
         data['sources'][1]['text'] = 'Our framework proves termination for all programs.'
         for q, source in zip(raw['fields']['relation']['quotes'], data['sources']): q['quote'] = source['text']
@@ -122,8 +122,8 @@ def test_positive_review_cannot_expand_assertion_scope_even_if_producer_claimed_
 
 
 def test_negative_review_policy_versions_reject_old_fact_receipts():
-    assert review.POLICY == 'positive-conflict-witness/2.4'
-    assert review.COMPLETE_WORK_POLICY == 'complete-work-attribution-witness/2.3'
+    assert review.POLICY == 'positive-conflict-witness/2.5'
+    assert review.COMPLETE_WORK_POLICY == 'complete-work-attribution-witness/2.5'
 
 
 @pytest.mark.parametrize('producer_basis,proof_kind', [
@@ -132,7 +132,8 @@ def test_fixed_program_uses_review_kind_and_replays_original_producer_binding(
         tmp_path, monkeypatch, producer_basis, proof_kind):
     from paper_compiler.fixed_r33 import build_r33_package
     from paper_compiler.pipeline import detect
-    from test_paper_compiler_program_analysis import Model, Gateway, paper
+    from test_paper_compiler_program_analysis import Model, Gateway
+    from paper_compiler_r33_test_fixtures import attributed_paper as paper
     from test_paper_compiler_complete_work_support import answer_wire as scope_wire
     from test_paper_compiler_conflict_witness import answered_wire as conflict_wire
     monkeypatch.setenv('PAPER_COMPILER_ANALYSIS_BATCH_SIZE', '1')

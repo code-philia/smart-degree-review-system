@@ -3,7 +3,8 @@ from copy import deepcopy
 from pathlib import Path
 import pytest
 from test_paper_compiler_conflict_witness import FIXTURES,answered,answered_wire
-from test_paper_compiler_program_analysis import Model,Gateway,paper,package,grounded_reference
+from test_paper_compiler_program_analysis import Model,Gateway,package
+from paper_compiler_r33_test_fixtures import attributed_paper as paper, attributed_reference as grounded_reference
 from paper_compiler import conflict_review as review
 from paper_compiler.program_analysis import analyze_programs
 from paper_compiler.budget import BudgetExceeded

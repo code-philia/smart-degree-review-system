@@ -19,7 +19,7 @@ from .model_runtime import classification_execution_policy, validate_model
 from .evidence import VERSION as EVIDENCE_VERSION, CONTENT_VERSION
 from .registry import REGISTRY
 from .storage import json_bytes, write_json_atomic
-from .conflict_review import POLICY as CONFLICT_POLICY, resolve_review
+from .conflict_review import POLICY as CONFLICT_POLICY, resolve_review, explicit_source_attribution
 
 VERSION = 'generated-analysis-runtime/2.3'
 TASK = 'generated-analysis/2.0'
@@ -735,6 +735,10 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
                 commit(item, cached_raw, node_cached.get('conflict_review'))
             elif client is None or not ready or not data['sources']:
                 commit(item, {})
+            elif (reference and request.get('name') == 'fixed_citation_support_v1'
+                    and request.get('targets') == ['ReferenceUse'] and request['fields'] == {'relation': 'string'}
+                    and not explicit_source_attribution(data)):
+                commit(item, {'fields': {'relation': unknown('explicit source attribution not established for the current single citation selector')}})
             elif batch_size == 1:
                 raw = client.complete_json(TASK, request['instructions'] + '\n' + GROUNDING_POLICY, deepcopy(data), 12000 if semantic_thinking else 3000)
                 commit(item, raw)
