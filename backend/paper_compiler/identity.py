@@ -3,7 +3,7 @@ import re
 import unicodedata
 from urllib.parse import urlsplit
 
-IDENTITY_POLICY = 'source-backed-arxiv-url-pin/1.0'
+IDENTITY_POLICY = 'source-backed-arxiv-url-pin/1.1'
 from difflib import SequenceMatcher
 
 def normalize_doi(value):
@@ -85,6 +85,12 @@ def resolve_identity(entry:dict,records:list[dict],client=None)->dict:
         exact=[c for c in matches if c[3]]
         source_arxiv = _arxiv_identifier(entry.get('url'))
         url_exact = [c for c in matches if source_arxiv and source_arxiv in _work_arxiv_identifiers(c[0]['work'])]
+        # A primary arXiv identity is stronger than an aggregate's alias to a
+        # distinct conference DOI. Do not merge the conference into the preprint.
+        url_primary = [c for c in url_exact if source_arxiv in {
+            _arxiv_identifier(c[0]['work'].get('doi')), _arxiv_identifier(c[0]['work'].get('url'))}]
+        if url_primary:
+            url_exact = url_primary
         if exact:
             if url_exact and not any(c in url_exact for c in exact):
                 return {'state':'unknown','reason':'conflicting explicit DOI and arXiv URL identities',
