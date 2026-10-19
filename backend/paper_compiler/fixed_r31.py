@@ -95,8 +95,18 @@ CODE = r"""def detect(payload):
             required.append('standard_number')
         if kind == 'patent':
             required.extend(['authors','patent_number'])
+        compact_source = ''.join(text.split())
+        access_present = fields.get('url', {}).get('state') == 'observed' or fields.get('doi', {}).get('state') == 'observed' or re_search(r'(?i)(?:[a-z][a-z0-9+.-]*://|www\.|doi:|10\.[0-9]{4,9}/)', compact_source)
         for name in required:
             field = fields.get(name, {})
+            if name == 'url':
+                if access_present:
+                    continue
+                if complete:
+                    failures.append('完整联机或电子资源条目缺少访问路径或永久标识符')
+                else:
+                    gaps.append('访问路径抽取或条目边界不完整')
+                continue
             if field.get('state') == 'confirmed_absent' and complete:
                 failures.append('适用资源类型缺少必备字段：' + name)
             elif field.get('state') != 'observed':

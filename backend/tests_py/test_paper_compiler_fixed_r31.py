@@ -83,3 +83,21 @@ def test_declared_online_carrier_requires_access_path_even_if_medium_unknown(tmp
     row=check(tmp_path,"[1] A study[C/OL]//A Conference. 2020: 1-9.",
         {"title":"A study","type_code":"C/OL","year":"2020","pages":"1-9"},kind="conference",electronic=False)
     assert row['status']=='VIOLATION'
+
+
+def test_online_doi_resolver_is_access_path_even_when_extractor_uses_doi_field(tmp_path):
+    row=check(tmp_path,"[1] A study[C/OL]//A Conference. 2020: 1-9. https://doi.org/10.1109/abc.2020.1",
+        {"title":"A study","type_code":"C/OL","year":"2020","doi":"10.1109/abc.2020.1"},kind="conference",electronic=False)
+    assert row['status']=='PASS'
+
+
+def test_complete_online_entry_without_any_path_is_not_hidden_by_unknown_url_field(tmp_path):
+    from paper_compiler.programs import run_program
+    ir=paper(tmp_path);entry=next(n for n in ir['nodes'] if n['kind']=='BibliographyEntry')
+    entry['text']='[1] A study[C/OL]//A Conference. 2020: 1-9.'
+    entry['provenance']=[{'kind':'synthetic','operation_id':'access-test','ancestor_provenance':entry['provenance']}]
+    package=asset()
+    ir,a,r=detect(ir,[package],client=SourceFacts({'title':'A study','type_code':'C/OL','year':'2020'},kind='conference'),gateway=None,cache_dir=tmp_path/'cache')
+    a['results']['bibliography_fields']['entry']['url']={'state':'unknown','reason':'field not returned by extraction'}
+    row=next(x for x in run_program(package,ir,a) if x['node_id']=='entry')
+    assert row['status']=='VIOLATION'

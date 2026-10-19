@@ -56,3 +56,11 @@ def test_span_selection_preserves_pdf_newlines_without_model_retyping(tmp_path,m
     result=run(tmp_path,paper(tmp_path,1,texts=[text]),SpanModel())
     assert result['results']['method_facts']['p0']['method']['state']=='observed'
     assert any(e.get('quote')==text for e in result['evidence'])
+
+
+def test_actual_provider_relation_value_in_state_slot_is_only_a_shape_alias():
+    raw={'observations':[{'node_id':'use','field':'relation','state':'contradicted','value':'contradicted','basis':'explicit_scope_contradiction','reason':'source says the opposite','quotes':[]}]}
+    result=runtime._flat_results(raw,[{'node':{'id':'use'}}],{'fields':{'relation':'string'}})
+    observation=result['use']['fields']['relation']
+    assert observation['state']=='observed' and observation['value']=='contradicted'
+    assert observation['quotes']==[]

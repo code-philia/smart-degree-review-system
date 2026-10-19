@@ -105,6 +105,11 @@ def _flat_results(answer, pending, request, quote_spans=None):
             continue
         fields = results.setdefault(nid, {'fields': {}})['fields']
         observation = {k: v for k, v in row.items() if k not in {'node_id', 'field', 'quote_span_ids'}}
+        # Some observed provider records put the relation value in both
+        # state and value. Normalize that unambiguous shape only; the exact
+        # quotes and independent contradiction checks still run below.
+        if field == 'relation' and observation.get('state') in {'supported', 'contradicted'} and observation.get('value') == observation['state']:
+            observation['state'] = 'observed'
         if 'quote_span_ids' in row:
             ids = row['quote_span_ids']
             valid = isinstance(ids, list) and all(isinstance(i, str) and i in (quote_spans or {}) for i in ids)
@@ -511,6 +516,7 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
     flat_output = batch_size > 1 and getattr(client, 'json_output', False) is True
     if flat_output:
         execution_policy = {**execution_policy, 'task': FLAT_BATCH_TASK,
+            'flat_decoder': 'exact-source-spans+relation-state-alias/1.0',
             'batch_protocol_sha256': hashlib.sha256(FLAT_BATCH_INSTRUCTIONS.encode()).hexdigest()}
     packages = list(packages)
     reject_answers(packages)
