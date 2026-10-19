@@ -202,6 +202,28 @@ async function initializeDatabase(options = {}) {
     await runStatement(database, `CREATE INDEX IF NOT EXISTS idx_archive_scan_documents_job
       ON archive_scan_documents (job_id, status, relative_path);`);
 
+    await runStatement(database, `CREATE TABLE IF NOT EXISTS repair_suggestions (
+      id TEXT PRIMARY KEY,
+      source_kind TEXT NOT NULL CHECK (source_kind IN ('legacy_archive', 'paper_ir')),
+      job_id TEXT NOT NULL,
+      document_id TEXT NOT NULL,
+      document_sha256 TEXT NOT NULL,
+      detector_version TEXT,
+      rule_id TEXT NOT NULL,
+      finding_id TEXT NOT NULL,
+      context_sha256 TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('suggested', 'insufficient_context', 'evidence_conflict')),
+      provider TEXT NOT NULL,
+      model TEXT NOT NULL,
+      model_version TEXT NOT NULL,
+      prompt_version TEXT NOT NULL,
+      response_json TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (job_id, document_id, rule_id, finding_id, context_sha256, model, prompt_version)
+    );`);
+    await runStatement(database, `CREATE INDEX IF NOT EXISTS idx_repair_suggestions_finding
+      ON repair_suggestions (job_id, document_id, rule_id, finding_id, created_at DESC);`);
+
     await runStatement(database, `CREATE TABLE IF NOT EXISTS paper_lint_jobs (
       id TEXT PRIMARY KEY, user_id TEXT NOT NULL, source_filename TEXT NOT NULL,
       source_pdf_path TEXT NOT NULL, selected_rule_ids_json TEXT NOT NULL,
