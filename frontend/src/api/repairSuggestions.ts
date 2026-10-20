@@ -1,4 +1,5 @@
 import apiClient from './index';
+import basicRepairRules from '../../../shared/basic-repair-rules.json';
 
 export type RepairSuggestionStatus = 'suggested' | 'insufficient_context' | 'evidence_conflict';
 
@@ -33,6 +34,7 @@ export type PaperLintFindingReference = {
 };
 
 export const PAPER_LINT_REPAIR_RULE_IDS = new Set([
+  ...basicRepairRules.map(rule => rule.rule_id),
   'sjtu_rule_11', 'sjtu_rule_13', 'sjtu_rule_14', 'sjtu_rule_15', 'sjtu_rule_16',
   'sjtu_rule_18', 'sjtu_rule_22', 'sjtu_rule_24', 'sjtu_rule_28', 'sjtu_rule_29',
   'sjtu_rule_31', 'sjtu_rule_32', 'sjtu_rule_33',
@@ -40,11 +42,11 @@ export const PAPER_LINT_REPAIR_RULE_IDS = new Set([
 
 const base = '/normative/repair-suggestions/archive-findings';
 
-export async function evaluateArchiveFindingRepairSuggestion(reference: ArchiveFindingReference): Promise<{
+export async function evaluateArchiveFindingRepairSuggestion(reference: ArchiveFindingReference, {force = false}: {force?: boolean} = {}): Promise<{
   response: RepairSuggestion;
   cached: boolean;
 }> {
-  return (await apiClient.post(`${base}/evaluate`, reference, { timeout: 40_000 })).data;
+  return (await apiClient.post(`${base}/evaluate`, force ? {...reference, force: true} : reference, { timeout: 40_000 })).data;
 }
 
 export async function fetchArchiveFindingRepairSuggestions(

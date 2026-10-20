@@ -34,7 +34,7 @@ async function findRepairSuggestion(request, { model, modelVersion, promptVersio
   const row = await db.get(
     `SELECT response_json FROM repair_suggestions
       WHERE job_id=? AND document_id=? AND rule_id=? AND finding_id=?
-        AND context_sha256=? AND model=? AND model_version=? AND prompt_version=?`,
+        AND context_sha256=? AND model=? AND model_version=? AND prompt_version=? ORDER BY generation DESC, created_at DESC, rowid DESC LIMIT 1`,
     [request.source.job_id, request.source.document_id, request.rule.rule_id, request.finding.finding_id,
       request.context_sha256, model, modelVersion, promptVersion],
   );
@@ -43,17 +43,19 @@ async function findRepairSuggestion(request, { model, modelVersion, promptVersio
 
 async function saveRepairSuggestion(request, response) {
   response = { ...response, provenance: { ...response.provenance, source_identity_sha256: request.source_identity_sha256 } };
-  await db.run(
-    `INSERT INTO repair_suggestions
-      (id, source_kind, job_id, document_id, document_sha256, detector_version, rule_id, finding_id,
-       context_sha256, status, provider, model, model_version, prompt_version, response_json)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-    [randomUUID(), request.source.kind, request.source.job_id, request.source.document_id,
-      request.source.document_sha256, request.source.detector_version, request.rule.rule_id,
-      request.finding.finding_id, request.context_sha256, response.status, response.provenance.provider,
-      response.provenance.model, response.provenance.model_version, response.provenance.prompt_version,
-      JSON.stringify(response)],
-  );
+  await db.withTransaction(async (tx) => {
+    const row = await tx.get('SELECT COALESCE(MAX(generation),0) AS generation FROM repair_suggestions WHERE job_id=? AND document_id=? AND rule_id=? AND finding_id=?',
+      [request.source.job_id, request.source.document_id, request.rule.rule_id, request.finding.finding_id]);
+    await tx.run(
+      `INSERT INTO repair_suggestions
+       (id, source_kind, job_id, document_id, document_sha256, detector_version, rule_id, finding_id,
+        context_sha256, generation, status, provider, model, model_version, prompt_version, response_json)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      [randomUUID(), request.source.kind, request.source.job_id, request.source.document_id,
+       request.source.document_sha256, request.source.detector_version, request.rule.rule_id,
+       request.finding.finding_id, request.context_sha256, row.generation + 1, response.status, response.provenance.provider,
+       response.provenance.model, response.provenance.model_version, response.provenance.prompt_version, JSON.stringify(response)]);
+  });
   return response;
 }
 
@@ -64,7 +66,7 @@ async function listArchiveRepairSuggestions({ jobId, documentId, ruleId, finding
     if (value) { clauses.push(`${column}=?`); params.push(value); }
   }
   const rows = await db.all(
-    `SELECT * FROM repair_suggestions${clauses.length ? ` WHERE ${clauses.join(' AND ')}` : ''} ORDER BY created_at DESC`, params,
+    `SELECT * FROM repair_suggestions${clauses.length ? ` WHERE ${clauses.join(' AND ')}` : ''} ORDER BY generation DESC, created_at DESC, rowid DESC`, params,
   );
   return rows.map(({ response_json, ...row }) => ({ ...row, response: JSON.parse(response_json) }));
 }

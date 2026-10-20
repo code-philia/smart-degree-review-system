@@ -1,6 +1,10 @@
 const crypto = require('crypto');
+const basicRules = require('../../../shared/basic-repair-rules.json');
+const BASIC_REPAIR_RULE_IDS = new Set(basicRules.map(rule => rule.rule_id));
+const basicRuleText = Object.fromEntries(basicRules.map(rule => [rule.rule_id, `${rule.title}：${rule.description} 以告警及规则参数中的具体要求为准，不补造研究内容或事实；检测器记录不等于 PDF 原文，缺少核验上下文时使用 insufficient_context 并说明需要核对什么。`]));
 
 const RULE_TEXT = Object.freeze({
+  ...basicRuleText,
   sjtu_rule_11: '正文引用的图不存在。',
   sjtu_rule_13: '图题缺失。',
   sjtu_rule_14: '表题缺失。',
@@ -17,7 +21,7 @@ const RULE_TEXT = Object.freeze({
 });
 
 const CITATION_REPAIR_RULE_IDS = new Set(['sjtu_rule_31', 'sjtu_rule_32', 'sjtu_rule_33']);
-const ruleVersion = (id) => CITATION_REPAIR_RULE_IDS.has(id) ? 'citation-repair-20261020' : 'legacy-rule-text-20261018';
+const ruleVersion = (id) => CITATION_REPAIR_RULE_IDS.has(id) ? 'citation-repair-20261020' : BASIC_REPAIR_RULE_IDS.has(id) ? 'basic-repair-20261020' : 'legacy-rule-text-20261018';
 
 // Keep the compiler's cited-content evidence and all supplied normative excerpts.
 // Group normative text so unrelated clauses cannot exhaust the eight evidence slots.
@@ -115,17 +119,21 @@ function buildLegacyRepairRequest({ job, document, ruleRun, finding }) {
     ...(CITATION_REPAIR_RULE_IDS.has(ruleRun.rule_id) ? citationEvidence(finding) : []),
     ...(Array.isArray(finding.anchors) ? finding.anchors.map((anchor, index) => evidenceFromAnchor(anchor, index + 1)) : []),
   ].filter(Boolean);
+  if (BASIC_REPAIR_RULE_IDS.has(ruleRun.rule_id) && !finding.location?.text_excerpt) {
+    evidence[0] = {...evidence[0], source_kind:'retrieval', text:'检测器记录（不是 PDF 原文）：' + (finding.message || ''), source_ref:'recorded_finding:' + finding.finding_id};
+  }
   const request = {
     schema_version: 'repair-request-v1',
     source: {
       kind: 'legacy_archive',
+      ...(BASIC_REPAIR_RULE_IDS.has(ruleRun.rule_id) ? {rule_parameters_sha256:sha256(JSON.stringify(ruleRun.params || null))} : {}),
       job_id: job.id,
       document_id: document.id,
       document_sha256: provenance.pdf_sha || sha256(`${job.id}:${document.id}:${document.relative_path || ''}`),
       detector_version: provenance.detector_version_sha || (CITATION_REPAIR_RULE_IDS.has(ruleRun.rule_id) ? ruleRun.package_sha256 || ruleRun.pipeline_version || null : null),
       ...(CITATION_REPAIR_RULE_IDS.has(ruleRun.rule_id) ? { package_sha256: ruleRun.package_sha256 || null, pipeline_version: ruleRun.pipeline_version || null, runtime_version: ruleRun.runtime_version || null } : {}),
     },
-    rule: { rule_id: ruleRun.rule_id, text: ruleText, version: ruleVersion(ruleRun.rule_id) },
+    rule: { rule_id: ruleRun.rule_id, text: ruleText, version: ruleVersion(ruleRun.rule_id), ...(BASIC_REPAIR_RULE_IDS.has(ruleRun.rule_id) ? {parameters:ruleRun.params || null} : {}) },
     finding: {
       finding_id: finding.finding_id,
       message: finding.message || '',
@@ -152,16 +160,20 @@ function buildPaperLintReportRepairRequest({ report, ruleRun, finding, documentS
     ...(CITATION_REPAIR_RULE_IDS.has(ruleRun.rule_id) ? citationEvidence(finding) : []),
     ...(Array.isArray(finding.anchors) ? finding.anchors.map((anchor, index) => evidenceFromAnchor(anchor, index + 1)) : []),
   ].filter(Boolean).map((item) => ({ ...item, source_ref: item.source_ref.replace('legacy_archive:', 'paper_lint_report:') }));
+  if (BASIC_REPAIR_RULE_IDS.has(ruleRun.rule_id) && !finding.location?.text_excerpt) {
+    evidence[0] = {...evidence[0], source_kind:'retrieval', text:'检测器记录（不是 PDF 原文）：' + (finding.message || ''), source_ref:'recorded_finding:' + finding.finding_id};
+  }
   const request = {
     schema_version: 'repair-request-v1',
     source: {
       kind: 'paper_lint_report',
+      ...(BASIC_REPAIR_RULE_IDS.has(ruleRun.rule_id) ? {rule_parameters_sha256:sha256(JSON.stringify(ruleRun.params || null))} : {}),
       report_id: report.id,
       document_sha256: documentSha256,
       detector_version: report.result?.execution_provenance?.detector_version_sha || (CITATION_REPAIR_RULE_IDS.has(ruleRun.rule_id) ? ruleRun.package_sha256 || ruleRun.pipeline_version || null : null),
       ...(CITATION_REPAIR_RULE_IDS.has(ruleRun.rule_id) ? { package_sha256: ruleRun.package_sha256 || null, pipeline_version: ruleRun.pipeline_version || null, runtime_version: ruleRun.runtime_version || null } : {}),
     },
-    rule: { rule_id: ruleRun.rule_id, text: ruleText, version: ruleVersion(ruleRun.rule_id) },
+    rule: { rule_id: ruleRun.rule_id, text: ruleText, version: ruleVersion(ruleRun.rule_id), ...(BASIC_REPAIR_RULE_IDS.has(ruleRun.rule_id) ? {parameters:ruleRun.params || null} : {}) },
     finding: {
       finding_id: finding.finding_id,
       message: finding.message || '',
@@ -185,6 +197,7 @@ function appendEvidence(request, nextEvidence) {
 }
 
 module.exports = {
+  BASIC_REPAIR_RULE_IDS,
   RULE_TEXT,
   appendEvidence,
   buildLegacyRepairRequest,

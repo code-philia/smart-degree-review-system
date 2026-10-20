@@ -123,7 +123,7 @@ describe('repair suggestion card', () => {
     expect(screen.getByText('检查文末条目。')).toBeInTheDocument();
     expect(screen.queryByText('请对照 PDF 原文核查此处，并按论文规范修订。')).not.toBeInTheDocument();
     expect(onLoadRepairSuggestion).toHaveBeenCalledWith(item);
-    fireEvent.click(screen.getByRole('button', { name: '重新获取建议' }));
+    fireEvent.click(screen.getByRole('button', { name: '重新生成修复建议' }));
     expect(onGenerateRepairSuggestion).toHaveBeenCalledWith(item);
   });
 
@@ -167,7 +167,7 @@ describe('repair suggestion card', () => {
         }}
       />,
     );
-    expect(screen.getByRole('button', { name: '强制生成新版本' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '重新生成修复建议' })).toBeInTheDocument();
     expect(screen.getByText(/暂不应仅依据该告警修改论文/)).toBeInTheDocument();
   });
 });

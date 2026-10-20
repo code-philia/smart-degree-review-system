@@ -32,6 +32,7 @@ beforeEach(async()=>{
   finding_id:'finding-'+id,message:'待核对的引用问题',location:{type:'pdf_bbox',page_number:1,text_excerpt:'原文引用 [1]'},anchors:[],
   evidence:[{id:'content',kind:'external_source',quote:'受控用例中的被引文献内容'}],
  }]}));
+ runs.push({rule_id:'required_section_completeness_check',params:{required_sections:['参考文献']},findings:[{finding_id:'missing-reference',message:'缺少参考文献章节',location:null,anchors:[]}]});
  await reports.createPaperLintReport({userId:'owner',sourceFilename:'paper.pdf',pdfBuffer:Buffer.from('%PDF-1.7'),selectedRuleIds:runs.map(r=>r.rule_id),result:{rule_runs:runs},reportId:'citation-report'});
  await db.run("INSERT INTO archive_scan_jobs(id,created_by,selected_rule_ids_json,status,total_count) VALUES('job','admin','[]','completed',1)");
  await db.run("INSERT INTO archive_scan_documents(id,job_id,relative_path,filename,size_bytes,status,result_json) VALUES('doc','job','paper.pdf','paper.pdf',1,'completed',?)",[JSON.stringify({rule_runs:runs})]);
@@ -62,4 +63,27 @@ it.each(['31','32','33'])('generates and reuses administrator archive rule%s adv
  await request(app).post(base+'/evaluate').set('Cookie','arc_session=admin-session').send(body).expect(200).expect(({body})=>expect(body.cached).toBe(true));
  expect(count()).toBe(1);
  await request(app).get(base).query(body).set('Cookie','arc_session=admin-session').expect(200).expect(({body})=>expect(body.suggestions).toHaveLength(1));
+});
+
+it('force-regenerates archive advice and uses the newest saved version afterward',async()=>{
+ const url='/api/normative/repair-suggestions/archive-findings/evaluate';const body={job_id:'job',document_id:'doc',rule_id:'sjtu_rule_31',finding_id:'finding-31'};
+ await request(app).post(url).set('Cookie','arc_session=admin-session').send(body).expect(201);
+ await request(app).post(url).set('Cookie','arc_session=admin-session').send({...body,force:true}).expect(201);
+ expect(count()).toBe(2);
+ await request(app).post(url).set('Cookie','arc_session=admin-session').send(body).expect(200).expect(({body})=>expect(body.cached).toBe(true));
+ expect(count()).toBe(2);
+});
+it.each(['archive','report'])('coalesces concurrent automatic %s requests without extra model calls',async kind=>{
+ const url=kind==='archive'?'/api/normative/repair-suggestions/archive-findings/evaluate':'/api/normative/paper-lint/reports/citation-report/repair-suggestions';
+ const body={job_id:'job',document_id:'doc',rule_id:'sjtu_rule_31',finding_id:'finding-31'};const cookie=kind==='archive'?'arc_session=admin-session':'arc_session=owner-session';
+ const responses=await Promise.all([request(app).post(url).set('Cookie',cookie).send(body),request(app).post(url).set('Cookie',cookie).send(body)]);
+ expect(responses.every(x=>[200,201].includes(x.status))).toBe(true);expect(count()).toBe(1);
+});
+
+it('supports a basic-rule alarm without inventing a PDF location',async()=>{
+ const url='/api/normative/paper-lint/reports/citation-report/repair-suggestions';const body={rule_id:'required_section_completeness_check',finding_id:'missing-reference'};
+ await request(app).post(url).set('Cookie','arc_session=owner-session').send(body).expect(201);expect(count()).toBe(1);
+ await request(app).get(url).query(body).set('Cookie','arc_session=owner-session').expect(200).expect(({body})=>expect(body.response.status).toBe('suggested'));
+ await request(app).post(url).set('Cookie','arc_session=owner-session').send(body).expect(200);expect(count()).toBe(1);
+ await request(app).get(url).query(body).set('Cookie','arc_session=other-session').expect(404);
 });

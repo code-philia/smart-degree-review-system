@@ -1,0 +1,117 @@
+[
+  {
+    "rule_id": "body_heading_format_check",
+    "title": "正文标题格式",
+    "description": "检查编号正文标题的层级、字体、字号、对齐和间距。"
+  },
+  {
+    "rule_id": "chinese_abstract_length_check",
+    "title": "中文摘要长度",
+    "description": "检查中文摘要字符数上限。"
+  },
+  {
+    "rule_id": "chinese_keywords_format_check",
+    "title": "中文关键词格式",
+    "description": "检查中文关键词标签、字体、字号和分隔符。"
+  },
+  {
+    "rule_id": "chinese_title_format_check",
+    "title": "中文论文题名格式",
+    "description": "检查中文论文题名页版式。"
+  },
+  {
+    "rule_id": "english_abstract_length_check",
+    "title": "英文摘要长度",
+    "description": "检查英文摘要词数上限。"
+  },
+  {
+    "rule_id": "english_keywords_format_check",
+    "title": "英文关键词格式",
+    "description": "检查英文 Key words 标签、字体和字号。"
+  },
+  {
+    "rule_id": "english_title_format_check",
+    "title": "英文论文题名格式",
+    "description": "检查英文论文题名页版式。"
+  },
+  {
+    "rule_id": "first_body_chapter_intro_check",
+    "title": "正文首章绪论",
+    "description": "检查第一个编号正文章是否为绪论或引言类章节。"
+  },
+  {
+    "rule_id": "heading_numbering_hierarchy_check",
+    "title": "标题编号层级",
+    "description": "检查标题编号和父级层级。"
+  },
+  {
+    "rule_id": "last_body_chapter_summary_check",
+    "title": "正文末章总结",
+    "description": "检查最后一个编号正文章是否为总结或结论类章节。"
+  },
+  {
+    "rule_id": "toc_format_check",
+    "title": "目录格式",
+    "description": "检查目录标题、条目、缩进和页码对齐。"
+  },
+  {
+    "rule_id": "figure_table_formula_numbering_check",
+    "title": "图表公式编号连续性",
+    "description": "检查图、表和公式标签的编号是否从 1 起连续。"
+  },
+  {
+    "rule_id": "reference_basic_format_check",
+    "title": "参考文献格式一致性",
+    "description": "自动识别 GB/T 7714、APA 7 或 IEEE，并检查全文参考文献格式是否统一。"
+  },
+  {
+    "rule_id": "figure_reference_target_check",
+    "title": "正文图片引用完整性",
+    "description": "检查正文引用的图片编号是否存在对应图片题注。"
+  },
+  {
+    "rule_id": "table_reference_target_check",
+    "title": "正文表格引用完整性",
+    "description": "检查正文引用的表格编号是否存在对应表格题注。"
+  },
+  {
+    "rule_id": "chinese_english_symbol_mix_check",
+    "title": "中英文符号与全半角",
+    "description": "检查中文文本中的英文半角标点及全角英文字母、数字。"
+  },
+  {
+    "rule_id": "bilingual_keywords_correspondence_check",
+    "title": "中英文关键词对应",
+    "description": "检查已识别中英文关键词的数量是否一致。"
+  },
+  {
+    "rule_id": "heading_numbering_sequence_check",
+    "title": "标题编号连续性",
+    "description": "检查同级章节标题是否存在缺号、重号或错序。"
+  },
+  {
+    "rule_id": "toc_body_heading_consistency_check",
+    "title": "目录正文一致性",
+    "description": "检查目录条目是否能在正文识别到同名标题。"
+  },
+  {
+    "rule_id": "required_section_completeness_check",
+    "title": "核心章节完整性",
+    "description": "检查摘要、关键词、目录和参考文献等核心章节。"
+  },
+  {
+    "rule_id": "page_number_sequence_check",
+    "title": "页码连续性",
+    "description": "检查页面底部可识别页码是否连续。"
+  },
+  {
+    "rule_id": "citation_footnote_sequence_check",
+    "title": "引注编号连续性",
+    "description": "检查正文可识别方括号引注的首次编号顺序。"
+  },
+  {
+    "rule_id": "bilingual_abstract_consistency_check",
+    "title": "中英文摘要内容一致性",
+    "description": "使用 DeepSeek 检查中英文摘要的研究对象、方法、结果和结论是否实质一致。"
+  }
+]

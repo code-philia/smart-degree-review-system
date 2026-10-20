@@ -155,6 +155,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
         rules={rules}
         repairSuggestionByFindingKey={repairSuggestions.repairSuggestionByFindingKey}
         repairSuggestionLoadingKey={repairSuggestions.repairSuggestionLoadingKey}
+        repairSuggestionLoadingByFindingKey={repairSuggestions.repairSuggestionLoadingByFindingKey}
         repairSuggestionErrorByFindingKey={repairSuggestions.repairSuggestionErrorByFindingKey}
         onLoadRepairSuggestion={repairSuggestions.loadRepairSuggestion}
         onGenerateRepairSuggestion={repairSuggestions.generateRepairSuggestion}

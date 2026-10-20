@@ -12,6 +12,7 @@ type Props = {
   openPdfUrl?: string;
   repairSuggestionByFindingKey?: Record<string, RepairSuggestion | undefined>;
   repairSuggestionLoadingKey?: string | null;
+  repairSuggestionLoadingByFindingKey?: Record<string, boolean>;
   repairSuggestionErrorByFindingKey?: Record<string, string | undefined>;
   onLoadRepairSuggestion?: (finding: PaperLintFindingItem) => void;
   onGenerateRepairSuggestion?: (finding: PaperLintFindingItem) => void;
@@ -26,6 +27,7 @@ export function PaperLintWorkspace({
   openPdfUrl,
   repairSuggestionByFindingKey = {},
   repairSuggestionLoadingKey = null,
+  repairSuggestionLoadingByFindingKey = {},
   repairSuggestionErrorByFindingKey = {},
   onLoadRepairSuggestion,
   onGenerateRepairSuggestion,
@@ -67,6 +69,7 @@ export function PaperLintWorkspace({
         onAnchorClick={selectAnchor}
         repairSuggestionByFindingKey={repairSuggestionByFindingKey}
         repairSuggestionLoadingKey={repairSuggestionLoadingKey}
+        repairSuggestionLoadingByFindingKey={repairSuggestionLoadingByFindingKey}
         repairSuggestionErrorByFindingKey={repairSuggestionErrorByFindingKey}
         onLoadRepairSuggestion={onLoadRepairSuggestion}
         onGenerateRepairSuggestion={onGenerateRepairSuggestion}

@@ -15,6 +15,7 @@ type Props = {
   onAnchorClick: (key: string, anchorId: string) => void;
   repairSuggestionByFindingKey?: Record<string, RepairSuggestion | undefined>;
   repairSuggestionLoadingKey?: string | null;
+  repairSuggestionLoadingByFindingKey?: Record<string, boolean>;
   repairSuggestionErrorByFindingKey?: Record<string, string | undefined>;
   onLoadRepairSuggestion?: (finding: PaperLintFindingItem) => void;
   onGenerateRepairSuggestion?: (finding: PaperLintFindingItem) => void;
@@ -34,11 +35,11 @@ export function FindingsPane({
   onAnchorClick,
   repairSuggestionByFindingKey = {},
   repairSuggestionLoadingKey = null,
+  repairSuggestionLoadingByFindingKey = {},
   repairSuggestionErrorByFindingKey = {},
   onLoadRepairSuggestion,
   onGenerateRepairSuggestion,
   supportsRepairSuggestion = () => true,
-  forceNewRepairSuggestion = false,
 }: Props) {
   const [filter, setFilter] = useState<'all' | 'error' | 'warning' | 'info'>('all');
   const [ruleFilter, setRuleFilter] = useState('all');
@@ -52,9 +53,8 @@ export function FindingsPane({
   );
 
   useEffect(() => {
-    const active = findings.find((item) => item.key === activeFindingKey);
-    if (active && onLoadRepairSuggestion) onLoadRepairSuggestion(active);
-  }, [activeFindingKey, findings, onLoadRepairSuggestion]);
+    if (onLoadRepairSuggestion) findings.filter(supportsRepairSuggestion).forEach(item => onLoadRepairSuggestion(item));
+  }, [findings, onLoadRepairSuggestion, supportsRepairSuggestion]);
 
   return (
     <section className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
@@ -107,7 +107,7 @@ export function FindingsPane({
             const evidence = (item.finding.evidence || []).filter((entry) => entry.kind !== 'normative_span' && !(entry.kind === 'source_span' && entry.quote === excerpt));
             const repair = repairSuggestionByFindingKey[item.key];
             const repairError = repairSuggestionErrorByFindingKey[item.key];
-            const generating = repairSuggestionLoadingKey === item.key;
+            const generating = repairSuggestionLoadingByFindingKey[item.key] || repairSuggestionLoadingKey === item.key;
             const repairEnabled = supportsRepairSuggestion(item);
             return (
               <article
@@ -187,7 +187,7 @@ export function FindingsPane({
                     {item.finding.suggestion}
                   </div>
                 ) : null}
-                {active && repairEnabled && (onLoadRepairSuggestion || onGenerateRepairSuggestion) ? (
+                {repairEnabled && (onLoadRepairSuggestion || onGenerateRepairSuggestion) ? (
                   <div className="mt-3 border-t border-slate-100 pt-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-xs font-bold text-slate-800">AI 修复建议</p>
@@ -201,9 +201,10 @@ export function FindingsPane({
                         }}
                       >
                         <Bot className="size-3.5" />
-                        {generating ? '正在获取建议…' : repair ? (forceNewRepairSuggestion ? '强制生成新版本' : '重新获取建议') : '生成 AI 修复建议'}
+                        {generating ? '正在准备建议…' : '重新生成修复建议'}
                       </Button>
                     </div>
+                    {!repair && !repairError ? <p className="mt-2 text-xs text-slate-500">{generating ? '正在自动准备修复建议…' : '修复建议将自动加载。'}</p> : null}
                     {repairError ? <p className="mt-2 text-xs text-danger-600">生成失败：{repairError}</p> : null}
                     {repair ? (
                       <div className="mt-3 space-y-3 rounded-lg bg-sky-50 p-3 text-xs leading-5 text-slate-700">

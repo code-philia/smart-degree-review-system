@@ -2,7 +2,7 @@ const { createHash, randomUUID } = require('crypto');
 const fs = require('fs/promises');
 const db = require('../database/db_runtime');
 const reportRepository = require('./paperLintReportRepository');
-const { RULE_TEXT, appendEvidence, buildPaperLintReportRepairRequest } = require('./legacyRepairAdapter');
+const { RULE_TEXT, BASIC_REPAIR_RULE_IDS, appendEvidence, buildPaperLintReportRepairRequest } = require('./legacyRepairAdapter');
 const { extractPdfContext } = require('./repairEvidenceService');
 
 function problem(status, message) {
@@ -38,6 +38,8 @@ async function buildPaperLintReportRepairRequestBase({ reportId, userId, ruleId,
 async function buildPaperLintReportRepairRequestWithPdfContext(values) {
   const { request, pdf, finding } = await buildPaperLintReportRepairRequestBase(values);
   const reportId = values.reportId;
+  const page = Number(finding.location?.page_number || finding.location?.bounding_rect?.page_number);
+  if (BASIC_REPAIR_RULE_IDS.has(request.rule.rule_id) && (!Number.isSafeInteger(page) || page < 1)) return request;
   const extracted = await extractPdfContext(pdf.path, finding.location);
   if (!extracted.text.trim()) throw problem(422, 'PDF 目标位置未提取到可用文本上下文');
   return appendEvidence(request, {

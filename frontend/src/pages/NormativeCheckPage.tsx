@@ -553,6 +553,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
             rules={visibleRules}
             repairSuggestionByFindingKey={repairSuggestions.repairSuggestionByFindingKey}
             repairSuggestionLoadingKey={repairSuggestions.repairSuggestionLoadingKey}
+        repairSuggestionLoadingByFindingKey={repairSuggestions.repairSuggestionLoadingByFindingKey}
             repairSuggestionErrorByFindingKey={repairSuggestions.repairSuggestionErrorByFindingKey}
             onLoadRepairSuggestion={repairSuggestions.loadRepairSuggestion}
             onGenerateRepairSuggestion={repairSuggestions.generateRepairSuggestion}

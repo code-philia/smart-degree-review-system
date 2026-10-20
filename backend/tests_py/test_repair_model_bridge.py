@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 from paper_compiler.budget import BudgetExceeded, BudgetLedger
 from paper_compiler.llm import ModelError
 
@@ -40,6 +40,12 @@ class RepairMeteringTests(unittest.TestCase):
         self.assertEqual(self.transport.call_count, 1)
         self.assertEqual(self.ledger.summary()['uncertain_requests'], 1)
         self.assertGreater(float(self.ledger.summary()['committed_cny']), 0)
+    def test_uses_authorized_shared_website_phase_limit(self):
+        with patch.dict('os.environ', {'PAPER_COMPILER_PHASE_BUDGET_CNY': '20'}):
+            self.execute()
+        import sqlite3
+        with sqlite3.connect(self.root / 'test.sqlite3') as conn:
+            self.assertEqual(conn.execute("SELECT limit_micro FROM phases WHERE name='website'").fetchone()[0], 20000000)
     def test_invalid_model_json_is_still_charged(self):
         self.transport.return_value['choices'][0]['message']['content']='bad json'
         with self.assertRaises(ModelError):self.execute()

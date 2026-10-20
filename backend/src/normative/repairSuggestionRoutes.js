@@ -1,3 +1,4 @@
+const { shareRepairGeneration } = require('./repairGenerationFlight');
 const express = require('express');
 const { requireAuth } = require('../auth/authMiddleware');
 const service = require('./repairSuggestionService');
@@ -44,13 +45,15 @@ function createRepairSuggestionRouter() {
     }
     const request = await buildArchiveRepairRequestWithPdfContext(values);
     const { model, modelVersion } = await getRepairModelIdentity();
-    const cached = model ? await service.findRepairSuggestion(request, {
-      model, modelVersion, promptVersion: PROMPT_VERSION,
-    }) : null;
-    if (cached) { res.json({ response: cached, cached: true }); return; }
-    const response = await proposeRepair(request);
-    await service.saveRepairSuggestion(request, response);
-    res.status(201).json({ response, cached: false });
+    const force = req.body?.force === true;
+    const result = await shareRepairGeneration(JSON.stringify(['archive', request.context_sha256, model, modelVersion, PROMPT_VERSION, force]), async () => {
+      const cached = !force && model ? await service.findRepairSuggestion(request, {model, modelVersion, promptVersion: PROMPT_VERSION}) : null;
+      if (cached) return {response: cached, cached: true};
+      const response = await proposeRepair(request);
+      await service.saveRepairSuggestion(request, response);
+      return {response, cached: false};
+    });
+    res.status(result.cached ? 200 : 201).json(result);
   }));
   router.get('/archive-findings', handler(async (req, res) => {
     const values = archiveFindingIds(req);

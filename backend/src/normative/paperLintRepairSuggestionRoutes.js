@@ -1,3 +1,4 @@
+const { shareRepairGeneration } = require('./repairGenerationFlight');
 const express = require('express');
 const { requireAuth } = require('../auth/authMiddleware');
 const service = require('./paperLintRepairSuggestionService');
@@ -52,13 +53,14 @@ function createPaperLintRepairSuggestionRouter({ modelIdentity = getRepairModelI
       reportId: req.params.reportId, userId: req.user.id, ruleId, findingId,
     });
     const { model, modelVersion } = await modelIdentity();
-    const cached = !force && model ? await service.findPaperLintRepairSuggestion(request, {
-      model, modelVersion, promptVersion: PROMPT_VERSION,
-    }) : null;
-    if (cached) return res.json({ response: cached, cached: true });
-    const response = await proposeRepair(request);
-    await service.savePaperLintRepairSuggestion(request, req.user.id, response);
-    return res.status(201).json({ response, cached: false });
+    const result = await shareRepairGeneration(JSON.stringify(['report', req.user.id, request.context_sha256, model, modelVersion, PROMPT_VERSION, force]), async () => {
+      const cached = !force && model ? await service.findPaperLintRepairSuggestion(request, {model, modelVersion, promptVersion: PROMPT_VERSION}) : null;
+      if (cached) return {response: cached, cached: true};
+      const response = await proposeRepair(request);
+      await service.savePaperLintRepairSuggestion(request, req.user.id, response);
+      return {response, cached: false};
+    });
+    res.status(result.cached ? 200 : 201).json(result);
   }));
 
   return router;
