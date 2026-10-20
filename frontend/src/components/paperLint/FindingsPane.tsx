@@ -17,6 +17,8 @@ type Props = {
   repairSuggestionErrorByFindingKey?: Record<string, string | undefined>;
   onLoadRepairSuggestion?: (finding: PaperLintFindingItem) => void;
   onGenerateRepairSuggestion?: (finding: PaperLintFindingItem) => void;
+  supportsRepairSuggestion?: (finding: PaperLintFindingItem) => boolean;
+  forceNewRepairSuggestion?: boolean;
 };
 
 const tones = { error: 'danger', warning: 'warning', info: 'info' } as const;
@@ -34,6 +36,8 @@ export function FindingsPane({
   repairSuggestionErrorByFindingKey = {},
   onLoadRepairSuggestion,
   onGenerateRepairSuggestion,
+  supportsRepairSuggestion = () => true,
+  forceNewRepairSuggestion = false,
 }: Props) {
   const [filter, setFilter] = useState<'all' | 'error' | 'warning' | 'info'>('all');
   const [ruleFilter, setRuleFilter] = useState('all');
@@ -102,6 +106,7 @@ export function FindingsPane({
             const repair = repairSuggestionByFindingKey[item.key];
             const repairError = repairSuggestionErrorByFindingKey[item.key];
             const generating = repairSuggestionLoadingKey === item.key;
+            const repairEnabled = supportsRepairSuggestion(item);
             return (
               <article
                 key={item.key}
@@ -172,13 +177,13 @@ export function FindingsPane({
                     跳到 PDF 第 {page} 页
                   </Button>
                 ) : null}
-                {active && item.finding.suggestion && !onLoadRepairSuggestion && !onGenerateRepairSuggestion ? (
+                {active && item.finding.suggestion && (!repairEnabled || (!onLoadRepairSuggestion && !onGenerateRepairSuggestion)) ? (
                   <div className="mt-3 rounded-lg bg-white p-3 text-xs leading-5 text-slate-600">
                     <strong className="text-slate-800">修改建议：</strong>
                     {item.finding.suggestion}
                   </div>
                 ) : null}
-                {active && (onLoadRepairSuggestion || onGenerateRepairSuggestion) ? (
+                {active && repairEnabled && (onLoadRepairSuggestion || onGenerateRepairSuggestion) ? (
                   <div className="mt-3 border-t border-slate-100 pt-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-xs font-bold text-slate-800">AI 修复建议</p>
@@ -192,7 +197,7 @@ export function FindingsPane({
                         }}
                       >
                         <Bot className="size-3.5" />
-                        {generating ? '正在获取建议…' : repair ? '重新获取建议' : '生成 AI 修复建议'}
+                        {generating ? '正在获取建议…' : repair ? (forceNewRepairSuggestion ? '强制生成新版本' : '重新获取建议') : '生成 AI 修复建议'}
                       </Button>
                     </div>
                     {repairError ? <p className="mt-2 text-xs text-danger-600">生成失败：{repairError}</p> : null}
@@ -209,8 +214,8 @@ export function FindingsPane({
                           {repair.status === 'suggested'
                             ? '可执行建议'
                             : repair.status === 'evidence_conflict'
-                              ? '证据与告警存在冲突'
-                              : '需要补充上下文'}
+                              ? '证据与告警存在冲突：暂不应仅依据该告警修改论文，请人工复核规则结果。'
+                              : '需要补充上下文：请按上述建议核对相关内容。'}
                           {' · '}
                           {repair.provenance.model} · {repair.provenance.prompt_version}
                         </p>

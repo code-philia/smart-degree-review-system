@@ -224,6 +224,32 @@ async function initializeDatabase(options = {}) {
     await runStatement(database, `CREATE INDEX IF NOT EXISTS idx_repair_suggestions_finding
       ON repair_suggestions (job_id, document_id, rule_id, finding_id, created_at DESC);`);
 
+    // Keep single-report suggestions separate from the archive cache. Archive
+    // identities are job/document based, whereas uploaded-paper reports are
+    // owned by a user and have report_id as their stable identity.
+    await runStatement(database, `CREATE TABLE IF NOT EXISTS paper_lint_repair_suggestions (
+      id TEXT PRIMARY KEY,
+      report_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      document_sha256 TEXT NOT NULL,
+      rule_id TEXT NOT NULL,
+      finding_id TEXT NOT NULL,
+      context_sha256 TEXT NOT NULL,
+      generation INTEGER NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('suggested', 'insufficient_context', 'evidence_conflict')),
+      provider TEXT NOT NULL,
+      model TEXT NOT NULL,
+      model_version TEXT NOT NULL,
+      prompt_version TEXT NOT NULL,
+      response_json TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (report_id) REFERENCES paper_lint_reports(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE,
+      UNIQUE (report_id, rule_id, finding_id, context_sha256, model, model_version, prompt_version, generation)
+    );`);
+    await runStatement(database, `CREATE INDEX IF NOT EXISTS idx_paper_lint_repair_suggestions_finding
+      ON paper_lint_repair_suggestions (report_id, rule_id, finding_id, created_at DESC);`);
+
     await runStatement(database, `CREATE TABLE IF NOT EXISTS paper_lint_jobs (
       id TEXT PRIMARY KEY, user_id TEXT NOT NULL, source_filename TEXT NOT NULL,
       source_pdf_path TEXT NOT NULL, selected_rule_ids_json TEXT NOT NULL,

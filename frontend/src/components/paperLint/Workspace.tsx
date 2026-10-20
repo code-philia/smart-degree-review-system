@@ -15,6 +15,8 @@ type Props = {
   repairSuggestionErrorByFindingKey?: Record<string, string | undefined>;
   onLoadRepairSuggestion?: (finding: PaperLintFindingItem) => void;
   onGenerateRepairSuggestion?: (finding: PaperLintFindingItem) => void;
+  supportsRepairSuggestion?: (finding: PaperLintFindingItem) => boolean;
+  forceNewRepairSuggestion?: boolean;
 };
 
 export function PaperLintWorkspace({
@@ -27,6 +29,8 @@ export function PaperLintWorkspace({
   repairSuggestionErrorByFindingKey = {},
   onLoadRepairSuggestion,
   onGenerateRepairSuggestion,
+  supportsRepairSuggestion,
+  forceNewRepairSuggestion,
 }: Props) {
   const [activeFindingKey, setActiveFindingKey] = useState<string | null>(findings[0]?.key || null);
   const [activeAnchorId, setActiveAnchorId] = useState<string | null>(null);
@@ -66,6 +70,8 @@ export function PaperLintWorkspace({
         repairSuggestionErrorByFindingKey={repairSuggestionErrorByFindingKey}
         onLoadRepairSuggestion={onLoadRepairSuggestion}
         onGenerateRepairSuggestion={onGenerateRepairSuggestion}
+        supportsRepairSuggestion={supportsRepairSuggestion}
+        forceNewRepairSuggestion={forceNewRepairSuggestion}
       />
     </div>
   );

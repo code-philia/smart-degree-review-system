@@ -111,4 +111,48 @@ describe('repair suggestion card', () => {
     fireEvent.click(screen.getByRole('button', { name: '重新获取建议' }));
     expect(onGenerateRepairSuggestion).toHaveBeenCalledWith(item);
   });
+
+  it('limits single-report suggestions to supported rules and explains evidence conflicts', () => {
+    const { rerender } = render(
+      <FindingsPane
+        findings={[item]}
+        rules={[]}
+        activeFindingKey="finding-99"
+        activeAnchorId={null}
+        onFindingClick={vi.fn()}
+        onAnchorClick={vi.fn()}
+        onLoadRepairSuggestion={vi.fn()}
+        onGenerateRepairSuggestion={vi.fn()}
+        supportsRepairSuggestion={() => false}
+      />,
+    );
+    expect(screen.queryByText('AI 修复建议')).toBeNull();
+
+    rerender(
+      <FindingsPane
+        findings={[item]}
+        rules={[]}
+        activeFindingKey="finding-99"
+        activeAnchorId={null}
+        onFindingClick={vi.fn()}
+        onAnchorClick={vi.fn()}
+        onLoadRepairSuggestion={vi.fn()}
+        onGenerateRepairSuggestion={vi.fn()}
+        forceNewRepairSuggestion
+        repairSuggestionByFindingKey={{
+          'finding-99': {
+            schema_version: 'repair-response-v2', rule_id: 'sjtu_rule_24', finding_id: 'finding-99',
+            status: 'evidence_conflict', actions: [{ instruction: '人工复核该条告警。', evidence_ids: ['e1'] }],
+            provenance: {
+              provider: 'huawei_maas', model: 'test-model', model_version: 'v1',
+              prompt_version: 'test-v1', context_sha256: 'x', generated_at: '2026-10-20T00:00:00.000Z',
+            },
+            usage: { input_tokens: 1, output_tokens: 1, attempts: 1 },
+          },
+        }}
+      />,
+    );
+    expect(screen.getByRole('button', { name: '强制生成新版本' })).toBeInTheDocument();
+    expect(screen.getByText(/暂不应仅依据该告警修改论文/)).toBeInTheDocument();
+  });
 });

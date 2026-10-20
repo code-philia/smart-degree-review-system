@@ -106,17 +106,28 @@ function validateModelAnswer(answer, request) {
 async function proposeRepair(request, { fetchImpl = fetch } = {}) {
   const config = modelConfig();
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30000);
+  let timeout;
   let payload;
   try {
-    const response = await fetchImpl(`${config.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${config.apiKey}` },
-      body: JSON.stringify({ model: config.model, temperature: 0.1, messages: buildMessages(request) }),
-      signal: controller.signal,
+    // Aborting the request alone is not sufficient if a provider has sent
+    // headers but then stalls while streaming the response body. Race the
+    // entire fetch-and-parse operation against an explicit rejection so a
+    // batch worker cannot wait forever on one finding.
+    payload = await new Promise((resolve, reject) => {
+      timeout = setTimeout(() => {
+        controller.abort();
+        reject(problem(504, '修复建议模型请求超时'));
+      }, 30000);
+      fetchImpl(`${config.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${config.apiKey}` },
+        body: JSON.stringify({ model: config.model, temperature: 0.1, messages: buildMessages(request) }),
+        signal: controller.signal,
+      }).then(async (response) => {
+        if (!response.ok) throw problem(response.status >= 500 ? 502 : 424, `修复建议模型请求失败（HTTP ${response.status}）`);
+        return response.json();
+      }).then(resolve, reject);
     });
-    if (!response.ok) throw problem(response.status >= 500 ? 502 : 424, `修复建议模型请求失败（HTTP ${response.status}）`);
-    payload = await response.json();
   } catch (error) {
     if (error.status) throw error;
     throw problem(error.name === 'AbortError' ? 504 : 502, error.name === 'AbortError' ? '修复建议模型请求超时' : '修复建议模型请求失败');

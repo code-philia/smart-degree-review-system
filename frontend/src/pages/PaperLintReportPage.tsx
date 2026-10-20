@@ -10,6 +10,7 @@ import {
 } from '../api/paperLint';
 import { PaperLintWorkspace } from '../components/paperLint/Workspace';
 import { flattenPaperLintFindings } from '../components/paperLint/model';
+import { usePaperLintRepairSuggestions } from '../hooks/usePaperLintRepairSuggestions';
 import { Card, ErrorState, LoadingState, PageHeader, StatusBadge } from '../components/ui';
 
 const outcomeLabels = { passed: '通过', issues_found: '发现问题', inconclusive: '无法判定', not_applicable: '不适用' };
@@ -50,6 +51,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
   }, [reportId]);
 
   const findings = useMemo(() => (report ? flattenPaperLintFindings(report.result) : []), [report]);
+  const repairSuggestions = usePaperLintRepairSuggestions(reportId);
   if (error) return <ErrorState title="报告暂不可用" message={error} />;
   if (!report || !file) return <LoadingState label="正在加载检测报告和原文定位…" />;
   const { summary } = report.result;
@@ -150,6 +152,13 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
         openPdfUrl={`/api/normative/paper-lint/reports/${encodeURIComponent(reportId!)}/pdf`}
         findings={findings}
         rules={rules}
+        repairSuggestionByFindingKey={repairSuggestions.repairSuggestionByFindingKey}
+        repairSuggestionLoadingKey={repairSuggestions.repairSuggestionLoadingKey}
+        repairSuggestionErrorByFindingKey={repairSuggestions.repairSuggestionErrorByFindingKey}
+        onLoadRepairSuggestion={repairSuggestions.loadRepairSuggestion}
+        onGenerateRepairSuggestion={repairSuggestions.generateRepairSuggestion}
+        supportsRepairSuggestion={repairSuggestions.supportsRepairSuggestion}
+        forceNewRepairSuggestion
       />
     </div>
   );

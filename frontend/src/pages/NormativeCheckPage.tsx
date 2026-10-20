@@ -15,6 +15,7 @@ import {
 import { PaperLintWorkspace } from '../components/paperLint/Workspace';
 import { flattenPaperLintFindings } from '../components/paperLint/model';
 import { THIRTY_RULE_IDS } from '../utils/paperLintRuleGroups';
+import { usePaperLintRepairSuggestions } from '../hooks/usePaperLintRepairSuggestions';
 import {
   Button,
   Card,
@@ -124,6 +125,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     [catalog, selectedRuleIds],
   );
   const findings = useMemo(() => (response ? flattenPaperLintFindings(response.result) : []), [response]);
+  const repairSuggestions = usePaperLintRepairSuggestions(response?.id);
 
   function chooseFile(nextFile: File | null) {
     setRunError(null);
@@ -545,7 +547,18 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
             <FileCheck2 className="size-5 text-brand-600" />
             <h2 className="text-lg font-black text-slate-900">PDF 定位与问题联动</h2>
           </div>
-          <PaperLintWorkspace file={resultFile} findings={findings} rules={visibleRules} />
+          <PaperLintWorkspace
+            file={resultFile}
+            findings={findings}
+            rules={visibleRules}
+            repairSuggestionByFindingKey={repairSuggestions.repairSuggestionByFindingKey}
+            repairSuggestionLoadingKey={repairSuggestions.repairSuggestionLoadingKey}
+            repairSuggestionErrorByFindingKey={repairSuggestions.repairSuggestionErrorByFindingKey}
+            onLoadRepairSuggestion={repairSuggestions.loadRepairSuggestion}
+            onGenerateRepairSuggestion={repairSuggestions.generateRepairSuggestion}
+            supportsRepairSuggestion={repairSuggestions.supportsRepairSuggestion}
+            forceNewRepairSuggestion
+          />
         </>
       ) : null}
     </div>

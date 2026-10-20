@@ -92,6 +92,38 @@ function buildLegacyRepairRequest({ job, document, ruleRun, finding }) {
   };
 }
 
+function buildPaperLintReportRepairRequest({ report, ruleRun, finding, documentSha256 }) {
+  if (!report?.id || !report?.result || !ruleRun?.rule_id || !finding?.finding_id || !documentSha256) {
+    throw new TypeError('单篇报告告警缺少构建修复建议所需的关联标识');
+  }
+  const ruleText = RULE_TEXT[ruleRun.rule_id];
+  if (!ruleText) {
+    throw new TypeError(`未支持的修复建议规则：${ruleRun.rule_id}`);
+  }
+  const evidence = [
+    evidenceFromFinding(finding),
+    ...(Array.isArray(finding.anchors) ? finding.anchors.map((anchor, index) => evidenceFromAnchor(anchor, index + 1)) : []),
+  ].filter(Boolean).map((item) => ({ ...item, source_ref: item.source_ref.replace('legacy_archive:', 'paper_lint_report:') }));
+  return {
+    schema_version: 'repair-request-v1',
+    source: {
+      kind: 'paper_lint_report',
+      report_id: report.id,
+      document_sha256: documentSha256,
+      detector_version: report.result?.execution_provenance?.detector_version_sha || null,
+    },
+    rule: { rule_id: ruleRun.rule_id, text: ruleText, version: 'legacy-rule-text-20261018' },
+    finding: {
+      finding_id: finding.finding_id,
+      message: finding.message || '',
+      location: finding.location,
+      anchors: Array.isArray(finding.anchors) ? finding.anchors : [],
+    },
+    evidence,
+    context_sha256: contextSha256(ruleRun.rule_id, finding, evidence),
+  };
+}
+
 function appendEvidence(request, nextEvidence) {
   const evidence = [...request.evidence, nextEvidence];
   return {
@@ -101,4 +133,12 @@ function appendEvidence(request, nextEvidence) {
   };
 }
 
-module.exports = { RULE_TEXT, appendEvidence, buildLegacyRepairRequest, evidenceFromFinding, evidenceFromAnchor, sha256 };
+module.exports = {
+  RULE_TEXT,
+  appendEvidence,
+  buildLegacyRepairRequest,
+  buildPaperLintReportRepairRequest,
+  evidenceFromFinding,
+  evidenceFromAnchor,
+  sha256,
+};
