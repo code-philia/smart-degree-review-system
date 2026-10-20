@@ -1,7 +1,8 @@
-import { Check, CheckCircle2, MapPin } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Bot, Check, CheckCircle2, MapPin } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import type { PaperLintRule } from '../../api/paperLint';
 import { EvidenceLinks } from './CompilerEvidence';
+import type { RepairSuggestion } from '../../api/repairSuggestions';
 import { Button, StatusBadge } from '../ui';
 import { comparePaperLintRuleIds, findingPageLabel, type PaperLintFindingItem } from './model';
 
@@ -12,6 +13,13 @@ type Props = {
   activeAnchorId: string | null;
   onFindingClick: (key: string) => void;
   onAnchorClick: (key: string, anchorId: string) => void;
+  repairSuggestionByFindingKey?: Record<string, RepairSuggestion | undefined>;
+  repairSuggestionLoadingKey?: string | null;
+  repairSuggestionErrorByFindingKey?: Record<string, string | undefined>;
+  onLoadRepairSuggestion?: (finding: PaperLintFindingItem) => void;
+  onGenerateRepairSuggestion?: (finding: PaperLintFindingItem) => void;
+  supportsRepairSuggestion?: (finding: PaperLintFindingItem) => boolean;
+  forceNewRepairSuggestion?: boolean;
 };
 
 const tones = { error: 'danger', warning: 'warning', info: 'info' } as const;
@@ -24,6 +32,13 @@ export function FindingsPane({
   activeAnchorId,
   onFindingClick,
   onAnchorClick,
+  repairSuggestionByFindingKey = {},
+  repairSuggestionLoadingKey = null,
+  repairSuggestionErrorByFindingKey = {},
+  onLoadRepairSuggestion,
+  onGenerateRepairSuggestion,
+  supportsRepairSuggestion = () => true,
+  forceNewRepairSuggestion = false,
 }: Props) {
   const [filter, setFilter] = useState<'all' | 'error' | 'warning' | 'info'>('all');
   const [ruleFilter, setRuleFilter] = useState('all');
@@ -35,6 +50,11 @@ export function FindingsPane({
       (filter === 'all' || item.ruleRun.severity === filter) &&
       (ruleFilter === 'all' || item.ruleRun.rule_id === ruleFilter),
   );
+
+  useEffect(() => {
+    const active = findings.find((item) => item.key === activeFindingKey);
+    if (active && onLoadRepairSuggestion) onLoadRepairSuggestion(active);
+  }, [activeFindingKey, findings, onLoadRepairSuggestion]);
 
   return (
     <section className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
@@ -85,6 +105,10 @@ export function FindingsPane({
             const page = findingPageLabel(item);
             const excerpt = item.finding.location?.text_excerpt || item.finding.anchors?.[0]?.location.text_excerpt;
             const evidence = (item.finding.evidence || []).filter((entry) => entry.kind !== 'normative_span' && !(entry.kind === 'source_span' && entry.quote === excerpt));
+            const repair = repairSuggestionByFindingKey[item.key];
+            const repairError = repairSuggestionErrorByFindingKey[item.key];
+            const generating = repairSuggestionLoadingKey === item.key;
+            const repairEnabled = supportsRepairSuggestion(item);
             return (
               <article
                 key={item.key}
@@ -157,10 +181,50 @@ export function FindingsPane({
                 ) : null}
                 {active && item.finding.source_kind === 'synthetic' ? <p className="mt-2 text-xs text-slate-600">该处来自变异内容，未标记为原始 PDF 中的文本。</p> : null}
                 {active && evidence.length ? <EvidenceLinks items={evidence} /> : null}
-                {active && item.finding.suggestion ? (
+                {active && item.finding.suggestion && (!repairEnabled || (!onLoadRepairSuggestion && !onGenerateRepairSuggestion)) ? (
                   <div className="mt-3 rounded-lg bg-white p-3 text-xs leading-5 text-slate-600">
                     <strong className="text-slate-800">修改建议：</strong>
                     {item.finding.suggestion}
+                  </div>
+                ) : null}
+                {active && repairEnabled && (onLoadRepairSuggestion || onGenerateRepairSuggestion) ? (
+                  <div className="mt-3 border-t border-slate-100 pt-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-xs font-bold text-slate-800">AI 修复建议</p>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={generating || !onGenerateRepairSuggestion}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onGenerateRepairSuggestion?.(item);
+                        }}
+                      >
+                        <Bot className="size-3.5" />
+                        {generating ? '正在获取建议…' : repair ? (forceNewRepairSuggestion ? '强制生成新版本' : '重新获取建议') : '生成 AI 修复建议'}
+                      </Button>
+                    </div>
+                    {repairError ? <p className="mt-2 text-xs text-danger-600">生成失败：{repairError}</p> : null}
+                    {repair ? (
+                      <div className="mt-3 space-y-3 rounded-lg bg-sky-50 p-3 text-xs leading-5 text-slate-700">
+                        <div>
+                          <div className="space-y-2">
+                            {repair.actions.map((action, index) => (
+                              <p key={`${action.instruction}-${index}`}>{action.instruction}</p>
+                            ))}
+                          </div>
+                        </div>
+                        <p className="text-[11px] text-slate-500">
+                          {repair.status === 'suggested'
+                            ? '可执行建议'
+                            : repair.status === 'evidence_conflict'
+                              ? '证据与告警存在冲突：暂不应仅依据该告警修改论文，请人工复核规则结果。'
+                              : '需要补充上下文：请按上述建议核对相关内容。'}
+                          {' · '}
+                          {repair.provenance.model} · {repair.provenance.prompt_version}
+                        </p>
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
                 {active && excerpt ? (

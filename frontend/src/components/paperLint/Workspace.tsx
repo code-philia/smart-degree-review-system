@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import type { PaperLintRule } from '../../api/paperLint';
+import type { RepairSuggestion } from '../../api/repairSuggestions';
 import { FindingsPane } from './FindingsPane';
 import type { PaperLintFindingItem } from './model';
 import { PdfPane } from './PdfPane';
@@ -9,9 +10,28 @@ type Props = {
   findings: PaperLintFindingItem[];
   rules: PaperLintRule[];
   openPdfUrl?: string;
+  repairSuggestionByFindingKey?: Record<string, RepairSuggestion | undefined>;
+  repairSuggestionLoadingKey?: string | null;
+  repairSuggestionErrorByFindingKey?: Record<string, string | undefined>;
+  onLoadRepairSuggestion?: (finding: PaperLintFindingItem) => void;
+  onGenerateRepairSuggestion?: (finding: PaperLintFindingItem) => void;
+  supportsRepairSuggestion?: (finding: PaperLintFindingItem) => boolean;
+  forceNewRepairSuggestion?: boolean;
 };
 
-export function PaperLintWorkspace({ file, findings, rules, openPdfUrl }: Props) {
+export function PaperLintWorkspace({
+  file,
+  findings,
+  rules,
+  openPdfUrl,
+  repairSuggestionByFindingKey = {},
+  repairSuggestionLoadingKey = null,
+  repairSuggestionErrorByFindingKey = {},
+  onLoadRepairSuggestion,
+  onGenerateRepairSuggestion,
+  supportsRepairSuggestion,
+  forceNewRepairSuggestion,
+}: Props) {
   const [activeFindingKey, setActiveFindingKey] = useState<string | null>(findings[0]?.key || null);
   const [activeAnchorId, setActiveAnchorId] = useState<string | null>(null);
   const [navigationRequest, setNavigationRequest] = useState(0);
@@ -45,6 +65,13 @@ export function PaperLintWorkspace({ file, findings, rules, openPdfUrl }: Props)
         activeAnchorId={activeAnchorId}
         onFindingClick={selectFinding}
         onAnchorClick={selectAnchor}
+        repairSuggestionByFindingKey={repairSuggestionByFindingKey}
+        repairSuggestionLoadingKey={repairSuggestionLoadingKey}
+        repairSuggestionErrorByFindingKey={repairSuggestionErrorByFindingKey}
+        onLoadRepairSuggestion={onLoadRepairSuggestion}
+        onGenerateRepairSuggestion={onGenerateRepairSuggestion}
+        supportsRepairSuggestion={supportsRepairSuggestion}
+        forceNewRepairSuggestion={forceNewRepairSuggestion}
       />
     </div>
   );
