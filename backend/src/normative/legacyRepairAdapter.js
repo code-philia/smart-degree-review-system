@@ -11,7 +11,49 @@ const RULE_TEXT = Object.freeze({
   sjtu_rule_24: '参考文献列表中存在未被正文引用的条目。',
   sjtu_rule_28: '目录中的核心内容页码系统性错位。',
   sjtu_rule_29: '正文引用的本论文附录目标完全缺失。',
+  sjtu_rule_31: '文内引注与文后参考文献格式应符合适用的 GB/T 7714 规定。仅对原文和规范已证实的类型标识、著录字段、标点或引注体例问题提出修改，按资源类型区分必备与有则必备；不将正常换行或跨行断词当作错误，类型或版本不明时先核对，不编造作者、题名、日期、DOI 或其他元数据。',
+  sjtu_rule_32: '被引文献的身份与存在性应有可核验依据。公开检索查不到不能据此证明文献不存在，也不同于正文引用编号没有对应本地文献条目。依据已有来源核对文献身份、题名和标识符，证实引用错误后再建议更正、删除或替换，并同步文内引注；不得编造替代文献或 DOI。完整受控文献库的排除证明仅能说明该库限定范围内不存在，不得外推到现实世界；公开检索或受控库证据不完整时使用 insufficient_context，不把检索缺失当作不存在。',
+  sjtu_rule_33: '具体引用语境中的论述应与被引文献实际内容相关并具有对应的支撑关系。结合引用句、被引条目和已提供的内容证据，建议收敛论断、调整引用位置或由作者补充确有支持的来源；不得仅凭题名或关键词差异判断不相关，不得编造文献内容、替代来源或研究事实。缺少内容证据时使用 insufficient_context，证据反驳原告警时使用 evidence_conflict。',
 });
+
+const CITATION_REPAIR_RULE_IDS = new Set(['sjtu_rule_31', 'sjtu_rule_32', 'sjtu_rule_33']);
+const ruleVersion = (id) => CITATION_REPAIR_RULE_IDS.has(id) ? 'citation-repair-20261020' : 'legacy-rule-text-20261018';
+
+// Keep the compiler's cited-content evidence and all supplied normative excerpts.
+// Group normative text so unrelated clauses cannot exhaust the eight evidence slots.
+function citationEvidence(finding) {
+  const items = [];
+  const normative = [];
+  const original = String(finding.location?.text_excerpt || '').trim();
+  for (const [index, entry] of (Array.isArray(finding.evidence) ? finding.evidence : []).entries()) {
+    if (!entry || typeof entry !== 'object') continue;
+    const quote = typeof entry.quote === 'string' ? entry.quote.trim() : '';
+    const url = typeof entry.url === 'string' ? entry.url : '';
+    if (entry.kind === 'normative_span') { if (quote) normative.push(quote); continue; }
+    const provenance = {};
+    for (const key of ['source_id', 'origin', 'source_sha256', 'node_id', 'content_id', 'work_id', 'start', 'end']) {
+      if (entry[key] !== undefined) provenance[key] = entry[key];
+    }
+    let scope = '';
+    if (entry.kind === 'controlled_catalog_scope') {
+      scope = '受控文献库排除证据（仅限该受控文献库，不能证明现实世界不存在）：' + JSON.stringify({
+        domain: entry.domain, complete: entry.complete, search_scope: entry.search_scope,
+        query: entry.query, catalog_size: entry.catalog_size, protocol: entry.protocol,
+      });
+    }
+    if (!quote && !url && !scope) continue;
+    if (entry.kind === 'source_span' && quote === original && !url) continue;
+    items.push({ evidence_id: `compiler-evidence-${index + 1}`,
+      source_kind: entry.kind === 'source_span' ? 'pdf_text' : 'retrieval',
+      text: [quote, scope, Object.keys(provenance).length ? '来源标识：' + JSON.stringify(provenance) : '', url ? `来源链接：${url}` : ''].filter(Boolean).join('\n'),
+      source_ref: ['paper_compiler', entry.kind || 'evidence', entry.id || String(index), entry.provider || '', url, entry.proof_sha256 || ''].join(':'),
+    });
+  }
+  if (normative.length) items.push({ evidence_id: 'compiler-normative', source_kind: 'retrieval',
+    text: '原告警提供的规范依据（不是被引文献内容）：\n' + [...new Set(normative)].join('\n'),
+    source_ref: 'paper_compiler:normative' });
+  return items;
+}
 
 function sha256(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
@@ -19,7 +61,7 @@ function sha256(value) {
 
 function contextSha256(ruleId, finding, evidence, source) {
   return sha256(JSON.stringify({
-    rule_id: ruleId, rule_text: RULE_TEXT[ruleId], rule_version: 'legacy-rule-text-20261018', source,
+    rule_id: ruleId, rule_text: RULE_TEXT[ruleId], rule_version: ruleVersion(ruleId), source,
     location: finding.location, anchors: finding.anchors,
     finding_id: finding.finding_id,
     message: finding.message,
@@ -70,6 +112,7 @@ function buildLegacyRepairRequest({ job, document, ruleRun, finding }) {
   const provenance = document.result?.execution_provenance || {};
   const evidence = [
     evidenceFromFinding(finding),
+    ...(CITATION_REPAIR_RULE_IDS.has(ruleRun.rule_id) ? citationEvidence(finding) : []),
     ...(Array.isArray(finding.anchors) ? finding.anchors.map((anchor, index) => evidenceFromAnchor(anchor, index + 1)) : []),
   ].filter(Boolean);
   const request = {
@@ -79,9 +122,10 @@ function buildLegacyRepairRequest({ job, document, ruleRun, finding }) {
       job_id: job.id,
       document_id: document.id,
       document_sha256: provenance.pdf_sha || sha256(`${job.id}:${document.id}:${document.relative_path || ''}`),
-      detector_version: provenance.detector_version_sha || null,
+      detector_version: provenance.detector_version_sha || (CITATION_REPAIR_RULE_IDS.has(ruleRun.rule_id) ? ruleRun.package_sha256 || ruleRun.pipeline_version || null : null),
+      ...(CITATION_REPAIR_RULE_IDS.has(ruleRun.rule_id) ? { package_sha256: ruleRun.package_sha256 || null, pipeline_version: ruleRun.pipeline_version || null, runtime_version: ruleRun.runtime_version || null } : {}),
     },
-    rule: { rule_id: ruleRun.rule_id, text: ruleText, version: 'legacy-rule-text-20261018' },
+    rule: { rule_id: ruleRun.rule_id, text: ruleText, version: ruleVersion(ruleRun.rule_id) },
     finding: {
       finding_id: finding.finding_id,
       message: finding.message || '',
@@ -105,6 +149,7 @@ function buildPaperLintReportRepairRequest({ report, ruleRun, finding, documentS
   }
   const evidence = [
     evidenceFromFinding(finding),
+    ...(CITATION_REPAIR_RULE_IDS.has(ruleRun.rule_id) ? citationEvidence(finding) : []),
     ...(Array.isArray(finding.anchors) ? finding.anchors.map((anchor, index) => evidenceFromAnchor(anchor, index + 1)) : []),
   ].filter(Boolean).map((item) => ({ ...item, source_ref: item.source_ref.replace('legacy_archive:', 'paper_lint_report:') }));
   const request = {
@@ -113,9 +158,10 @@ function buildPaperLintReportRepairRequest({ report, ruleRun, finding, documentS
       kind: 'paper_lint_report',
       report_id: report.id,
       document_sha256: documentSha256,
-      detector_version: report.result?.execution_provenance?.detector_version_sha || null,
+      detector_version: report.result?.execution_provenance?.detector_version_sha || (CITATION_REPAIR_RULE_IDS.has(ruleRun.rule_id) ? ruleRun.package_sha256 || ruleRun.pipeline_version || null : null),
+      ...(CITATION_REPAIR_RULE_IDS.has(ruleRun.rule_id) ? { package_sha256: ruleRun.package_sha256 || null, pipeline_version: ruleRun.pipeline_version || null, runtime_version: ruleRun.runtime_version || null } : {}),
     },
-    rule: { rule_id: ruleRun.rule_id, text: ruleText, version: 'legacy-rule-text-20261018' },
+    rule: { rule_id: ruleRun.rule_id, text: ruleText, version: ruleVersion(ruleRun.rule_id) },
     finding: {
       finding_id: finding.finding_id,
       message: finding.message || '',

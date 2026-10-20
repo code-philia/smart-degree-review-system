@@ -35,6 +35,30 @@ async function runJsonProcess(command,args,{signal,timeoutMs=1200000,maxBytes=64
   try { const result=JSON.parse(stdout);if(!result || typeof result!=='object' || (Array.isArray(result) && !allowArray))throw new Error();return result; }
   catch { throw failure(502,'COMPILER_INVALID_JSON','规则编译检测返回了无效结果'); }
 }
+// Preserve compact proof provenance for repair advice without publishing entire catalogs/full texts.
+function publicationEvidence(entry, id) {
+  const evidence = { id, kind: entry.kind, quote: entry.quote };
+  const proof = Object.fromEntries(Object.entries(entry).filter(([key]) => key !== 'source_text'));
+  evidence.proof_sha256 = crypto.createHash('sha256').update(JSON.stringify(proof)).digest('hex');
+  for (const key of ['provider', 'url', 'source_id', 'origin', 'source_sha256', 'node_id', 'content_id', 'work_id', 'domain', 'search_scope', 'protocol']) {
+    if (typeof entry[key] === 'string') evidence[key] = entry[key].slice(0, 2000);
+  }
+  for (const key of ['start', 'end']) if (Number.isSafeInteger(entry[key]) && entry[key] >= 0) evidence[key] = entry[key];
+  if (typeof entry.complete === 'boolean') evidence.complete = entry.complete;
+  if (entry.kind === 'controlled_catalog_scope') {
+    if (Array.isArray(entry.catalog)) evidence.catalog_size = entry.catalog.length;
+    if (entry.query && typeof entry.query === 'object' && !Array.isArray(entry.query)) {
+      evidence.query = {};
+      for (const key of ['title', 'authors', 'year', 'doi']) {
+        const value = entry.query[key];
+        if (typeof value === 'string') evidence.query[key] = value.slice(0, 2000);
+        else if (typeof value === 'number' || value === null) evidence.query[key] = value;
+        else if (Array.isArray(value)) evidence.query[key] = value.filter(item => typeof item === 'string').slice(0, 40).map(item => item.slice(0, 200));
+      }
+    }
+  }
+  return evidence;
+}
 function toCompilerResult(output,selectedRuleIds) {
   if(output?.schema_version!=='paper-check/1.0' || !Array.isArray(output.rules))throw failure(502,'COMPILER_INVALID_REPORT','规则编译检测结果不完整');
   const publication=output.publication?.public;
@@ -76,7 +100,7 @@ function toCompilerResult(output,selectedRuleIds) {
       return {finding_id:`${ruleId}_confirmed_${index+1}`,rule_id:ruleId,node_id:f.node_id,
         message:f.message || '发现经规范与原文复核确认的问题',suggestion:null,location:source.location || null,anchors:[],
         source_kind:source.location?'source':'unlocated',
-        evidence:spans.map((e,i)=>({id:`confirmed-${index}-${i}`,kind:e.kind,quote:e.quote})),
+        evidence:spans.map((e,i)=>publicationEvidence(e,`confirmed-${index}-${i}`)),
         basis_details:basisIds.map(id=>(raw.basis_catalog || []).find(b=>b.id===id) || {id})};
     });
     const diagnostics=publication ? [] : raw.results.filter(r=>['UNKNOWN','ERROR'].includes(r.status)).map(r=>({node_id:r.node_id,check_id:r.check_id,status:r.status,reasons:r.reasons || [],evidence:r.display_evidence || [],basis_details:basisDetails(r)}));

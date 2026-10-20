@@ -35,6 +35,7 @@ export type PaperLintFindingReference = {
 export const PAPER_LINT_REPAIR_RULE_IDS = new Set([
   'sjtu_rule_11', 'sjtu_rule_13', 'sjtu_rule_14', 'sjtu_rule_15', 'sjtu_rule_16',
   'sjtu_rule_18', 'sjtu_rule_22', 'sjtu_rule_24', 'sjtu_rule_28', 'sjtu_rule_29',
+  'sjtu_rule_31', 'sjtu_rule_32', 'sjtu_rule_33',
 ]);
 
 const base = '/normative/repair-suggestions/archive-findings';
