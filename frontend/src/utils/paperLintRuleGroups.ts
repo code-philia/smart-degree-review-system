@@ -9,4 +9,7 @@ export const THIRTY_RULE_IDS = new Set([
   'sjtu_rule_22',
   'sjtu_rule_24',
   'sjtu_rule_28',
+  'sjtu_rule_31',
+  'sjtu_rule_32',
+  'sjtu_rule_33',
 ]);

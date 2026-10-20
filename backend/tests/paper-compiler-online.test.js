@@ -142,6 +142,14 @@ it('accepts independently configured400 total and37.5 phase without changing tas
   expect(argv).not.toContain('--online-task-budget');
   expect(argv).not.toContain('--online-timeout-seconds');
 });
+it('accepts the authorized500 total and220 archive phase limits', async () => {
+  const {capture}=transport(report);
+  env('PAPER_COMPILER_BUDGET_CNY','500');env('PAPER_COMPILER_PHASE_BUDGET_CNY','220');
+  await service.runCompilerRules('/data/tmp/input.pdf',['sjtu_rule_31']);
+  const argv=JSON.parse(fs.readFileSync(capture,'utf8'));
+  expect(argv[argv.indexOf('--budget')+1]).toBe('500');
+  expect(argv[argv.indexOf('--phase-budget')+1]).toBe('220');
+});
 it('can configure only a phase without raising the default total', async () => {
   const {capture}=transport(report);env('PAPER_COMPILER_PHASE_BUDGET_CNY','25');
   await service.runCompilerRules('/data/tmp/input.pdf',['sjtu_rule_31']);
@@ -150,10 +158,10 @@ it('can configure only a phase without raising the default total', async () => {
   expect(argv[argv.indexOf('--phase-budget')+1]).toBe('25');
 });
 it.each([
-  ['PAPER_COMPILER_BUDGET_CNY','0'],['PAPER_COMPILER_BUDGET_CNY','401'],
+  ['PAPER_COMPILER_BUDGET_CNY','0'],['PAPER_COMPILER_BUDGET_CNY','501'],
   ['PAPER_COMPILER_BUDGET_CNY','NaN'],['PAPER_COMPILER_BUDGET_CNY',''],
   ['PAPER_COMPILER_PHASE_BUDGET_CNY','-1'],['PAPER_COMPILER_PHASE_BUDGET_CNY','Infinity'],
-  ['PAPER_COMPILER_PHASE_BUDGET_CNY','401'],
+  ['PAPER_COMPILER_PHASE_BUDGET_CNY','501'],
 ])('rejects invalid %s=%s before spawning a compiler', async (name,value) => {
   const {capture}=transport(report);env(name,value);
   await expect(service.runCompilerRules('/data/tmp/input.pdf',['sjtu_rule_31'])).rejects.toMatchObject({status:503,code:'COMPILER_BUDGET_CONFIG_INVALID'});

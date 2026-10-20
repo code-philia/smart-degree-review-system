@@ -1,8 +1,9 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const assessmentService = require('../src/normative/innovationAssessmentService');
+const { createTestDatabaseHarness } = require('../src/database');
 
 const {
   ALLOWED_INNOVATION_ASSESSMENT_ROLES,
@@ -55,6 +56,13 @@ function validAssessmentPayload(overrides = {}) {
 }
 
 describe('FEAT-INNOVATION-ANALYZE service validation and snapshot contract', () => {
+  let harness;
+  beforeAll(async () => {
+    harness = createTestDatabaseHarness({ label: 'innovation-assessment-unit', seedDefault: true });
+    await harness.setup();
+  });
+  afterAll(async () => harness.cleanup());
+
   it('FEAT-INNOVATION-ANALYZE:UNIT:SCENARIO:001 persists normalized input, scoring details, total score, grade, and disclaimer', async () => {
     const payload = validAssessmentPayload();
 

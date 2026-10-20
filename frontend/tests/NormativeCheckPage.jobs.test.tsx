@@ -76,6 +76,18 @@ const report = {
   },
 };
 
+
+const compilerRules = [
+  ['sjtu_rule_31', '规则 31 · 文内引注与文后参考文献格式'],
+  ['sjtu_rule_32', '规则 32 · 引用的外部文献不存在'],
+  ['sjtu_rule_33', '规则 33 · 引用目的与被引内容无关'],
+].map(([rule_id, title]) => ({
+  ...rule, rule_id, title, description: '仅展示经规范与原文复核确认的告警。',
+  execution_mode: 'semantic' as const, uses_external_model: true,
+  source: 'sjtu-paper-compiler' as const,
+}));
+const basicRule = { ...rule, rule_id: 'abstract_length_cn', title: '中文摘要长度', default_enabled: true };
+
 describe('MinerU background PDF review', () => {
   beforeEach(() => {
     vi.mocked(fetchCurrentSession).mockResolvedValue({
@@ -136,4 +148,41 @@ describe('MinerU background PDF review', () => {
     expect(await screen.findByText('未发现问题')).toBeTruthy();
     expect(fetchPaperLintReport).toHaveBeenCalledWith('job-1');
   });
+
+  it('offers rules 31–33 in the 33-rule page and submits them only after external-processing consent', async () => {
+    vi.mocked(fetchReviewPilotPaperLintRules).mockResolvedValue({
+      engine: 'sjtu-local', mode: 'pdf_lint', semantic_model: 'deepseek-v4-flash',
+      rules: [basicRule, rule, ...compilerRules],
+    });
+    vi.mocked(runReviewPilotPaperLint).mockRejectedValue(new Error('受控提交检查'));
+    const user = userEvent.setup();
+    render(<MemoryRouter initialEntries={['/thirty-rules-check']}><AuthSessionProvider><App /></AuthSessionProvider></MemoryRouter>);
+    const rule31 = await screen.findByRole('checkbox', { name: /规则 31/ });
+    const rule32 = screen.getByRole('checkbox', { name: /规则 32/ });
+    const rule33 = screen.getByRole('checkbox', { name: /规则 33/ });
+    for (const checkbox of [rule31, rule32, rule33]) expect(checkbox).toBeEnabled();
+    expect(screen.queryByRole('checkbox', { name: /中文摘要长度/ })).toBeNull();
+    const pdf = new File(['%PDF-1.7\n'], 'citation-check.pdf', { type: 'application/pdf' });
+    await user.upload(screen.getByLabelText('上传待审查 PDF'), pdf);
+    for (const checkbox of [rule31, rule32, rule33]) await user.click(checkbox);
+    expect(screen.getByRole('button', { name: '开始检查' })).toBeDisabled();
+    expect(runReviewPilotPaperLint).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('checkbox', { name: '我确认该论文相关文本允许发送至上述大模型与公开文献服务' }));
+    await user.click(screen.getByRole('button', { name: '开始检查' }));
+    expect(await screen.findByText('受控提交检查')).toBeTruthy();
+    expect(runReviewPilotPaperLint).toHaveBeenCalledWith(pdf, ['sjtu_rule_31', 'sjtu_rule_32', 'sjtu_rule_33'], true);
+  });
+
+  it('keeps citation rules out of the basic-rule selector', async () => {
+    vi.mocked(fetchReviewPilotPaperLintRules).mockResolvedValue({
+      engine: 'sjtu-local', mode: 'pdf_lint', semantic_model: 'deepseek-v4-flash',
+      rules: [basicRule, rule, ...compilerRules],
+    });
+    render(<MemoryRouter initialEntries={['/normative-check']}><AuthSessionProvider><App /></AuthSessionProvider></MemoryRouter>);
+    expect(await screen.findByRole('checkbox', { name: /中文摘要长度/ })).toBeEnabled();
+    for (const name of [/规则 31/, /规则 32/, /规则 33/]) {
+      expect(screen.queryByRole('checkbox', { name })).toBeNull();
+    }
+  });
+
 });
