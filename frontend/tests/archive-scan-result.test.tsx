@@ -111,3 +111,38 @@ describe('archive paper result', () => {
     expect(screen.queryByRole('link', { name: '在浏览器中打开完整 PDF' })).not.toBeInTheDocument();
   });
 });
+
+it('shows a reviewed false-positive removal while keeping rule 22 in the report', async () => {
+  const { document } = await fetchArchiveDocument('job', 'doc');
+  const run = document.result!.rule_runs[0];
+  vi.mocked(fetchArchiveCatalog).mockResolvedValue({
+    rules: [{ rule_id: 'sjtu_rule_22', title: '规则 22', description: '' }] as never,
+    paper_count: 479,
+  });
+  vi.mocked(fetchArchiveDocument).mockResolvedValue({ document: {
+    ...document,
+    finding_count: 0,
+    rule_outcomes: { sjtu_rule_22: 'passed' },
+    result: {
+      ...document.result,
+      summary: { ...document.result!.summary, finding_count: 0, issue_rule_count: 0 },
+      rule_runs: [{ ...run, rule_id: 'sjtu_rule_22', outcome: 'passed', findings: [] }],
+      finding_reviews: [{
+        rule_id: 'sjtu_rule_22', finding_id: 'f1', disposition: 'false_positive',
+        reviewed_at: '2026-10-20T12:00:00Z', reason: '用户确认误报',
+        original_finding: run.findings[0],
+      }],
+    },
+  } as never });
+  render(
+    <MemoryRouter initialEntries={['/thirty-rules-check/archive/jobs/job/documents/doc']}>
+      <Routes><Route path="/thirty-rules-check/archive/jobs/:jobId/documents/:documentId"
+        element={<AuthSessionProvider><ArchiveScanResultPage /></AuthSessionProvider>} /></Routes>
+    </MemoryRouter>,
+  );
+  expect(await screen.findByText('已移除 1 条经确认的误报')).toBeInTheDocument();
+  expect(screen.getByText('规则 22')).toBeInTheDocument();
+  expect(screen.getByText('通过 · 0 处')).toBeInTheDocument();
+  expect(screen.getByText('未发现问题')).toBeInTheDocument();
+  expect(screen.getByTestId('workspace')).not.toHaveTextContent('公式引用未找到目标');
+});

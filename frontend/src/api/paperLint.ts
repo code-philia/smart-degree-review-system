@@ -112,6 +112,14 @@ export type PaperLintSummary = {
 };
 
 export type PaperLintResult = {
+  finding_reviews?: Array<{
+    rule_id: string;
+    finding_id: string;
+    disposition: 'false_positive';
+    reviewed_at: string;
+    reason: string;
+    original_finding: PaperLintFinding;
+  }>;
   runtime?: PaperLintRuntimeSnapshot | null;
   type: 'paper_lint';
   paper_title: string;

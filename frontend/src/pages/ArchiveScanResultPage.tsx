@@ -62,6 +62,7 @@ function ArchiveScanResultDocument() {
   if (!allowed) return <ErrorState title="无权查看归档论文" message="请使用学院管理员或学校管理员账号登录。" />;
   if (error) return <ErrorState title="检测结果暂不可用" message={error} />;
   if (!document || !catalog) return <LoadingState label="正在加载论文检测结果…" />;
+  const removedFalsePositives = document.result?.finding_reviews?.filter(review => review.disposition === 'false_positive').length || 0;
   const back = `/thirty-rules-check/archive?job=${jobId}`;
   return (
     <div className="space-y-6">
@@ -110,6 +111,11 @@ function ArchiveScanResultDocument() {
                 {compilerPublicationSummary(document.result) || (findings.length ? `${findings.length} 处问题` : inconclusive ? '部分规则无法判定' : '未发现问题')}
               </span>
             </div>
+            {removedFalsePositives > 0 && (
+              <p className="mt-3 text-sm text-slate-500" role="status">
+                已移除 {removedFalsePositives} 条经确认的误报
+              </p>
+            )}
             <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {document.result.rule_runs.map((run) => (
                 <div key={run.rule_id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
