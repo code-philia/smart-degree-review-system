@@ -40,8 +40,8 @@ describe('repair model proposal', () => {
     }, request)).toThrow(/不存在的证据/);
   });
 
-  it('instructs the model to make safe conditional suggestions before declaring context insufficient', () => {
-    expect(buildMessages(request)[0].content).toContain('以修改为中心');
-    expect(buildMessages(request)[0].content).toContain('控制建议数量');
+  it('instructs the model to make evidence-bound minimal repairs', () => {
+    expect(buildMessages(request)[0].content).toContain('证据可靠');
+    expect(buildMessages(request)[0].content).toContain('最小修复');
   });
 });

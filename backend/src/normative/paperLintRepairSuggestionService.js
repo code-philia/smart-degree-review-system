@@ -2,8 +2,8 @@ const { createHash, randomUUID } = require('crypto');
 const fs = require('fs/promises');
 const db = require('../database/db_runtime');
 const reportRepository = require('./paperLintReportRepository');
-const { RULE_TEXT, appendEvidence, buildPaperLintReportRepairRequest } = require('./legacyRepairAdapter');
-const { extractPdfContext } = require('./repairEvidenceService');
+const { RULE_TEXT, buildPaperLintReportRepairRequest } = require('./legacyRepairAdapter');
+const { appendExtractedContext, extractPdfContext } = require('./repairEvidenceService');
 
 function problem(status, message) {
   const error = new Error(message);
@@ -34,14 +34,12 @@ async function buildPaperLintReportRepairRequestWithPdfContext({ reportId, userI
   const request = buildPaperLintReportRepairRequest({ report, ruleRun, finding, documentSha256 });
   const extracted = await extractPdfContext(pdf.path, finding.location);
   if (!extracted.text.trim()) throw problem(422, 'PDF 目标位置未提取到可用文本上下文');
-  return appendEvidence(request, {
-    evidence_id: `pdf-context-${request.evidence.length + 1}`,
-    source_kind: 'pdf_text',
-    text: extracted.text,
-    page_number: extracted.page_number,
-    location: finding.location,
-    source_ref: `paper_lint_report:pdf_context:${reportId}#page=${extracted.page_number}`,
-  });
+  return appendExtractedContext(
+    request,
+    extracted,
+    finding.location,
+    `paper_lint_report:pdf_context:${reportId}`,
+  );
 }
 
 async function findPaperLintRepairSuggestion(request, { model, modelVersion, promptVersion } = {}) {

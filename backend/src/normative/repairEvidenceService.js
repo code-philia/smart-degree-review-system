@@ -49,10 +49,27 @@ async function extractPdfContext(pdfPath, location) {
   try {
     const output = JSON.parse(stdout);
     if (!output || typeof output.text !== 'string') throw new Error('invalid output');
-    return output;
+    const segments = Array.isArray(output.segments)
+      ? output.segments.filter((segment) => segment && typeof segment.text === 'string' && segment.text.trim())
+      : [];
+    return {
+      ...output,
+      segments: segments.length ? segments : [{ page_number: output.page_number, relation: 'target', text: output.text }],
+    };
   } catch {
     throw problem(502, 'PDF 上下文提取器返回了无法解析的结果');
   }
+}
+
+function appendExtractedContext(request, extracted, location, sourceRefPrefix) {
+  return extracted.segments.reduce((next, segment) => appendEvidence(next, {
+    evidence_id: `pdf-context-${next.evidence.length + 1}`,
+    source_kind: 'pdf_text',
+    text: segment.text,
+    page_number: segment.page_number,
+    location,
+    source_ref: `${sourceRefPrefix}#page=${segment.page_number}&relation=${segment.relation || 'target'}`,
+  }), request);
 }
 
 async function buildArchiveRepairRequestWithPdfContext({ jobId, documentId, ruleId, findingId }) {
@@ -61,18 +78,17 @@ async function buildArchiveRepairRequestWithPdfContext({ jobId, documentId, rule
   const pdfPath = await resolveArchivePdfPath(document.relative_path);
   const extracted = await extractPdfContext(pdfPath, finding.location);
   if (!extracted.text.trim()) throw problem(422, 'PDF 目标位置未提取到可用文本上下文');
-  return appendEvidence(request, {
-    evidence_id: `pdf-context-${request.evidence.length + 1}`,
-    source_kind: 'pdf_text',
-    text: extracted.text,
-    page_number: extracted.page_number,
-    location: finding.location,
-    source_ref: `legacy_archive:pdf_context:${document.relative_path}#page=${extracted.page_number}`,
-  });
+  return appendExtractedContext(
+    request,
+    extracted,
+    finding.location,
+    `legacy_archive:pdf_context:${document.relative_path}`,
+  );
 }
 
 module.exports = {
   buildArchiveRepairRequestWithPdfContext,
+  appendExtractedContext,
   extractPdfContext,
   resolveArchivePdfPath,
 };
