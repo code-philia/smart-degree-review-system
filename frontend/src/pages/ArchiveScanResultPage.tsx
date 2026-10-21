@@ -9,7 +9,6 @@ import {
   type ArchiveDocument,
 } from '../api/archiveScans';
 import {
-  evaluateArchiveFindingRepairSuggestion,
   fetchArchiveFindingRepairSuggestions,
 } from '../api/repairSuggestions';
 import { useFindingRepairSuggestions } from '../hooks/useFindingRepairSuggestions';
@@ -56,8 +55,7 @@ function ArchiveScanResultDocument() {
   const findings = useMemo(() => (document?.result ? flattenPaperLintFindings(document.result) : []), [document]);
   const reference = useCallback((item: (typeof findings)[number]) => ({job_id: jobId!, document_id: documentId!, rule_id: item.ruleRun.rule_id, finding_id: item.finding.finding_id}), [jobId, documentId]);
   const fetchSaved = useCallback(async (item: (typeof findings)[number]) => (await fetchArchiveFindingRepairSuggestions(reference(item)))[0] || null, [reference]);
-  const evaluate = useCallback((item: (typeof findings)[number], force: boolean) => evaluateArchiveFindingRepairSuggestion(reference(item), {force}), [reference]);
-  const repairSuggestions = useFindingRepairSuggestions({scopeKey: allowed && jobId && documentId ? `${jobId}:${documentId}` : undefined, fetchSaved, evaluate});
+  const repairSuggestions = useFindingRepairSuggestions({scopeKey: allowed && jobId && documentId ? `${jobId}:${documentId}` : undefined, fetchSaved});
   if (status === 'loading') return <LoadingState label="正在验证权限…" />;
   if (!allowed) return <ErrorState title="无权查看归档论文" message="请使用学院管理员或学校管理员账号登录。" />;
   if (error) return <ErrorState title="检测结果暂不可用" message={error} />;
@@ -146,7 +144,6 @@ function ArchiveScanResultDocument() {
             repairSuggestionLoadingByFindingKey={repairSuggestions.repairSuggestionLoadingByFindingKey}
             repairSuggestionErrorByFindingKey={repairSuggestions.repairSuggestionErrorByFindingKey}
             onLoadRepairSuggestion={repairSuggestions.loadRepairSuggestion}
-            onGenerateRepairSuggestion={repairSuggestions.generateRepairSuggestion}
             supportsRepairSuggestion={repairSuggestions.supportsRepairSuggestion}
           />
         </>

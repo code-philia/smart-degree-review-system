@@ -2,7 +2,7 @@ import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { PAPER_LINT_REPAIR_RULE_IDS, type RepairSuggestion } from '../api/repairSuggestions';
 import type { PaperLintFindingItem } from '../components/paperLint/model';
 type Item = PaperLintFindingItem;
-type Options = { scopeKey: string | undefined; fetchSaved: (item: Item) => Promise<RepairSuggestion | null>; evaluate: (item: Item, force: boolean) => Promise<{response: RepairSuggestion}> };
+type Options = { scopeKey: string | undefined; fetchSaved: (item: Item) => Promise<RepairSuggestion | null>; evaluate?: (item: Item, force: boolean) => Promise<{response: RepairSuggestion}> };
 function createQueue(limit: number) {
   let active = 0;
   const pending: (() => void)[] = [];
@@ -39,7 +39,7 @@ export function useFindingRepairSuggestions({scopeKey, fetchSaved, evaluate}: Op
         if (generation === epoch.current) response = await fetchSaved(item);
       });
       if (generation !== epoch.current) return;
-      if (!response) await enqueueGeneration(async () => {
+      if (!response && evaluate) await enqueueGeneration(async () => {
         if (generation === epoch.current) response = (await evaluate(item, force)).response;
       });
       if (generation === epoch.current && response) setSuggestions(current => ({...current, [item.key]: response!}));

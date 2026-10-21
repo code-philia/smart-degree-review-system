@@ -60,10 +60,17 @@ function createRepairSuggestionRouter() {
     const request = await service.buildArchiveRepairRequest(values);
     const identity = await getRepairModelIdentity();
     const suggestions = await service.listArchiveRepairSuggestions(values);
-    res.json({ suggestions: suggestions.filter(({ response }) =>
+    const citationRule = ['sjtu_rule_31', 'sjtu_rule_32', 'sjtu_rule_33'].includes(values.ruleId);
+    const compatible = suggestions.filter(({ response }) =>
       response.provenance.model === identity.model && response.provenance.model_version === identity.modelVersion &&
-      response.provenance.prompt_version === PROMPT_VERSION &&
-      response.provenance.source_identity_sha256 === request.source_identity_sha256) });
+      (response.provenance.prompt_version === PROMPT_VERSION ||
+        (citationRule && response.provenance.prompt_version === 'repair-model-actions-v2')) &&
+      response.provenance.source_identity_sha256 === request.source_identity_sha256);
+    // Current advice wins even if an older prompt was regenerated later.
+    compatible.sort((left, right) =>
+      Number(right.response.provenance.prompt_version === PROMPT_VERSION) -
+      Number(left.response.provenance.prompt_version === PROMPT_VERSION));
+    res.json({ suggestions: compatible });
   }));
   return router;
 }

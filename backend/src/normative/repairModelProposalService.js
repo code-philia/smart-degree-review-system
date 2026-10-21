@@ -1,5 +1,5 @@
 const ALLOWED_STATUSES = new Set(['suggested', 'insufficient_context', 'evidence_conflict']);
-const PROMPT_VERSION = 'repair-model-actions-v2';
+const PROMPT_VERSION = 'repair-model-actions-v3';
 const MAX_EVIDENCE_ITEMS = 8;
 const MAX_EVIDENCE_CHARS = 12000;
 
@@ -19,15 +19,50 @@ function modelConfig() {
   return { apiKey, baseUrl: baseUrl.replace(/\/$/, ''), model, modelVersion: process.env.MAAS_MODEL_VERSION || 'unknown' };
 }
 
-function boundedEvidence(evidence) {
+function boundedCitationText(value, limit) {
+  const text = String(value || '');
+  if (text.length <= limit) return text;
+  const marker = text.search(/\n来源(?:标识|链接)：/);
+  if (marker < 0) return text.slice(0, limit);
+  const provenance = text.slice(marker);
+  if (provenance.length >= limit) return provenance.slice(0, limit);
+  const separator = '\n…';
+  const quoteLength = Math.max(0, limit - provenance.length - separator.length);
+  return (text.slice(0, quoteLength) + separator + provenance).slice(-limit);
+}
+
+function boundedEvidence(evidence, ruleId) {
   let total = 0;
   const result = [];
-  const isContext = (item) => String(item.source_ref || '').includes('pdf_context');
-  const ordered = [...evidence.filter(isContext), ...evidence.filter((item) => !isContext(item))];
-  for (const item of ordered.slice(0, MAX_EVIDENCE_ITEMS)) {
+  const isContext = item => String(item.source_ref || '').includes('pdf_context');
+  const contexts = evidence.filter(isContext);
+  const primary = evidence.filter(item => !isContext(item));
+  const citation = ['sjtu_rule_31', 'sjtu_rule_32', 'sjtu_rule_33'].includes(ruleId);
+  let ordered;
+  let criticalCount = 0;
+  if (citation) {
+    const priority = item => {
+      const ref = String(item.source_ref || '');
+      if (ref.includes('finding_location')) return 0;
+      if (ref.startsWith('paper_compiler:normative')) return 1;
+      if (ref.startsWith('paper_compiler:controlled_catalog_scope:')) return 2;
+      return 3;
+    };
+    // Reserve evidence slots and characters for cited content, scope proofs and
+    // normative excerpts; neighboring pages use the remaining optional budget.
+    const critical = [...primary].sort((a, b) => priority(a) - priority(b));
+    criticalCount = Math.min(critical.length, MAX_EVIDENCE_ITEMS);
+    contexts.sort((a, b) => Number(String(b.source_ref).includes('relation=target')) - Number(String(a.source_ref).includes('relation=target')));
+    ordered = [...critical, ...contexts];
+  } else {
+    ordered = [...contexts, ...primary];
+  }
+  for (const [index, item] of ordered.slice(0, MAX_EVIDENCE_ITEMS).entries()) {
     const remaining = MAX_EVIDENCE_CHARS - total;
     if (remaining <= 0) break;
-    const text = String(item.text || '').slice(0, remaining);
+    const criticalRemaining = citation ? Math.max(0, criticalCount - index) : 0;
+    const limit = criticalRemaining ? Math.floor(remaining / criticalRemaining) : remaining;
+    const text = citation ? boundedCitationText(item.text, limit) : String(item.text || '').slice(0, limit);
     total += text.length;
     result.push({ evidence_id: item.evidence_id, source_kind: item.source_kind, page_number: item.page_number, text });
   }
@@ -35,7 +70,7 @@ function boundedEvidence(evidence) {
 }
 
 function buildMessages(request) {
-  const evidence = boundedEvidence(request.evidence);
+  const evidence = boundedEvidence(request.evidence, request.rule.rule_id);
   const expected = {
     status: 'suggested | insufficient_context | evidence_conflict',
     actions: [{ instruction: 'string', evidence_ids: ['evidence id'] }],
@@ -43,26 +78,30 @@ function buildMessages(request) {
   return [
     {
       role: 'system',
-      content: `你是学位论文规范问题的修复建议助手。你的任务是根据规则、告警和证据，为论文作者提供简明、准确、可执行的修复建议。
+      content: `你是学位论文规范问题的修复建议助手。请根据规则、告警和证据，为论文作者提供简明、具体、可直接执行的修复建议。
 
-## 基本约束
+## 修复原则（按优先级执行）
 
-- 只能依据提供的规则、告警和证据作答。
-- 不得补造图表、公式、数据、参考文献、作者或实验事实。
-- 不得将未经证实的推测表述为确定事实。
-- 每步 evidence_ids 只能引用输入中已有的证据 ID。
+1. **证据可靠**：仅依据输入信息判断，可进行合理推断，但不得编造公式、图表、编号、数据或引用关系。不能仅因对象位置相邻或内容相似，就认定其为正确的替换目标。
+2. **最小修复**：优先选择能消除告警、保持原意且引入最少额外假设的修改方式。可采用删除、替换、补充或调整措辞，不必强行寻找替换对象。
+3. **主动建议**：有合理修复方案时直接给出具体操作，避免将判断过程交给用户；只有无法确定合理修改方式时才要求核对。
+4. **精准简洁**：尽量包含页码、原文短片段及明确修改动作，优先使用“在第X页‘原文片段’处，将A修改为B”。原文片段必须来自输入证据，不得改写或补造。每条建议原则上为1～2句话，不输出排查流程。
+5. **定位准确**：使用原文上下文作为定位锚点：如果输入证据包含问题原文及其前后文，应优先提取能够唯一识别修改位置的连续原文片段。片段应包含待修改内容，并尽量保留其前后各约 10～20 个汉字。不得改写、补造或拼接不存在的原文。若原文较长，只截取与修改直接相关的部分。
 
-## 修复建议生成原则
+## 状态规则
 
-1. **以修改为中心**：直接说明需要修改的位置、对象和方式，而不是描述完整的排查过程。
-2. **简洁优先**：每条建议原则上为 1～2 句话，避免重复告警内容、冗长解释和无必要的技术细节。
-3. **合并相关操作**：针对同一修改目标的定位、核对和修改应尽量合并为一条建议，不得为了体现完整性而拆分步骤。
-4. **保留必要条件**：如果修改目标不唯一，使用简短的“若……则……”说明不同处理方式，不必穷举缺乏证据支持的可能性。
-5. **突出用户行动**：优先使用“将……修改为……”“补充……”“删除……”“核对……后调整……”等表达。
-6. **避免流程化表述**：除非必要，不输出全文检索、记录上下文、重新编译、检查编号连续性等辅助操作。
-7. **控制建议数量**：能够通过一条建议完整表达的，不拆分为多条；只有涉及独立修改目标时才分别给出。
+- suggested：现有证据支持合理的具体修复方案，包括必要的合理推断。
+- insufficient_context：无法提出有依据的修复方案；actions 应说明最关键的待核对信息。
+- evidence_conflict：现有证据直接反驳原告警，或明显表明原告警不成立。
 
-输出一个 JSON 对象，不要 markdown。状态仅可为 suggested、insufficient_context、evidence_conflict。若证据不足，actions 应写明下一步需要补取或核对什么；只有补取证据直接反驳或明显不支持原告警时，使用 evidence_conflict。JSON 结构：${JSON.stringify(expected)}`,
+## 输出要求
+
+仅输出一个符合以下结构的 JSON 对象，不要 Markdown。
+每步 evidence_ids 只能引用输入中已有的证据 ID。
+同一修改目标尽量合并为一条建议，只有独立修改目标才拆分。
+不要输出内部推理过程或无必要的复核步骤。
+
+JSON 结构：${JSON.stringify(expected)}`,
     },
     {
       role: 'user',
@@ -83,7 +122,7 @@ function parseJson(content) {
 
 function validateModelAnswer(answer, request) {
   if (!answer || !ALLOWED_STATUSES.has(answer.status)) throw problem(502, '修复建议模型返回了无效状态');
-  const validIds = new Set(boundedEvidence(request.evidence).map((item) => item.evidence_id));
+  const validIds = new Set(boundedEvidence(request.evidence, request.rule.rule_id).map((item) => item.evidence_id));
   const normalizeIds = (ids) => {
     if (!Array.isArray(ids) || ids.some((id) => typeof id !== 'string' || !validIds.has(id))) {
       throw problem(502, '修复建议模型引用了不存在的证据');

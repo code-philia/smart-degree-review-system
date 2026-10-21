@@ -109,6 +109,7 @@ export function FindingsPane({
             const repairError = repairSuggestionErrorByFindingKey[item.key];
             const generating = repairSuggestionLoadingByFindingKey[item.key] || repairSuggestionLoadingKey === item.key;
             const repairEnabled = supportsRepairSuggestion(item);
+            const showRepairSuggestion = Boolean(onGenerateRepairSuggestion || repair || generating || repairError);
             return (
               <article
                 key={item.key}
@@ -187,10 +188,11 @@ export function FindingsPane({
                     {item.finding.suggestion}
                   </div>
                 ) : null}
-                {repairEnabled && (onLoadRepairSuggestion || onGenerateRepairSuggestion) ? (
+                {repairEnabled && (onLoadRepairSuggestion || onGenerateRepairSuggestion) && showRepairSuggestion ? (
                   <div className="mt-3 border-t border-slate-100 pt-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-xs font-bold text-slate-800">AI 修复建议</p>
+                      {onGenerateRepairSuggestion ? (
                       <Button
                         size="sm"
                         variant="secondary"
@@ -203,9 +205,10 @@ export function FindingsPane({
                         <Bot className="size-3.5" />
                         {generating ? '正在准备建议…' : '重新生成修复建议'}
                       </Button>
+                      ) : null}
                     </div>
-                    {!repair && !repairError ? <p className="mt-2 text-xs text-slate-500">{generating ? '正在自动准备修复建议…' : '修复建议将自动加载。'}</p> : null}
-                    {repairError ? <p className="mt-2 text-xs text-danger-600">生成失败：{repairError}</p> : null}
+                    {!repair && !repairError ? <p className="mt-2 text-xs text-slate-500">{generating ? (onGenerateRepairSuggestion ? '正在自动准备修复建议…' : '正在加载已保存建议…') : '修复建议将自动加载。'}</p> : null}
+                    {repairError ? <p className="mt-2 text-xs text-danger-600">{onGenerateRepairSuggestion ? '生成失败' : '建议加载失败'}：{repairError}</p> : null}
                     {repair ? (
                       <div className="mt-3 space-y-3 rounded-lg bg-sky-50 p-3 text-xs leading-5 text-slate-700">
                         <div>

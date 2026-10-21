@@ -87,3 +87,43 @@ it('supports a basic-rule alarm without inventing a PDF location',async()=>{
  await request(app).post(url).set('Cookie','arc_session=owner-session').send(body).expect(200);expect(count()).toBe(1);
  await request(app).get(url).query(body).set('Cookie','arc_session=other-session').expect(404);
 });
+
+async function saveArchiveVersion(promptVersion, instruction, ruleId='sjtu_rule_31', findingId='finding-31', status='suggested') {
+  const service=require('../src/normative/repairSuggestionService');
+  const input=await service.buildArchiveRepairRequest({jobId:'job',documentId:'doc',ruleId,findingId});
+  return service.saveRepairSuggestion(input,{schema_version:'repair-response-v2',source:input.source,rule_id:ruleId,finding_id:findingId,status,
+    actions:[{instruction,evidence_ids:[input.evidence[0].evidence_id]}],
+    provenance:{provider:'huawei_maas',model:'test-model',model_version:'v1',prompt_version:promptVersion,context_sha256:input.context_sha256,generated_at:'2026-10-21T00:00:00Z'}});
+}
+it('shows verified legacy citation caches without model generation',async()=>{
+ await saveArchiveVersion('repair-model-actions-v2','旧版有效引用建议');
+ await request(app).get('/api/normative/repair-suggestions/archive-findings').query({job_id:'job',document_id:'doc',rule_id:'sjtu_rule_31',finding_id:'finding-31'}).set('Cookie','arc_session=admin-session').expect(200).expect(({body})=>expect(body.suggestions[0]?.response.actions[0].instruction).toBe('旧版有效引用建议'));
+ expect(count()).toBe(0);
+});
+it('prefers current v3 evidence-conflict advice over a newer v2 suggested generation',async()=>{
+ await saveArchiveVersion('repair-model-actions-v3','新证据与告警冲突','sjtu_rule_31','finding-31','evidence_conflict');
+ await saveArchiveVersion('repair-model-actions-v2','后存储旧版建议');
+ await request(app).get('/api/normative/repair-suggestions/archive-findings').query({job_id:'job',document_id:'doc',rule_id:'sjtu_rule_31',finding_id:'finding-31'}).set('Cookie','arc_session=admin-session').expect(200).expect(({body})=>{
+   expect(body.suggestions[0]?.response.actions[0].instruction).toBe('新证据与告警冲突');
+   expect(body.suggestions[0]?.response.status).toBe('evidence_conflict');
+ });
+ expect(count()).toBe(0);
+});
+it('rejects legacy fallback for non-citation checks and unknown prompt versions',async()=>{
+ await saveArchiveVersion('repair-model-actions-v2','基础规则旧建议','required_section_completeness_check','missing-reference');
+ await saveArchiveVersion('repair-model-actions-v1','未知旧版本引用建议');
+ for(const [rule_id,finding_id] of [['required_section_completeness_check','missing-reference'],['sjtu_rule_31','finding-31']]){
+  await request(app).get('/api/normative/repair-suggestions/archive-findings').query({job_id:'job',document_id:'doc',rule_id,finding_id}).set('Cookie','arc_session=admin-session').expect(200).expect(({body})=>expect(body.suggestions).toEqual([]));
+ }
+ expect(count()).toBe(0);
+});
+it('rejects both cache versions when citation source evidence changes',async()=>{
+ await saveArchiveVersion('repair-model-actions-v3','新版建议');
+ await saveArchiveVersion('repair-model-actions-v2','旧版建议');
+ const db=require('../src/database/db_runtime');
+ const row=await db.get("SELECT result_json FROM archive_scan_documents WHERE id='doc'");
+ const result=JSON.parse(row.result_json);result.rule_runs[0].findings[0].evidence[0].quote='来源已更新的被引内容';
+ await db.run("UPDATE archive_scan_documents SET result_json=? WHERE id='doc'",[JSON.stringify(result)]);
+ await request(app).get('/api/normative/repair-suggestions/archive-findings').query({job_id:'job',document_id:'doc',rule_id:'sjtu_rule_31',finding_id:'finding-31'}).set('Cookie','arc_session=admin-session').expect(200).expect(({body})=>expect(body.suggestions).toEqual([]));
+ expect(count()).toBe(0);
+});
