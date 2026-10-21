@@ -101,23 +101,6 @@ cd ../frontend
 npm run dev
 ```
 
-### 修复建议临时预览
-
-在本专用工作区审查归档修复建议和单篇检测接入时，使用下列脚本启动隔离预览，而不是访问或重置正式网站数据库：
-
-```bash
-cd /data/projects/legacy-rule-repair-suggestions/repo
-bash scripts/repair-preview.sh start
-```
-
-脚本仅绑定 `127.0.0.1:3001`（后端）和 `127.0.0.1:5174`（前端），首次启动会从工作区的归档建议数据库创建一份 `runtime/repair-preview/app.sqlite` 副本，并写入演示账号。它加载仓库外的开发模型配置和已验证的检测器 Python 环境，但不会在启动时调用模型。后续启动保留该预览库中的上传、报告与建议；如需重新从归档建议数据开始，使用 `bash scripts/repair-preview.sh reset`，旧预览库会备份到 `runtime/repair-preview/backups/`。
-
-可用 `status` 或 `stop` 查询、关闭该脚本启动的进程。通过 SSH 隧道访问前端：
-
-```bash
-ssh -N -L 5174:127.0.0.1:5174 paper-repair-dev@121.36.247.138
-```
-
 ## review-pilot PDF 规则引擎
 
 `/normative-check` 通过同机 Python 进程调用 review-pilot 的确定性规则和按需语义规则。部署环境需要配置：
