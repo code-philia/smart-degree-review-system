@@ -44,6 +44,7 @@ function message(error: unknown) {
   return error instanceof Error ? error.message : '请求失败，请稍后重试';
 }
 function jobLabel(job: ArchiveJob) {
+  if (job.source_job_ids?.length) return `${job.selected_rule_ids.length}条规则 · 归档论文汇总`;
   return `${job.selected_rule_ids.map((id) => id.replace('sjtu_rule_', '')).join('、')} 号规则`;
 }
 
@@ -80,7 +81,8 @@ export default function ArchiveScanPage() {
       .then(([nextCatalog, nextJobs]) => {
         if (cancelled) return;
         setCatalog(nextCatalog);
-        if (!currentJobId && nextJobs[0]) setSearchParams({ job: nextJobs[0].id }, { replace: true });
+        const combined = nextJobs.find(job => job.source_job_ids?.includes(currentJobId || ''));
+        if (combined || (!currentJobId && nextJobs[0])) setSearchParams({ job: (combined || nextJobs[0]).id }, { replace: true });
       })
       .catch((cause) => {
         if (!cancelled) setError(message(cause));
@@ -336,7 +338,7 @@ export default function ArchiveScanPage() {
                           {job.total_count} 篇
                         </span>
                       </button>
-                      <AlertDialog>
+                      {!job.source_job_ids?.length && <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <button
                             type="button"
@@ -369,7 +371,7 @@ export default function ArchiveScanPage() {
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
-                      </AlertDialog>
+                      </AlertDialog>}
                     </div>
                   ))
                 ) : (
@@ -397,13 +399,14 @@ export default function ArchiveScanPage() {
                           : '已完成'}
                     </span>
                   </div>
-                  <div className={`mt-5 grid gap-3 ${publicationOnlyJob ? 'sm:grid-cols-4' : 'sm:grid-cols-5'}`}>
+                  <div className={`mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 ${publicationOnlyJob || activeJob.source_job_ids?.length ? 'xl:grid-cols-5' : 'xl:grid-cols-6'}`}>
                     {[
                       ['总论文', activeJob.total_count, FolderOpen],
                       ['已完成', activeJob.completed_count, CheckCircle2],
                       ['失败', activeJob.failed_count, CircleAlert],
-                      ...(publicationOnlyJob ? [] : [['无法判定', activeJob.inconclusive_count, CircleAlert]]),
+                      ...(publicationOnlyJob || activeJob.source_job_ids?.length ? [] : [['无法判定', activeJob.inconclusive_count, CircleAlert]]),
                       ['发现问题', documents?.finding_count ?? activeJob.finding_count, FileSearch],
+                      ['违反对应规则的论文', documents?.violating_paper_count ?? activeJob.violating_paper_count ?? '—', FileSearch],
                     ].map(([label, value, Icon]) => {
                       const Glyph = Icon as typeof FolderOpen;
                       return (
@@ -428,6 +431,22 @@ export default function ArchiveScanPage() {
                       }}
                     />
                   </div>
+                  {activeJob.rule_statistics && (
+                    <section className="mt-5 rounded-xl border border-slate-200" aria-label="各规则违反论文数量">
+                      <div className="border-b border-slate-200 px-4 py-3">
+                        <h3 className="font-bold text-slate-900">各规则违反论文数量</h3>
+                        <p className="mt-1 text-xs leading-5 text-slate-500">汇总 {activeJob.total_count} 篇论文。同一篇论文同一规则有多处问题只计1篇，不同规则之间可能重复计数。</p>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-sm" aria-label="各规则违反论文数量">
+                          <thead className="bg-slate-50 text-xs text-slate-500"><tr><th className="px-4 py-2">规则</th><th className="whitespace-nowrap px-4 py-2 text-right">违反该规则的论文数</th><th className="whitespace-nowrap px-4 py-2 text-right">问题处数</th></tr></thead>
+                          <tbody className="divide-y divide-slate-100">{activeJob.rule_statistics.map(stat => (
+                            <tr key={stat.rule_id}><td className="px-4 py-2 text-slate-700">{catalog?.rules.find(rule => rule.rule_id === stat.rule_id)?.title || stat.rule_id}</td><td className="px-4 py-2 text-right font-bold text-blue-700">{stat.paper_count}</td><td className="px-4 py-2 text-right text-slate-600">{stat.finding_count}</td></tr>
+                          ))}</tbody>
+                        </table>
+                      </div>
+                    </section>
+                  )}
                   <div className="mt-5 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
                     <label className="relative">
                       <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-slate-400" />

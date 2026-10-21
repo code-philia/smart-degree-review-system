@@ -217,6 +217,7 @@ function createArchiveScanService({
       items: filtered.slice((pageNumber - 1) * 25, pageNumber * 25),
       total: filtered.length,
       finding_count: filtered.reduce((sum, row) => sum + row.finding_count, 0),
+      violating_paper_count: filtered.filter(row => row.finding_count > 0).length,
       page: pageNumber,
       page_size: 25,
     };

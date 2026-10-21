@@ -2,10 +2,12 @@ const express = require('express');
 const path = require('path');
 const { requireAuth } = require('../auth/authMiddleware');
 const { createArchiveScanService } = require('./archiveScanService');
+const { createCombinedArchiveService } = require('./combinedArchiveService');
 const { sendPrivatePdf } = require('./privatePdfResponse');
 const ALLOWED_ROLES = ['COLLEGE_ADMIN', 'SCHOOL_ADMIN'];
 
 function createArchiveScanRouter(service = createArchiveScanService()) {
+  service = createCombinedArchiveService(service);
   const router = express.Router();
   router.use(requireAuth({ allowedRoles: ALLOWED_ROLES }));
   const handler = (work) => async (req, res, next) => {

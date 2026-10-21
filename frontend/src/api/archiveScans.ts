@@ -4,6 +4,9 @@ import type { PaperLintResult, PaperLintRule } from './paperLint';
 export type ArchiveJob = {
   id: string;
   selected_rule_ids: string[];
+  source_job_ids?: string[];
+  violating_paper_count?: number;
+  rule_statistics?: { rule_id: string; finding_count: number; paper_count: number }[];
   status: 'running' | 'completed' | 'failed';
   total_count: number;
   completed_count: number;
@@ -24,12 +27,14 @@ export type ArchiveDocument = {
   rule_outcomes: Record<string, string>;
   error_message: string | null;
   result?: PaperLintResult | null;
+  repair_sources?: Record<string, { job_id: string; document_id: string }>;
 };
 export type ArchiveCatalog = { rules: PaperLintRule[]; paper_count: number };
 export type ArchiveDocumentPage = {
   items: ArchiveDocument[];
   total: number;
   finding_count?: number;
+  violating_paper_count?: number;
   page: number;
   page_size: number;
 };

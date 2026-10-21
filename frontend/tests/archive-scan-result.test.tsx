@@ -1,4 +1,6 @@
-import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { fetchArchiveFindingRepairSuggestions } from '../src/api/repairSuggestions';
+import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthSessionProvider } from '../src/auth/AuthSessionProvider';
@@ -14,18 +16,22 @@ vi.mock('../src/api/archiveScans', () => ({
   fetchArchiveDocument: vi.fn(),
   archivePdfUrl: (job: string, doc: string) => `/api/normative/archive-scans/jobs/${job}/documents/${doc}/pdf`,
 }));
+vi.mock('../src/api/repairSuggestions', async () => ({...(await vi.importActual('../src/api/repairSuggestions')), fetchArchiveFindingRepairSuggestions:vi.fn().mockResolvedValue([])}));
 vi.mock('../src/components/paperLint/Workspace', () => ({
   PaperLintWorkspace: ({
     file,
     findings,
     openPdfUrl,
+    onLoadRepairSuggestion,
   }: {
     file: { url: string };
     findings: Array<{ finding: { message: string } }>;
     openPdfUrl?: string;
+    onLoadRepairSuggestion?: (item: any) => void;
   }) => (
     <div data-testid="workspace" data-open-pdf-url={openPdfUrl}>
       {file.url} {findings.map((item) => item.finding.message).join(' ')}
+      <button onClick={() => onLoadRepairSuggestion?.(findings[0])}>读取保存建议</button>
     </div>
   ),
 }));
@@ -145,4 +151,12 @@ it('shows a reviewed false-positive removal while keeping rule 22 in the report'
   expect(screen.getByText('通过 · 0 处')).toBeInTheDocument();
   expect(screen.getByText('未发现问题')).toBeInTheDocument();
   expect(screen.getByTestId('workspace')).not.toHaveTextContent('公式引用未找到目标');
+});
+
+it('reads a merged finding suggestion using its original scan identity',async()=>{
+ const {document}=await fetchArchiveDocument('job','doc');
+ vi.mocked(fetchArchiveDocument).mockResolvedValue({document:{...document,repair_sources:{sjtu_rule_18:{job_id:'original-job',document_id:'original-doc'}}}});
+ render(<MemoryRouter initialEntries={['/thirty-rules-check/archive/jobs/archive-479-combined/documents/doc']}><Routes><Route path="/thirty-rules-check/archive/jobs/:jobId/documents/:documentId" element={<AuthSessionProvider><ArchiveScanResultPage /></AuthSessionProvider>}/></Routes></MemoryRouter>);
+ await userEvent.click(await screen.findByRole('button',{name:'读取保存建议'}));
+ await waitFor(()=>expect(fetchArchiveFindingRepairSuggestions).toHaveBeenCalledWith({job_id:'original-job',document_id:'original-doc',rule_id:'sjtu_rule_18',finding_id:'f1'}));
 });

@@ -294,3 +294,19 @@ it('displays a compiler archive NO_ALERT as no alarm with the matching filter', 
   expect(screen.getByRole('option',{name:'未触发告警'})).toHaveValue('no_alert');
   expect(screen.queryByText('无法判定',{exact:true})).not.toBeInTheDocument();
 });
+
+it('shows one combined task and distinct-paper statistics separately from issue counts',async()=>{
+ const job={...savedJob,id:'archive-479-combined',selected_rule_ids:['sjtu_rule_18','sjtu_rule_24'],source_job_ids:['one','two','three'],total_count:479,completed_count:479,finding_count:145,violating_paper_count:50,
+ rule_statistics:[{rule_id:'sjtu_rule_18',finding_count:5,paper_count:4},{rule_id:'sjtu_rule_24',finding_count:140,paper_count:49}]};
+ vi.mocked(fetchArchiveJobs).mockResolvedValue({jobs:[job as never]});
+ vi.mocked(fetchArchiveJob).mockResolvedValue({job:job as never});
+ vi.mocked(fetchArchiveDocuments).mockImplementation(async(_id,params)=>({items:[],total:479,page:1,page_size:25,finding_count:params.rule_id?5:145,violating_paper_count:params.rule_id?4:50}));
+ renderPage();
+ const table=await screen.findByRole('table',{name:'各规则违反论文数量'});
+ expect(table).toHaveTextContent('违反该规则的论文数');
+ expect(table).toHaveTextContent('49');expect(table).toHaveTextContent('140');
+ expect(screen.queryByRole('button',{name:/删除任务 archive-479-combined/})).not.toBeInTheDocument();
+ expect(screen.getByText('违反对应规则的论文').previousElementSibling).toHaveTextContent('50');
+ await userEvent.selectOptions(screen.getByRole('combobox',{name:'按规则筛选'}),'sjtu_rule_18');
+ await waitFor(()=>expect(screen.getByText('违反对应规则的论文').previousElementSibling).toHaveTextContent('4'));
+});

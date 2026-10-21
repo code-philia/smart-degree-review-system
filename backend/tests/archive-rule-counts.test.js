@@ -64,8 +64,10 @@ describe('archive rule-scoped finding counts', () => {
     expect(first.total).toBe(26);
     expect(first.items).toHaveLength(25);
     expect(first.finding_count).toBe(26);
+    expect(first.violating_paper_count).toBe(26);
     const last=await service.listDocuments('job',{ruleId:'sjtu_rule_11',page:2});
     expect(last.items.map(d=>d.finding_count)).toEqual([1]);
     expect(last.finding_count).toBe(26);
+    expect(last.violating_paper_count).toBe(26);
   });
 });

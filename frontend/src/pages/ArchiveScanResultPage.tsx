@@ -53,7 +53,7 @@ function ArchiveScanResultDocument() {
   }, [allowed, jobId, documentId]);
   const inconclusive = document?.result?.rule_runs.some((run) => run.outcome === 'inconclusive') || false;
   const findings = useMemo(() => (document?.result ? flattenPaperLintFindings(document.result) : []), [document]);
-  const reference = useCallback((item: (typeof findings)[number]) => ({job_id: jobId!, document_id: documentId!, rule_id: item.ruleRun.rule_id, finding_id: item.finding.finding_id}), [jobId, documentId]);
+  const reference = useCallback((item: (typeof findings)[number]) => ({job_id: document?.repair_sources?.[item.ruleRun.rule_id]?.job_id || jobId!, document_id: document?.repair_sources?.[item.ruleRun.rule_id]?.document_id || documentId!, rule_id: item.ruleRun.rule_id, finding_id: item.finding.finding_id}), [jobId, documentId, document?.repair_sources]);
   const fetchSaved = useCallback(async (item: (typeof findings)[number]) => (await fetchArchiveFindingRepairSuggestions(reference(item)))[0] || null, [reference]);
   const repairSuggestions = useFindingRepairSuggestions({scopeKey: allowed && jobId && documentId ? `${jobId}:${documentId}` : undefined, fetchSaved});
   if (status === 'loading') return <LoadingState label="正在验证权限…" />;
