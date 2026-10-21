@@ -112,6 +112,36 @@ describe('repair suggestion card', () => {
     expect(onGenerateRepairSuggestion).toHaveBeenCalledWith(item);
   });
 
+  it('shows an archived suggestion without exposing a regeneration button', () => {
+    render(
+      <FindingsPane
+        findings={[item]}
+        rules={[]}
+        activeFindingKey="finding-99"
+        activeAnchorId={null}
+        onFindingClick={vi.fn()}
+        onAnchorClick={vi.fn()}
+        onLoadRepairSuggestion={vi.fn()}
+        repairSuggestionByFindingKey={{
+          'finding-99': {
+            schema_version: 'repair-response-v2',
+            rule_id: 'sjtu_rule_24',
+            finding_id: 'finding-99',
+            status: 'suggested',
+            actions: [{ instruction: '核对归档建议。', evidence_ids: ['e1'] }],
+            provenance: {
+              provider: 'huawei_maas', model: 'test-model', model_version: 'v1',
+              prompt_version: 'test-v1', context_sha256: 'x', generated_at: '2026-10-20T00:00:00.000Z',
+            },
+            usage: { input_tokens: 1, output_tokens: 1, attempts: 1 },
+          },
+        }}
+      />,
+    );
+    expect(screen.getByText('核对归档建议。')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /生成.*建议|重新获取建议|强制生成新版本/ })).toBeNull();
+  });
+
   it('limits single-report suggestions to supported rules and explains evidence conflicts', () => {
     const { rerender } = render(
       <FindingsPane

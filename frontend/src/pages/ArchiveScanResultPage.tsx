@@ -9,7 +9,6 @@ import {
   type ArchiveDocument,
 } from '../api/archiveScans';
 import {
-  evaluateArchiveFindingRepairSuggestion,
   fetchArchiveFindingRepairSuggestions,
   type RepairSuggestion,
 } from '../api/repairSuggestions';
@@ -83,27 +82,6 @@ export default function ArchiveScanResultPage() {
     },
     [documentId, jobId],
   );
-  const generateRepairSuggestion = async (item: (typeof findings)[number]) => {
-    if (!jobId || !documentId) return;
-    setRepairSuggestionLoadingKey(item.key);
-    setRepairSuggestionErrorByFindingKey((current) => ({ ...current, [item.key]: undefined }));
-    try {
-      const { response } = await evaluateArchiveFindingRepairSuggestion({
-        job_id: jobId,
-        document_id: documentId,
-        rule_id: item.ruleRun.rule_id,
-        finding_id: item.finding.finding_id,
-      });
-      setRepairSuggestionByFindingKey((current) => ({ ...current, [item.key]: response }));
-    } catch (cause) {
-      setRepairSuggestionErrorByFindingKey((current) => ({
-        ...current,
-        [item.key]: cause instanceof Error ? cause.message : '修复建议暂不可用',
-      }));
-    } finally {
-      setRepairSuggestionLoadingKey((current) => (current === item.key ? null : current));
-    }
-  };
   if (status === 'loading') return <LoadingState label="正在验证权限…" />;
   if (!allowed) return <ErrorState title="无权查看归档论文" message="请使用学院管理员或学校管理员账号登录。" />;
   if (error) return <ErrorState title="检测结果暂不可用" message={error} />;
@@ -185,7 +163,6 @@ export default function ArchiveScanResultPage() {
             repairSuggestionLoadingKey={repairSuggestionLoadingKey}
             repairSuggestionErrorByFindingKey={repairSuggestionErrorByFindingKey}
             onLoadRepairSuggestion={loadRepairSuggestion}
-            onGenerateRepairSuggestion={generateRepairSuggestion}
           />
         </>
       ) : (

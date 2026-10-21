@@ -107,6 +107,7 @@ export function FindingsPane({
             const repairError = repairSuggestionErrorByFindingKey[item.key];
             const generating = repairSuggestionLoadingKey === item.key;
             const repairEnabled = supportsRepairSuggestion(item);
+            const showRepairSuggestion = Boolean(onGenerateRepairSuggestion || repair || generating || repairError);
             return (
               <article
                 key={item.key}
@@ -183,24 +184,26 @@ export function FindingsPane({
                     {item.finding.suggestion}
                   </div>
                 ) : null}
-                {active && repairEnabled && (onLoadRepairSuggestion || onGenerateRepairSuggestion) ? (
+                {active && repairEnabled && (onLoadRepairSuggestion || onGenerateRepairSuggestion) && showRepairSuggestion ? (
                   <div className="mt-3 border-t border-slate-100 pt-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-xs font-bold text-slate-800">AI 修复建议</p>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        disabled={generating || !onGenerateRepairSuggestion}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onGenerateRepairSuggestion?.(item);
-                        }}
-                      >
-                        <Bot className="size-3.5" />
-                        {generating ? '正在获取建议…' : repair ? (forceNewRepairSuggestion ? '强制生成新版本' : '重新获取建议') : '生成 AI 修复建议'}
-                      </Button>
+                      {onGenerateRepairSuggestion ? (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={generating}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onGenerateRepairSuggestion(item);
+                          }}
+                        >
+                          <Bot className="size-3.5" />
+                          {generating ? '正在获取建议…' : repair ? (forceNewRepairSuggestion ? '强制生成新版本' : '重新获取建议') : '生成 AI 修复建议'}
+                        </Button>
+                      ) : null}
                     </div>
-                    {repairError ? <p className="mt-2 text-xs text-danger-600">生成失败：{repairError}</p> : null}
+                    {repairError ? <p className="mt-2 text-xs text-danger-600">{onGenerateRepairSuggestion ? '生成失败' : '建议加载失败'}：{repairError}</p> : null}
                     {repair ? (
                       <div className="mt-3 space-y-3 rounded-lg bg-sky-50 p-3 text-xs leading-5 text-slate-700">
                         <div>
