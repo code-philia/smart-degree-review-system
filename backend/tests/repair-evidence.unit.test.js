@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { appendExtractedContext } = require('../src/normative/repairEvidenceService');
+const { appendExtractedContext, parseExtractorOutput } = require('../src/normative/repairEvidenceService');
 
 function request() {
   return {
@@ -14,6 +14,11 @@ function request() {
 }
 
 describe('adaptive PDF repair context', () => {
+  it('accepts a JSON payload preceded by MuPDF parser diagnostics', () => {
+    const result = parseExtractorOutput('MuPDF error: syntax error: unknown keyword: qq\n\n{"page_number":93,"text":"图 3.11","segments":[]}');
+    expect(result).toMatchObject({ page_number: 93, text: '图 3.11' });
+  });
+
   it('preserves each extracted page as separately traceable evidence', () => {
     const result = appendExtractedContext(request(), {
       segments: [

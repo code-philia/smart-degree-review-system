@@ -26,6 +26,17 @@ async function resolveArchivePdfPath(relativePath, archiveRoot = process.env.ARC
   return candidate;
 }
 
+function parseExtractorOutput(stdout) {
+  const raw = String(stdout || '').trim();
+  // Some malformed-but-readable PDFs make MuPDF write parser diagnostics to
+  // stdout before this script emits its JSON payload. Keep accepting that
+  // payload, while still rejecting anything that is not a JSON object.
+  const jsonStart = raw.startsWith('{') ? 0 : raw.indexOf('\n{');
+  const output = JSON.parse(jsonStart > 0 ? raw.slice(jsonStart + 1) : raw);
+  if (!output || typeof output.text !== 'string') throw new Error('invalid output');
+  return output;
+}
+
 async function extractPdfContext(pdfPath, location) {
   const page = Number(location?.page_number || location?.bounding_rect?.page_number);
   if (!Number.isSafeInteger(page) || page < 1) throw problem(422, '告警缺少有效 PDF 页码');
@@ -47,8 +58,7 @@ async function extractPdfContext(pdfPath, location) {
       : 'PDF 上下文提取失败，请检查 PDF 或服务器日志');
   }
   try {
-    const output = JSON.parse(stdout);
-    if (!output || typeof output.text !== 'string') throw new Error('invalid output');
+    const output = parseExtractorOutput(stdout);
     const segments = Array.isArray(output.segments)
       ? output.segments.filter((segment) => segment && typeof segment.text === 'string' && segment.text.trim())
       : [];
@@ -90,5 +100,6 @@ module.exports = {
   buildArchiveRepairRequestWithPdfContext,
   appendExtractedContext,
   extractPdfContext,
+  parseExtractorOutput,
   resolveArchivePdfPath,
 };
