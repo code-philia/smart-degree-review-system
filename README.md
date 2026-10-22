@@ -103,6 +103,12 @@ npm run dev
 
 ## review-pilot PDF 规则引擎
 
+### MVP 运行配置
+
+MVP 页面只开放 `sjtu_rule_18`、`sjtu_rule_22`、`sjtu_rule_24`、`sjtu_rule_28`。本地开发必须显式配置 `FIVE_RULE_PYTHON` 指向已安装 PyMuPDF 的 Python；例如本工作区使用 `/data/projects/legacy-rule-repair-suggestions/envs/six-rules/bin/python`。后端建议同时设置 `ARC_LISTEN_HOST=127.0.0.1`、`PAPER_LINT_JOBS_DIR` 和 `PAPER_LINT_REPORTS_DIR` 到开发运行目录。规则目录会进行 PyMuPDF 可用性预检，不可用时规则会显示为不可选，不会把静态源代码视为可用。
+
+MVP 前端仅挂载登录、PDF 检测、历史报告和报告内 AI 修复建议相关页面；其他页面及直接 URL 在 MVP 路由中受限，旧组件、服务和数据库表保留供后续恢复。AI 修复建议只在用户点击按钮后生成；打开报告时仅读取已保存缓存。
+
 `/normative-check` 通过同机 Python 进程调用 review-pilot 的确定性规则和按需语义规则。部署环境需要配置：
 
 - `REVIEW_PILOT_BACKEND_DIR`：review-pilot 仓库的 `backend` 绝对路径；

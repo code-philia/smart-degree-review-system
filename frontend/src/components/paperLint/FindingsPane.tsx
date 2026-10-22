@@ -203,12 +203,16 @@ export function FindingsPane({
                         }}
                       >
                         <Bot className="size-3.5" />
-                        {generating ? '正在准备建议…' : '重新生成修复建议'}
+                        {generating ? '正在准备建议…' : repair ? '重新生成修复建议' : '获取 AI 修改建议'}
                       </Button>
                       ) : null}
                     </div>
-                    {!repair && !repairError ? <p className="mt-2 text-xs text-slate-500">{generating ? (onGenerateRepairSuggestion ? '正在自动准备修复建议…' : '正在加载已保存建议…') : '修复建议将自动加载。'}</p> : null}
-                    {repairError ? <p className="mt-2 text-xs text-danger-600">{onGenerateRepairSuggestion ? '生成失败' : '建议加载失败'}：{repairError}</p> : null}
+                    {!repair && !repairError ? <p className="mt-2 text-xs text-slate-500">{generating ? '正在加载已保存建议…' : '尚未生成建议。'}</p> : null}
+                    {repairError ? (
+                      <p className="mt-2 text-xs text-danger-600" role="alert">
+                        {onGenerateRepairSuggestion ? '异常，请重新生成建议' : '建议加载失败'}：{repairError}
+                      </p>
+                    ) : null}
                     {repair ? (
                       <div className="mt-3 space-y-3 rounded-lg bg-sky-50 p-3 text-xs leading-5 text-slate-700">
                         <div>

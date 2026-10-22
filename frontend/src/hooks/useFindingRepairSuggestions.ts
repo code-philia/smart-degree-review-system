@@ -1,8 +1,8 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
-import { PAPER_LINT_REPAIR_RULE_IDS, type RepairSuggestion } from '../api/repairSuggestions';
+import type { RepairSuggestion } from '../api/repairSuggestions';
 import type { PaperLintFindingItem } from '../components/paperLint/model';
 type Item = PaperLintFindingItem;
-type Options = { scopeKey: string | undefined; fetchSaved: (item: Item) => Promise<RepairSuggestion | null>; evaluate?: (item: Item, force: boolean) => Promise<{response: RepairSuggestion}> };
+type Options = { scopeKey: string | undefined; fetchSaved: (item: Item) => Promise<RepairSuggestion | null>; evaluate?: (item: Item, force: boolean) => Promise<{response: RepairSuggestion}>; supportedRuleIds?: Set<string> };
 function createQueue(limit: number) {
   let active = 0;
   const pending: (() => void)[] = [];
@@ -12,7 +12,7 @@ function createQueue(limit: number) {
     advance();
   });
 }
-export function useFindingRepairSuggestions({scopeKey, fetchSaved, evaluate}: Options) {
+export function useFindingRepairSuggestions({scopeKey, fetchSaved, evaluate, supportedRuleIds}: Options) {
   const [repairSuggestionByFindingKey, setSuggestions] = useState<Record<string, RepairSuggestion | undefined>>({});
   const [repairSuggestionErrorByFindingKey, setErrors] = useState<Record<string, string | undefined>>({});
   const [repairSuggestionLoadingByFindingKey, setLoading] = useState<Record<string, boolean>>({});
@@ -26,7 +26,7 @@ export function useFindingRepairSuggestions({scopeKey, fetchSaved, evaluate}: Op
     setSuggestions({}); setErrors({}); setLoading({});
     return () => {epoch.current++;};
   }, [scopeKey]);
-  const supportsRepairSuggestion = useCallback((item: Item) => PAPER_LINT_REPAIR_RULE_IDS.has(item.ruleRun.rule_id), []);
+  const supportsRepairSuggestion = useCallback((item: Item) => !supportedRuleIds || supportedRuleIds.has(item.ruleRun.rule_id), [supportedRuleIds]);
   const run = useCallback(async (item: Item, force: boolean) => {
     if (!scopeKey || !supportsRepairSuggestion(item) || inFlight.current.has(item.key) || (!force && loaded.current.has(item.key))) return;
     const generation = epoch.current;
@@ -39,8 +39,8 @@ export function useFindingRepairSuggestions({scopeKey, fetchSaved, evaluate}: Op
         if (generation === epoch.current) response = await fetchSaved(item);
       });
       if (generation !== epoch.current) return;
-      if (!response && evaluate) await enqueueGeneration(async () => {
-        if (generation === epoch.current) response = (await evaluate(item, force)).response;
+      if (!response && force && evaluate) await enqueueGeneration(async () => {
+        if (generation === epoch.current) response = (await evaluate(item, true)).response;
       });
       if (generation === epoch.current && response) setSuggestions(current => ({...current, [item.key]: response!}));
     } catch (cause) {

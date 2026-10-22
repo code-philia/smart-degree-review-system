@@ -2,7 +2,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { LOCAL_RULES, isLocalRuleId, runLocalFiveRules, summarizeRuleRuns } = require('./localFiveRulePaperLintService');
+const { LOCAL_RULES, getLocalRuleAvailability, isLocalRuleId, runLocalFiveRules, summarizeRuleRuns } = require('./localFiveRulePaperLintService');
 
 const { getSixRules, isSixRuleId, runSixRules, SIX_RULE_TIMEOUT_MS } = require('./sixRulePaperLintService');
 
@@ -197,14 +197,17 @@ async function getPaperLintCatalog({ refresh = false } = {}) {
     catalogPromise = (async () => {
       try {
         const existing = await runBridge(['--catalog'], 30 * 1000);
-        return { ...existing, rules: [...LOCAL_RULES, ...getSixRules(), ...getCompilerRules(), ...existing.rules]
+        const localAvailable = await getLocalRuleAvailability({ refresh });
+        const localRules = LOCAL_RULES.map((rule) => ({ ...rule, available: localAvailable }));
+        return { ...existing, rules: [...localRules, ...getSixRules(), ...getCompilerRules(), ...existing.rules]
           .filter((rule) => !RETIRED_RULE_IDS.has(rule.rule_id)) };
       } catch {
         // A temporary bridge failure must not hide the existing rule catalog indefinitely.
         catalogExpiresAt = 0;
+        const localAvailable = await getLocalRuleAvailability({ refresh });
         return {
           engine: 'sjtu-local', mode: 'pdf_lint', semantic_model: 'deepseek-v4-flash',
-          rules: [...LOCAL_RULES, ...getSixRules(), ...getCompilerRules()],
+          rules: LOCAL_RULES.map((rule) => ({ ...rule, available: localAvailable })).concat(getSixRules(), getCompilerRules()),
           warning: '原有规则引擎暂不可用',
         };
       }

@@ -17,60 +17,11 @@ export type NavGroup = {
 export const NAV_GROUPS: NavGroup[] = [
   {
     key: 'detection',
-    title: '检测与生成',
+    title: '论文审查',
     items: [
-      { label: '基础规则检测', to: '/normative-check', relatedPrefixes: ['/normative-reports'] },
-      { label: '33条规则检测', to: '/thirty-rules-check' },
-      { label: '示例规则检测', to: '/example-rule-check' },
-      { label: '高级语义规则检测', to: '/advanced-semantic-rule-check' },
-      { label: '论文润色', to: '/whole-polish', relatedPrefixes: ['/local-polish', '/polish-history'] },
+      { label: 'PDF 检测', to: '/thirty-rules-check' },
+      { label: '历史报告', to: '/thirty-rules-check/reports' },
     ],
-  },
-  {
-    key: 'assessment',
-    title: '评估与评阅',
-    items: [
-      {
-        label: '创新性量表评估',
-        to: '/innovation-assessment',
-        relatedPrefixes: ['/innovation-history', '/innovation-assessments'],
-      },
-      { label: '创新评分试算', to: '/innovation-scoring' },
-      { label: '规则化辅助评阅', to: '/ai-review' },
-      { label: '内置审查案例', to: '/review-cases' },
-    ],
-  },
-  {
-    key: 'quality',
-    title: '台账与质量',
-    items: [
-      { label: '检测记录台账', to: '/ledger-records', roles: ['SUPERVISOR', 'COLLEGE_ADMIN', 'SCHOOL_ADMIN'] },
-      { label: '检测统计', to: '/ledger-stats', roles: ['SUPERVISOR', 'COLLEGE_ADMIN', 'SCHOOL_ADMIN'] },
-      { label: '群体质量仪表盘', to: '/quality-dashboard', roles: ['SUPERVISOR', 'COLLEGE_ADMIN', 'SCHOOL_ADMIN'] },
-      { label: '单学生质量画像', to: '/student-quality-portrait' },
-    ],
-  },
-  {
-    key: 'workflow',
-    title: '师生流转',
-    items: [
-      { label: '提交报告给导师', to: '/student-report-submissions', roles: ['STUDENT'] },
-      { label: '查看批阅结果', to: '/student-report-results', roles: ['STUDENT'] },
-      { label: '导师待批阅', to: '/supervisor-review-queue', roles: ['SUPERVISOR'] },
-    ],
-  },
-  {
-    key: 'admin',
-    title: '管理配置',
-    items: [
-      { label: '规则配置', to: '/rule-config', roles: ['COLLEGE_ADMIN', 'SCHOOL_ADMIN'] },
-      { label: '比对样本库', to: '/duplication-corpus', roles: ['SCHOOL_ADMIN'] },
-    ],
-  },
-  {
-    key: 'system',
-    title: '系统',
-    items: [{ label: '系统说明', to: '/about' }],
   },
 ];
 

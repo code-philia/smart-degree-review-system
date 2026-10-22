@@ -15,15 +15,17 @@ it('shows saved advice on inactive cards and loads every finding without a click
  expect(load.mock.calls.map(([x])=>x.key)).toEqual(['a','b']);
  expect(screen.getAllByRole('button',{name:'重新生成修复建议'})).toHaveLength(2);
 });
-it('automatically fills a cache miss and reuses a saved response',async()=>{
+it('loads a cache miss without generating, then generates only after an explicit request',async()=>{
  vi.mocked(fetchPaperLintFindingRepairSuggestion).mockResolvedValueOnce(null).mockResolvedValueOnce(suggestion('b'));
  vi.mocked(evaluatePaperLintFindingRepairSuggestion).mockResolvedValue({response:suggestion('a'),cached:false});
  const {result}=renderHook(()=>usePaperLintRepairSuggestions('report'));
  await act(async()=>{await Promise.all([result.current.loadRepairSuggestion(item('a')),result.current.loadRepairSuggestion(item('b'))]);});
- expect(result.current.repairSuggestionByFindingKey.a?.actions[0].instruction).toContain('a');
+ expect(result.current.repairSuggestionByFindingKey.a).toBeUndefined();
  expect(result.current.repairSuggestionByFindingKey.b?.actions[0].instruction).toContain('b');
- expect(evaluatePaperLintFindingRepairSuggestion).toHaveBeenCalledTimes(1);
- expect(evaluatePaperLintFindingRepairSuggestion).toHaveBeenCalledWith(expect.objectContaining({finding_id:'a'}),{force:false});
+ expect(evaluatePaperLintFindingRepairSuggestion).not.toHaveBeenCalled();
+ await act(async()=>{await result.current.generateRepairSuggestion(item('a'));});
+ expect(result.current.repairSuggestionByFindingKey.a?.actions[0].instruction).toContain('a');
+ expect(evaluatePaperLintFindingRepairSuggestion).toHaveBeenCalledWith(expect.objectContaining({finding_id:'a'}),{force:true});
 });
 it('bounds automatic loading and does not retry failures on rerender',async()=>{
  let active=0,max=0;const finish:(()=>void)[]=[];
@@ -34,10 +36,10 @@ it('bounds automatic loading and does not retry failures on rerender',async()=>{
  await act(async()=>{while(finish.length||active){finish.splice(0).forEach(f=>f());await new Promise(resolve=>setTimeout(resolve,0));}await Promise.all(work);});
  expect(max).toBeLessThanOrEqual(3);
 });
-it('preserves a generation error without automatically spending again',async()=>{
+it('preserves a generation error without retrying on cache reads',async()=>{
  vi.mocked(fetchPaperLintFindingRepairSuggestion).mockResolvedValue(null);vi.mocked(evaluatePaperLintFindingRepairSuggestion).mockRejectedValue(new Error('预算已达到上限'));
  const {result,rerender}=renderHook(()=>usePaperLintRepairSuggestions('report'));
- await act(async()=>{await result.current.loadRepairSuggestion(item('a'));});rerender();
+ await act(async()=>{await result.current.generateRepairSuggestion(item('a'));});rerender();
  await act(async()=>{await result.current.loadRepairSuggestion(item('a'));});
  expect(result.current.repairSuggestionErrorByFindingKey.a).toContain('预算');expect(evaluatePaperLintFindingRepairSuggestion).toHaveBeenCalledTimes(1);
 });

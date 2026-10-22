@@ -7,10 +7,12 @@ const { sendPrivatePdf } = require('./privatePdfResponse');
 const defaultJobService = require('./paperLintJobService');
 const defaultCompilerService = require('./paperCompilerService');
 const { isCompilerRuleId } = defaultCompilerService;
+const { isLocalRuleId } = require('./localFiveRulePaperLintService');
 const { isSixRuleId } = require('./sixRulePaperLintService');
 
 const allowedRoles = ['STUDENT', 'SUPERVISOR', 'SCHOOL_ADMIN', 'COLLEGE_ADMIN'];
 const managementRoles = ['SCHOOL_ADMIN', 'COLLEGE_ADMIN'];
+const MVP_RULE_IDS = new Set(['sjtu_rule_18', 'sjtu_rule_22', 'sjtu_rule_24', 'sjtu_rule_28']);
 
 function sendError(error, res, next) {
   if (error?.type === 'entity.too.large') {
@@ -73,7 +75,8 @@ function createReviewPilotPaperLintRouter(service = defaultService, exampleServi
 
   router.get('/rules', requireAuth({ allowedRoles }), async (_req, res, next) => {
     try {
-      res.json(await service.getPaperLintCatalog());
+      const catalog = await service.getPaperLintCatalog();
+      res.json({ ...catalog, rules: catalog.rules.filter((rule) => MVP_RULE_IDS.has(rule.rule_id)) });
     } catch (error) {
       sendError(error, res, next);
     }
@@ -127,13 +130,18 @@ function createReviewPilotPaperLintRouter(service = defaultService, exampleServi
           .split(',')
           .map((value) => value.trim())
           .filter(Boolean);
+        const unsupportedMvpRule = selectedRuleIds.find((ruleId) => !MVP_RULE_IDS.has(ruleId));
+        if (unsupportedMvpRule) {
+          return res.status(400).json({ code: 400, message: `MVP 暂不支持该审查规则：${unsupportedMvpRule}` });
+        }
         const externalProcessingConsent = req.get('x-paper-lint-external-processing-consent') === 'confirmed';
-        if (selectedRuleIds.some(id => isSixRuleId(id) || isCompilerRuleId(id))) {
+        if (selectedRuleIds.some(id => isLocalRuleId(id) || isSixRuleId(id) || isCompilerRuleId(id))) {
           service.validatePdf(req.body);
           const normalizedRuleIds = await service.normalizeSelectedRuleIds(selectedRuleIds, externalProcessingConsent);
           const job = await jobService.enqueue({
             userId: req.user.id,
             sourceFilename: typeof req.query.filename === 'string' ? req.query.filename.slice(0, 255) : '论文.pdf',
+            requestId: typeof req.get('x-paper-lint-request-id') === 'string' ? req.get('x-paper-lint-request-id') : null,
             pdfBuffer: req.body, selectedRuleIds: normalizedRuleIds, externalProcessingConsent,
           });
           return res.status(202).json(job);

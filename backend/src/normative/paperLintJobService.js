@@ -37,8 +37,13 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
         await repository.completeJob(id, id);
       }
       await fs.promises.rm(job.source_pdf_path, { force: true });
-    } catch {
-      await repository.failJob(id, '检测失败，请稍后重试或联系管理员');
+    } catch (error) {
+      const message = error?.code === 'INVALID_PDF'
+        ? 'PDF 文件无效或无法解析，请重新上传'
+        : error?.message
+          ? `检测失败，请重试：${error.message}`
+          : '检测失败，请重试';
+      await repository.failJob(id, message);
       await fs.promises.rm(job.source_pdf_path, { force: true });
     }
   }
@@ -59,9 +64,9 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
   }
 
   async function enqueue({ userId, sourceFilename, pdfBuffer, selectedRuleIds,
-                           externalProcessingConsent }) {
+                           externalProcessingConsent, requestId }) {
     const id = await repository.createJob({
-      userId, sourceFilename, pdfBuffer, selectedRuleIds, externalProcessingConsent,
+      userId, sourceFilename, pdfBuffer, selectedRuleIds, externalProcessingConsent, requestId,
     });
     add(id);
     return repository.getJobForUser(id, userId);

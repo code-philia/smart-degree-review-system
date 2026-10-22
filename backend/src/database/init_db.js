@@ -234,12 +234,20 @@ async function initializeDatabase(options = {}) {
       id TEXT PRIMARY KEY, user_id TEXT NOT NULL, source_filename TEXT NOT NULL,
       source_pdf_path TEXT NOT NULL, selected_rule_ids_json TEXT NOT NULL,
       external_consent INTEGER NOT NULL DEFAULT 0,
+      request_id TEXT,
       status TEXT NOT NULL CHECK (status IN ('pending','running','completed','failed')),
       attempts INTEGER NOT NULL DEFAULT 0, report_id TEXT, error_message TEXT,
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
       FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE,
       FOREIGN KEY (report_id) REFERENCES paper_lint_reports(id) ON DELETE SET NULL
     );`);
+    const paperLintJobColumns = await new Promise((resolve, reject) =>
+      database.all('PRAGMA table_info(paper_lint_jobs)', (error, rows) => error ? reject(error) : resolve(rows)));
+    if (!paperLintJobColumns.some((column) => column.name === 'request_id')) {
+      await runStatement(database, 'ALTER TABLE paper_lint_jobs ADD COLUMN request_id TEXT;');
+    }
+    await runStatement(database, `CREATE UNIQUE INDEX IF NOT EXISTS idx_paper_lint_jobs_request
+      ON paper_lint_jobs (user_id, request_id) WHERE request_id IS NOT NULL;`);
     await runStatement(database, `CREATE INDEX IF NOT EXISTS idx_paper_lint_jobs_status
       ON paper_lint_jobs (status, created_at);`);
     // Personal example-derived rules are deliberately isolated from normative rules.

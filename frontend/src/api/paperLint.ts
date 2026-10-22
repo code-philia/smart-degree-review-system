@@ -100,7 +100,7 @@ export type PaperLintRuleRun = {
 
 export type PaperLintSummary = {
   rule_count: number;
-  completed_rule_count: number;
+  completed_rule_count?: number;
   unsupported_rule_count: number;
   error_rule_count: number;
   issue_rule_count: number;
@@ -201,6 +201,7 @@ export async function runReviewPilotPaperLint(
   file: File,
   selectedRuleIds: string[],
   externalProcessingConsent = false,
+  requestId?: string,
 ): Promise<PaperLintRunResponse | PaperLintJobResponse> {
   const response = await apiClient.post<PaperLintRunResponse | PaperLintJobResponse>(
     '/normative/paper-lint/run',
@@ -210,6 +211,7 @@ export async function runReviewPilotPaperLint(
       headers: {
         'Content-Type': 'application/pdf',
         'X-Paper-Lint-Rule-Ids': selectedRuleIds.join(','),
+        ...(requestId ? { 'X-Paper-Lint-Request-Id': requestId } : {}),
         ...(externalProcessingConsent ? { 'X-Paper-Lint-External-Processing-Consent': 'confirmed' } : {}),
       },
       timeout: 310_000,

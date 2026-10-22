@@ -5,6 +5,7 @@ import {
   fetchPaperLintReport,
   fetchReviewPilotPaperLintRules,
   type PaperLintRule,
+  type PaperLintRuleRun,
   type PaperLintRunResponse,
 } from '../api/paperLint';
 import { CompilerDiagnostics } from '../components/paperLint/CompilerEvidence';
@@ -20,6 +21,12 @@ const outcomeTones = {
   inconclusive: 'neutral',
   not_applicable: 'neutral',
 } as const;
+
+function executionStatusLabel(status: PaperLintRuleRun['execution_status']) {
+  if (status === 'unsupported') return '无法判定';
+  if (status === 'error') return '执行失败';
+  return null;
+}
 
 function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) {
   const isThirty = mode === 'thirty';
@@ -54,11 +61,15 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
   if (error) return <ErrorState title="报告暂不可用" message={error} />;
   if (!report) return <LoadingState label="正在加载检测报告和原文定位…" />;
   const { summary } = report.result;
+  const completedRuleCount = summary.completed_rule_count ?? Math.max(
+    0,
+    summary.rule_count - summary.unsupported_rule_count - summary.error_rule_count,
+  );
   const pdfUrl = `/api/normative/paper-lint/reports/${encodeURIComponent(reportId!)}/pdf`;
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow={report.result.rule_runs.some((run) => run.publication_status && run.execution_status === 'error') ? '部分检测执行失败' : '已完成检测'}
+        eyebrow={summary.error_rule_count ? '部分检测执行失败' : '已完成检测'}
         title={
           report.result.paper_title === '上传论文'
             ? report.source_filename
@@ -68,7 +79,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
         breadcrumbs={[
           { label: '首页', to: '/' },
           {
-            label: isThirty ? '33条规则检测' : '基础规则检测',
+            label: isThirty ? 'PDF 规则检测' : '基础规则检测',
             to: isThirty ? '/thirty-rules-check' : '/normative-check',
           },
           { label: '历史报告', to: historyPath },
@@ -97,8 +108,10 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
           >
             {compilerPublicationSummary(report.result) || (summary.finding_count
               ? `待处理 ${summary.finding_count} 项`
-              : summary.unsupported_rule_count + summary.error_rule_count
-                ? '部分规则无法判定'
+                : summary.error_rule_count
+                  ? '部分规则执行失败'
+                  : summary.unsupported_rule_count
+                    ? '部分规则无法判定'
                 : isThirty
                   ? '规则检查通过'
                   : '基础检查通过')}
@@ -107,10 +120,10 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
       >
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           {[
-            ['检查项', summary.rule_count],
-            ['严重', summary.error_finding_count],
-            ['警告', summary.warning_finding_count],
-            ['提示', summary.info_finding_count],
+            ['选择规则', report.selected_rule_ids.length],
+            ['已完成', completedRuleCount],
+            ['无法判定', summary.unsupported_rule_count],
+            ['执行失败', summary.error_rule_count],
             ['问题总数', summary.finding_count],
           ].map(([label, value]) => (
             <div key={String(label)} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
@@ -139,7 +152,9 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
                 {run.message ? <p className="mt-1 text-xs text-slate-600">{run.message}</p> : null}
                 <CompilerDiagnostics items={run.compiler_diagnostics} />
               </div>
-              <StatusBadge tone={outcomeTones[run.outcome]}>{compilerPublicationLabel(run) || outcomeLabels[run.outcome]}</StatusBadge>
+              <StatusBadge tone={run.execution_status === 'error' ? 'danger' : outcomeTones[run.outcome]}>
+                {compilerPublicationLabel(run) || executionStatusLabel(run.execution_status) || outcomeLabels[run.outcome]}
+              </StatusBadge>
             </div>
           ))}
         </div>

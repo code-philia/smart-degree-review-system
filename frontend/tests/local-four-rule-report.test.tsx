@@ -128,7 +128,7 @@ describe('saved local four-rule PDF report', () => {
       </MemoryRouter>,
     );
     expect(await screen.findByRole('heading', { name: '待检论文.pdf' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '33条规则检测' })).toHaveAttribute('href', '/thirty-rules-check');
+    expect(screen.getByRole('link', { name: 'PDF 规则检测' })).toHaveAttribute('href', '/thirty-rules-check');
     expect(screen.getByRole('link', { name: '返回历史报告' })).toHaveAttribute('href', '/thirty-rules-check/reports');
   });
 });

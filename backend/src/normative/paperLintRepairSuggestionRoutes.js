@@ -35,13 +35,8 @@ function createPaperLintRepairSuggestionRouter({ modelIdentity = getRepairModelI
     await service.getPaperLintReportFinding({
       reportId: req.params.reportId, userId: req.user.id, ruleId, findingId,
     });
-    const { request } = await service.buildPaperLintReportRepairRequestBase({
-      reportId: req.params.reportId, userId: req.user.id, ruleId, findingId,
-    });
     const response = await service.findLatestPaperLintRepairSuggestion({
       reportId: req.params.reportId, userId: req.user.id, ruleId, findingId,
-      identity: { ...await modelIdentity(), promptVersion: PROMPT_VERSION },
-      sourceIdentity: request.source_identity_sha256,
     });
     res.json({ response, cached: Boolean(response) });
   }));

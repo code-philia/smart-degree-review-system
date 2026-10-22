@@ -22,6 +22,18 @@ const LOCAL_RULES = [
   source: 'sjtu-local',
 }));
 const RULES_BY_ID = new Map(LOCAL_RULES.map((rule) => [rule.rule_id, rule]));
+let availabilityPromise = null;
+
+async function getLocalRuleAvailability({ refresh = false } = {}) {
+  if (refresh || !availabilityPromise) {
+    const python = process.env.FIVE_RULE_PYTHON || process.env.REVIEW_PILOT_PYTHON ||
+      (process.platform === 'win32' ? 'python' : 'python3');
+    availabilityPromise = execFileAsync(python, ['-c', 'import pymupdf'], {
+      windowsHide: true, timeout: 5000, env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' },
+    }).then(() => true, () => false);
+  }
+  return availabilityPromise;
+}
 
 function isLocalRuleId(ruleId) {
   return RULES_BY_ID.has(ruleId);
@@ -58,15 +70,17 @@ function toPaperLintResult(detectorOutput, selectedRuleIds) {
       throw detectorOutputError(`规则 ${rule.number} 检测器结果不完整`);
     }
     const findings = raw.findings.map((item, index) => {
-      if (item.location?.type !== 'pdf_bbox' || !item.location.bounding_rect) {
-        throw detectorOutputError(`规则 ${rule.number} 第 ${index + 1} 处发现缺少 PDF 坐标`);
-      }
+      const location = item.location?.type === 'pdf_bbox' && item.location.bounding_rect
+        ? item.location
+        : Number.isSafeInteger(Number(item.location?.page_number || item.page)) && Number(item.location?.page_number || item.page) > 0
+          ? { type: 'pdf_page', page_number: Number(item.location?.page_number || item.page), text_excerpt: item.text_excerpt || null }
+          : null;
       return {
         finding_id: `${ruleId}_${index + 1}`,
         rule_id: ruleId,
         message: item.message,
         suggestion: '请对照 PDF 原文核查该处，并按论文规范修订。',
-        location: item.location,
+        location,
         anchors: [],
       };
     });
@@ -108,9 +122,13 @@ async function runLocalFiveRules(pdfPath, selectedRuleIds, { signal } = {}) {
     }));
   } catch (error) {
     const unavailable = error.code === 'ENOENT' || /No module named ['"]?pymupdf/.test(error.stderr || '');
-    const failure = new Error(unavailable
-      ? '本地四规则检测器不可用：请配置 FIVE_RULE_PYTHON 并安装 backend/requirements-five-rule-detector.txt'
-      : '本地四规则检测失败，请检查 PDF 或服务器日志');
+    const invalidPdf = !unavailable && /cannot open|cannot recognize|syntax error|document stream|malformed|invalid pdf|failed to open|no objects found|filedataerror/i.test(error.stderr || '');
+    const failure = new Error(invalidPdf
+      ? 'PDF 文件无效或无法解析，请重新上传'
+      : unavailable
+        ? '本地四规则检测器不可用：请配置 FIVE_RULE_PYTHON 并安装 backend/requirements-five-rule-detector.txt'
+        : '本地四规则检测失败，请检查 PDF 或服务器日志');
+    if (invalidPdf) failure.code = 'INVALID_PDF';
     failure.status = unavailable ? 503 : error.killed || error.name === 'AbortError' ? 504 : 502;
     throw failure;
   }
@@ -125,4 +143,4 @@ async function runLocalFiveRules(pdfPath, selectedRuleIds, { signal } = {}) {
   return toPaperLintResult(output, selectedRuleIds);
 }
 
-module.exports = { LOCAL_RULES, isLocalRuleId, runLocalFiveRules, summarizeRuleRuns, toPaperLintResult };
+module.exports = { LOCAL_RULES, getLocalRuleAvailability, isLocalRuleId, runLocalFiveRules, summarizeRuleRuns, toPaperLintResult };

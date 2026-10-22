@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { FileCheck2, FileText, LoaderCircle, Play, Upload, X } from 'lucide-react';
-import { useEffect, useMemo, useState, type DragEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { useAuthSession } from '../auth/AuthSessionProvider';
 import {
   fetchReviewPilotPaperLintRules,
@@ -29,6 +29,18 @@ import {
 
 const MAX_PDF_BYTES = 50 * 1024 * 1024;
 type CheckMode = 'basic' | 'thirty';
+type ResultFile = File | { name: string; url: string };
+type StoredPaperLintJob = { jobId: string | null; requestId: string; filename: string; selectedRuleIds: string[] };
+
+function activeJobStorageKey(userId: string) {
+  return `paper-lint-active-job:${userId}`;
+}
+
+function newRequestId() {
+  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `paper-lint-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
 
 function rulesForMode(rules: PaperLintRule[], mode: CheckMode) {
   const filtered = rules.filter((rule) => THIRTY_RULE_IDS.has(rule.rule_id) === (mode === 'thirty'));
@@ -45,6 +57,7 @@ function errorMessage(error: unknown, fallback: string) {
     const message = error.response?.data?.message;
     if (typeof message === 'string' && message.trim()) return message;
     if (error.code === 'ECONNABORTED') return '规则审查运行超时，请减少规则后重试';
+    if (!error.response) return '连接异常，正在确认任务状态';
   }
   return error instanceof Error && error.message ? error.message : fallback;
 }
@@ -77,19 +90,20 @@ const outcomeTones = {
 
 function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   const isThirty = mode === 'thirty';
-  const title = isThirty ? '33条规则检测' : '基础规则检测';
+  const title = isThirty ? 'PDF 规则检测' : '基础规则检测';
   const { status, user } = useAuthSession();
   const [catalog, setCatalog] = useState<PaperLintCatalogResponse | null>(null);
   const [selectedRuleIds, setSelectedRuleIds] = useState<string[]>([]);
   const [file, setFile] = useState<File | null>(null);
-  const [resultFile, setResultFile] = useState<File | null>(null);
+  const [resultFile, setResultFile] = useState<ResultFile | null>(null);
   const [response, setResponse] = useState<PaperLintRunResponse | null>(null);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [running, setRunning] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
-  const [semanticConsent, setSemanticConsent] = useState(false);
+  const requestIdRef = useRef<string | null>(null);
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
 
   const loadCatalog = async () => {
     setCatalogLoading(true);
@@ -97,12 +111,14 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     try {
       const nextCatalog = await fetchReviewPilotPaperLintRules();
       setCatalog(nextCatalog);
-      setSelectedRuleIds(
-        rulesForMode(nextCatalog.rules, mode)
-          .filter((rule) => rule.default_enabled)
-          .map((rule) => rule.rule_id),
-      );
-      setSemanticConsent(false);
+      const hasRestoredSelection = user && localStorage.getItem(activeJobStorageKey(user.id));
+      if (!hasRestoredSelection) {
+        setSelectedRuleIds(
+          rulesForMode(nextCatalog.rules, mode)
+            .filter((rule) => rule.default_enabled)
+            .map((rule) => rule.rule_id),
+        );
+      }
     } catch (error) {
       setCatalog(null);
       setCatalogError(errorMessage(error, '规则目录加载失败'));
@@ -117,20 +133,115 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
 
   const visibleRules = useMemo(() => rulesForMode(catalog?.rules || [], mode), [catalog, mode]);
   const rulesById = useMemo(() => new Map((catalog?.rules || []).map((rule) => [rule.rule_id, rule])), [catalog]);
-  const selectedSemanticRules = useMemo(
-    () =>
-      (catalog?.rules || []).filter(
-        (rule) => rule.execution_mode === 'semantic' && selectedRuleIds.includes(rule.rule_id),
-      ),
-    [catalog, selectedRuleIds],
-  );
   const findings = useMemo(() => (response ? flattenPaperLintFindings(response.result) : []), [response]);
   const repairSuggestions = usePaperLintRepairSuggestions(response?.id);
+
+  function saveActiveJob(job: StoredPaperLintJob) {
+    if (!user) return;
+    localStorage.setItem(activeJobStorageKey(user.id), JSON.stringify(job));
+    setActiveJobId(job.jobId);
+  }
+
+  function savePendingRequest(requestId: string, filename: string, selectedRuleIdsToSave: string[]) {
+    if (!user) return;
+    localStorage.setItem(activeJobStorageKey(user.id), JSON.stringify({
+      jobId: null,
+      requestId,
+      filename,
+      selectedRuleIds: selectedRuleIdsToSave,
+    } satisfies StoredPaperLintJob));
+  }
+
+  function clearActiveJob() {
+    if (user) localStorage.removeItem(activeJobStorageKey(user.id));
+    setActiveJobId(null);
+    requestIdRef.current = null;
+  }
+
+  async function showSavedReport(reportId: string, filename: string, sourceFile?: File) {
+    const nextReport = await fetchPaperLintReport(reportId);
+    setResponse(nextReport);
+    setResultFile(sourceFile || {
+      name: filename,
+      url: `/api/normative/paper-lint/reports/${encodeURIComponent(reportId)}/pdf`,
+    });
+    clearActiveJob();
+  }
+
+  async function pollJob(jobId: string, filename: string, sourceFile?: File) {
+    const deadline = Date.now() + 25 * 60 * 1000;
+    let disconnected = false;
+    while (Date.now() <= deadline) {
+      try {
+        const job = await fetchPaperLintJob(jobId);
+        if (disconnected) {
+          disconnected = false;
+          setRunError(null);
+        }
+        if (job.status === 'pending' || job.status === 'running') {
+          await new Promise((resolve) => setTimeout(resolve, 1200));
+          continue;
+        }
+        if (job.status === 'failed') {
+          clearActiveJob();
+          throw new Error(job.error_message || '检测失败，请重试');
+        }
+        if (!job.report_id) {
+          clearActiveJob();
+          throw new Error('检测完成，但报告未保存，请重试');
+        }
+        await showSavedReport(job.report_id, filename, sourceFile);
+        return;
+      } catch (error) {
+        if (error instanceof Error && !/网络|连接|timeout|Network|ECONN/i.test(error.message)) throw error;
+        disconnected = true;
+        setRunError('连接中断，请重试获取检测状态');
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+      }
+    }
+    throw new Error('检测任务等待超时，请稍后在历史报告中查看');
+  }
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    let stored: StoredPaperLintJob | null = null;
+    try {
+      stored = JSON.parse(localStorage.getItem(activeJobStorageKey(user.id)) || 'null') as StoredPaperLintJob | null;
+    } catch {
+      localStorage.removeItem(activeJobStorageKey(user.id));
+    }
+    if (!stored?.requestId || !stored.filename) return;
+    requestIdRef.current = stored.requestId || null;
+    if (!stored.jobId) {
+      setSelectedRuleIds(stored.selectedRuleIds || []);
+      setRunError('上次提交状态不明确，请重新选择同一文件后重试');
+      return;
+    }
+    setActiveJobId(stored.jobId);
+    setSelectedRuleIds(stored.selectedRuleIds || []);
+    setRunning(true);
+    void pollJob(stored.jobId, stored.filename).catch((error) => {
+      if (!cancelled) setRunError(errorMessage(error, '检测任务恢复失败'));
+    }).finally(() => {
+      if (!cancelled) setRunning(false);
+    });
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   function chooseFile(nextFile: File | null) {
     setRunError(null);
     setResponse(null);
     setResultFile(null);
+    if (activeJobId) clearActiveJob();
+    if (user && requestIdRef.current && !activeJobId) {
+      try {
+        const stored = JSON.parse(localStorage.getItem(activeJobStorageKey(user.id)) || 'null') as StoredPaperLintJob | null;
+        if (!nextFile || (stored?.jobId === null && stored.filename !== nextFile.name)) clearActiveJob();
+      } catch {
+        clearActiveJob();
+      }
+    }
     if (!nextFile) {
       setFile(null);
       return;
@@ -156,7 +267,6 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     );
     setResponse(null);
     setResultFile(null);
-    setSemanticConsent(false);
   }
 
   function replaceSelectedRules(ruleIds: string[]) {
@@ -164,7 +274,6 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     setResponse(null);
     setResultFile(null);
     setRunError(null);
-    setSemanticConsent(false);
   }
 
   async function runReview() {
@@ -176,33 +285,26 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
       setRunError('请至少选择一条审查规则');
       return;
     }
-    if (selectedSemanticRules.length > 0 && !semanticConsent) {
-      setRunError('请先确认论文相关文本允许发送至页面说明的大模型与公开文献服务');
-      return;
-    }
     setRunning(true);
     setRunError(null);
     setResponse(null);
     setResultFile(null);
+    const requestId = requestIdRef.current || newRequestId();
+    requestIdRef.current = requestId;
+    savePendingRequest(requestId, file.name, selectedRuleIds);
     try {
-      const submitted = await runReviewPilotPaperLint(file, selectedRuleIds, semanticConsent);
+      const submitted = await runReviewPilotPaperLint(file, selectedRuleIds, false, requestId);
       let nextResponse: PaperLintRunResponse;
       if (isPaperLintJobResponse(submitted)) {
-        let job = submitted;
-        const deadline = Date.now() + 25 * 60 * 1000;
-        while (job.status === 'pending' || job.status === 'running') {
-          if (Date.now() > deadline) throw new Error('解析任务等待超时，请稍后在历史报告中查看');
-          await new Promise((resolve) => setTimeout(resolve, 1500));
-          job = await fetchPaperLintJob(job.job_id);
-        }
-        if (job.status === 'failed') throw new Error(job.error_message || '论文解析失败');
-        if (!job.report_id) throw new Error('检查已完成，但报告未保存');
-        nextResponse = await fetchPaperLintReport(job.report_id);
+        saveActiveJob({ jobId: submitted.job_id, requestId, filename: file.name, selectedRuleIds });
+        await pollJob(submitted.job_id, file.name, file);
+        return;
       } else {
         nextResponse = submitted;
       }
       setResponse(nextResponse);
       setResultFile(file);
+      clearActiveJob();
     } catch (error) {
       setRunError(errorMessage(error, '规则审查运行失败'));
     } finally {
@@ -237,7 +339,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
               <span className="inline-flex rounded-full border border-cyan-200/30 bg-cyan-300/10 px-3 py-1 text-xs font-semibold tracking-wide text-cyan-100">
                 论文规范专项检测
               </span>
-              <h1 className="mt-5 text-3xl font-black tracking-tight sm:text-4xl">33条规则检测</h1>
+              <h1 className="mt-5 text-3xl font-black tracking-tight sm:text-4xl">PDF 规则检测</h1>
               <p className="mt-3 max-w-2xl text-sm leading-7 text-blue-100/85 sm:text-base">
                 聚焦公式引用、文献引用与目录页码等可定位问题。上传论文后，自主选择已开放规则，逐项查看检测结果和 PDF
                 原文位置。
@@ -247,9 +349,9 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
               <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
                 <p className="text-3xl font-black">
                   {visibleRules.length}
-                  <span className="ml-1 text-base font-medium">/ 33</span>
+                  <span className="ml-1 text-base font-medium">/ 4</span>
                 </p>
-                <p className="mt-2 text-xs text-blue-100">已开放 {visibleRules.length} 条</p>
+                <p className="mt-2 text-xs text-blue-100">可选规则</p>
               </div>
               <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
                 <p className="text-3xl font-black">PDF</p>
@@ -266,14 +368,11 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
         items={[
           { label: '发起检测', to: isThirty ? '/thirty-rules-check' : '/normative-check', active: true },
           { label: '历史报告', to: isThirty ? '/thirty-rules-check/reports' : '/normative-reports', active: false },
-          ...(isThirty && user && ['COLLEGE_ADMIN', 'SCHOOL_ADMIN'].includes(user.role)
-            ? [{ label: '扫描479篇归档论文', to: '/thirty-rules-check/archive', active: false }]
-            : []),
         ]}
       />
 
       <section
-        aria-label={isThirty ? '发起33条规则检测' : '发起基础规则检测'}
+        aria-label={isThirty ? '发起 PDF 规则检测' : '发起基础规则检测'}
         className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6"
       >
         <div className="mb-5 flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-5">
@@ -286,13 +385,12 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
           </span>
         </div>
 
-        {catalog?.warning ? (
+            {catalog?.warning ? (
           <p
             role="status"
             className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
           >
             {catalog.warning}
-            {isThirty ? '。已开放的本地规则仍可使用。' : ''}
           </p>
         ) : null}
 
@@ -317,6 +415,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
                 type="file"
                 accept=".pdf,application/pdf"
                 aria-label="上传待审查 PDF"
+                disabled={running}
                 onChange={(event) => chooseFile(event.target.files?.[0] || null)}
               />
               {file ? (
@@ -353,7 +452,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
             title="2. 选择审查规则"
             description={
               isThirty
-                ? '当前开放 ' + visibleRules.length + ' 条规则，其余规则将逐步开放。可按需选择本次检查项。'
+                ? '请选择本次需要执行的规则。规则不可用时会显示原因并禁止提交。'
                 : '基础检查默认启用；需要额外文本分析的检查项可按需选择。'
             }
             actions={
@@ -392,17 +491,12 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
                         className="mt-0.5 size-4 accent-brand-500"
                         type="checkbox"
                         checked={checked}
-                        disabled={!rule.available}
+                        disabled={running || !rule.available}
                         onChange={() => toggleRule(rule.rule_id)}
                       />
                       <span className="min-w-0">
                         <span className="flex flex-wrap items-center gap-2 text-sm font-bold text-slate-900">
                           {rule.title}
-                          {rule.execution_mode === 'semantic' ? (
-                            <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] text-violet-700">
-                              扩展分析
-                            </span>
-                          ) : null}
                           {!rule.available ? (
                             <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] text-slate-600">
                               尚未配置
@@ -421,26 +515,6 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
                 当前页面暂无可用规则。
               </p>
             ) : null}
-            {selectedSemanticRules.length > 0 ? (
-              <div
-                className="mt-4 rounded-lg border border-violet-200 bg-violet-50 p-3 text-xs leading-5 text-violet-900"
-                role="note"
-              >
-                <p>
-                  已选择 {selectedSemanticRules.length} 条扩展分析检查项。系统会将相关论文文本发送至当前配置的大模型服务；
-                  引用规则使用华为云 DeepSeek，并会向公开文献服务查询参考文献信息。请勿上传不允许外发的论文，结果需人工复核。
-                </p>
-                <label className="mt-2 flex cursor-pointer items-start gap-2 font-semibold">
-                  <input
-                    className="mt-0.5 size-4 accent-violet-600"
-                    type="checkbox"
-                    checked={semanticConsent}
-                    onChange={(event) => setSemanticConsent(event.target.checked)}
-                  />
-                  <span>我确认该论文相关文本允许发送至上述大模型与公开文献服务</span>
-                </label>
-              </div>
-            ) : null}
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
               <p className="text-sm text-slate-600">
                 已选择 <strong className="text-slate-900">{selectedRuleIds.length}</strong> 条规则
@@ -450,8 +524,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
                   !file ||
                   !catalog ||
                   selectedRuleIds.length === 0 ||
-                  running ||
-                  (selectedSemanticRules.length > 0 && !semanticConsent)
+                  running
                 }
                 onClick={() => void runReview()}
               >
@@ -464,7 +537,13 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
         <p className="mt-5 text-xs leading-5 text-slate-500">扫描版 PDF 可能无法完成部分文字与版式规则检查。</p>
       </section>
 
-      {runError ? <ErrorState title="审查未完成" message={runError} /> : null}
+      {runError ? <ErrorState title="审查未完成" message={runError} onRetry={() => {
+        setRunning(true);
+        setRunError(null);
+        void (activeJobId
+          ? pollJob(activeJobId, file?.name || '论文.pdf', file || undefined)
+          : runReview()).catch((error) => setRunError(errorMessage(error, '检测任务恢复失败'))).finally(() => setRunning(false));
+      }} /> : null}
 
       {running ? (
         <Card>
@@ -474,7 +553,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
             </span>
             <div>
               <p className="font-bold text-slate-900">正在解析论文并逐项检查</p>
-              <p className="mt-1 text-sm text-slate-500">扩展分析检查项可能需要更长时间；完成后将直接展示真实结果。</p>
+              <p className="mt-1 text-sm text-slate-500">检测完成后将直接展示真实结果。</p>
             </div>
           </div>
         </Card>

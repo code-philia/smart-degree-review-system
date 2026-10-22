@@ -1,44 +1,12 @@
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import AppShell from './layout/AppShell';
 import DemoAccountHelpPanel from './auth/DemoAccountHelpPanel';
 import LocalAccountLoginForm from './auth/LocalAccountLoginForm';
 import AuthPage from './pages/AuthPage';
-import AboutPage from './pages/AboutPage';
 import NotFoundPage from './pages/NotFoundPage';
-import AiReviewHistoryPage from './pages/AiReviewHistoryPage';
-import AiReviewResultPage from './pages/AiReviewResultPage';
-import AiReviewRunPage from './pages/AiReviewRunPage';
-import DuplicationCorpusPage from './pages/DuplicationCorpusPage';
-import DuplicationDetectPage from './pages/DuplicationDetectPage';
-import DuplicationHistoryPage from './pages/DuplicationHistoryPage';
-import HomePage from './pages/HomePage';
-import InnovationAssessmentPage from './pages/InnovationAssessmentPage';
-import InnovationReportPage from './pages/InnovationReportPage';
-import InnovationScoringPage from './pages/InnovationScoringPage';
-import InnovationHistoryPage from './pages/InnovationHistoryPage';
-import LedgerFilteredStatsPage from './pages/LedgerFilteredStatsPage';
-import LedgerRecordsPage from './pages/LedgerRecordsPage';
-import LocalPolishPage from './pages/LocalPolishPage';
 import NormativeCheckPage from './pages/NormativeCheckPage';
 import NormativeReportPage from './pages/NormativeReportPage';
-import ArchiveScanPage from './pages/ArchiveScanPage';
-import ArchiveScanResultPage from './pages/ArchiveScanResultPage';
 import PaperLintReportPage from './pages/PaperLintReportPage';
-import PolishHistoryPage from './pages/PolishHistoryPage';
-import QualityDashboardPage from './pages/QualityDashboardPage';
-import StudentQualityPortraitPage from './pages/StudentQualityPortraitPage';
-import StudentReportResultsPage from './pages/StudentReportResultsPage';
-import StudentReportSubmissionPage from './pages/StudentReportSubmissionPage';
-import SupervisorReviewQueuePage from './pages/SupervisorReviewQueuePage';
-import SupervisorReviewPage from './pages/SupervisorReviewPage';
-import RuleConfigPage from './pages/RuleConfigPage';
-import WholePolishPage from './pages/WholePolishPage';
-import BuiltInReviewCasesPage from './pages/BuiltInReviewCasesPage';
-import ExampleRuleCheckPage from './pages/ExampleRuleCheckPage';
-import ExampleRuleManagementPage from './pages/ExampleRuleManagementPage';
-import ExampleRuleReportsPage from './pages/ExampleRuleReportsPage';
-import ExampleRuleReportPage from './pages/ExampleRuleReportPage';
-import AdvancedSemanticRuleCheckPage from './pages/AdvancedSemanticRuleCheckPage';
 
 function App() {
   return (
@@ -49,55 +17,10 @@ function App() {
       />
 
       <Route element={<AppShell />}>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/about" element={<AboutPage />} />
-        <Route path="/normative-check" element={<NormativeCheckPage />} />
+        <Route path="/" element={<Navigate replace to="/thirty-rules-check" />} />
         <Route path="/thirty-rules-check" element={<NormativeCheckPage mode="thirty" />} />
-        <Route path="/thirty-rules-check/archive" element={<ArchiveScanPage />} />
-        <Route
-          path="/thirty-rules-check/archive/jobs/:jobId/documents/:documentId"
-          element={<ArchiveScanResultPage />}
-        />
         <Route path="/thirty-rules-check/reports" element={<NormativeReportPage mode="thirty" />} />
         <Route path="/thirty-rules-check/reports/pdf/:reportId" element={<PaperLintReportPage mode="thirty" />} />
-        <Route path="/example-rule-check" element={<ExampleRuleCheckPage />} />
-        <Route path="/example-rule-check/rules" element={<ExampleRuleManagementPage />} />
-        <Route path="/example-rule-check/reports" element={<ExampleRuleReportsPage />} />
-        <Route path="/example-rule-check/reports/:reportId" element={<ExampleRuleReportPage />} />
-        <Route path="/review-cases" element={<BuiltInReviewCasesPage />} />
-        <Route path="/review-cases/:caseId" element={<BuiltInReviewCasesPage />} />
-        <Route path="/advanced-semantic-rule-check" element={<AdvancedSemanticRuleCheckPage />} />
-        <Route path="/advanced-semantic-rule-check/:example" element={<AdvancedSemanticRuleCheckPage />} />
-        <Route path="/normative-reports" element={<NormativeReportPage />} />
-        <Route path="/normative-reports/pdf/:reportId" element={<PaperLintReportPage />} />
-        <Route path="/normative-reports/:reportId" element={<NormativeReportPage />} />
-        <Route path="/ledger-records" element={<LedgerRecordsPage />} />
-        <Route path="/ledger-stats" element={<LedgerFilteredStatsPage />} />
-        <Route path="/quality-dashboard" element={<QualityDashboardPage />} />
-        <Route path="/student-quality-portrait" element={<StudentQualityPortraitPage />} />
-        <Route path="/student-quality-portrait/:studentId" element={<StudentQualityPortraitPage />} />
-        <Route path="/student-report-submissions" element={<StudentReportSubmissionPage />} />
-        <Route path="/student-report-results" element={<StudentReportResultsPage />} />
-        <Route path="/student-report-results/:submissionId" element={<StudentReportResultsPage />} />
-        <Route path="/supervisor-review-queue" element={<SupervisorReviewQueuePage />} />
-        <Route path="/supervisor-review-queue/:submissionId" element={<SupervisorReviewPage />} />
-        <Route path="/rule-config" element={<RuleConfigPage />} />
-        <Route path="/duplication-corpus" element={<DuplicationCorpusPage />} />
-        <Route path="/duplication-detect" element={<DuplicationDetectPage />} />
-        <Route path="/duplication-history" element={<DuplicationHistoryPage />} />
-        <Route path="/duplication-history/:reportId" element={<DuplicationHistoryPage />} />
-        <Route path="/innovation-assessment" element={<InnovationAssessmentPage />} />
-        <Route path="/innovation-history" element={<InnovationHistoryPage />} />
-        <Route path="/innovation-assessments/:reportId" element={<InnovationReportPage />} />
-        <Route path="/innovation-scoring" element={<InnovationScoringPage />} />
-        <Route path="/ai-review" element={<AiReviewRunPage />} />
-        <Route path="/ai-review/history" element={<AiReviewHistoryPage />} />
-        <Route path="/ai-review/results/:reviewRunId" element={<AiReviewResultPage />} />
-        <Route path="/whole-polish" element={<WholePolishPage />} />
-        <Route path="/whole-polish/:resultId" element={<WholePolishPage />} />
-        <Route path="/local-polish" element={<LocalPolishPage />} />
-        <Route path="/polish-history" element={<PolishHistoryPage />} />
-        <Route path="/polish-history/:polishType/:resultId" element={<PolishHistoryPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

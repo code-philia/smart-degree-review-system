@@ -16,18 +16,26 @@ function publicJob(row) {
   };
 }
 
-async function createJob({ userId, sourceFilename, pdfBuffer, selectedRuleIds, externalProcessingConsent }) {
+async function createJob({ userId, sourceFilename, pdfBuffer, selectedRuleIds, externalProcessingConsent, requestId = null }) {
+  if (requestId) {
+    const existing = await get('SELECT id FROM paper_lint_jobs WHERE user_id = ? AND request_id = ?', [userId, requestId]);
+    if (existing) return existing.id;
+  }
   const id = randomUUID();
   const directory = jobsDirectory();
   const pdfPath = path.join(directory, id + '.pdf');
   await fs.promises.mkdir(directory, { recursive: true, mode: 0o700 });
   await fs.promises.writeFile(pdfPath, pdfBuffer, { flag: 'wx', mode: 0o600 });
   try {
-    await run('INSERT INTO paper_lint_jobs (id,user_id,source_filename,source_pdf_path,selected_rule_ids_json,external_consent,status,attempts,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)',
+    await run('INSERT INTO paper_lint_jobs (id,user_id,source_filename,source_pdf_path,selected_rule_ids_json,external_consent,request_id,status,attempts,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
       [id, userId, sourceFilename, pdfPath, JSON.stringify(selectedRuleIds),
-        externalProcessingConsent ? 1 : 0, 'pending', 0, new Date().toISOString(), new Date().toISOString()]);
+        externalProcessingConsent ? 1 : 0, requestId, 'pending', 0, new Date().toISOString(), new Date().toISOString()]);
   } catch (error) {
     await fs.promises.rm(pdfPath, { force: true });
+    if (requestId && String(error?.message || '').includes('UNIQUE')) {
+      const existing = await get('SELECT id FROM paper_lint_jobs WHERE user_id = ? AND request_id = ?', [userId, requestId]);
+      if (existing) return existing.id;
+    }
     throw error;
   }
   return id;

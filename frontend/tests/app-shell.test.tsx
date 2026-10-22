@@ -24,12 +24,12 @@ vi.mock('../src/auth/AuthSessionProvider', () => ({
 
 import AppShell from '../src/layout/AppShell';
 
-function renderShell(path = '/about') {
+function renderShell(path = '/thirty-rules-check') {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route element={<AppShell />}>
-          <Route path="/about" element={<h1>系统说明内容</h1>} />
+          <Route path="/thirty-rules-check" element={<h1>PDF 检测内容</h1>} />
         </Route>
         <Route path="/auth" element={<h1>登录页</h1>} />
       </Routes>
@@ -46,10 +46,10 @@ describe('AppShell shadcn layout', () => {
     const user = userEvent.setup();
     const { container } = renderShell();
 
-    expect(screen.getByRole('link', { name: '提交报告给导师' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '内置审查案例' })).toHaveAttribute('href', '/review-cases');
-    expect(screen.queryByRole('link', { name: '规则配置' })).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: '系统说明内容' })).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'PDF 检测' })[0]).toHaveAttribute('href', '/thirty-rules-check');
+    expect(screen.getAllByRole('link', { name: '历史报告' })[0]).toHaveAttribute('href', '/thirty-rules-check/reports');
+    expect(screen.queryByRole('link', { name: '内置审查案例' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'PDF 检测内容' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: '切换主导航' }));
     expect(container.querySelector('[data-slot="sidebar"]')).toHaveAttribute('data-state', 'collapsed');

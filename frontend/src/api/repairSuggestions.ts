@@ -8,6 +8,8 @@ export type RepairSuggestion = {
   rule_id: string;
   finding_id: string;
   status: RepairSuggestionStatus;
+  rationale?: string;
+  missing_context?: string[];
   actions: { instruction: string; evidence_ids: string[] }[];
   provenance: {
     provider: 'huawei_maas';
@@ -34,6 +36,12 @@ export type PaperLintFindingReference = {
 };
 
 export const PAPER_LINT_REPAIR_RULE_IDS = new Set([
+  'sjtu_rule_18', 'sjtu_rule_22', 'sjtu_rule_24', 'sjtu_rule_28',
+]);
+
+// Kept for the hidden archive workflow. It is intentionally not used by MVP
+// paper reports, whose visible repair actions are restricted to four rules.
+export const ARCHIVE_REPAIR_RULE_IDS = new Set([
   ...basicRepairRules.map(rule => rule.rule_id),
   'sjtu_rule_11', 'sjtu_rule_13', 'sjtu_rule_14', 'sjtu_rule_15', 'sjtu_rule_16',
   'sjtu_rule_18', 'sjtu_rule_22', 'sjtu_rule_24', 'sjtu_rule_28', 'sjtu_rule_29',
