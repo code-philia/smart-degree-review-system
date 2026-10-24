@@ -10,6 +10,11 @@ const areas = [
   ['page_design', '页面设计'], ['other', '其他'],
 ];
 
+function newFeedbackRequestId() {
+  if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID();
+  return `feedback-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 export function SystemFeedbackDialog() {
   const [open, setOpen] = useState(false);
   const [score, setScore] = useState(0);
@@ -23,7 +28,7 @@ export function SystemFeedbackDialog() {
   async function submit() {
     if (!score) { setError('请先选择满意度'); return; }
     setPending(true); setError(null);
-    try { await submitSystemFeedback({ satisfaction_score: score, improvement_areas: selectedAreas, comment: comment || undefined, request_id: crypto.randomUUID() }); setMessage('感谢反馈！'); }
+    try { await submitSystemFeedback({ satisfaction_score: score, improvement_areas: selectedAreas, comment: comment || undefined, request_id: newFeedbackRequestId() }); setMessage('感谢反馈！'); }
     catch (cause) { setError(cause instanceof Error ? cause.message : '提交失败，请稍后重试'); }
     finally { setPending(false); }
   }
