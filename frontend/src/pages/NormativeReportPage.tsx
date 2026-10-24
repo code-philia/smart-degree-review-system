@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useAuthSession } from '../auth/AuthSessionProvider';
 import { fetchPaperLintReports, type PaperLintReportListItem } from '../api/paperLint';
 import { formatChinaDateTime } from '../utils/dateTime';
+import { THIRTY_RULE_IDS } from '../utils/paperLintRuleGroups';
 import {
   downloadNormativeReportJson,
   fetchNormativeDetectionHistory,
@@ -65,7 +66,14 @@ function NormativeReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
         if (Array.isArray(response) && Array.isArray(response[0])) {
           const [legacyHistory, savedPdfReports] = response as [DetectionTaskResponse[], PaperLintReportListItem[]];
           setHistory(legacyHistory);
-          setPdfReports(savedPdfReports);
+          setPdfReports(
+            isThirty
+              ? savedPdfReports.filter((savedReport) =>
+                  savedReport.selected_rule_ids.length > 0 &&
+                  savedReport.selected_rule_ids.every((ruleId) => THIRTY_RULE_IDS.has(ruleId)),
+                )
+              : savedPdfReports,
+          );
           setReport(null);
         } else {
           setReport(response);

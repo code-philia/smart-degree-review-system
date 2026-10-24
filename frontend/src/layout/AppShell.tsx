@@ -284,18 +284,16 @@ function AppShell() {
         <SidebarHeader className="p-3">
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild size="lg" tooltip={PRODUCT_NAME} className="h-12 hover:bg-sidebar-accent/70">
-                <Link to="/">
-                  <img
-                    src="/brand-mark.jpg"
-                    alt=""
-                    className="size-8 rounded-full object-cover ring-1 ring-sidebar-border"
-                  />
-                  <span className="min-w-0 leading-tight">
-                    <span className="block truncate font-semibold">{PRODUCT_NAME}</span>
-                    <span className="mt-1 block text-xs font-normal text-sidebar-foreground/60">{PRODUCT_TAGLINE}</span>
-                  </span>
-                </Link>
+              <SidebarMenuButton size="lg" tooltip={PRODUCT_NAME} className="h-12 hover:bg-sidebar-accent/70">
+                <img
+                  src="/brand-mark.jpg"
+                  alt=""
+                  className="size-8 rounded-full object-cover ring-1 ring-sidebar-border"
+                />
+                <span className="min-w-0 leading-tight">
+                  <span className="block truncate font-semibold">{PRODUCT_NAME}</span>
+                  <span className="mt-1 block text-xs font-normal text-sidebar-foreground/60">{PRODUCT_TAGLINE}</span>
+                </span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
