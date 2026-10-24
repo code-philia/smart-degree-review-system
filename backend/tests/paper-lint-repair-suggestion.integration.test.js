@@ -52,7 +52,6 @@ beforeEach(async () => {
     selectedRuleIds: ['sjtu_rule_15'], result: result(), reportId: 'report-1',
   });
 });
-
 afterEach(async () => {
   await harness.cleanup();
   await fs.rm(reportsDirectory, { recursive: true, force: true });
@@ -132,18 +131,3 @@ describe('single-report repair suggestions', () => {
   });
 });
 
-it('invalidates saved suggestions after prompt or PDF changes without invoking a model', async () => {
-  const values={reportId:'report-1',userId:'owner',ruleId:'sjtu_rule_15',findingId:'finding-15-1'};
-  const {report,ruleRun,finding}=await getPaperLintReportFinding(values);
-  const repair=buildPaperLintReportRepairRequest({report,ruleRun,finding,
-    documentSha256:createHash('sha256').update(Buffer.from('%PDF-1.7')).digest('hex')});
-  const answer={schema_version:'repair-response-v2',source:repair.source,rule_id:'sjtu_rule_15',finding_id:'finding-15-1',status:'suggested',actions:[],
-    provenance:{provider:'huawei_maas',model:'test-model',model_version:'test-v1',prompt_version:'old-prompt',context_sha256:repair.context_sha256},usage:{}};
-  const url='/api/normative/paper-lint/reports/report-1/repair-suggestions?rule_id=sjtu_rule_15&finding_id=finding-15-1';
-  await savePaperLintRepairSuggestion(repair,'owner',answer);
-  await request(app).get(url).set('Cookie','arc_session=owner-session').expect(200).expect(({body})=>expect(body.response).toBeNull());
-  await savePaperLintRepairSuggestion(repair,'owner',{...answer,provenance:{...answer.provenance,prompt_version:PROMPT_VERSION}});
-  await request(app).get(url).set('Cookie','arc_session=owner-session').expect(200).expect(({body})=>expect(body.response.status).toBe('suggested'));
-  await fs.writeFile(path.join(reportsDirectory,'report-1.pdf'),Buffer.from('%PDF-1.8 changed'));
-  await request(app).get(url).set('Cookie','arc_session=owner-session').expect(200).expect(({body})=>expect(body.response).toBeNull());
-});

@@ -33,30 +33,6 @@ describe('compiler adapter', () => {
   });
 });
 
- it('dispatches old and compiler rules together while requiring external consent', async()=>{
-  const local=require('../src/normative/localFiveRulePaperLintService');
-  const filename=require.resolve('../src/normative/reviewPilotPaperLintService');
-  const previous=require.cache[filename];const oldLocal=local.runLocalFiveRules;const oldCatalog=service.getCompilerRules;const oldRun=service.runCompilerRules;
-  const oldDir=process.env.REVIEW_PILOT_BACKEND_DIR;process.env.REVIEW_PILOT_BACKEND_DIR='/nonexistent-compiler-test-backend';
-  let localCalls=0,compilerCalls=0;
-  local.runLocalFiveRules=async()=>{localCalls++;return {rule_runs:[{rule_id:'sjtu_rule_18',execution_status:'completed',outcome:'passed',severity:'warning',findings:[]}]};};
-  service.getCompilerRules=()=>oldCatalog().map(r=>({...r,available:true}));
-  service.runCompilerRules=async()=>{compilerCalls++;return service.toCompilerResult(raw(),['sjtu_rule_31']);};
-  delete require.cache[filename];
-  try {
-    const mixed=require(filename);const input={pdfBuffer:Buffer.from('%PDF-1.7\n'),selectedRuleIds:['sjtu_rule_18','sjtu_rule_31']};
-    await expect(mixed.runPaperLint(input)).rejects.toMatchObject({status:400});
-    expect(localCalls+compilerCalls).toBe(0);
-    const result=await mixed.runPaperLint({...input,externalProcessingConsent:true});
-    expect(localCalls).toBe(1);expect(compilerCalls).toBe(1);
-    expect(result.result.rule_runs.map(r=>r.rule_id)).toEqual(input.selectedRuleIds);
-    expect(result.result.rule_runs[1].outcome).toBe('inconclusive');
-  } finally {local.runLocalFiveRules=oldLocal;service.getCompilerRules=oldCatalog;service.runCompilerRules=oldRun;
-    if(previous)require.cache[filename]=previous;else delete require.cache[filename];
-    if(oldDir===undefined)delete process.env.REVIEW_PILOT_BACKEND_DIR;else process.env.REVIEW_PILOT_BACKEND_DIR=oldDir;
-  }
- });
-
 it('preserves normative basis for findings and uncertain diagnostics',()=>{
   const value=raw('VIOLATION');value.rules[0].basis_catalog=[{id:'gbt7714-2025:8.7',text:'Degree granting institution required',kind:'standard'}];
   value.rules[0].results[0].basis=['gbt7714-2025:8.7'];

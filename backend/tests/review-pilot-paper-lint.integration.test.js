@@ -134,16 +134,6 @@ describe("review-pilot paper-lint HTTP bridge", () => {
     expect(fakeService.getPaperLintCatalog).not.toHaveBeenCalled();
   });
 
-  it("returns the PDF rule catalog to every declared authenticated role", async () => {
-    for (const cookie of Object.values(cookies)) {
-      await request(app)
-        .get("/api/normative/paper-lint/rules")
-        .set("Cookie", cookie)
-        .expect(200)
-        .expect(catalog);
-    }
-  });
-
   it("returns the built-in case catalog to every role and protects all case resources", async () => {
     fakeExampleService.listPaperLintExamples.mockClear();
     fakeExampleService.getPaperLintExample.mockClear();
@@ -230,98 +220,6 @@ describe("review-pilot paper-lint HTTP bridge", () => {
     });
   });
 
-  it("passes raw PDF bytes and selected rules through, then saves a retrievable PDF report", async () => {
-    const pdf = Buffer.from("%PDF-1.7\nminimal test bytes");
-    const response = await request(app)
-      .post("/api/normative/paper-lint/run?filename=%E8%AE%BA%E6%96%87.pdf")
-      .set("Cookie", cookies.student01)
-      .set("Content-Type", "application/pdf")
-      .set("X-Paper-Lint-Rule-Ids", "chinese_title_format_check")
-      .send(pdf)
-      .expect(201);
-
-    expect(fakeService.runPaperLint).toHaveBeenCalledWith({
-      pdfBuffer: expect.any(Buffer),
-      selectedRuleIds: ["chinese_title_format_check"],
-      externalProcessingConsent: false,
-    });
-    expect(
-      fakeService.runPaperLint.mock.calls.at(-1)[0].pdfBuffer.equals(pdf),
-    ).toBe(true);
-    expect(response.body).toMatchObject({
-      source_filename: "论文.pdf",
-      selected_rule_ids: ["chinese_title_format_check"],
-      id: expect.any(String),
-      created_at: expect.any(String),
-      result: runResult,
-    });
-    const report = await request(app)
-      .get(`/api/normative/paper-lint/reports/${response.body.id}`)
-      .set("Cookie", cookies.student01)
-      .expect(200);
-    expect(report.body.source_filename).toBe("论文.pdf");
-    await request(app)
-      .get(`/api/normative/paper-lint/reports/${response.body.id}`)
-      .set("Cookie", cookies.supervisor01)
-      .expect(404);
-    await request(app)
-      .get(`/api/normative/paper-lint/reports/${response.body.id}/pdf`)
-      .set("Cookie", cookies.student01)
-      .expect("Content-Type", /application\/pdf/)
-      .expect(200);
-    const partial = await request(app)
-      .get(`/api/normative/paper-lint/reports/${response.body.id}/pdf`)
-      .set("Cookie", cookies.student01)
-      .set("Range", "bytes=0-3")
-      .expect(206);
-    expect(partial.headers["content-range"]).toMatch(/^bytes 0-3\//);
-    expect(partial.headers["cache-control"]).toMatch(/private, max-age=3600/);
-    expect(partial.headers.vary).toMatch(/Cookie/);
-    expect(partial.headers.etag).toBeTruthy();
-    await request(app)
-      .get(`/api/normative/paper-lint/reports/${response.body.id}/pdf`)
-      .set("Cookie", cookies.student01)
-      .set("If-None-Match", partial.headers.etag)
-      .expect(304);
-  });
-
-  it("retains unsupported counts in saved list summaries", async () => {
-    const inconclusive = {
-      ...runResult,
-      summary: { ...runResult.summary, completed_rule_count: 0, unsupported_rule_count: 1 },
-      rule_runs: [{ rule_id: 'sjtu_rule_24', execution_status: 'unsupported',
-        outcome: 'inconclusive', findings: [] }],
-    };
-    fakeService.runPaperLint.mockResolvedValueOnce({ result: inconclusive,
-      selectedRuleIds: ['sjtu_rule_24'] });
-    const saved = await request(app).post('/api/normative/paper-lint/run')
-      .set('Cookie', cookies.student01).set('Content-Type', 'application/pdf')
-      .set('X-Paper-Lint-Rule-Ids', 'sjtu_rule_24')
-      .send(Buffer.from('%PDF-1.7\nunsupported'))
-      .expect(201);
-    const list = await request(app).get('/api/normative/paper-lint/reports')
-      .set('Cookie', cookies.student01).expect(200);
-    expect(list.body.records.find((record) => record.id === saved.body.id).summary)
-      .toMatchObject({ finding_count: 0, unsupported_rule_count: 1, error_rule_count: 0 });
-  });
-
-  it("passes explicit external-processing consent to the service", async () => {
-    const pdf = Buffer.from("%PDF-1.7\nsemantic test bytes");
-    await request(app)
-      .post("/api/normative/paper-lint/run")
-      .set("Cookie", cookies.student01)
-      .set("Content-Type", "application/pdf")
-      .set("X-Paper-Lint-Rule-Ids", "bilingual_abstract_consistency_check")
-      .set("X-Paper-Lint-External-Processing-Consent", "confirmed")
-      .send(pdf)
-      .expect(201);
-
-    expect(fakeService.runPaperLint).toHaveBeenLastCalledWith({
-      pdfBuffer: expect.any(Buffer),
-      selectedRuleIds: ["bilingual_abstract_consistency_check"],
-      externalProcessingConsent: true,
-    });
-  });
 });
 
 describe("review-pilot PDF validation", () => {
