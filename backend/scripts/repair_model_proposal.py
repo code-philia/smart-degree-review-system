@@ -11,7 +11,8 @@ from paper_compiler.budget import BudgetExceeded, BudgetLedger
 from paper_compiler.llm import MaasClient, ModelError, load_config
 from paper_compiler.storage import json_bytes
 
-LEDGER = Path('/data/runtime/paper-compiler/budget.sqlite3')
+DEFAULT_LEDGER = Path('/data/runtime/paper-compiler/budget.sqlite3')
+DEFAULT_CACHE_ROOT = Path('/data/runtime/paper-compiler/repair-model-cache')
 
 def model_identity(config_path):
     config = load_config(config_path)
@@ -43,8 +44,11 @@ def main():
     raw = sys.stdin.buffer.read(131073)
     if len(raw) > 131072:
         raise ValueError('repair request too large')
-    ledger = BudgetLedger(LEDGER, os.environ.get('PAPER_COMPILER_BUDGET_CNY', '500'))
-    cache = Path('/data/runtime/paper-compiler/repair-model-cache')
+    ledger = BudgetLedger(
+        Path(os.environ.get('PAPER_COMPILER_LEDGER', DEFAULT_LEDGER)),
+        os.environ.get('PAPER_COMPILER_BUDGET_CNY', '500'),
+    )
+    cache = Path(os.environ.get('PAPER_COMPILER_CACHE_ROOT', DEFAULT_CACHE_ROOT))
     return execute(json.loads(raw)['messages'], config_path=config, ledger=ledger, cache=cache)
 
 if __name__ == '__main__':

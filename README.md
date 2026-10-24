@@ -109,6 +109,8 @@ MVP 页面只开放 `sjtu_rule_18`、`sjtu_rule_22`、`sjtu_rule_24`、`sjtu_rul
 
 MVP 前端仅挂载登录、PDF 检测、历史报告和报告内 AI 修复建议相关页面；其他页面及直接 URL 在 MVP 路由中受限，旧组件、服务和数据库表保留供后续恢复。AI 修复建议只在用户点击按钮后生成；打开报告时仅读取已保存缓存。
 
+修复建议默认继续使用正式共享费用账本 `/data/runtime/paper-compiler/budget.sqlite3`。隔离开发或临时验收时，可通过 `PAPER_COMPILER_LEDGER` 和 `PAPER_COMPILER_CACHE_ROOT` 指定独立账本与缓存目录；这两个路径不得指向或覆盖生产账本。`PAPER_COMPILER_BUDGET_CNY` 和 `PAPER_COMPILER_PHASE_BUDGET_CNY` 用于设置开发预算上限。
+
 `/normative-check` 通过同机 Python 进程调用 review-pilot 的确定性规则和按需语义规则。部署环境需要配置：
 
 - `REVIEW_PILOT_BACKEND_DIR`：review-pilot 仓库的 `backend` 绝对路径；
