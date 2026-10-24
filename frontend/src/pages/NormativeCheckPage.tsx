@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { FileCheck2, FileText, LoaderCircle, Play, Upload, X } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { useAuthSession } from '../auth/AuthSessionProvider';
 import {
   fetchReviewPilotPaperLintRules,
