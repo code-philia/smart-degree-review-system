@@ -9,14 +9,28 @@ const app = express();
 const authRoutes = require('./auth/authRoutes');
 const normativeRoutes = require('./normative/normativeRoutes');
 const exampleRuleRoutes = require('./example-rule-check/exampleRuleRoutes');
+const internalReadinessRoutes = require('./diagnostics/internalReadinessRoutes');
 
 // middleware imports
-app.use(cors());
+const corsOrigins = String(process.env.ARC_CORS_ORIGIN || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+if (corsOrigins.length) {
+  app.use(cors({
+    credentials: true,
+    origin(origin, callback) {
+      if (!origin || corsOrigins.includes(origin)) return callback(null, true);
+      return callback(null, false);
+    },
+  }));
+}
 
 // register routes
 app.get('/api/health', (req, res) => {
   res.json({ code: 200, message: 'Backend Ready' });
 });
+app.use('/api/internal', internalReadinessRoutes);
 app.use('/api/auth', bodyParser.json({ limit: '16kb' }), authRoutes);
 app.use('/api/normative', normativeRoutes);
 app.use('/api/example-rule-check', exampleRuleRoutes);

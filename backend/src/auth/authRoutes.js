@@ -7,7 +7,7 @@ const router = express.Router();
 const cookieOptions = {
   httpOnly: true,
   sameSite: 'lax',
-  secure: false,
+  secure: process.env.NODE_ENV === 'production' || process.env.ARC_COOKIE_SECURE === '1',
   path: '/',
 };
 
