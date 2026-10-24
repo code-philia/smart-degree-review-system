@@ -86,9 +86,22 @@ export async function evaluatePaperLintFindingRepairSuggestion(
   reference: PaperLintFindingReference,
   { force = false }: { force?: boolean } = {},
 ): Promise<{ response: RepairSuggestion; cached: boolean }> {
-  return (await apiClient.post(
+  const result = (await apiClient.post<{
+    response: RepairSuggestion;
+    suggestion_id?: string | null;
+    generation?: number | null;
+    cached: boolean;
+  }>(
     paperLintReportSuggestionUrl(reference.report_id),
     { rule_id: reference.rule_id, finding_id: reference.finding_id, force },
     { timeout: 40_000 },
   )).data;
+  return {
+    ...result,
+    response: {
+      ...result.response,
+      suggestion_id: result.suggestion_id || undefined,
+      generation: result.generation || undefined,
+    },
+  };
 }
