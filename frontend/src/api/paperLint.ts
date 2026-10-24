@@ -21,7 +21,6 @@ export type PaperLintCatalogResponse = {
   mode: 'pdf_lint';
   semantic_model: 'deepseek-v4-flash';
   rules: PaperLintRule[];
-  warning?: string;
 };
 
 export type PdfRect = {

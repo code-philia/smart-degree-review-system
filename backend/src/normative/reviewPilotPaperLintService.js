@@ -208,7 +208,6 @@ async function getPaperLintCatalog({ refresh = false } = {}) {
         return {
           engine: 'sjtu-local', mode: 'pdf_lint', semantic_model: 'deepseek-v4-flash',
           rules: LOCAL_RULES.map((rule) => ({ ...rule, available: localAvailable })).concat(getSixRules(), getCompilerRules()),
-          warning: '原有规则引擎暂不可用',
         };
       }
     })();

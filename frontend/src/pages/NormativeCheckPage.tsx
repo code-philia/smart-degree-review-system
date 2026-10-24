@@ -385,15 +385,6 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
           </span>
         </div>
 
-            {catalog?.warning ? (
-          <p
-            role="status"
-            className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
-          >
-            {catalog.warning}
-          </p>
-        ) : null}
-
         <div className="grid gap-6 xl:grid-cols-[minmax(0,.85fr)_minmax(440px,1.15fr)]">
           <Card title="1. 上传论文" description="仅支持 PDF，最大 50 MB。">
             <label

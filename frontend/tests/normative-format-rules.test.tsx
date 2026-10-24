@@ -279,7 +279,6 @@ describe('four local PDF rules in the 30-rule page', () => {
       mode: 'pdf_lint',
       semantic_model: 'deepseek-v4-flash',
       rules: localRules,
-      warning: '原有规则引擎暂不可用',
     });
     vi.mocked(runReviewPilotPaperLint).mockResolvedValue({
       ...completedResponse,
@@ -318,7 +317,7 @@ describe('four local PDF rules in the 30-rule page', () => {
     expect(await screen.findByRole('checkbox', { name: /规则 22/ })).toBeInTheDocument();
     expect(screen.queryByText('本地检测')).not.toBeInTheDocument();
     expect(screen.getByText('已开放 4 条')).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent('原有规则引擎暂不可用');
+    expect(screen.queryByText('原有规则引擎暂不可用')).not.toBeInTheDocument();
     await user.upload(screen.getByLabelText('上传待审查 PDF'), pdf);
     await user.click(screen.getByRole('checkbox', { name: /规则 22/ }));
     expect(screen.queryByText(/发送到 DeepSeek 官方 API/)).not.toBeInTheDocument();
