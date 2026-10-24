@@ -10,6 +10,8 @@
     "db:seed:demo": "node src/database/seed_demo_db.js",
     "db:prepare:e2e": "node src/database/prepare_e2e.js",
     "test": "vitest run --config vitest.config.js",
+    "test:mvp": "vitest run --config vitest.mvp.config.js",
+    "test:legacy": "vitest run --config vitest.legacy.config.js",
     "test:watch": "vitest --config vitest.config.js",
     "test:e2e": "playwright test",
     "test:all": "npm run test && npm run test:e2e"

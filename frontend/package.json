@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:mvp": "vitest run --config vite.mvp.config.js",
     "test:watch": "vitest"
   },
   "dependencies": {
