@@ -15,6 +15,10 @@ const allowedRoles = ['STUDENT', 'SUPERVISOR', 'SCHOOL_ADMIN', 'COLLEGE_ADMIN'];
 const managementRoles = ['SCHOOL_ADMIN', 'COLLEGE_ADMIN'];
 const MVP_RULE_IDS = new Set(getEnabledMvpRuleIds());
 
+function filterMvpCatalog(catalog) {
+  return { ...catalog, rules: catalog.rules.filter((rule) => MVP_RULE_IDS.has(rule.rule_id)) };
+}
+
 function sendError(error, res, next) {
   if (error?.type === 'entity.too.large') {
     res.status(413).json({ code: 413, message: 'PDF 文件大小不能超过 50 MB' });
@@ -77,7 +81,7 @@ function createReviewPilotPaperLintRouter(service = defaultService, exampleServi
   router.get('/rules', requireAuth({ allowedRoles }), async (_req, res, next) => {
     try {
       const catalog = await service.getPaperLintCatalog();
-      res.json({ ...catalog, rules: catalog.rules.filter((rule) => MVP_RULE_IDS.has(rule.rule_id)) });
+      res.json(filterMvpCatalog(catalog));
     } catch (error) {
       sendError(error, res, next);
     }
@@ -171,3 +175,4 @@ function createReviewPilotPaperLintRouter(service = defaultService, exampleServi
 
 module.exports = createReviewPilotPaperLintRouter();
 module.exports.createReviewPilotPaperLintRouter = createReviewPilotPaperLintRouter;
+module.exports.filterMvpCatalog = filterMvpCatalog;

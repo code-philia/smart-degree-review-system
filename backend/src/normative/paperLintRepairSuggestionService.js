@@ -4,6 +4,7 @@ const db = require('../database/db_runtime');
 const reportRepository = require('./paperLintReportRepository');
 const { RULE_TEXT, BASIC_REPAIR_RULE_IDS, buildPaperLintReportRepairRequest } = require('./legacyRepairAdapter');
 const { appendExtractedContext, extractPdfContext } = require('./repairEvidenceService');
+const { supportsRepairSurface } = require('../../rules/registry');
 
 function problem(status, message) {
   const error = new Error(message);
@@ -18,7 +19,9 @@ function sha256(content) {
 async function getPaperLintReportFinding({ reportId, userId, ruleId, findingId }) {
   const report = await reportRepository.findPaperLintReportByIdForUser(reportId, userId);
   if (!report) throw problem(404, '未找到该审查报告');
-  if (!RULE_TEXT[ruleId]) throw problem(422, '该规则暂不支持 AI 修复建议');
+  if (!RULE_TEXT[ruleId] || (!supportsRepairSurface(ruleId, 'paper_lint') && !supportsRepairSurface(ruleId, 'archive'))) {
+    throw problem(422, '该规则暂不支持 AI 修复建议');
+  }
   const ruleRun = report.result?.rule_runs?.find((run) => run.rule_id === ruleId);
   const finding = ruleRun?.findings?.find((item) => item.finding_id === findingId);
   if (!ruleRun || !finding) throw problem(404, '该报告中不存在指定告警');

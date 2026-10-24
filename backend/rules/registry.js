@@ -29,10 +29,15 @@ function getEnabledMvpRuleIds() {
   return listRuleDefinitions({ enabledInMvp: true }).map((rule) => rule.rule_id);
 }
 
+function supportsRepairSurface(ruleId, surface) {
+  return Boolean(getRuleDefinition(ruleId)?.repair_surfaces?.includes(surface));
+}
+
 module.exports = {
   schemaVersion: registry.schema_version,
   listRuleDefinitions,
   getRuleDefinition,
   requireRuleDefinition,
   getEnabledMvpRuleIds,
+  supportsRepairSurface,
 };

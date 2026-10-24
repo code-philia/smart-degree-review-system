@@ -27,5 +27,8 @@ describe('rule registry', () => {
       'sjtu_rule_31', 'sjtu_rule_32', 'sjtu_rule_33',
     ]);
     expect(registry.getEnabledMvpRuleIds()).not.toContain('sjtu_rule_15');
+    expect(registry.supportsRepairSurface('sjtu_rule_18', 'paper_lint')).toBe(true);
+    expect(registry.supportsRepairSurface('sjtu_rule_15', 'paper_lint')).toBe(false);
+    expect(registry.supportsRepairSurface('sjtu_rule_15', 'archive')).toBe(true);
   });
 });
