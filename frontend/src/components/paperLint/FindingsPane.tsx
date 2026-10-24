@@ -55,8 +55,8 @@ function FeedbackControls({
     <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50 p-2" onClick={(event) => event.stopPropagation()}>
       <div className="flex items-center gap-2">
         <span className="text-xs text-slate-500">{label}</span>
-        <Button size="sm" variant={feedback?.feedback_value === 'positive' ? 'secondary' : 'ghost'} aria-label="有帮助" aria-pressed={feedback?.feedback_value === 'positive'} onClick={() => onValue('positive')}><ThumbsUp className="size-3.5" /></Button>
-        <Button size="sm" variant={feedback?.feedback_value === 'negative' ? 'secondary' : 'ghost'} aria-label="需要改进" aria-pressed={feedback?.feedback_value === 'negative'} onClick={() => onValue('negative')}><ThumbsDown className="size-3.5" /></Button>
+        <Button size="sm" variant="ghost" className={feedback?.feedback_value === 'positive' ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300 hover:bg-emerald-200' : ''} aria-label="有帮助" aria-pressed={feedback?.feedback_value === 'positive'} onClick={() => onValue('positive')}><ThumbsUp className="size-3.5" /></Button>
+        <Button size="sm" variant="ghost" className={feedback?.feedback_value === 'negative' ? 'bg-red-100 text-red-700 ring-1 ring-red-300 hover:bg-red-200' : ''} aria-label="需要改进" aria-pressed={feedback?.feedback_value === 'negative'} onClick={() => onValue('negative')}><ThumbsDown className="size-3.5" /></Button>
         {feedback ? <Button size="sm" variant="ghost" className="ml-auto text-xs" onClick={onCancel}>取消评价</Button> : null}
       </div>
       {feedback?.feedback_value === 'negative' ? <div className="mt-2 space-y-2">
