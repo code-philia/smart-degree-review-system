@@ -71,6 +71,7 @@ describe('FEAT-AUTH-SESSION backend auth session contract', () => {
     const sessionCookie = cookieValue(loginResponse);
     expect(sessionCookie).toContain('HttpOnly');
     expect(sessionCookie).toMatch(/SameSite=Lax/i);
+    expect(sessionCookie).not.toMatch(/Secure/i);
     expect(loginResponse.body.user).toEqual({
       id: 'student01',
       username: 'student01',

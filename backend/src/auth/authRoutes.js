@@ -7,7 +7,9 @@ const router = express.Router();
 const cookieOptions = {
   httpOnly: true,
   sameSite: 'lax',
-  secure: process.env.NODE_ENV === 'production' || process.env.ARC_COOKIE_SECURE === '1',
+  // The site currently terminates on HTTP. Enable this explicitly when the
+  // public endpoint is HTTPS; NODE_ENV alone does not describe that boundary.
+  secure: process.env.ARC_COOKIE_SECURE === '1',
   path: '/',
 };
 
