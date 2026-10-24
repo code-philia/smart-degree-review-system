@@ -16,6 +16,16 @@ import { PaperLintWorkspace } from '../components/paperLint/Workspace';
 import { compilerPublicationLabel, compilerPublicationSummary, flattenPaperLintFindings } from '../components/paperLint/model';
 import { usePaperLintRepairSuggestions } from '../hooks/usePaperLintRepairSuggestions';
 import {
+  deleteFindingFeedback,
+  deleteSuggestionFeedback,
+  fetchFindingFeedback,
+  fetchSuggestionFeedback,
+  saveFindingFeedback,
+  saveSuggestionFeedback,
+  type FindingFeedback,
+  type SuggestionFeedback,
+} from '../api/feedback';
+import {
   Button,
   Card,
   ErrorState,
@@ -134,6 +144,106 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   const rulesById = useMemo(() => new Map((catalog?.rules || []).map((rule) => [rule.rule_id, rule])), [catalog]);
   const findings = useMemo(() => (response ? flattenPaperLintFindings(response.result) : []), [response]);
   const repairSuggestions = usePaperLintRepairSuggestions(response?.id);
+  const [findingFeedbackByKey, setFindingFeedbackByKey] = useState<Record<string, FindingFeedback | null>>({});
+  const [suggestionFeedbackByFindingKey, setSuggestionFeedbackByFindingKey] = useState<Record<string, SuggestionFeedback | null>>({});
+
+  useEffect(() => {
+    if (!response?.id || !findings.length) return;
+    let active = true;
+    void Promise.all(
+      findings.map(async (item) => [
+        item.key,
+        await fetchFindingFeedback(response.id, item.ruleRun.rule_id, item.finding.finding_id),
+      ] as const),
+    )
+      .then((entries) => active && setFindingFeedbackByKey(Object.fromEntries(entries)))
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [response?.id, findings]);
+
+  useEffect(() => {
+    if (!response?.id) return;
+    let active = true;
+    const entries = findings
+      .map((item) => [item, repairSuggestions.repairSuggestionByFindingKey[item.key]] as const)
+      .filter((entry): entry is readonly [typeof entry[0], NonNullable<typeof entry[1]>] => Boolean(entry[1]?.suggestion_id));
+    if (!entries.length) return;
+    void Promise.all(
+      entries.map(async ([item, suggestion]) => [
+        item.key,
+        await fetchSuggestionFeedback(response.id, suggestion.suggestion_id!),
+      ] as const),
+    )
+      .then((next) => active && setSuggestionFeedbackByFindingKey((current) => ({ ...current, ...Object.fromEntries(next) })))
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [response?.id, findings, repairSuggestions.repairSuggestionByFindingKey]);
+
+  const updateFindingFeedback = useCallback(async (item: (typeof findings)[number], value: 'positive' | 'negative') => {
+    if (!response?.id) return;
+    try {
+      const feedback = await saveFindingFeedback(response.id, item.ruleRun.rule_id, item.finding.finding_id, { feedback_value: value });
+      setFindingFeedbackByKey((current) => ({ ...current, [item.key]: feedback }));
+    } catch (cause) {
+      window.alert(cause instanceof Error ? cause.message : '反馈保存失败');
+    }
+  }, [response?.id]);
+  const updateFindingReason = useCallback(async (item: (typeof findings)[number], reasonCode: string | null, reasonText: string | null) => {
+    if (!response?.id) return;
+    try {
+      const feedback = await saveFindingFeedback(response.id, item.ruleRun.rule_id, item.finding.finding_id, {
+        feedback_value: 'negative', reason_code: reasonCode, reason_text: reasonText,
+      });
+      setFindingFeedbackByKey((current) => ({ ...current, [item.key]: feedback }));
+    } catch (cause) {
+      window.alert(cause instanceof Error ? cause.message : '反馈保存失败');
+    }
+  }, [response?.id]);
+  const cancelFindingFeedback = useCallback(async (item: (typeof findings)[number]) => {
+    if (!response?.id) return;
+    try {
+      await deleteFindingFeedback(response.id, item.ruleRun.rule_id, item.finding.finding_id);
+      setFindingFeedbackByKey((current) => ({ ...current, [item.key]: null }));
+    } catch (cause) {
+      window.alert(cause instanceof Error ? cause.message : '反馈取消失败');
+    }
+  }, [response?.id]);
+  const updateSuggestionFeedback = useCallback(async (item: (typeof findings)[number], value: 'positive' | 'negative') => {
+    const suggestion = repairSuggestions.repairSuggestionByFindingKey[item.key];
+    if (!response?.id || !suggestion?.suggestion_id) return;
+    try {
+      const feedback = await saveSuggestionFeedback(response.id, suggestion.suggestion_id, { feedback_value: value });
+      setSuggestionFeedbackByFindingKey((current) => ({ ...current, [item.key]: feedback }));
+    } catch (cause) {
+      window.alert(cause instanceof Error ? cause.message : '反馈保存失败');
+    }
+  }, [response?.id, repairSuggestions.repairSuggestionByFindingKey]);
+  const updateSuggestionReason = useCallback(async (item: (typeof findings)[number], reasonCode: string | null, reasonText: string | null) => {
+    const suggestion = repairSuggestions.repairSuggestionByFindingKey[item.key];
+    if (!response?.id || !suggestion?.suggestion_id) return;
+    try {
+      const feedback = await saveSuggestionFeedback(response.id, suggestion.suggestion_id, {
+        feedback_value: 'negative', reason_code: reasonCode, reason_text: reasonText,
+      });
+      setSuggestionFeedbackByFindingKey((current) => ({ ...current, [item.key]: feedback }));
+    } catch (cause) {
+      window.alert(cause instanceof Error ? cause.message : '反馈保存失败');
+    }
+  }, [response?.id, repairSuggestions.repairSuggestionByFindingKey]);
+  const cancelSuggestionFeedback = useCallback(async (item: (typeof findings)[number]) => {
+    const suggestion = repairSuggestions.repairSuggestionByFindingKey[item.key];
+    if (!response?.id || !suggestion?.suggestion_id) return;
+    try {
+      await deleteSuggestionFeedback(response.id, suggestion.suggestion_id);
+      setSuggestionFeedbackByFindingKey((current) => ({ ...current, [item.key]: null }));
+    } catch (cause) {
+      window.alert(cause instanceof Error ? cause.message : '反馈取消失败');
+    }
+  }, [response?.id, repairSuggestions.repairSuggestionByFindingKey]);
 
   function saveActiveJob(job: StoredPaperLintJob) {
     if (!user) return;
@@ -628,6 +738,14 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
             onGenerateRepairSuggestion={repairSuggestions.generateRepairSuggestion}
             supportsRepairSuggestion={repairSuggestions.supportsRepairSuggestion}
             forceNewRepairSuggestion
+            findingFeedbackByKey={findingFeedbackByKey}
+            suggestionFeedbackByFindingKey={suggestionFeedbackByFindingKey}
+            onFindingFeedback={updateFindingFeedback}
+            onFindingFeedbackReason={updateFindingReason}
+            onFindingFeedbackCancel={cancelFindingFeedback}
+            onSuggestionFeedback={updateSuggestionFeedback}
+            onSuggestionFeedbackReason={updateSuggestionReason}
+            onSuggestionFeedbackCancel={cancelSuggestionFeedback}
           />
         </>
       ) : null}
