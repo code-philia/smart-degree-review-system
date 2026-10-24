@@ -14,7 +14,9 @@ function configuredPath(value, fallback) {
 async function checkDirectory(directory) {
   try {
     const stat = await fs.promises.stat(directory);
-    return { exists: stat.isDirectory(), readable: true, writable: true };
+    if (!stat.isDirectory()) return { exists: false, readable: false, writable: false };
+    await fs.promises.access(directory, fs.constants.R_OK | fs.constants.W_OK);
+    return { exists: true, readable: true, writable: true };
   } catch (error) {
     if (error.code !== 'ENOENT') return { exists: false, readable: false, writable: false };
     try {
@@ -23,6 +25,18 @@ async function checkDirectory(directory) {
     } catch {
       return { exists: false, readable: false, writable: false };
     }
+  }
+}
+
+async function checkFileOrParent(filePath) {
+  try {
+    const stat = await fs.promises.stat(filePath);
+    if (!stat.isFile()) return { exists: false, readable: false, writable: false };
+    await fs.promises.access(filePath, fs.constants.R_OK | fs.constants.W_OK);
+    return { exists: true, readable: true, writable: true };
+  } catch (error) {
+    if (error.code !== 'ENOENT') return { exists: false, readable: false, writable: false };
+    return checkDirectory(path.dirname(filePath));
   }
 }
 
@@ -82,11 +96,19 @@ async function buildReadinessSnapshot() {
     checkDirectory(jobsDirectory),
     checkDirectory(cacheRoot),
   ]);
-  const ledger = await checkDirectory(path.dirname(path.resolve(ledgerPath)));
+  const ledger = await checkFileOrParent(path.resolve(ledgerPath));
   const pythonAvailable = await checkPython(python);
-  const aiConfigured = Boolean(process.env.MAAS_API_KEY && process.env.MAAS_BASE_URL && process.env.MAAS_MODEL);
   const configPath = process.env.PAPER_COMPILER_CONFIG;
   const configReadable = configPath ? await fs.promises.access(configPath, fs.constants.R_OK).then(() => true, () => false) : false;
+  let configHasModelKeys = false;
+  if (configReadable) {
+    const configText = await fs.promises.readFile(configPath, 'utf8');
+    configHasModelKeys = ['MAAS_API_KEY', 'MAAS_BASE_URL', 'MAAS_MODEL']
+      .every((key) => new RegExp(`^\\s*${key}\\s*=\\s*.+$`, 'm').test(configText));
+  }
+  const aiConfigured = Boolean(
+    (process.env.MAAS_API_KEY && process.env.MAAS_BASE_URL && process.env.MAAS_MODEL) || configHasModelKeys,
+  );
   const storage = database ? await checkStorageConsistency() : null;
   return {
     ok: database && reports.readable && jobs.readable && pythonAvailable && aiConfigured && configReadable && ledger.readable && cache.readable,
