@@ -7,6 +7,7 @@ const { LOCAL_RULES, getLocalRuleAvailability, isLocalRuleId, runLocalFiveRules,
 const { getSixRules, isSixRuleId, runSixRules, SIX_RULE_TIMEOUT_MS } = require('./sixRulePaperLintService');
 
 const { getCompilerRules, isCompilerRuleId, runCompilerRules } = require('./paperCompilerService');
+const { runPaperLintRuleGroups } = require('./paperLintRuleRunner');
 
 const RETIRED_RULE_IDS = new Set([
   'claim_evidence_inconsistency_check',
@@ -294,28 +295,26 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
   try {
     const normalizedRuleIds = await normalizeSelectedRuleIds(selectedRuleIds, externalProcessingConsent);
     if (controller.signal.aborted) throw createHttpError(504, RUN_TIMEOUT_MESSAGE);
-    const localIds = normalizedRuleIds.filter(isLocalRuleId);
-    const sixIds = normalizedRuleIds.filter(isSixRuleId);
-    const compilerIds = normalizedRuleIds.filter(isCompilerRuleId);
-    const existingIds = normalizedRuleIds.filter((ruleId) => !isLocalRuleId(ruleId) && !isSixRuleId(ruleId) && !isCompilerRuleId(ruleId));
-
     return await withRunSlot(async () => {
       const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'smart-degree-paper-lint-'));
       const pdfPath = path.join(tempDir, 'input.pdf');
       try {
         if (controller.signal.aborted) throw createHttpError(504, RUN_TIMEOUT_MESSAGE);
         await fs.promises.writeFile(pdfPath, pdfBuffer, { flag: 'wx', mode: 0o600 });
-        const localResult = localIds.length
-          ? await runLocalFiveRules(pdfPath, localIds, { signal: controller.signal }) : null;
-        const sixResult = sixIds.length
-          ? await runSixRules(pdfPath, sixIds, { signal: controller.signal }) : null;
-        const compilerResult = compilerIds.length
-          ? await runCompilerRules(pdfPath, compilerIds, { signal: controller.signal }) : null;
-        const existingResult = existingIds.length ? await runBridge([
-          '--pdf', pdfPath, ...existingIds.flatMap((ruleId) => ['--rule', ruleId]),
-        ], ENGINE_TIMEOUT_MS, controller.signal) : null;
+        const parts = await runPaperLintRuleGroups({
+          pdfPath,
+          selectedRuleIds: normalizedRuleIds,
+          signal: controller.signal,
+          runners: {
+            local_pdf: (file, ruleIds, options) => runLocalFiveRules(file, ruleIds, options),
+            six_pdf: (file, ruleIds, options) => runSixRules(file, ruleIds, options),
+            compiler: (file, ruleIds, options) => runCompilerRules(file, ruleIds, options),
+            legacy_bridge: (_file, ruleIds, { signal }) => runBridge([
+              '--pdf', pdfPath, ...ruleIds.flatMap((ruleId) => ['--rule', ruleId]),
+            ], ENGINE_TIMEOUT_MS, signal),
+          },
+        });
         if (controller.signal.aborted) throw createHttpError(504, RUN_TIMEOUT_MESSAGE);
-        const parts = [existingResult, localResult, sixResult, compilerResult].filter(Boolean);
         const result = parts.length > 1
           ? mergePaperLintResults(parts[0], { rule_runs: parts.slice(1).flatMap((part) => part.rule_runs) }, normalizedRuleIds)
           : parts[0];
