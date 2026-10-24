@@ -110,8 +110,11 @@ async function buildReadinessSnapshot() {
     (process.env.MAAS_API_KEY && process.env.MAAS_BASE_URL && process.env.MAAS_MODEL) || configHasModelKeys,
   );
   const storage = database ? await checkStorageConsistency() : null;
+  const storageHealthy = Boolean(
+    storage && storage.reports.missing_pdf_count === 0 && storage.jobs.missing_pdf_count === 0,
+  );
   return {
-    ok: database && reports.readable && jobs.readable && pythonAvailable && aiConfigured && configReadable && ledger.readable && cache.readable,
+    ok: database && reports.readable && jobs.readable && pythonAvailable && aiConfigured && configReadable && ledger.readable && cache.readable && storageHealthy,
     checks: {
       database,
       pdf_storage: { reports, jobs },
