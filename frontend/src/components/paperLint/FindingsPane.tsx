@@ -1,8 +1,9 @@
-import { Bot, Check, CheckCircle2, MapPin } from 'lucide-react';
+import { Bot, Check, CheckCircle2, MapPin, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { PaperLintRule } from '../../api/paperLint';
 import { EvidenceLinks } from './CompilerEvidence';
 import type { RepairSuggestion } from '../../api/repairSuggestions';
+import type { FindingFeedback, SuggestionFeedback } from '../../api/feedback';
 import { Button, StatusBadge } from '../ui';
 import { comparePaperLintRuleIds, findingPageLabel, type PaperLintFindingItem } from './model';
 
@@ -21,10 +22,54 @@ type Props = {
   onGenerateRepairSuggestion?: (finding: PaperLintFindingItem) => void;
   supportsRepairSuggestion?: (finding: PaperLintFindingItem) => boolean;
   forceNewRepairSuggestion?: boolean;
+  findingFeedbackByKey?: Record<string, FindingFeedback | null | undefined>;
+  suggestionFeedbackByFindingKey?: Record<string, SuggestionFeedback | null | undefined>;
+  onFindingFeedback?: (finding: PaperLintFindingItem, value: 'positive' | 'negative') => void;
+  onFindingFeedbackReason?: (finding: PaperLintFindingItem, reasonCode: string | null, reasonText: string | null) => void;
+  onFindingFeedbackCancel?: (finding: PaperLintFindingItem) => void;
+  onSuggestionFeedback?: (finding: PaperLintFindingItem, value: 'positive' | 'negative') => void;
+  onSuggestionFeedbackReason?: (finding: PaperLintFindingItem, reasonCode: string | null, reasonText: string | null) => void;
+  onSuggestionFeedbackCancel?: (finding: PaperLintFindingItem) => void;
 };
 
 const tones = { error: 'danger', warning: 'warning', info: 'info' } as const;
 const severityLabels = { error: '严重', warning: '警告', info: '提示' };
+
+function FeedbackControls({
+  label, feedback, reasons, onValue, onReason, onCancel,
+}: {
+  label: string;
+  feedback?: FindingFeedback | SuggestionFeedback | null;
+  reasons: [string, string][];
+  onValue: (value: 'positive' | 'negative') => void;
+  onReason: (code: string | null, text: string | null) => void;
+  onCancel: () => void;
+}) {
+  const [reasonCode, setReasonCode] = useState(feedback?.reason_code || '');
+  const [reasonText, setReasonText] = useState(feedback?.reason_text || '');
+  useEffect(() => {
+    setReasonCode(feedback?.reason_code || '');
+    setReasonText(feedback?.reason_text || '');
+  }, [feedback?.id, feedback?.reason_code, feedback?.reason_text]);
+  return (
+    <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50 p-2" onClick={(event) => event.stopPropagation()}>
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-slate-500">{label}</span>
+        <Button size="sm" variant={feedback?.feedback_value === 'positive' ? 'secondary' : 'ghost'} aria-label="有帮助" aria-pressed={feedback?.feedback_value === 'positive'} onClick={() => onValue('positive')}><ThumbsUp className="size-3.5" /></Button>
+        <Button size="sm" variant={feedback?.feedback_value === 'negative' ? 'secondary' : 'ghost'} aria-label="需要改进" aria-pressed={feedback?.feedback_value === 'negative'} onClick={() => onValue('negative')}><ThumbsDown className="size-3.5" /></Button>
+        {feedback ? <Button size="sm" variant="ghost" className="ml-auto text-xs" onClick={onCancel}>取消评价</Button> : null}
+      </div>
+      {feedback?.feedback_value === 'negative' ? <div className="mt-2 space-y-2">
+        <select aria-label="负面反馈原因" className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs" value={reasonCode} onChange={(event) => setReasonCode(event.target.value)}>
+          <option value="">可选：选择原因</option>
+          {reasons.map(([value, text]) => <option key={value} value={value}>{text}</option>)}
+        </select>
+        <textarea aria-label="反馈补充说明" className="min-h-12 w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs" placeholder="可选补充说明" value={reasonText} onChange={(event) => setReasonText(event.target.value)} />
+        <Button size="sm" variant="ghost" onClick={() => onReason(reasonCode || null, reasonText || null)}>保存原因</Button>
+      </div> : null}
+    </div>
+  );
+}
 
 export function FindingsPane({
   findings,
@@ -40,6 +85,14 @@ export function FindingsPane({
   onLoadRepairSuggestion,
   onGenerateRepairSuggestion,
   supportsRepairSuggestion = () => true,
+  findingFeedbackByKey = {},
+  suggestionFeedbackByFindingKey = {},
+  onFindingFeedback,
+  onFindingFeedbackReason,
+  onFindingFeedbackCancel,
+  onSuggestionFeedback,
+  onSuggestionFeedbackReason,
+  onSuggestionFeedbackCancel,
 }: Props) {
   const [filter, setFilter] = useState<'all' | 'error' | 'warning' | 'info'>('all');
   const [ruleFilter, setRuleFilter] = useState('all');
@@ -109,6 +162,8 @@ export function FindingsPane({
             const repairError = repairSuggestionErrorByFindingKey[item.key];
             const generating = repairSuggestionLoadingByFindingKey[item.key] || repairSuggestionLoadingKey === item.key;
             const repairEnabled = supportsRepairSuggestion(item);
+            const findingFeedback = findingFeedbackByKey[item.key];
+            const suggestionFeedback = suggestionFeedbackByFindingKey[item.key];
             const showRepairSuggestion = Boolean(onGenerateRepairSuggestion || repair || generating || repairError);
             return (
               <article
@@ -166,6 +221,14 @@ export function FindingsPane({
                   </div>
                 </div>
                 <p className="mt-2 text-sm leading-6 text-slate-700">{item.finding.message}</p>
+                {onFindingFeedback ? <FeedbackControls
+                  label="这个问题的判断是否准确？"
+                  feedback={findingFeedback}
+                  reasons={[['false_positive', '误报'], ['location_inaccurate', '定位不准'], ['description_unclear', '说明不清'], ['other', '其他']]}
+                  onValue={(value) => onFindingFeedback(item, value)}
+                  onReason={(code, text) => onFindingFeedbackReason?.(item, code, text)}
+                  onCancel={() => onFindingFeedbackCancel?.(item)}
+                /> : null}
                 {page ? (
                   <Button
                     size="sm"
@@ -214,6 +277,7 @@ export function FindingsPane({
                       </p>
                     ) : null}
                     {repair ? (
+                      <>
                       <div className="mt-3 space-y-3 rounded-lg bg-sky-50 p-3 text-xs leading-5 text-slate-700">
                         <div>
                           <div className="space-y-2">
@@ -232,6 +296,15 @@ export function FindingsPane({
                           {repair.provenance.model} · {repair.provenance.prompt_version}
                         </p>
                       </div>
+                      {onSuggestionFeedback && repair.suggestion_id ? <FeedbackControls
+                        label="这条 AI 修复建议是否有帮助？"
+                        feedback={suggestionFeedback}
+                        reasons={[['incorrect', '内容不正确'], ['not_directly_executable', '无法直接执行'], ['insufficient_basis', '依据不足'], ['unclear', '表达不清'], ['other', '其他']]}
+                        onValue={(value) => onSuggestionFeedback(item, value)}
+                        onReason={(code, text) => onSuggestionFeedbackReason?.(item, code, text)}
+                        onCancel={() => onSuggestionFeedbackCancel?.(item)}
+                      /> : null}
+                      </>
                     ) : null}
                   </div>
                 ) : null}

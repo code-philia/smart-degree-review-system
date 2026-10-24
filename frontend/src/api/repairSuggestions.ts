@@ -4,6 +4,8 @@ import basicRepairRules from '../../../shared/basic-repair-rules.json';
 export type RepairSuggestionStatus = 'suggested' | 'insufficient_context' | 'evidence_conflict';
 
 export type RepairSuggestion = {
+  suggestion_id?: string;
+  generation?: number;
   schema_version: 'repair-response-v2';
   rule_id: string;
   finding_id: string;
@@ -73,11 +75,11 @@ function paperLintReportSuggestionUrl(reportId: string) {
 export async function fetchPaperLintFindingRepairSuggestion(
   reference: PaperLintFindingReference,
 ): Promise<RepairSuggestion | null> {
-  const response = await apiClient.get<{ response: RepairSuggestion | null }>(
+  const response = await apiClient.get<{ response: RepairSuggestion | null; suggestion_id?: string; generation?: number }>(
     paperLintReportSuggestionUrl(reference.report_id),
     { params: { rule_id: reference.rule_id, finding_id: reference.finding_id }, timeout: 40_000 },
   );
-  return response.data.response;
+  return response.data.response ? { ...response.data.response, suggestion_id: response.data.suggestion_id || undefined, generation: response.data.generation || undefined } : null;
 }
 
 export async function evaluatePaperLintFindingRepairSuggestion(

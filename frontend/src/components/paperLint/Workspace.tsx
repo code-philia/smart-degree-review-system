@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import type { PaperLintRule } from '../../api/paperLint';
 import type { RepairSuggestion } from '../../api/repairSuggestions';
+import type { FindingFeedback, SuggestionFeedback } from '../../api/feedback';
 import { FindingsPane } from './FindingsPane';
 import type { PaperLintFindingItem } from './model';
 import { PdfPane } from './PdfPane';
@@ -18,6 +19,14 @@ type Props = {
   onGenerateRepairSuggestion?: (finding: PaperLintFindingItem) => void;
   supportsRepairSuggestion?: (finding: PaperLintFindingItem) => boolean;
   forceNewRepairSuggestion?: boolean;
+  findingFeedbackByKey?: Record<string, FindingFeedback | null | undefined>;
+  suggestionFeedbackByFindingKey?: Record<string, SuggestionFeedback | null | undefined>;
+  onFindingFeedback?: (finding: PaperLintFindingItem, value: 'positive' | 'negative') => void;
+  onFindingFeedbackReason?: (finding: PaperLintFindingItem, reasonCode: string | null, reasonText: string | null) => void;
+  onFindingFeedbackCancel?: (finding: PaperLintFindingItem) => void;
+  onSuggestionFeedback?: (finding: PaperLintFindingItem, value: 'positive' | 'negative') => void;
+  onSuggestionFeedbackReason?: (finding: PaperLintFindingItem, reasonCode: string | null, reasonText: string | null) => void;
+  onSuggestionFeedbackCancel?: (finding: PaperLintFindingItem) => void;
 };
 
 export function PaperLintWorkspace({
@@ -33,6 +42,14 @@ export function PaperLintWorkspace({
   onGenerateRepairSuggestion,
   supportsRepairSuggestion,
   forceNewRepairSuggestion,
+  findingFeedbackByKey,
+  suggestionFeedbackByFindingKey,
+  onFindingFeedback,
+  onFindingFeedbackReason,
+  onFindingFeedbackCancel,
+  onSuggestionFeedback,
+  onSuggestionFeedbackReason,
+  onSuggestionFeedbackCancel,
 }: Props) {
   const [activeFindingKey, setActiveFindingKey] = useState<string | null>(findings[0]?.key || null);
   const [activeAnchorId, setActiveAnchorId] = useState<string | null>(null);
@@ -75,6 +92,14 @@ export function PaperLintWorkspace({
         onGenerateRepairSuggestion={onGenerateRepairSuggestion}
         supportsRepairSuggestion={supportsRepairSuggestion}
         forceNewRepairSuggestion={forceNewRepairSuggestion}
+        findingFeedbackByKey={findingFeedbackByKey}
+        suggestionFeedbackByFindingKey={suggestionFeedbackByFindingKey}
+        onFindingFeedback={onFindingFeedback}
+        onFindingFeedbackReason={onFindingFeedbackReason}
+        onFindingFeedbackCancel={onFindingFeedbackCancel}
+        onSuggestionFeedback={onSuggestionFeedback}
+        onSuggestionFeedbackReason={onSuggestionFeedbackReason}
+        onSuggestionFeedbackCancel={onSuggestionFeedbackCancel}
       />
     </div>
   );

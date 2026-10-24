@@ -23,6 +23,7 @@ import {
   BreadcrumbSeparator,
 } from '../components/shadcn/breadcrumb';
 import { Button } from '../components/shadcn/button';
+import { SystemFeedbackDialog } from '../components/SystemFeedbackDialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../components/shadcn/collapsible';
 import {
   DropdownMenu,
@@ -383,14 +384,7 @@ function AppShell() {
             </Breadcrumb>
           </div>
 
-          <Button asChild variant="ghost" size="sm" className="hidden shrink-0 sm:inline-flex">
-            <Link to="/about">
-              <Badge variant="outline" className="border-primary/20 bg-primary/5 text-primary">
-                <ShieldCheck aria-hidden="true" />
-                试点验证版
-              </Badge>
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2"><Button asChild variant="ghost" size="sm" className="hidden shrink-0 sm:inline-flex"><Link to="/about"><Badge variant="outline" className="border-primary/20 bg-primary/5 text-primary"><ShieldCheck aria-hidden="true" />试点验证版</Badge></Link></Button>{user ? <SystemFeedbackDialog /> : null}</div>
         </header>
 
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">

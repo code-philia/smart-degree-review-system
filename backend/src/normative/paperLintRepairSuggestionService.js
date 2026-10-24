@@ -35,6 +35,12 @@ async function buildPaperLintReportRepairRequestBase({ reportId, userId, ruleId,
   return { request, pdf, finding };
 }
 
+async function getPaperLintReportDocumentSha256({ reportId, userId }) {
+  const pdf = await reportRepository.getPaperLintReportPdfFile(reportId, userId);
+  if (!pdf?.path) return null;
+  return sha256(await fs.readFile(pdf.path));
+}
+
 async function buildPaperLintReportRepairRequestWithPdfContext(values) {
   const { request, pdf, finding } = await buildPaperLintReportRepairRequestBase(values);
   const reportId = values.reportId;
@@ -61,29 +67,36 @@ async function findPaperLintRepairSuggestion(request, { model, modelVersion, pro
 }
 
 async function findLatestPaperLintRepairSuggestion({ reportId, userId, ruleId, findingId, identity, sourceIdentity }) {
+  const row = await findLatestPaperLintRepairSuggestionRecord({ reportId, userId, ruleId, findingId });
+  const response = row ? row.response : null;
+  if (row && sourceIdentity && row.document_sha256 !== sourceIdentity) return null;
+  if (response && identity && (response.provenance.model !== identity.model ||
+      response.provenance.model_version !== identity.modelVersion ||
+      response.provenance.prompt_version !== identity.promptVersion ||
+      (sourceIdentity && response.provenance.source_identity_sha256 !== sourceIdentity))) return null;
+  return response;
+}
+
+async function findLatestPaperLintRepairSuggestionRecord({ reportId, userId, ruleId, findingId }) {
   const row = await db.get(
-    `SELECT response_json FROM paper_lint_repair_suggestions
+    `SELECT id, generation, document_sha256, response_json FROM paper_lint_repair_suggestions
      WHERE report_id=? AND user_id=? AND rule_id=? AND finding_id=?
      ORDER BY generation DESC, created_at DESC LIMIT 1`,
     [reportId, userId, ruleId, findingId],
   );
-  const response = row ? JSON.parse(row.response_json) : null;
-  if (response && identity && (response.provenance.model !== identity.model ||
-      response.provenance.model_version !== identity.modelVersion ||
-      response.provenance.prompt_version !== identity.promptVersion ||
-      response.provenance.source_identity_sha256 !== sourceIdentity)) return null;
-  return response;
+  if (!row) return null;
+  return { ...row, response: JSON.parse(row.response_json) };
 }
 
 async function savePaperLintRepairSuggestion(request, userId, response) {
   response = { ...response, provenance: { ...response.provenance, source_identity_sha256: request.source_identity_sha256 } };
-  await db.withTransaction(async (tx) => {
+  const saved = await db.withTransaction(async (tx) => {
     const existing = await tx.get(
       `SELECT COALESCE(MAX(generation), 0) AS generation FROM paper_lint_repair_suggestions
        WHERE report_id=? AND rule_id=? AND finding_id=?`,
       [request.source.report_id, request.rule.rule_id, request.finding.finding_id],
     );
-    await tx.run(
+    const result = await tx.run(
       `INSERT INTO paper_lint_repair_suggestions
         (id, report_id, user_id, document_sha256, rule_id, finding_id, context_sha256, generation,
          status, provider, model, model_version, prompt_version, response_json)
@@ -93,15 +106,26 @@ async function savePaperLintRepairSuggestion(request, userId, response) {
         response.status, response.provenance.provider, response.provenance.model,
         response.provenance.model_version, response.provenance.prompt_version, JSON.stringify(response)],
     );
+    return { id: result.lastID, generation: existing.generation + 1 };
   });
-  return response;
+  // sqlite3's lastID is not the UUID. Return the stable version identity from
+  // the inserted row so feedback can target exactly this generation.
+  const row = await db.get(
+    `SELECT id, generation FROM paper_lint_repair_suggestions
+     WHERE report_id=? AND rule_id=? AND finding_id=? AND generation=?
+     ORDER BY created_at DESC LIMIT 1`,
+    [request.source.report_id, request.rule.rule_id, request.finding.finding_id, saved.generation],
+  );
+  return { response, suggestion_id: row.id, generation: row.generation };
 }
 
 module.exports = {
   getPaperLintReportFinding,
   buildPaperLintReportRepairRequestBase,
+  getPaperLintReportDocumentSha256,
   buildPaperLintReportRepairRequestWithPdfContext,
   findPaperLintRepairSuggestion,
   findLatestPaperLintRepairSuggestion,
+  findLatestPaperLintRepairSuggestionRecord,
   savePaperLintRepairSuggestion,
 };

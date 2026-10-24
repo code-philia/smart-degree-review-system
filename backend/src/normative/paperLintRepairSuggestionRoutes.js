@@ -35,10 +35,15 @@ function createPaperLintRepairSuggestionRouter({ modelIdentity = getRepairModelI
     await service.getPaperLintReportFinding({
       reportId: req.params.reportId, userId: req.user.id, ruleId, findingId,
     });
+    const { model, modelVersion } = await modelIdentity();
     const response = await service.findLatestPaperLintRepairSuggestion({
       reportId: req.params.reportId, userId: req.user.id, ruleId, findingId,
+      identity: model ? { model, modelVersion, promptVersion: PROMPT_VERSION } : undefined,
     });
-    res.json({ response, cached: Boolean(response) });
+    const record = response ? await service.findLatestPaperLintRepairSuggestionRecord({
+      reportId: req.params.reportId, userId: req.user.id, ruleId, findingId,
+    }) : null;
+    res.json({ response, suggestion_id: record?.id || null, generation: record?.generation || null, cached: Boolean(response) });
   }));
 
   router.post('/reports/:reportId/repair-suggestions', express.json({ limit: '4kb' }), handler(async (req, res) => {
@@ -52,8 +57,7 @@ function createPaperLintRepairSuggestionRouter({ modelIdentity = getRepairModelI
       const cached = !force && model ? await service.findPaperLintRepairSuggestion(request, {model, modelVersion, promptVersion: PROMPT_VERSION}) : null;
       if (cached) return {response: cached, cached: true};
       const response = await proposeRepair(request);
-      await service.savePaperLintRepairSuggestion(request, req.user.id, response);
-      return {response, cached: false};
+      return { ...(await service.savePaperLintRepairSuggestion(request, req.user.id, response)), cached: false };
     });
     res.status(result.cached ? 200 : 201).json(result);
   }));

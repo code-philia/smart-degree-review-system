@@ -230,6 +230,59 @@ async function initializeDatabase(options = {}) {
     await runStatement(database, `CREATE INDEX IF NOT EXISTS idx_paper_lint_repair_suggestions_finding
       ON paper_lint_repair_suggestions (report_id, rule_id, finding_id, created_at DESC);`);
 
+    // Feedback is intentionally separate from reports and generated suggestions:
+    // it can evolve independently and must not mutate the immutable audit data.
+    await runStatement(database, `CREATE TABLE IF NOT EXISTS paper_lint_finding_feedback (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      report_id TEXT NOT NULL,
+      rule_id TEXT NOT NULL,
+      finding_id TEXT NOT NULL,
+      feedback_value TEXT NOT NULL CHECK (feedback_value IN ('positive', 'negative')),
+      reason_code TEXT,
+      reason_text TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE,
+      FOREIGN KEY (report_id) REFERENCES paper_lint_reports(id) ON DELETE CASCADE,
+      UNIQUE (user_id, report_id, rule_id, finding_id)
+    );`);
+    await runStatement(database, `CREATE INDEX IF NOT EXISTS idx_paper_lint_finding_feedback_report
+      ON paper_lint_finding_feedback (report_id, rule_id, finding_id);`);
+    await runStatement(database, `CREATE TABLE IF NOT EXISTS paper_lint_suggestion_feedback (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      report_id TEXT NOT NULL,
+      rule_id TEXT NOT NULL,
+      finding_id TEXT NOT NULL,
+      suggestion_id TEXT NOT NULL,
+      generation INTEGER NOT NULL,
+      feedback_value TEXT NOT NULL CHECK (feedback_value IN ('positive', 'negative')),
+      reason_code TEXT,
+      reason_text TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE,
+      FOREIGN KEY (report_id) REFERENCES paper_lint_reports(id) ON DELETE CASCADE,
+      FOREIGN KEY (suggestion_id) REFERENCES paper_lint_repair_suggestions(id) ON DELETE CASCADE,
+      UNIQUE (user_id, suggestion_id)
+    );`);
+    await runStatement(database, `CREATE INDEX IF NOT EXISTS idx_paper_lint_suggestion_feedback_finding
+      ON paper_lint_suggestion_feedback (report_id, rule_id, finding_id, generation);`);
+    await runStatement(database, `CREATE TABLE IF NOT EXISTS system_feedback (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      satisfaction_score INTEGER NOT NULL CHECK (satisfaction_score BETWEEN 1 AND 5),
+      improvement_areas_json TEXT NOT NULL DEFAULT '[]',
+      comment TEXT,
+      request_id TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE,
+      UNIQUE (user_id, request_id)
+    );`);
+    await runStatement(database, `CREATE INDEX IF NOT EXISTS idx_system_feedback_user_created
+      ON system_feedback (user_id, created_at DESC);`);
+
     await runStatement(database, `CREATE TABLE IF NOT EXISTS paper_lint_jobs (
       id TEXT PRIMARY KEY, user_id TEXT NOT NULL, source_filename TEXT NOT NULL,
       source_pdf_path TEXT NOT NULL, selected_rule_ids_json TEXT NOT NULL,
