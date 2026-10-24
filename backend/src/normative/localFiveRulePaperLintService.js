@@ -4,23 +4,17 @@ const { promisify } = require('util');
 
 const execFileAsync = promisify(execFile);
 const DETECTOR_SCRIPT = path.resolve(__dirname, '../../scripts/five_rule_detector.py');
-const LOCAL_RULES = [
-  { number: 18, title: '规则 18 · 公式引用目标不存在', description: '检查公式引用能否找到对应的可见公式编号。' },
-  { number: 22, title: '规则 22 · 文献引用目标不存在', description: '检查全文引用编号能否找到对应参考文献。' },
-  { number: 24, title: '规则 24 · 参考文献未被全文引用', description: '检查参考文献是否在正文、附录或图表题等全文位置被引用；发现需人工复核。' },
-  { number: 28, title: '规则 28 · 目录页码与正文不一致', description: '检查目录条目的页码与正文标题位置是否一致。' },
-].map(({ number, title, description }) => ({
-  number,
-  rule_id: `sjtu_rule_${number}`,
-  title,
-  description,
-  default_severity: 'warning',
-  default_enabled: false,
-  execution_mode: 'deterministic',
-  uses_external_model: false,
-  available: true,
-  source: 'sjtu-local',
-}));
+const { listRuleDefinitions } = require('../../rules/registry');
+
+const LOCAL_RULES = listRuleDefinitions({ family: 'local_pdf' })
+  .filter((rule) => rule.exposed_to_legacy_catalog !== false)
+  .map((rule) => ({
+    ...rule,
+    default_severity: 'warning',
+    source: 'sjtu-local',
+    repair_supported: rule.repair_surfaces.includes('paper_lint'),
+    available: true,
+  }));
 const RULES_BY_ID = new Map(LOCAL_RULES.map((rule) => [rule.rule_id, rule]));
 let availabilityPromise = null;
 

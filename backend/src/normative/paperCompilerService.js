@@ -4,19 +4,24 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { summarizeRuleRuns } = require('./localFiveRulePaperLintService');
+const { listRuleDefinitions } = require('../../rules/registry');
 const exec = promisify(execFile);
 const SCRIPT = path.resolve(__dirname, '../../scripts/paper_compiler_cli.py');
-const DEFINITIONS = [[31, '文内引注与文后参考文献格式'], [32, '引用的外部文献不存在'], [33, '引用目的与被引内容无关']];
-const IDS = new Set(DEFINITIONS.map(([n]) => `sjtu_rule_${n}`));
+const DEFINITIONS = listRuleDefinitions({ family: 'compiler' });
+const IDS = new Set(DEFINITIONS.map((rule) => rule.rule_id));
 const TERMINAL = new Set(['PASS','VIOLATION','UNKNOWN','ERROR','NOT_APPLICABLE']);
 function failure(status, code, message) { return Object.assign(new Error(message), { status, code }); }
 function isCompilerRuleId(id) { return IDS.has(id); }
 function packagePath(number) { return path.join(process.env.PAPER_COMPILER_PACKAGE_ROOT || '', String(number)); }
 function getCompilerRules() {
-  return DEFINITIONS.map(([number,title]) => ({number, rule_id:`sjtu_rule_${number}`, title:`规则 ${number} · ${title}`,
-    description:'仅展示经规范与原文复核确认的告警。', default_severity:'warning', default_enabled:false,
-    execution_mode:'semantic', uses_external_model:true, source:'sjtu-paper-compiler',
-    available:process.env.PAPER_COMPILER_ENABLED === '1' && Boolean(process.env.PAPER_COMPILER_PACKAGE_ROOT) && fs.existsSync(path.join(packagePath(number),'manifest.json')) }));
+  return DEFINITIONS.map((rule) => ({
+    ...rule,
+    repair_supported: rule.repair_surfaces.includes('paper_lint'),
+    available: process.env.PAPER_COMPILER_ENABLED === '1' &&
+      Boolean(process.env.PAPER_COMPILER_PACKAGE_ROOT) &&
+      fs.existsSync(path.join(packagePath(rule.number), 'manifest.json')),
+    source: 'sjtu-paper-compiler',
+  }));
 }
 async function runJsonProcess(command,args,{signal,timeoutMs=1200000,maxBytes=64*1024*1024,allowArray=false}={}) {
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs<1 || timeoutMs>7200000 || !Number.isSafeInteger(maxBytes) || maxBytes<1 || maxBytes>128*1024*1024) throw new TypeError('Invalid compiler resource budget');

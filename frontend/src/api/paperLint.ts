@@ -13,6 +13,8 @@ export type PaperLintRule = {
   execution_mode: 'deterministic' | 'semantic';
   uses_external_model: boolean;
   available: boolean;
+  enabled_in_mvp?: boolean;
+  repair_supported?: boolean;
   source?: 'sjtu-local' | 'sjtu-six-pdf' | 'sjtu-paper-compiler';
 };
 

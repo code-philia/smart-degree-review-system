@@ -5,6 +5,7 @@ const path = require('path');
 const { Transform } = require('stream');
 const { pipeline } = require('stream/promises');
 const { summarizeRuleRuns } = require('./localFiveRulePaperLintService');
+const { listRuleDefinitions } = require('../../rules/registry');
 
 const SCRIPT = path.resolve(__dirname, '../../scripts/six_rule_detector.py');
 const DEFAULT_TIMEOUT_MS = 20 * 60 * 1000;
@@ -12,23 +13,16 @@ const DEFAULT_TIMEOUT_MS = 20 * 60 * 1000;
 // from execFile's old 30MiB cap shared by legitimate JSON and diagnostic stderr.
 const DEFAULT_OUTPUT_BYTES = 256 * 1024 * 1024;
 const STDERR_CAPTURE_BYTES = 64 * 1024;
-const DEFINITIONS = [
-  [11, '图引用目标不存在', '检查正文引用的图是否有对应图对象或图题。'],
-  [13, '图缺少图题', '识别真实图对象并检查附近是否有图题。'],
-  [14, '表缺少表题', '识别真实表对象并检查附近是否有表题。'],
-  [15, '图未被全文引用', '检查图在全文是否有有效引用。'],
-  [16, '表未被全文引用', '检查表在全文是否有有效引用。'],
-  [29, '附录引用目标不存在', '检查附录引用能否找到对应附录。'],
-];
-const CLOUD_IDS = new Set(['sjtu_rule_13', 'sjtu_rule_14']);
-const RULE_IDS = new Set(DEFINITIONS.map(([number]) => 'sjtu_rule_' + number));
+const DEFINITIONS = listRuleDefinitions({ family: 'six_pdf' });
+const CLOUD_IDS = new Set(DEFINITIONS.filter((rule) => rule.availability_probe === 'mineru').map((rule) => rule.rule_id));
+const RULE_IDS = new Set(DEFINITIONS.map((rule) => rule.rule_id));
 
 function getSixRules() {
-  return DEFINITIONS.map(([number, title, description]) => ({
-    number, rule_id: 'sjtu_rule_' + number, title: '规则 ' + number + ' · ' + title, description,
-    default_severity: 'warning', default_enabled: false,
-    execution_mode: 'deterministic', uses_external_model: false,
-    available: ![13, 14].includes(number) || Boolean(process.env.MINERU_API_TOKEN),
+  return DEFINITIONS.map((rule) => ({
+    ...rule,
+    default_severity: 'warning',
+    repair_supported: rule.repair_surfaces.includes('paper_lint'),
+    available: !CLOUD_IDS.has(rule.rule_id) || Boolean(process.env.MINERU_API_TOKEN),
     source: 'sjtu-six-pdf',
   }));
 }

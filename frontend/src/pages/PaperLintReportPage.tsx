@@ -67,7 +67,11 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
   }, [reportId]);
 
   const findings = useMemo(() => (report ? flattenPaperLintFindings(report.result) : []), [report]);
-  const repairSuggestions = usePaperLintRepairSuggestions(reportId);
+  const repairRuleIds = useMemo(
+    () => new Set(rules.filter((rule) => rule.repair_supported !== false).map((rule) => rule.rule_id)),
+    [rules],
+  );
+  const repairSuggestions = usePaperLintRepairSuggestions(reportId, repairRuleIds);
   const [findingFeedbackByKey, setFindingFeedbackByKey] = useState<Record<string, FindingFeedback | null>>({});
   const [suggestionFeedbackByFindingKey, setSuggestionFeedbackByFindingKey] = useState<Record<string, SuggestionFeedback | null>>({});
 

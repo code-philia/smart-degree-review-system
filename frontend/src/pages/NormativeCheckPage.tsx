@@ -14,7 +14,6 @@ import {
 } from '../api/paperLint';
 import { PaperLintWorkspace } from '../components/paperLint/Workspace';
 import { compilerPublicationLabel, compilerPublicationSummary, flattenPaperLintFindings } from '../components/paperLint/model';
-import { THIRTY_RULE_IDS } from '../utils/paperLintRuleGroups';
 import { usePaperLintRepairSuggestions } from '../hooks/usePaperLintRepairSuggestions';
 import {
   Button,
@@ -43,7 +42,7 @@ function newRequestId() {
 }
 
 function rulesForMode(rules: PaperLintRule[], mode: CheckMode) {
-  const filtered = rules.filter((rule) => THIRTY_RULE_IDS.has(rule.rule_id) === (mode === 'thirty'));
+  const filtered = rules.filter((rule) => Boolean(rule.enabled_in_mvp) === (mode === 'thirty'));
   if (mode === 'thirty') {
     filtered.sort(
       (a, b) => Number(a.rule_id.slice('sjtu_rule_'.length)) - Number(b.rule_id.slice('sjtu_rule_'.length)),

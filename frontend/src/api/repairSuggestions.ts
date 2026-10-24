@@ -37,10 +37,6 @@ export type PaperLintFindingReference = {
   finding_id: string;
 };
 
-export const PAPER_LINT_REPAIR_RULE_IDS = new Set([
-  'sjtu_rule_18', 'sjtu_rule_22', 'sjtu_rule_24', 'sjtu_rule_28',
-]);
-
 // Kept for the hidden archive workflow. It is intentionally not used by MVP
 // paper reports, whose visible repair actions are restricted to four rules.
 export const ARCHIVE_REPAIR_RULE_IDS = new Set([

@@ -9,10 +9,11 @@ const defaultCompilerService = require('./paperCompilerService');
 const { isCompilerRuleId } = defaultCompilerService;
 const { isLocalRuleId } = require('./localFiveRulePaperLintService');
 const { isSixRuleId } = require('./sixRulePaperLintService');
+const { getEnabledMvpRuleIds } = require('../../rules/registry');
 
 const allowedRoles = ['STUDENT', 'SUPERVISOR', 'SCHOOL_ADMIN', 'COLLEGE_ADMIN'];
 const managementRoles = ['SCHOOL_ADMIN', 'COLLEGE_ADMIN'];
-const MVP_RULE_IDS = new Set(['sjtu_rule_18', 'sjtu_rule_22', 'sjtu_rule_24', 'sjtu_rule_28']);
+const MVP_RULE_IDS = new Set(getEnabledMvpRuleIds());
 
 function sendError(error, res, next) {
   if (error?.type === 'entity.too.large') {
