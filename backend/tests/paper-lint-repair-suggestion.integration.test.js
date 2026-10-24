@@ -13,6 +13,7 @@ const reportRepository = require('../src/normative/paperLintReportRepository');
 const {
   getPaperLintReportFinding,
   findLatestPaperLintRepairSuggestion,
+  findLatestPaperLintRepairSuggestionRecord,
   findPaperLintRepairSuggestion,
   savePaperLintRepairSuggestion,
 } = require('../src/normative/paperLintRepairSuggestionService');
@@ -128,6 +129,73 @@ describe('single-report repair suggestions', () => {
       .get('/api/normative/paper-lint/reports/report-1/repair-suggestions?rule_id=sjtu_rule_15&finding_id=finding-15-1')
       .set('Cookie', 'arc_session=other-session')
       .expect(404);
+  });
+
+  it('invalidates the current cache when the report PDF bytes change but preserves the saved generation', async () => {
+    const { report, ruleRun, finding } = await getPaperLintReportFinding({
+      reportId: 'report-1', userId: 'owner', ruleId: 'sjtu_rule_15', findingId: 'finding-15-1',
+    });
+    const originalPdf = Buffer.from('%PDF-1.7');
+    const repairRequest = buildPaperLintReportRepairRequest({
+      report, ruleRun, finding, documentSha256: createHash('sha256').update(originalPdf).digest('hex'),
+    });
+    const response = {
+      schema_version: 'repair-response-v2', source: repairRequest.source,
+      rule_id: 'sjtu_rule_15', finding_id: 'finding-15-1', status: 'suggested',
+      actions: [{ instruction: '保留原有建议。', evidence_ids: ['legacy-evidence-1'] }],
+      provenance: {
+        provider: 'huawei_maas', model: 'test-model', model_version: 'test-v1', prompt_version: PROMPT_VERSION,
+        context_sha256: repairRequest.context_sha256, generated_at: '2026-10-20T00:00:00.000Z',
+      },
+      usage: { input_tokens: 1, output_tokens: 1, attempts: 1 },
+    };
+    const saved = await savePaperLintRepairSuggestion(repairRequest, 'owner', response);
+    const reportPdf = path.join(reportsDirectory, 'report-1.pdf');
+    await fs.writeFile(reportPdf, Buffer.from('%PDF-1.8 changed'));
+
+    await request(app)
+      .get('/api/normative/paper-lint/reports/report-1/repair-suggestions?rule_id=sjtu_rule_15&finding_id=finding-15-1')
+      .set('Cookie', 'arc_session=owner-session')
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.response).toBeNull();
+        expect(body.suggestion_id).toBeNull();
+        expect(body.generation).toBeNull();
+        expect(body.cached).toBe(false);
+      });
+
+    await expect(findLatestPaperLintRepairSuggestionRecord({
+      reportId: 'report-1', userId: 'owner', ruleId: 'sjtu_rule_15', findingId: 'finding-15-1',
+    })).resolves.toMatchObject({ id: saved.suggestion_id, generation: 1 });
+  });
+
+  it('keeps saved suggestions readable when model configuration is unavailable', async () => {
+    const { report, ruleRun, finding } = await getPaperLintReportFinding({
+      reportId: 'report-1', userId: 'owner', ruleId: 'sjtu_rule_15', findingId: 'finding-15-1',
+    });
+    const repairRequest = buildPaperLintReportRepairRequest({
+      report, ruleRun, finding, documentSha256: createHash('sha256').update(Buffer.from('%PDF-1.7')).digest('hex'),
+    });
+    const response = {
+      schema_version: 'repair-response-v2', source: repairRequest.source,
+      rule_id: 'sjtu_rule_15', finding_id: 'finding-15-1', status: 'suggested',
+      actions: [{ instruction: '已保存的历史建议。', evidence_ids: ['legacy-evidence-1'] }],
+      provenance: {
+        provider: 'huawei_maas', model: 'test-model', model_version: 'test-v1', prompt_version: PROMPT_VERSION,
+        context_sha256: repairRequest.context_sha256, generated_at: '2026-10-20T00:00:00.000Z',
+      },
+      usage: { input_tokens: 1, output_tokens: 1, attempts: 1 },
+    };
+    await savePaperLintRepairSuggestion(repairRequest, 'owner', response);
+    const unavailableApp = express();
+    unavailableApp.use('/api/normative/paper-lint', createPaperLintRepairSuggestionRouter({
+      modelIdentity: async () => { throw new Error('model unavailable'); },
+    }));
+    await request(unavailableApp)
+      .get('/api/normative/paper-lint/reports/report-1/repair-suggestions?rule_id=sjtu_rule_15&finding_id=finding-15-1')
+      .set('Cookie', 'arc_session=owner-session')
+      .expect(200)
+      .expect(({ body }) => expect(body.response.actions[0].instruction).toBe('已保存的历史建议。'));
   });
 });
 

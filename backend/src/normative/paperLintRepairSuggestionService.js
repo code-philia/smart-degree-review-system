@@ -73,10 +73,9 @@ async function findLatestPaperLintRepairSuggestion({ reportId, userId, ruleId, f
   const row = await findLatestPaperLintRepairSuggestionRecord({ reportId, userId, ruleId, findingId });
   const response = row ? row.response : null;
   if (row && sourceIdentity && row.document_sha256 !== sourceIdentity) return null;
-  if (response && identity && (response.provenance.model !== identity.model ||
-      response.provenance.model_version !== identity.modelVersion ||
-      response.provenance.prompt_version !== identity.promptVersion ||
-      (sourceIdentity && response.provenance.source_identity_sha256 !== sourceIdentity))) return null;
+  if (response && identity && ((identity.model && response.provenance.model !== identity.model) ||
+      (identity.modelVersion && response.provenance.model_version !== identity.modelVersion) ||
+      (identity.promptVersion && response.provenance.prompt_version !== identity.promptVersion))) return null;
   return response;
 }
 

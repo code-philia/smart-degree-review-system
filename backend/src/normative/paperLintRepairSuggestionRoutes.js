@@ -35,10 +35,16 @@ function createPaperLintRepairSuggestionRouter({ modelIdentity = getRepairModelI
     await service.getPaperLintReportFinding({
       reportId: req.params.reportId, userId: req.user.id, ruleId, findingId,
     });
-    const { model, modelVersion } = await modelIdentity();
+    const sourceIdentity = await service.getPaperLintReportDocumentSha256({
+      reportId: req.params.reportId, userId: req.user.id,
+    });
     const response = await service.findLatestPaperLintRepairSuggestion({
       reportId: req.params.reportId, userId: req.user.id, ruleId, findingId,
-      identity: model ? { model, modelVersion, promptVersion: PROMPT_VERSION } : undefined,
+      // Reading a saved suggestion must remain available when the model or
+      // ledger is temporarily unavailable. The current prompt version still
+      // controls whether the saved response is a usable generation cache.
+      identity: { promptVersion: PROMPT_VERSION },
+      sourceIdentity: sourceIdentity || undefined,
     });
     const record = response ? await service.findLatestPaperLintRepairSuggestionRecord({
       reportId: req.params.reportId, userId: req.user.id, ruleId, findingId,
