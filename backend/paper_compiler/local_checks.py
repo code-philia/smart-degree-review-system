@@ -131,13 +131,62 @@ def core_parts(ir):
 
 def prose_nodes(ir):
     by_id = {node['id']: node for node in ir['nodes']}
-    pending = [node['id'] for node in ir['nodes'] if node['kind'] in {'BackMatter', 'Bibliography', 'Biography'}]
+    pending = [node['id'] for node in ir['nodes'] if node['kind'] in {'BackMatter', 'Bibliography', 'Biography', 'Figure', 'Table', 'Equation', 'MathExpression'}]
     excluded = set()
     while pending:
         nid = pending.pop()
         excluded.add(nid)
         pending.extend(by_id[nid]['children'])
     return [node for node in ir['nodes'] if node['kind'] == 'Paragraph' and node['text'] and node['id'] not in excluded]
+
+
+def punctuation_prose(node, pages):
+    """Require sentence evidence; fragments and scanned text are not violations."""
+    text = node['text']
+    front_label = re.match(r'^(?:姓名|名|导师|师|学院|院系|系|学科(?:/专业)?(?:名称)?|学位类型|申请学位)[:：]', compact(text))
+    declaration = re.match(r'^本人(?:郑重声明|同意学校)', compact(text))
+    if not (front_label or declaration or re.search(r'[。！？]|[\u4e00-\u9fff]\.(?:\s|$)', text)):
+        return False
+    if re.search(r'https?://|www\.|[`=<>{}|←→⊲▹]|//|(?m:^\s*(?:#|\d+\s*[:：]))|'
+                 r'(?m:^\s*[\[［]\d+[\]］])|[A-Za-z_]\w*\s*:\s*(?:true|false|null|None)\b|'
+                 r'\b(?:Input|Output|Require|Ensure|return|foreach|end\s+for)\b|'
+                 r'(?:输入|输出|参数|初始化|扩展|相关性)\s*[:：]|'
+                 r'(?:系统指令|初始问题|角色设定|角色目标)\s*[:：]|\bCase\s*\d+|'
+                 r'(?:原告|被告).{0,12}诉称|本院认为|书记员|'
+                 r'命名空间|标识符.{0,8}格式|'
+                 r'(?:代码|配置|模板|示例|提示词)\s*[:：]|'
+                 r'\b(?:print|def|import|if|while)\s*\(', text, re.I):
+        return False
+    if _TYPE.search(text) and _YEAR.search(text):
+        return False
+    for span in node['provenance']:
+        source = _source(span)
+        if not source:
+            continue
+        box = source['bbox']
+        area = (box[2]-box[0]) * (box[3]-box[1])
+        for image in pages[source['page_index']].get('images', []):
+            overlap = max(0, min(box[2], image[2])-max(box[0], image[0])) * max(0, min(box[3], image[3])-max(box[1], image[1]))
+            if area and overlap >= area * .8:
+                return False
+    return True
+
+
+def punctuation_literals(text):
+    """Quoted data and bracketed technical notation retain their separators."""
+    ranges = [(m.start(), m.end()) for m in re.finditer(r'"[^\"]*"|[“”][^“”]*[“”]|‘[^’]*’|错误[!！]\s*未定义书签[。.]?', text)]
+    ranges.extend((m.start(), m.end()) for m in re.finditer(r'“[^”\n]*”', text))
+    pairs = dict(zip('([（［⟨〈', ')]）］⟩〉'))
+    stack = []
+    for index, char in enumerate(text):
+        if char in pairs:
+            stack.append((char, index))
+        elif stack and char == pairs[stack[-1][0]]:
+            opening, start = stack.pop()
+            inside = text[start+1:index]
+            if opening in '⟨〈[［' or (len(re.findall(r'[\u4e00-\u9fff]', inside)) <= 24 and not re.search(r'[。！？]', inside)):
+                ranges.append((start, index+1))
+    return ranges
 
 
 def detect_ir(ir, selected_rules=RULES):
@@ -151,16 +200,16 @@ def detect_ir(ir, selected_rules=RULES):
                 f'请补齐或核对{part}；依据 GB/T 7713.1—2025 附录 A、表 A.1。')
                 for part, present in core_parts(ir).items() if present is False]
     if 35 in selected_rules:
+        pages = {page['page_index']: page for page in ir['layout']['pages']}
         for node in prose_nodes(ir):
-            if node['kind'] != 'Paragraph' or not node['text']:
+            if not punctuation_prose(node, pages):
                 continue
             text = node['text']
-            if re.search(r'https?://|www\.|[`=<>{}|]|[A-Za-z_]\w*\s*:\s*(?:true|false|null|None)\b|(?:代码|配置|模板|示例|提示词)\s*[:：]|\b(?:print|def|return|import|if|while)\s*\(', text):
-                continue
+            literals = punctuation_literals(text)
             for match in _PUNCT.finditer(text):
                 if re.search(r'(?:字符|符号|终止符|分隔符|标点|运算符)\s*$', text[:match.start(1)]):
                     continue
-                if any(m.start() <= match.start(1) < m.end() for m in re.finditer(r'"[^"\n]*"|“[^”\n]*”', text)):
+                if any(start <= match.start(1) < end for start, end in literals):
                     continue
                 mark = match.group(1)
                 replacement = dict(zip(',;:!?', '，；：！？'))[mark]

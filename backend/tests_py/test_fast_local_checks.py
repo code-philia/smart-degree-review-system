@@ -96,7 +96,7 @@ class FastLocalChecksTests(unittest.TestCase):
 
     def test_adjacent_mixed_punctuation_is_not_lost(self):
         node = next(n for n in self.ir['nodes'] if n['id']=='body-text')
-        node['text']='甲,乙,丙,丁'
+        node['text']='甲,乙,丙,丁。'  # Complete prose sentence, rather than an ambiguous diagram label.
         self.assertEqual(len(self.check(self.ir,[35])['35']['findings']),3)
 
     def test_punctuation_location_uses_the_line_containing_the_error(self):
