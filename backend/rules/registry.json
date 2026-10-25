@@ -89,7 +89,7 @@
     {
       "rule_id": "sjtu_rule_18",
       "number": 18,
-      "title": "规则 18 · 公式引用目标不存在",
+      "title": "正文公式引用目标缺失",
       "description": "检查公式引用能否找到对应的可见公式编号。",
       "family": "local_pdf",
       "runner": "five_rule_detector",
@@ -103,7 +103,7 @@
     {
       "rule_id": "sjtu_rule_22",
       "number": 22,
-      "title": "规则 22 · 文献引用目标不存在",
+      "title": "正文引文引用编号缺失",
       "description": "检查全文引用编号能否找到对应参考文献。",
       "family": "local_pdf",
       "runner": "five_rule_detector",
@@ -117,7 +117,7 @@
     {
       "rule_id": "sjtu_rule_24",
       "number": 24,
-      "title": "规则 24 · 参考文献未被全文引用",
+      "title": "参考文献列表中存在未被正文引用的条目",
       "description": "检查参考文献是否在正文、附录或图表题等全文位置被引用；发现需人工复核。",
       "family": "local_pdf",
       "runner": "five_rule_detector",
@@ -131,7 +131,7 @@
     {
       "rule_id": "sjtu_rule_28",
       "number": 28,
-      "title": "规则 28 · 目录页码与正文不一致",
+      "title": "目录中的核心内容页码系统性错位",
       "description": "检查目录条目的页码与正文标题位置是否一致。",
       "family": "local_pdf",
       "runner": "five_rule_detector",

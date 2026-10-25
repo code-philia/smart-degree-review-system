@@ -462,7 +462,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
               <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
                 <p className="text-3xl font-black">
                   {visibleRules.length}
-                  <span className="ml-1 text-base font-medium">/ 4</span>
+                  <span className="ml-1 text-base font-medium">/ {visibleRules.length}</span>
                 </p>
                 <p className="mt-2 text-xs text-blue-100">可选规则</p>
               </div>
