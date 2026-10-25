@@ -108,6 +108,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   const [response, setResponse] = useState<PaperLintRunResponse | null>(null);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [running, setRunning] = useState(false);
+  const [uploadPercent, setUploadPercent] = useState<number | null>(null);
   const [dragging, setDragging] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
@@ -288,7 +289,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
           setRunError(null);
         }
         if (job.status === 'pending' || job.status === 'running') {
-          await new Promise((resolve) => setTimeout(resolve, 1200));
+          await new Promise((resolve) => setTimeout(resolve, 300));
           continue;
         }
         if (job.status === 'failed') {
@@ -402,7 +403,9 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     requestIdRef.current = requestId;
     savePendingRequest(requestId, file.name, selectedRuleIds);
     try {
-      const submitted = await runReviewPilotPaperLint(file, selectedRuleIds, false, requestId);
+      setUploadPercent(0);
+      const submitted = await runReviewPilotPaperLint(file, selectedRuleIds, false, requestId, setUploadPercent);
+      setUploadPercent(null);
       let nextResponse: PaperLintRunResponse;
       if (isPaperLintJobResponse(submitted)) {
         saveActiveJob({ jobId: submitted.job_id, requestId, filename: file.name, selectedRuleIds });
@@ -417,6 +420,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     } catch (error) {
       setRunError(errorMessage(error, '规则审查运行失败'));
     } finally {
+      setUploadPercent(null);
       setRunning(false);
     }
   }
@@ -629,7 +633,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
                 onClick={() => void runReview()}
               >
                 {running ? <LoaderCircle className="size-4 animate-spin" /> : <Play className="size-4" />}
-                {running ? '正在检查…' : '开始检查'}
+                {running ? uploadPercent !== null && uploadPercent < 100 ? '正在上传…' : '正在检查…' : '开始检查'}
               </Button>
             </div>
           </Card>
@@ -652,8 +656,8 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
               <LoaderCircle className="size-5 animate-spin" />
             </span>
             <div>
-              <p className="font-bold text-slate-900">正在解析论文并逐项检查</p>
-              <p className="mt-1 text-sm text-slate-500">检测完成后将直接展示真实结果。</p>
+              <p className="font-bold text-slate-900">{uploadPercent !== null && uploadPercent < 100 ? `正在上传 PDF（${uploadPercent}%）` : '正在进行本地检查'}</p>
+              <p className="mt-1 text-sm text-slate-500">{uploadPercent !== null && uploadPercent < 100 ? '正在传输论文文件，上传完成后立即开始本地检测。' : '检测结果先展示，AI 修复建议随后加载。'}</p>
             </div>
           </div>
         </Card>

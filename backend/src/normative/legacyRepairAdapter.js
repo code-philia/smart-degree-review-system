@@ -5,6 +5,8 @@ const basicRuleText = Object.fromEntries(basicRules.map(rule => [rule.rule_id, `
 
 const RULE_TEXT = Object.freeze({
   ...basicRuleText,
+  required_section_completeness_check: '核心章节完整性：按 GB/T 7713.1—2025 附录 A 表 A.1 检查题名页、原创性声明、使用授权说明、摘要及关键词、目录、引言、主体、结论、参考文献。根据告警中具体缺失项提出补齐建议。告警是全文检查的缺失记录，没有可引用的缺失原句或精确修改页；不得将封面题名当作错误原文，不得编造研究内容、签名或日期。',
+  chinese_english_symbol_mix_check: '本地检测已确认中文文字之间出现英文半角标点。根据提供的原文，明确将该处半角逗号、分号、冒号、问号或叹号改为对应中文全角标点；保持其余文字和正常英文、公式、代码及网址不变。',
   sjtu_rule_11: '正文引用的图不存在。',
   sjtu_rule_13: '图题缺失。',
   sjtu_rule_14: '表题缺失。',

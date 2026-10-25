@@ -210,7 +210,7 @@
       "enabled_in_mvp": true,
       "default_selected": false,
       "availability_probe": "pymupdf",
-      "repair_surfaces": []
+      "repair_surfaces": ["paper_lint"]
     },
     {
       "rule_id": "chinese_english_symbol_mix_check",
@@ -224,7 +224,7 @@
       "enabled_in_mvp": true,
       "default_selected": false,
       "availability_probe": "pymupdf",
-      "repair_surfaces": []
+      "repair_surfaces": ["paper_lint"]
     }
   ]
 }

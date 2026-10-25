@@ -203,19 +203,27 @@ export async function runReviewPilotPaperLint(
   selectedRuleIds: string[],
   externalProcessingConsent = false,
   requestId?: string,
+  onUploadProgress?: (percent: number) => void,
 ): Promise<PaperLintRunResponse | PaperLintJobResponse> {
+  let body: Blob = file;
+  if (file.size >= 1024 * 1024 && typeof CompressionStream !== 'undefined') {
+    const compressed = await new Response(file.stream().pipeThrough(new CompressionStream('gzip'))).blob();
+    if (compressed.size < file.size) body = compressed;
+  }
   const response = await apiClient.post<PaperLintRunResponse | PaperLintJobResponse>(
     '/normative/paper-lint/run',
-    file,
+    body,
     {
       params: { filename: file.name },
       headers: {
         'Content-Type': 'application/pdf',
+        ...(body !== file ? { 'Content-Encoding': 'gzip' } : {}),
         'X-Paper-Lint-Rule-Ids': selectedRuleIds.join(','),
         ...(requestId ? { 'X-Paper-Lint-Request-Id': requestId } : {}),
         ...(externalProcessingConsent ? { 'X-Paper-Lint-External-Processing-Consent': 'confirmed' } : {}),
       },
       timeout: 310_000,
+      onUploadProgress: (event) => onUploadProgress?.(Math.min(100, Math.round(event.loaded * 100 / (event.total || body.size)))),
     },
   );
   return response.data;
