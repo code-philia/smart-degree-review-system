@@ -24,7 +24,7 @@ def execute(messages, *, config_path, ledger, cache, transport=None):
     if messages[0].get('role') != 'system' or messages[1].get('role') != 'user':
         raise ValueError('invalid message roles')
     client = MaasClient(config_path, ledger, cache, 'website', os.environ.get('PAPER_COMPILER_PHASE_BUDGET_CNY', '10'), transport=transport,
-                        max_attempts=1, timeout=60, input_serialization='unicode-json/1.0')
+                        max_attempts=1, timeout=60, json_output=True, input_serialization='unicode-json/1.0')
     # A user-requested generation must never replay the model transport cache.
     data = {'request': json.loads(messages[1]['content']), 'generation': uuid.uuid4().hex}
     task = 'repair-suggestion/1.0'

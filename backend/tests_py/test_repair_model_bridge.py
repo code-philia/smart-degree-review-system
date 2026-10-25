@@ -30,6 +30,9 @@ class RepairMeteringTests(unittest.TestCase):
         self.assertEqual(self.transport.call_count, 2)
         self.assertEqual(self.ledger.summary()['requests'], 2)
         self.assertEqual(self.ledger.summary()['spent_cny'], '0.000240')
+    def test_requests_a_json_object_instead_of_free_form_markdown(self):
+        self.execute()
+        self.assertEqual(self.transport.call_args.args[2].get('response_format'), {'type': 'json_object'})
     def test_exhausted_cumulative_budget_never_sends_request(self):
         self.ledger.reserve('preexisting', '500', 'prior', '500')
         with self.assertRaises(BudgetExceeded):self.execute()
