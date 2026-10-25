@@ -192,7 +192,12 @@ function withRunSlot(callback, signal) {
   });
 }
 
-async function getPaperLintCatalog({ refresh = false } = {}) {
+async function getPaperLintCatalog({ refresh = false, mvpOnly = false } = {}) {
+  if (mvpOnly) {
+    const available = await getLocalRuleAvailability({ refresh });
+    return { engine: 'sjtu-local', mode: 'pdf_lint', semantic_model: 'deepseek-v4-flash',
+      rules: LOCAL_RULES.filter(rule => rule.enabled_in_mvp).map(rule => ({ ...rule, available })) };
+  }
   if (refresh || !catalogPromise || Date.now() >= catalogExpiresAt) {
     catalogExpiresAt = Infinity;
     catalogPromise = (async () => {
@@ -200,7 +205,7 @@ async function getPaperLintCatalog({ refresh = false } = {}) {
         const existing = await runBridge(['--catalog'], 30 * 1000);
         const localAvailable = await getLocalRuleAvailability({ refresh });
         const localRules = LOCAL_RULES.map((rule) => ({ ...rule, available: localAvailable }));
-        return { ...existing, rules: [...localRules, ...getSixRules(), ...getCompilerRules(), ...existing.rules]
+        return { ...existing, rules: [...localRules, ...getSixRules(), ...getCompilerRules(), ...existing.rules.filter(rule => !isLocalRuleId(rule.rule_id))]
           .filter((rule) => !RETIRED_RULE_IDS.has(rule.rule_id)) };
       } catch {
         // A temporary bridge failure must not hide the existing rule catalog indefinitely.
@@ -255,7 +260,9 @@ function validateExternalProcessingConsent(catalog, selectedRuleIds, externalPro
 }
 
 async function normalizeSelectedRuleIds(selectedRuleIds, externalProcessingConsent) {
-  const catalog = await getPaperLintCatalog();
+  const mvpOnly = Array.isArray(selectedRuleIds) && selectedRuleIds.every(id =>
+    LOCAL_RULES.some(rule => rule.rule_id === String(id).trim() && rule.enabled_in_mvp));
+  const catalog = await getPaperLintCatalog({ mvpOnly });
   const normalized = validateSelectedRuleIds(catalog, selectedRuleIds);
   validateExternalProcessingConsent(catalog, normalized, externalProcessingConsent);
   return normalized;

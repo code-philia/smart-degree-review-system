@@ -159,15 +159,15 @@
     {
       "rule_id": "sjtu_rule_31",
       "number": 31,
-      "title": "规则 31 · 文内引注与文后参考文献格式",
-      "description": "仅展示经规范与原文复核确认的告警。",
-      "family": "compiler",
-      "runner": "paper_compiler",
-      "execution_mode": "semantic",
-      "uses_external_model": true,
-      "enabled_in_mvp": false,
+      "title": "引用格式错误",
+      "description": "本地检查参考文献原文的类型标记，不调用模型或文献检索。",
+      "family": "local_pdf",
+      "runner": "fast_local_detector",
+      "execution_mode": "deterministic",
+      "uses_external_model": false,
+      "enabled_in_mvp": true,
       "default_selected": false,
-      "availability_probe": "compiler_package",
+      "availability_probe": "pymupdf",
       "repair_surfaces": ["archive"]
     },
     {
@@ -197,6 +197,34 @@
       "default_selected": false,
       "availability_probe": "compiler_package",
       "repair_surfaces": ["archive"]
+    },
+    {
+      "rule_id": "required_section_completeness_check",
+      "number": 34,
+      "title": "核心章节完整性",
+      "description": "按国标检查论文必备组成部分，兼容空格与拆字标题。",
+      "family": "local_pdf",
+      "runner": "fast_local_detector",
+      "execution_mode": "deterministic",
+      "uses_external_model": false,
+      "enabled_in_mvp": true,
+      "default_selected": false,
+      "availability_probe": "pymupdf",
+      "repair_surfaces": []
+    },
+    {
+      "rule_id": "chinese_english_symbol_mix_check",
+      "number": 35,
+      "title": "中英文标点符号是否混用",
+      "description": "本地正则检查中文文字之间的半角标点。",
+      "family": "local_pdf",
+      "runner": "fast_local_detector",
+      "execution_mode": "deterministic",
+      "uses_external_model": false,
+      "enabled_in_mvp": true,
+      "default_selected": false,
+      "availability_probe": "pymupdf",
+      "repair_surfaces": []
     }
   ]
 }

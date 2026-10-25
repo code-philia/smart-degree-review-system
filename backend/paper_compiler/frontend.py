@@ -169,7 +169,7 @@ def _back_matter_page_headers(pages, headings, normal):
     return headers
 
 
-def build_paper(pdf: Path, *, client=None, layout_cache=None) -> dict:
+def build_paper(pdf: Path, *, client=None, layout_cache=None, include_citations=True) -> dict:
     pdf=Path(pdf).resolve()
     digest=hashlib.sha256(pdf.read_bytes()).hexdigest()
     pages=_observe(pdf)
@@ -333,6 +333,6 @@ def build_paper(pdf: Path, *, client=None, layout_cache=None) -> dict:
         ir['metadata']['bibliography_observations']=bibliography_observations
         ir['coverage']['bibliography']={'status':'partial','reason':'main bibliography unlocated after optional model error; no candidate selected'}
         ir['coverage']['reference_uses']={'status':'partial','reason':'bibliography unlocated; citation binding and semantic coverage remain unverified'}
-    attach_citations(ir)
+    if include_citations:attach_citations(ir)
     validate_ir(ir,pdf.parent)
     return ir

@@ -84,7 +84,7 @@ function fileSizeLabel(size: number) {
 }
 
 const outcomeLabels = {
-  passed: '通过',
+  passed: '未发现可确认问题',
   issues_found: '发现问题',
   inconclusive: '无法判定',
   not_applicable: '不适用',
