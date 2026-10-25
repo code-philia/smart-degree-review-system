@@ -52,7 +52,7 @@ export async function evaluateArchiveFindingRepairSuggestion(reference: ArchiveF
   response: RepairSuggestion;
   cached: boolean;
 }> {
-  return (await apiClient.post(`${base}/evaluate`, force ? {...reference, force: true} : reference, { timeout: 40_000 })).data;
+  return (await apiClient.post(`${base}/evaluate`, force ? {...reference, force: true} : reference, { timeout: 130_000 })).data;
 }
 
 export async function fetchArchiveFindingRepairSuggestions(
@@ -90,7 +90,7 @@ export async function evaluatePaperLintFindingRepairSuggestion(
   }>(
     paperLintReportSuggestionUrl(reference.report_id),
     { rule_id: reference.rule_id, finding_id: reference.finding_id, force },
-    { timeout: 40_000 },
+    { timeout: 130_000 },
   )).data;
   return {
     ...result,

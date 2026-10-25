@@ -272,9 +272,12 @@ export function FindingsPane({
                     </div>
                     {!repair && !repairError ? <p className="mt-2 text-xs text-slate-500">{generating ? '正在生成建议…' : '尚未生成建议。'}</p> : null}
                     {repairError ? (
-                      <p className="mt-2 text-xs text-danger-600" role="alert">
-                        {onGenerateRepairSuggestion ? '异常，请重新生成建议' : '建议加载失败'}：{repairError}
-                      </p>
+                      <div className="mt-2 text-xs leading-5 text-slate-600" role="status">
+                        <p>{repair ? '本次更新暂未完成，继续显示已保存的 AI 建议。' : 'AI 建议暂未生成，可点击按钮重试。'}</p>
+                        {!repair && item.finding.suggestion ? (
+                          <p className="mt-2 rounded-lg bg-slate-50 p-3"><strong>规则修改提示：</strong>{item.finding.suggestion}</p>
+                        ) : null}
+                      </div>
                     ) : null}
                     {repair ? (
                       <>

@@ -102,10 +102,11 @@ export function PdfPane({
   const target = useMemo(() => findingTarget(activeItem, activeAnchorId), [activeAnchorId, activeItem]);
   const pageNumber =
     target.type === 'bbox' ? target.annotation.pageNumber : target.type === 'page' ? target.pageNumber : null;
+  const fullPdfUrl = openPdfUrl || sourceUrl;
   const browserPdfUrl =
-    openPdfUrl && pageNumber && Number.isInteger(pageNumber) && pageNumber > 0
-      ? `${openPdfUrl.split('#')[0]}#page=${pageNumber}`
-      : openPdfUrl;
+    fullPdfUrl && pageNumber && Number.isInteger(pageNumber) && pageNumber > 0
+      ? `${fullPdfUrl.split('#')[0]}#page=${pageNumber}`
+      : fullPdfUrl;
 
   useEffect(() => {
     if (!activeFindingKey) return;
@@ -156,7 +157,7 @@ export function PdfPane({
           <Button size="sm" variant="ghost" className="px-2" aria-label="放大 PDF" title="放大 PDF" onClick={zoomIn}>
             <ZoomIn className="size-4" />
           </Button>
-          {openPdfUrl ? (
+          {fullPdfUrl ? (
             <a
               href={browserPdfUrl}
               target="_blank"
@@ -166,6 +167,7 @@ export function PdfPane({
               title="在浏览器打开完整 PDF"
             >
               <Link2 className="size-4" />
+              查看完整 PDF
             </a>
           ) : null}
         </div>

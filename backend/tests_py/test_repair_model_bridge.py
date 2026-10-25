@@ -34,11 +34,20 @@ class RepairMeteringTests(unittest.TestCase):
         self.ledger.reserve('preexisting', '500', 'prior', '500')
         with self.assertRaises(BudgetExceeded):self.execute()
         self.transport.assert_not_called()
-    def test_network_failure_keeps_reservation_without_retry(self):
-        self.transport.side_effect=TimeoutError()
-        with self.assertRaises(ModelError):self.execute()
-        self.assertEqual(self.transport.call_count, 1)
+    def test_timeout_retries_once_and_keeps_both_attempts_metered(self):
+        response = self.transport.return_value
+        self.transport.side_effect = [TimeoutError(), response]
+        result = self.execute()
+        self.assertEqual(result['usage']['attempts'], 2)
+        self.assertEqual(self.transport.call_count, 2)
+        self.assertEqual(self.transport.call_args.args[3], 60)
         self.assertEqual(self.ledger.summary()['uncertain_requests'], 1)
+        self.assertEqual(self.ledger.summary()['spent_cny'], '0.000120')
+    def test_network_failure_stops_after_one_retry_and_keeps_reservations(self):
+        self.transport.side_effect = TimeoutError()
+        with self.assertRaises(ModelError): self.execute()
+        self.assertEqual(self.transport.call_count, 2)
+        self.assertEqual(self.ledger.summary()['uncertain_requests'], 2)
         self.assertGreater(float(self.ledger.summary()['committed_cny']), 0)
     def test_uses_authorized_shared_website_phase_limit(self):
         with patch.dict('os.environ', {'PAPER_COMPILER_PHASE_BUDGET_CNY': '20'}):

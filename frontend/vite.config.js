@@ -4,12 +4,17 @@ import tailwindcss from '@tailwindcss/vite';
 import { fileURLToPath, URL } from 'node:url';
 import { cpSync, existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
+import { resolve, join } from 'node:path';
 
 const backendPort = Number(process.env.ARC_WEB_PORT || '3000');
 
 function copyPdfCmaps() {
+  let outDir;
   return {
     name: 'copy-pdf-cmaps',
+    configResolved(config) {
+      outDir = resolve(config.root, config.build.outDir);
+    },
     configureServer(server) {
       server.middlewares.use('/pdfjs-cmaps', (request, response, next) => {
         const fileName = request.url?.split('?')[0].replace(/^\/+/, '') || '';
@@ -23,7 +28,7 @@ function copyPdfCmaps() {
     closeBundle() {
       cpSync(
         new URL('./node_modules/pdfjs-dist/cmaps/', import.meta.url),
-        new URL('./dist/pdfjs-cmaps/', import.meta.url),
+        join(outDir, 'pdfjs-cmaps'),
         {
           recursive: true,
         },
@@ -33,15 +38,19 @@ function copyPdfCmaps() {
 }
 
 function precompressAssets() {
+  let outDir;
   return {
     name: 'precompress-assets',
+    configResolved(config) {
+      outDir = resolve(config.root, config.build.outDir);
+    },
     closeBundle() {
-      const assets = new URL('./dist/assets/', import.meta.url);
+      const assets = join(outDir, 'assets');
       if (!existsSync(assets)) return;
       for (const name of readdirSync(assets)) {
         if (!/\.(?:m?js|css)$/.test(name)) continue;
-        const content = readFileSync(new URL(name, assets));
-        if (content.length > 1024) writeFileSync(new URL(name + '.gz', assets), gzipSync(content, { level: 9 }));
+        const content = readFileSync(join(assets, name));
+        if (content.length > 1024) writeFileSync(join(assets, name + '.gz'), gzipSync(content, { level: 9 }));
       }
     },
   };
