@@ -4,6 +4,7 @@ const { promisify } = require('util');
 
 const execFileAsync = promisify(execFile);
 const DETECTOR_SCRIPT = path.resolve(__dirname, '../../scripts/five_rule_detector.py');
+const FAST_DETECTOR_SCRIPT = path.resolve(__dirname, '../../scripts/fast_local_detector.py');
 const { listRuleDefinitions } = require('../../rules/registry');
 
 const LOCAL_RULES = listRuleDefinitions({ family: 'local_pdf' })
@@ -73,7 +74,7 @@ function toPaperLintResult(detectorOutput, selectedRuleIds) {
         finding_id: `${ruleId}_${index + 1}`,
         rule_id: ruleId,
         message: item.message,
-        suggestion: '请对照 PDF 原文核查该处，并按论文规范修订。',
+        suggestion: item.suggestion || '请对照 PDF 原文核查该处，并按论文规范修订。',
         location,
         anchors: [],
       };
@@ -109,7 +110,7 @@ async function runLocalFiveRules(pdfPath, selectedRuleIds, { signal } = {}) {
     (process.platform === 'win32' ? 'python' : 'python3');
   let stdout;
   try {
-    ({ stdout } = await execFileAsync(python, [DETECTOR_SCRIPT, '--pdf', pdfPath,
+    ({ stdout } = await execFileAsync(python, [numbers.some(number => [31, 34, 35].includes(number)) ? FAST_DETECTOR_SCRIPT : DETECTOR_SCRIPT, '--pdf', pdfPath,
       ...numbers.flatMap((number) => ['--rule', String(number)])], {
       windowsHide: true, timeout: 300000, maxBuffer: 30 * 1024 * 1024, encoding: 'utf8',
       env: { ...process.env, PYTHONIOENCODING: 'utf-8' }, signal,

@@ -199,3 +199,19 @@ describe('single-report repair suggestions', () => {
   });
 });
 
+
+// Local detection and model-assisted repair are separate capabilities.
+it.each(['required_section_completeness_check','chinese_english_symbol_mix_check','sjtu_rule_31'])('accepts %s findings for API repair', async (ruleId) => {
+ const finding={finding_id:'local-finding',message:ruleId==='required_section_completeness_check'?'未发现国标必备部分“原创性声明”':'中文文字之间使用了半角标点',location:{type:'pdf_page',page_number:1,text_excerpt:'上海交通大学硕士学位论文'},anchors:[]};
+ await reportRepository.createPaperLintReport({userId:'owner',sourceFilename:'local.pdf',pdfBuffer:Buffer.from('%PDF-1.7'),selectedRuleIds:[ruleId],result:{rule_runs:[{rule_id:ruleId,findings:[finding]}]},reportId:'local-report'});
+ const selected=await getPaperLintReportFinding({reportId:'local-report',userId:'owner',ruleId,findingId:'local-finding'});
+ expect(selected.ruleRun.rule_id).toBe(ruleId);
+ if(ruleId==='required_section_completeness_check'){
+  expect(selected.finding.location).toBeNull();
+  const {buildPaperLintReportRepairRequestWithPdfContext}=require('../src/normative/paperLintRepairSuggestionService');
+  const built=await buildPaperLintReportRepairRequestWithPdfContext({reportId:'local-report',userId:'owner',ruleId,findingId:'local-finding'});
+  expect(built.evidence[0].source_kind).toBe('retrieval');
+  expect(built.evidence[0].text).toContain('原创性声明');
+  expect(JSON.stringify(built.evidence)).not.toContain('上海交通大学');
+ }
+});

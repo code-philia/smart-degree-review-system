@@ -39,8 +39,8 @@ export function useFindingRepairSuggestions({scopeKey, fetchSaved, evaluate, sup
         if (generation === epoch.current) response = await fetchSaved(item);
       });
       if (generation !== epoch.current) return;
-      if (!response && force && evaluate) await enqueueGeneration(async () => {
-        if (generation === epoch.current) response = (await evaluate(item, true)).response;
+      if (!response && evaluate) await enqueueGeneration(async () => {
+        if (generation === epoch.current) response = (await evaluate(item, force)).response;
       });
       if (generation === epoch.current && response) setSuggestions(current => ({...current, [item.key]: response!}));
     } catch (cause) {

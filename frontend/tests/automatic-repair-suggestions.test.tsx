@@ -15,14 +15,14 @@ it('shows saved advice on inactive cards and loads every finding without a click
  expect(load.mock.calls.map(([x])=>x.key)).toEqual(['a','b']);
  expect(screen.getAllByRole('button',{name:'重新生成修复建议'})).toHaveLength(2);
 });
-it('loads a cache miss without generating, then generates only after an explicit request',async()=>{
+it('generates missing advice automatically and keeps explicit regeneration available',async()=>{
  vi.mocked(fetchPaperLintFindingRepairSuggestion).mockResolvedValueOnce(null).mockResolvedValueOnce(suggestion('b'));
  vi.mocked(evaluatePaperLintFindingRepairSuggestion).mockResolvedValue({response:suggestion('a'),cached:false});
  const {result}=renderHook(()=>usePaperLintRepairSuggestions('report'));
  await act(async()=>{await Promise.all([result.current.loadRepairSuggestion(item('a')),result.current.loadRepairSuggestion(item('b'))]);});
- expect(result.current.repairSuggestionByFindingKey.a).toBeUndefined();
+ expect(result.current.repairSuggestionByFindingKey.a?.actions[0].instruction).toContain('a');
  expect(result.current.repairSuggestionByFindingKey.b?.actions[0].instruction).toContain('b');
- expect(evaluatePaperLintFindingRepairSuggestion).not.toHaveBeenCalled();
+ expect(evaluatePaperLintFindingRepairSuggestion).toHaveBeenCalledWith(expect.objectContaining({finding_id:'a'}),{force:false});
  await act(async()=>{await result.current.generateRepairSuggestion(item('a'));});
  expect(result.current.repairSuggestionByFindingKey.a?.actions[0].instruction).toContain('a');
  expect(evaluatePaperLintFindingRepairSuggestion).toHaveBeenCalledWith(expect.objectContaining({finding_id:'a'}),{force:true});

@@ -51,6 +51,7 @@ export const PdfOverlay = memo(function PdfOverlay({
         const showRects = density === 'all' || active || hover;
         const tone = colors[annotation.severity];
         const marker = annotation.boundingRect;
+        const punctuation = annotation.ruleId === 'chinese_english_symbol_mix_check';
         const activate = () =>
           annotation.anchorId
             ? onAnchorClick(annotation.findingKey, annotation.anchorId)
@@ -83,7 +84,7 @@ export const PdfOverlay = memo(function PdfOverlay({
             onMouseLeave={() => setHovered(null)}
             style={{ cursor: 'pointer', pointerEvents: 'auto' }}
           >
-            {density === 'focus' && !showRects ? (
+            {density === 'focus' && !showRects && !punctuation ? (
               <rect
                 x={Math.max(1, marker.x1 - 8)}
                 y={marker.y1}
@@ -93,7 +94,7 @@ export const PdfOverlay = memo(function PdfOverlay({
                 fill={tone.stroke}
               />
             ) : null}
-            {showRects
+            {showRects || punctuation
               ? annotation.rects.map((rect, index) => (
                   <rect
                     key={`${annotation.findingKey}:${index}`}
@@ -102,9 +103,9 @@ export const PdfOverlay = memo(function PdfOverlay({
                     width={rect.x2 - rect.x1}
                     height={rect.y2 - rect.y1}
                     rx={2}
-                    fill={active ? tone.active : tone.fill}
+                    fill={punctuation && !showRects ? 'none' : active ? tone.active : tone.fill}
                     stroke={tone.stroke}
-                    strokeWidth={active || hover ? 1.5 : 1}
+                    strokeWidth={punctuation && !showRects ? 0.75 : active || hover ? 1.5 : 1}
                     vectorEffect="non-scaling-stroke"
                   />
                 ))

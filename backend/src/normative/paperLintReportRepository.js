@@ -10,6 +10,12 @@ function reportsDirectory() {
 function toReport(row, { includeResult = true } = {}) {
   if (!row) return null;
   const parsedResult = JSON.parse(row.result_json);
+  // A missing section has no original sentence or precise PDF location.
+  for (const rule of parsedResult.rule_runs || []) {
+    if (rule.rule_id === 'required_section_completeness_check') {
+      for (const finding of rule.findings || []) { finding.location = null; finding.anchors = []; }
+    }
+  }
   const summary = parsedResult.summary || {};
   return {
     id: row.id,

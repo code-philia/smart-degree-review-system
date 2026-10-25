@@ -199,7 +199,7 @@ class MaasClient:
         if self.json_output and task.split('/', 1)[0] in {
                 'generated-analysis', 'generated-analysis-batch',
                 'grounded-observations-flat', 'publication-evidence-audit',
-                'publication-evidence-review', 'positive-conflict-review'}:
+                'publication-evidence-review', 'positive-conflict-review', 'repair-suggestion'}:
             payload['response_format'] = {'type': 'json_object'}
         fingerprint = {'task': task, 'model_version': self.config.get('MAAS_MODEL_VERSION'),
                        'endpoint': ALLOWED_BASE, 'adapter_version': 2, 'payload': payload}

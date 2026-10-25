@@ -19,7 +19,7 @@ describe('compiler adapter', () => {
   it('advertises disabled compiler rules as unavailable', async () => {
     const old=process.env.PAPER_COMPILER_ENABLED;delete process.env.PAPER_COMPILER_ENABLED;
     try { expect(service.getCompilerRules().every(r=>!r.available && r.uses_external_model)).toBe(true);
-      await expect(service.runCompilerRules('/tmp/x.pdf',['sjtu_rule_31'])).rejects.toMatchObject({status:503});
+      await expect(service.runCompilerRules('/tmp/x.pdf',['sjtu_rule_32'])).rejects.toMatchObject({status:503});
     } finally { if(old!==undefined)process.env.PAPER_COMPILER_ENABLED=old; }
   });
   it('rejects malformed and oversized child output', async () => {

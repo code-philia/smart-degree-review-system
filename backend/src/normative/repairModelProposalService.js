@@ -151,7 +151,7 @@ function runMeteredRepair(messages, info = false) {
   const script = path.resolve(__dirname, '../../scripts/repair_model_proposal.py');
   return new Promise((resolve, reject) => {
     const child = execFile(python, [script, ...(info ? ['--info'] : [])], {
-      timeout: 34000, maxBuffer: 1024 * 1024, encoding: 'utf8',
+      timeout: 125000, maxBuffer: 1024 * 1024, encoding: 'utf8',
       env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONDONTWRITEBYTECODE: '1' },
     }, (error, stdout) => {
       let output;

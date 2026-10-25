@@ -24,16 +24,22 @@ def execute(messages, *, config_path, ledger, cache, transport=None):
     if messages[0].get('role') != 'system' or messages[1].get('role') != 'user':
         raise ValueError('invalid message roles')
     client = MaasClient(config_path, ledger, cache, 'website', os.environ.get('PAPER_COMPILER_PHASE_BUDGET_CNY', '10'), transport=transport,
-                        max_attempts=1, timeout=30, input_serialization='unicode-json/1.0')
+                        max_attempts=1, timeout=60, json_output=True, input_serialization='unicode-json/1.0')
     # A user-requested generation must never replay the model transport cache.
     data = {'request': json.loads(messages[1]['content']), 'generation': uuid.uuid4().hex}
     task = 'repair-suggestion/1.0'
-    answer = client.complete_json(task, messages[0]['content'], data, 1024)
+    for attempt in range(2):
+        try:
+            answer = client.complete_json(task, messages[0]['content'], data, 1024)
+            break
+        except ModelError as error:
+            if attempt or not str(error).endswith((': timeout', ': transport')):
+                raise
     fingerprint = client.request_fingerprint(task, messages[0]['content'], data, 1024)
     key = hashlib.sha256(json_bytes(fingerprint)).hexdigest()
     usage = json.loads((Path(cache) / 'responses' / (key + '.json')).read_text())['usage']
     return {'answer': answer, **model_identity(config_path), 'usage': {
-        'input_tokens': usage['prompt_tokens'], 'output_tokens': usage['completion_tokens'], 'attempts': 1}}
+        'input_tokens': usage['prompt_tokens'], 'output_tokens': usage['completion_tokens'], 'attempts': attempt + 1}}
 
 def main():
     config = os.environ.get('PAPER_COMPILER_CONFIG')
