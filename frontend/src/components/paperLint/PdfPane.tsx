@@ -167,7 +167,6 @@ export function PdfPane({
               title="在浏览器打开完整 PDF"
             >
               <Link2 className="size-4" />
-              查看完整 PDF
             </a>
           ) : null}
         </div>
