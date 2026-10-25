@@ -95,19 +95,7 @@ export const PdfOverlay = memo(function PdfOverlay({
               />
             ) : null}
             {showRects || punctuation
-              ? annotation.rects.map((rect, index) => punctuation ? (
-                  <line
-                    key={`${annotation.findingKey}:${index}`}
-                    x1={rect.x1 - 1}
-                    y1={rect.y2 + 2}
-                    x2={rect.x2 + 1}
-                    y2={rect.y2 + 2}
-                    stroke={tone.stroke}
-                    strokeWidth={active || hover ? 2 : 1.5}
-                    strokeLinecap="round"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                ) : (
+              ? annotation.rects.map((rect, index) => (
                   <rect
                     key={`${annotation.findingKey}:${index}`}
                     x={rect.x1}
@@ -115,9 +103,9 @@ export const PdfOverlay = memo(function PdfOverlay({
                     width={rect.x2 - rect.x1}
                     height={rect.y2 - rect.y1}
                     rx={2}
-                    fill={active ? tone.active : tone.fill}
+                    fill={punctuation && !showRects ? 'none' : active ? tone.active : tone.fill}
                     stroke={tone.stroke}
-                    strokeWidth={active || hover ? 1.5 : 1}
+                    strokeWidth={punctuation && !showRects ? 0.75 : active || hover ? 1.5 : 1}
                     vectorEffect="non-scaling-stroke"
                   />
                 ))
