@@ -108,6 +108,22 @@ class FastLocalChecksTests(unittest.TestCase):
         found=self.check(self.ir,[35])['35']['findings'][0]
         self.assertEqual(found['location']['bounding_rect']['y1'],190)
 
+    def test_punctuation_highlights_only_the_misused_character(self):
+        node = next(n for n in self.ir['nodes'] if n['id'] == 'body-text')
+        node['text'] = '正常中文。\n这里,需要修订。'
+        first = dict(node['provenance'][0], node_text_start=0, node_text_end=5)
+        second = dict(first, node_text_start=6, node_text_end=len(node['text']),
+                      line_id='second-line', bbox=[60,190,300,202])
+        node['provenance'] = [first, second]
+        self.ir['layout']['pages'][5]['lines'] = [{
+            'id':'second-line', 'text':'这里,需要修订。', 'bbox':[60,190,300,202],
+            'chars':[{'text':',', 'start':2, 'end':3, 'bbox':[84,190,87,202]}],
+        }]
+        found = self.check(self.ir, [35])['35']['findings'][0]
+        rect = found['location']['bounding_rect']
+        self.assertEqual([rect[k] for k in ['x1','y1','x2','y2']], [84,190,87,202])
+        self.assertEqual(found['location']['rects'], [rect])
+
     def test_spaced_toc_glyphs_are_present(self):
         self.assertEqual(self.check(self.ir, [34])['34']['findings'], [])
 

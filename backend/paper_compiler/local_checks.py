@@ -60,6 +60,12 @@ def _finding(ir, rule, node, message, token, suggestion, offset=0):
     if source:
         page = next(p for p in ir['layout']['pages'] if p['page_index'] == source['page_index'])
         x0, y0, x1, y1 = source['bbox']
+        if rule == 35:
+            line = next((line for line in page.get('lines', []) if line['id'] == source.get('line_id')), None)
+            char_offset = offset - selected.get('node_text_start', 0) + source.get('text_offsets', [0])[0]
+            char = next((char for char in (line or {}).get('chars', []) if char['start'] <= char_offset < char['end']), None)
+            if char:
+                x0, y0, x1, y1 = char['bbox']
         rect = dict(x1=x0, y1=y0, x2=x1, y2=y1, width=page['width'], height=page['height'], page_number=source['page_index'] + 1)
         location = {'type': 'pdf_bbox', 'page_number': source['page_index'] + 1,
                     'bounding_rect': rect, 'rects': [rect], 'text_excerpt': node['text'][:600]}
@@ -158,8 +164,11 @@ def detect_ir(ir, selected_rules=RULES):
                     continue
                 mark = match.group(1)
                 replacement = dict(zip(',;:!?', '，；：！？'))[mark]
+                name = dict(zip(',;:!?', ['逗号', '分号', '冒号', '感叹号', '问号']))[mark]
+                context = text[max(0, match.start(1)-8):match.end(1)+8].replace('\n', '')
                 results['35']['findings'].append(_finding(ir, 35, node,
-                    f'中文文字之间使用了半角标点“{mark}”', mark, f'将此处“{mark}”改为“{replacement}”。', offset=match.start(1)))
+                    f'“{context}”中误用了英文{name}“{mark}”，应使用中文{name}“{replacement}”。',
+                    mark, f'将此处英文{name}“{mark}”改为中文{name}“{replacement}”。', offset=match.start(1)))
     if 31 in selected_rules:
         entries = [n for n in ir['nodes'] if n['kind']=='BibliographyEntry' and n['text']]
         alternatives = sum(bool(re.search(r'\((?:19|20)\d{2}[a-z]?\)|\b(?:vol\.|pp\.|no\.)|[\"“].+[\"”]', n['text'], re.I)) for n in entries)
