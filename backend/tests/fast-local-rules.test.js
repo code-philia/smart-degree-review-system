@@ -6,10 +6,10 @@ const service = require('../src/normative/reviewPilotPaperLintService');
 const compiler = require('../src/normative/paperCompilerService');
 
 describe('three local rules', () => {
-  it('publishes seven native rules and keeps the three new titles unnumbered', async () => {
+  it('publishes eight native rules and keeps the four new titles unnumbered', async () => {
     const { rules } = await service.getPaperLintCatalog({ mvpOnly: true });
-    expect(rules).toHaveLength(7);
-    for (const id of ['sjtu_rule_31', 'required_section_completeness_check', 'chinese_english_symbol_mix_check']) {
+    expect(rules).toHaveLength(8);
+    for (const id of ['sjtu_rule_31', 'required_section_completeness_check', 'chinese_english_symbol_mix_check', 'keyword_count_check']) {
       expect(rules.find(rule => rule.rule_id === id)).toMatchObject({ enabled_in_mvp: true, uses_external_model: false });
       expect(registry.getRuleDefinition(id).title).not.toMatch(/规则\s*\d/);
     }

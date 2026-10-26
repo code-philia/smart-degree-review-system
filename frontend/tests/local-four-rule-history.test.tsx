@@ -82,6 +82,22 @@ describe('saved PDF report history', () => {
           ruleset_label: '基础规则',
         },
       },
+      {
+        id: 'keyword-36',
+        source_filename: '关键词规则论文.pdf',
+        selected_rule_ids: ['keyword_count_check'],
+        created_at: '2026-09-26T05:00:00.000Z',
+        summary: {
+          finding_count: 1,
+          error_finding_count: 0,
+          warning_finding_count: 1,
+          info_finding_count: 0,
+          rule_count: 1,
+          unsupported_rule_count: 0,
+          error_rule_count: 0,
+          ruleset_label: '本地规则',
+        },
+      },
     ]);
     render(
       <MemoryRouter initialEntries={['/thirty-rules-check/reports']}>
@@ -91,11 +107,16 @@ describe('saved PDF report history', () => {
       </MemoryRouter>,
     );
     expect(await screen.findByText('四规则论文.pdf')).toBeInTheDocument();
+    expect(await screen.findByText('关键词规则论文.pdf')).toBeInTheDocument();
     expect(screen.queryByText('基础规则论文.pdf')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: '发起检测' })).toHaveAttribute('href', '/thirty-rules-check');
-    expect(screen.getByRole('link', { name: '继续处理' })).toHaveAttribute(
-      'href',
-      '/thirty-rules-check/reports/pdf/local-24',
+    expect(
+      screen.getAllByRole('link', { name: '继续处理' }).map((link) => link.getAttribute('href')),
+    ).toEqual(
+      expect.arrayContaining([
+        '/thirty-rules-check/reports/pdf/local-24',
+        '/thirty-rules-check/reports/pdf/keyword-36',
+      ]),
     );
   });
 });

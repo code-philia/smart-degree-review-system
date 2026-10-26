@@ -225,6 +225,20 @@
       "default_selected": false,
       "availability_probe": "pymupdf",
       "repair_surfaces": ["paper_lint"]
+    },
+    {
+      "rule_id": "keyword_count_check",
+      "number": 36,
+      "title": "关键词数量",
+      "description": "检查中文关键词是否少于3个或多于8个",
+      "family": "local_pdf",
+      "runner": "fast_local_detector",
+      "execution_mode": "deterministic",
+      "uses_external_model": false,
+      "enabled_in_mvp": true,
+      "default_selected": false,
+      "availability_probe": "pymupdf",
+      "repair_surfaces": ["paper_lint"]
     }
   ]
 }

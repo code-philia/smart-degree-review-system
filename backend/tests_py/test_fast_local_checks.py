@@ -175,6 +175,58 @@ class FastLocalChecksTests(unittest.TestCase):
         self.ir['nodes'] = [n for n in self.ir['nodes'] if n['id'] != 'originality']
         self.assertEqual(self.check(self.ir, [34])['34']['findings'], [])
 
+    # --- Rule 36: keyword count 3-8 ---
+
+    def _keyword_node(self, ir=None):
+        return next(n for n in (ir or self.ir)['nodes'] if n['id'] == 'keywords')
+
+    def test_three_keywords_pass(self):
+        self.assertEqual(self.check(self.ir, [36])['36']['findings'], [])
+
+    def test_eight_keywords_pass(self):
+        self._keyword_node()['text'] = '关键词：a；b；c；d；e；f；g；h'
+        self.assertEqual(self.check(self.ir, [36])['36']['findings'], [])
+
+    def test_two_keywords_fail(self):
+        self._keyword_node()['text'] = '关键词：a；b'
+        findings = self.check(self.ir, [36])['36']['findings']
+        self.assertEqual(len(findings), 1)
+        self.assertIn('2 个', findings[0]['message'])
+
+    def test_nine_keywords_fail(self):
+        self._keyword_node()['text'] = '关键词：a；b；c；d；e；f；g；h；i'
+        findings = self.check(self.ir, [36])['36']['findings']
+        self.assertEqual(len(findings), 1)
+        self.assertIn('9 个', findings[0]['message'])
+
+    def test_wrapped_keyword_line_is_joined(self):
+        # A wrapped line split mid-term must not split "规则检测" into two terms.
+        self._keyword_node()['text'] = '关键词：规则检测\n论文；方法'
+        findings = self.check(self.ir, [36])['36']['findings']
+        self.assertEqual(len(findings), 1)
+        self.assertIn('2 个', findings[0]['message'])
+
+    def test_no_keyword_block_is_not_a_finding(self):
+        self._keyword_node()['text'] = None
+        self.assertEqual(self.check(self.ir, [36])['36']['findings'], [])
+
+    def test_body_text_keyword_label_is_ignored(self):
+        # A colon-label mention in the body/appendix must not become a keyword
+        # count violation; only front-matter keyword blocks are checked.
+        ir = copy.deepcopy(self.ir)
+        ir['nodes'] = [n for n in ir['nodes'] if n['id'] != 'keywords']
+        main = next(n for n in ir['nodes'] if n['id'] == 'main')
+        ir['nodes'].append({'id': 'fake-kw', 'kind': 'Paragraph',
+                            'text': '关键词：测试；数据', 'attrs': {},
+                            'children': [], 'provenance': main['provenance'][:1]})
+        main['children'].append('fake-kw')
+        self.assertEqual(self.check(ir, [36])['36']['findings'], [])
+
+    def test_partial_coverage_does_not_false_flag_absence(self):
+        self.ir['coverage']['pages']['status'] = 'partial'
+        self._keyword_node()['text'] = None
+        self.assertEqual(self.check(self.ir, [36])['36']['findings'], [])
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -12,7 +12,7 @@ from concurrent.futures import ProcessPoolExecutor
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from fast_local_detector import load_ir, native_coverage
-from paper_compiler.local_checks import detect_ir, core_parts, compact, rows, prose_nodes, _TYPE, _PUNCT, _INTRO, _CONCLUSION, _CHAPTER
+from paper_compiler.local_checks import detect_ir, core_parts, compact, rows, prose_nodes, _TYPE, _PUNCT, _INTRO, _CONCLUSION, _CHAPTER, _KEYWORD_LABEL, _body_start_page, _node_page_index
 from paper_compiler.contracts import validate_ir
 
 
@@ -114,6 +114,17 @@ def candidates(ir, rule):
             match = matches[0]
             for recipe, replacement in [('missing_marker', ''), ('invalid_marker', '[XYZ]'), ('unclosed_marker', match.group()[:-1])]:
                 yield (recipe, [node['id']], [match.start(), match.end()], replacement)
+    elif rule == 36:
+        body_start = _body_start_page(ir)
+        for node in ir['nodes']:
+            match = _KEYWORD_LABEL.search(node['text'] or '')
+            if not match:
+                continue
+            if body_start and _node_page_index(node) >= body_start:
+                continue
+            span = [match.start(1), match.end(1)]
+            yield ('keyword_too_few_2', [node['id']], span, '甲；乙')
+            yield ('keyword_too_many_9', [node['id']], span, '甲；乙；丙；丁；戊；己；庚；辛；壬')
     else:
         for node in prose_nodes(ir):
             if re.search(r'https?://|www\.|[`=<>]|\b(?:print|def|return|import|if|while)\s*\(', node['text']): continue
@@ -158,7 +169,7 @@ def main():
                 if len(records)%40==0: print('scanned',len(records), '/',len(pdfs),flush=True)
     (args.output/'archive-results.json').write_text(json.dumps(records,ensure_ascii=True,indent=2))
     summary={}; manifest=[]
-    for rule in [31,34,35]:
+    for rule in [31,34,35,36]:
         count=tp=fp=0; mothers=set()
         for record in records:
             if not record.get('cache') or record.get('error') or record['rules'][str(rule)]['findings']: continue

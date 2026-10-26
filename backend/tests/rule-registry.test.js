@@ -5,10 +5,11 @@ const require = createRequire(import.meta.url);
 const registry = require('../rules/registry');
 
 describe('rule registry', () => {
-  it('declares seven native MVP rules and preserves existing repair capabilities', () => {
+  it('declares eight native MVP rules and preserves existing repair capabilities', () => {
     expect(registry.getEnabledMvpRuleIds()).toEqual([
       'sjtu_rule_18', 'sjtu_rule_22', 'sjtu_rule_24', 'sjtu_rule_28', 'sjtu_rule_31',
       'required_section_completeness_check', 'chinese_english_symbol_mix_check',
+      'keyword_count_check',
     ]);
     for (const ruleId of registry.getEnabledMvpRuleIds()) {
       expect(registry.getRuleDefinition(ruleId)).toMatchObject({

@@ -1,7 +1,7 @@
-"""Three native-text checks over the shared Paper Model / Paper IR. No network."""
+"""Four native-text checks over the shared Paper Model / Paper IR. No network."""
 import re
 
-RULES = (31, 34, 35)  # execution keys only; public titles have no rule numbers
+RULES = (31, 34, 35, 36)  # execution keys only; public titles have no rule numbers
 _CHAPTER = re.compile(r'^(?:第[一二三四五六七八九十百0-9]+[章篇]|chapter\d+|\d+(?:[.．]\d+)*[.．、]?)', re.I)
 _INTRO = re.compile(r'^(?:绪论|绪言|引言|引论|introduction)$', re.I)
 _CONCLUSION = re.compile(r'^(?:(?:课题|全文|研究|工作|论文)?(?:总结|结论)(?:[与和及](?:未来)?(?:展望|工作|建议|讨论))?|总结|结论|总结[与和及](?:未来)?展望|结论[与和及](?:未来)?展望|总结[与和及]未来工作|研究结论|全文总结|研究总结|总结展望|结论及建议|结束语|conclusions?(?:andfuturework)?|summary(?:and(?:futurework|outlook))?)$', re.I)
@@ -10,6 +10,9 @@ _CODES = set('M J N C D R S P EB A CM DS PP G GI CP DB Z'.split())
 _MEDIA = {'MT', 'DK', 'CD', 'OL', 'MM'}
 _YEAR = re.compile(r'(?<!\d)(?:1[5-9]|20)\d{2}(?!\d)')
 _PUNCT = re.compile(r'(?<=[\u4e00-\u9fff])\s*([,;:!?])\s*(?=[\u4e00-\u9fff])')
+_KEYWORD_LABEL = re.compile(r'(?:关键词|关键字)\s*[:：]\s*(.*)', re.I | re.S)
+_TERM_SPLIT = re.compile(r'[；;，,、]')
+_FRONT_TEXT = {'摘要', '中文摘要', 'abstract', '目录', '目次', 'contents', 'tableofcontents'}
 
 
 def compact(text):
@@ -21,6 +24,12 @@ def _source(span):
         return span
     ancestors = span.get('ancestor_provenance', span.get('input_provenance', []))
     return next((source for item in ancestors if (source := _source(item))), None)
+
+
+def _node_page_index(node):
+    """Smallest source page for a node, resolving synthetic mutations."""
+    pages = [(_source(span) or {}).get('page_index', 10**9) for span in node.get('provenance', [])]
+    return min(pages, default=10**9)
 
 
 def rows(ir):
@@ -189,6 +198,32 @@ def punctuation_literals(text):
     return ranges
 
 
+def _keyword_terms(text):
+    """Join wrapped continuations then split on keyword delimiters."""
+    m = _KEYWORD_LABEL.search(text or '')
+    if not m:
+        return None
+    merged = re.sub(r'[\r\n]+', '', m.group(1))
+    return [t for t in (x.strip(' \t。.；;，,、:：') for x in _TERM_SPLIT.split(merged)) if t]
+
+
+def _body_start_page(ir):
+    """First page after front matter, mirroring core_parts' body boundary."""
+    visual_rows = rows(ir)
+    intro_pages = [page for page, _, text, _ in visual_rows if _INTRO.fullmatch(_CHAPTER.sub('', compact(text)))]
+    toc_pages = [page for page, _, text, _ in visual_rows if re.search(r'(?:\.\s*){3,}\s*\d+\s*$', text)]
+    body_start = max(max(toc_pages, default=-1) + 1, min(intro_pages, default=0))
+    if body_start:
+        return body_start
+    # Some papers have no detectable introduction/ToC heading. Fall back to the
+    # last front-matter page so appendix/template mentions are still excluded.
+    front_pages = [page for page, _, text, _ in visual_rows if compact(text) in _FRONT_TEXT]
+    front_pages += [_node_page_index(node) for node in ir['nodes']
+                    if node['kind'] in {'TitlePage', 'Abstract', 'ToC'}]
+    front_pages = [page for page in front_pages if page < 10**9]
+    return max(front_pages) + 4 if front_pages else 0
+
+
 def detect_ir(ir, selected_rules=RULES):
     results = {str(rule): {'status': 'completed', 'findings': []} for rule in selected_rules}
     anchor = next((n for n in ir['nodes'] if n['text'] and n['provenance']), None)
@@ -238,6 +273,18 @@ def detect_ir(ir, selected_rules=RULES):
             if reason:
                 results['31']['findings'].append(_finding(ir, 31, node, reason, '文献类型标记',
                     '请按实际著录资源核对并补齐类型标记；期刊用[J]、会议论文用[C]等，不能仅凭访问网址改变资源类型。'))
+    if 36 in selected_rules:
+        body_start = _body_start_page(ir)
+        for node in ir['nodes']:
+            terms = _keyword_terms(node.get('text'))
+            if terms is None:
+                continue
+            if body_start and _node_page_index(node) >= body_start:
+                continue
+            if not 3 <= len(terms) <= 8:
+                results['36']['findings'].append(_finding(ir, 36, node,
+                    f'关键词共 {len(terms)} 个，国标要求 3—8 个。', '关键词数量',
+                    '请将关键词调整为 3—8 个，并用分号分隔；依据 GB/T 7713.1—2025 附录 A、表 A.1。'))
     if ir['coverage']['pages']['status'] != 'complete':
         for result in results.values(): result['reason'] = '仅检查可读取文字；未将扫描或不可读内容判为缺失。'
     return results

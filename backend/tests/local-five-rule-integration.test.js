@@ -26,6 +26,7 @@ describe('four local rules in the existing basic-check flow', () => {
     expect(catalog.rules.map((rule) => rule.rule_id)).toEqual([
       'sjtu_rule_18', 'sjtu_rule_22', 'sjtu_rule_24', 'sjtu_rule_28', 'sjtu_rule_31',
       'required_section_completeness_check', 'chinese_english_symbol_mix_check',
+      'keyword_count_check',
       'sjtu_rule_11', 'sjtu_rule_13', 'sjtu_rule_14', 'sjtu_rule_15', 'sjtu_rule_16', 'sjtu_rule_29',
       'sjtu_rule_32', 'sjtu_rule_33',
     ]);
