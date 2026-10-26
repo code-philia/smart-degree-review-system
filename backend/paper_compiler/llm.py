@@ -43,6 +43,21 @@ def load_config(path):
                 continue
             key, value = line.split('=', 1)
             config[key.strip()] = value.strip().strip('"').strip("'")
+    # A deployed process may keep PAPER_COMPILER_CONFIG pointed at the legacy
+    # Huawei file for compatibility. When a complete campus configuration is
+    # present in the process environment, it is the authoritative transport
+    # choice and must override values read from that file.
+    campus_env = {
+        'SJTU_API_KEY': os.environ.get('SJTU_API_KEY', '').strip(),
+        'SJTU_API_BASE_URL': os.environ.get('SJTU_API_BASE_URL', '').strip(),
+        'SJTU_API_MODEL': os.environ.get('SJTU_API_MODEL', '').strip(),
+    }
+    if all(campus_env.values()):
+        campus_env['SJTU_API_MODEL_VERSION'] = (
+            os.environ.get('SJTU_API_MODEL_VERSION', '').strip()
+            or 'campus-current'
+        )
+        config.update(campus_env)
     if config.get('SJTU_API_KEY'):
         # Campus credentials are authoritative when present; do not let legacy
         # MAAS_* variables shadow the selected campus endpoint or model.
