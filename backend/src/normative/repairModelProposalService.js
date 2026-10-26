@@ -1,5 +1,5 @@
 const ALLOWED_STATUSES = new Set(['suggested', 'insufficient_context', 'evidence_conflict']);
-const PROMPT_VERSION = 'repair-model-actions-v5';
+const PROMPT_VERSION = 'repair-model-actions-v6';
 const MAX_EVIDENCE_ITEMS = 8;
 const MAX_EVIDENCE_CHARS = 12000;
 
@@ -78,7 +78,7 @@ function buildMessages(request) {
   const bilingualInstructions = bilingual ? `
 ## 中英文双语规则专用要求
 这是中英文摘要/关键词对应规则。输入证据中的“中文原文”和“英文原文”是本次判断的核心上下文，不能把它们当成泛泛的摘要信息。
-如果状态为 suggested，建议必须同时引用中文和英文原文证据，但必须保持保守：不得仅凭摘要或关键词擅自认定中文或英文哪一侧正确，不得输出“以中文为准”“以英文为准”“将英文改成中文”等绝对结论。应明确指出两侧的具体差异，建议作者结合正文、方法、实验结果和术语定义核对后再决定修改哪一侧；除非输入证据明确证明某一侧是权威版本，否则只提出同步核对和最小修改方向。
+如果状态为 suggested，建议必须同时引用中文和英文原文证据，但必须保持保守：不得仅凭摘要或关键词擅自认定中文或英文哪一侧正确，不得输出“以中文为准”“以英文为准”“将英文改成中文”等绝对结论。英文关键词中字母之间的单个连字符可能来自 PDF 跨行换行；没有明确原文证据时，不得建议删除或改写该连字符。应明确指出两侧的具体差异，建议作者结合正文、方法、实验结果和术语定义核对后再决定修改哪一侧；除非输入证据明确证明某一侧是权威版本，否则只提出同步核对和最小修改方向。
 如果状态为 insufficient_context，只能明确指出缺少哪一侧的哪一段原文（包括页码或定位）；如果输入已经有两侧原文，不得再笼统要求“提供摘要信息”或“核对摘要”。
 ` : '';
   const expected = {
