@@ -45,6 +45,9 @@ def main():
     if not base.get("english_abstract") or not base.get("english_keywords", {}).get("values"):
         raise ValueError("Paper Model 未提取到英文摘要或关键词")
     cases = []
+    base_path = args.output / "00_consistent.json"
+    base_path.write_text(json.dumps(base, ensure_ascii=False, indent=2))
+    cases.append({"name": "00_consistent.json", "rule_id": "both", "expected": "passed", "mutation": {"type": "none"}, "review": "正常对照：中英文摘要和关键词语义一致", "path": str(base_path)})
     def write(name, rule_id, facts, mutation, review):
         path = args.output / name
         path.write_text(json.dumps(facts, ensure_ascii=False, indent=2))

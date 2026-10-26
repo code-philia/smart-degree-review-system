@@ -1,5 +1,5 @@
 {
-  "source": "handoff/single-rule-pdf-cases-20261025/00_original.pdf",
+  "source": "/tmp/bilingual-paper-model-mutations-20261026/00_consistent.pdf",
   "paper_model_version": "paper-model/1.0",
   "paper_ir_version": "paper-ir/1.0",
   "base_facts": {
@@ -31,6 +31,16 @@
     }
   },
   "cases": [
+    {
+      "name": "00_consistent.json",
+      "rule_id": "both",
+      "expected": "passed",
+      "mutation": {
+        "type": "none"
+      },
+      "review": "正常对照：中英文摘要和关键词语义一致",
+      "path": "backend/tests_py/fixtures/bilingual_paper_model_mutations_20_20261026/00_consistent.json"
+    },
     {
       "name": "abstract_01.json",
       "rule_id": "bilingual_abstract_consistency_check",
