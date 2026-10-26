@@ -14,8 +14,13 @@ _KEYWORDS = re.compile(r"^\s*(关键词|关键字|key\s*words?|keywords?)\s*[:�
 _SEPARATOR = re.compile(r"\s*(?:[,，;；、]|\s+and\s+)\s*", re.I)
 
 
-def _join_wrapped_keyword_lines(parts: list[str]) -> str:
-    """Join PDF soft line-break hyphens without changing real term hyphens."""
+def _keyword_match_values(values: list[str]) -> list[str]:
+    """Return values unchanged when no line-boundary metadata is available."""
+    return [str(value) for value in values]
+
+
+def _join_wrapped_keyword_lines(parts: list[str], *, remove_wrap_hyphen: bool = False) -> str:
+    """Join PDF keyword lines, optionally normalizing only wrap hyphens."""
     if not parts:
         return ""
     combined = parts[0].strip()
@@ -23,23 +28,16 @@ def _join_wrapped_keyword_lines(parts: list[str]) -> str:
         next_part = part.strip()
         if not next_part:
             continue
-        # Keep the hyphen while removing only the layout whitespace. In keyword
-        # names it can be a real part of the term (for example ``Re-`` +
-        # ``verse`` -> ``Re-verse``), and deleting it makes later matching
-        # unstable.
         if re.search(r"[A-Za-z]-$", combined) and re.match(r"^[A-Za-z]", next_part):
-            combined += next_part
+            combined = (combined[:-1] if remove_wrap_hyphen else combined) + next_part
         else:
             combined += " " + next_part
     return combined
 
-@dataclass(frozen=True)
-class PromptMessage:
-    type: str
-    content: str
 
 def load_paper_model(pdf_path: Path) -> dict[str, Any]:
     return build_paper(pdf_path, include_citations=False)
+
 
 def _node_text(node: dict[str, Any], by_id: dict[str, dict[str, Any]]) -> str:
     parts = []
@@ -83,7 +81,8 @@ def extract_bilingual_facts(ir):
             match = _KEYWORDS.match(part)
             if match:
                 values = [item.strip() for item in _SEPARATOR.split(match.group(2)) if item.strip()]
-                item = {"label": match.group(1), "values": values, "text": part}
+                item = {"label": match.group(1), "values": values,
+                        "match_values": _keyword_match_values(values), "text": part}
                 if item not in keywords: keywords.append(item)
     # Paper Model layout is authoritative even when a split heading (摘/要) leaves
     # the body as ordinary paragraphs. Stitch each abstract from native lines.
@@ -115,8 +114,11 @@ def extract_bilingual_facts(ir):
                 break
             parts.append(following)
         combined = _join_wrapped_keyword_lines(parts)
+        match_combined = _join_wrapped_keyword_lines(parts, remove_wrap_hyphen=True)
         values = [item.strip() for item in _SEPARATOR.split(combined) if item.strip()]
-        candidate = {"label": match.group(1), "values": values, "text": combined}
+        match_values = [item.strip() for item in _SEPARATOR.split(match_combined) if item.strip()]
+        candidate = {"label": match.group(1), "values": values,
+                     "match_values": match_values, "text": combined}
         for index, existing in enumerate(keywords):
             if existing["label"].casefold() == candidate["label"].casefold():
                 if len(candidate["text"]) > len(existing["text"]): keywords[index] = candidate
@@ -247,7 +249,7 @@ class PaperModelBilingualRule:
         else:
             left, right = facts["chinese_keywords"], facts["english_keywords"]
             if not left or not right: return unsupported(entry, message="bilingual_keywords_not_detected")
-            prompt = ("Match Chinese and English thesis keywords by meaning, not by count. Return JSON only with keys: outcome (consistent|inconsistent|inconclusive), summary, pairs (array of objects with chinese, english, match, reason), missing_chinese (array), missing_english (array).\nChinese keywords: " + json.dumps(left["values"], ensure_ascii=False) + "\nEnglish keywords: " + json.dumps(right["values"], ensure_ascii=False))
+            prompt = ("Match Chinese and English thesis keywords by meaning, not by count. English alphabetic hyphens may be caused by a PDF line wrap; ignore that presentation difference during semantic matching and do not call it a spelling error. Return JSON only with keys: outcome (consistent|inconsistent|inconclusive), summary, pairs (array of objects with chinese, english, match, reason), missing_chinese (array), missing_english (array).\nChinese keywords: " + json.dumps(left.get("match_values", left["values"]), ensure_ascii=False) + "\nEnglish keywords: " + json.dumps(right.get("match_values", right["values"]), ensure_ascii=False))
         payload = _json_object(await self._ainvoke([PromptMessage("human", prompt)]))
         outcome = str(payload.get("outcome", "inconclusive")).lower()
         if outcome == "inconclusive":

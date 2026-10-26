@@ -26,6 +26,11 @@ def test_keeps_real_hyphen_when_keyword_wraps():
         ("Key words: Secure Multi-party Computation, Re-", [0, 0, 100, 10]),
         ("verse Multiplication-Friendly Embedding", [0, 20, 200, 30]),
     ])[-1] == "Re-verse Multiplication-Friendly Embedding"
+    facts = extract_bilingual_facts(_ir([
+        ("Key words: Secure Multi-party Computation, Re-", [0, 0, 100, 10]),
+        ("verse Multiplication-Friendly Embedding", [0, 20, 200, 30]),
+    ]))
+    assert facts["english_keywords"]["match_values"][-1] == "Reverse Multiplication-Friendly Embedding"
 
 
 def test_discards_overlapping_stray_text_layer():

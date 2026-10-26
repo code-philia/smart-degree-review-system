@@ -97,12 +97,12 @@ def prompt_for(rule_id: str, facts: dict[str, Any]) -> str | None:
     if not left or not right:
         return None
     return (
-        "按语义而不是数量匹配中文和英文关键词。请用简体中文填写 summary、reason 和其它说明字段。"
+        "按语义而不是数量匹配中文和英文关键词。英文关键词中，字母之间的单个连字符可能来自 PDF 跨行换行；语义匹配时忽略这种版式差异，不要将其判为拼写错误。请用简体中文填写 summary、reason 和其它说明字段。"
         "仅返回 JSON，键为：outcome (consistent|inconsistent|inconclusive), "
         "summary, pairs (array of objects with chinese, english, match, reason), "
         "missing_chinese (array), missing_english (array)。\n"
-        "中文关键词：" + json.dumps(left.get("values", []), ensure_ascii=False) +
-        "\n英文关键词：" + json.dumps(right.get("values", []), ensure_ascii=False)
+        "中文关键词：" + json.dumps(left.get("match_values", left.get("values", [])), ensure_ascii=False) +
+        "\n英文关键词：" + json.dumps(right.get("match_values", right.get("values", [])), ensure_ascii=False)
     )
 
 
