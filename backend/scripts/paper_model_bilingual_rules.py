@@ -13,6 +13,24 @@ _CJK = re.compile(r"[\u3400-\u9fff]")
 _KEYWORDS = re.compile(r"^\s*(关键词|关键字|key\s*words?|keywords?)\s*[:：]\s*(.+)$", re.I)
 _SEPARATOR = re.compile(r"\s*(?:[,，;；、]|\s+and\s+)\s*", re.I)
 
+
+def _join_wrapped_keyword_lines(parts: list[str]) -> str:
+    """Join PDF soft line-break hyphens without changing real term hyphens."""
+    if not parts:
+        return ""
+    combined = parts[0].strip()
+    for part in parts[1:]:
+        next_part = part.strip()
+        if not next_part:
+            continue
+        # A hyphen at the end of a layout line followed by a letter is a
+        # discretionary word break (for example ``re-`` + ``verse``).
+        if re.search(r"[A-Za-z]-$", combined) and re.match(r"^[A-Za-z]", next_part):
+            combined = combined[:-1] + next_part
+        else:
+            combined += " " + next_part
+    return combined
+
 @dataclass(frozen=True)
 class PromptMessage:
     type: str
@@ -63,7 +81,7 @@ def extract_bilingual_facts(ir):
             if compact_following in {"目录", "目次", "contents", "abstract"}:
                 break
             parts.append(following)
-        combined = " ".join(parts)
+        combined = _join_wrapped_keyword_lines(parts)
         values = [item.strip() for item in _SEPARATOR.split(combined) if item.strip()]
         candidate = {"label": match.group(1), "values": values, "text": combined}
         for index, existing in enumerate(keywords):
