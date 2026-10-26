@@ -31,11 +31,11 @@ afterEach(async () => {
 describe('archive scans with six additional rules', () => {
   it('keeps ten existing rules and exposes three disabled compiler candidates', () => {
     const service = createArchiveScanService({ archiveRoot: root });
-    expect(service.rules.map((rule) => rule.rule_id)).toEqual([...ids, 'sjtu_rule_31', 'sjtu_rule_32', 'sjtu_rule_33', 'required_section_completeness_check', 'chinese_english_symbol_mix_check', 'keyword_count_check']);
+    expect(service.rules.map((rule) => rule.rule_id)).toEqual([...ids, 'sjtu_rule_31', 'sjtu_rule_32', 'sjtu_rule_33', 'required_section_completeness_check', 'chinese_english_symbol_mix_check', 'keyword_count_check', 'abstract_object_number_check']);
     expect(service.rules.filter(rule => rule.family === 'compiler').every(rule => !rule.available)).toBe(true);
-    expect(service.rules.filter((rule) => rule.available)).toHaveLength(12);
+    expect(service.rules.filter((rule) => rule.available)).toHaveLength(13);
     process.env.MINERU_API_TOKEN = 'test-token';
-    expect(service.rules.filter((rule) => rule.available)).toHaveLength(14);
+    expect(service.rules.filter((rule) => rule.available)).toHaveLength(15);
   });
 
   it('rejects unconfigured cloud rules before creating a job', async () => {

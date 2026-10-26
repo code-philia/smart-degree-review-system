@@ -1,7 +1,7 @@
-"""Four native-text checks over the shared Paper Model / Paper IR. No network."""
+"""Five native-text checks over the shared Paper Model / Paper IR. No network."""
 import re
 
-RULES = (31, 34, 35, 36)  # execution keys only; public titles have no rule numbers
+RULES = (31, 34, 35, 36, 37)  # execution keys only; public titles have no rule numbers
 _CHAPTER = re.compile(r'^(?:第[一二三四五六七八九十百0-9]+[章篇]|chapter\d+|\d+(?:[.．]\d+)*[.．、]?)', re.I)
 _INTRO = re.compile(r'^(?:绪论|绪言|引言|引论|introduction)$', re.I)
 _CONCLUSION = re.compile(r'^(?:(?:课题|全文|研究|工作|论文)?(?:总结|结论)(?:[与和及](?:未来)?(?:展望|工作|建议|讨论))?|总结|结论|总结[与和及](?:未来)?展望|结论[与和及](?:未来)?展望|总结[与和及]未来工作|研究结论|全文总结|研究总结|总结展望|结论及建议|结束语|conclusions?(?:andfuturework)?|summary(?:and(?:futurework|outlook))?)$', re.I)
@@ -13,6 +13,19 @@ _PUNCT = re.compile(r'(?<=[\u4e00-\u9fff])\s*([,;:!?])\s*(?=[\u4e00-\u9fff])')
 _KEYWORD_LABEL = re.compile(r'(?:关键词|关键字)\s*[:：]\s*(.*)', re.I | re.S)
 _TERM_SPLIT = re.compile(r'[；;，,、]')
 _FRONT_TEXT = {'摘要', '中文摘要', 'abstract', '目录', '目次', 'contents', 'tableofcontents'}
+_ABSTRACT_HEADING = {'摘要', '中文摘要', '英文摘要', 'abstract'}
+# Numbered objects a self-contained abstract must not cite. Each pattern needs a
+# digit so prose words such as 表明, 表达, 表决 and 形式 are never treated as 图/表/式.
+_OBJECT_NUMBERS = (
+    ('图', re.compile(r'图\s*\d{1,3}(?:\s*[-–—.．]\s*\d{1,3})*')),
+    ('表', re.compile(r'表\s*\d{1,3}(?:\s*[-–—.．]\s*\d{1,3})*')),
+    ('公式', re.compile(r'公式\s*[（(]?\s*\d{1,3}(?:\s*[-–—.．]\s*\d{1,3})*\s*[)）]?')),
+    ('公式', re.compile(r'(?<![方形模程仪范格款版])式\s*[（(]?\s*\d{1,3}(?:\s*[-–—.．]\s*\d{1,3})*\s*[)）]?')),
+    ('参考文献', re.compile(r'[\[［]\s*\d{1,3}(?:\s*[-–—,，]\s*\d{1,3})*\s*[\]］]')),
+    ('图', re.compile(r'(?<![A-Za-z])fig(?:ure)?s?\.?\s*\d{1,3}(?:\s*[.．]\s*\d{1,3})?(?!\d)', re.I)),
+    ('表', re.compile(r'(?<![A-Za-z])tab(?:le)?s?\.?\s*\d{1,3}(?:\s*[.．]\s*\d{1,3})?(?!\d)', re.I)),
+    ('公式', re.compile(r'(?<![A-Za-z])eq(?:uation|n)?s?\.?\s*\d{1,3}(?:\s*[.．]\s*\d{1,3})?(?!\d)', re.I)),
+)
 
 
 def compact(text):
@@ -224,6 +237,24 @@ def _body_start_page(ir):
     return max(front_pages) + 4 if front_pages else 0
 
 
+def _abstract_nodes(ir):
+    """Front-matter abstract prose, including split headings and both languages."""
+    body_start = _body_start_page(ir)
+    pages = {page for page, _, text, _ in rows(ir) if compact(text) in _ABSTRACT_HEADING}
+    pages |= {_node_page_index(node) for node in ir['nodes'] if node['kind'] == 'Abstract'}
+    pages = {page for page in pages if page < 10**9 and (not body_start or page < body_start)}
+    return [node for node in ir['nodes'] if node['text'] and node['kind'] in {'Paragraph', 'Abstract'}
+            and not _KEYWORD_LABEL.match(node['text'])
+            and any((_source(span) or {}).get('page_index') in pages for span in node['provenance'])
+            # A contents page repeats "摘要" as an entry; its dot leaders are not abstract prose.
+            and not re.search(r'(?:\.\s*){5,}', node['text'])]
+
+
+def _technical_bracket(text, end):
+    """W[1]-hard style complexity notation is not a bibliography citation."""
+    return bool(re.match(r'[-–—]?(?:困难|hard|complete|完备)', re.sub(r'\s+', '', text[end:end+12]), re.I))
+
+
 def detect_ir(ir, selected_rules=RULES):
     results = {str(rule): {'status': 'completed', 'findings': []} for rule in selected_rules}
     anchor = next((n for n in ir['nodes'] if n['text'] and n['provenance']), None)
@@ -285,6 +316,19 @@ def detect_ir(ir, selected_rules=RULES):
                 results['36']['findings'].append(_finding(ir, 36, node,
                     f'关键词共 {len(terms)} 个，国标要求 3—8 个。', '关键词数量',
                     '请将关键词调整为 3—8 个，并用分号分隔；依据 GB/T 7713.1—2025 附录 A、表 A.1。'))
+    if 37 in selected_rules:
+        for node in _abstract_nodes(ir):
+            text = node['text']
+            for label, pattern in _OBJECT_NUMBERS:
+                for match in pattern.finditer(text):
+                    if label == '参考文献' and _technical_bracket(text, match.end()):
+                        continue
+                    context = text[max(0, match.start()-6):match.end()+6].replace('\n', '')
+                    results['37']['findings'].append(_finding(ir, 37, node,
+                        f'摘要中出现了{label}编号“{match.group()}”（“…{context}…”）；摘要应独立成文，不引用图表、公式或参考文献编号。',
+                        match.group(),
+                        f'请删除摘要中的{label}编号“{match.group()}”，改用文字概括相应内容。',
+                        offset=match.start()))
     if ir['coverage']['pages']['status'] != 'complete':
         for result in results.values(): result['reason'] = '仅检查可读取文字；未将扫描或不可读内容判为缺失。'
     return results

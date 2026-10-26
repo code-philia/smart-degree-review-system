@@ -98,6 +98,22 @@ describe('saved PDF report history', () => {
           ruleset_label: '本地规则',
         },
       },
+      {
+        id: 'abstract-object-37',
+        source_filename: '摘要编号论文.pdf',
+        selected_rule_ids: ['abstract_object_number_check'],
+        created_at: '2026-09-26T05:10:00.000Z',
+        summary: {
+          finding_count: 1,
+          error_finding_count: 0,
+          warning_finding_count: 1,
+          info_finding_count: 0,
+          rule_count: 1,
+          unsupported_rule_count: 0,
+          error_rule_count: 0,
+          ruleset_label: '本地规则',
+        },
+      },
     ]);
     render(
       <MemoryRouter initialEntries={['/thirty-rules-check/reports']}>
@@ -108,6 +124,7 @@ describe('saved PDF report history', () => {
     );
     expect(await screen.findByText('四规则论文.pdf')).toBeInTheDocument();
     expect(await screen.findByText('关键词规则论文.pdf')).toBeInTheDocument();
+    expect(await screen.findByText('摘要编号论文.pdf')).toBeInTheDocument();
     expect(screen.queryByText('基础规则论文.pdf')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: '发起检测' })).toHaveAttribute('href', '/thirty-rules-check');
     expect(
@@ -116,6 +133,7 @@ describe('saved PDF report history', () => {
       expect.arrayContaining([
         '/thirty-rules-check/reports/pdf/local-24',
         '/thirty-rules-check/reports/pdf/keyword-36',
+        '/thirty-rules-check/reports/pdf/abstract-object-37',
       ]),
     );
   });

@@ -23,6 +23,7 @@ def sample_ir():
     add('abstract', 'Abstract', None, 2)
     add('abstract-heading', 'Heading', '摘要', 2, parent='abstract')
     add('keywords', 'Paragraph', '关键词：检测；论文；规则', 2, 160, parent='abstract')
+    add('abstract-text', 'Paragraph', '本文提出一种论文检测方法，对文档结构进行建模与验证。', 2, 120, parent='abstract')
     add('toc', 'Paragraph', '目', 3, x=250)
     add('toc-fragment', 'Paragraph', '录', 3, x=280)
     for nid, title, page in [('intro', '第1章 绪论', 4), ('main', '第2章 方法', 5), ('conclusion', '第3章 总结与展望', 6)]:
@@ -226,6 +227,70 @@ class FastLocalChecksTests(unittest.TestCase):
         self.ir['coverage']['pages']['status'] = 'partial'
         self._keyword_node()['text'] = None
         self.assertEqual(self.check(self.ir, [36])['36']['findings'], [])
+
+    # --- Rule 37: no figure/table/equation/reference numbers in the abstract ---
+
+    def _abstract_node(self, ir=None):
+        return next(n for n in (ir or self.ir)['nodes'] if n['id'] == 'abstract-text')
+
+    def test_clean_abstract_passes_object_number_check(self):
+        self.assertEqual(self.check(self.ir, [37])['37']['findings'], [])
+
+    def test_figure_number_in_abstract_fails(self):
+        self._abstract_node()['text'] = '本文方法如图3-1所示，效果良好。'
+        findings = self.check(self.ir, [37])['37']['findings']
+        self.assertEqual([f['token'] for f in findings], ['图3-1'])
+
+    def test_table_number_in_abstract_fails(self):
+        self._abstract_node()['text'] = '检测结果见表2-1。'
+        findings = self.check(self.ir, [37])['37']['findings']
+        self.assertEqual([f['token'] for f in findings], ['表2-1'])
+
+    def test_equation_number_in_abstract_fails(self):
+        self._abstract_node()['text'] = '由式(4)可得检测阈值。'
+        findings = self.check(self.ir, [37])['37']['findings']
+        self.assertEqual([f['token'] for f in findings], ['式(4)'])
+
+    def test_citation_number_in_abstract_fails(self):
+        self._abstract_node()['text'] = '已有研究[3-5]表明该方法有效。'
+        findings = self.check(self.ir, [37])['37']['findings']
+        self.assertEqual([f['token'] for f in findings], ['[3-5]'])
+
+    def test_english_abstract_figure_number_fails(self):
+        self._abstract_node()['text'] = '本方法流程Fig. 2展示了检测过程。'
+        findings = self.check(self.ir, [37])['37']['findings']
+        self.assertEqual([f['token'] for f in findings], ['Fig. 2'])
+
+    def test_abstract_prose_words_without_numbers_are_not_findings(self):
+        self._abstract_node()['text'] = '本文表明该表达方式有效，并试图改进形式。'
+        self.assertEqual(self.check(self.ir, [37])['37']['findings'], [])
+
+    def test_body_object_number_is_ignored(self):
+        # Body references are legitimate; only front-matter abstract prose is checked.
+        node = next(n for n in self.ir['nodes'] if n['id'] == 'body-text')
+        node['text'] = '实验装置如图3所示，结果见表2-1。'
+        self.assertEqual(self.check(self.ir, [37])['37']['findings'], [])
+
+    def test_abstract_page_prose_without_heading_node_is_checked(self):
+        # A 摘要 heading split across glyph runs leaves abstract prose as plain text.
+        ir = copy.deepcopy(self.ir)
+        ir['nodes'] = [n for n in ir['nodes'] if n['id'] not in {'abstract', 'abstract-heading'}]
+        def span(x, y=100):
+            return [{'kind': 'source', 'source_id': 'pdf', 'page_index': 2,
+                     'bbox': [x, y, x + 12, y + 12],
+                     'coordinate_system': 'unrotated_top_left_points'}]
+        ir['nodes'].append({'id': 'split-heading-1', 'kind': 'Heading', 'text': '摘',
+                            'attrs': {}, 'children': [], 'provenance': span(60)})
+        ir['nodes'].append({'id': 'split-heading-2', 'kind': 'Heading', 'text': '要',
+                            'attrs': {}, 'children': [], 'provenance': span(74)})
+        ir['nodes'].append({'id': 'orphan-abstract', 'kind': 'Paragraph', 'text': '如图3所示，方法有效。',
+                            'attrs': {}, 'children': [], 'provenance': span(60, 200)})
+        self.assertEqual([f['node_id'] for f in self.check(ir, [37])['37']['findings']], ['orphan-abstract'])
+
+    def test_partial_coverage_abstract_number_is_still_reported(self):
+        self.ir['coverage']['pages']['status'] = 'partial'
+        self._abstract_node()['text'] = '如图3所示，方法有效。'
+        self.assertEqual(len(self.check(self.ir, [37])['37']['findings']), 1)
 
 
 if __name__ == '__main__':

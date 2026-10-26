@@ -1,12 +1,13 @@
-# 三条新增 PDF 规则验证（2026-26-10）
+# 新增 PDF 规则验证（2026-10-26）
 
-本记录补充规则 36（关键词数量）的开发验证。规则 31/34/35 的既有验证见 [three-local-rules-validation-20261025.md](../research/three-local-rules-validation-20261025.md)。
+本记录补充规则 36（关键词数量）与规则 37（摘要图表公式文献编号）的开发验证。规则 31/34/35 的既有验证见 [three-local-rules-validation-20261025.md](../research/three-local-rules-validation-20261025.md)。
 
 | 规则 | 单元测试 | 100 变异体测试 | 真实归档抽查 | 结论 |
 | --- | --- | --- | --- | --- |
 | 36 关键词数量 | `test_fast_local_checks` 28 项通过；其中规则 36 新增 8 项：3/8 个通过、2/9 个不通过、跨行关键词合并、无关键词块、正文冒号标签忽略、局部覆盖不误报 | 100/100 检出：50 个母本，50 个 `too_few_2` + 50 个 `too_many_9`；TP=100、FN=0、FP=0、Precision=1.0、Recall=1.0 | 479 篇归档中 2 篇真实违规：马欣贝 9 个、方宇航 2 个；HYUNSOO PARK、李浩宇的正文“关键词：”误标在页界保护后不再报 | 可合入 |
+| 37 摘要图表公式文献编号 | `test_fast_local_checks` 38 项通过；其中规则 37 新增 10 项：干净摘要通过、图/表/式/文献/英文 Fig. 各 1 项、无编号的“表明/表达/形式”不报、正文图号不报、`摘`+`要` 拆分标题的页内段落仍检查、局部覆盖仍报 | 100/100 检出：10 个母本 × 5 个配方（图 3-1、表 2-1、式(4)、[5]、` Fig. 2`）；TP=100、FN=0、FP=0、Precision=1.0、Recall=1.0 | 479 篇归档 0 篇违规；478 篇可定位摘要（中位 3452 字符），说明页界守卫未把范围收得过窄 | 可合入 |
 
-## 规则范围
+## 规则 36 范围
 
 - 仅检查中文“关键词/关键字”标签。
 - 仅检查前置部分；正文、附录和模板中的“关键词：”不触发。
@@ -14,29 +15,11 @@
 - 缺少关键词块不判违规，缺失项由规则 34 负责。
 - 部分覆盖时只检查可读文本，不把无法读取当成缺失。
 
-## 复现
+## 规则 37 范围
 
-单元测试：
-
-```bash
-cd backend
-/data/envs/six-rule-dev/bin/python -m unittest discover -s tests_py -p test_fast_local_checks.py -v
-```
-
-100 变异体测试（`--reuse` 仅在缓存存在时使用；否则省略）：
-
-```bash
-cd /data/home/paper-rules-dev/smart-degree-review-system
-/data/envs/six-rule-dev/bin/python backend/scripts/evaluate_fast_local_rules.py \
-  --archive-root '/data/pdfs/archive479/新系统-归档论文' \
-  --reuse /data/results/three-local-rules-20261025-v4 \
-  --output <可写目录> \
-  --workers 8
-```
-
-## 回归基线
-
-- 后端 `npm run test:mvp`：39 项通过、2 项跳过。
-- 后端全量测试：345 项通过、12 项跳过、6 项失败；6 项均为 `tests/paper-lint-jobs.test.js` 的既有失败。
-- 前端 `npm run test:mvp`：37 项通过；`npm run build` 通过。
-- Python 本地规则测试：28 项通过。
+- 检查对象是前置部分摘要的正文段落（`Abstract` 子树、摘要页上的正文段落，中英文摘要都检查）；标题、关键词行不检查。
+- 摘要页由 `摘要 / 中文摘要 / 英文摘要 / abstract` 标题行确定，并要求页码早于正文起始页；目录页、图目录、正文、附录中的图号表号不触发。
+- 编号类型：`图 3-1`、`表 2-1`、`公式(4)`/`式（4）`、`[5]`/`[3-5]`/`[1,2]`，以及英文 `Fig. 2`、`Table 1`、`Eq. (3)`。
+- 编号必须紧跟数字，`表明`、`表达`、`表决`、`形式`、`方式2` 等普通词不误报；`W[1]-困难` 这类复杂度记号按技术记号排除。
+- 目录页的行内点线与关键词行不参与检查，避免把图目录当成摘要。
+- 摘要缺失不判违规，缺失项由规则 34 负责；局部覆盖时仍按可读文本检查，不把无法读取当成缺失。

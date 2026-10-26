@@ -110,7 +110,7 @@ async function runLocalFiveRules(pdfPath, selectedRuleIds, { signal } = {}) {
     (process.platform === 'win32' ? 'python' : 'python3');
   let stdout;
   try {
-    ({ stdout } = await execFileAsync(python, [numbers.some(number => [31, 34, 35, 36].includes(number)) ? FAST_DETECTOR_SCRIPT : DETECTOR_SCRIPT, '--pdf', pdfPath,
+    ({ stdout } = await execFileAsync(python, [numbers.some(number => [31, 34, 35, 36, 37].includes(number)) ? FAST_DETECTOR_SCRIPT : DETECTOR_SCRIPT, '--pdf', pdfPath,
       ...numbers.flatMap((number) => ['--rule', String(number)])], {
       windowsHide: true, timeout: 300000, maxBuffer: 30 * 1024 * 1024, encoding: 'utf8',
       env: { ...process.env, PYTHONIOENCODING: 'utf-8' }, signal,

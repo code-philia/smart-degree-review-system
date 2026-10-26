@@ -12,7 +12,7 @@ from concurrent.futures import ProcessPoolExecutor
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from fast_local_detector import load_ir, native_coverage
-from paper_compiler.local_checks import detect_ir, core_parts, compact, rows, prose_nodes, _TYPE, _PUNCT, _INTRO, _CONCLUSION, _CHAPTER, _KEYWORD_LABEL, _body_start_page, _node_page_index
+from paper_compiler.local_checks import detect_ir, core_parts, compact, rows, prose_nodes, _TYPE, _PUNCT, _INTRO, _CONCLUSION, _CHAPTER, _KEYWORD_LABEL, _body_start_page, _node_page_index, _abstract_nodes, _OBJECT_NUMBERS, _ABSTRACT_HEADING
 from paper_compiler.contracts import validate_ir
 
 
@@ -125,6 +125,19 @@ def candidates(ir, rule):
             span = [match.start(1), match.end(1)]
             yield ('keyword_too_few_2', [node['id']], span, '甲；乙')
             yield ('keyword_too_many_9', [node['id']], span, '甲；乙；丙；丁；戊；己；庚；辛；壬')
+    elif rule == 37:
+        for node in _abstract_nodes(ir):
+            text = node['text']
+            # A 摘要 heading is not prose; mutating it would also erase the page anchor.
+            if compact(text) in _ABSTRACT_HEADING or any(pattern.search(text) for _, pattern in _OBJECT_NUMBERS):
+                continue
+            span = [len(text), len(text)]
+            for recipe, insertion in [('abstract_figure_number', '如图3-1所示，'),
+                                      ('abstract_table_number', '见表2-1，'),
+                                      ('abstract_equation_number', '由式(4)可得，'),
+                                      ('abstract_citation_number', '已有研究[5]表明，'),
+                                      ('abstract_english_figure_number', ' Fig. 2 shows the trend.')]:
+                yield (recipe, [node['id']], span, insertion)
     else:
         for node in prose_nodes(ir):
             if re.search(r'https?://|www\.|[`=<>]|\b(?:print|def|return|import|if|while)\s*\(', node['text']): continue
@@ -169,7 +182,7 @@ def main():
                 if len(records)%40==0: print('scanned',len(records), '/',len(pdfs),flush=True)
     (args.output/'archive-results.json').write_text(json.dumps(records,ensure_ascii=True,indent=2))
     summary={}; manifest=[]
-    for rule in [31,34,35,36]:
+    for rule in [31,34,35,36,37]:
         count=tp=fp=0; mothers=set()
         for record in records:
             if not record.get('cache') or record.get('error') or record['rules'][str(rule)]['findings']: continue
