@@ -25,6 +25,7 @@ DEEPSEEK_API_KEY_ENV = "REVIEW_PILOT_DEEPSEEK_API_KEY"
 SEMANTIC_RULE_IDS = frozenset(
     {
         "bilingual_abstract_consistency_check",
+        "bilingual_keywords_correspondence_check",
         "claim_evidence_inconsistency_check",
         "strong_claim_without_evidence_check",
     }
@@ -79,8 +80,8 @@ RULE_METADATA: dict[str, tuple[str, str]] = {
         "检查中文文本中的英文半角标点及全角英文字母、数字。",
     ),
     "bilingual_keywords_correspondence_check": (
-        "中英文关键词对应",
-        "检查已识别中英文关键词的数量是否一致。",
+        "中英文关键词语义对应",
+        "使用 Paper Model 提取关键词并由 DeepSeek 判断语义是否一一对应。",
     ),
     "heading_numbering_sequence_check": (
         "标题编号连续性",
@@ -138,9 +139,11 @@ def load_engine(
 
     from novref.domain.paper_lint.context import PaperLintContext
     from novref.domain.paper_lint.contracts import (
+        Finding,
         PaperLintResultRuleset,
         PaperLintSummary,
         PaperLintTaskResult,
+        RuleRun,
     )
     from novref.domain.paper_lint.rules.body_heading_format_check import BodyHeadingFormatRule
     from novref.domain.paper_lint.rules.chinese_abstract_length_check import ChineseAbstractLengthRule
@@ -197,18 +200,15 @@ def load_engine(
     }
 
     if semantic_rules_requested(requested_rule_ids):
+        from paper_model_bilingual_rules import PaperModelBilingualRule
         if deepseek_api_key is None:
             raise RuntimeError("语义规则尚未配置 DeepSeek 官方 API Key")
 
         from openai import AsyncOpenAI
 
-        from novref.domain.paper_lint.rules.bilingual_abstract_consistency_check import (
-            BilingualAbstractConsistencyRule,
-        )
         from novref.domain.paper_lint.rules.claim_evidence_inconsistency_check import (
             ClaimEvidenceInconsistencyRule,
         )
-        from novref.domain.paper_lint.rules.semantic_atomic import SemanticCheckResponse
         from novref.domain.paper_lint.rules.strong_claim_without_evidence_check import (
             StrongClaimWithoutEvidenceRule,
         )
@@ -254,14 +254,20 @@ def load_engine(
                 raise ValueError("DeepSeek returned empty JSON content")
             return content
 
-        async def invoke_semantic_check(messages):
-            content = await invoke_deepseek_json(messages)
-            return SemanticCheckResponse.model_validate_json(content)
-
         if "bilingual_abstract_consistency_check" in requested_rule_ids:
             rule_factories["bilingual_abstract_consistency_check"] = (
-                lambda: BilingualAbstractConsistencyRule(
-                    ainvoke=invoke_semantic_check,
+                lambda: PaperModelBilingualRule(
+                    rule_id="bilingual_abstract_consistency_check",
+                    ainvoke=invoke_deepseek_json,
+                    contracts={"Finding": Finding, "RuleRun": RuleRun},
+                )
+            )
+        if "bilingual_keywords_correspondence_check" in requested_rule_ids:
+            rule_factories["bilingual_keywords_correspondence_check"] = (
+                lambda: PaperModelBilingualRule(
+                    rule_id="bilingual_keywords_correspondence_check",
+                    ainvoke=invoke_deepseek_json,
+                    contracts={"Finding": Finding, "RuleRun": RuleRun},
                 )
             )
         if "claim_evidence_inconsistency_check" in requested_rule_ids:
@@ -368,6 +374,9 @@ async def run_lint(engine: dict[str, Any], pdf_path: Path, rule_ids: list[str]) 
         pdf_path.read_bytes(),
         message_language="zh",
     )
+    if semantic_rules_requested(rule_ids) and any(rule_id.startswith("bilingual_") for rule_id in rule_ids):
+        from paper_model_bilingual_rules import extract_bilingual_facts, load_paper_model, set_paper_model_facts
+        set_paper_model_facts(extract_bilingual_facts(load_paper_model(pdf_path)))
     rule_runs = await engine["execute"](
         context,
         entries,

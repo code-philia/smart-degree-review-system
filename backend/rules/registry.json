@@ -199,6 +199,32 @@
       "repair_surfaces": ["archive"]
     },
     {
+      "rule_id": "bilingual_keywords_correspondence_check",
+      "title": "中英文关键词语义对应",
+      "description": "使用 Paper Model 提取中英文关键词，并由 DeepSeek 判断语义是否一一对应。",
+      "family": "legacy_bridge",
+      "runner": "review_pilot",
+      "execution_mode": "semantic",
+      "uses_external_model": true,
+      "enabled_in_mvp": false,
+      "default_selected": false,
+      "availability_probe": "deepseek_api",
+      "repair_surfaces": ["paper_lint"]
+    },
+    {
+      "rule_id": "bilingual_abstract_consistency_check",
+      "title": "中英文摘要内容一致性",
+      "description": "使用 Paper Model 提取中英文摘要，并由 DeepSeek 判断研究内容是否实质一致。",
+      "family": "legacy_bridge",
+      "runner": "review_pilot",
+      "execution_mode": "semantic",
+      "uses_external_model": true,
+      "enabled_in_mvp": false,
+      "default_selected": false,
+      "availability_probe": "deepseek_api",
+      "repair_surfaces": ["paper_lint"]
+    },
+    {
       "rule_id": "required_section_completeness_check",
       "number": 34,
       "title": "核心章节完整性",

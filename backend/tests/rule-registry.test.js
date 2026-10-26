@@ -19,6 +19,17 @@ describe('rule registry', () => {
     }
   });
 
+  it('registers bilingual semantic rules outside the MVP set', () => {
+    expect(registry.listRuleDefinitions({ family: 'legacy_bridge' }).map((rule) => rule.rule_id)).toContain('bilingual_keywords_correspondence_check');
+    expect(registry.listRuleDefinitions({ family: 'legacy_bridge' }).map((rule) => rule.rule_id)).toContain('bilingual_abstract_consistency_check');
+    for (const ruleId of ['bilingual_keywords_correspondence_check', 'bilingual_abstract_consistency_check']) {
+      expect(registry.getRuleDefinition(ruleId)).toMatchObject({
+        execution_mode: 'semantic', uses_external_model: true,
+        enabled_in_mvp: false, availability_probe: 'deepseek_api',
+      });
+    }
+  });
+
   it('keeps non-MVP legacy families registered without exposing them as MVP rules', () => {
     expect(registry.listRuleDefinitions({ family: 'six_pdf' }).map((rule) => rule.rule_id)).toEqual([
       'sjtu_rule_11', 'sjtu_rule_13', 'sjtu_rule_14', 'sjtu_rule_15', 'sjtu_rule_16', 'sjtu_rule_29',
