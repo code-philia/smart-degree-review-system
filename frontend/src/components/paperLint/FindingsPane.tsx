@@ -311,7 +311,7 @@ export function FindingsPane({
                     ) : null}
                   </div>
                 ) : null}
-                {active && excerpt ? (
+                {active && excerpt && evidence.length === 0 ? (
                   <p className="mt-2 rounded-lg bg-slate-100 px-3 py-2 text-xs leading-5 text-slate-600">
                     原文：{excerpt}
                   </p>
