@@ -103,6 +103,12 @@ def extract_bilingual_facts(ir):
         "english_keywords": next((item for item in keywords if not _CJK.search(item["label"])), None),
     }
 
+def _bounded_text(text: str, limit: int = 12000) -> str:
+    if len(text) <= limit:
+        return text
+    head = limit // 2
+    return text[:head] + "\n...[middle omitted]...\n" + text[-head:]
+
 def _json_object(content: str):
     value = json.loads(content)
     if not isinstance(value, dict): raise ValueError("DeepSeek response must be a JSON object")
@@ -126,7 +132,7 @@ class PaperModelBilingualRule:
         if self.rule_id.endswith("abstract_consistency_check"):
             left, right = facts["chinese_abstract"], facts["english_abstract"]
             if not left or not right: return unsupported(entry, message="bilingual_abstracts_not_detected")
-            prompt = ("Compare the Chinese and English abstracts of the same thesis. Judge research object, method, data, main results and conclusion. Do not require literal translation. Return JSON only with keys: outcome (consistent|inconsistent|inconclusive), summary, mismatches (array).\nChinese abstract:\n" + left[:12000] + "\n\nEnglish abstract:\n" + right[:12000])
+            prompt = ("Compare the Chinese and English abstracts of the same thesis. Judge research object, method, data, main results and conclusion. Do not require literal translation. Return JSON only with keys: outcome (consistent|inconsistent|inconclusive), summary, mismatches (array).\nChinese abstract:\n" + _bounded_text(left) + "\n\nEnglish abstract:\n" + _bounded_text(right))
         else:
             left, right = facts["chinese_keywords"], facts["english_keywords"]
             if not left or not right: return unsupported(entry, message="bilingual_keywords_not_detected")
