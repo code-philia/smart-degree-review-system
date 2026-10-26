@@ -1,0 +1,18 @@
+{
+  "paper_model_version": "paper-model/1.0",
+  "paper_ir_version": "paper-ir/1.0",
+  "semantic_model": "deepseek-v4-flash",
+  "abstract_rule": {
+    "mutants": 20,
+    "issues_found": 20,
+    "false_negatives": 0,
+    "recall": 1.0
+  },
+  "keywords_rule": {
+    "mutants": 20,
+    "issues_found": 20,
+    "false_negatives": 0,
+    "recall": 1.0
+  },
+  "review": "每个变异均有 manifest mutation/review 说明；正常对照另见历史 00_consistent fixture。"
+}
