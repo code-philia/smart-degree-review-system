@@ -80,7 +80,7 @@ function createReviewPilotPaperLintRouter(service = defaultService, exampleServi
 
   router.get('/rules', requireAuth({ allowedRoles }), async (_req, res, next) => {
     try {
-      const catalog = await service.getPaperLintCatalog({ mvpOnly: true });
+      const catalog = await service.getPaperLintCatalog({ mvpOnly: false });
       res.json(filterMvpCatalog(catalog));
     } catch (error) {
       sendError(error, res, next);

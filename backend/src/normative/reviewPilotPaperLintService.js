@@ -8,6 +8,7 @@ const { getSixRules, isSixRuleId, runSixRules, SIX_RULE_TIMEOUT_MS } = require('
 
 const { getCompilerRules, isCompilerRuleId, runCompilerRules } = require('./paperCompilerService');
 const { runPaperLintRuleGroups } = require('./paperLintRuleRunner');
+const { listRuleDefinitions } = require('../../rules/registry');
 
 const RETIRED_RULE_IDS = new Set([
   'claim_evidence_inconsistency_check',
@@ -24,6 +25,15 @@ let catalogPromise = null;
 let catalogExpiresAt = 0;
 let activeRunCount = 0;
 const runQueue = [];
+
+function enabledLegacyCatalogRules() {
+  return listRuleDefinitions({ family: 'legacy_bridge', enabledInMvp: true }).map((rule) => ({
+    ...rule,
+    default_severity: 'warning',
+    repair_supported: rule.repair_surfaces.includes('paper_lint'),
+    available: Boolean(process.env.REVIEW_PILOT_DEEPSEEK_API_KEY) && fs.existsSync(path.join(resolveEngineBackendDir(), 'novref', 'domain', 'paper_lint')),
+  }));
+}
 
 function createHttpError(status, message) {
   const error = new Error(message);
@@ -213,7 +223,7 @@ async function getPaperLintCatalog({ refresh = false, mvpOnly = false } = {}) {
         const localAvailable = await getLocalRuleAvailability({ refresh });
         return {
           engine: 'sjtu-local', mode: 'pdf_lint', semantic_model: 'deepseek-v4-flash',
-          rules: LOCAL_RULES.map((rule) => ({ ...rule, available: localAvailable })).concat(getSixRules(), getCompilerRules()),
+          rules: LOCAL_RULES.map((rule) => ({ ...rule, available: localAvailable })).concat(getSixRules(), getCompilerRules(), enabledLegacyCatalogRules()),
         };
       }
     })();

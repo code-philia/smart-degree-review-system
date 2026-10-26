@@ -206,7 +206,7 @@
       "runner": "review_pilot",
       "execution_mode": "semantic",
       "uses_external_model": true,
-      "enabled_in_mvp": false,
+      "enabled_in_mvp": true,
       "default_selected": false,
       "availability_probe": "deepseek_api",
       "repair_surfaces": ["paper_lint"]
@@ -219,7 +219,7 @@
       "runner": "review_pilot",
       "execution_mode": "semantic",
       "uses_external_model": true,
-      "enabled_in_mvp": false,
+      "enabled_in_mvp": true,
       "default_selected": false,
       "availability_probe": "deepseek_api",
       "repair_surfaces": ["paper_lint"]
