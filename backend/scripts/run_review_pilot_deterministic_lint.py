@@ -112,6 +112,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--catalog", action="store_true")
     parser.add_argument("--pdf", type=Path)
     parser.add_argument("--rule", action="append", default=[])
+    parser.add_argument("--paper-model-facts", type=Path)
     return parser.parse_args()
 
 
@@ -348,7 +349,7 @@ def build_summary(engine: dict[str, Any], rule_runs: list[Any]):
     )
 
 
-async def run_lint(engine: dict[str, Any], pdf_path: Path, rule_ids: list[str]) -> dict[str, Any]:
+async def run_lint(engine: dict[str, Any], pdf_path: Path, rule_ids: list[str], paper_model_facts: dict[str, Any] | None = None) -> dict[str, Any]:
     if not pdf_path.is_file():
         raise RuntimeError("PDF input is missing")
     if not rule_ids:
@@ -376,7 +377,7 @@ async def run_lint(engine: dict[str, Any], pdf_path: Path, rule_ids: list[str]) 
     )
     if semantic_rules_requested(rule_ids) and any(rule_id.startswith("bilingual_") for rule_id in rule_ids):
         from paper_model_bilingual_rules import extract_bilingual_facts, load_paper_model, set_paper_model_facts
-        set_paper_model_facts(extract_bilingual_facts(load_paper_model(pdf_path)))
+        set_paper_model_facts(paper_model_facts or extract_bilingual_facts(load_paper_model(pdf_path)))
     rule_runs = await engine["execute"](
         context,
         entries,
@@ -423,7 +424,10 @@ def main() -> int:
         else:
             if args.pdf is None:
                 raise RuntimeError("--pdf is required")
-            payload = asyncio.run(run_lint(engine, args.pdf, args.rule))
+            paper_model_facts = None
+            if args.paper_model_facts:
+                paper_model_facts = json.loads(args.paper_model_facts.read_text(encoding="utf-8"))
+            payload = asyncio.run(run_lint(engine, args.pdf, args.rule, paper_model_facts))
     print(json.dumps(payload, ensure_ascii=False))
     return 0
 
