@@ -10,13 +10,16 @@ function problem(status, message) {
 }
 
 function modelConfig() {
-  const apiKey = process.env.MAAS_API_KEY;
-  const baseUrl = process.env.MAAS_BASE_URL;
-  const model = process.env.MAAS_MODEL;
+  const campus = process.env.SJTU_API_KEY && process.env.SJTU_API_BASE_URL && process.env.SJTU_API_MODEL;
+  const apiKey = campus ? process.env.SJTU_API_KEY : process.env.MAAS_API_KEY;
+  const baseUrl = campus ? process.env.SJTU_API_BASE_URL : process.env.MAAS_BASE_URL;
+  const model = campus ? process.env.SJTU_API_MODEL : process.env.MAAS_MODEL;
   if (!apiKey || !baseUrl || !model) {
-    throw problem(503, '修复建议模型未配置：需要 MAAS_API_KEY、MAAS_BASE_URL 和 MAAS_MODEL');
+    throw problem(503, '修复建议模型未配置：需要校内 SJTU_API_* 或 MAAS_API_* 配置');
   }
-  return { apiKey, baseUrl: baseUrl.replace(/\/$/, ''), model, modelVersion: process.env.MAAS_MODEL_VERSION || 'unknown' };
+  return { apiKey, baseUrl: baseUrl.replace(/\/$/, ''), model,
+    modelVersion: campus ? (process.env.SJTU_API_MODEL_VERSION || 'campus-current') : (process.env.MAAS_MODEL_VERSION || 'unknown'),
+    provider: campus ? 'sjtu' : 'huawei_maas' };
 }
 
 function boundedCitationText(value, limit) {
@@ -117,7 +120,15 @@ JSON 结构：${JSON.stringify(expected)}`,
 function parseJson(content) {
   if (typeof content !== 'string') throw problem(502, '修复建议模型返回为空');
   const trimmed = content.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-  try { return JSON.parse(trimmed); } catch { throw problem(502, '修复建议模型返回了无法解析的 JSON'); }
+  try { return JSON.parse(trimmed); } catch {
+    const start = trimmed.indexOf('{');
+    if (start < 0) throw problem(502, '修复建议模型返回了无法解析的 JSON');
+    try {
+      const value = JSON.parse(trimmed.slice(start));
+      if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('not object');
+      return value;
+    } catch { throw problem(502, '修复建议模型返回了无法解析的 JSON'); }
+  }
 }
 
 function validateModelAnswer(answer, request) {
@@ -178,7 +189,7 @@ function repairResponse(request, answer, config, usage) {
     rule_id: request.rule.rule_id, finding_id: request.finding.finding_id,
     ...answer,
     provenance: {
-      provider: 'huawei_maas', model: config.model, model_version: config.modelVersion,
+      provider: config.provider || 'huawei_maas', model: config.model, model_version: config.modelVersion,
       prompt_version: PROMPT_VERSION, context_sha256: request.context_sha256,
       source_identity_sha256: request.source_identity_sha256,
       generated_at: new Date().toISOString(),

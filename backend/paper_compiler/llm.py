@@ -19,6 +19,8 @@ RATE_SOURCE = 'https://support.huaweicloud.com/price-maas/price-maas-0002.html'
 INPUT_PER_MILLION = Decimal('2')
 OUTPUT_PER_MILLION = Decimal('8')
 ALLOWED_BASE = 'https://api.modelarts-maas.com/openai/v1'
+ALLOWED_BASES = {ALLOWED_BASE, 'https://models.sjtu.edu.cn/api/v1'}
+SJTU_MODELS = {'deepseek-chat', 'deepseek-reasoner', 'qwen', 'qwen3.8-27b'}
 _MAX_RESPONSE_BYTES = 8 * 1024 * 1024
 _PROCESS_SLOTS = threading.BoundedSemaphore(3)
 LEGACY_INPUT_SERIALIZATION = 'legacy-ascii-json/1.0'
@@ -32,18 +34,32 @@ class ModelError(RuntimeError):
 
 def load_config(path):
     config = {}
-    for line in Path(path).read_text(encoding='utf-8').splitlines():
-        line = line.strip()
-        if not line or line.startswith('#') or '=' not in line:
-            continue
-        key, value = line.split('=', 1)
-        config[key.strip()] = value.strip().strip('"').strip("'")
+    if str(path) == ':env:':
+        config = dict(os.environ)
+    else:
+        for line in Path(path).read_text(encoding='utf-8').splitlines():
+            line = line.strip()
+            if not line or line.startswith('#') or '=' not in line:
+                continue
+            key, value = line.split('=', 1)
+            config[key.strip()] = value.strip().strip('"').strip("'")
+    if config.get('SJTU_API_KEY'):
+        config.setdefault('MAAS_API_KEY', config['SJTU_API_KEY'])
+        config.setdefault('MAAS_BASE_URL', config.get('SJTU_API_BASE_URL', ''))
+        config.setdefault('MAAS_MODEL', config.get('SJTU_API_MODEL', ''))
+        config.setdefault('MAAS_MODEL_VERSION', config.get('SJTU_API_MODEL_VERSION', 'campus-current'))
+        config['MODEL_PROVIDER'] = 'sjtu'
+    else:
+        config['MODEL_PROVIDER'] = 'huawei_maas'
     if not config.get('MAAS_API_KEY'):
         raise ModelError('main-line model credentials missing')
-    if config.get('MAAS_BASE_URL', '').rstrip('/') != ALLOWED_BASE:
+    base = config.get('MAAS_BASE_URL', '').rstrip('/')
+    if base not in ALLOWED_BASES:
         raise ModelError('unapproved model endpoint')
-    if config.get('MAAS_MODEL') != 'deepseek-v4.1-flash':
+    if base == ALLOWED_BASE and config.get('MAAS_MODEL') != 'deepseek-v4.1-flash':
         raise ModelError('unapproved model')
+    if base == 'https://models.sjtu.edu.cn/api/v1' and config.get('MAAS_MODEL') not in SJTU_MODELS:
+        raise ModelError('unapproved campus model')
     return config
 
 
@@ -92,14 +108,18 @@ def _decode_json_object(content):
         wrapped = re.fullmatch(r'```(?:json)?[ \t]*\r?\n(.*)\r?\n```', value, re.DOTALL)
         if wrapped is None:
             raise ValueError('expected exactly one JSON fence')
-        value = wrapped.group(1)
-    value = value.strip(' \t\r\n')
+        value = wrapped.group(1).strip(' \t\r\n')
     try:
         result = json.loads(value, parse_constant=_reject_json_constant)
     except json.JSONDecodeError:
-        result, end = json.JSONDecoder(parse_constant=_reject_json_constant).raw_decode(value)
-        if value[end:].strip(' \t\r\n') != '}':
-            raise ValueError('expected one object or single extra closing-brace envelope') from None
+        decoder = json.JSONDecoder(parse_constant=_reject_json_constant)
+        start = value.find('{')
+        if start < 0:
+            raise ValueError('expected JSON object') from None
+        result, end = decoder.raw_decode(value[start:])
+        trailing = value[start + end:].strip(' \t\r\n')
+        if trailing not in {'', '}'}:
+            raise ValueError('expected one JSON object envelope') from None
     if not isinstance(result, dict):
         raise ValueError('expected object')
     return result
@@ -202,7 +222,7 @@ class MaasClient:
                 'publication-evidence-review', 'positive-conflict-review', 'repair-suggestion'}:
             payload['response_format'] = {'type': 'json_object'}
         fingerprint = {'task': task, 'model_version': self.config.get('MAAS_MODEL_VERSION'),
-                       'endpoint': ALLOWED_BASE, 'adapter_version': 2, 'payload': payload}
+                       'endpoint': self.config.get('MAAS_BASE_URL', ALLOWED_BASE).rstrip('/'), 'provider': self.config.get('MODEL_PROVIDER'), 'adapter_version': 2, 'payload': payload}
         if self.input_serialization != LEGACY_INPUT_SERIALIZATION:
             fingerprint['input_serialization'] = self.input_serialization
         return fingerprint
@@ -244,7 +264,7 @@ class MaasClient:
                 try:
                     limits = getattr(self, '_request_limits', None)
                     timeout = self.timeout if limits is None else min(float(self.timeout), limits.remaining())
-                    response = self.transport(ALLOWED_BASE + '/chat/completions', headers, payload, timeout)
+                    response = self.transport(self.config['MAAS_BASE_URL'].rstrip('/') + '/chat/completions', headers, payload, timeout)
                 except BaseException as error:
                     if not isinstance(error, Exception):
                         self.ledger.mark_uncertain(request_id, 'transport')
