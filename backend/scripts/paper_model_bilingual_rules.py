@@ -110,9 +110,35 @@ def _bounded_text(text: str, limit: int = 12000) -> str:
     return text[:head] + "\n...[middle omitted]...\n" + text[-head:]
 
 def _json_object(content: str):
-    value = json.loads(content)
-    if not isinstance(value, dict): raise ValueError("DeepSeek response must be a JSON object")
-    return value
+    """Decode one JSON object from an OpenAI-compatible model response.
+
+    Some compatible gateways prepend a short instruction or wrap the object in
+    Markdown even when ``response_format=json_object`` is requested. Keep the
+    semantic rule contract strict (one object, no arrays or scalar values), but
+    tolerate that transport envelope by scanning for the first complete object.
+    """
+    if not isinstance(content, str):
+        raise ValueError("DeepSeek response must be JSON text")
+    value = content.strip()
+    decoder = json.JSONDecoder(parse_constant=lambda token: (_ for _ in ()).throw(
+        ValueError(f"invalid JSON constant: {token}")))
+    try:
+        result = decoder.decode(value)
+    except (json.JSONDecodeError, ValueError):
+        result = None
+        for index, char in enumerate(value):
+            if char != "{":
+                continue
+            try:
+                candidate, _ = decoder.raw_decode(value[index:])
+            except (json.JSONDecodeError, ValueError):
+                continue
+            if isinstance(candidate, dict):
+                result = candidate
+                break
+    if not isinstance(result, dict):
+        raise ValueError("DeepSeek response must contain one JSON object")
+    return result
 
 PAPER_MODEL_FACTS = None
 
