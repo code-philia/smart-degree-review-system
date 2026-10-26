@@ -114,6 +114,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   const [runError, setRunError] = useState<string | null>(null);
   const requestIdRef = useRef<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [externalConsent, setExternalConsent] = useState(false);
 
   const loadCatalog = async () => {
     setCatalogLoading(true);
@@ -143,6 +144,10 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
 
   const visibleRules = useMemo(() => rulesForMode(catalog?.rules || [], mode), [catalog, mode]);
   const rulesById = useMemo(() => new Map((catalog?.rules || []).map((rule) => [rule.rule_id, rule])), [catalog]);
+  const selectedExternalRule = useMemo(
+    () => visibleRules.some((rule) => selectedRuleIds.includes(rule.rule_id) && rule.uses_external_model),
+    [selectedRuleIds, visibleRules],
+  );
   const findings = useMemo(() => (response ? flattenPaperLintFindings(response.result) : []), [response]);
   const repairSuggestions = usePaperLintRepairSuggestions(response?.id);
   const [findingFeedbackByKey, setFindingFeedbackByKey] = useState<Record<string, FindingFeedback | null>>({});
@@ -395,6 +400,10 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
       setRunError('请至少选择一条审查规则');
       return;
     }
+    if (selectedExternalRule && !externalConsent) {
+      setRunError('运行 DeepSeek 语义规则前，请先确认论文相关文本允许发送至外部 API');
+      return;
+    }
     setRunning(true);
     setRunError(null);
     setResponse(null);
@@ -404,7 +413,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     savePendingRequest(requestId, file.name, selectedRuleIds);
     try {
       setUploadPercent(0);
-      const submitted = await runReviewPilotPaperLint(file, selectedRuleIds, false, requestId, setUploadPercent);
+      const submitted = await runReviewPilotPaperLint(file, selectedRuleIds, externalConsent, requestId, setUploadPercent);
       setUploadPercent(null);
       let nextResponse: PaperLintRunResponse;
       if (isPaperLintJobResponse(submitted)) {
@@ -619,6 +628,20 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
                 当前页面暂无可用规则。
               </p>
             ) : null}
+            {selectedExternalRule ? (
+              <label className="mt-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                <input
+                  className="mt-0.5 size-4 accent-brand-500"
+                  type="checkbox"
+                  checked={externalConsent}
+                  onChange={(event) => setExternalConsent(event.target.checked)}
+                  disabled={running}
+                />
+                <span>
+                  我确认本次论文相关文本允许发送至外部 API（校内 DeepSeek）进行语义检测。
+                </span>
+              </label>
+            ) : null}
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
               <p className="text-sm text-slate-600">
                 已选择 <strong className="text-slate-900">{selectedRuleIds.length}</strong> 条规则
@@ -628,7 +651,8 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
                   !file ||
                   !catalog ||
                   selectedRuleIds.length === 0 ||
-                  running
+                  running ||
+                  (selectedExternalRule && !externalConsent)
                 }
                 onClick={() => void runReview()}
               >
