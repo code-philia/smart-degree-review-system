@@ -1,5 +1,5 @@
 const ALLOWED_STATUSES = new Set(['suggested', 'insufficient_context', 'evidence_conflict']);
-const PROMPT_VERSION = 'repair-model-actions-v4';
+const PROMPT_VERSION = 'repair-model-actions-v5';
 const MAX_EVIDENCE_ITEMS = 8;
 const MAX_EVIDENCE_CHARS = 12000;
 
@@ -10,16 +10,15 @@ function problem(status, message) {
 }
 
 function modelConfig() {
-  const campus = process.env.SJTU_API_KEY && process.env.SJTU_API_BASE_URL && process.env.SJTU_API_MODEL;
-  const apiKey = campus ? process.env.SJTU_API_KEY : process.env.MAAS_API_KEY;
-  const baseUrl = campus ? process.env.SJTU_API_BASE_URL : process.env.MAAS_BASE_URL;
-  const model = campus ? process.env.SJTU_API_MODEL : process.env.MAAS_MODEL;
+  const apiKey = process.env.SJTU_API_KEY;
+  const baseUrl = process.env.SJTU_API_BASE_URL;
+  const model = process.env.SJTU_API_MODEL;
   if (!apiKey || !baseUrl || !model) {
-    throw problem(503, '修复建议模型未配置：需要校内 SJTU_API_* 或 MAAS_API_* 配置');
+    throw problem(503, '修复建议模型未配置：需要校内 SJTU_API_* 配置');
   }
   return { apiKey, baseUrl: baseUrl.replace(/\/$/, ''), model,
-    modelVersion: campus ? (process.env.SJTU_API_MODEL_VERSION || 'campus-current') : (process.env.MAAS_MODEL_VERSION || 'unknown'),
-    provider: campus ? 'sjtu' : 'huawei_maas' };
+    modelVersion: process.env.SJTU_API_MODEL_VERSION || 'campus-current',
+    provider: 'sjtu' };
 }
 
 function boundedCitationText(value, limit) {
@@ -79,7 +78,7 @@ function buildMessages(request) {
   const bilingualInstructions = bilingual ? `
 ## 中英文双语规则专用要求
 这是中英文摘要/关键词对应规则。输入证据中的“中文原文”和“英文原文”是本次判断的核心上下文，不能把它们当成泛泛的摘要信息。
-如果状态为 suggested，建议必须同时引用中文和英文原文证据，并明确指出哪一侧应以另一侧为校准依据；建议中要引用证据里的短片段和页码，直接说明应将哪一版本改成什么含义。
+如果状态为 suggested，建议必须同时引用中文和英文原文证据，但必须保持保守：不得仅凭摘要或关键词擅自认定中文或英文哪一侧正确，不得输出“以中文为准”“以英文为准”“将英文改成中文”等绝对结论。应明确指出两侧的具体差异，建议作者结合正文、方法、实验结果和术语定义核对后再决定修改哪一侧；除非输入证据明确证明某一侧是权威版本，否则只提出同步核对和最小修改方向。
 如果状态为 insufficient_context，只能明确指出缺少哪一侧的哪一段原文（包括页码或定位）；如果输入已经有两侧原文，不得再笼统要求“提供摘要信息”或“核对摘要”。
 ` : '';
   const expected = {
@@ -218,7 +217,7 @@ function repairResponse(request, answer, config, usage) {
     rule_id: request.rule.rule_id, finding_id: request.finding.finding_id,
     ...answer,
     provenance: {
-      provider: config.provider || 'huawei_maas', model: config.model, model_version: config.modelVersion,
+      provider: config.provider || 'sjtu', model: config.model, model_version: config.modelVersion,
       prompt_version: PROMPT_VERSION, context_sha256: request.context_sha256,
       source_identity_sha256: request.source_identity_sha256,
       generated_at: new Date().toISOString(),

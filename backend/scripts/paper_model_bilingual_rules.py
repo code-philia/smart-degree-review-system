@@ -23,10 +23,12 @@ def _join_wrapped_keyword_lines(parts: list[str]) -> str:
         next_part = part.strip()
         if not next_part:
             continue
-        # A hyphen at the end of a layout line followed by a letter is a
-        # discretionary word break (for example ``re-`` + ``verse``).
+        # Keep the hyphen while removing only the layout whitespace. In keyword
+        # names it can be a real part of the term (for example ``Re-`` +
+        # ``verse`` -> ``Re-verse``), and deleting it makes later matching
+        # unstable.
         if re.search(r"[A-Za-z]-$", combined) and re.match(r"^[A-Za-z]", next_part):
-            combined = combined[:-1] + next_part
+            combined += next_part
         else:
             combined += " " + next_part
     return combined
@@ -51,6 +53,26 @@ def _node_text(node: dict[str, Any], by_id: dict[str, dict[str, Any]]) -> str:
 def _line_rows(ir):
     return [str(line.get("text", "")).strip() for page in ir.get("layout", {}).get("pages", []) for line in page.get("lines", []) if str(line.get("text", "")).strip()]
 
+
+def _overlapping_keyword_fragment(previous_bbox, current_bbox, previous_text, current_text):
+    """Ignore a stray text layer overlapping a wrapped keyword line.
+
+    Some PDFs contain a short duplicated/overlaid text span between ``Re-`` and
+    the next physical line. It must not become part of the keyword value.
+    Restrict this heuristic to an ASCII token, a preceding hyphen, and clear
+    vertical overlap with the preceding line so normal hyphenated keywords are
+    preserved.
+    """
+    if not (previous_bbox and current_bbox and previous_text.rstrip().endswith("-")):
+        return False
+    if not re.fullmatch(r"[A-Za-z]{2,16}", current_text.strip()):
+        return False
+    px1, py1, px2, py2 = map(float, previous_bbox)
+    cx1, cy1, cx2, cy2 = map(float, current_bbox)
+    overlap = min(py2, cy2) - max(py1, cy1)
+    height = min(py2 - py1, cy2 - cy1)
+    return overlap >= max(1.0, height * 0.5) and cx2 <= px1 + 12
+
 def extract_bilingual_facts(ir):
     nodes = ir.get("nodes", [])
     by_id = {node.get("id"): node for node in nodes if node.get("id")}
@@ -65,16 +87,27 @@ def extract_bilingual_facts(ir):
                 if item not in keywords: keywords.append(item)
     # Paper Model layout is authoritative even when a split heading (摘/要) leaves
     # the body as ordinary paragraphs. Stitch each abstract from native lines.
-    flat = [(page.get("page_index", 0), str(line.get("text", "")).strip())
-            for page in ir.get("layout", {}).get("pages", [])
-            for line in page.get("lines", []) if str(line.get("text", "")).strip()]
+    flat = []
+    flat_bboxes = []
+    for page in ir.get("layout", {}).get("pages", []):
+        for line in page.get("lines", []):
+            text = str(line.get("text", "")).strip()
+            if text:
+                flat.append((page.get("page_index", 0), text))
+                flat_bboxes.append(line.get("bbox"))
     # Rejoin keyword lines split by PDF layout (e.g. Re- / verse).
     for i, (_, text) in enumerate(flat):
         match = _KEYWORDS.match(text)
         if not match:
             continue
         parts = [match.group(2)]
-        for _, following in flat[i + 1:i + 9]:
+        for offset, (_, following) in enumerate(flat[i + 1:i + 9], 1):
+            absolute_index = i + offset
+            if _overlapping_keyword_fragment(
+                flat_bboxes[absolute_index - 1], flat_bboxes[absolute_index],
+                flat[absolute_index - 1][1], following,
+            ):
+                continue
             compact_following = re.sub(r"\s+", "", following)
             if re.fullmatch(r"[ivxlcdm]+", compact_following, re.I) or _KEYWORDS.match(following):
                 break

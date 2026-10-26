@@ -32,7 +32,7 @@ KEYWORD_REPLACEMENTS = [
     "Stars", "Blockchain", "Sentiment Analysis", "Computer Vision", "Natural Language Processing",
     "Differential Privacy", "Federated Learning", "Quantum Computing", "Database Systems", "Robotics",
 ]
-KEYWORD_REMOVALS = ["Rings", "Message Authentication Code", "Privacy-preserving Machine Learning", "Secure Multi-party Computation", "Re- verse Multiplication-Friendly Embedding"]
+KEYWORD_REMOVALS = ["Rings", "Message Authentication Code", "Privacy-preserving Machine Learning", "Secure Multi-party Computation", "Re-verse Multiplication-Friendly Embedding"]
 KEYWORD_ADDITIONS = ["Security", "Blockchain", "Robotics", "Computer Vision", "Natural Language Processing"]
 
 def main():
