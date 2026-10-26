@@ -20,6 +20,8 @@ const ENGINE_TIMEOUT_MS = 5 * 60 * 1000;
 const RUN_TIMEOUT_MESSAGE = '规则审查运行超时，请减少规则后重试';
 const MAX_CONCURRENT_RUNS = Math.max(1, Number(process.env.REVIEW_PILOT_MAX_CONCURRENT_RUNS) || 2);
 const bridgeScript = path.resolve(__dirname, '../../scripts/run_review_pilot_deterministic_lint.py');
+const bilingualScript = path.resolve(__dirname, '../../scripts/run_bilingual_semantic_lint.py');
+const BILINGUAL_RULE_IDS = new Set(['bilingual_abstract_consistency_check', 'bilingual_keywords_correspondence_check']);
 
 let catalogPromise = null;
 let catalogExpiresAt = 0;
@@ -31,7 +33,9 @@ function enabledLegacyCatalogRules() {
     ...rule,
     default_severity: 'warning',
     repair_supported: rule.repair_surfaces.includes('paper_lint'),
-    available: Boolean(process.env.REVIEW_PILOT_DEEPSEEK_API_KEY) && fs.existsSync(path.join(resolveEngineBackendDir(), 'novref', 'domain', 'paper_lint')),
+    available: BILINGUAL_RULE_IDS.has(rule.rule_id)
+      ? Boolean(process.env.SJTU_API_KEY && process.env.SJTU_API_BASE_URL && process.env.SJTU_API_MODEL)
+      : Boolean(process.env.REVIEW_PILOT_DEEPSEEK_API_KEY) && fs.existsSync(path.join(resolveEngineBackendDir(), 'novref', 'domain', 'paper_lint')),
   }));
 }
 
@@ -104,17 +108,28 @@ function parseLastEnginePayload(stdout) {
   throw new Error('missing engine payload');
 }
 
-function runBridge(args, timeoutMs = ENGINE_TIMEOUT_MS, signal) {
-  if (signal?.aborted) return Promise.reject(createHttpError(504, RUN_TIMEOUT_MESSAGE));
-  const backendDir = resolveEngineBackendDir();
-  assertEngineAvailable(backendDir);
+function resolvePaperModelPython() {
+  return process.env.PAPER_MODEL_PYTHON
+    || process.env.FIVE_RULE_PYTHON
+    || process.env.SIX_RULE_PYTHON
+    || 'python3';
+}
 
+function runJsonScript(script, args, {
+  python,
+  cwd,
+  timeoutMs = ENGINE_TIMEOUT_MS,
+  signal,
+  unavailableMessage = '规则脚本无法启动',
+} = {}) {
+  if (signal?.aborted) return Promise.reject(createHttpError(504, RUN_TIMEOUT_MESSAGE));
   return new Promise((resolve, reject) => {
-    const child = spawn(
-      resolveEnginePython(backendDir),
-      [bridgeScript, '--backend-dir', backendDir, ...args],
-      { cwd: backendDir, env: childEnvironment(), shell: false, stdio: ['ignore', 'pipe', 'pipe'] },
-    );
+    const child = spawn(python, [script, ...args], {
+      cwd,
+      env: childEnvironment(),
+      shell: false,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
     let stdout = '';
     let stderr = '';
     let timedOut = false;
@@ -128,13 +143,11 @@ function runBridge(args, timeoutMs = ENGINE_TIMEOUT_MS, signal) {
       clearTimeout(timer);
       signal?.removeEventListener('abort', onAbort);
     };
-
     const timer = setTimeout(() => {
       timedOut = true;
       child.kill('SIGTERM');
       setTimeout(() => child.kill('SIGKILL'), 2000).unref();
     }, timeoutMs);
-
     child.stdout.on('data', (chunk) => {
       if (outputTooLarge) return;
       stdout += chunk.toString('utf8');
@@ -148,24 +161,50 @@ function runBridge(args, timeoutMs = ENGINE_TIMEOUT_MS, signal) {
     });
     child.once('error', () => {
       clearRun();
-      reject(signal?.aborted
-        ? createHttpError(504, RUN_TIMEOUT_MESSAGE)
-        : createHttpError(503, 'review-pilot 规则引擎无法启动'));
+      reject(signal?.aborted ? createHttpError(504, RUN_TIMEOUT_MESSAGE) : createHttpError(503, unavailableMessage));
     });
     child.once('close', (code) => {
       clearRun();
       if (timedOut || signal?.aborted) return reject(createHttpError(504, RUN_TIMEOUT_MESSAGE));
       if (outputTooLarge) return reject(createHttpError(502, '规则审查结果过大，无法返回'));
-      if (code !== 0) {
-        return reject(createHttpError(502, parseLastEngineError(stderr) || 'review-pilot 规则审查运行失败'));
-      }
+      if (code !== 0) return reject(createHttpError(502, parseLastEngineError(stderr) || unavailableMessage));
       try {
         resolve(parseLastEnginePayload(stdout));
       } catch {
-        reject(createHttpError(502, '规则引擎返回了无法解析的结果'));
+        reject(createHttpError(502, '规则脚本返回了无法解析的结果'));
       }
     });
   });
+}
+
+function runBridge(args, timeoutMs = ENGINE_TIMEOUT_MS, signal) {
+  const backendDir = resolveEngineBackendDir();
+  assertEngineAvailable(backendDir);
+  return runJsonScript(
+    bridgeScript,
+    ['--backend-dir', backendDir, ...args],
+    {
+      python: resolveEnginePython(backendDir),
+      cwd: backendDir,
+      timeoutMs,
+      signal,
+      unavailableMessage: 'review-pilot 规则引擎运行失败',
+    },
+  );
+}
+
+function runBilingualSemanticRules(pdfPath, ruleIds, timeoutMs = ENGINE_TIMEOUT_MS, signal) {
+  return runJsonScript(
+    bilingualScript,
+    ['--pdf', pdfPath, ...ruleIds.flatMap((ruleId) => ['--rule', ruleId])],
+    {
+      python: resolvePaperModelPython(),
+      cwd: path.resolve(__dirname, '../..'),
+      timeoutMs,
+      signal,
+      unavailableMessage: '仓库 Paper Model 双语语义规则运行失败',
+    },
+  );
 }
 
 function withRunSlot(callback, signal) {
@@ -212,11 +251,15 @@ async function getPaperLintCatalog({ refresh = false, mvpOnly = false } = {}) {
     catalogExpiresAt = Infinity;
     catalogPromise = (async () => {
       try {
-        const existing = await runBridge(['--catalog'], 30 * 1000);
         const localAvailable = await getLocalRuleAvailability({ refresh });
         const localRules = LOCAL_RULES.map((rule) => ({ ...rule, available: localAvailable }));
-        return { ...existing, rules: [...localRules, ...getSixRules(), ...getCompilerRules(), ...existing.rules.filter(rule => !isLocalRuleId(rule.rule_id))]
-          .filter((rule) => !RETIRED_RULE_IDS.has(rule.rule_id)) };
+        return {
+          engine: 'sjtu-local',
+          mode: 'pdf_lint',
+          semantic_model: process.env.SJTU_API_MODEL || 'deepseek-v4-flash',
+          rules: [...localRules, ...getSixRules(), ...getCompilerRules(), ...enabledLegacyCatalogRules()]
+            .filter((rule) => !RETIRED_RULE_IDS.has(rule.rule_id)),
+        };
       } catch {
         // A temporary bridge failure must not hide the existing rule catalog indefinitely.
         catalogExpiresAt = 0;
@@ -318,19 +361,32 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
       try {
         if (controller.signal.aborted) throw createHttpError(504, RUN_TIMEOUT_MESSAGE);
         await fs.promises.writeFile(pdfPath, pdfBuffer, { flag: 'wx', mode: 0o600 });
-        const parts = await runPaperLintRuleGroups({
-          pdfPath,
-          selectedRuleIds: normalizedRuleIds,
-          signal: controller.signal,
-          runners: {
-            local_pdf: (file, ruleIds, options) => runLocalFiveRules(file, ruleIds, options),
-            six_pdf: (file, ruleIds, options) => runSixRules(file, ruleIds, options),
-            compiler: (file, ruleIds, options) => runCompilerRules(file, ruleIds, options),
-            legacy_bridge: (_file, ruleIds, { signal }) => runBridge([
-              '--pdf', pdfPath, ...ruleIds.flatMap((ruleId) => ['--rule', ruleId]),
-            ], ENGINE_TIMEOUT_MS, signal),
-          },
-        });
+        const bilingualRuleIds = normalizedRuleIds.filter((ruleId) => BILINGUAL_RULE_IDS.has(ruleId));
+        const otherRuleIds = normalizedRuleIds.filter((ruleId) => !BILINGUAL_RULE_IDS.has(ruleId));
+        const parts = [];
+        if (bilingualRuleIds.length) {
+          parts.push(await runBilingualSemanticRules(
+            pdfPath,
+            bilingualRuleIds,
+            ENGINE_TIMEOUT_MS,
+            controller.signal,
+          ));
+        }
+        if (otherRuleIds.length) {
+          parts.push(...await runPaperLintRuleGroups({
+            pdfPath,
+            selectedRuleIds: otherRuleIds,
+            signal: controller.signal,
+            runners: {
+              local_pdf: (file, ruleIds, options) => runLocalFiveRules(file, ruleIds, options),
+              six_pdf: (file, ruleIds, options) => runSixRules(file, ruleIds, options),
+              compiler: (file, ruleIds, options) => runCompilerRules(file, ruleIds, options),
+              legacy_bridge: (_file, ruleIds, { signal }) => runBridge([
+                '--pdf', pdfPath, ...ruleIds.flatMap((ruleId) => ['--rule', ruleId]),
+              ], ENGINE_TIMEOUT_MS, signal),
+            },
+          }));
+        }
         if (controller.signal.aborted) throw createHttpError(504, RUN_TIMEOUT_MESSAGE);
         const result = parts.length > 1
           ? mergePaperLintResults(parts[0], { rule_runs: parts.slice(1).flatMap((part) => part.rule_runs) }, normalizedRuleIds)

@@ -44,10 +44,12 @@ def load_config(path):
             key, value = line.split('=', 1)
             config[key.strip()] = value.strip().strip('"').strip("'")
     if config.get('SJTU_API_KEY'):
-        config.setdefault('MAAS_API_KEY', config['SJTU_API_KEY'])
-        config.setdefault('MAAS_BASE_URL', config.get('SJTU_API_BASE_URL', ''))
-        config.setdefault('MAAS_MODEL', config.get('SJTU_API_MODEL', ''))
-        config.setdefault('MAAS_MODEL_VERSION', config.get('SJTU_API_MODEL_VERSION', 'campus-current'))
+        # Campus credentials are authoritative when present; do not let legacy
+        # MAAS_* variables shadow the selected campus endpoint or model.
+        config['MAAS_API_KEY'] = config['SJTU_API_KEY']
+        config['MAAS_BASE_URL'] = config.get('SJTU_API_BASE_URL', '')
+        config['MAAS_MODEL'] = config.get('SJTU_API_MODEL', '')
+        config['MAAS_MODEL_VERSION'] = config.get('SJTU_API_MODEL_VERSION', 'campus-current')
         config['MODEL_PROVIDER'] = 'sjtu'
     else:
         config['MODEL_PROVIDER'] = 'huawei_maas'

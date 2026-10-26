@@ -22,6 +22,20 @@ from typing import Any
 FIXED_DEEPSEEK_MODEL = "deepseek-v4-flash"
 FIXED_DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 DEEPSEEK_API_KEY_ENV = "REVIEW_PILOT_DEEPSEEK_API_KEY"
+
+def deepseek_config() -> tuple[str, str, str]:
+    campus = (
+        os.environ.get("SJTU_API_KEY", "").strip()
+        and os.environ.get("SJTU_API_BASE_URL", "").strip()
+        and os.environ.get("SJTU_API_MODEL", "").strip()
+    )
+    if campus:
+        return os.environ["SJTU_API_KEY"].strip(), os.environ["SJTU_API_BASE_URL"].rstrip("/"), os.environ["SJTU_API_MODEL"].strip()
+    return (
+        os.environ.get(DEEPSEEK_API_KEY_ENV, "").strip(),
+        FIXED_DEEPSEEK_BASE_URL,
+        FIXED_DEEPSEEK_MODEL,
+    )
 SEMANTIC_RULE_IDS = frozenset(
     {
         "bilingual_abstract_consistency_check",
@@ -121,9 +135,9 @@ def semantic_rules_requested(rule_ids: list[str]) -> bool:
 
 
 def require_deepseek_api_key() -> str:
-    api_key = os.environ.get(DEEPSEEK_API_KEY_ENV, "").strip()
+    api_key, _base_url, _model = deepseek_config()
     if not api_key:
-        raise RuntimeError("语义规则尚未配置 DeepSeek 官方 API Key")
+        raise RuntimeError("语义规则尚未配置校内 SJTU_API_* 或兼容 DeepSeek API Key")
     return api_key
 
 
@@ -214,9 +228,10 @@ def load_engine(
             StrongClaimWithoutEvidenceRule,
         )
 
+        _configured_key, deepseek_base_url, deepseek_model = deepseek_config()
         deepseek = AsyncOpenAI(
             api_key=deepseek_api_key,
-            base_url=FIXED_DEEPSEEK_BASE_URL,
+            base_url=deepseek_base_url,
             max_retries=0,
             timeout=120.0,
         )
@@ -243,7 +258,7 @@ def load_engine(
                 }
             )
             response = await deepseek.chat.completions.create(
-                model=FIXED_DEEPSEEK_MODEL,
+                model=deepseek_model,
                 messages=request_messages,
                 temperature=0,
                 max_tokens=8192,
