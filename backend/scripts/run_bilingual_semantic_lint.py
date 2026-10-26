@@ -87,24 +87,64 @@ def prompt_for(rule_id: str, facts: dict[str, Any]) -> str | None:
         if not left or not right:
             return None
         return (
-            "Compare the Chinese and English abstracts of the same thesis. "
-            "Judge research object, method, data, main results and conclusion. "
-            "Do not require literal translation. Return JSON only with keys: "
-            "outcome (consistent|inconsistent|inconclusive), summary, mismatches (array).\n"
-            "Chinese abstract:\n" + _bounded_text(left) +
-            "\n\nEnglish abstract:\n" + _bounded_text(right)
+            "比较同一学位论文的中文摘要和英文摘要，判断研究对象、方法、数据、主要结果和结论是否对应。"
+            "不要求逐字翻译。请用简体中文填写 summary 和 mismatches。仅返回 JSON，键为："
+            "outcome (consistent|inconsistent|inconclusive), summary, mismatches (array)。\n"
+            "中文摘要：\n" + _bounded_text(left) +
+            "\n\n英文摘要：\n" + _bounded_text(right)
         )
     left, right = facts.get("chinese_keywords"), facts.get("english_keywords")
     if not left or not right:
         return None
     return (
-        "Match Chinese and English thesis keywords by meaning, not by count. "
-        "Return JSON only with keys: outcome (consistent|inconsistent|inconclusive), "
+        "按语义而不是数量匹配中文和英文关键词。请用简体中文填写 summary、reason 和其它说明字段。"
+        "仅返回 JSON，键为：outcome (consistent|inconsistent|inconclusive), "
         "summary, pairs (array of objects with chinese, english, match, reason), "
-        "missing_chinese (array), missing_english (array).\n"
-        "Chinese keywords: " + json.dumps(left.get("values", []), ensure_ascii=False) +
-        "\nEnglish keywords: " + json.dumps(right.get("values", []), ensure_ascii=False)
+        "missing_chinese (array), missing_english (array)。\n"
+        "中文关键词：" + json.dumps(left.get("values", []), ensure_ascii=False) +
+        "\n英文关键词：" + json.dumps(right.get("values", []), ensure_ascii=False)
     )
+
+
+def _has_cjk(value: Any) -> bool:
+    return any("\u3400" <= char <= "\u9fff" for char in str(value or ""))
+
+
+def _location(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, dict):
+        return None
+    page = value.get("page_number")
+    if not isinstance(page, int) or page < 1:
+        return None
+    return {"type": "pdf_page", "page_number": page,
+            "text_excerpt": str(value.get("text_excerpt") or "")[:500]}
+
+
+def _anchors_and_evidence(facts: dict[str, Any], kind: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    locations = facts.get("locations") or {}
+    labels = (("chinese_abstract", "中文摘要"), ("english_abstract", "英文摘要")) if kind == "abstract" else (("chinese_keywords", "中文关键词"), ("english_keywords", "英文关键词"))
+    anchors = []
+    evidence = []
+    for index, (key, label) in enumerate(labels, 1):
+        loc = _location(locations.get(key))
+        if not loc:
+            continue
+        anchors.append({"anchor_id": f"{kind}-{index}", "role": "source_span",
+                        "label": label, "description": label, "location": loc})
+        value = facts.get(key)
+        quote = str(value.get("text") if isinstance(value, dict) else value or "").strip()
+        evidence.append({"id": f"{kind}-{index}", "kind": "source_span",
+                         "provider": "repo-paper-model", "quote": quote[:2000]})
+    return anchors, evidence
+
+
+def _chinese_summary(value: Any, abstract: bool) -> str:
+    text = str(value or "").strip()
+    if _has_cjk(text):
+        return text
+    return ("中英文摘要在研究对象、方法、数据、主要结果或结论中的至少一项存在语义不一致，请结合两侧原文核对。"
+            if abstract else
+            "中英文关键词存在语义不对应，请结合两侧关键词原文逐项核对。")
 
 
 def run(pdf: Path, rule_ids: list[str]) -> dict[str, Any]:
@@ -130,20 +170,20 @@ def run(pdf: Path, rule_ids: list[str]) -> dict[str, Any]:
         findings = []
         if outcome == "inconsistent":
             abstract = rule_id.endswith("abstract_consistency_check")
+            anchors, evidence = _anchors_and_evidence(facts, "abstract" if abstract else "keywords")
+            primary_location = anchors[0]["location"] if anchors else None
             findings.append({
                 "finding_id": f"{rule_id}_1",
                 "rule_id": rule_id,
-                "message": str(payload.get("summary") or (
-                    "中英文摘要在研究内容上存在语义不一致。" if abstract
-                    else "中英文关键词存在语义不对应。"
-                )),
+                "message": _chinese_summary(payload.get("summary"), abstract),
                 "suggestion": (
-                    "请依据中文摘要核对英文摘要的研究对象、方法、数据、结果和结论。"
+                    "请依据下方中文摘要和英文摘要原文，定位研究对象、方法、数据、结果或结论的具体差异，并只对不一致的一侧作最小修改。"
                     if abstract else
-                    "请按语义逐项核对中文关键词与英文关键词，并补齐、删除或修正不对应项。"
+                    "请依据下方中英文关键词原文，逐项核对语义对应关系；对不对应项进行补齐、删除或修正，不要仅按数量调整。"
                 ),
-                "location": None,
-                "anchors": [],
+                "location": primary_location,
+                "anchors": anchors,
+                "evidence": evidence,
             })
         runs.append({
             "rule_run_id": f"run_{rule_id}",

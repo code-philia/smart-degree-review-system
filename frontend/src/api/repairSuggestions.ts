@@ -14,7 +14,7 @@ export type RepairSuggestion = {
   missing_context?: string[];
   actions: { instruction: string; evidence_ids: string[] }[];
   provenance: {
-    provider: 'huawei_maas';
+    provider: 'huawei_maas' | 'sjtu';
     model: string;
     model_version: string;
     prompt_version: string;

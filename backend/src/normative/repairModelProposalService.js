@@ -82,6 +82,7 @@ function buildMessages(request) {
     {
       role: 'system',
       content: `你是学位论文规范问题的修复建议助手。请根据规则、告警和证据，为论文作者提供简明、具体、可直接执行的修复建议。
+所有面向用户的 summary、instruction、missing_context 必须使用简体中文；原文证据和英文术语可保持原样。
 
 ## 修复原则（按优先级执行）
 

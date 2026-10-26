@@ -96,6 +96,17 @@ function evidenceFromFinding(finding, index = 0) {
   };
 }
 
+function bilingualEvidence(finding) {
+  return (Array.isArray(finding.evidence) ? finding.evidence : [])
+    .filter((entry) => entry && typeof entry.quote === 'string' && entry.quote.trim())
+    .map((entry, index) => ({
+      evidence_id: `bilingual-evidence-${index + 1}`,
+      source_kind: 'pdf_text',
+      text: entry.quote.trim(),
+      source_ref: `paper_lint_report:bilingual_evidence:${entry.id || index + 1}`,
+    }));
+}
+
 function evidenceFromAnchor(anchor, index) {
   const location = anchor?.location || {};
   const text = String(anchor?.text || location.text_excerpt || anchor?.message || '').trim();
@@ -122,6 +133,7 @@ function buildLegacyRepairRequest({ job, document, ruleRun, finding }) {
   const evidence = [
     evidenceFromFinding(finding),
     ...(CITATION_REPAIR_RULE_IDS.has(ruleRun.rule_id) ? citationEvidence(finding) : []),
+    ...(BILINGUAL_REPAIR_RULE_IDS.has(ruleRun.rule_id) ? bilingualEvidence(finding) : []),
     ...(Array.isArray(finding.anchors) ? finding.anchors.map((anchor, index) => evidenceFromAnchor(anchor, index + 1)) : []),
   ].filter(Boolean);
   if (BASIC_REPAIR_RULE_IDS.has(ruleRun.rule_id) && !finding.location?.text_excerpt) {
@@ -163,6 +175,7 @@ function buildPaperLintReportRepairRequest({ report, ruleRun, finding, documentS
   const evidence = [
     evidenceFromFinding(finding),
     ...(CITATION_REPAIR_RULE_IDS.has(ruleRun.rule_id) ? citationEvidence(finding) : []),
+    ...(BILINGUAL_REPAIR_RULE_IDS.has(ruleRun.rule_id) ? bilingualEvidence(finding) : []),
     ...(Array.isArray(finding.anchors) ? finding.anchors.map((anchor, index) => evidenceFromAnchor(anchor, index + 1)) : []),
   ].filter(Boolean).map((item) => ({ ...item, source_ref: item.source_ref.replace('legacy_archive:', 'paper_lint_report:') }));
   if (BASIC_REPAIR_RULE_IDS.has(ruleRun.rule_id) && !finding.location?.text_excerpt) {

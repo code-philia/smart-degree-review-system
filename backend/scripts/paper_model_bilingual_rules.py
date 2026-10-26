@@ -74,33 +74,67 @@ def extract_bilingual_facts(ir):
             keywords.append(candidate)
 
     def section(label, stop):
+        normalized_label = re.sub(r"\s+", "", label).casefold()
         start = next((i for i, (_, text) in enumerate(flat)
-                      if text.casefold() == label), None)
+                      if re.sub(r"\s+", "", text).casefold() == normalized_label), None)
         if start is None and label == "摘要":
             start = next((i for i in range(len(flat)-1)
-                          if flat[i][1] == "摘" and flat[i+1][1] == "要"), None)
-        if start is None: return None
+                          if re.sub(r"\s+", "", flat[i][1]) == "摘"
+                          and re.sub(r"\s+", "", flat[i+1][1]) == "要"), None)
+        if start is None:
+            return None, None
         body = []
-        for _, text in flat[start + 1:]:
+        first_body = None
+        for page_index, text in flat[start + 1:]:
             compact = re.sub(r"\s+", "", text).casefold()
-            if compact in stop: break
-            if compact in {label, "摘 要", "abstract"}: continue
+            normalized_stop = {re.sub(r"\s+", "", item).casefold() for item in stop}
+            if compact in normalized_stop:
+                break
+            if compact in {normalized_label, "摘要", "abstract"}:
+                continue
+            if first_body is None:
+                first_body = {"page_number": int(page_index) + 1,
+                              "text_excerpt": text[:500]}
             body.append(text)
-            if len(body) >= 180: break
-        return "\n".join(body).strip() or None
-    chinese_abstract = section("摘要", {"关键词", "关键字", "keywords", "keywords"})
-    english_abstract = section("abstract", {"关键词", "关键字", "keywords", "keywords"})
+            if len(body) >= 180:
+                break
+        return "\n".join(body).strip() or None, first_body
+
+    chinese_abstract, chinese_abstract_location = section(
+        "摘要", {"关键词", "关键字", "keywords", "key words"})
+    english_abstract, english_abstract_location = section(
+        "abstract", {"关键词", "关键字", "keywords", "key words"})
     if not chinese_abstract:
         chinese_abstract = next((text for text in abstracts if _CJK.search(text)), None)
     if not english_abstract:
-        english_abstract = next((text for text in abstracts if not _CJK.search(text) and re.search(r"[A-Za-z]", text)), None)
+        english_abstract = next((text for text in abstracts
+                                 if not _CJK.search(text) and re.search(r"[A-Za-z]", text)), None)
+
+    def keyword_location(item):
+        if not item:
+            return None
+        label = str(item.get("label") or "")
+        for page_index, text in flat:
+            if label.casefold() in text.casefold():
+                return {"page_number": int(page_index) + 1,
+                        "text_excerpt": text[:500]}
+        return None
+
+    chinese_keywords = next((item for item in keywords if _CJK.search(item["label"])), None)
+    english_keywords = next((item for item in keywords if not _CJK.search(item["label"])), None)
     return {
         "model_version": ir.get("model_version"),
         "schema_version": ir.get("schema_version"),
         "chinese_abstract": chinese_abstract,
         "english_abstract": english_abstract,
-        "chinese_keywords": next((item for item in keywords if _CJK.search(item["label"])), None),
-        "english_keywords": next((item for item in keywords if not _CJK.search(item["label"])), None),
+        "chinese_keywords": chinese_keywords,
+        "english_keywords": english_keywords,
+        "locations": {
+            "chinese_abstract": chinese_abstract_location,
+            "english_abstract": english_abstract_location,
+            "chinese_keywords": keyword_location(chinese_keywords),
+            "english_keywords": keyword_location(english_keywords),
+        },
     }
 
 def _bounded_text(text: str, limit: int = 12000) -> str:
