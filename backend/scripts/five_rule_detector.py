@@ -22,6 +22,8 @@ TITLES = {6: '摘要连续内容重复', 18: '公式引用目标不存在', 22: 
 _CITATION = re.compile(r'\[(\d+(?:(?:\s*[-–—－,，、;；]\s*|\s+)\d+)*)\]')
 # A bare 式 can introduce an equation, but 方式/模式/形式/范式： often introduce numbered lists.
 _FORMULA_REFERENCE = re.compile(r'(?:公式[\s:：]*|(?<![公方模形范样类])式\s*|equation[\s:：]*|eq\.?[\s:：]*)[（(]\s*(\d+(?:\s*[.．–—－−-]\s*\d+)*[a-z]?)\s*[)）]', re.I)
+# Bare English references require chapter numbering; EQ1 and equation 4x are also code/data.
+_BARE_EN_FORMULA_REFERENCE = re.compile(r'\b(?:equations?|eqs?\.?)[\s:：]*(\d+(?:\s*[.．–—－−-]\s*\d+)+[a-z]?)(?!\w|[.．–—－−-]\s*\d|[–—－−-]\s*$)', re.I)
 _DISPLAY_FORMULA = re.compile(r'^[（(]\s*(\d+(?:\s*[.．–—－−-]\s*\d+)*[a-z]?)\s*[)）]$', re.I)
 _DISPLAY_FORMULA_TAIL = re.compile(r'[（(]\s*(\d+(?:\s*[.．–—－−-]\s*\d+)*[a-z]?)\s*[)）]\s*$', re.I)
 _TOC_ENTRY = re.compile(r'^\s*(.+?)(?:(?:\.\s*){2,}|…{2,}|⋯{2,}|·{2,})[\s\u2060]*(\d{1,4})\s*$')
@@ -231,7 +233,7 @@ def _formula_key(number: str) -> str:
 
 def _formula_targets(number: str) -> list[str]:
     compact = re.sub(r'\s+', '', number)
-    interval = re.fullmatch(r'(\d+)[.．−-](\d+)[-–—－−](\d+)[.．−-](\d+)', compact)
+    interval = re.fullmatch(r'(\d+)[.．–—－−-](\d+)[-–—－−](\d+)[.．–—－−-](\d+)', compact)
     if interval:
         first_chapter, first, last_chapter, last = map(int, interval.groups())
         if first_chapter == last_chapter and first <= last and last - first <= 50:
@@ -250,15 +252,23 @@ def _external_formula_reference(text: str, formula_start: int) -> bool:
     return not re.search(r'(?:本文|本研究|本论文|我们)(?:的|中|提出|使用)?$', attribution.group())
 
 
+def _formula_references(text: str) -> list[re.Match]:
+    return sorted([*_FORMULA_REFERENCE.finditer(text), *_BARE_EN_FORMULA_REFERENCE.finditer(text)],
+                  key=lambda match: match.start())
+
+
 def _wrapped_formula_reference(previous: Line, current: Line) -> tuple[re.Match, str, int] | None:
     """Find a reference whose formula keyword and number straddle two PDF lines."""
     if (previous.page != current.page
             or not 0 <= current.bbox[1] - previous.bbox[1] <= 35
-            or not re.match(r'^\s*[（(]', current.text)):
+            or not re.match(r'^\s*(?:[（(]|\d)', current.text)):
+        return None
+    if re.match(r'^\s*\d', current.text) and not re.search(
+            r'\b(?:equations?|eqs?\.?)[\s:：]*(?:\d+(?:[.．–—－−-]\d+)*[–—－−-])?\s*$', previous.text, re.I):
         return None
     context = previous.text + ' ' + current.text
     offset = len(previous.text) + 1
-    for match in _FORMULA_REFERENCE.finditer(context):
+    for match in _formula_references(context):
         if match.start() < offset < match.end():
             return match, context, offset
     return None
@@ -280,7 +290,7 @@ def _rule_18(body: list[Line]) -> dict:
         if trailing and formula_like and line.bbox[2] > line.page_width * .7:
             displayed.add(_formula_key(trailing.group(1)))
     if not displayed:
-        has_reference = any(_FORMULA_REFERENCE.search(line.text) for line in body)
+        has_reference = any(_formula_references(line.text) for line in body)
         has_wrapped_reference = any(
             _wrapped_formula_reference(body[index - 1], line)
             for index, line in enumerate(body) if index)
@@ -301,7 +311,7 @@ def _rule_18(body: list[Line]) -> dict:
                 context_offset = len(previous.text) + 1
         references = [(match, context, context_offset + match.start(),
                        match.start(), match.end())
-                      for match in _FORMULA_REFERENCE.finditer(line.text)]
+                      for match in _formula_references(line.text)]
         if index:
             wrapped = _wrapped_formula_reference(body[index - 1], line)
             if wrapped:

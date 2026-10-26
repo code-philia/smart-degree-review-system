@@ -216,7 +216,7 @@
       "rule_id": "chinese_english_symbol_mix_check",
       "number": 35,
       "title": "中英文标点符号是否混用",
-      "description": "本地检查中文文字之间错误使用英文标点的情况。",
+      "description": "本地检查中英文正文中错误使用标点符号的情况。",
       "family": "local_pdf",
       "runner": "fast_local_detector",
       "execution_mode": "deterministic",

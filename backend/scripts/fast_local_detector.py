@@ -7,21 +7,28 @@ import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from paper_compiler.frontend import build_paper
-from paper_compiler.local_checks import RULES, detect_ir
+from paper_compiler.local_checks import RULES, detect_ir, _source
 from five_rule_detector import RULES as OLD_RULES, detect_pdf
 
 
 def native_coverage(ir):
     pages = ir['layout']['pages']
-    complete = all(page.get('lines') or not page.get('images') for page in pages)
+    readable = []
     for page in pages:
         area = page['width'] * page['height']
         large_image = any((box[2]-box[0])*(box[3]-box[1]) > area*.5 for box in page.get('images', []))
         interior = sum(len(line['text'].strip()) for line in page.get('lines', []) if page['height']*.15 < line['bbox'][1] < page['height']*.9)
-        if large_image and interior < 80:
-            complete = False
-    ir['coverage']['pages'] = ({'status': 'complete', 'protocol': 'native-text-and-blank-pages/1.1', 'evidence_ids': [ir['root_id']]} if complete else
+        image_area = sum((box[2]-box[0])*(box[3]-box[1]) for box in page.get('images', []))
+        image_only = not page.get('lines') and image_area > area*.01
+        readable.append(not (image_only or (large_image and interior < 80)))
+    complete = all(readable)
+    reference_pages = [source['page_index'] for node in ir['nodes']
+                       if node['kind'] in {'Bibliography', 'BibliographyEntry'}
+                       for span in node['provenance'] if (source := _source(span))]
+    core_end = max(reference_pages, default=len(pages)-1)
+    ir['coverage']['pages'] = ({'status': 'complete', 'protocol': 'native-text-and-blank-pages/1.2', 'evidence_ids': [ir['root_id']]} if complete else
                               {'status': 'partial', 'reason': 'image content is not read; no OCR or API is used'})
+    ir['coverage']['pages']['core_sections_status'] = 'complete' if all(readable[:core_end+1]) else 'partial'
     return ir
 
 

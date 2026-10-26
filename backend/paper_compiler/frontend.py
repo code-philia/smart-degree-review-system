@@ -11,10 +11,11 @@ from .citations import attach_citations
 from .contracts import SCHEMA_VERSION, MODEL_VERSION, validate_ir
 from .llm import ModelError
 
-FRONTEND_VERSION='pdf-source-frontend/1.5'
+FRONTEND_VERSION='pdf-source-frontend/1.6'
 BIB_HEADING=re.compile(r'^(?:参考文献|參考文獻|References|Bibliography)\s*$',re.I)
 ENTRY=re.compile(r'^\s*(?:[\[［](\d{1,4})[\]］]|(\d{1,4})[.、．])\s*')
 NUMBERED_HEADING=re.compile(r'^(?:(第[一二三四五六七八九十百\d]+章)\s*|((?:\d+\.)*\d+)\s+)(\S.{0,65})$')
+ENGLISH_CHAPTER=re.compile(r'^Chapter\s+\d+(?:\s*[:：]\s*|\s+)\S.{0,65}$',re.I)
 BACK_HEADING=re.compile(r'^(?:致\s*谢|Acknowledg(?:e)?ments?|附录(?:[A-Z一二三\d]+)?(?:[.、:：\-—]?\S.{0,65})?|Appendix(?:[A-Z\d])?(?:[:.\-—]?\S.{0,65})?|攻读.*(?:成果|论文|专利)(?:目录|清单)?|学术论文(?:和|与|及)科研成果(?:目录)?|(?:作者(?:简介|简历)|个人简历)(?:及.*(?:成果|论文|专利)(?:目录)?)?|符号(?:与|和|及)标记[（(]附录[A-Z一二三\d]+[）)])\s*$',re.I)
 
 
@@ -286,6 +287,7 @@ def build_paper(pdf: Path, *, client=None, layout_cache=None, include_citations=
                     append_line(current_entry,page,line)
                 previous_line=(page,line);continue
             heading=NUMBERED_HEADING.fullmatch(text)
+            english_heading=ENGLISH_CHAPTER.fullmatch(text)
             named_heading=bool(len(text)<70 and line['font_size']>=normal*1.22 and not re.search(r'[。.!?]$',text))
             if mode=='front' and not title_added and not heading and not re.fullmatch(r'Abstract|摘要|目录|Contents',text,re.I):
                 add('Title',line['text'],'front',lines=[(page,line)]);title_added=True;previous_line=None;continue
@@ -295,7 +297,8 @@ def build_paper(pdf: Path, *, client=None, layout_cache=None, include_citations=
             if re.fullmatch(r'Contents|目录',text,re.I):
                 section_stack=[(1,add('ToC',None,'front'))];mode='toc';paragraph=None
                 add('Heading',line['text'],section_stack[-1][1],lines=[(page,line)]);previous_line=None;continue
-            if heading or (named_heading and mode not in {'toc','abstract'}):
+            english_title=bool(re.fullmatch(r'Chapter\s+\d+[:：]?|Introduction(?:\s+and\s+.{1,50})?|Conclusions?',text,re.I))
+            if heading or english_heading or (named_heading and (mode not in {'toc','abstract'} or english_title)):
                 level=1 if not heading or heading.group(1) else heading.group(2).count('.')+1
                 number=(heading.group(1) or heading.group(2)) if heading else ''
                 while section_stack and section_stack[-1][0]>=level:section_stack.pop()
