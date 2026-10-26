@@ -1,5 +1,5 @@
 const ALLOWED_STATUSES = new Set(['suggested', 'insufficient_context', 'evidence_conflict']);
-const PROMPT_VERSION = 'repair-model-actions-v3';
+const PROMPT_VERSION = 'repair-model-actions-v4';
 const MAX_EVIDENCE_ITEMS = 8;
 const MAX_EVIDENCE_CHARS = 12000;
 
@@ -74,9 +74,18 @@ function boundedEvidence(evidence, ruleId) {
 
 function buildMessages(request) {
   const evidence = boundedEvidence(request.evidence, request.rule.rule_id);
+  const bilingual = ['bilingual_abstract_consistency_check', 'bilingual_keywords_correspondence_check']
+    .includes(request.rule.rule_id);
+  const bilingualInstructions = bilingual ? `
+## 中英文双语规则专用要求
+这是中英文摘要/关键词对应规则。输入证据中的“中文原文”和“英文原文”是本次判断的核心上下文，不能把它们当成泛泛的摘要信息。
+如果状态为 suggested，建议必须同时引用中文和英文原文证据，并明确指出哪一侧应以另一侧为校准依据；建议中要引用证据里的短片段和页码，直接说明应将哪一版本改成什么含义。
+如果状态为 insufficient_context，只能明确指出缺少哪一侧的哪一段原文（包括页码或定位）；如果输入已经有两侧原文，不得再笼统要求“提供摘要信息”或“核对摘要”。
+` : '';
   const expected = {
     status: 'suggested | insufficient_context | evidence_conflict',
     actions: [{ instruction: 'string', evidence_ids: ['evidence id'] }],
+    missing_context: ['string'],
   };
   return [
     {
@@ -92,6 +101,7 @@ function buildMessages(request) {
 4. **精准简洁**：尽量包含页码、原文短片段及明确修改动作，优先使用“在第X页‘原文片段’处，将A修改为B”。原文片段必须来自输入证据，不得改写或补造。每条建议原则上为1～2句话，不输出排查流程。
 5. **定位准确**：使用原文上下文作为定位锚点：如果输入证据包含问题原文及其前后文，应优先提取能够唯一识别修改位置的连续原文片段。片段应包含待修改内容，并尽量保留其前后各约 10～20 个汉字。不得改写、补造或拼接不存在的原文。若原文较长，只截取与修改直接相关的部分。
 
+${bilingualInstructions}
 ## 状态规则
 
 - suggested：现有证据支持合理的具体修复方案，包括必要的合理推断。
@@ -111,7 +121,12 @@ JSON 结构：${JSON.stringify(expected)}`,
       role: 'user',
       content: JSON.stringify({
         rule: request.rule,
-        finding: { finding_id: request.finding.finding_id, message: request.finding.message },
+        finding: {
+          finding_id: request.finding.finding_id,
+          message: request.finding.message,
+          location: request.finding.location || null,
+          anchors: Array.isArray(request.finding.anchors) ? request.finding.anchors : [],
+        },
         evidence,
       }),
     },
@@ -150,9 +165,22 @@ function validateModelAnswer(answer, request) {
     }
     return { instruction: action.instruction.trim(), evidence_ids: normalizeIds(action.evidence_ids) };
   });
+  const missingContext = Array.isArray(answer.missing_context)
+    ? answer.missing_context.filter((item) => typeof item === 'string' && item.trim()).map((item) => item.trim()).slice(0, 8)
+    : [];
+  const bilingual = ['bilingual_abstract_consistency_check', 'bilingual_keywords_correspondence_check']
+    .includes(request.rule.rule_id);
+  if (bilingual && answer.status === 'suggested') {
+    const bilingualIds = validIds.has('bilingual-evidence-1') && validIds.has('bilingual-evidence-2')
+      ? ['bilingual-evidence-1', 'bilingual-evidence-2'] : [];
+    if (bilingualIds.length === 2 && !actions.some((action) => bilingualIds.every((id) => action.evidence_ids.includes(id)))) {
+      throw problem(502, '双语修复建议必须同时引用中文和英文原文证据');
+    }
+  }
   return {
     status: answer.status,
     actions,
+    ...(missingContext.length ? { missing_context: missingContext } : {}),
   };
 }
 

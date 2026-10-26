@@ -97,14 +97,25 @@ function evidenceFromFinding(finding, index = 0) {
 }
 
 function bilingualEvidence(finding) {
+  const anchors = new Map((Array.isArray(finding.anchors) ? finding.anchors : [])
+    .filter((anchor) => anchor && anchor.anchor_id)
+    .map((anchor) => [anchor.anchor_id, anchor]));
   return (Array.isArray(finding.evidence) ? finding.evidence : [])
     .filter((entry) => entry && typeof entry.quote === 'string' && entry.quote.trim())
-    .map((entry, index) => ({
-      evidence_id: `bilingual-evidence-${index + 1}`,
-      source_kind: 'pdf_text',
-      text: entry.quote.trim(),
-      source_ref: `paper_lint_report:bilingual_evidence:${entry.id || index + 1}`,
-    }));
+    .map((entry, index) => {
+      const anchor = anchors.get(entry.id);
+      const location = anchor?.location || {};
+      const page = location.page_number || location.pdf_page || entry.page_number;
+      const label = anchor?.label || (index === 0 ? '中文原文' : '英文原文');
+      return {
+        evidence_id: `bilingual-evidence-${index + 1}`,
+        source_kind: 'pdf_text',
+        text: `【${label}${page ? `，第${page}页` : ''}】\n${entry.quote.trim()}`,
+        page_number: page,
+        location: location || undefined,
+        source_ref: `paper_lint_report:bilingual_evidence:${entry.id || index + 1}`,
+      };
+    });
 }
 
 function evidenceFromAnchor(anchor, index) {

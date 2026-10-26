@@ -296,7 +296,9 @@ export function FindingsPane({
                             ? '可执行建议'
                             : repair.status === 'evidence_conflict'
                               ? '证据与告警存在冲突：暂不应仅依据该告警修改论文，请人工复核规则结果。'
-                              : '需要补充上下文：请按上述建议核对相关内容。'}
+                              : repair.missing_context?.length
+                                ? `需要核对：${repair.missing_context.join('；')}`
+                                : '需要补充明确的原文片段和定位后再确定修改。'}
                           {' · '}
                           {repair.provenance.model} · {repair.provenance.prompt_version}
                         </p>
