@@ -8,4 +8,5 @@ export const THIRTY_RULE_IDS = new Set([
   'chinese_english_symbol_mix_check',
   'keyword_count_check',
   'abstract_object_number_check',
+  'chapter_new_page_check',
 ]);

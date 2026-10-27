@@ -253,6 +253,20 @@
       "default_selected": false,
       "availability_probe": "pymupdf",
       "repair_surfaces": ["paper_lint"]
+    },
+    {
+      "rule_id": "chapter_new_page_check",
+      "number": 38,
+      "title": "章标题另起一页",
+      "description": "检查正文各章标题是否从新页开始，即章标题上方不应再有上一章内容",
+      "family": "local_pdf",
+      "runner": "fast_local_detector",
+      "execution_mode": "deterministic",
+      "uses_external_model": false,
+      "enabled_in_mvp": true,
+      "default_selected": false,
+      "availability_probe": "pymupdf",
+      "repair_surfaces": ["paper_lint"]
     }
   ]
 }

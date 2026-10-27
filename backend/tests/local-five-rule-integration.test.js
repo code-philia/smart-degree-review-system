@@ -28,6 +28,7 @@ describe('four local rules in the existing basic-check flow', () => {
       'required_section_completeness_check', 'chinese_english_symbol_mix_check',
       'keyword_count_check',
       'abstract_object_number_check',
+      'chapter_new_page_check',
       'sjtu_rule_11', 'sjtu_rule_13', 'sjtu_rule_14', 'sjtu_rule_15', 'sjtu_rule_16', 'sjtu_rule_29',
       'sjtu_rule_32', 'sjtu_rule_33',
     ]);

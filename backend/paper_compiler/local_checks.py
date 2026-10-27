@@ -1,7 +1,7 @@
 """Five native-text checks over the shared Paper Model / Paper IR. No network."""
 import re
 
-RULES = (31, 34, 35, 36, 37)  # execution keys only; public titles have no rule numbers
+RULES = (31, 34, 35, 36, 37, 38)  # execution keys only; public titles have no rule numbers
 _CHAPTER = re.compile(r'^(?:第[一二三四五六七八九十百0-9]+[章篇]|chapter\d+|\d+(?:[.．]\d+)*[.．、]?)', re.I)
 _INTRO = re.compile(r'^(?:绪论|绪言|引言|引论|introduction)$', re.I)
 _CONCLUSION = re.compile(r'^(?:(?:课题|全文|研究|工作|论文)?(?:总结|结论)(?:[与和及](?:未来)?(?:展望|工作|建议|讨论))?|总结|结论|总结[与和及](?:未来)?展望|结论[与和及](?:未来)?展望|总结[与和及]未来工作|研究结论|全文总结|研究总结|总结展望|结论及建议|结束语|conclusions?(?:andfuturework)?|summary(?:and(?:futurework|outlook))?)$', re.I)
@@ -26,6 +26,17 @@ _OBJECT_NUMBERS = (
     ('表', re.compile(r'(?<![A-Za-z])tab(?:le)?s?\.?\s*\d{1,3}(?:\s*[.．]\s*\d{1,3})?(?!\d)', re.I)),
     ('公式', re.compile(r'(?<![A-Za-z])eq(?:uation|n)?s?\.?\s*\d{1,3}(?:\s*[.．]\s*\d{1,3})?(?!\d)', re.I)),
 )
+# A chapter label must be a whole visual row: 第4 章 alone, or the number followed
+# by a whitespace-separated title of at most 40 chars without sentence punctuation.
+# Prose such as 第三章的… or 第一章是绪论，… therefore never becomes a chapter label.
+_CHAPTER_LABEL = re.compile(r'^第\s*[一二三四五六七八九十百零〇0-9]{1,4}\s*章(?:\s+[^\s，。；：！？、,;:!?]{1,40})?$')
+_LEADER_LINE = re.compile(r'\.{3,}|…')
+# Page furniture above the top margin (running headers, page numbers) is not prior
+# chapter content; rows() drops small ones, but 12.6 pt headers survive its 12.5 cut.
+_TOP_MARGIN = 0.12
+# A chapter heading is typeset larger than body text. Body-size rows that start with
+# 第x章 are 论文组织结构 prose or figure cells, never a chapter opening.
+_HEADING_SCALE = 1.25
 
 
 def compact(text):
@@ -237,6 +248,44 @@ def _body_start_page(ir):
     return max(front_pages) + 4 if front_pages else 0
 
 
+def chapter_labels(ir):
+    """Body chapter opening labels with the visual rows that precede them on the page.
+
+    A label is a whole visual row such as 第4 章 or 第4 章 系统设计 that is typeset as a
+    heading. Pages holding three or more labels are 目录/章节安排 lists, dot-leader rows
+    are 目录 entries, and rows above the top margin are running headers; all are skipped
+    before any geometry is judged.
+    """
+    body_start = _body_start_page(ir)
+    page_height = {page['page_index']: page.get('height', 0) for page in ir['layout']['pages']}
+    visual = list(rows(ir))
+    prose = sorted(box[3] - box[1] for _, box, text, _ in visual
+                   if len(compact(text)) >= 15 and 0 < box[3] - box[1] < 40)
+    body = prose[len(prose) // 2] if prose else 0
+    by_page = {}
+    for page, box, text, node in visual:
+        by_page.setdefault(page, []).append((box, text, node))
+    found = []
+    for page, items in sorted(by_page.items()):
+        if page < body_start:
+            continue
+        margin = page_height.get(page, 0) * _TOP_MARGIN
+        items.sort(key=lambda row: (row[0][1], row[0][0]))
+        labels = [row for row in items
+                  if _CHAPTER_LABEL.match(row[1].strip()) and not _LEADER_LINE.search(row[1])
+                  and row[2]['kind'] not in {'TableCell', 'Caption'}
+                  and row[0][3] > margin
+                  and (not body or row[0][3] - row[0][1] >= body * _HEADING_SCALE)]
+        if len(labels) >= 3:
+            continue
+        for box, text, node in labels:
+            # Same-baseline heading fragments end at this row's own baseline; only
+            # text whose bottom stays above the label is prior content.
+            prior = [row for row in items if row[0][3] <= box[1] + 2 and row[0][3] > margin]
+            found.append((page, box, text, node, prior))
+    return found
+
+
 def _abstract_nodes(ir):
     """Front-matter abstract prose, including split headings and both languages."""
     body_start = _body_start_page(ir)
@@ -329,6 +378,14 @@ def detect_ir(ir, selected_rules=RULES):
                         match.group(),
                         f'请删除摘要中的{label}编号“{match.group()}”，改用文字概括相应内容。',
                         offset=match.start()))
+    if 38 in selected_rules:
+        for page, box, text, node, prior in chapter_labels(ir):
+            if not prior:
+                continue
+            label = compact(text)
+            results['38']['findings'].append(_finding(ir, 38, node,
+                f'{label}未从新页开始：该章标题上方仍有上一章内容。', label,
+                f'请在“{label}”前插入分页符，使该章标题从新页页首开始。'))
     if ir['coverage']['pages']['status'] != 'complete':
         for result in results.values(): result['reason'] = '仅检查可读取文字；未将扫描或不可读内容判为缺失。'
     return results

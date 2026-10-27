@@ -293,5 +293,111 @@ class FastLocalChecksTests(unittest.TestCase):
         self.assertEqual(len(self.check(self.ir, [37])['37']['findings']), 1)
 
 
+class ChapterNewPageRuleTests(unittest.TestCase):
+    """Rule 38: every body chapter label must sit at the top of its own page."""
+
+    def setUp(self):
+        self.check = importlib.import_module('paper_compiler.local_checks').detect_ir
+        self.ir = sample_ir()
+        # Chapter headings are typeset larger than the 12 pt body text.
+        for nid in ['intro-heading', 'main-heading', 'conclusion-heading']:
+            span = next(n for n in self.ir['nodes'] if n['id'] == nid)['provenance'][0]
+            span['bbox'] = [span['bbox'][0], span['bbox'][1], span['bbox'][2], span['bbox'][1] + 18]
+
+    def _add(self, nid, kind, text, page, y=100, x=60, parent='paper', height=12):
+        span = {'kind': 'source', 'source_id': 'pdf', 'page_index': page,
+                'bbox': [x, y, x + max(12, len(text) * 5), y + height],
+                'coordinate_system': 'unrotated_top_left_points',
+                'node_text_start': 0, 'node_text_end': len(text)}
+        self.ir['nodes'].append({'id': nid, 'kind': kind, 'text': text, 'attrs': {},
+                                 'children': [], 'provenance': [span]})
+        next(n for n in self.ir['nodes'] if n['id'] == parent)['children'].append(nid)
+
+    def _move(self, nid, page, y):
+        span = next(n for n in self.ir['nodes'] if n['id'] == nid)['provenance'][0]
+        height = span['bbox'][3] - span['bbox'][1]
+        span['page_index'] = page
+        span['bbox'] = [span['bbox'][0], y, span['bbox'][2], y + height]
+
+    def _tokens(self):
+        return [f['token'] for f in self.check(self.ir, [38])['38']['findings']]
+
+    def test_chapters_at_page_top_pass(self):
+        self.assertEqual(self._tokens(), [])
+
+    def test_previous_chapter_text_above_chapter_heading_fails(self):
+        self._move('main-heading', 5, 200)
+        self._add('prior-text', 'Paragraph', '上一章末段的延续文字。', 5, 120)
+        self.assertEqual(self._tokens(), ['第2章方法'])
+
+    def test_same_baseline_title_fragment_is_not_prior_content(self):
+        # Real theses centre 第4 章 and the title on one baseline; the title glyph
+        # group can start a few points higher and must not count as prior content.
+        self._add('title-fragment', 'Heading', '方法研究', 5, 103, x=200, height=18)
+        self.assertEqual(self._tokens(), [])
+
+    def test_running_header_above_heading_is_ignored(self):
+        # Even-page headers carry the thesis name and the current chapter; they sit
+        # above the top margin and are 12.6 pt tall in the archive, so rows() keeps them.
+        self._add('running-header', 'Paragraph', '上海交通大学硕士学位论文', 5, 60, height=13)
+        self._add('running-header-chapter', 'Paragraph', '第2章 方法', 5, 60, x=400, height=13)
+        self.assertEqual(self._tokens(), [])
+
+    def test_chapter_outline_line_in_body_type_is_not_a_chapter_opening(self):
+        # 论文组织结构 sections list each chapter as a body-size line: "第3章 主要内容安排".
+        self._move('main-heading', 5, 200)
+        self._add('prior-text', 'Paragraph', '上一章末段的延续文字。', 5, 120)
+        self._add('outline-prose', 'Paragraph', '第3章 主要内容安排', 5, 230)
+        self.assertEqual(self._tokens(), ['第2章方法'])
+
+    def test_chapter_outline_page_is_not_a_chapter_opening(self):
+        for offset, text in enumerate(['第一章 绪论', '第二章 方法', '第三章 总结']):
+            self._add(f'outline-{offset}', 'Heading', text, 5, 150 + offset * 30, height=18)
+        self.assertEqual(self._tokens(), [])
+
+    def test_toc_dot_leader_is_not_a_chapter_label(self):
+        self._add('toc-entry', 'Paragraph', '第2章 方法................12', 5, 150, height=18)
+        self.assertEqual(self._tokens(), [])
+
+    def test_front_matter_chapter_label_is_excluded(self):
+        self._add('front-label', 'Paragraph', '第2章 方法', 2, 150, height=18)
+        self._add('front-body', 'Paragraph', '摘要正文。', 2, 120)
+        self.assertEqual(self._tokens(), [])
+
+    def test_subsection_heading_is_not_a_chapter_label(self):
+        self._add('subsection', 'Paragraph', '2.1 方法', 5, 150, height=18)
+        self.assertEqual(self._tokens(), [])
+
+    def test_long_chapter_title_is_still_a_chapter_label(self):
+        self._move('conclusion-heading', 6, 200)
+        self._add('prior-text', 'Paragraph', '上一章末段的延续文字。', 6, 120)
+        node = next(n for n in self.ir['nodes'] if n['id'] == 'conclusion-heading')
+        node['text'] = '第3章 基于深度学习的文档结构建模与验证方法研究'
+        self.assertEqual(self._tokens(), ['第3章基于深度学习的文档结构建模与验证方法研究'])
+
+    def test_two_chapters_on_one_page_flag_the_lower_one(self):
+        self._add('next-heading', 'Paragraph', '第3章 总结', 5, 200, height=18)
+        self._add('prior-text', 'Paragraph', '上一章末段的延续文字。', 5, 120)
+        self.assertEqual(self._tokens(), ['第3章总结'])
+
+    def test_partial_coverage_reports_visible_violation(self):
+        self.ir['coverage']['pages']['status'] = 'partial'
+        self._move('main-heading', 5, 200)
+        self._add('prior-text', 'Paragraph', '上一章末段的延续文字。', 5, 120)
+        result = self.check(self.ir, [38])['38']
+        self.assertEqual(len(result['findings']), 1)
+        self.assertIn('仅检查可读取文字', result['reason'])
+
+    def test_synthetic_mutation_still_resolves_location(self):
+        self._move('main-heading', 5, 200)
+        self._add('prior-text', 'Paragraph', '上一章末段的延续文字。', 5, 120)
+        node = next(n for n in self.ir['nodes'] if n['id'] == 'main-heading')
+        node['provenance'] = [{'kind': 'synthetic', 'operation_id': 'case-1',
+                               'ancestor_provenance': node['provenance']}]
+        finding = self.check(self.ir, [38])['38']['findings'][0]
+        self.assertEqual(finding['node_id'], 'main-heading')
+        self.assertEqual(finding['location']['page_number'], 6)
+
+
 if __name__ == '__main__':
     unittest.main()
