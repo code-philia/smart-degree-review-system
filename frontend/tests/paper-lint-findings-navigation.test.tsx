@@ -81,7 +81,7 @@ it('keeps the issue and source excerpt without printing long rule basis paragrap
   render(<FindingsPane findings={[finding as PaperLintFindingItem]} rules={[]} activeFindingKey={item.key} activeAnchorId={null} onFindingClick={vi.fn()} onAnchorClick={vi.fn()} />);
   expect(screen.getByText(item.finding.message)).toBeInTheDocument();
   expect(screen.getByText('引用证据原文')).toBeInTheDocument();
-  expect(screen.getByText('原文：对应论文原文')).toBeInTheDocument();
+  expect(screen.queryByText('原文：对应论文原文')).not.toBeInTheDocument();
   expect(screen.queryByText('冗长的项目规则依据全文')).not.toBeInTheDocument();
   expect(screen.queryByText('冗长的规范条款全文')).not.toBeInTheDocument();
 });

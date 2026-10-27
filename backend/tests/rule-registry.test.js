@@ -5,13 +5,14 @@ const require = createRequire(import.meta.url);
 const registry = require('../rules/registry');
 
 describe('rule registry', () => {
-  it('declares ten native MVP rules and preserves existing repair capabilities', () => {
+  it('declares ten native and two bilingual MVP rules and preserves repair capabilities', () => {
     expect(registry.getEnabledMvpRuleIds()).toEqual([
       'sjtu_rule_18', 'sjtu_rule_22', 'sjtu_rule_24', 'sjtu_rule_28', 'sjtu_rule_31',
+      'bilingual_keywords_correspondence_check', 'bilingual_abstract_consistency_check',
       'required_section_completeness_check', 'chinese_english_symbol_mix_check',
       'keyword_count_check', 'abstract_object_number_check', 'chapter_new_page_check',
     ]);
-    for (const ruleId of registry.getEnabledMvpRuleIds()) {
+    for (const ruleId of registry.listRuleDefinitions({ family: 'local_pdf', enabledInMvp: true }).map(rule => rule.rule_id)) {
       expect(registry.getRuleDefinition(ruleId)).toMatchObject({
         family: 'local_pdf',
         enabled_in_mvp: true,
@@ -20,13 +21,13 @@ describe('rule registry', () => {
     }
   });
 
-  it('registers bilingual semantic rules outside the MVP set', () => {
+  it('keeps the existing bilingual semantic rules enabled in the MVP set', () => {
     expect(registry.listRuleDefinitions({ family: 'legacy_bridge' }).map((rule) => rule.rule_id)).toContain('bilingual_keywords_correspondence_check');
     expect(registry.listRuleDefinitions({ family: 'legacy_bridge' }).map((rule) => rule.rule_id)).toContain('bilingual_abstract_consistency_check');
     for (const ruleId of ['bilingual_keywords_correspondence_check', 'bilingual_abstract_consistency_check']) {
       expect(registry.getRuleDefinition(ruleId)).toMatchObject({
         execution_mode: 'semantic', uses_external_model: true,
-        enabled_in_mvp: false, availability_probe: 'deepseek_api',
+        enabled_in_mvp: true, availability_probe: 'deepseek_api',
       });
     }
   });
