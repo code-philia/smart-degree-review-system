@@ -8,7 +8,7 @@ import sys
 import uuid
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from paper_compiler.budget import BudgetExceeded, BudgetLedger
-from paper_compiler.llm import MaasClient, ModelError, load_config
+from paper_compiler.llm import MaasClient, ModelError, ModelHTTPError, load_config
 from paper_compiler.storage import json_bytes
 
 DEFAULT_LEDGER = Path('/data/runtime/paper-compiler/budget.sqlite3')
@@ -33,7 +33,7 @@ def execute(messages, *, config_path, ledger, cache, transport=None):
             answer = client.complete_json(task, messages[0]['content'], data, 1024)
             break
         except ModelError as error:
-            if attempt or not str(error).endswith((': timeout', ': transport')):
+            if attempt or not (str(error).endswith((': timeout', ': transport')) or str(error).startswith('http_429')):
                 raise
     fingerprint = client.request_fingerprint(task, messages[0]['content'], data, 1024)
     key = hashlib.sha256(json_bytes(fingerprint)).hexdigest()
@@ -69,8 +69,12 @@ if __name__ == '__main__':
         output = main()
     except BudgetExceeded:
         output = {'status': 'error', 'http_status': 429, 'message': '修复建议预算已用尽，请联系管理员'}
-    except (ModelError, TimeoutError):
-        output = {'status': 'error', 'http_status': 502, 'message': '修复建议模型未完成请求，请稍后查看已保存建议'}
+    except ModelHTTPError as error:
+        status = 429 if error.status == 429 else (502 if error.status >= 500 else 424)
+        message = '校内模型请求过于频繁，请稍后重试' if error.status == 429 else f'校内模型请求失败（HTTP {error.status}）'
+        output = {'status': 'error', 'http_status': status, 'message': message}
+    except (ModelError, TimeoutError) as error:
+        output = {'status': 'error', 'http_status': 502, 'message': f'修复建议模型未完成请求：{error}'}
     except Exception:
         output = {'status': 'error', 'http_status': 503, 'message': '修复建议模型或费用账本配置不可用'}
     print(json.dumps(output, ensure_ascii=False))

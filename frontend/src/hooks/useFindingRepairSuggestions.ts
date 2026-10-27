@@ -44,7 +44,11 @@ export function useFindingRepairSuggestions({scopeKey, fetchSaved, evaluate, sup
       });
       if (generation === epoch.current && response) setSuggestions(current => ({...current, [item.key]: response!}));
     } catch (cause) {
-      if (generation === epoch.current) setErrors(current => ({...current, [item.key]: cause instanceof Error ? cause.message : '修复建议暂不可用'}));
+      const responseMessage = (cause as { response?: { data?: { message?: unknown } } })?.response?.data?.message;
+      const message = typeof responseMessage === 'string' && responseMessage.trim()
+        ? responseMessage
+        : cause instanceof Error ? cause.message : '修复建议暂不可用';
+      if (generation === epoch.current) setErrors(current => ({...current, [item.key]: message}));
     } finally {
       if (generation === epoch.current) {
         inFlight.current.delete(item.key);

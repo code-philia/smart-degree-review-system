@@ -8,6 +8,7 @@ import re
 import threading
 import time
 import urllib.request
+import urllib.error
 import uuid
 from pathlib import Path
 
@@ -30,6 +31,14 @@ RESPONSE_DECODER_VERSION = 'model-json-decoder/1.1'
 
 class ModelError(RuntimeError):
     pass
+
+
+class ModelHTTPError(ModelError):
+    def __init__(self, status, retry_after=None):
+        self.status = int(status)
+        self.retry_after = retry_after
+        suffix = f" retry_after={retry_after}" if retry_after is not None else ""
+        super().__init__(f"http_{self.status}{suffix}")
 
 
 def load_config(path):
@@ -89,11 +98,19 @@ def _http(url, headers, payload, timeout):
     # The approved model endpoint is directly reachable from this server.
     # An unrelated desktop evidence proxy must not interrupt paid model work.
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
-    with opener.open(request, timeout=timeout) as response:
-        data = response.read(_MAX_RESPONSE_BYTES + 1)
-        if len(data) > _MAX_RESPONSE_BYTES:
-            raise ModelError('model response exceeded byte limit')
-        return json.loads(data)
+    try:
+        with opener.open(request, timeout=timeout) as response:
+            data = response.read(_MAX_RESPONSE_BYTES + 1)
+            if len(data) > _MAX_RESPONSE_BYTES:
+                raise ModelError('model response exceeded byte limit')
+            return json.loads(data)
+    except urllib.error.HTTPError as error:
+        retry_after = error.headers.get('Retry-After')
+        try:
+            retry_after = max(0.0, float(retry_after)) if retry_after else None
+        except (TypeError, ValueError):
+            retry_after = None
+        raise ModelHTTPError(error.code, retry_after) from None
 
 
 def _usage(response):
@@ -262,6 +279,7 @@ class MaasClient:
         headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + self.config['MAAS_API_KEY']}
         last_category = 'unavailable'
         for attempt in range(self.max_attempts):
+            last_error = None
             with _request_slot(getattr(self, '_request_limits', None)):
                 request_id = uuid.uuid4().hex
                 self.ledger.reserve(request_id, reservation, self.phase, self.phase_limit_cny)
@@ -283,13 +301,17 @@ class MaasClient:
                     timeout = self.timeout if limits is None else min(float(self.timeout), limits.remaining())
                     response = self.transport(self.config['MAAS_BASE_URL'].rstrip('/') + '/chat/completions', headers, payload, timeout)
                 except BaseException as error:
+                    last_error = error
                     if not isinstance(error, Exception):
                         self.ledger.mark_uncertain(request_id, 'transport')
                         record.update(status='interrupted', interrupt_type=type(error).__name__,
                                       elapsed_seconds=round(time.monotonic()-started, 3))
                         write_json_atomic(self.cache_dir/'attempts'/(request_id+'.json'), record, exclusive=True)
                         raise
-                    last_category = 'timeout' if isinstance(error, TimeoutError) else 'transport'
+                    if isinstance(error, ModelHTTPError):
+                        last_category = str(error)
+                    else:
+                        last_category = 'timeout' if isinstance(error, TimeoutError) else 'transport'
                     self.ledger.mark_uncertain(request_id, last_category)
                     record['status'] = last_category
                 else:
@@ -321,5 +343,13 @@ class MaasClient:
                 record['elapsed_seconds'] = round(time.monotonic()-started, 3)
                 write_json_atomic(self.cache_dir/'attempts'/(request_id+'.json'), record, exclusive=True)
             if attempt + 1 < self.max_attempts:
-                time.sleep(self.retry_delay * 2**attempt)
+                delay = self.retry_delay * 2**attempt
+                if isinstance(last_error, ModelHTTPError) and last_error.retry_after is not None:
+                    delay = max(delay, min(last_error.retry_after, 60.0))
+                time.sleep(delay)
+        if last_category.startswith('http_'):
+            try:
+                raise ModelHTTPError(int(last_category.split('_', 1)[1].split()[0]))
+            except (ValueError, IndexError):
+                pass
         raise ModelError('model request failed after bounded attempts: ' + last_category) from None
