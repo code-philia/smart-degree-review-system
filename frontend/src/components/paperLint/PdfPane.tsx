@@ -1,6 +1,7 @@
 import { Eye, EyeOff, Highlighter, Link2, LoaderCircle, ZoomIn, ZoomOut } from 'lucide-react';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy } from 'pdfjs-dist';
-import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import '../../pdfjs-byte-compat';
+import pdfWorkerUrl from '../../pdfjs-worker.ts?url';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, buttonClassName } from '../ui';
 import type { PaperLintFindingItem } from './model';
