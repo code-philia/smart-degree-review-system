@@ -251,6 +251,48 @@
       "default_selected": false,
       "availability_probe": "pymupdf",
       "repair_surfaces": ["paper_lint"]
+    },
+    {
+      "rule_id": "keyword_count_check",
+      "number": 36,
+      "title": "关键词数量",
+      "description": "检查中文关键词是否少于3个或多于8个",
+      "family": "local_pdf",
+      "runner": "fast_local_detector",
+      "execution_mode": "deterministic",
+      "uses_external_model": false,
+      "enabled_in_mvp": true,
+      "default_selected": false,
+      "availability_probe": "pymupdf",
+      "repair_surfaces": ["paper_lint"]
+    },
+    {
+      "rule_id": "abstract_object_number_check",
+      "number": 37,
+      "title": "摘要图表公式文献编号",
+      "description": "检查中文摘要中是否出现图、表、公式或参考文献等编号",
+      "family": "local_pdf",
+      "runner": "fast_local_detector",
+      "execution_mode": "deterministic",
+      "uses_external_model": false,
+      "enabled_in_mvp": true,
+      "default_selected": false,
+      "availability_probe": "pymupdf",
+      "repair_surfaces": ["paper_lint"]
+    },
+    {
+      "rule_id": "chapter_new_page_check",
+      "number": 38,
+      "title": "章标题另起一页",
+      "description": "检查正文各章标题是否从新页开始，即章标题上方不应再有上一章内容",
+      "family": "local_pdf",
+      "runner": "fast_local_detector",
+      "execution_mode": "deterministic",
+      "uses_external_model": false,
+      "enabled_in_mvp": true,
+      "default_selected": false,
+      "availability_probe": "pymupdf",
+      "repair_surfaces": ["paper_lint"]
     }
   ]
 }

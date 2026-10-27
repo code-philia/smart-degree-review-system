@@ -12,7 +12,7 @@ from concurrent.futures import ProcessPoolExecutor
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from fast_local_detector import load_ir, native_coverage
-from paper_compiler.local_checks import detect_ir, core_parts, compact, rows, prose_nodes, _TYPE, _PUNCT, _INTRO, _CONCLUSION, _CHAPTER
+from paper_compiler.local_checks import detect_ir, core_parts, compact, rows, prose_nodes, chapter_labels, _source, _TYPE, _PUNCT, _INTRO, _CONCLUSION, _CHAPTER, _KEYWORD_LABEL, _body_start_page, _node_page_index, _abstract_nodes, _OBJECT_NUMBERS, _ABSTRACT_HEADING
 from paper_compiler.contracts import validate_ir
 
 
@@ -100,6 +100,12 @@ def core_roots(ir):
     return options
 
 
+def ghost(case_id, span, page, box):
+    """Schema-legal position override: a synthetic span wrapping a moved source span."""
+    return {'kind': 'synthetic', 'operation_id': case_id,
+            'ancestor_provenance': [{**_source(span), 'page_index': page, 'bbox': list(box)}]}
+
+
 def candidates(ir, rule):
     if rule == 34:
         options = core_roots(ir)
@@ -114,6 +120,59 @@ def candidates(ir, rule):
             match = matches[0]
             for recipe, replacement in [('missing_marker', ''), ('invalid_marker', '[XYZ]'), ('unclosed_marker', match.group()[:-1])]:
                 yield (recipe, [node['id']], [match.start(), match.end()], replacement)
+    elif rule == 36:
+        body_start = _body_start_page(ir)
+        for node in ir['nodes']:
+            match = _KEYWORD_LABEL.search(node['text'] or '')
+            if not match:
+                continue
+            if body_start and _node_page_index(node) >= body_start:
+                continue
+            span = [match.start(1), match.end(1)]
+            yield ('keyword_too_few_2', [node['id']], span, '甲；乙')
+            yield ('keyword_too_many_9', [node['id']], span, '甲；乙；丙；丁；戊；己；庚；辛；壬')
+    elif rule == 37:
+        for node in _abstract_nodes(ir):
+            text = node['text']
+            # A 摘要 heading is not prose; mutating it would also erase the page anchor.
+            if compact(text) in _ABSTRACT_HEADING or any(pattern.search(text) for _, pattern in _OBJECT_NUMBERS):
+                continue
+            span = [len(text), len(text)]
+            for recipe, insertion in [('abstract_figure_number', '如图3-1所示，'),
+                                      ('abstract_table_number', '见表2-1，'),
+                                      ('abstract_equation_number', '由式(4)可得，'),
+                                      ('abstract_citation_number', '已有研究[5]表明，'),
+                                      ('abstract_english_figure_number', ' Fig. 2 shows the trend.')]:
+                yield (recipe, [node['id']], span, insertion)
+    elif rule == 38:
+        pages = {page['page_index']: page for page in ir['layout']['pages']}
+        by_page = {}
+        for page, box, text, node in rows(ir):
+            by_page.setdefault(page, []).append((box, text, node))
+        for page, box, text, node, prior in chapter_labels(ir):
+            if prior:
+                continue  # a mother must already pass at this chapter opening
+            height = box[3] - box[1]
+            page_height = pages[page]['height']
+            insert_y = max(page_height * .13, box[1] - 30)
+            if insert_y + 14 <= box[1]:
+                yield ('insert_preceding_line', [node['id']], None,
+                       dict(page=page, box=[box[0], insert_y, box[2], insert_y + 12]))
+            previous = [row for row in by_page.get(page - 1, []) if row[1].strip()]
+            if not previous:
+                continue
+            spill_box, spill_node = max(((row[0], row[2]) for row in previous), key=lambda row: row[0][3])
+            slot = next((i for i, span in enumerate(spill_node['provenance'])
+                         if (_source(span) or {}).get('bbox') == list(spill_box)),
+                        len(spill_node['provenance']) - 1)
+            label_slot = next((i for i, span in enumerate(node['provenance'])
+                               if (_source(span) or {}).get('bbox') == list(box)),
+                              len(node['provenance']) - 1)
+            yield ('spill_previous_line', [node['id'], spill_node['id']], None,
+                   dict(page=page, slot=slot, label_slot=label_slot,
+                        label_box=[box[0], page_height * .45, box[2], page_height * .45 + height],
+                        spill_box=[spill_box[0], page_height * .30, spill_box[2],
+                                   page_height * .30 + (spill_box[3] - spill_box[1])]))
     else:
         for node in prose_nodes(ir):
             if re.search(r'https?://|www\.|[`=<>]|\b(?:print|def|return|import|if|while)\s*\(', node['text']): continue
@@ -128,6 +187,26 @@ def mutate(ir, case_id, rule, change):
     mutant['revision'] = case_id
     if rule == 34:
         drop_subtrees(mutant, targets)
+    elif rule == 38:
+        if recipe == 'insert_preceding_line':
+            node = next(node for node in mutant['nodes'] if node['id'] == targets[0])
+            prior = {'id': 'mutant-prior-paragraph', 'kind': 'Paragraph', 'text': '上一章末段的延续文字。',
+                     'attrs': {}, 'children': [],
+                     'provenance': [ghost(case_id, node['provenance'][0], replacement['page'], replacement['box'])]}
+            mutant['nodes'].append(prior)
+            body = next(node for node in mutant['nodes'] if node['id'] == 'body')
+            body['children'] = [*body['children'], prior['id']]
+        else:
+            label = next(node for node in mutant['nodes'] if node['id'] == targets[0])
+            spans = list(label['provenance'])
+            spans[replacement['label_slot']] = ghost(case_id, spans[replacement['label_slot']],
+                                                     replacement['page'], replacement['label_box'])
+            label['provenance'] = spans
+            spill = next(node for node in mutant['nodes'] if node['id'] == targets[1])
+            spans = list(spill['provenance'])
+            spans[replacement['slot']] = ghost(case_id, spans[replacement['slot']],
+                                               replacement['page'], replacement['spill_box'])
+            spill['provenance'] = spans
     else:
         node = next(node for node in mutant['nodes'] if node['id'] == targets[0])
         node['text'] = node['text'][:span[0]] + replacement + node['text'][span[1]:]
@@ -143,6 +222,8 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--workers', type=int, default=8)
     parser.add_argument('--reuse', type=Path)
+    parser.add_argument('--rules', default='31,34,35,36,37,38',
+                        help='comma-separated rule numbers to mutate; archive results always cover every rule')
     args=parser.parse_args(); args.output.mkdir(parents=True, exist_ok=True)
     for folder in ['mothers', 'mutants']:(args.output/folder).mkdir(exist_ok=True)
     pdfs=sorted(args.archive_root.rglob('*.pdf')); records=[]; start=time.perf_counter()
@@ -158,7 +239,7 @@ def main():
                 if len(records)%40==0: print('scanned',len(records), '/',len(pdfs),flush=True)
     (args.output/'archive-results.json').write_text(json.dumps(records,ensure_ascii=True,indent=2))
     summary={}; manifest=[]
-    for rule in [31,34,35]:
+    for rule in [int(number) for number in args.rules.split(',') if number.strip()]:
         count=tp=fp=0; mothers=set()
         for record in records:
             if not record.get('cache') or record.get('error') or record['rules'][str(rule)]['findings']: continue
