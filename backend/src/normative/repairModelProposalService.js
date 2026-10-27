@@ -172,8 +172,9 @@ function validateModelAnswer(answer, request) {
   if (bilingual && answer.status === 'suggested') {
     const bilingualIds = validIds.has('bilingual-evidence-1') && validIds.has('bilingual-evidence-2')
       ? ['bilingual-evidence-1', 'bilingual-evidence-2'] : [];
-    if (bilingualIds.length === 2 && !actions.some((action) => bilingualIds.every((id) => action.evidence_ids.includes(id)))) {
-      throw problem(502, '双语修复建议必须同时引用中文和英文原文证据');
+    const citedBilingualIds = new Set(actions.flatMap((action) => action.evidence_ids));
+    if (bilingualIds.length === 2 && !bilingualIds.every((id) => citedBilingualIds.has(id))) {
+      throw problem(502, '双语修复建议必须引用中文和英文原文证据');
     }
   }
   return {
