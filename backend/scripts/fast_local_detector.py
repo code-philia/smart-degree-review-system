@@ -59,4 +59,4 @@ if __name__ == '__main__':
     import pymupdf
     pymupdf.TOOLS.mupdf_display_errors(False)
     pymupdf.TOOLS.mupdf_display_warnings(False)
-    print(json.dumps(run(args.pdf, args.rule or [18, 22, 24, 28, 31, 34, 35]), ensure_ascii=True))
+    print(json.dumps(run(args.pdf, args.rule or [18, 22, 24, 28, 31, 34, 35, 36, 37]), ensure_ascii=True))

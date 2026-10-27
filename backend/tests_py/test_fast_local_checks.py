@@ -23,6 +23,7 @@ def sample_ir():
     add('abstract', 'Abstract', None, 2)
     add('abstract-heading', 'Heading', '摘要', 2, parent='abstract')
     add('keywords', 'Paragraph', '关键词：检测；论文；规则', 2, 160, parent='abstract')
+    add('abstract-text', 'Paragraph', '本文提出一种论文检测方法，对文档结构进行建模与验证。', 2, 120, parent='abstract')
     add('toc', 'Paragraph', '目', 3, x=250)
     add('toc-fragment', 'Paragraph', '录', 3, x=280)
     for nid, title, page in [('intro', '第1章 绪论', 4), ('main', '第2章 方法', 5), ('conclusion', '第3章 总结与展望', 6)]:
@@ -174,6 +175,228 @@ class FastLocalChecksTests(unittest.TestCase):
         self.ir['coverage']['pages']['status'] = 'partial'
         self.ir['nodes'] = [n for n in self.ir['nodes'] if n['id'] != 'originality']
         self.assertEqual(self.check(self.ir, [34])['34']['findings'], [])
+
+    # --- Rule 36: keyword count 3-8 ---
+
+    def _keyword_node(self, ir=None):
+        return next(n for n in (ir or self.ir)['nodes'] if n['id'] == 'keywords')
+
+    def test_three_keywords_pass(self):
+        self.assertEqual(self.check(self.ir, [36])['36']['findings'], [])
+
+    def test_eight_keywords_pass(self):
+        self._keyword_node()['text'] = '关键词：a；b；c；d；e；f；g；h'
+        self.assertEqual(self.check(self.ir, [36])['36']['findings'], [])
+
+    def test_two_keywords_fail(self):
+        self._keyword_node()['text'] = '关键词：a；b'
+        findings = self.check(self.ir, [36])['36']['findings']
+        self.assertEqual(len(findings), 1)
+        self.assertIn('2 个', findings[0]['message'])
+
+    def test_nine_keywords_fail(self):
+        self._keyword_node()['text'] = '关键词：a；b；c；d；e；f；g；h；i'
+        findings = self.check(self.ir, [36])['36']['findings']
+        self.assertEqual(len(findings), 1)
+        self.assertIn('9 个', findings[0]['message'])
+
+    def test_wrapped_keyword_line_is_joined(self):
+        # A wrapped line split mid-term must not split "规则检测" into two terms.
+        self._keyword_node()['text'] = '关键词：规则检测\n论文；方法'
+        findings = self.check(self.ir, [36])['36']['findings']
+        self.assertEqual(len(findings), 1)
+        self.assertIn('2 个', findings[0]['message'])
+
+    def test_no_keyword_block_is_not_a_finding(self):
+        self._keyword_node()['text'] = None
+        self.assertEqual(self.check(self.ir, [36])['36']['findings'], [])
+
+    def test_body_text_keyword_label_is_ignored(self):
+        # A colon-label mention in the body/appendix must not become a keyword
+        # count violation; only front-matter keyword blocks are checked.
+        ir = copy.deepcopy(self.ir)
+        ir['nodes'] = [n for n in ir['nodes'] if n['id'] != 'keywords']
+        main = next(n for n in ir['nodes'] if n['id'] == 'main')
+        ir['nodes'].append({'id': 'fake-kw', 'kind': 'Paragraph',
+                            'text': '关键词：测试；数据', 'attrs': {},
+                            'children': [], 'provenance': main['provenance'][:1]})
+        main['children'].append('fake-kw')
+        self.assertEqual(self.check(ir, [36])['36']['findings'], [])
+
+    def test_partial_coverage_does_not_false_flag_absence(self):
+        self.ir['coverage']['pages']['status'] = 'partial'
+        self._keyword_node()['text'] = None
+        self.assertEqual(self.check(self.ir, [36])['36']['findings'], [])
+
+    # --- Rule 37: no figure/table/equation/reference numbers in the abstract ---
+
+    def _abstract_node(self, ir=None):
+        return next(n for n in (ir or self.ir)['nodes'] if n['id'] == 'abstract-text')
+
+    def test_clean_abstract_passes_object_number_check(self):
+        self.assertEqual(self.check(self.ir, [37])['37']['findings'], [])
+
+    def test_figure_number_in_abstract_fails(self):
+        self._abstract_node()['text'] = '本文方法如图3-1所示，效果良好。'
+        findings = self.check(self.ir, [37])['37']['findings']
+        self.assertEqual([f['token'] for f in findings], ['图3-1'])
+
+    def test_table_number_in_abstract_fails(self):
+        self._abstract_node()['text'] = '检测结果见表2-1。'
+        findings = self.check(self.ir, [37])['37']['findings']
+        self.assertEqual([f['token'] for f in findings], ['表2-1'])
+
+    def test_equation_number_in_abstract_fails(self):
+        self._abstract_node()['text'] = '由式(4)可得检测阈值。'
+        findings = self.check(self.ir, [37])['37']['findings']
+        self.assertEqual([f['token'] for f in findings], ['式(4)'])
+
+    def test_citation_number_in_abstract_fails(self):
+        self._abstract_node()['text'] = '已有研究[3-5]表明该方法有效。'
+        findings = self.check(self.ir, [37])['37']['findings']
+        self.assertEqual([f['token'] for f in findings], ['[3-5]'])
+
+    def test_english_abstract_figure_number_fails(self):
+        self._abstract_node()['text'] = '本方法流程Fig. 2展示了检测过程。'
+        findings = self.check(self.ir, [37])['37']['findings']
+        self.assertEqual([f['token'] for f in findings], ['Fig. 2'])
+
+    def test_abstract_prose_words_without_numbers_are_not_findings(self):
+        self._abstract_node()['text'] = '本文表明该表达方式有效，并试图改进形式。'
+        self.assertEqual(self.check(self.ir, [37])['37']['findings'], [])
+
+    def test_body_object_number_is_ignored(self):
+        # Body references are legitimate; only front-matter abstract prose is checked.
+        node = next(n for n in self.ir['nodes'] if n['id'] == 'body-text')
+        node['text'] = '实验装置如图3所示，结果见表2-1。'
+        self.assertEqual(self.check(self.ir, [37])['37']['findings'], [])
+
+    def test_abstract_page_prose_without_heading_node_is_checked(self):
+        # A 摘要 heading split across glyph runs leaves abstract prose as plain text.
+        ir = copy.deepcopy(self.ir)
+        ir['nodes'] = [n for n in ir['nodes'] if n['id'] not in {'abstract', 'abstract-heading'}]
+        def span(x, y=100):
+            return [{'kind': 'source', 'source_id': 'pdf', 'page_index': 2,
+                     'bbox': [x, y, x + 12, y + 12],
+                     'coordinate_system': 'unrotated_top_left_points'}]
+        ir['nodes'].append({'id': 'split-heading-1', 'kind': 'Heading', 'text': '摘',
+                            'attrs': {}, 'children': [], 'provenance': span(60)})
+        ir['nodes'].append({'id': 'split-heading-2', 'kind': 'Heading', 'text': '要',
+                            'attrs': {}, 'children': [], 'provenance': span(74)})
+        ir['nodes'].append({'id': 'orphan-abstract', 'kind': 'Paragraph', 'text': '如图3所示，方法有效。',
+                            'attrs': {}, 'children': [], 'provenance': span(60, 200)})
+        self.assertEqual([f['node_id'] for f in self.check(ir, [37])['37']['findings']], ['orphan-abstract'])
+
+    def test_partial_coverage_abstract_number_is_still_reported(self):
+        self.ir['coverage']['pages']['status'] = 'partial'
+        self._abstract_node()['text'] = '如图3所示，方法有效。'
+        self.assertEqual(len(self.check(self.ir, [37])['37']['findings']), 1)
+
+
+class ChapterNewPageRuleTests(unittest.TestCase):
+    """Rule 38: every body chapter label must sit at the top of its own page."""
+
+    def setUp(self):
+        self.check = importlib.import_module('paper_compiler.local_checks').detect_ir
+        self.ir = sample_ir()
+        # Chapter headings are typeset larger than the 12 pt body text.
+        for nid in ['intro-heading', 'main-heading', 'conclusion-heading']:
+            span = next(n for n in self.ir['nodes'] if n['id'] == nid)['provenance'][0]
+            span['bbox'] = [span['bbox'][0], span['bbox'][1], span['bbox'][2], span['bbox'][1] + 18]
+
+    def _add(self, nid, kind, text, page, y=100, x=60, parent='paper', height=12):
+        span = {'kind': 'source', 'source_id': 'pdf', 'page_index': page,
+                'bbox': [x, y, x + max(12, len(text) * 5), y + height],
+                'coordinate_system': 'unrotated_top_left_points',
+                'node_text_start': 0, 'node_text_end': len(text)}
+        self.ir['nodes'].append({'id': nid, 'kind': kind, 'text': text, 'attrs': {},
+                                 'children': [], 'provenance': [span]})
+        next(n for n in self.ir['nodes'] if n['id'] == parent)['children'].append(nid)
+
+    def _move(self, nid, page, y):
+        span = next(n for n in self.ir['nodes'] if n['id'] == nid)['provenance'][0]
+        height = span['bbox'][3] - span['bbox'][1]
+        span['page_index'] = page
+        span['bbox'] = [span['bbox'][0], y, span['bbox'][2], y + height]
+
+    def _tokens(self):
+        return [f['token'] for f in self.check(self.ir, [38])['38']['findings']]
+
+    def test_chapters_at_page_top_pass(self):
+        self.assertEqual(self._tokens(), [])
+
+    def test_previous_chapter_text_above_chapter_heading_fails(self):
+        self._move('main-heading', 5, 200)
+        self._add('prior-text', 'Paragraph', '上一章末段的延续文字。', 5, 120)
+        self.assertEqual(self._tokens(), ['第2章方法'])
+
+    def test_same_baseline_title_fragment_is_not_prior_content(self):
+        # Real theses centre 第4 章 and the title on one baseline; the title glyph
+        # group can start a few points higher and must not count as prior content.
+        self._add('title-fragment', 'Heading', '方法研究', 5, 103, x=200, height=18)
+        self.assertEqual(self._tokens(), [])
+
+    def test_running_header_above_heading_is_ignored(self):
+        # Even-page headers carry the thesis name and the current chapter; they sit
+        # above the top margin and are 12.6 pt tall in the archive, so rows() keeps them.
+        self._add('running-header', 'Paragraph', '上海交通大学硕士学位论文', 5, 60, height=13)
+        self._add('running-header-chapter', 'Paragraph', '第2章 方法', 5, 60, x=400, height=13)
+        self.assertEqual(self._tokens(), [])
+
+    def test_chapter_outline_line_in_body_type_is_not_a_chapter_opening(self):
+        # 论文组织结构 sections list each chapter as a body-size line: "第3章 主要内容安排".
+        self._move('main-heading', 5, 200)
+        self._add('prior-text', 'Paragraph', '上一章末段的延续文字。', 5, 120)
+        self._add('outline-prose', 'Paragraph', '第3章 主要内容安排', 5, 230)
+        self.assertEqual(self._tokens(), ['第2章方法'])
+
+    def test_chapter_outline_page_is_not_a_chapter_opening(self):
+        for offset, text in enumerate(['第一章 绪论', '第二章 方法', '第三章 总结']):
+            self._add(f'outline-{offset}', 'Heading', text, 5, 150 + offset * 30, height=18)
+        self.assertEqual(self._tokens(), [])
+
+    def test_toc_dot_leader_is_not_a_chapter_label(self):
+        self._add('toc-entry', 'Paragraph', '第2章 方法................12', 5, 150, height=18)
+        self.assertEqual(self._tokens(), [])
+
+    def test_front_matter_chapter_label_is_excluded(self):
+        self._add('front-label', 'Paragraph', '第2章 方法', 2, 150, height=18)
+        self._add('front-body', 'Paragraph', '摘要正文。', 2, 120)
+        self.assertEqual(self._tokens(), [])
+
+    def test_subsection_heading_is_not_a_chapter_label(self):
+        self._add('subsection', 'Paragraph', '2.1 方法', 5, 150, height=18)
+        self.assertEqual(self._tokens(), [])
+
+    def test_long_chapter_title_is_still_a_chapter_label(self):
+        self._move('conclusion-heading', 6, 200)
+        self._add('prior-text', 'Paragraph', '上一章末段的延续文字。', 6, 120)
+        node = next(n for n in self.ir['nodes'] if n['id'] == 'conclusion-heading')
+        node['text'] = '第3章 基于深度学习的文档结构建模与验证方法研究'
+        self.assertEqual(self._tokens(), ['第3章基于深度学习的文档结构建模与验证方法研究'])
+
+    def test_two_chapters_on_one_page_flag_the_lower_one(self):
+        self._add('next-heading', 'Paragraph', '第3章 总结', 5, 200, height=18)
+        self._add('prior-text', 'Paragraph', '上一章末段的延续文字。', 5, 120)
+        self.assertEqual(self._tokens(), ['第3章总结'])
+
+    def test_partial_coverage_reports_visible_violation(self):
+        self.ir['coverage']['pages']['status'] = 'partial'
+        self._move('main-heading', 5, 200)
+        self._add('prior-text', 'Paragraph', '上一章末段的延续文字。', 5, 120)
+        result = self.check(self.ir, [38])['38']
+        self.assertEqual(len(result['findings']), 1)
+        self.assertIn('仅检查可读取文字', result['reason'])
+
+    def test_synthetic_mutation_still_resolves_location(self):
+        self._move('main-heading', 5, 200)
+        self._add('prior-text', 'Paragraph', '上一章末段的延续文字。', 5, 120)
+        node = next(n for n in self.ir['nodes'] if n['id'] == 'main-heading')
+        node['provenance'] = [{'kind': 'synthetic', 'operation_id': 'case-1',
+                               'ancestor_provenance': node['provenance']}]
+        finding = self.check(self.ir, [38])['38']['findings'][0]
+        self.assertEqual(finding['node_id'], 'main-heading')
+        self.assertEqual(finding['location']['page_number'], 6)
 
 
 if __name__ == '__main__':

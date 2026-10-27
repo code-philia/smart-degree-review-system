@@ -1,7 +1,7 @@
-"""Three native-text checks over the shared Paper Model / Paper IR. No network."""
+"""Five native-text checks over the shared Paper Model / Paper IR. No network."""
 import re
 
-RULES = (31, 34, 35)  # execution keys only; public titles have no rule numbers
+RULES = (31, 34, 35, 36, 37, 38)  # execution keys only; public titles have no rule numbers
 _CHAPTER = re.compile(r'^(?:第[一二三四五六七八九十百0-9]+[章篇]|chapter\d+|\d+(?:[.．]\d+)*[.．、]?)(?:[:：]|[-–—])?', re.I)
 _INTRO = re.compile(r'^(?:绪论|绪言|引言|引论|简介|introduction(?:andcontextualization)?)$', re.I)
 _CONCLUSION = re.compile(r'^(?:(?:课题|全文|研究|工作|论文)?(?:总结|结论)(?:[与和及](?:未来)?(?:展望|工作|建议|讨论))?|总结|结论|总结[与和及](?:未来)?展望|结论[与和及](?:未来)?展望|总结[与和及]未来工作|研究结论|全文总结|研究总结|研究成果总结|总结展望|结论及建议|结语|结束语|conclusions?(?:andfuturework)?|summary(?:and(?:futurework|outlook))?)$', re.I)
@@ -10,6 +10,33 @@ _CODES = set('M J N C D R S P EB A CM DS PP G GI CP DB Z'.split())
 _MEDIA = {'MT', 'DK', 'CD', 'OL', 'MM'}
 _YEAR = re.compile(r'(?<!\d)(?:1[5-9]|20)\d{2}(?!\d)')
 _PUNCT = re.compile(r'(?<=[\u4e00-\u9fff])\s*([,;:!?])\s*(?=[\u4e00-\u9fff])')
+_KEYWORD_LABEL = re.compile(r'(?:关键词|关键字)\s*[:：]\s*(.*)', re.I | re.S)
+_TERM_SPLIT = re.compile(r'[；;，,、]')
+_FRONT_TEXT = {'摘要', '中文摘要', 'abstract', '目录', '目次', 'contents', 'tableofcontents'}
+_ABSTRACT_HEADING = {'摘要', '中文摘要', '英文摘要', 'abstract'}
+# Numbered objects a self-contained abstract must not cite. Each pattern needs a
+# digit so prose words such as 表明, 表达, 表决 and 形式 are never treated as 图/表/式.
+_OBJECT_NUMBERS = (
+    ('图', re.compile(r'图\s*\d{1,3}(?:\s*[-–—.．]\s*\d{1,3})*')),
+    ('表', re.compile(r'表\s*\d{1,3}(?:\s*[-–—.．]\s*\d{1,3})*')),
+    ('公式', re.compile(r'公式\s*[（(]?\s*\d{1,3}(?:\s*[-–—.．]\s*\d{1,3})*\s*[)）]?')),
+    ('公式', re.compile(r'(?<![方形模程仪范格款版])式\s*[（(]?\s*\d{1,3}(?:\s*[-–—.．]\s*\d{1,3})*\s*[)）]?')),
+    ('参考文献', re.compile(r'[\[［]\s*\d{1,3}(?:\s*[-–—,，]\s*\d{1,3})*\s*[\]］]')),
+    ('图', re.compile(r'(?<![A-Za-z])fig(?:ure)?s?\.?\s*\d{1,3}(?:\s*[.．]\s*\d{1,3})?(?!\d)', re.I)),
+    ('表', re.compile(r'(?<![A-Za-z])tab(?:le)?s?\.?\s*\d{1,3}(?:\s*[.．]\s*\d{1,3})?(?!\d)', re.I)),
+    ('公式', re.compile(r'(?<![A-Za-z])eq(?:uation|n)?s?\.?\s*\d{1,3}(?:\s*[.．]\s*\d{1,3})?(?!\d)', re.I)),
+)
+# A chapter label must be a whole visual row: 第4 章 alone, or the number followed
+# by a whitespace-separated title of at most 40 chars without sentence punctuation.
+# Prose such as 第三章的… or 第一章是绪论，… therefore never becomes a chapter label.
+_CHAPTER_LABEL = re.compile(r'^第\s*[一二三四五六七八九十百零〇0-9]{1,4}\s*章(?:\s+[^\s，。；：！？、,;:!?]{1,40})?$')
+_LEADER_LINE = re.compile(r'\.{3,}|…')
+# Page furniture above the top margin (running headers, page numbers) is not prior
+# chapter content; rows() drops small ones, but 12.6 pt headers survive its 12.5 cut.
+_TOP_MARGIN = 0.12
+# A chapter heading is typeset larger than body text. Body-size rows that start with
+# 第x章 are 论文组织结构 prose or figure cells, never a chapter opening.
+_HEADING_SCALE = 1.25
 _EN_PUNCT = re.compile(r'(?<=[A-Za-z0-9%)\]])([，；：！？。])(?=\s|[A-Za-z0-9]|$)')
 
 
@@ -22,6 +49,12 @@ def _source(span):
         return span
     ancestors = span.get('ancestor_provenance', span.get('input_provenance', []))
     return next((source for item in ancestors if (source := _source(item))), None)
+
+
+def _node_page_index(node):
+    """Smallest source page for a node, resolving synthetic mutations."""
+    pages = [(_source(span) or {}).get('page_index', 10**9) for span in node.get('provenance', [])]
+    return min(pages, default=10**9)
 
 
 def rows(ir):
@@ -199,6 +232,88 @@ def punctuation_literals(text):
     return ranges
 
 
+def _keyword_terms(text):
+    """Join wrapped continuations then split on keyword delimiters."""
+    m = _KEYWORD_LABEL.search(text or '')
+    if not m:
+        return None
+    merged = re.sub(r'[\r\n]+', '', m.group(1))
+    return [t for t in (x.strip(' \t。.；;，,、:：') for x in _TERM_SPLIT.split(merged)) if t]
+
+
+def _body_start_page(ir):
+    """First page after front matter, mirroring core_parts' body boundary."""
+    visual_rows = rows(ir)
+    intro_pages = [page for page, _, text, _ in visual_rows if _INTRO.fullmatch(_CHAPTER.sub('', compact(text)))]
+    toc_pages = [page for page, _, text, _ in visual_rows if re.search(r'(?:\.\s*){3,}\s*\d+\s*$', text)]
+    body_start = max(max(toc_pages, default=-1) + 1, min(intro_pages, default=0))
+    if body_start:
+        return body_start
+    # Some papers have no detectable introduction/ToC heading. Fall back to the
+    # last front-matter page so appendix/template mentions are still excluded.
+    front_pages = [page for page, _, text, _ in visual_rows if compact(text) in _FRONT_TEXT]
+    front_pages += [_node_page_index(node) for node in ir['nodes']
+                    if node['kind'] in {'TitlePage', 'Abstract', 'ToC'}]
+    front_pages = [page for page in front_pages if page < 10**9]
+    return max(front_pages) + 4 if front_pages else 0
+
+
+def chapter_labels(ir):
+    """Body chapter opening labels with the visual rows that precede them on the page.
+
+    A label is a whole visual row such as 第4 章 or 第4 章 系统设计 that is typeset as a
+    heading. Pages holding three or more labels are 目录/章节安排 lists, dot-leader rows
+    are 目录 entries, and rows above the top margin are running headers; all are skipped
+    before any geometry is judged.
+    """
+    body_start = _body_start_page(ir)
+    page_height = {page['page_index']: page.get('height', 0) for page in ir['layout']['pages']}
+    visual = list(rows(ir))
+    prose = sorted(box[3] - box[1] for _, box, text, _ in visual
+                   if len(compact(text)) >= 15 and 0 < box[3] - box[1] < 40)
+    body = prose[len(prose) // 2] if prose else 0
+    by_page = {}
+    for page, box, text, node in visual:
+        by_page.setdefault(page, []).append((box, text, node))
+    found = []
+    for page, items in sorted(by_page.items()):
+        if page < body_start:
+            continue
+        margin = page_height.get(page, 0) * _TOP_MARGIN
+        items.sort(key=lambda row: (row[0][1], row[0][0]))
+        labels = [row for row in items
+                  if _CHAPTER_LABEL.match(row[1].strip()) and not _LEADER_LINE.search(row[1])
+                  and row[2]['kind'] not in {'TableCell', 'Caption'}
+                  and row[0][3] > margin
+                  and (not body or row[0][3] - row[0][1] >= body * _HEADING_SCALE)]
+        if len(labels) >= 3:
+            continue
+        for box, text, node in labels:
+            # Same-baseline heading fragments end at this row's own baseline; only
+            # text whose bottom stays above the label is prior content.
+            prior = [row for row in items if row[0][3] <= box[1] + 2 and row[0][3] > margin]
+            found.append((page, box, text, node, prior))
+    return found
+
+
+def _abstract_nodes(ir):
+    """Front-matter abstract prose, including split headings and both languages."""
+    body_start = _body_start_page(ir)
+    pages = {page for page, _, text, _ in rows(ir) if compact(text) in _ABSTRACT_HEADING}
+    pages |= {_node_page_index(node) for node in ir['nodes'] if node['kind'] == 'Abstract'}
+    pages = {page for page in pages if page < 10**9 and (not body_start or page < body_start)}
+    return [node for node in ir['nodes'] if node['text'] and node['kind'] in {'Paragraph', 'Abstract'}
+            and not _KEYWORD_LABEL.match(node['text'])
+            and any((_source(span) or {}).get('page_index') in pages for span in node['provenance'])
+            # A contents page repeats "摘要" as an entry; its dot leaders are not abstract prose.
+            and not re.search(r'(?:\.\s*){5,}', node['text'])]
+
+
+def _technical_bracket(text, end):
+    """W[1]-hard style complexity notation is not a bibliography citation."""
+    return bool(re.match(r'[-–—]?(?:困难|hard|complete|完备)', re.sub(r'\s+', '', text[end:end+12]), re.I))
+
+
 def detect_ir(ir, selected_rules=RULES):
     results = {str(rule): {'status': 'completed', 'findings': []} for rule in selected_rules}
     anchor = next((n for n in ir['nodes'] if n['text'] and n['provenance']), None)
@@ -262,6 +377,39 @@ def detect_ir(ir, selected_rules=RULES):
             if reason:
                 results['31']['findings'].append(_finding(ir, 31, node, reason, '文献类型标记',
                     '请按实际著录资源核对并补齐类型标记；期刊用[J]、会议论文用[C]等，不能仅凭访问网址改变资源类型。'))
+    if 36 in selected_rules:
+        body_start = _body_start_page(ir)
+        for node in ir['nodes']:
+            terms = _keyword_terms(node.get('text'))
+            if terms is None:
+                continue
+            if body_start and _node_page_index(node) >= body_start:
+                continue
+            if not 3 <= len(terms) <= 8:
+                results['36']['findings'].append(_finding(ir, 36, node,
+                    f'关键词共 {len(terms)} 个，国标要求 3—8 个。', '关键词数量',
+                    '请将关键词调整为 3—8 个，并用分号分隔；依据 GB/T 7713.1—2025 附录 A、表 A.1。'))
+    if 37 in selected_rules:
+        for node in _abstract_nodes(ir):
+            text = node['text']
+            for label, pattern in _OBJECT_NUMBERS:
+                for match in pattern.finditer(text):
+                    if label == '参考文献' and _technical_bracket(text, match.end()):
+                        continue
+                    context = text[max(0, match.start()-6):match.end()+6].replace('\n', '')
+                    results['37']['findings'].append(_finding(ir, 37, node,
+                        f'摘要中出现了{label}编号“{match.group()}”（“…{context}…”）；摘要应独立成文，不引用图表、公式或参考文献编号。',
+                        match.group(),
+                        f'请删除摘要中的{label}编号“{match.group()}”，改用文字概括相应内容。',
+                        offset=match.start()))
+    if 38 in selected_rules:
+        for page, box, text, node, prior in chapter_labels(ir):
+            if not prior:
+                continue
+            label = compact(text)
+            results['38']['findings'].append(_finding(ir, 38, node,
+                f'{label}未从新页开始：该章标题上方仍有上一章内容。', label,
+                f'请在“{label}”前插入分页符，使该章标题从新页页首开始。'))
     if ir['coverage']['pages']['status'] != 'complete':
         for result in results.values(): result['reason'] = '仅检查可读取文字；未将扫描或不可读内容判为缺失。'
     return results
