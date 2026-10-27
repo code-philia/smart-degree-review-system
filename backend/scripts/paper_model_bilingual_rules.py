@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from paper_compiler.frontend import build_paper
 
 _CJK = re.compile(r"[\u3400-\u9fff]")
-_KEYWORDS = re.compile(r"^\s*(关键词|关键字|key\s*words?|keywords?)\s*[:：]\s*(.+)$", re.I)
+_KEYWORDS = re.compile(r"^\s*(关键词|关键字|key\s*words?|keywords?)\s*[:：]\s*(.*)$", re.I)
 _SEPARATOR = re.compile(r"\s*(?:[,，;；、]|\s+and\s+)\s*", re.I)
 
 
@@ -52,6 +52,45 @@ def _line_rows(ir):
     return [str(line.get("text", "")).strip() for page in ir.get("layout", {}).get("pages", []) for line in page.get("lines", []) if str(line.get("text", "")).strip()]
 
 
+def _keyword_layout_lines(lines):
+    """Rejoin source fragments on a keyword row in physical reading order."""
+    replacements, consumed = {}, set()
+    for index, line in enumerate(lines):
+        if not _KEYWORDS.match(str(line.get("text", "")).strip()) or not line.get("bbox"):
+            continue
+        x1, y1, _x2, y2 = line["bbox"]
+        members = []
+        for other_index, other in enumerate(lines):
+            box = other.get("bbox")
+            if not box or box[0] < x1:
+                continue
+            if other_index != index and _KEYWORDS.match(str(other.get("text", "")).strip()):
+                continue
+            overlap = min(y2, box[3]) - max(y1, box[1])
+            if overlap >= max(1, min(y2 - y1, box[3] - box[1]) * .5):
+                members.append((other_index, other))
+        members.sort(key=lambda item: item[1]["bbox"][0])
+        if len(members) < 2:
+            continue
+        text, right, joined = "", x1, []
+        for other_index, other in members:
+            if other["bbox"][0] < right - .5:
+                continue
+            part = str(other.get("text", "")).strip()
+            if text and part and text[-1].isalnum() and part[0].isalnum():
+                text += " "
+            text += part
+            right = other["bbox"][2]
+            joined.append(other_index)
+        first = min(joined)
+        replacements[first] = {**line, "text": text,
+                               "bbox": [x1, min(lines[i]["bbox"][1] for i in joined),
+                                        right, max(lines[i]["bbox"][3] for i in joined)]}
+        consumed.update(joined)
+    return [replacements[i] if i in replacements else line
+            for i, line in enumerate(lines) if i in replacements or i not in consumed]
+
+
 def _overlapping_keyword_fragment(previous_bbox, current_bbox, previous_text, current_text):
     """Ignore a stray text layer overlapping a wrapped keyword line.
 
@@ -81,6 +120,8 @@ def extract_bilingual_facts(ir):
             match = _KEYWORDS.match(part)
             if match:
                 values = [item.strip() for item in _SEPARATOR.split(match.group(2)) if item.strip()]
+                if not values:
+                    continue
                 item = {"label": match.group(1), "values": values,
                         "match_values": _keyword_match_values(values), "text": part}
                 if item not in keywords: keywords.append(item)
@@ -89,7 +130,7 @@ def extract_bilingual_facts(ir):
     flat = []
     flat_bboxes = []
     for page in ir.get("layout", {}).get("pages", []):
-        for line in page.get("lines", []):
+        for line in _keyword_layout_lines(page.get("lines", [])):
             text = str(line.get("text", "")).strip()
             if text:
                 flat.append((page.get("page_index", 0), text))
@@ -116,6 +157,8 @@ def extract_bilingual_facts(ir):
         combined = _join_wrapped_keyword_lines(parts)
         match_combined = _join_wrapped_keyword_lines(parts, remove_wrap_hyphen=True)
         values = [item.strip() for item in _SEPARATOR.split(combined) if item.strip()]
+        if not values:
+            continue
         match_values = [item.strip() for item in _SEPARATOR.split(match_combined) if item.strip()]
         candidate = {"label": match.group(1), "values": values,
                      "match_values": match_values, "text": combined}
@@ -141,7 +184,7 @@ def extract_bilingual_facts(ir):
         for page_index, text in flat[start + 1:]:
             compact = re.sub(r"\s+", "", text).casefold()
             normalized_stop = {re.sub(r"\s+", "", item).casefold() for item in stop}
-            if compact in normalized_stop:
+            if compact in normalized_stop or _KEYWORDS.match(text):
                 break
             if compact in {normalized_label, "摘要", "abstract"}:
                 continue
