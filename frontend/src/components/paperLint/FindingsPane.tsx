@@ -35,6 +35,28 @@ type Props = {
 const tones = { error: 'danger', warning: 'warning', info: 'info' } as const;
 const severityLabels = { error: '严重', warning: '警告', info: '提示' };
 
+function repairActionParts(instruction: string) {
+  const text = instruction.trim();
+  const match = text.match(/^(.*?)(?:将|把)\s*[“"「『]([^”"」』]{1,160})[”"」』]\s*(?:修改为|改为|替换为)\s*[“"「『]([^”"」』]{1,160})[”"」』](.*)$/s);
+  if (!match) return { text: text.length > 260 ? `${text.slice(0, 260)}…` : text };
+  return { prefix: `${match[1]}${match[1] ? ' ' : ''}`, before: match[2], after: match[3], suffix: match[4] };
+}
+
+function RepairAction({ instruction }: { instruction: string }) {
+  const parts = repairActionParts(instruction);
+  if (!('before' in parts)) return <p>{parts.text}</p>;
+  return (
+    <p>
+      {parts.prefix}
+      <span className="rounded bg-rose-100 px-1 text-rose-800 line-through" title="检测到的原文片段">{parts.before}</span>
+      <span className="mx-1 text-slate-500">改为</span>
+      <span className="rounded bg-emerald-100 px-1 text-emerald-800" title="建议修改后的文字">{parts.after}</span>
+      {parts.suffix}
+    </p>
+  );
+}
+
+
 function FeedbackControls({
   label, feedback, reasons, onValue, onReason, onCancel,
 }: {
@@ -287,7 +309,7 @@ export function FindingsPane({
                         <div>
                           <div className="space-y-2">
                             {repair.actions.map((action, index) => (
-                              <p key={`${action.instruction}-${index}`}>{action.instruction}</p>
+                              <RepairAction key={`${action.instruction}-${index}`} instruction={action.instruction} />
                             ))}
                           </div>
                         </div>
@@ -297,7 +319,7 @@ export function FindingsPane({
                             : repair.status === 'evidence_conflict'
                               ? '证据与告警存在冲突：暂不应仅依据该告警修改论文，请人工复核规则结果。'
                               : repair.missing_context?.length
-                                ? `需要核对：${repair.missing_context.join('；')}`
+                                ? '需要核对相关原文上下文后再决定修改方向'
                                 : '需要补充明确的原文片段和定位后再确定修改。'}
                           {' · '}
                           {repair.provenance.model} · {repair.provenance.prompt_version}
