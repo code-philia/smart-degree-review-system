@@ -306,18 +306,32 @@ def enrich(ir,rule_packages,*,client,gateway,cache_dir:Path,snapshot_id=None):
     bind_references(ir,a);citation_syntax(ir,a);ordering_facts(ir,a)
     if required & {'external_work','citation_relevance'}:
         external=a['results'].setdefault('external_work',{})
+        has_r32 = any(str(p.get('program_spec', p.get('rule_ir', {})).get('rule_id')) == '32' for p in rule_packages)
         for node in ir['nodes']:
             if node['kind']!='BibliographyEntry':continue
             fields=a['results']['bibliography_fields'][node['id']]
             query={name:_value(fields,name) for name in ['title','authors','year','doi']}
             query['authors']=query.get('authors') or []
-            records=gateway.lookup(query) if gateway and query.get('title') else []
+            retrieval_error = None
+            try:
+                lookup = getattr(gateway, 'lookup_rule32', None) if gateway and has_r32 else None
+                records = lookup(query) if lookup and query.get('title') else (gateway.lookup(query) if gateway and query.get('title') else [])
+            except Exception as error:
+                retrieval_error = type(error).__name__ + ': ' + str(error)
+                records = []
             for record in records:_add_evidence(a,record)
             identity_entry = dict(query)
             source_url = _value(fields, 'url')
             if isinstance(source_url, str) and source_url.strip():
                 identity_entry['url'] = source_url
             identity=resolve_identity(identity_entry,records,client=client)
+            if retrieval_error:
+                identity = {'state': 'unknown', 'reason': 'SerpAPI Scholar retrieval failed: ' + retrieval_error,
+                            'evidence_ids': [record['id'] for record in records if isinstance(record, dict) and record.get('id')]}
+            elif records and all(record.get('status') == 'empty' for record in records if isinstance(record, dict)):
+                identity = {'state': 'observed', 'value': False, 'reason': 'SerpAPI Google Scholar returned no matching result',
+                            'search_scope': 'serpapi:google_scholar',
+                            'evidence_ids': [record['id'] for record in records if record.get('id')]}
             # A source-backed arXiv URL is an exact discovery key, never a fact
             # about existence. Failed/absent metadata keeps the original UNKNOWN.
             exact_lookup = getattr(gateway,'lookup_arxiv_url',None)
