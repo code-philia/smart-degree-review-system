@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -31,22 +31,17 @@ describe('four local rules in the existing basic-check flow', () => {
       'chapter_new_page_check',
       'sjtu_rule_11', 'sjtu_rule_13', 'sjtu_rule_14', 'sjtu_rule_15', 'sjtu_rule_16', 'sjtu_rule_29',
       'sjtu_rule_32', 'sjtu_rule_33',
+      'bilingual_keywords_correspondence_check', 'bilingual_abstract_consistency_check',
     ]);
     expect(catalog.rules.slice(0, 4).every((rule) => rule.available && !rule.uses_external_model)).toBe(true);
   });
 
-  it('retries the existing catalog after a temporary fallback', async () => {
-    const enginePath = path.join(process.env.REVIEW_PILOT_BACKEND_DIR, 'novref', 'domain', 'paper_lint');
-    const exists = vi.spyOn(fs, 'existsSync');
-    try {
-      await service.getPaperLintCatalog({ refresh: true });
-      const firstCount = exists.mock.calls.filter(([candidate]) => candidate === enginePath).length;
-      await service.getPaperLintCatalog();
-      const secondCount = exists.mock.calls.filter(([candidate]) => candidate === enginePath).length;
-      expect(secondCount).toBeGreaterThan(firstCount);
-    } finally {
-      exists.mockRestore();
-    }
+  it('loads the native MVP catalog without the external review-pilot engine', async () => {
+    const catalog = await service.getPaperLintCatalog({ refresh: true, mvpOnly: true });
+    expect(catalog.engine).toBe('sjtu-local');
+    expect(catalog.rules.filter(rule => !rule.uses_external_model)).toHaveLength(10);
+    expect(catalog.rules.find(rule => rule.rule_id === 'chapter_new_page_check'))
+      .toMatchObject({ family: 'local_pdf', available: true });
   });
 
   it.skipIf(!process.env.FIVE_RULE_TEST_PYTHON)('stops a run at its total deadline', async () => {

@@ -1,4 +1,4 @@
-"""Five native-text checks over the shared Paper Model / Paper IR. No network."""
+"""Six native-text checks over the shared Paper Model / Paper IR. No network."""
 import re
 
 RULES = (31, 34, 35, 36, 37, 38)  # execution keys only; public titles have no rule numbers
@@ -20,16 +20,16 @@ _OBJECT_NUMBERS = (
     ('图', re.compile(r'图\s*\d{1,3}(?:\s*[-–—.．]\s*\d{1,3})*')),
     ('表', re.compile(r'表\s*\d{1,3}(?:\s*[-–—.．]\s*\d{1,3})*')),
     ('公式', re.compile(r'公式\s*[（(]?\s*\d{1,3}(?:\s*[-–—.．]\s*\d{1,3})*\s*[)）]?')),
-    ('公式', re.compile(r'(?<![方形模程仪范格款版])式\s*[（(]?\s*\d{1,3}(?:\s*[-–—.．]\s*\d{1,3})*\s*[)）]?')),
+    ('公式', re.compile(r'(?<![公方形模程仪范格款版])式\s*[（(]?\s*\d{1,3}(?:\s*[-–—.．]\s*\d{1,3})*\s*[)）]?')),
     ('参考文献', re.compile(r'[\[［]\s*\d{1,3}(?:\s*[-–—,，]\s*\d{1,3})*\s*[\]］]')),
     ('图', re.compile(r'(?<![A-Za-z])fig(?:ure)?s?\.?\s*\d{1,3}(?:\s*[.．]\s*\d{1,3})?(?!\d)', re.I)),
     ('表', re.compile(r'(?<![A-Za-z])tab(?:le)?s?\.?\s*\d{1,3}(?:\s*[.．]\s*\d{1,3})?(?!\d)', re.I)),
-    ('公式', re.compile(r'(?<![A-Za-z])eq(?:uation|n)?s?\.?\s*\d{1,3}(?:\s*[.．]\s*\d{1,3})?(?!\d)', re.I)),
+    ('公式', re.compile(r'(?<![A-Za-z])eq(?:uation|n)?s?\.?\s*[(（]?\s*\d{1,3}(?:\s*[-–—.．]\s*\d{1,3})*\s*[)）]?(?!\d)', re.I)),
 )
 # A chapter label must be a whole visual row: 第4 章 alone, or the number followed
-# by a whitespace-separated title of at most 40 chars without sentence punctuation.
+# by an optionally spaced title of at most 40 chars without sentence punctuation.
 # Prose such as 第三章的… or 第一章是绪论，… therefore never becomes a chapter label.
-_CHAPTER_LABEL = re.compile(r'^第\s*[一二三四五六七八九十百零〇0-9]{1,4}\s*章(?:\s+[^\s，。；：！？、,;:!?]{1,40})?$')
+_CHAPTER_LABEL = re.compile(r'^第\s*[一二三四五六七八九十百零〇0-9]{1,4}\s*章(?:\s*[^\s，。；：！？、,;:!?]{1,40})?$')
 _LEADER_LINE = re.compile(r'\.{3,}|…')
 # Page furniture above the top margin (running headers, page numbers) is not prior
 # chapter content; rows() drops small ones, but 12.6 pt headers survive its 12.5 cut.
@@ -241,6 +241,30 @@ def _keyword_terms(text):
     return [t for t in (x.strip(' \t。.；;，,、:：') for x in _TERM_SPLIT.split(merged)) if t]
 
 
+def _keyword_block(ir, node):
+    """Include adjacent hanging-indent lines that the frontend split into nodes."""
+    sources = [_source(span) for span in node['provenance'] if _source(span)]
+    if not sources:
+        return node
+    last = max(sources, key=lambda source: (source['page_index'], source['bbox'][1]))
+    page, box = last['page_index'], last['bbox']
+    following = sorted((((_source(other['provenance'][0]) or {}).get('bbox'), other)
+                       for other in ir['nodes'] if other['id'] != node['id'] and other['text']
+                       and other['provenance'] and _node_page_index(other) == page
+                       and (_source(other['provenance'][0]) or {}).get('bbox', [0, -1])[1] >= box[3] - 1),
+                       key=lambda item: (item[0][1], item[0][0]))
+    text = node['text']
+    for next_box, other in following:
+        if (other['kind'] != 'Paragraph' or next_box[1] - box[3] > (box[3] - box[1]) * 1.5
+                or next_box[0] < sources[0]['bbox'][0] - 2
+                or re.search(r'[。!?！？:：]|\.\s*$', other['text'])):
+            break
+        text += '\n' + other['text']
+        box = max((_source(span)['bbox'] for span in other['provenance'] if _source(span)),
+                  key=lambda value: value[3])
+    return {**node, 'text': text}
+
+
 def _body_start_page(ir):
     """First page after front matter, mirroring core_parts' body boundary."""
     visual_rows = rows(ir)
@@ -302,16 +326,30 @@ def _abstract_nodes(ir):
     pages = {page for page, _, text, _ in rows(ir) if compact(text) in _ABSTRACT_HEADING}
     pages |= {_node_page_index(node) for node in ir['nodes'] if node['kind'] == 'Abstract'}
     pages = {page for page in pages if page < 10**9 and (not body_start or page < body_start)}
+    by_id = {node['id']: node for node in ir['nodes']}
+    pending = [node['id'] for node in ir['nodes'] if node['kind'] == 'Abstract']
+    abstract_ids = set()
+    while pending:
+        nid = pending.pop()
+        if nid not in abstract_ids:
+            abstract_ids.add(nid)
+            pending.extend(by_id[nid]['children'])
     return [node for node in ir['nodes'] if node['text'] and node['kind'] in {'Paragraph', 'Abstract'}
             and not _KEYWORD_LABEL.match(node['text'])
-            and any((_source(span) or {}).get('page_index') in pages for span in node['provenance'])
+            and (node['id'] in abstract_ids or any((_source(span) or {}).get('page_index') in pages for span in node['provenance']))
+            and (not body_start or _node_page_index(node) < body_start)
             # A contents page repeats "摘要" as an entry; its dot leaders are not abstract prose.
             and not re.search(r'(?:\.\s*){5,}', node['text'])]
 
 
-def _technical_bracket(text, end):
-    """W[1]-hard style complexity notation is not a bibliography citation."""
-    return bool(re.match(r'[-–—]?(?:困难|hard|complete|完备)', re.sub(r'\s+', '', text[end:end+12]), re.I))
+def _technical_bracket(text, start, end):
+    """Exclude explicit numeric intervals and W[1]-hard complexity notation."""
+    after = re.sub(r'\s+', '', text[end:end+12])
+    if re.match(r'[-–—]?(?:困难|hard|complete|完备)', after, re.I):
+        return True
+    return bool(re.search(r'[,，]', text[start:end]) and (
+        re.match(r'(?:区间|范围|interval|range)', after, re.I)
+        or re.search(r'(?:区间|范围|\binterval|\brange)\s*$', text[max(0, start-24):start], re.I)))
 
 
 def detect_ir(ir, selected_rules=RULES):
@@ -380,11 +418,12 @@ def detect_ir(ir, selected_rules=RULES):
     if 36 in selected_rules:
         body_start = _body_start_page(ir)
         for node in ir['nodes']:
-            terms = _keyword_terms(node.get('text'))
-            if terms is None:
+            if not _KEYWORD_LABEL.search(node.get('text') or ''):
                 continue
             if body_start and _node_page_index(node) >= body_start:
                 continue
+            node = _keyword_block(ir, node)
+            terms = _keyword_terms(node['text'])
             if not 3 <= len(terms) <= 8:
                 results['36']['findings'].append(_finding(ir, 36, node,
                     f'关键词共 {len(terms)} 个，国标要求 3—8 个。', '关键词数量',
@@ -394,7 +433,7 @@ def detect_ir(ir, selected_rules=RULES):
             text = node['text']
             for label, pattern in _OBJECT_NUMBERS:
                 for match in pattern.finditer(text):
-                    if label == '参考文献' and _technical_bracket(text, match.end()):
+                    if label == '参考文献' and _technical_bracket(text, match.start(), match.end()):
                         continue
                     context = text[max(0, match.start()-6):match.end()+6].replace('\n', '')
                     results['37']['findings'].append(_finding(ir, 37, node,
