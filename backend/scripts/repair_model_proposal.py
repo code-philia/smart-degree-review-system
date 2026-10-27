@@ -16,7 +16,7 @@ DEFAULT_CACHE_ROOT = Path('/data/runtime/paper-compiler/repair-model-cache')
 
 def model_identity(config_path):
     config = load_config(config_path)
-    return {'model': config['MAAS_MODEL'], 'modelVersion': config.get('MAAS_MODEL_VERSION', 'unknown')}
+    return {'model': config['MAAS_MODEL'], 'modelVersion': config.get('MAAS_MODEL_VERSION', 'campus-current'), 'provider': 'sjtu'}
 
 def execute(messages, *, config_path, ledger, cache, transport=None):
     if not isinstance(messages, list) or len(messages) != 2:
@@ -42,9 +42,13 @@ def execute(messages, *, config_path, ledger, cache, transport=None):
         'input_tokens': usage['prompt_tokens'], 'output_tokens': usage['completion_tokens'], 'attempts': attempt + 1}}
 
 def main():
-    config = os.environ.get('PAPER_COMPILER_CONFIG')
-    if not config:
-        raise ValueError('model credential configuration missing')
+    campus_configured = all(
+        os.environ.get(name, '').strip()
+        for name in ('SJTU_API_KEY', 'SJTU_API_BASE_URL', 'SJTU_API_MODEL')
+    )
+    if not campus_configured:
+        raise ValueError('校内 SJTU_API_* 模型配置缺失；已禁用旧的华为 API 回退路径')
+    config = ':env:'
     if sys.argv[1:] == ['--info']:
         return model_identity(config)
     raw = sys.stdin.buffer.read(131073)

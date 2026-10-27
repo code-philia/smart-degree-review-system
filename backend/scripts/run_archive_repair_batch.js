@@ -126,7 +126,7 @@ async function main() {
   const report = {
     schema_version: 'repair-batch-v1', started_at: existing?.started_at || new Date().toISOString(),
     updated_at: new Date().toISOString(), input: path.relative(workspace, input), database: path.relative(workspace, dbPath),
-    model: process.env.MAAS_MODEL || null, model_version: process.env.MAAS_MODEL_VERSION || 'unknown',
+    model: process.env.SJTU_API_MODEL || null, model_version: process.env.SJTU_API_MODEL_VERSION || 'campus-current',
     prompt_version: PROMPT_VERSION, total_findings: allSelected.length, selected_findings: selected.length,
     concurrency,
     records: selected.map(({ source }) => recordsByKey.get(sourceKey(source))).filter(Boolean),
@@ -152,9 +152,9 @@ async function main() {
     let record;
     try {
       const request = await buildArchiveRepairRequestWithPdfContext(item.source);
-      const cached = process.env.MAAS_MODEL ? await findRepairSuggestion(request, {
-        model: process.env.MAAS_MODEL,
-        modelVersion: process.env.MAAS_MODEL_VERSION || 'unknown',
+      const cached = process.env.SJTU_API_MODEL ? await findRepairSuggestion(request, {
+        model: process.env.SJTU_API_MODEL,
+        modelVersion: process.env.SJTU_API_MODEL_VERSION || 'campus-current',
         promptVersion: PROMPT_VERSION,
       }) : null;
       const response = cached || await proposeRepair(request);

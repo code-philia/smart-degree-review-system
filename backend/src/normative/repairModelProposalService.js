@@ -1,5 +1,5 @@
 const ALLOWED_STATUSES = new Set(['suggested', 'insufficient_context', 'evidence_conflict']);
-const PROMPT_VERSION = 'repair-model-actions-v3';
+const PROMPT_VERSION = 'repair-model-actions-v6';
 const MAX_EVIDENCE_ITEMS = 8;
 const MAX_EVIDENCE_CHARS = 12000;
 
@@ -10,13 +10,15 @@ function problem(status, message) {
 }
 
 function modelConfig() {
-  const apiKey = process.env.MAAS_API_KEY;
-  const baseUrl = process.env.MAAS_BASE_URL;
-  const model = process.env.MAAS_MODEL;
+  const apiKey = process.env.SJTU_API_KEY;
+  const baseUrl = process.env.SJTU_API_BASE_URL;
+  const model = process.env.SJTU_API_MODEL;
   if (!apiKey || !baseUrl || !model) {
-    throw problem(503, '修复建议模型未配置：需要 MAAS_API_KEY、MAAS_BASE_URL 和 MAAS_MODEL');
+    throw problem(503, '修复建议模型未配置：需要校内 SJTU_API_* 配置');
   }
-  return { apiKey, baseUrl: baseUrl.replace(/\/$/, ''), model, modelVersion: process.env.MAAS_MODEL_VERSION || 'unknown' };
+  return { apiKey, baseUrl: baseUrl.replace(/\/$/, ''), model,
+    modelVersion: process.env.SJTU_API_MODEL_VERSION || 'campus-current',
+    provider: 'sjtu' };
 }
 
 function boundedCitationText(value, limit) {
@@ -71,14 +73,24 @@ function boundedEvidence(evidence, ruleId) {
 
 function buildMessages(request) {
   const evidence = boundedEvidence(request.evidence, request.rule.rule_id);
+  const bilingual = ['bilingual_abstract_consistency_check', 'bilingual_keywords_correspondence_check']
+    .includes(request.rule.rule_id);
+  const bilingualInstructions = bilingual ? `
+## 中英文双语规则专用要求
+这是中英文摘要/关键词对应规则。输入证据中的“中文原文”和“英文原文”是本次判断的核心上下文，不能把它们当成泛泛的摘要信息。
+如果状态为 suggested，建议必须同时引用中文和英文原文证据，但必须保持保守：不得仅凭摘要或关键词擅自认定中文或英文哪一侧正确，不得输出“以中文为准”“以英文为准”“将英文改成中文”等绝对结论。英文关键词中字母之间的单个连字符可能来自 PDF 跨行换行；没有明确原文证据时，不得建议删除或改写该连字符。应明确指出两侧的具体差异，建议作者结合正文、方法、实验结果和术语定义核对后再决定修改哪一侧；除非输入证据明确证明某一侧是权威版本，否则只提出同步核对和最小修改方向。
+如果状态为 insufficient_context，只能明确指出缺少哪一侧的哪一段原文（包括页码或定位）；如果输入已经有两侧原文，不得再笼统要求“提供摘要信息”或“核对摘要”。
+` : '';
   const expected = {
     status: 'suggested | insufficient_context | evidence_conflict',
     actions: [{ instruction: 'string', evidence_ids: ['evidence id'] }],
+    missing_context: ['string'],
   };
   return [
     {
       role: 'system',
       content: `你是学位论文规范问题的修复建议助手。请根据规则、告警和证据，为论文作者提供简明、具体、可直接执行的修复建议。
+所有面向用户的 summary、instruction、missing_context 必须使用简体中文；原文证据和英文术语可保持原样。
 
 ## 修复原则（按优先级执行）
 
@@ -88,6 +100,7 @@ function buildMessages(request) {
 4. **精准简洁**：尽量包含页码、原文短片段及明确修改动作，优先使用“在第X页‘原文片段’处，将A修改为B”。原文片段必须来自输入证据，不得改写或补造。每条建议原则上为1～2句话，不输出排查流程。
 5. **定位准确**：使用原文上下文作为定位锚点：如果输入证据包含问题原文及其前后文，应优先提取能够唯一识别修改位置的连续原文片段。片段应包含待修改内容，并尽量保留其前后各约 10～20 个汉字。不得改写、补造或拼接不存在的原文。若原文较长，只截取与修改直接相关的部分。
 
+${bilingualInstructions}
 ## 状态规则
 
 - suggested：现有证据支持合理的具体修复方案，包括必要的合理推断。
@@ -107,7 +120,12 @@ JSON 结构：${JSON.stringify(expected)}`,
       role: 'user',
       content: JSON.stringify({
         rule: request.rule,
-        finding: { finding_id: request.finding.finding_id, message: request.finding.message },
+        finding: {
+          finding_id: request.finding.finding_id,
+          message: request.finding.message,
+          location: request.finding.location || null,
+          anchors: Array.isArray(request.finding.anchors) ? request.finding.anchors : [],
+        },
         evidence,
       }),
     },
@@ -117,7 +135,15 @@ JSON 结构：${JSON.stringify(expected)}`,
 function parseJson(content) {
   if (typeof content !== 'string') throw problem(502, '修复建议模型返回为空');
   const trimmed = content.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-  try { return JSON.parse(trimmed); } catch { throw problem(502, '修复建议模型返回了无法解析的 JSON'); }
+  try { return JSON.parse(trimmed); } catch {
+    const start = trimmed.indexOf('{');
+    if (start < 0) throw problem(502, '修复建议模型返回了无法解析的 JSON');
+    try {
+      const value = JSON.parse(trimmed.slice(start));
+      if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('not object');
+      return value;
+    } catch { throw problem(502, '修复建议模型返回了无法解析的 JSON'); }
+  }
 }
 
 function validateModelAnswer(answer, request) {
@@ -138,9 +164,23 @@ function validateModelAnswer(answer, request) {
     }
     return { instruction: action.instruction.trim(), evidence_ids: normalizeIds(action.evidence_ids) };
   });
+  const missingContext = Array.isArray(answer.missing_context)
+    ? answer.missing_context.filter((item) => typeof item === 'string' && item.trim()).map((item) => item.trim()).slice(0, 8)
+    : [];
+  const bilingual = ['bilingual_abstract_consistency_check', 'bilingual_keywords_correspondence_check']
+    .includes(request.rule.rule_id);
+  if (bilingual && answer.status === 'suggested') {
+    const bilingualIds = validIds.has('bilingual-evidence-1') && validIds.has('bilingual-evidence-2')
+      ? ['bilingual-evidence-1', 'bilingual-evidence-2'] : [];
+    const citedBilingualIds = new Set(actions.flatMap((action) => action.evidence_ids));
+    if (bilingualIds.length === 2 && !bilingualIds.every((id) => citedBilingualIds.has(id))) {
+      throw problem(502, '双语修复建议必须引用中文和英文原文证据');
+    }
+  }
   return {
     status: answer.status,
     actions,
+    ...(missingContext.length ? { missing_context: missingContext } : {}),
   };
 }
 
@@ -178,7 +218,7 @@ function repairResponse(request, answer, config, usage) {
     rule_id: request.rule.rule_id, finding_id: request.finding.finding_id,
     ...answer,
     provenance: {
-      provider: 'huawei_maas', model: config.model, model_version: config.modelVersion,
+      provider: config.provider || 'sjtu', model: config.model, model_version: config.modelVersion,
       prompt_version: PROMPT_VERSION, context_sha256: request.context_sha256,
       source_identity_sha256: request.source_identity_sha256,
       generated_at: new Date().toISOString(),

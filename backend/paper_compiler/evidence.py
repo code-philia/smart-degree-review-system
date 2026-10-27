@@ -367,6 +367,18 @@ class EvidenceGateway:
         # request interval and URL order. map preserves the configured provider order.
         with ThreadPoolExecutor(max_workers=min(4,len(self.providers))) as pool:
             return [item for records in pool.map(retrieve_provider,self.providers) for item in records]
+
+    def lookup_rule32(self, query):
+        """Rule 32 uses exactly one provider: SerpAPI Google Scholar."""
+        from .serpapi_scholar import SerpApiScholar
+        library = os.environ.get('PAPER_COMPILER_REFERENCE_LIBRARY') or str(self.rate_dir / 'reference-library')
+        records, meta = SerpApiScholar(library).lookup(query)
+        if not records and meta.get('status') == 'empty':
+            key = meta.get('library_key', '')
+            return [{'id': 'serpapi-scholar-empty-' + key[:16], 'provider': 'serpapi',
+                     'engine': 'google_scholar', 'status': 'empty',
+                     'retrieved_at': self.clock(), 'query': query, 'works': []}]
+        return records
     def content(self,work):
         if not self.snapshot_id:return self._content(work)
         key=hashlib.sha256(json_bytes({'version':CONTENT_VERSION,'work':work})).hexdigest();path=self.cache_dir/('content-map-'+key+'.json')

@@ -2,9 +2,9 @@
 import re
 
 RULES = (31, 34, 35, 36, 37, 38)  # execution keys only; public titles have no rule numbers
-_CHAPTER = re.compile(r'^(?:第[一二三四五六七八九十百0-9]+[章篇]|chapter\d+|\d+(?:[.．]\d+)*[.．、]?)', re.I)
-_INTRO = re.compile(r'^(?:绪论|绪言|引言|引论|introduction)$', re.I)
-_CONCLUSION = re.compile(r'^(?:(?:课题|全文|研究|工作|论文)?(?:总结|结论)(?:[与和及](?:未来)?(?:展望|工作|建议|讨论))?|总结|结论|总结[与和及](?:未来)?展望|结论[与和及](?:未来)?展望|总结[与和及]未来工作|研究结论|全文总结|研究总结|总结展望|结论及建议|结束语|conclusions?(?:andfuturework)?|summary(?:and(?:futurework|outlook))?)$', re.I)
+_CHAPTER = re.compile(r'^(?:第[一二三四五六七八九十百0-9]+[章篇]|chapter\d+|\d+(?:[.．]\d+)*[.．、]?)(?:[:：]|[-–—])?', re.I)
+_INTRO = re.compile(r'^(?:绪论|绪言|引言|引论|简介|introduction(?:andcontextualization)?)$', re.I)
+_CONCLUSION = re.compile(r'^(?:(?:课题|全文|研究|工作|论文)?(?:总结|结论)(?:[与和及](?:未来)?(?:展望|工作|建议|讨论))?|总结|结论|总结[与和及](?:未来)?展望|结论[与和及](?:未来)?展望|总结[与和及]未来工作|研究结论|全文总结|研究总结|研究成果总结|总结展望|结论及建议|结语|结束语|conclusions?(?:andfuturework)?|summary(?:and(?:futurework|outlook))?)$', re.I)
 _TYPE = re.compile(r'[\[［]\s*([A-Za-z]{1,3})(?:\s*/\s*([A-Za-z]{1,2}))?\s*[\]］]')
 _CODES = set('M J N C D R S P EB A CM DS PP G GI CP DB Z'.split())
 _MEDIA = {'MT', 'DK', 'CD', 'OL', 'MM'}
@@ -37,6 +37,7 @@ _TOP_MARGIN = 0.12
 # A chapter heading is typeset larger than body text. Body-size rows that start with
 # 第x章 are 论文组织结构 prose or figure cells, never a chapter opening.
 _HEADING_SCALE = 1.25
+_EN_PUNCT = re.compile(r'(?<=[A-Za-z0-9%)\]])([，；：！？。])(?=\s|[A-Za-z0-9]|$)')
 
 
 def compact(text):
@@ -140,7 +141,7 @@ def core_parts(ir):
     intro_pages = [page for page, _, text, _ in visual_rows if _INTRO.fullmatch(_CHAPTER.sub('', compact(text)))]
     toc_pages = [page for page, _, text, _ in visual_rows if re.search(r'(?:\.\s*){3,}\s*\d+\s*$', text)]
     body_start = max(max(toc_pages, default=-1)+1, min(intro_pages, default=0))
-    body_end = min((page for page,_,text,node in visual_rows if page >= body_start and (_CONCLUSION.fullmatch(_CHAPTER.sub('',compact(text))) or compact(text) in {'参考文献','references','bibliography'})), default=len(ir['layout']['pages']))
+    body_end = min((page for page,_,text,node in visual_rows if page >= body_start and node['kind'] == 'Heading' and (_CONCLUSION.fullmatch(_CHAPTER.sub('',compact(text))) or compact(text) in {'参考文献','references','bibliography'})), default=len(ir['layout']['pages']))
     headings = [_CHAPTER.sub('', text) for text in texts]
     kinds = {node['kind'] for node in ir['nodes']}
     all_text = '\n'.join(t for t in texts if len(t) <= 55 and not re.search(r'[，。；]', t))
@@ -173,12 +174,21 @@ def prose_nodes(ir):
     return [node for node in ir['nodes'] if node['kind'] == 'Paragraph' and node['text'] and node['id'] not in excluded]
 
 
+def english_prose(text):
+    return (not re.search(r'[\u4e00-\u9fff]', text)
+            and len(re.findall(r'\b[A-Za-z]{2,}\b', text)) >= 4
+            and bool(re.search(r'\b[A-Za-z]+(?:\s+[A-Za-z]+){2}\b', text))
+            and bool(re.search(r'[.!?。！？](?:\s|$)', text))
+            and not re.search(r'(?m:^\s*(?:USER|SYS|ASSISTANT|SYSTEM|HUMAN)\s*[:：])|'
+                              r'\b[\w.-]+\.(?:pdf|docx?|xlsx?|pptx?|txt|csv|json)\b', text, re.I))
+
+
 def punctuation_prose(node, pages):
     """Require sentence evidence; fragments and scanned text are not violations."""
     text = node['text']
     front_label = re.match(r'^(?:姓名|名|导师|师|学院|院系|系|学科(?:/专业)?(?:名称)?|学位类型|申请学位)[:：]', compact(text))
     declaration = re.match(r'^本人(?:郑重声明|同意学校)', compact(text))
-    if not (front_label or declaration or re.search(r'[。！？]|[\u4e00-\u9fff]\.(?:\s|$)', text)):
+    if not (front_label or declaration or re.search(r'[。！？]|[\u4e00-\u9fff]\.(?:\s|$)', text) or english_prose(text)):
         return False
     if re.search(r'https?://|www\.|[`=<>{}|←→⊲▹]|//|(?m:^\s*(?:#|\d+\s*[:：]))|'
                  r'(?m:^\s*[\[［]\d+[\]］])|[A-Za-z_]\w*\s*:\s*(?:true|false|null|None)\b|'
@@ -308,12 +318,18 @@ def detect_ir(ir, selected_rules=RULES):
     results = {str(rule): {'status': 'completed', 'findings': []} for rule in selected_rules}
     anchor = next((n for n in ir['nodes'] if n['text'] and n['provenance']), None)
     if 34 in selected_rules and anchor:
-        # Absence is justified only after a complete native-text pass. A scanned
-        # statement or blank page is not evidence that a required part is absent.
-        if ir['coverage']['pages']['status'] == 'complete':
-            results['34']['findings'] = [_finding(ir, 34, anchor, f'未发现国标必备部分“{part}”', part,
-                f'请补齐或核对{part}；依据 GB/T 7713.1—2025 附录 A、表 A.1。')
-                for part, present in core_parts(ir).items() if present is False]
+        # Scanned back forms cannot hide readable core chapters. Declarations
+        # can be placed at the back, so their absence still requires all pages.
+        coverage = ir['coverage']['pages']
+        complete = coverage['status'] == 'complete'
+        core_complete = coverage.get('core_sections_status') == 'complete'
+        parts = core_parts(ir)
+        checked = [part for part, present in parts.items() if present is True or complete
+                   or (core_complete and part not in {'原创性声明', '使用授权说明'})]
+        results['34']['checked_parts'] = checked
+        results['34']['findings'] = [_finding(ir, 34, anchor, f'未发现国标必备部分“{part}”', part,
+            f'请补齐或核对{part}；依据 GB/T 7713.1—2025 附录 A、表 A.1。')
+            for part, present in parts.items() if present is False and part in checked]
     if 35 in selected_rules:
         pages = {page['page_index']: page for page in ir['layout']['pages']}
         for node in prose_nodes(ir):
@@ -321,18 +337,26 @@ def detect_ir(ir, selected_rules=RULES):
                 continue
             text = node['text']
             literals = punctuation_literals(text)
-            for match in _PUNCT.finditer(text):
+            matches = [(match, False) for match in _PUNCT.finditer(text)]
+            if english_prose(text):
+                matches.extend((match, True) for match in _EN_PUNCT.finditer(text))
+            for match, english in matches:
+                # A standalone label (e.g. Q： or a model name) is data, not an English clause.
+                if english and match.group(1) == '：' and re.fullmatch(r'\s*[A-Za-z][\w-]*', text[:match.start(1)]):
+                    continue
                 if re.search(r'(?:字符|符号|终止符|分隔符|标点|运算符)\s*$', text[:match.start(1)]):
                     continue
                 if any(start <= match.start(1) < end for start, end in literals):
                     continue
                 mark = match.group(1)
-                replacement = dict(zip(',;:!?', '，；：！？'))[mark]
-                name = dict(zip(',;:!?', ['逗号', '分号', '冒号', '感叹号', '问号']))[mark]
+                replacements = dict(zip('，；：！？。', ',;:!?.')) if english else dict(zip(',;:!?', '，；：！？'))
+                replacement = replacements[mark]
+                name = dict(zip(',;:!?.', ['逗号', '分号', '冒号', '感叹号', '问号', '句号']))[replacement if english else mark]
+                source_language, target_language = ('中文', '英文') if english else ('英文', '中文')
                 context = text[max(0, match.start(1)-8):match.end(1)+8].replace('\n', '')
                 results['35']['findings'].append(_finding(ir, 35, node,
-                    f'“{context}”中误用了英文{name}“{mark}”，应使用中文{name}“{replacement}”。',
-                    mark, f'将此处英文{name}“{mark}”改为中文{name}“{replacement}”。', offset=match.start(1)))
+                    f'“{context}”中误用了{source_language}{name}“{mark}”，应使用{target_language}{name}“{replacement}”。',
+                    mark, f'将此处{source_language}{name}“{mark}”改为{target_language}{name}“{replacement}”。', offset=match.start(1)))
     if 31 in selected_rules:
         entries = [n for n in ir['nodes'] if n['kind']=='BibliographyEntry' and n['text']]
         alternatives = sum(bool(re.search(r'\((?:19|20)\d{2}[a-z]?\)|\b(?:vol\.|pp\.|no\.)|[\"“].+[\"”]', n['text'], re.I)) for n in entries)

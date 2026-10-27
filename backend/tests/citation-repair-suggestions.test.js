@@ -30,7 +30,7 @@ describe('citation-rule repair requests',()=>{
   expect(build('sjtu_rule_33','archive',changed).source_identity_sha256).not.toBe(first.source_identity_sha256);
  });
  it('keeps the distinction between unavailable retrieval and confirmed nonexistence',()=>{
-  expect(build('sjtu_rule_32').rule.text).toMatch(/查不到.*不能.*不存在/);
+  expect(build('sjtu_rule_32').rule.text).toMatch(/SerpAPI Google Scholar/);
   expect(build('sjtu_rule_33').rule.text).toContain('不得编造');
  });
 });

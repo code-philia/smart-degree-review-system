@@ -157,7 +157,9 @@ export function FindingsPane({
             const active = item.key === activeFindingKey;
             const page = findingPageLabel(item);
             const excerpt = item.finding.location?.text_excerpt || item.finding.anchors?.[0]?.location.text_excerpt;
+            const isBilingualRule = item.ruleRun.rule_id === 'bilingual_abstract_consistency_check' || item.ruleRun.rule_id === 'bilingual_keywords_correspondence_check';
             const evidence = (item.finding.evidence || []).filter((entry) => entry.kind !== 'normative_span' && !(entry.kind === 'source_span' && entry.quote === excerpt));
+            const visibleEvidence = isBilingualRule ? [] : evidence;
             const repair = repairSuggestionByFindingKey[item.key];
             const repairError = repairSuggestionErrorByFindingKey[item.key];
             const generating = repairSuggestionLoadingByFindingKey[item.key] || repairSuggestionLoadingKey === item.key;
@@ -244,7 +246,7 @@ export function FindingsPane({
                   </Button>
                 ) : null}
                 {active && item.finding.source_kind === 'synthetic' ? <p className="mt-2 text-xs text-slate-600">该处来自变异内容，未标记为原始 PDF 中的文本。</p> : null}
-                {active && evidence.length ? <EvidenceLinks items={evidence} /> : null}
+                {active && visibleEvidence.length ? <EvidenceLinks items={visibleEvidence} /> : null}
                 {active && item.finding.suggestion && (!repairEnabled || (!onLoadRepairSuggestion && !onGenerateRepairSuggestion)) ? (
                   <div className="mt-3 rounded-lg bg-white p-3 text-xs leading-5 text-slate-600">
                     <strong className="text-slate-800">修改建议：</strong>
@@ -294,7 +296,9 @@ export function FindingsPane({
                             ? '可执行建议'
                             : repair.status === 'evidence_conflict'
                               ? '证据与告警存在冲突：暂不应仅依据该告警修改论文，请人工复核规则结果。'
-                              : '需要补充上下文：请按上述建议核对相关内容。'}
+                              : repair.missing_context?.length
+                                ? `需要核对：${repair.missing_context.join('；')}`
+                                : '需要补充明确的原文片段和定位后再确定修改。'}
                           {' · '}
                           {repair.provenance.model} · {repair.provenance.prompt_version}
                         </p>
@@ -311,7 +315,7 @@ export function FindingsPane({
                     ) : null}
                   </div>
                 ) : null}
-                {active && excerpt ? (
+                {active && excerpt && !isBilingualRule && visibleEvidence.length === 0 ? (
                   <p className="mt-2 rounded-lg bg-slate-100 px-3 py-2 text-xs leading-5 text-slate-600">
                     原文：{excerpt}
                   </p>

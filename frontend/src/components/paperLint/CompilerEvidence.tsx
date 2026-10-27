@@ -1,4 +1,14 @@
 import type { CompilerDiagnostic, PaperLintEvidence, PaperLintBasis } from '../../api/paperLint';
+const MAX_VISIBLE_EVIDENCE_CHARS = 320;
+
+function visibleEvidenceQuote(value?: string | null) {
+  if (!value) return null;
+  const text = String(value);
+  return text.length > MAX_VISIBLE_EVIDENCE_CHARS
+    ? `${text.slice(0, MAX_VISIBLE_EVIDENCE_CHARS)}…（完整证据已保留用于修复建议）`
+    : text;
+}
+
 function publicUrl(value?: string | null) {
   try { const url = new URL(value || ''); return url.protocol === 'https:' && !url.username && !url.password ? url.href : null; } catch { return null; }
 }
@@ -6,7 +16,7 @@ export function EvidenceLinks({ items, basis }: { items: PaperLintEvidence[]; ba
   return <div className="mt-2 space-y-2 text-xs text-slate-600">{basis?.map(item => <div key={item.id} className="rounded bg-slate-50 p-2"><strong>{item.kind === 'standard' ? '标准依据' : '项目规则依据'}</strong><p>{item.id}</p>{item.text ? <p className="whitespace-pre-wrap break-words">{item.text}</p> : null}</div>)}{items.map((item, index) => {
     const url = publicUrl(item.url);
     return <div key={`${item.id}-${index}`}>{url ? <a href={url} target="_blank" rel="noopener noreferrer" className="text-brand-700 underline" onClick={event => event.stopPropagation()}>{item.provider || '外部证据'}</a> : null}
-      {item.quote ? <p className="mt-1 whitespace-pre-wrap break-words">{item.quote}</p> : null}</div>;
+      {item.quote ? <p className="mt-1 whitespace-pre-wrap break-words">{visibleEvidenceQuote(item.quote)}</p> : null}</div>;
   })}</div>;
 }
 export function CompilerDiagnostics({ items }: { items?: CompilerDiagnostic[] }) {

@@ -1,6 +1,7 @@
 import { Eye, EyeOff, Highlighter, Link2, LoaderCircle, ZoomIn, ZoomOut } from 'lucide-react';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy } from 'pdfjs-dist';
-import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import '../../pdfjs-byte-compat';
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, buttonClassName } from '../ui';
 import type { PaperLintFindingItem } from './model';
@@ -38,6 +39,7 @@ type Props = {
 type Scale = number | 'page-width';
 const EMPTY_SUPPLEMENTAL_ANNOTATIONS: SupplementalPdfAnnotation[] = [];
 const cMapOptions = { cMapUrl: `${import.meta.env.BASE_URL}pdfjs-cmaps/`, cMapPacked: true };
+const pdfWorker = new Worker(new URL('../../pdfjs-worker.ts', import.meta.url), { type: 'module' });
 
 export function PdfPane({
   file,
@@ -69,7 +71,7 @@ export function PdfPane({
     void import('pdfjs-dist')
       .then(async (pdfjs) => {
         if (disposed) return;
-        pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+        pdfjs.GlobalWorkerOptions.workerPort = pdfWorker;
         const data = sourceFile ? new Uint8Array(await sourceFile.arrayBuffer()) : undefined;
         if (disposed) return;
         task = sourceUrl !== null

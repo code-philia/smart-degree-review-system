@@ -22,6 +22,6 @@ def basis_for(rule_id):
             ('9.3',[31,32], '著者-出版年制正文引用用(责任者姓氏,出版年)；正文已提及责任者时可仅(年份)。多作者欧美使用首作者姓氏 et al.，中国作者使用首作者姓名 等。同一作者同年多文献用年份后小写字母区分。重复引用的页码置于括号外。文献表按文种、作者字顺、出版年排列，中文可按拼音或笔画笔顺。')]
         return [{'id':'gbt7714-2025:'+ident,'pdf_pages':pages,'text':text,'source_sha256':resource['source_sha256'],'review':'transcribed normative summary checked against supplied page images'} for ident,pages,text in clauses] + [
             {'id':'phase1-interpretation','text':'本项目为学位论文。缺字段必须区分原文确认未著录与抽取失败。有则必备字段只有外部作品元数据已证实存在该字段时才可判断漏录。语义歧义和缺少自动编号/原作品信息必须保留UNKNOWN。'}]
-    if str(rule_id)=='32':return [{'id':'phase1-existence','text':'引用不存在指文后条目对应的外部作品不存在，区别于第22条本地参考文献条目缺失。存在性需标题、作者、年份、标识符等联合消歧。错误DOI但真实作品可通过其他证据确认存在，不判不存在。未检索到、接口失败、覆盖不足均为UNKNOWN。只有独立且范围完整的排除证据才能确证不存在。'}]
+    if str(rule_id)=='32':return [{'id':'phase1-existence','text':'引用不存在指文后条目对应的外部作品不存在，区别于第22条本地参考文献条目缺失。存在性需标题、作者、年份、标识符等联合消歧。错误DOI但真实作品可通过其他证据确认存在，不判不存在。SerpAPI Google Scholar 成功检索且无匹配结果时判定不存在；接口失败或检索不可用仍为UNKNOWN。'}]
     if str(rule_id)=='33':return [{'id':'phase1-relevance','text':'按具体ReferenceUse的引用目的与已确认ExternalWork的内容判断相关性。方法借鉴、背景、定义、数据、比较、批评及反驳都可能相关；跨学科和结论不同不等于无关。同处多引逐条判断贡献。正文局部原句与被引内容均须有可追溯证据；只有摘要缺细节、题名不同、全文不可达不能判无关。证据不足按固定策略补查后保留UNKNOWN。'}]
     raise ValueError('unknown initial rule')

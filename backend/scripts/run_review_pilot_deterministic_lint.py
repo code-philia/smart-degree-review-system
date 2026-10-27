@@ -22,9 +22,24 @@ from typing import Any
 FIXED_DEEPSEEK_MODEL = "deepseek-v4-flash"
 FIXED_DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 DEEPSEEK_API_KEY_ENV = "REVIEW_PILOT_DEEPSEEK_API_KEY"
+
+def deepseek_config() -> tuple[str, str, str]:
+    campus = (
+        os.environ.get("SJTU_API_KEY", "").strip()
+        and os.environ.get("SJTU_API_BASE_URL", "").strip()
+        and os.environ.get("SJTU_API_MODEL", "").strip()
+    )
+    if campus:
+        return os.environ["SJTU_API_KEY"].strip(), os.environ["SJTU_API_BASE_URL"].rstrip("/"), os.environ["SJTU_API_MODEL"].strip()
+    return (
+        os.environ.get(DEEPSEEK_API_KEY_ENV, "").strip(),
+        FIXED_DEEPSEEK_BASE_URL,
+        FIXED_DEEPSEEK_MODEL,
+    )
 SEMANTIC_RULE_IDS = frozenset(
     {
         "bilingual_abstract_consistency_check",
+        "bilingual_keywords_correspondence_check",
         "claim_evidence_inconsistency_check",
         "strong_claim_without_evidence_check",
     }
@@ -79,8 +94,8 @@ RULE_METADATA: dict[str, tuple[str, str]] = {
         "检查中文文本中的英文半角标点及全角英文字母、数字。",
     ),
     "bilingual_keywords_correspondence_check": (
-        "中英文关键词对应",
-        "检查已识别中英文关键词的数量是否一致。",
+        "中英文关键词语义对应",
+        "使用 Paper Model 提取关键词并由 DeepSeek 判断语义是否一一对应。",
     ),
     "heading_numbering_sequence_check": (
         "标题编号连续性",
@@ -111,6 +126,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--catalog", action="store_true")
     parser.add_argument("--pdf", type=Path)
     parser.add_argument("--rule", action="append", default=[])
+    parser.add_argument("--paper-model-facts", type=Path)
     return parser.parse_args()
 
 
@@ -119,9 +135,9 @@ def semantic_rules_requested(rule_ids: list[str]) -> bool:
 
 
 def require_deepseek_api_key() -> str:
-    api_key = os.environ.get(DEEPSEEK_API_KEY_ENV, "").strip()
+    api_key, _base_url, _model = deepseek_config()
     if not api_key:
-        raise RuntimeError("语义规则尚未配置 DeepSeek 官方 API Key")
+        raise RuntimeError("语义规则尚未配置校内 SJTU_API_* 或兼容 DeepSeek API Key")
     return api_key
 
 
@@ -138,9 +154,11 @@ def load_engine(
 
     from novref.domain.paper_lint.context import PaperLintContext
     from novref.domain.paper_lint.contracts import (
+        Finding,
         PaperLintResultRuleset,
         PaperLintSummary,
         PaperLintTaskResult,
+        RuleRun,
     )
     from novref.domain.paper_lint.rules.body_heading_format_check import BodyHeadingFormatRule
     from novref.domain.paper_lint.rules.chinese_abstract_length_check import ChineseAbstractLengthRule
@@ -197,25 +215,23 @@ def load_engine(
     }
 
     if semantic_rules_requested(requested_rule_ids):
+        from paper_model_bilingual_rules import PaperModelBilingualRule
         if deepseek_api_key is None:
             raise RuntimeError("语义规则尚未配置 DeepSeek 官方 API Key")
 
         from openai import AsyncOpenAI
 
-        from novref.domain.paper_lint.rules.bilingual_abstract_consistency_check import (
-            BilingualAbstractConsistencyRule,
-        )
         from novref.domain.paper_lint.rules.claim_evidence_inconsistency_check import (
             ClaimEvidenceInconsistencyRule,
         )
-        from novref.domain.paper_lint.rules.semantic_atomic import SemanticCheckResponse
         from novref.domain.paper_lint.rules.strong_claim_without_evidence_check import (
             StrongClaimWithoutEvidenceRule,
         )
 
+        _configured_key, deepseek_base_url, deepseek_model = deepseek_config()
         deepseek = AsyncOpenAI(
             api_key=deepseek_api_key,
-            base_url=FIXED_DEEPSEEK_BASE_URL,
+            base_url=deepseek_base_url,
             max_retries=0,
             timeout=120.0,
         )
@@ -242,7 +258,7 @@ def load_engine(
                 }
             )
             response = await deepseek.chat.completions.create(
-                model=FIXED_DEEPSEEK_MODEL,
+                model=deepseek_model,
                 messages=request_messages,
                 temperature=0,
                 max_tokens=8192,
@@ -254,14 +270,20 @@ def load_engine(
                 raise ValueError("DeepSeek returned empty JSON content")
             return content
 
-        async def invoke_semantic_check(messages):
-            content = await invoke_deepseek_json(messages)
-            return SemanticCheckResponse.model_validate_json(content)
-
         if "bilingual_abstract_consistency_check" in requested_rule_ids:
             rule_factories["bilingual_abstract_consistency_check"] = (
-                lambda: BilingualAbstractConsistencyRule(
-                    ainvoke=invoke_semantic_check,
+                lambda: PaperModelBilingualRule(
+                    rule_id="bilingual_abstract_consistency_check",
+                    ainvoke=invoke_deepseek_json,
+                    contracts={"Finding": Finding, "RuleRun": RuleRun},
+                )
+            )
+        if "bilingual_keywords_correspondence_check" in requested_rule_ids:
+            rule_factories["bilingual_keywords_correspondence_check"] = (
+                lambda: PaperModelBilingualRule(
+                    rule_id="bilingual_keywords_correspondence_check",
+                    ainvoke=invoke_deepseek_json,
+                    contracts={"Finding": Finding, "RuleRun": RuleRun},
                 )
             )
         if "claim_evidence_inconsistency_check" in requested_rule_ids:
@@ -342,7 +364,7 @@ def build_summary(engine: dict[str, Any], rule_runs: list[Any]):
     )
 
 
-async def run_lint(engine: dict[str, Any], pdf_path: Path, rule_ids: list[str]) -> dict[str, Any]:
+async def run_lint(engine: dict[str, Any], pdf_path: Path, rule_ids: list[str], paper_model_facts: dict[str, Any] | None = None) -> dict[str, Any]:
     if not pdf_path.is_file():
         raise RuntimeError("PDF input is missing")
     if not rule_ids:
@@ -368,6 +390,9 @@ async def run_lint(engine: dict[str, Any], pdf_path: Path, rule_ids: list[str]) 
         pdf_path.read_bytes(),
         message_language="zh",
     )
+    if semantic_rules_requested(rule_ids) and any(rule_id.startswith("bilingual_") for rule_id in rule_ids):
+        from paper_model_bilingual_rules import extract_bilingual_facts, load_paper_model, set_paper_model_facts
+        set_paper_model_facts(paper_model_facts or extract_bilingual_facts(load_paper_model(pdf_path)))
     rule_runs = await engine["execute"](
         context,
         entries,
@@ -414,7 +439,10 @@ def main() -> int:
         else:
             if args.pdf is None:
                 raise RuntimeError("--pdf is required")
-            payload = asyncio.run(run_lint(engine, args.pdf, args.rule))
+            paper_model_facts = None
+            if args.paper_model_facts:
+                paper_model_facts = json.loads(args.paper_model_facts.read_text(encoding="utf-8"))
+            payload = asyncio.run(run_lint(engine, args.pdf, args.rule, paper_model_facts))
     print(json.dumps(payload, ensure_ascii=False))
     return 0
 

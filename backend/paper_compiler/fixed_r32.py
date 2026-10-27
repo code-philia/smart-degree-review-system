@@ -7,7 +7,7 @@ repair loop, label file, case identity or task-specific source title is used.
 from copy import deepcopy
 from .programs import build_program
 
-RULE_TEXT = "参考文献应指向真实存在的文献；只能在声明完整的受控目录范围内证明不存在，公开检索未命中不能证明不存在。"
+RULE_TEXT = "参考文献应指向真实存在的文献；规则32使用SerpAPI Google Scholar进行单一检索，成功检索且无匹配结果时判定引用不存在；接口失败不作不存在结论。"
 DEFAULT_BASIS = [{"id": "r32-existing-reference", "text": RULE_TEXT}]
 
 CODE = """def detect(payload):
@@ -32,17 +32,19 @@ CODE = """def detect(payload):
             if field.get('state') != 'observed' or not field.get('value'):
                 identity_complete = False
             identity[name] = field.get('value')
-        if exists.get('state') == 'observed' and exists.get('value') is False and supported and complete_source and identity_complete and isinstance(scope, str) and scope.startswith('controlled_catalog:'):
+        if exists.get('state') == 'observed' and exists.get('value') is False and supported and (scope == 'serpapi:google_scholar' or (complete_source and identity_complete and isinstance(scope, str) and scope.startswith('controlled_catalog:'))):
             for eid in ids:
                 proof = evidence[eid]
                 query = proof.get('query', {})
-                if proof.get('kind') == 'controlled_catalog_scope' and proof.get('domain') == 'controlled_catalog' and proof.get('complete') is True and proof.get('search_scope') == scope and proof.get('protocol') == 'complete-catalog-title-author-year/1.0' and isinstance(proof.get('catalog'), list) and isinstance(query, dict):
+                if scope == 'serpapi:google_scholar' and proof.get('provider') == 'serpapi' and proof.get('engine') == 'google_scholar' and proof.get('status') == 'empty':
+                    proof_ids.append(eid)
+                elif proof.get('kind') == 'controlled_catalog_scope' and proof.get('domain') == 'controlled_catalog' and proof.get('complete') is True and proof.get('search_scope') == scope and proof.get('protocol') == 'complete-catalog-title-author-year/1.0' and isinstance(proof.get('catalog'), list) and isinstance(query, dict):
                     if all(query.get(name) == identity[name] for name in ['title', 'authors', 'year']):
                         proof_ids.append(eid)
         if proof_ids:
-            results.append(emit(node, 'VIOLATION', '在声明完整的受控目录范围内，该完整参考文献身份被排除；此结论不表示公开世界中不存在该文献。', check_id='work_existence', basis=basis, evidence_ids=proof_ids))
+            results.append(emit(node, 'VIOLATION', 'SerpAPI Google Scholar 成功检索未找到该参考文献的匹配结果，按规则32判定引用不存在。', check_id='work_existence', basis=basis, evidence_ids=proof_ids))
         else:
-            reason = exists.get('reason') or '身份或完整受控目录排除证据不足；公开检索未命中不构成不存在证明。'
+            reason = exists.get('reason') or 'SerpAPI Scholar 检索失败或证据不足，暂不判定引用不存在。'
             results.append(emit(node, 'UNKNOWN', '参考文献存在性尚无充分证据。', check_id='work_existence', basis=basis, evidence_ids=ids if supported else [node['id']], reasons=[reason]))
     return results
 """
