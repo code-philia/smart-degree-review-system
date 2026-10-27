@@ -44,10 +44,13 @@ export function useFindingRepairSuggestions({scopeKey, fetchSaved, evaluate, sup
       });
       if (generation === epoch.current && response) setSuggestions(current => ({...current, [item.key]: response!}));
     } catch (cause) {
-      const responseMessage = (cause as { response?: { data?: { message?: unknown } } })?.response?.data?.message;
-      const message = typeof responseMessage === 'string' && responseMessage.trim()
-        ? responseMessage
-        : cause instanceof Error ? cause.message : '修复建议暂不可用';
+      const response = (cause as { response?: { status?: unknown; data?: { message?: unknown } } })?.response;
+      const responseMessage = response?.data?.message;
+      const message = response?.status === 429
+        ? '当前 AI 服务请求较多，请稍后重试'
+        : typeof responseMessage === 'string' && responseMessage.trim()
+          ? responseMessage
+          : cause instanceof Error ? cause.message : '修复建议暂不可用';
       if (generation === epoch.current) setErrors(current => ({...current, [item.key]: message}));
     } finally {
       if (generation === epoch.current) {
