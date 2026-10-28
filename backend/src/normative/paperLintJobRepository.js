@@ -13,6 +13,7 @@ function publicJob(row) {
     job_id: row.id, status: row.status, report_id: row.report_id || null,
     error_message: row.error_message || null, created_at: row.created_at,
     updated_at: row.updated_at,
+    progress: row.progress_json ? (() => { try { return JSON.parse(row.progress_json); } catch { return null; } })() : null,
   };
 }
 
@@ -61,6 +62,11 @@ async function claimJob(id) {
   return changed.changes > 0;
 }
 
+async function updateProgress(id, progress) {
+  await run("UPDATE paper_lint_jobs SET progress_json = ?, updated_at = ? WHERE id = ? AND status = 'running'",
+    [JSON.stringify(progress || null), new Date().toISOString(), id]);
+}
+
 async function completeJob(id, reportId) {
   await run("UPDATE paper_lint_jobs SET status = 'completed', report_id = ?, error_message = NULL, updated_at = ? WHERE id = ? AND status = 'running'",
     [reportId, new Date().toISOString(), id]);
@@ -71,4 +77,4 @@ async function failJob(id, message) {
     [message, new Date().toISOString(), id]);
 }
 
-module.exports = { createJob, getJob, getJobForUser, recoverJobs, claimJob, completeJob, failJob, publicJob };
+module.exports = { createJob, getJob, getJobForUser, recoverJobs, claimJob, updateProgress, completeJob, failJob, publicJob };

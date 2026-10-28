@@ -83,6 +83,14 @@ function fileSizeLabel(size: number) {
   return size >= 1024 * 1024 ? `${(size / 1024 / 1024).toFixed(1)} MB` : `${Math.ceil(size / 1024)} KB`;
 }
 
+function partialPaperLintResponse(jobId: string, filename: string, runs: PaperLintRunResponse['result']['rule_runs']): PaperLintRunResponse {
+  const findings = runs.flatMap((run) => run.findings || []);
+  return { id: jobId, source_filename: filename, selected_rule_ids: runs.map((run) => run.rule_id), created_at: new Date().toISOString(), summary: { finding_count: findings.length, error_finding_count: runs.filter((run) => run.severity === 'error').reduce((n, run) => n + run.findings.length, 0), warning_finding_count: runs.filter((run) => run.severity === 'warning').reduce((n, run) => n + run.findings.length, 0), info_finding_count: runs.filter((run) => run.severity === 'info').reduce((n, run) => n + run.findings.length, 0), rule_count: runs.length, unsupported_rule_count: runs.filter((run) => run.execution_status === 'unsupported').length, error_rule_count: runs.filter((run) => run.execution_status === 'error').length, ruleset_label: '已完成规则' }, result: {
+    type: 'paper_lint', paper_title: '上传论文', ruleset: { id: 'paper-lint-progress', name: '规则检测进行中', version_number: 1, version_label: '已完成规则' }, rule_runs: runs,
+    summary: { rule_count: runs.length, completed_rule_count: runs.length, unsupported_rule_count: runs.filter((run) => run.execution_status === 'unsupported').length, error_rule_count: runs.filter((run) => run.execution_status === 'error').length, issue_rule_count: runs.filter((run) => run.outcome === 'issues_found').length, finding_count: findings.length, error_finding_count: runs.filter((run) => run.severity === 'error').reduce((n, run) => n + run.findings.length, 0), warning_finding_count: runs.filter((run) => run.severity === 'warning').reduce((n, run) => n + run.findings.length, 0), info_finding_count: runs.filter((run) => run.severity === 'info').reduce((n, run) => n + run.findings.length, 0), derived_rule_count: runs.filter((run) => run.evidence_mode === 'derived').length },
+  }};
+}
+
 const outcomeLabels = {
   passed: '未发现可确认问题',
   issues_found: '发现问题',
@@ -114,6 +122,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   const [runError, setRunError] = useState<string | null>(null);
   const requestIdRef = useRef<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [jobProgress, setJobProgress] = useState<{ completed: number; total: number } | null>(null);
   const [externalConsent, setExternalConsent] = useState(false);
 
   const loadCatalog = async () => {
@@ -292,6 +301,13 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
         if (disconnected) {
           disconnected = false;
           setRunError(null);
+        }
+        if (job.progress) {
+          setJobProgress({ completed: job.progress.completed_rule_ids?.length || 0, total: job.progress.total_rule_ids?.length || 0 });
+          if (sourceFile && job.progress.rule_runs?.length) {
+            setResponse((current) => current || partialPaperLintResponse(job.job_id, filename, job.progress?.rule_runs || []));
+            setResultFile((current) => current || sourceFile);
+          }
         }
         if (job.status === 'pending' || job.status === 'running') {
           await new Promise((resolve) => setTimeout(resolve, 300));
@@ -680,7 +696,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
               <LoaderCircle className="size-5 animate-spin" />
             </span>
             <div>
-              <p className="font-bold text-slate-900">{uploadPercent !== null && uploadPercent < 100 ? `正在上传 PDF（${uploadPercent}%）` : '正在进行本地检查'}</p>
+              <p className="font-bold text-slate-900">{uploadPercent !== null && uploadPercent < 100 ? `正在上传 PDF（${uploadPercent}%）` : jobProgress && jobProgress.total ? `正在检查规则（已完成 ${jobProgress.completed}/${jobProgress.total}）` : '正在进行本地检查'}</p>
               <p className="mt-1 text-sm text-slate-500">{uploadPercent !== null && uploadPercent < 100 ? '正在传输论文文件，上传完成后立即开始本地检测。' : '检测结果先展示，AI 修复建议随后加载。'}</p>
             </div>
           </div>

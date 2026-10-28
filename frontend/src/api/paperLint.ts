@@ -150,6 +150,7 @@ export type PaperLintJobResponse = {
   error_message: string | null;
   created_at: string;
   updated_at: string;
+  progress?: { completed_rule_ids?: string[]; total_rule_ids?: string[]; rule_runs?: PaperLintRuleRun[] } | null;
 };
 
 export function isPaperLintJobResponse(

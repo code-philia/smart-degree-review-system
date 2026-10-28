@@ -7,6 +7,7 @@ import os
 import re
 import urllib.request
 import urllib.error
+import time
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,7 @@ BILINGUAL_RULES = {
     "bilingual_abstract_consistency_check",
     "bilingual_keywords_correspondence_check",
 }
+TYPO_RULE = "typo_detection_check"
 
 
 def parse_args() -> argparse.Namespace:
@@ -62,12 +64,20 @@ def request_json(messages: list[dict[str, str]]) -> tuple[dict[str, Any], dict[s
         method="POST",
     )
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-    try:
-        with opener.open(request, timeout=120) as response:
-            raw = response.read(8 * 1024 * 1024 + 1)
-    except urllib.error.HTTPError as error:
-        detail = error.read(2000).decode("utf-8", "replace")
-        raise RuntimeError(f"校内 DeepSeek 请求失败（HTTP {error.code}）：{detail[:500]}") from error
+    for attempt in range(4):
+        try:
+            with opener.open(request, timeout=120) as response:
+                raw = response.read(8 * 1024 * 1024 + 1)
+            break
+        except urllib.error.HTTPError as error:
+            detail = error.read(2000).decode("utf-8", "replace")
+            if error.code == 429 and attempt < 3:
+                retry_after = error.headers.get("Retry-After") if error.headers else None
+                try: delay = min(30.0, max(1.0, float(retry_after)))
+                except (TypeError, ValueError): delay = float(2 ** attempt)
+                time.sleep(delay)
+                continue
+            raise RuntimeError(f"校内 DeepSeek 请求失败（HTTP {error.code}）：{detail[:500]}") from error
     data = json.loads(raw)
     content = (((data.get("choices") or [{}])[0]).get("message") or {}).get("content")
     if isinstance(content, dict):
@@ -105,6 +115,91 @@ def prompt_for(rule_id: str, facts: dict[str, Any]) -> str | None:
         "\n英文关键词：" + json.dumps(right.get("match_values", right.get("values", [])), ensure_ascii=False)
     )
 
+
+
+
+def _body_chunks(ir: dict[str, Any], size: int = 6000) -> list[dict[str, Any]]:
+    """Return bounded body chunks while retaining source-page provenance."""
+    nodes = {node.get("id"): node for node in ir.get("nodes", [])}
+    body = next((node for node in ir.get("nodes", []) if node.get("kind") == "Body"), None)
+    ordered: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    def walk(node_id: str) -> None:
+        if node_id in seen:
+            return
+        seen.add(node_id)
+        node = nodes.get(node_id)
+        if not node:
+            return
+        if node.get("kind") == "Paragraph":
+            ordered.append(node)
+        for child in node.get("children", []) or []:
+            walk(child)
+    for child in (body or {}).get("children", []) or []:
+        walk(child)
+    if not ordered:
+        ordered = [node for node in ir.get("nodes", []) if node.get("kind") in {"Paragraph", "UnknownBlock"} and str(node.get("text") or "").strip()]
+    chunks: list[dict[str, Any]] = []
+    current: list[str] = []
+    page = None
+    length = 0
+    for node in ordered:
+        text = str(node.get("text") or "").strip()
+        if not text:
+            continue
+        if length and length + len(text) + 1 > size:
+            chunks.append({"text": "\n".join(current), "page": page})
+            current, length, page = [], 0, None
+        if page is None:
+            page = next((int(item.get("page_index")) + 1 for item in (node.get("provenance") or [])
+                         if isinstance(item.get("page_index"), int)), None)
+        current.append(text)
+        length += len(text) + 1
+    if current:
+        chunks.append({"text": "\n".join(current), "page": page})
+    return chunks[:80]
+
+
+def typo_prompt(text: str) -> str:
+    return (
+        "你是学位论文校对助手。只检查下面正文中明确可判断的中文错别字或明显的英文拼写错误。"
+        "不要修改专业术语、作者名、缩写、公式、数字、引用、专有名词，也不要把 PDF 跨行连字符"
+        "（如 \"re-\nverse\"）当作拼写错误。无法确定时不要报告。请用简体中文返回严格 JSON："
+        "{\"findings\":[{\"text\":\"原文短语\",\"suggestion\":\"建议文字\","
+        "\"reason\":\"简短理由\"}]}。原文如下：\n" + text
+    )
+
+
+def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
+    findings = []
+    usage_total = {"input_tokens": 0, "output_tokens": 0}
+    chunks = _body_chunks(ir)
+    for index, chunk in enumerate(chunks):
+        payload, usage = request_json([{"role": "user", "content": typo_prompt(chunk["text"])}])
+        usage_total["input_tokens"] += usage["input_tokens"]
+        usage_total["output_tokens"] += usage["output_tokens"]
+        rows = payload.get("findings") if isinstance(payload, dict) else []
+        if not isinstance(rows, list):
+            continue
+        for row in rows[:20]:
+            if not isinstance(row, dict) or not str(row.get("text") or "").strip():
+                continue
+            findings.append({
+                "finding_id": f"{TYPO_RULE}_{len(findings) + 1}", "rule_id": TYPO_RULE,
+                "message": f"疑似错别字：{str(row.get('text'))[:120]}",
+                "suggestion": str(row.get("suggestion") or "请结合上下文核对")[:300],
+                "location": ({"type": "pdf_page", "page_number": chunk["page"],
+                              "text_excerpt": str(row.get("text"))[:120]} if chunk.get("page") else None),
+                "anchors": [],
+                "evidence": [{"id": f"typo-chunk-{index + 1}", "kind": "source_span",
+                              "provider": "repo-paper-model", "quote": str(row.get("text"))[:120]}],
+                "reason": str(row.get("reason") or "")[:300],
+            })
+    return {"rule_run_id": f"run_{TYPO_RULE}", "rule_id": TYPO_RULE, "severity": "warning",
+            "params": {"chunk_count": len(chunks), "chunk_size": 6000},
+            "execution_status": "completed", "evidence_mode": "derived",
+            "outcome": "issues_found" if findings else "passed", "message": None,
+            "findings": findings, "model_usage": usage_total}
 
 def _has_cjk(value: Any) -> bool:
     return any("\u3400" <= char <= "\u9fff" for char in str(value or ""))
@@ -148,9 +243,13 @@ def _chinese_summary(value: Any, abstract: bool) -> str:
 
 
 def run(pdf: Path, rule_ids: list[str]) -> dict[str, Any]:
-    facts = extract_bilingual_facts(build_paper(pdf, include_citations=False))
+    ir = build_paper(pdf, include_citations=False)
+    facts = extract_bilingual_facts(ir) if any(rule in BILINGUAL_RULES for rule in rule_ids) else {}
     runs = []
     for rule_id in rule_ids:
+        if rule_id == TYPO_RULE:
+            runs.append(run_typo_rule_from_ir(ir))
+            continue
         prompt = prompt_for(rule_id, facts)
         if prompt is None:
             runs.append({
@@ -227,7 +326,7 @@ def run(pdf: Path, rule_ids: list[str]) -> dict[str, Any]:
 
 def main() -> None:
     args = parse_args()
-    unknown = [rule for rule in args.rule if rule not in BILINGUAL_RULES]
+    unknown = [rule for rule in args.rule if rule not in BILINGUAL_RULES and rule != TYPO_RULE]
     if unknown:
         raise RuntimeError(f"未知双语语义规则：{unknown[0]}")
     print(json.dumps(run(args.pdf, args.rule), ensure_ascii=False))

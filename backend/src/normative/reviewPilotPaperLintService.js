@@ -21,7 +21,7 @@ const RUN_TIMEOUT_MESSAGE = '规则审查运行超时，请减少规则后重试
 const MAX_CONCURRENT_RUNS = Math.max(1, Number(process.env.REVIEW_PILOT_MAX_CONCURRENT_RUNS) || 2);
 const bridgeScript = path.resolve(__dirname, '../../scripts/run_review_pilot_deterministic_lint.py');
 const bilingualScript = path.resolve(__dirname, '../../scripts/run_bilingual_semantic_lint.py');
-const BILINGUAL_RULE_IDS = new Set(['bilingual_abstract_consistency_check', 'bilingual_keywords_correspondence_check']);
+const BILINGUAL_RULE_IDS = new Set(['bilingual_abstract_consistency_check', 'bilingual_keywords_correspondence_check', 'typo_detection_check']);
 
 let catalogPromise = null;
 let catalogExpiresAt = 0;
@@ -340,13 +340,14 @@ function mergePaperLintResults(existingResult, localResult, selectedRuleIds) {
   };
 }
 
-async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingConsent = false, background = false }) {
+async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingConsent = false, background = false, onProgress }) {
   validatePdf(pdfBuffer);
   // The deadline covers catalog loading, queueing, and both engines so a timed-out
   // browser request cannot later persist a seemingly successful report.
   const includesSixRules = Array.isArray(selectedRuleIds) &&
     selectedRuleIds.some(ruleId => (isSixRuleId(String(ruleId).trim()) || isCompilerRuleId(String(ruleId).trim())));
-  const maximumTimeout = background || includesSixRules ? SIX_RULE_TIMEOUT_MS : ENGINE_TIMEOUT_MS;
+  const includesLongLlmRule = Array.isArray(selectedRuleIds) && selectedRuleIds.some(ruleId => String(ruleId).trim() === 'typo_detection_check');
+  const maximumTimeout = background || includesSixRules || includesLongLlmRule ? SIX_RULE_TIMEOUT_MS : ENGINE_TIMEOUT_MS;
   const requestedTimeout = Number(process.env.PAPER_LINT_RUN_TIMEOUT_MS);
   const timeoutMs = Number.isFinite(requestedTimeout) && requestedTimeout > 0
     ? Math.min(requestedTimeout, maximumTimeout) : maximumTimeout;
@@ -363,20 +364,25 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
         await fs.promises.writeFile(pdfPath, pdfBuffer, { flag: 'wx', mode: 0o600 });
         const bilingualRuleIds = normalizedRuleIds.filter((ruleId) => BILINGUAL_RULE_IDS.has(ruleId));
         const otherRuleIds = normalizedRuleIds.filter((ruleId) => !BILINGUAL_RULE_IDS.has(ruleId));
+        const completedRuleIds = [];
+        const completedRuns = [];
         const parts = [];
+        const tasks = [];
+        const reportProgress = async (ruleIds, result) => {
+          completedRuleIds.push(...ruleIds);
+          if (Array.isArray(result?.rule_runs)) completedRuns.push(...result.rule_runs);
+          if (typeof onProgress === 'function') await onProgress({ completed_rule_ids: [...completedRuleIds], total_rule_ids: normalizedRuleIds, rule_runs: [...completedRuns] });
+        };
         if (bilingualRuleIds.length) {
-          parts.push(await runBilingualSemanticRules(
-            pdfPath,
-            bilingualRuleIds,
-            ENGINE_TIMEOUT_MS,
-            controller.signal,
-          ));
+          tasks.push(runBilingualSemanticRules(pdfPath, bilingualRuleIds, ENGINE_TIMEOUT_MS, controller.signal)
+            .then(async (part) => { parts.push(part); await reportProgress(bilingualRuleIds, part); }));
         }
         if (otherRuleIds.length) {
-          parts.push(...await runPaperLintRuleGroups({
+          tasks.push(runPaperLintRuleGroups({
             pdfPath,
             selectedRuleIds: otherRuleIds,
             signal: controller.signal,
+            onGroupComplete: async ({ ruleIds, result }) => reportProgress(ruleIds, result),
             runners: {
               local_pdf: (file, ruleIds, options) => runLocalFiveRules(file, ruleIds, options),
               six_pdf: (file, ruleIds, options) => runSixRules(file, ruleIds, options),
@@ -385,8 +391,9 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
                 '--pdf', pdfPath, ...ruleIds.flatMap((ruleId) => ['--rule', ruleId]),
               ], ENGINE_TIMEOUT_MS, signal),
             },
-          }));
+          }).then((groupResults) => parts.push(...groupResults)));
         }
+        await Promise.all(tasks);
         if (controller.signal.aborted) throw createHttpError(504, RUN_TIMEOUT_MESSAGE);
         const result = parts.length > 1
           ? mergePaperLintResults(parts[0], { rule_runs: parts.slice(1).flatMap((part) => part.rule_runs) }, normalizedRuleIds)
