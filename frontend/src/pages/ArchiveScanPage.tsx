@@ -263,7 +263,7 @@ export default function ArchiveScanPage() {
                       <p className="text-sm font-black text-slate-900">{rule.title}</p>
                       <p className="mt-2 text-sm leading-6 text-slate-500">{rule.description}</p>
                       {!rule.available && (
-                        <p className="mt-2 text-xs text-amber-700">暂不可用，请联系管理员配置检测服务。</p>
+                        <p className="mt-2 text-xs text-amber-700">{rule.availability_reason || '暂不可用，请联系管理员配置检测服务。'}</p>
                       )}
                     </div>
                   </div>

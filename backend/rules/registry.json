@@ -179,7 +179,7 @@
       "runner": "paper_compiler",
       "execution_mode": "semantic",
       "uses_external_model": true,
-      "enabled_in_mvp": false,
+      "enabled_in_mvp": true,
       "default_selected": false,
       "availability_probe": "compiler_package",
       "repair_surfaces": ["archive"]

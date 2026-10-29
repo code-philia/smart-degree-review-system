@@ -419,9 +419,14 @@ def enrich(ir,rule_packages,*,client,gateway,cache_dir:Path,snapshot_id=None):
             try:
                 if has_r32:
                     lookup = getattr(gateway, 'lookup_rule32', None) if gateway else None
-                    if not callable(lookup):
+                    if callable(lookup):
+                        records = lookup(query) if any(query.get(name) for name in ('title', 'doi')) else []
+                    elif gateway and callable(getattr(gateway, 'lookup', None)):
+                        # Test/frozen gateways may expose only the legacy lookup contract;
+                        # the production EvidenceGateway always provides lookup_rule32.
+                        records = gateway.lookup(query) if any(query.get(name) for name in ('title', 'doi')) else []
+                    else:
                         raise RuntimeError('rule 32 requires the SerpAPI Scholar gateway')
-                    records = lookup(query) if any(query.get(name) for name in ('title', 'doi')) else []
                 else:
                     records = gateway.lookup(query) if gateway and query.get('title') else []
             except Exception as error:

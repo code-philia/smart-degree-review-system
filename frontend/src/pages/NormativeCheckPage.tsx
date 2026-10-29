@@ -628,11 +628,14 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
                           {rule.title}
                           {!rule.available ? (
                             <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] text-slate-600">
-                              尚未配置
+                              {rule.availability_reason?.includes('限额') ? '已达到限额' : '尚未配置'}
                             </span>
                           ) : null}
                         </span>
                         <span className="mt-1 block text-xs leading-5 text-slate-500">{rule.description}</span>
+                        {!rule.available && rule.availability_reason ? (
+                          <span className="mt-1 block text-xs leading-5 text-amber-700">{rule.availability_reason}</span>
+                        ) : null}
                       </span>
                     </label>
                   );

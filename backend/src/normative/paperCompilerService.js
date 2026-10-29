@@ -13,15 +13,36 @@ const TERMINAL = new Set(['PASS','VIOLATION','UNKNOWN','ERROR','NOT_APPLICABLE']
 function failure(status, code, message) { return Object.assign(new Error(message), { status, code }); }
 function isCompilerRuleId(id) { return IDS.has(id); }
 function packagePath(number) { return path.join(process.env.PAPER_COMPILER_PACKAGE_ROOT || '', String(number)); }
+function serpApiReferenceLibrary() {
+  return process.env.PAPER_COMPILER_REFERENCE_LIBRARY
+    || path.join(process.env.PAPER_COMPILER_CACHE_ROOT || '/data/runtime/paper-compiler', 'reference-library');
+}
+function serpApiQuotaExhausted() {
+  try {
+    const status = JSON.parse(fs.readFileSync(path.join(serpApiReferenceLibrary(), 'serpapi-status.json'), 'utf8'));
+    return status?.schema_version === 'serpapi-quota-status/1.0' && status.status === 'exhausted';
+  } catch {
+    return false;
+  }
+}
 function getCompilerRules() {
-  return DEFINITIONS.map((rule) => ({
-    ...rule,
-    repair_supported: rule.repair_surfaces.includes('paper_lint'),
-    available: process.env.PAPER_COMPILER_ENABLED === '1' &&
-      Boolean(process.env.PAPER_COMPILER_PACKAGE_ROOT) &&
-      fs.existsSync(path.join(packagePath(rule.number), 'manifest.json')),
-    source: 'sjtu-paper-compiler',
-  }));
+  const baseAvailable = process.env.PAPER_COMPILER_ENABLED === '1' &&
+    Boolean(process.env.PAPER_COMPILER_PACKAGE_ROOT);
+  const quotaExhausted = serpApiQuotaExhausted();
+  return DEFINITIONS.map((rule) => {
+    const packageAvailable = baseAvailable &&
+      fs.existsSync(path.join(packagePath(rule.number), 'manifest.json'));
+    const unavailableReason = rule.number === 32 && quotaExhausted
+      ? 'SerpAPI 余额已达到限额，暂时不可使用。'
+      : (!packageAvailable ? '规则包尚未配置。' : null);
+    return {
+      ...rule,
+      repair_supported: rule.repair_surfaces.includes('paper_lint'),
+      available: packageAvailable && !(rule.number === 32 && quotaExhausted),
+      ...(unavailableReason ? { availability_reason: unavailableReason } : {}),
+      source: 'sjtu-paper-compiler',
+    };
+  });
 }
 async function runJsonProcess(command,args,{signal,timeoutMs=1200000,maxBytes=64*1024*1024,allowArray=false}={}) {
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs<1 || timeoutMs>7200000 || !Number.isSafeInteger(maxBytes) || maxBytes<1 || maxBytes>128*1024*1024) throw new TypeError('Invalid compiler resource budget');
@@ -108,15 +129,24 @@ function toCompilerResult(output,selectedRuleIds) {
         evidence:spans.map((e,i)=>publicationEvidence(e,`confirmed-${index}-${i}`)),
         basis_details:basisIds.map(id=>(raw.basis_catalog || []).find(b=>b.id===id) || {id})};
     });
-    const diagnostics=publication ? [] : raw.results.filter(r=>['UNKNOWN','ERROR'].includes(r.status)).map(r=>({node_id:r.node_id,check_id:r.check_id,status:r.status,reasons:r.reasons || [],evidence:r.display_evidence || [],basis_details:basisDetails(r)}));
+    const diagnostics=publication && ruleId !== 'sjtu_rule_32' ? [] : raw.results.filter(r=>['UNKNOWN','ERROR'].includes(r.status)).map(r=>({
+      node_id:r.node_id, check_id:r.check_id, status:r.status, message:r.message || null,
+      kind: ruleId === 'sjtu_rule_32' && r.status === 'UNKNOWN' &&
+        Array.isArray(r.reasons) && r.reasons.includes('serpapi_not_found') ? 'serpapi_not_found' : null,
+      reasons:r.reasons || [], evidence:r.display_evidence || [], basis_details:basisDetails(r),
+    }));
     const unknown=raw.counts?.UNKNOWN || 0;
+    const serpApiNotFoundCount=diagnostics.filter(item=>item.kind==='serpapi_not_found').length;
     const reason=raw.status==='ERROR' ? executionReason(raw.execution_error) : null;
+    const runMessage = serpApiNotFoundCount
+      ? `${serpApiNotFoundCount} 条参考文献未在 SerpAPI 中查到；仅作提示，不计入规则警告。`
+      : [raw.status==='UNKNOWN' || unknown || raw.coverage?.incomplete_scopes?.length ? `${unknown} 项证据不足；未覆盖的内容保留无法判定。` : null,
+        reason ? `规则执行异常：${reason}` : null, refinementMessage, baselineMessage].filter(Boolean).join(' ') || null;
     return {rule_run_id:`run_${ruleId}`,rule_id:ruleId,severity:'warning',params:null,
       execution_status:raw.status==='ERROR'?'error':'completed',evidence_mode:findings.some(f=>f.source_kind==='synthetic')?'derived':'native',
       outcome:findings.length?'issues_found':publication?'inconclusive':raw.status==='PASS'?'passed':raw.status==='NOT_APPLICABLE'?'not_applicable':'inconclusive',
       ...(publication ? {publication_status:findings.length?'ALERT':'NO_ALERT'} : {}),
-      message:publication ? (raw.status==='ERROR' ? `规则执行失败${reason ? '：'+reason : ''}` : findings.length ? '发现经复核确认的告警' : '未触发告警') : [raw.status==='UNKNOWN' || unknown || raw.coverage?.incomplete_scopes?.length ? `${unknown} 项证据不足；未覆盖的内容保留无法判定。` : null,
-        reason ? `规则执行异常：${reason}` : null, refinementMessage, baselineMessage].filter(Boolean).join(' ') || null,
+      message:publication && !(ruleId === 'sjtu_rule_32' && serpApiNotFoundCount) ? (raw.status==='ERROR' ? `规则执行失败${reason ? '：'+reason : ''}` : findings.length ? '发现经复核确认的告警' : '未触发告警') : runMessage,
       compiler_runtime_status:typeof output.runtime?.status==='string' ? output.runtime.status : null,
       findings,compiler_diagnostics:diagnostics,...(publication ? {} : {coverage:raw.coverage,compiler_counts:raw.counts}),package_sha256:raw.package_sha256,
       runtime_version:runtimeVersion,pipeline_version:pipelineVersion,runtime_snapshot:runtimeSnapshot};

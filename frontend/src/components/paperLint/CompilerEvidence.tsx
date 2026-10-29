@@ -21,9 +21,21 @@ export function EvidenceLinks({ items, basis }: { items: PaperLintEvidence[]; ba
 }
 export function CompilerDiagnostics({ items }: { items?: CompilerDiagnostic[] }) {
   if (!items?.length) return null;
-  return <details className="mt-2 text-xs text-slate-600"><summary className="cursor-pointer">证据不足或运行异常：{items.length} 项</summary>
-    <div className="mt-2 max-h-72 space-y-3 overflow-auto">{items.slice(0, 100).map((item, index) => <div key={`${item.node_id}-${item.check_id}-${index}`}>
-      <strong>{item.status === 'UNKNOWN' ? '无法判定' : '运行异常'}</strong>
-      <p>{item.reasons.join('；') || '当前证据不足以得出结论。'}</p><EvidenceLinks items={item.evidence} basis={item.basis_details} />
-    </div>)}{items.length > 100 ? <p>此处展示前 100 项，完整记录保存在检测报告中。</p> : null}</div></details>;
+  const notFound = items.filter(item => item.kind === 'serpapi_not_found');
+  const other = items.filter(item => item.kind !== 'serpapi_not_found');
+  return <div className="mt-2 space-y-2 text-xs text-slate-600">
+    {notFound.length ? <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+      <strong className="text-blue-900">检索提示：未在 SerpAPI 中查到（{notFound.length} 条）</strong>
+      <p className="mt-1 text-blue-800">这些条目不计入规则警告，也不会生成 AI 修复建议；请人工核对题名、作者或 DOI。</p>
+      <ul className="mt-2 list-disc space-y-1 pl-4 text-blue-900">
+        {notFound.slice(0, 100).map((item, index) => <li key={`${item.node_id}-${index}`}>{item.message || '未在 SerpAPI 中查到该参考文献'}</li>)}
+      </ul>
+      {notFound.length > 100 ? <p className="mt-1">此处展示前 100 项，完整记录保存在检测报告中。</p> : null}
+    </div> : null}
+    {other.length ? <details className="text-xs text-slate-600"><summary className="cursor-pointer">证据不足或运行异常：{other.length} 项</summary>
+      <div className="mt-2 max-h-72 space-y-3 overflow-auto">{other.slice(0, 100).map((item, index) => <div key={`${item.node_id}-${item.check_id}-${index}`}>
+        <strong>{item.status === 'UNKNOWN' ? '无法判定' : '运行异常'}</strong>
+        <p>{item.message || item.reasons.join('；') || '当前证据不足以得出结论。'}</p><EvidenceLinks items={item.evidence} basis={item.basis_details} />
+      </div>)}{other.length > 100 ? <p>此处展示前 100 项，完整记录保存在检测报告中。</p> : null}</div></details> : null}
+  </div>;
 }

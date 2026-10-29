@@ -24,6 +24,36 @@ class SerpApiError(RuntimeError):
 
 
 QUERY_PLAN_VERSION = "serpapi-scholar-query-plan/2.0"
+QUOTA_STATUS_VERSION = "serpapi-quota-status/1.0"
+
+
+def quota_status_path(library_dir):
+    return Path(library_dir) / "serpapi-status.json"
+
+
+def quota_status(library_dir):
+    """Return persisted provider status without exposing credentials."""
+    try:
+        data = json.loads(quota_status_path(library_dir).read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return None
+    if data.get("schema_version") != QUOTA_STATUS_VERSION:
+        return None
+    return data
+
+
+def quota_exhausted(library_dir):
+    return (quota_status(library_dir) or {}).get("status") == "exhausted"
+
+
+def _looks_like_quota_exhaustion(status, body):
+    if status not in {402, 403, 429}:
+        return False
+    text = body.decode("utf-8", "ignore") if isinstance(body, bytes) else str(body or "")
+    text = text.casefold()
+    return any(marker in text for marker in (
+        "run out of searches", "out of searches", "searches_left", "quota", "limit reached",
+    ))
 
 
 def _norm(value):
@@ -92,6 +122,15 @@ class SerpApiScholar:
         self.library_dir.mkdir(parents=True, exist_ok=True)
         self.transport = transport or self._request
         self.clock = clock
+
+    def _mark_quota_exhausted(self, status, body):
+        write_json_atomic(quota_status_path(self.library_dir), {
+            "schema_version": QUOTA_STATUS_VERSION,
+            "status": "exhausted",
+            "http_status": status,
+            "reason": "SerpAPI balance or search quota exhausted",
+            "updated_at": self.clock(),
+        })
 
     def _request(self, url):
         try:
@@ -162,6 +201,8 @@ class SerpApiScholar:
                                                 "cached": True,
                                                 "library_key": key,
                                                 "query": public_query}
+        if quota_exhausted(self.library_dir):
+            raise SerpApiError("SERPAPI_QUOTA_EXHAUSTED")
         api_key = _key()
         if not api_key:
             raise SerpApiError("SERPAPI_API_KEY is not configured")
@@ -172,6 +213,9 @@ class SerpApiScholar:
                   "api_key": api_key, "num": 10}
         status, body = self.transport(self.endpoint + "?" + urlencode(params))
         if status != 200:
+            if _looks_like_quota_exhaustion(status, body):
+                self._mark_quota_exhausted(status, body)
+                raise SerpApiError("SERPAPI_QUOTA_EXHAUSTED")
             raise SerpApiError("HTTP_" + str(status))
         try:
             payload = json.loads(body)

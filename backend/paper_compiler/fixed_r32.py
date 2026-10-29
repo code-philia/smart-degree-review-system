@@ -41,8 +41,15 @@ CODE = """def detect(payload):
                 elif proof.get('kind') == 'controlled_catalog_scope' and proof.get('domain') == 'controlled_catalog' and proof.get('complete') is True and proof.get('search_scope') == scope and proof.get('protocol') == 'complete-catalog-title-author-year/1.0' and isinstance(proof.get('catalog'), list) and isinstance(query, dict):
                     if all(query.get(name) == identity[name] for name in ['title', 'authors', 'year']):
                         proof_ids.append(eid)
-        if proof_ids:
-            results.append(emit(node, 'VIOLATION', 'SerpAPI Google Scholar 成功检索未找到该参考文献的匹配结果，按规则32判定引用不存在。', check_id='work_existence', basis=basis, evidence_ids=proof_ids))
+        if proof_ids and scope == 'serpapi:google_scholar':
+            title = identity.get('title') or '该参考文献（题名未提取）'
+            results.append(emit(
+                node, 'UNKNOWN', f'未在 SerpAPI 中查到：{title}；当前仅作提示，不计入规则警告。',
+                check_id='work_existence', basis=basis, evidence_ids=proof_ids,
+                reasons=['serpapi_not_found'],
+            ))
+        elif proof_ids:
+            results.append(emit(node, 'VIOLATION', '受控目录检索未找到该参考文献，按规则32判定引用不存在。', check_id='work_existence', basis=basis, evidence_ids=proof_ids))
         else:
             reason = exists.get('reason') or 'SerpAPI Scholar 检索失败或证据不足，暂不判定引用不存在。'
             results.append(emit(node, 'UNKNOWN', '参考文献存在性尚无充分证据。', check_id='work_existence', basis=basis, evidence_ids=ids if supported else [node['id']], reasons=[reason]))

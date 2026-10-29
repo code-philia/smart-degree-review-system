@@ -13,6 +13,7 @@ export type PaperLintRule = {
   execution_mode: 'deterministic' | 'semantic';
   uses_external_model: boolean;
   available: boolean;
+  availability_reason?: string | null;
   enabled_in_mvp?: boolean;
   repair_supported?: boolean;
   source?: 'sjtu-local' | 'sjtu-six-pdf' | 'sjtu-paper-compiler';
@@ -61,7 +62,7 @@ export type PaperLintFindingAnchor = {
 
 export type PaperLintBasis = { id: string; kind?: string; text?: string; pdf_pages?: number[] };
 export type PaperLintEvidence = { id: string; kind?: string; provider?: string | null; url?: string | null; quote?: string };
-export type CompilerDiagnostic = { node_id?: string | null; check_id: string; status: 'UNKNOWN' | 'ERROR'; reasons: string[]; evidence: PaperLintEvidence[]; basis_details?: PaperLintBasis[] };
+export type CompilerDiagnostic = { node_id?: string | null; check_id: string; status: 'UNKNOWN' | 'ERROR'; message?: string | null; kind?: 'serpapi_not_found' | null; reasons: string[]; evidence: PaperLintEvidence[]; basis_details?: PaperLintBasis[] };
 
 export type PaperLintFinding = {
   finding_id: string;
