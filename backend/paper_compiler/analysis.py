@@ -11,11 +11,15 @@ from .identity import resolve_identity, IDENTITY_POLICY
 from .citations import citation_context
 
 VERSION='shared-analysis/1.5'
-BIBLIOGRAPHY_EXTRACTION_POLICY='source-linewrap-preserve-hyphen/1.0'
+BIBLIOGRAPHY_EXTRACTION_POLICY='source-linewrap-reversible-word-repair/2.0'
 BIBLIOGRAPHY_INSTRUCTIONS="""Extract bibliographic fields from exactly the supplied entry text. Do not judge any rule.
 Return {entries:[{id,complete:boolean,fields:{FIELD:{state:'observed',value:STRING_OR_ARRAY,quote:EXACT_SOURCE_SUBSTRING}},absent:[FIELD_NAMES_CONFIRMED_NOT_PRESENT]}]}.
 Use the supplied field names/types. Include observed fields only in fields; list explicitly confirmed absent names in absent. Omitted names stay unknown. complete means this is one readable complete entry, not that all fields are present.
-Never invent or correct metadata. Preserve punctuation and spelling; whitespace across wrapped lines may be collapsed. Each observed value must occur inside its quote. Authors are an array of transcribed author names.
+Never invent or correct metadata. Preserve punctuation and spelling. A physical
+single-line wrap may be transcribed as whitespace, or rejoined only when it visibly
+splits one word (including an end-of-line hyphen); do not join ordinary word
+boundaries. Each observed value must be traceable to its exact original quote.
+Authors are an array of transcribed author names.
 type_code and carrier_code exclude brackets; date/access_date exclude brackets; year is a string. title excludes authors and resource marker. institution is the degree granting institution for a thesis. conference is the meeting name. DOI/URL are optional source fields; omit them only as confirmed_absent after examining the entire entry.
 If the entry contains several concatenated works or incomplete boundary, set complete=false; absences then remain unknown.
 """
@@ -95,16 +99,101 @@ def _add_evidence(a,item):
     if not any(old['id']==item['id'] for old in a['evidence']):a['evidence'].append(item)
     return item['id']
 
+def _linewrap_transcriptions(quote, *, limit=256):
+    """Return reversible renderings of one physical-line wrap in *quote*.
+
+    The source text and its offsets are never rewritten.  A model still chooses
+    the bibliographic field; this function merely proves that its transcription
+    can be obtained from the exact source quote.  At an alphanumeric one-line
+    wrap, either a normal space or no space is possible.  For an end-of-line
+    hyphen, preserving or removing that hyphen is also possible.  The bounded
+    expansion prevents a malformed entry from becoming expensive.
+    """
+    choices=[('', [])]
+    index=0
+    while index < len(quote):
+        # A single physical line break, optionally preceded by a hyphen, may be
+        # a word wrap only when both sides are alphanumeric.  Blank lines are
+        # deliberately excluded.
+        hyphen = index > 0 and quote[index - 1] == '-'
+        match=re.match(r'[ \t]*(?:\r\n|\n|\r)[ \t]*', quote[index:])
+        if match:
+            end=index + match.end()
+            before=index - 2 if hyphen else index - 1
+            after=end
+            soft=(before >= 0 and after < len(quote)
+                  and quote[before].isalnum() and quote[after].isalnum())
+            if soft:
+                gap=(index,end)
+                next_choices=[]
+                for text, joins in choices:
+                    # Normal inter-word reading: collapse the physical line
+                    # break to one space.
+                    next_choices.append((text + ' ', joins))
+                    # Rejoin a word split over the line.  For ``foo-\nbar``
+                    # retain the lexical hyphen or remove a typographic one.
+                    next_choices.append((text, joins + [gap]))
+                    if hyphen:
+                        next_choices.append((text[:-1], joins + [(index - 1, end)]))
+                choices=next_choices[:limit]
+                index=end
+                continue
+            # All other whitespace follows the historical single-space
+            # transcription and is not a repair operation.
+            choices=[(text + ' ', joins) for text, joins in choices]
+            index=end
+            continue
+        choices=[(text + quote[index], joins) for text, joins in choices]
+        index += 1
+    # Deduplicate equivalent renderings while retaining their reversible map.
+    result=[]; seen=set()
+    for text, joins in choices:
+        key=(text, tuple(joins))
+        if key not in seen:
+            seen.add(key); result.append((text, joins))
+    return result
+
+
 def _linewrap_transcription(quote):
-    # Join only a single physical line break after an alphanumeric hyphen.
-    # Keep the hyphen and record exactly which source whitespace was removed.
-    pattern=r'(?<=[^\W_])-(?P<gap>[ \t]*(?:\r\n|\n|\r)[ \t]*)(?=[^\W_])'
-    spans=[match.span('gap') for match in re.finditer(pattern,quote)]
-    pieces=[];offset=0
-    for start,end in spans:
-        pieces.append(quote[offset:start]);offset=end
-    pieces.append(quote[offset:])
-    return ''.join(pieces),spans
+    """Compatibility helper for callers that only need hyphen-preserving form."""
+    for text, joins in _linewrap_transcriptions(quote):
+        if joins and '-' in text:
+            return text, joins
+    return _norm(quote), []
+
+
+def _linewrap_supported(value, quote):
+    target=_norm(value)
+    for transcription, joins in _linewrap_transcriptions(quote):
+        if target in _norm(transcription):
+            return joins
+    return None
+
+def _coerce_bibliography_fields(node, fields):
+    """Accept the campus model's compact field form without weakening proof.
+
+    Some OpenAI-compatible models omit the requested ``state``/``quote``
+    wrapper and return ``{"title": "...", "authors": [...]}``.  Treat that
+    only as a candidate transcription: the normal source-grounding path below
+    still has to locate every value in this exact entry (including reversible
+    physical-line-wrap repair).  A full-entry quote is intentionally used here
+    because the compact form did not supply a narrower source span.
+    """
+    if not isinstance(fields, dict):
+        return {}
+    result=dict(fields)
+    for name, value in tuple(result.items()):
+        if name not in FIELD_TYPES or isinstance(value, dict):
+            continue
+        field_type=FIELD_TYPES[name]
+        valid=(field_type=='string' and isinstance(value, str)) or (
+            field_type=='array' and isinstance(value, list)
+            and all(isinstance(part, str) for part in value))
+        if valid:
+            result[name]={'state':'observed','value':value,'quote':node['text'],
+                          'transcription_form':'compact-model-value'}
+    return result
+
 
 def _extract_field(node,name,item,complete,a):
     if not isinstance(item,dict):return unknown('field not returned by extraction')
@@ -117,14 +206,18 @@ def _extract_field(node,name,item,complete,a):
     try:
         start,end=locate_quote(node['text'],item.get('quote'))
         quote=node['text'][start:end]
-        # Plain whitespace transcription remains supported. Any additional
-        # line-wrap joining requires an exact source quote and a reversible map.
+        # Plain whitespace transcription remains supported.  A repaired
+        # line-wrap is accepted only when each returned value aligns to this
+        # exact source quote through one bounded, reversible transcription.
         values=value if isinstance(value,list) else [value]
         joins=[]
-        if any(_norm(v) not in _norm(quote) for v in values):
-            joined,joins=_linewrap_transcription(quote)
-            if item.get('quote')!=quote or not joins or any(_norm(v) not in _norm(joined) for v in values):
+        for candidate in values:
+            if _norm(candidate) in _norm(quote):
+                continue
+            repaired=_linewrap_supported(candidate, quote)
+            if item.get('quote')!=quote or repaired is None:
                 raise ValueError('value not supported by quote')
+            joins.extend(repaired)
     except ValueError:return unknown('untraceable field extraction')
     eid='span-'+hashlib.sha256(json_bytes([node['id'],name,start,end,quote])).hexdigest()[:24]
     evidence={'id':eid,'kind':'source_span','node_id':node['id'],'start':start,'end':end,'quote':quote}
@@ -156,7 +249,7 @@ def parse_entries(ir,a,client,*,batch_size=None):
         raw={item.get('id'):item for item in answer.get('entries',[]) if isinstance(item,dict)}
         for node in batch:
             item=raw.get(node['id'],{});complete=item.get('complete') is True;fields=item.get('fields',{})
-            fields=dict(fields) if isinstance(fields,dict) else {}
+            fields=_coerce_bibliography_fields(node, fields)
             for name in item.get('absent',[]):
                 if name in FIELD_TYPES and name not in fields:fields[name]={'state':'confirmed_absent'}
             facts={name:_extract_field(node,name,fields.get(name),complete,a) for name in FIELD_TYPES}

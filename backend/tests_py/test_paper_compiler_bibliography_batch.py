@@ -16,7 +16,11 @@ from test_paper_compiler_llm import make_client
 LEGACY_PROMPT = """Extract bibliographic fields from exactly the supplied entry text. Do not judge any rule.
 Return {entries:[{id,complete:boolean,fields:{FIELD:{state:'observed',value:STRING_OR_ARRAY,quote:EXACT_SOURCE_SUBSTRING}},absent:[FIELD_NAMES_CONFIRMED_NOT_PRESENT]}]}.
 Use the supplied field names/types. Include observed fields only in fields; list explicitly confirmed absent names in absent. Omitted names stay unknown. complete means this is one readable complete entry, not that all fields are present.
-Never invent or correct metadata. Preserve punctuation and spelling; whitespace across wrapped lines may be collapsed. Each observed value must occur inside its quote. Authors are an array of transcribed author names.
+Never invent or correct metadata. Preserve punctuation and spelling. A physical
+single-line wrap may be transcribed as whitespace, or rejoined only when it visibly
+splits one word (including an end-of-line hyphen); do not join ordinary word
+boundaries. Each observed value must be traceable to its exact original quote.
+Authors are an array of transcribed author names.
 type_code and carrier_code exclude brackets; date/access_date exclude brackets; year is a string. title excludes authors and resource marker. institution is the degree granting institution for a thesis. conference is the meeting name. DOI/URL are optional source fields; omit them only as confirmed_absent after examining the entire entry.
 If the entry contains several concatenated works or incomplete boundary, set complete=false; absences then remain unknown.
 """
@@ -158,8 +162,8 @@ def test_legacy_default_requests_unchanged_but_derived_cache_rejects_old_unknown
     expected_data=[{'field_types':FIELD_TYPES,'entries':[{'id':n['id'],'text':n['text']} for n in ir['nodes'][offset:offset+2]]}
                    for offset in (1,3,5)]
     assert client.calls==[('bibliography-fields/1.1',LEGACY_PROMPT,data,6000) for data in expected_data]
-    assert hashlib.sha256(client.calls[0][1].encode()).hexdigest()=='d4e2fcdb87683ce541880ef7b02872c8e2a9d777369b88242786bf91c911acce'
-    new_policy={**old_policy,'bibliography_extraction':'source-linewrap-preserve-hyphen/1.0'}
+    assert hashlib.sha256(client.calls[0][1].encode()).hexdigest()=='1a681b123464ab76be0b3f57179c6f25077bdab8b943377361b426128026b0a5'
+    new_policy={**old_policy,'bibliography_extraction':'source-linewrap-reversible-word-repair/2.0'}
     assert result['policy']==new_policy and cache_key(new_policy)!=cache_key(old_policy)
     assert {p.name for p in cache.glob('*.json')}=={cache_key(old_policy)+'.json',cache_key(new_policy)+'.json'}
     assert old_path.read_bytes()==old_bytes
