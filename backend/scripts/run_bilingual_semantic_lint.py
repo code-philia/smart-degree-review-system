@@ -165,6 +165,7 @@ def _body_chunks(ir: dict[str, Any], size: int = 6000) -> list[dict[str, Any]]:
     if not ordered:
         ordered = [node for node in ir.get("nodes", [])
                    if node.get("kind") in {"Paragraph", "UnknownBlock"} and str(node.get("text") or "").strip()]
+    page_sizes = {int(page.get('page_index', -1)) + 1: (float(page.get('width') or 0), float(page.get('height') or 0)) for page in (ir.get('layout', {}).get('pages', []) or [])}
     chunks: list[dict[str, Any]] = []
     current: list[str] = []
     segments: list[dict[str, Any]] = []
@@ -186,7 +187,10 @@ def _body_chunks(ir: dict[str, Any], size: int = 6000) -> list[dict[str, Any]]:
             if length and length + len(piece) + 1 > size: flush()
             normalized_piece = _normalize_for_model(piece)
             current.append(piece)
-            segments.append({"text": piece, "page": page, "bbox": bbox, "start": model_length, "end": model_length + len(normalized_piece)})
+            page_width, page_height = page_sizes.get(page, (0.0, 0.0))
+            segments.append({"text": piece, "page": page, "bbox": bbox,
+                             "page_width": page_width, "page_height": page_height,
+                             "start": model_length, "end": model_length + len(normalized_piece)})
             model_length += len(normalized_piece) + 1
             length += len(piece) + 1
     flush()
@@ -241,21 +245,30 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
                 bbox = item.get("bbox")
                 if bbox and len(bbox) == 4 and item.get("page"):
                     x1, y1, x2, y2 = [float(value) for value in bbox]
-                    rects.append({"x1": x1, "y1": y1, "x2": x2, "y2": y2, "width": x2 - x1, "height": y2 - y1, "page_number": item["page"]})
+                    rects.append({"x1": x1, "y1": y1, "x2": x2, "y2": y2,
+                                  "width": float(item.get("page_width") or 0),
+                                  "height": float(item.get("page_height") or 0),
+                                  "page_number": item["page"]})
             location = None
             if pages and rects:
                 x1 = min(rect["x1"] for rect in rects); y1 = min(rect["y1"] for rect in rects)
                 x2 = max(rect["x2"] for rect in rects); y2 = max(rect["y2"] for rect in rects)
-                bounding = {"x1": x1, "y1": y1, "x2": x2, "y2": y2, "width": x2 - x1, "height": y2 - y1, "page_number": pages[0]}
+                first_rect = rects[0]
+                bounding = {"x1": x1, "y1": y1, "x2": x2, "y2": y2,
+                            "width": first_rect["width"], "height": first_rect["height"],
+                            "page_number": pages[0]}
                 location = {"type": "pdf_bbox", "page_number": pages[0], "bounding_rect": bounding, "rects": rects, "text_excerpt": original[:120]}
             elif pages:
                 location = {"type": "pdf_page", "page_number": pages[0], "text_excerpt": original[:120]}
             findings.append({
                 "finding_id": f"{TYPO_RULE}_{len(findings) + 1}", "rule_id": TYPO_RULE,
                 "message": f"疑似错别字：{original[:120]}",
-                "suggestion": suggestion[:300],
+                "suggestion": suggestion,
                 "location": location,
-                "anchors": [],
+                "anchors": ([{"anchor_id": f"typo-{len(findings) + 1}",
+                               "role": "source_span", "label": "疑似错别字",
+                               "description": original, "location": location}]
+                             if location else []),
                 "evidence": [{"id": f"typo-chunk-{index + 1}", "kind": "source_span",
                               "provider": "repo-paper-model", "quote": str(row.get("text"))[:120]}],
                 "reason": str(row.get("reason") or "")[:300],

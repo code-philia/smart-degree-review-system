@@ -37,18 +37,24 @@ const severityLabels = { error: '严重', warning: '警告', info: '提示' };
 function repairActionParts(instruction: string) {
   const text = instruction.trim();
   const match = text.match(/^(.*?)(?:将|把)\s*[“"「『]([^”"」』]{1,160})[”"」』]\s*(?:修改为|改为|替换为)\s*[“"「『]([^”"」』]{1,160})[”"」』](.*)$/s);
-  if (!match) return { text: text.length > 260 ? `${text.slice(0, 260)}…` : text };
-  return { prefix: `${match[1]}${match[1] ? ' ' : ''}`, before: match[2], after: match[3], suffix: match[4] };
+  if (match) return { prefix: `${match[1]}${match[1] ? ' ' : ''}`, before: match[2], after: match[3], suffix: match[4] };
+  // Also accept the explicit format emitted by some repair-model responses.
+  const labelled = text.match(/^(.*?)\b(?:修改前|原文)\s*[:：]\s*([\s\S]*?)\s*(?:修改后|建议修改后|改为)\s*[:：]\s*([\s\S]*)$/);
+  if (labelled) return { prefix: labelled[1], before: labelled[2].trim(), after: labelled[3].trim(), suffix: '' };
+  // Keep the complete model instruction; do not hide its context behind a UI truncation.
+  return { text };
 }
 
 function RepairAction({ instruction }: { instruction: string }) {
   const parts = repairActionParts(instruction);
   if (!('before' in parts)) return <p>{parts.text}</p>;
   return (
-    <p>
+    <p className="whitespace-pre-wrap break-words">
       {parts.prefix}
+      <span className="mr-1 text-xs font-semibold text-rose-700">修改前：</span>
       <span className="rounded bg-rose-100 px-1 text-rose-800 line-through" title="检测到的原文片段">{parts.before}</span>
       <span className="mx-1 text-slate-500">改为</span>
+      <span className="mr-1 text-xs font-semibold text-emerald-700">修改后：</span>
       <span className="rounded bg-emerald-100 px-1 text-emerald-800" title="建议修改后的文字">{parts.after}</span>
       {parts.suffix}
     </p>
