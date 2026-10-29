@@ -23,6 +23,9 @@ class SerpApiError(RuntimeError):
     pass
 
 
+QUERY_PLAN_VERSION = "serpapi-scholar-query-plan/2.0"
+
+
 def _norm(value):
     return re.sub(r"[^a-z0-9]+", " ", str(value or "").casefold()).strip()
 
@@ -44,11 +47,17 @@ def _key():
     return ""
 
 
-def _identity_key(query):
+def _identity_key(query, *, search_query=None, query_kind=None):
     doi = normalize_doi(query.get("doi"))
     identity = {"doi": doi, "title": _norm(query.get("title")),
                 "authors": [_norm(a) for a in query.get("authors", [])],
                 "year": query.get("year")}
+    # The historical title-only cache key is kept byte-for-byte compatible.
+    # Fallback strategies must have independent keys so a miss from one query
+    # cannot mask a later title+author or DOI query.
+    if query_kind and query_kind != "title":
+        identity["query_kind"] = query_kind
+        identity["search_query"] = str(search_query or "")
     return hashlib.sha256(json_bytes(identity)).hexdigest()
 
 
@@ -64,8 +73,9 @@ def _result_work(item):
     match = re.search(r"\b(19|20)\d{2}\b", str(publication.get("summary", "")))
     if match:
         year = int(match.group(0))
+    raw_title = item.get("title")
     return {
-        "title": str(item.get("title", "")).strip(),
+        "title": raw_title.strip() if isinstance(raw_title, str) else "",
         "authors": [str(a).strip() for a in authors if str(a).strip()],
         "year": year,
         "url": item.get("link", ""),
@@ -103,20 +113,63 @@ class SerpApiScholar:
         except (OSError, ValueError, TypeError):
             return None
 
-    def lookup(self, query):
-        key = _identity_key(query)
+    def _query_plans(self, query):
+        """Return bounded, deterministic Scholar query fallbacks.
+
+        Scholar often returns no title-only hit for older conference papers even
+        when the title plus the cited authors is indexed.  DOI-only queries are
+        retained as a final exact-identifier fallback.  The original title
+        query remains first and keeps its legacy cache key.
+        """
+        title = str(query.get("title") or "").strip()
+        if title:
+            yield "title", title
+            authors = query.get("authors") or []
+            if isinstance(authors, list):
+                surnames = []
+                for author in authors:
+                    value = str(author or "").strip()
+                    if not value or value.casefold() in {"et al", "et al."}:
+                        continue
+                    parts = re.findall(r"[A-Za-z][A-Za-z'\-]*", value)
+                    if not parts:
+                        continue
+                    # Bibliography extraction commonly returns ``SURNAME I``;
+                    # also handle ``I. Surname`` and ordinary full names.
+                    if len(parts) > 1 and len(parts[0].rstrip('.')) <= 2 and len(parts[-1]) > 2:
+                        surname = parts[-1]
+                    elif len(parts) > 1 and len(parts[-1].rstrip('.')) <= 2 and len(parts[0]) > 2:
+                        surname = parts[0]
+                    else:
+                        surname = parts[-1] if len(parts) > 1 else parts[0]
+                    if surname not in surnames:
+                        surnames.append(surname)
+                if surnames:
+                    yield "title_authors", title + " " + " ".join(surnames[:4])
+        doi = normalize_doi(query.get("doi"))
+        if doi:
+            yield "doi", doi
+
+    def _lookup_one(self, query, search_query, query_kind):
+        legacy_key = query_kind == "title" and search_query == str(query.get("title") or "").strip()
+        key = (_identity_key(query) if legacy_key else
+               _identity_key(query, search_query=search_query, query_kind=query_kind))
         cached = self._cached(key)
+        public_query = {k: query.get(k) for k in ("title", "authors", "year", "doi")}
+        public_query.update({"search_query": search_query, "query_kind": query_kind})
         if cached is not None:
-            return cached.get("records", []), {"status": cached.get("status"), "cached": True,
-                                               "library_key": key}
+            return cached.get("records", []), {"status": cached.get("status"),
+                                                "cached": True,
+                                                "library_key": key,
+                                                "query": public_query}
         api_key = _key()
         if not api_key:
             raise SerpApiError("SERPAPI_API_KEY is not configured")
-        title = str(query.get("title", "")).strip()
-        if not title:
-            return [], {"status": "empty", "cached": False, "library_key": key}
-        params = {"engine": "google_scholar", "q": title, "api_key": api_key,
-                  "num": 10}
+        if not search_query:
+            return [], {"status": "empty", "cached": False,
+                         "library_key": key, "query": public_query}
+        params = {"engine": "google_scholar", "q": search_query,
+                  "api_key": api_key, "num": 10}
         status, body = self.transport(self.endpoint + "?" + urlencode(params))
         if status != 200:
             raise SerpApiError("HTTP_" + str(status))
@@ -126,22 +179,47 @@ class SerpApiScholar:
             raise SerpApiError("invalid_json") from error
         works = [_result_work(item) for item in (payload.get("organic_results") or [])
                  if isinstance(item, dict) and item.get("title")]
-        target = _norm(title)
-        # A Scholar result is accepted only when it is the queried work, not an
-        # unrelated result returned for a broad title query.
-        matched = [w for w in works if SequenceMatcher(None, target, _norm(w["title"])).ratio() >= 0.88]
+        target = _norm(query.get("title"))
+        matched = ([w for w in works if target and
+                    SequenceMatcher(None, target, _norm(w["title"])).ratio() >= 0.88])
         records = []
         for index, work in enumerate(matched):
             records.append({"id": "serpapi-scholar-" + key[:16] + "-" + str(index),
                             "provider": "serpapi", "engine": "google_scholar",
                             "status": "ok", "retrieved_at": self.clock(),
-                            "query": {k: query.get(k) for k in ("title", "authors", "year", "doi")},
-                            "work": work})
+                            "query": public_query, "work": work})
         status_name = "ok" if records else "empty"
         artifact = {"schema_version": "serpapi-scholar-library/1", "key": key,
                     "provider": "serpapi", "engine": "google_scholar",
                     "status": status_name, "retrieved_at": self.clock(),
-                    "query": {k: query.get(k) for k in ("title", "authors", "year", "doi")},
-                    "records": records}
+                    "query": public_query, "records": records}
         write_json_atomic(self.library_dir / (key + ".json"), artifact)
-        return records, {"status": status_name, "cached": False, "library_key": key}
+        return records, {"status": status_name, "cached": False,
+                         "library_key": key, "query": public_query}
+
+    def lookup(self, query):
+        """Run the historical single title query (backwards-compatible API)."""
+        title = str(query.get("title") or "").strip()
+        return self._lookup_one(query, title, "title")
+
+    def lookup_many(self, query):
+        """Try title, title+authors, then DOI, stopping at the first valid hit.
+
+        Empty attempts are returned as evidence records, so Rule 32 can explain
+        which fallback paths were exhausted.  Transport/API failures propagate
+        and remain UNKNOWN rather than becoming a false nonexistence result.
+        """
+        attempts = []
+        empty = []
+        for query_kind, search_query in self._query_plans(query):
+            records, meta = self._lookup_one(query, search_query, query_kind)
+            attempts.append(meta)
+            if records:
+                return records + empty, {"status": "ok", "attempts": attempts,
+                                         "matched_query_kind": query_kind}
+            key = meta.get("library_key", "")
+            empty.append({"id": "serpapi-scholar-empty-" + key[:16],
+                          "provider": "serpapi", "engine": "google_scholar",
+                          "status": "empty", "retrieved_at": self.clock(),
+                          "query": meta.get("query", query), "works": []})
+        return empty, {"status": "empty", "attempts": attempts}

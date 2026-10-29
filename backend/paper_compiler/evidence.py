@@ -369,15 +369,10 @@ class EvidenceGateway:
             return [item for records in pool.map(retrieve_provider,self.providers) for item in records]
 
     def lookup_rule32(self, query):
-        """Rule 32 uses exactly one provider: SerpAPI Google Scholar."""
+        """Rule 32 uses SerpAPI Scholar with bounded fallback query plans."""
         from .serpapi_scholar import SerpApiScholar
         library = os.environ.get('PAPER_COMPILER_REFERENCE_LIBRARY') or str(self.rate_dir / 'reference-library')
-        records, meta = SerpApiScholar(library).lookup(query)
-        if not records and meta.get('status') == 'empty':
-            key = meta.get('library_key', '')
-            return [{'id': 'serpapi-scholar-empty-' + key[:16], 'provider': 'serpapi',
-                     'engine': 'google_scholar', 'status': 'empty',
-                     'retrieved_at': self.clock(), 'query': query, 'works': []}]
+        records, _meta = SerpApiScholar(library, clock=self.clock).lookup_many(query)
         return records
     def content(self,work):
         if not self.snapshot_id:return self._content(work)

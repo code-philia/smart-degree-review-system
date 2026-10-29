@@ -389,6 +389,17 @@ def enrich(ir,rule_packages,*,client,gateway,cache_dir:Path,snapshot_id=None):
     if bibliography_required:policy['bibliography_extraction']=BIBLIOGRAPHY_EXTRACTION_POLICY
     if required & {'external_work','citation_relevance'}:
         policy['identity_resolution'] = IDENTITY_POLICY
+    def package_rule_ids(package):
+        spec = package.get('program_spec') or package.get('rule_ir') or {}
+        values = []
+        if spec.get('rule_id') is not None:
+            values.append(spec.get('rule_id'))
+        values.extend(spec.get('rule_ids') or [])
+        return {str(value) for value in values}
+    has_r32 = any('32' in package_rule_ids(package) for package in rule_packages)
+    if has_r32:
+        from .serpapi_scholar import QUERY_PLAN_VERSION
+        policy['serpapi_query_plan'] = QUERY_PLAN_VERSION
     fingerprint=hashlib.sha256(json_bytes({'ir':ir_hash(ir),'version':VERSION,'capabilities':plan,'required':sorted(required),'policy':policy})).hexdigest()
     path=Path(cache_dir)/(fingerprint+'.json')
     if path.exists():
@@ -399,14 +410,6 @@ def enrich(ir,rule_packages,*,client,gateway,cache_dir:Path,snapshot_id=None):
     bind_references(ir,a);citation_syntax(ir,a);ordering_facts(ir,a)
     if required & {'external_work','citation_relevance'}:
         external=a['results'].setdefault('external_work',{})
-        def package_rule_ids(package):
-            spec = package.get('program_spec') or package.get('rule_ir') or {}
-            values = []
-            if spec.get('rule_id') is not None:
-                values.append(spec.get('rule_id'))
-            values.extend(spec.get('rule_ids') or [])
-            return {str(value) for value in values}
-        has_r32 = any('32' in package_rule_ids(package) for package in rule_packages)
         for node in ir['nodes']:
             if node['kind']!='BibliographyEntry':continue
             fields=a['results']['bibliography_fields'][node['id']]
@@ -418,7 +421,7 @@ def enrich(ir,rule_packages,*,client,gateway,cache_dir:Path,snapshot_id=None):
                     lookup = getattr(gateway, 'lookup_rule32', None) if gateway else None
                     if not callable(lookup):
                         raise RuntimeError('rule 32 requires the SerpAPI Scholar gateway')
-                    records = lookup(query) if query.get('title') else []
+                    records = lookup(query) if any(query.get(name) for name in ('title', 'doi')) else []
                 else:
                     records = gateway.lookup(query) if gateway and query.get('title') else []
             except Exception as error:
