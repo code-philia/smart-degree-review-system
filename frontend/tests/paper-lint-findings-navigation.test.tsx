@@ -72,7 +72,7 @@ describe('PDF rule filter order', () => {
 });
 
 
-it('keeps the issue and source excerpt without printing long rule basis paragraphs in the PDF card', () => {
+it('keeps the issue and PDF navigation without printing evidence or long rule basis paragraphs in the PDF card', () => {
   const finding={...item,finding:{...item.finding,
     location:{...item.finding.location,text_excerpt:'对应论文原文'},
     basis_details:[{id:'gbt7714-2025:general',kind:'project',text:'冗长的项目规则依据全文'}],
@@ -80,7 +80,7 @@ it('keeps the issue and source excerpt without printing long rule basis paragrap
   }};
   render(<FindingsPane findings={[finding as PaperLintFindingItem]} rules={[]} activeFindingKey={item.key} activeAnchorId={null} onFindingClick={vi.fn()} onAnchorClick={vi.fn()} />);
   expect(screen.getByText(item.finding.message)).toBeInTheDocument();
-  expect(screen.getByText('引用证据原文')).toBeInTheDocument();
+  expect(screen.queryByText('引用证据原文')).not.toBeInTheDocument();
   expect(screen.queryByText('原文：对应论文原文')).not.toBeInTheDocument();
   expect(screen.queryByText('冗长的项目规则依据全文')).not.toBeInTheDocument();
   expect(screen.queryByText('冗长的规范条款全文')).not.toBeInTheDocument();
@@ -122,7 +122,7 @@ describe('repair suggestion card', () => {
     );
     expect(screen.getByText('检查文末条目。')).toBeInTheDocument();
     expect(screen.queryByText('请对照 PDF 原文核查此处，并按论文规范修订。')).not.toBeInTheDocument();
-    expect(onLoadRepairSuggestion).toHaveBeenCalledWith(item);
+    expect(onLoadRepairSuggestion).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: '重新生成修复建议' }));
     expect(onGenerateRepairSuggestion).toHaveBeenCalledWith(item);
   });

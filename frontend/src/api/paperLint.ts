@@ -145,7 +145,7 @@ export type PaperLintRunResponse = {
 
 export type PaperLintJobResponse = {
   job_id: string;
-  status: 'pending' | 'running' | 'completed' | 'failed';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
   report_id: string | null;
   error_message: string | null;
   created_at: string;
@@ -233,6 +233,22 @@ export async function runReviewPilotPaperLint(
 export async function fetchPaperLintJob(jobId: string): Promise<PaperLintJobResponse> {
   const response = await apiClient.get<PaperLintJobResponse>(`/normative/paper-lint/jobs/${jobId}`);
   return response.data;
+}
+
+export async function cancelPaperLintJob(jobId: string): Promise<PaperLintJobResponse> {
+  const response = await apiClient.post<PaperLintJobResponse>(`/normative/paper-lint/jobs/${jobId}/cancel`);
+  return response.data;
+}
+
+export async function deletePaperLintReport(reportId: string): Promise<void> {
+  await apiClient.delete(`/normative/paper-lint/reports/${reportId}`);
+}
+
+export async function deletePaperLintReports(reportIds: string[]): Promise<string[]> {
+  const response = await apiClient.delete<{ deleted_ids: string[] }>('/normative/paper-lint/reports', {
+    data: { report_ids: reportIds },
+  });
+  return response.data.deleted_ids;
 }
 export async function fetchPaperLintReports(): Promise<PaperLintReportListItem[]> {
   const response = await apiClient.get<{ records: PaperLintReportListItem[] }>('/normative/paper-lint/reports');

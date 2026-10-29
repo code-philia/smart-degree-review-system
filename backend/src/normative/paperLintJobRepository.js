@@ -10,7 +10,7 @@ function jobsDirectory() {
 function publicJob(row) {
   if (!row) return null;
   return {
-    job_id: row.id, status: row.status, report_id: row.report_id || null,
+    job_id: row.id, status: row.cancelled_at ? 'cancelled' : row.status, report_id: row.report_id || null,
     error_message: row.error_message || null, created_at: row.created_at,
     updated_at: row.updated_at,
     progress: row.progress_json ? (() => { try { return JSON.parse(row.progress_json); } catch { return null; } })() : null,
@@ -68,8 +68,17 @@ async function updateProgress(id, progress) {
 }
 
 async function completeJob(id, reportId) {
-  await run("UPDATE paper_lint_jobs SET status = 'completed', report_id = ?, error_message = NULL, updated_at = ? WHERE id = ? AND status = 'running'",
+  const changed = await run("UPDATE paper_lint_jobs SET status = 'completed', report_id = ?, error_message = NULL, updated_at = ? WHERE id = ? AND status = 'running'",
     [reportId, new Date().toISOString(), id]);
+  return changed.changes > 0;
+}
+
+async function cancelJobForUser(id, userId) {
+  const now = new Date().toISOString();
+  // Retain the existing terminal-state CHECK while recording cancellation explicitly.
+  await run("UPDATE paper_lint_jobs SET status = 'failed', cancelled_at = ?, error_message = NULL, updated_at = ? WHERE id = ? AND user_id = ? AND status IN ('pending','running')",
+    [now, now, id, userId]);
+  return get('SELECT * FROM paper_lint_jobs WHERE id = ? AND user_id = ?', [id, userId]);
 }
 
 async function failJob(id, message) {
@@ -77,4 +86,4 @@ async function failJob(id, message) {
     [message, new Date().toISOString(), id]);
 }
 
-module.exports = { createJob, getJob, getJobForUser, recoverJobs, claimJob, updateProgress, completeJob, failJob, publicJob };
+module.exports = { createJob, getJob, getJobForUser, recoverJobs, claimJob, updateProgress, completeJob, cancelJobForUser, failJob, publicJob };

@@ -31,6 +31,7 @@ describe('four local rules in the existing basic-check flow', () => {
       'chapter_new_page_check',
       'sjtu_rule_11', 'sjtu_rule_13', 'sjtu_rule_14', 'sjtu_rule_15', 'sjtu_rule_16', 'sjtu_rule_29',
       'sjtu_rule_32', 'sjtu_rule_33',
+      'typo_detection_check',
       'bilingual_keywords_correspondence_check', 'bilingual_abstract_consistency_check',
     ]);
     expect(catalog.rules.slice(0, 4).every((rule) => rule.available && !rule.uses_external_model)).toBe(true);

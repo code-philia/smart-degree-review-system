@@ -6,9 +6,6 @@ const paperLintReportRepository = require('./paperLintReportRepository');
 const { sendPrivatePdf } = require('./privatePdfResponse');
 const defaultJobService = require('./paperLintJobService');
 const defaultCompilerService = require('./paperCompilerService');
-const { isCompilerRuleId } = defaultCompilerService;
-const { isLocalRuleId } = require('./localFiveRulePaperLintService');
-const { isSixRuleId } = require('./sixRulePaperLintService');
 const { getEnabledMvpRuleIds } = require('../../rules/registry');
 
 const allowedRoles = ['STUDENT', 'SUPERVISOR', 'SCHOOL_ADMIN', 'COLLEGE_ADMIN'];
@@ -95,6 +92,26 @@ function createReviewPilotPaperLintRouter(service = defaultService, exampleServi
     }
   });
 
+  router.delete('/reports', requireAuth({ allowedRoles }), express.json({ limit: '64kb' }), async (req, res, next) => {
+    const ids = req.body?.report_ids;
+    if (!Array.isArray(ids) || !ids.length || ids.some(id => typeof id !== 'string' || !id.trim())) {
+      return res.status(400).json({ code: 400, message: '请选择需要删除的报告' });
+    }
+    try {
+      const deletedIds = await paperLintReportRepository.deletePaperLintReportsForUser(ids, req.user.id);
+      if (!deletedIds) return res.status(404).json({ code: 404, message: '所选报告不存在或不属于当前账号' });
+      return res.json({ deleted_ids: deletedIds });
+    } catch (error) { return sendError(error, res, next); }
+  });
+
+  router.delete('/reports/:reportId', requireAuth({ allowedRoles }), async (req, res, next) => {
+    try {
+      const deleted = await paperLintReportRepository.deletePaperLintReportForUser(req.params.reportId, req.user.id);
+      if (!deleted) return res.status(404).json({ code: 404, message: '未找到该审查报告' });
+      return res.json({ deleted_ids: [req.params.reportId] });
+    } catch (error) { return sendError(error, res, next); }
+  });
+
   router.get('/reports/:reportId/pdf', requireAuth({ allowedRoles }), async (req, res, next) => {
     try {
       const pdf = await paperLintReportRepository.getPaperLintReportPdfFile(req.params.reportId, req.user.id);
@@ -125,6 +142,13 @@ function createReviewPilotPaperLintRouter(service = defaultService, exampleServi
       return sendError(error, res, next);
     }
   });
+  router.post('/jobs/:jobId/cancel', requireAuth({ allowedRoles }), async (req, res, next) => {
+    try {
+      const job = await jobService.cancelForUser(req.params.jobId, req.user.id);
+      if (!job) return res.status(404).json({ code: 404, message: '未找到该检查任务' });
+      return res.json(job);
+    } catch (error) { return sendError(error, res, next); }
+  });
   router.post(
     '/run',
     requireAuth({ allowedRoles }),
@@ -140,30 +164,15 @@ function createReviewPilotPaperLintRouter(service = defaultService, exampleServi
           return res.status(400).json({ code: 400, message: `MVP 暂不支持该审查规则：${unsupportedMvpRule}` });
         }
         const externalProcessingConsent = req.get('x-paper-lint-external-processing-consent') === 'confirmed';
-        if (selectedRuleIds.some(id => isLocalRuleId(id) || isSixRuleId(id) || isCompilerRuleId(id))) {
-          service.validatePdf(req.body);
-          const normalizedRuleIds = await service.normalizeSelectedRuleIds(selectedRuleIds, externalProcessingConsent);
-          const job = await jobService.enqueue({
-            userId: req.user.id,
-            sourceFilename: typeof req.query.filename === 'string' ? req.query.filename.slice(0, 255) : '论文.pdf',
-            requestId: typeof req.get('x-paper-lint-request-id') === 'string' ? req.get('x-paper-lint-request-id') : null,
-            pdfBuffer: req.body, selectedRuleIds: normalizedRuleIds, externalProcessingConsent,
-          });
-          return res.status(202).json(job);
-        }
-        const { result, selectedRuleIds: normalizedRuleIds } = await service.runPaperLint({
-          pdfBuffer: req.body,
-          selectedRuleIds,
-          externalProcessingConsent,
-        });
-        const report = await paperLintReportRepository.createPaperLintReport({
+        service.validatePdf(req.body);
+        const normalizedRuleIds = await service.normalizeSelectedRuleIds(selectedRuleIds, externalProcessingConsent);
+        const job = await jobService.enqueue({
           userId: req.user.id,
           sourceFilename: typeof req.query.filename === 'string' ? req.query.filename.slice(0, 255) : '论文.pdf',
-          pdfBuffer: req.body,
-          selectedRuleIds: normalizedRuleIds,
-          result,
+          requestId: typeof req.get('x-paper-lint-request-id') === 'string' ? req.get('x-paper-lint-request-id') : null,
+          pdfBuffer: req.body, selectedRuleIds: normalizedRuleIds, externalProcessingConsent,
         });
-        res.status(201).json(report);
+        return res.status(202).json(job);
       } catch (error) {
         sendError(error, res, next);
       }

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { Trash2 } from 'lucide-react';
 import { useAuthSession } from '../auth/AuthSessionProvider';
-import { fetchPaperLintReports, type PaperLintReportListItem } from '../api/paperLint';
+import { deletePaperLintReport, deletePaperLintReports, fetchPaperLintReports, type PaperLintReportListItem } from '../api/paperLint';
 import { formatChinaDateTime } from '../utils/dateTime';
 import { THIRTY_RULE_IDS } from '../utils/paperLintRuleGroups';
 import {
@@ -33,9 +34,12 @@ function NormativeReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
   const historyPath = isThirty ? '/thirty-rules-check/reports' : '/normative-reports';
   const { reportId } = useParams();
   const { status, user } = useAuthSession();
+  const userId = user?.id;
   const [history, setHistory] = useState<DetectionTaskResponse[]>([]);
   const [report, setReport] = useState<DetectionTaskResponse | null>(null);
   const [pdfReports, setPdfReports] = useState<PaperLintReportListItem[]>([]);
+  const [selectedReportIds, setSelectedReportIds] = useState<string[]>([]);
+  const [deleting, setDeleting] = useState(false);
   const [activeIssue, setActiveIssue] = useState<ActiveIssue | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -44,13 +48,14 @@ function NormativeReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
   const lines = useMemo(() => (report?.original_text || '').split('\n'), [report]);
 
   useEffect(() => {
-    if (status !== 'authenticated' || !user) {
+    if (status !== 'authenticated' || !userId) {
       return;
     }
 
     let cancelled = false;
     setLoading(true);
     setErrorMessage(null);
+    setSelectedReportIds([]);
 
     const request = reportId
       ? fetchNormativeDetectionReport(reportId)
@@ -94,7 +99,7 @@ function NormativeReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
     return () => {
       cancelled = true;
     };
-  }, [reportId, status, user, mode]);
+  }, [reportId, status, userId, mode]);
 
   function handleIssueClick(issue: NormativeIssue, index: number) {
     setActiveIssue({ issue, index });
@@ -109,6 +114,25 @@ function NormativeReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
     anchor.download = `normative-report-${taskId}.json`;
     anchor.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function handleDeleteReports(ids: string[], batch = false) {
+    const filename = pdfReports.find(record => record.id === ids[0])?.source_filename;
+    const prompt = batch ? `确定删除选中的 ${ids.length} 份历史报告及 PDF？删除后无法恢复。`
+      : `确定删除“${filename}”的历史报告及 PDF？删除后无法恢复。`;
+    if (!window.confirm(prompt)) return;
+    setDeleting(true);
+    setErrorMessage(null);
+    try {
+      if (batch) await deletePaperLintReports(ids);
+      else await deletePaperLintReport(ids[0]);
+      setPdfReports(current => current.filter(record => !ids.includes(record.id)));
+      setSelectedReportIds(current => current.filter(id => !ids.includes(id)));
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : '报告删除失败，请重试');
+    } finally {
+      setDeleting(false);
+    }
   }
 
   if (status === 'loading') {
@@ -232,9 +256,20 @@ function NormativeReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
               <h2 className="font-bold text-slate-900">PDF 论文检查报告</h2>
               <p className="mt-1 text-sm text-slate-500">可继续查看原文定位、问题说明和修改建议。</p>
             </div>
-            <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700">
-              {pdfReports.length} 份
-            </span>
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2 text-sm text-slate-600">
+                <input type="checkbox" aria-label="全选报告" disabled={deleting}
+                  checked={selectedReportIds.length === pdfReports.length}
+                  ref={element => { if (element) element.indeterminate = selectedReportIds.length > 0 && selectedReportIds.length < pdfReports.length; }}
+                  onChange={event => setSelectedReportIds(event.target.checked ? pdfReports.map(record => record.id) : [])} />
+                全选
+              </label>
+              <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700">{pdfReports.length} 份</span>
+              <Button size="sm" variant="danger" disabled={deleting || !selectedReportIds.length}
+                onClick={() => void handleDeleteReports(selectedReportIds, true)}>
+                <Trash2 className="size-4" />删除选中（{selectedReportIds.length}）
+              </Button>
+            </div>
           </div>
           <div className="divide-y divide-slate-100">
             {pdfReports.map((record) => (
@@ -242,11 +277,16 @@ function NormativeReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
                 key={record.id}
                 className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 hover:bg-brand-50/40"
               >
-                <div className="min-w-0">
-                  <p className="truncate font-semibold text-slate-900">{record.source_filename}</p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {formatChinaDateTime(record.created_at)} · {record.summary.ruleset_label || '当前规则版本'}
-                  </p>
+                <div className="flex min-w-0 items-center gap-3">
+                  <input type="checkbox" aria-label={`选择报告：${record.source_filename}`} disabled={deleting}
+                    checked={selectedReportIds.includes(record.id)}
+                    onChange={event => setSelectedReportIds(current => event.target.checked ? [...current, record.id] : current.filter(id => id !== record.id))} />
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-slate-900">{record.source_filename}</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {formatChinaDateTime(record.created_at)} · {record.summary.ruleset_label || '当前规则版本'}
+                    </p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-3 text-sm">
                   <span
@@ -269,6 +309,10 @@ function NormativeReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
                   <LinkButton size="sm" to={`${historyPath}/pdf/${record.id}`}>
                     继续处理
                   </LinkButton>
+                  <Button size="sm" variant="ghost" className="text-danger-600" disabled={deleting}
+                    aria-label={`删除报告：${record.source_filename}`} onClick={() => void handleDeleteReports([record.id])}>
+                    <Trash2 className="size-4" />删除
+                  </Button>
                 </div>
               </div>
             ))}

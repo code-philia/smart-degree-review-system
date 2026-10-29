@@ -1,6 +1,7 @@
 const { execFile } = require('child_process');
 const path = require('path');
 const { promisify } = require('util');
+const { runPaperLintProcess } = require('./paperLintProcess');
 
 const execFileAsync = promisify(execFile);
 const DETECTOR_SCRIPT = path.resolve(__dirname, '../../scripts/five_rule_detector.py');
@@ -110,9 +111,9 @@ async function runLocalFiveRules(pdfPath, selectedRuleIds, { signal } = {}) {
     (process.platform === 'win32' ? 'python' : 'python3');
   let stdout;
   try {
-    ({ stdout } = await execFileAsync(python, [numbers.some(number => [31, 34, 35, 36, 37, 38].includes(number)) ? FAST_DETECTOR_SCRIPT : DETECTOR_SCRIPT, '--pdf', pdfPath,
+    ({ stdout } = await runPaperLintProcess(python, [numbers.some(number => [31, 34, 35, 36, 37, 38].includes(number)) ? FAST_DETECTOR_SCRIPT : DETECTOR_SCRIPT, '--pdf', pdfPath,
       ...numbers.flatMap((number) => ['--rule', String(number)])], {
-      windowsHide: true, timeout: 300000, maxBuffer: 30 * 1024 * 1024, encoding: 'utf8',
+      timeoutMs: 300000, maxBytes: 30 * 1024 * 1024,
       env: { ...process.env, PYTHONIOENCODING: 'utf-8' }, signal,
     }));
   } catch (error) {

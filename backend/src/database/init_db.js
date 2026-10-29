@@ -289,13 +289,16 @@ async function initializeDatabase(options = {}) {
       external_consent INTEGER NOT NULL DEFAULT 0,
       request_id TEXT,
       status TEXT NOT NULL CHECK (status IN ('pending','running','completed','failed')),
-      attempts INTEGER NOT NULL DEFAULT 0, report_id TEXT, error_message TEXT, progress_json TEXT,
+      attempts INTEGER NOT NULL DEFAULT 0, report_id TEXT, error_message TEXT, progress_json TEXT, cancelled_at TEXT,
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
       FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE,
       FOREIGN KEY (report_id) REFERENCES paper_lint_reports(id) ON DELETE SET NULL
     );`);
     const paperLintJobColumns = await new Promise((resolve, reject) =>
       database.all('PRAGMA table_info(paper_lint_jobs)', (error, rows) => error ? reject(error) : resolve(rows)));
+    if (!paperLintJobColumns.some((column) => column.name === 'cancelled_at')) {
+      await runStatement(database, 'ALTER TABLE paper_lint_jobs ADD COLUMN cancelled_at TEXT;');
+    }
     if (!paperLintJobColumns.some((column) => column.name === 'progress_json')) {
       await runStatement(database, 'ALTER TABLE paper_lint_jobs ADD COLUMN progress_json TEXT;');
     }

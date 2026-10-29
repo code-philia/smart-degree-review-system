@@ -7,7 +7,7 @@ const { LOCAL_RULES, getLocalRuleAvailability, isLocalRuleId, runLocalFiveRules,
 const { getSixRules, isSixRuleId, runSixRules, SIX_RULE_TIMEOUT_MS } = require('./sixRulePaperLintService');
 
 const { getCompilerRules, isCompilerRuleId, runCompilerRules } = require('./paperCompilerService');
-const { runPaperLintRuleGroups } = require('./paperLintRuleRunner');
+const { runPaperLintRuleGroups, settleRuleTasks } = require('./paperLintRuleRunner');
 const { listRuleDefinitions } = require('../../rules/registry');
 
 const RETIRED_RULE_IDS = new Set([
@@ -340,7 +340,7 @@ function mergePaperLintResults(existingResult, localResult, selectedRuleIds) {
   };
 }
 
-async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingConsent = false, background = false, onProgress }) {
+async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingConsent = false, background = false, onProgress, signal }) {
   validatePdf(pdfBuffer);
   // The deadline covers catalog loading, queueing, and both engines so a timed-out
   // browser request cannot later persist a seemingly successful report.
@@ -352,6 +352,9 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
   const timeoutMs = Number.isFinite(requestedTimeout) && requestedTimeout > 0
     ? Math.min(requestedTimeout, maximumTimeout) : maximumTimeout;
   const controller = new AbortController();
+  const onCancel = () => controller.abort();
+  if (signal?.aborted) onCancel();
+  else signal?.addEventListener('abort', onCancel, { once: true });
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const normalizedRuleIds = await normalizeSelectedRuleIds(selectedRuleIds, externalProcessingConsent);
@@ -393,7 +396,7 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
             },
           }).then((groupResults) => parts.push(...groupResults)));
         }
-        await Promise.all(tasks);
+        await settleRuleTasks(tasks);
         if (controller.signal.aborted) throw createHttpError(504, RUN_TIMEOUT_MESSAGE);
         const result = parts.length > 1
           ? mergePaperLintResults(parts[0], { rule_runs: parts.slice(1).flatMap((part) => part.rule_runs) }, normalizedRuleIds)
@@ -404,6 +407,11 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
       }
     }, controller.signal);
   } catch (error) {
+    if (signal?.aborted) {
+      const cancelled = createHttpError(499, '检查已停止');
+      cancelled.code = 'PAPER_LINT_CANCELLED';
+      throw cancelled;
+    }
     if (!controller.signal.aborted) throw error;
     const timeout = createHttpError(504, RUN_TIMEOUT_MESSAGE);
     timeout.code = 'PAPER_LINT_TIMEOUT';
@@ -414,6 +422,7 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
     throw timeout;
   } finally {
     clearTimeout(timer);
+    signal?.removeEventListener('abort', onCancel);
   }
 }
 
