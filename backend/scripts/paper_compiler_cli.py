@@ -11,7 +11,7 @@ from paper_compiler.contracts import validate_ir
 def parser():
     p=argparse.ArgumentParser();sub=p.add_subparsers(dest='command',required=True)
     for name in ['build','compile','plan','plan-batch','synthesize','loop','check','batch','evaluate','budget']:
-        s=sub.add_parser(name);s.add_argument('--config',default=os.environ.get('PAPER_COMPILER_CONFIG','/data/apps/smart-degree-review/config/paper-model-huawei.env'))
+        s=sub.add_parser(name);s.add_argument('--config',default=os.environ.get('PAPER_COMPILER_CONFIG',':env:'))
         s.add_argument('--ledger',default='/data/runtime/paper-compiler/budget.sqlite3');s.add_argument('--budget',default='200')
         s.add_argument('--phase',default='pilot');s.add_argument('--phase-budget',default='5');s.add_argument('--cache',default='/data/runtime/paper-compiler')
         s.add_argument('--evidence-snapshot');s.add_argument('--freeze-evidence',action='store_true');s.add_argument('--model-fingerprint');s.add_argument('--offline',action='store_true');s.add_argument('--out',type=Path);s.add_argument('--package',action='append',default=[])
