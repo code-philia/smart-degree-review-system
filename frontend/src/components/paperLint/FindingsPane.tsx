@@ -39,7 +39,7 @@ function repairActionParts(instruction: string) {
   const match = text.match(/^(.*?)(?:将|把)\s*[“"「『]([^”"」』]{1,160})[”"」』]\s*(?:修改为|改为|替换为)\s*[“"「『]([^”"」』]{1,160})[”"」』](.*)$/s);
   if (match) return { prefix: `${match[1]}${match[1] ? ' ' : ''}`, before: match[2], after: match[3], suffix: match[4] };
   // Also accept the explicit format emitted by some repair-model responses.
-  const labelled = text.match(/^(.*?)\b(?:修改前|原文)\s*[:：]\s*([\s\S]*?)\s*(?:修改后|建议修改后|改为)\s*[:：]\s*([\s\S]*)$/);
+  const labelled = text.match(/^(.*?)(?:修改前|原文)\s*[:：]\s*([\s\S]*?)\s*(?:修改后|建议修改后|改为)\s*[:：]\s*([\s\S]*)$/);
   if (labelled) return { prefix: labelled[1], before: labelled[2].trim(), after: labelled[3].trim(), suffix: '' };
   // Keep the complete model instruction; do not hide its context behind a UI truncation.
   return { text };

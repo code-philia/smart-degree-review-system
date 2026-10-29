@@ -134,6 +134,26 @@ def _normalize_for_model(text: str) -> str:
     return re.sub(r"(?<=[\u3400-\u9fff])\s+(?=[\u3400-\u9fff])", "", text)
 
 
+def _is_cjk(char: str) -> bool:
+    return bool(char) and "\u3400" <= char <= "\u9fff"
+
+
+def _model_piece(text: str) -> str:
+    return _normalize_for_model(text).strip("\r\n")
+
+
+def _join_model_parts(parts: list[str]) -> str:
+    result = ""
+    for raw in parts:
+        piece = _model_piece(raw)
+        if not piece:
+            continue
+        if result and not (_is_cjk(result[-1:]) and _is_cjk(piece[:1])):
+            result += "\n"
+        result += piece
+    return result
+
+
 def _split_piece(text: str, size: int) -> list[str]:
     pieces = []
     remaining = text
@@ -174,7 +194,7 @@ def _body_chunks(ir: dict[str, Any], size: int = 6000) -> list[dict[str, Any]]:
     def flush() -> None:
         nonlocal current, segments, length, model_length
         if current:
-            chunks.append({"text": "\n".join(current), "model_text": "\n".join(_normalize_for_model(x) for x in current), "segments": segments[:], "page": segments[0].get("page") if segments else None})
+            chunks.append({"text": "\n".join(current), "model_text": _join_model_parts(current), "segments": segments[:], "page": segments[0].get("page") if segments else None})
         current, segments, length, model_length = [], [], 0, 0
     for node in ordered:
         raw = str(node.get("text") or "").strip()
@@ -197,13 +217,21 @@ def _body_chunks(ir: dict[str, Any], size: int = 6000) -> list[dict[str, Any]]:
         for source_text, page, bbox in source_parts:
             for piece in _split_piece(source_text, size):
                 if length and length + len(piece) + 1 > size: flush()
-                normalized_piece = _normalize_for_model(piece)
+                normalized_piece = _model_piece(piece)
+                # Join CJK split across PDF provenance lines in model text.
+                separator_length = 0
+                previous_normalized = _model_piece(current[-1]) if current else ""
+                if current and previous_normalized and normalized_piece and _is_cjk(previous_normalized[-1:]) and _is_cjk(normalized_piece[:1]):
+                    separator_length = 0
+                elif current:
+                    separator_length = 1
+                model_length += separator_length
                 current.append(piece)
                 page_width, page_height = page_sizes.get(page, (0.0, 0.0))
                 segments.append({"text": piece, "page": page, "bbox": bbox,
                                  "page_width": page_width, "page_height": page_height,
                                  "start": model_length, "end": model_length + len(normalized_piece)})
-                model_length += len(normalized_piece) + 1
+                model_length += len(normalized_piece)
                 length += len(piece) + 1
     flush()
     return chunks[:80]
