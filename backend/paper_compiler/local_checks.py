@@ -418,7 +418,7 @@ def detect_ir(ir, selected_rules=RULES):
         checked = [part for part, present in parts.items() if present is True or complete
                    or (core_complete and part not in {'原创性声明', '使用授权说明'})]
         results['34']['checked_parts'] = checked
-        results['34']['findings'] = [_finding(ir, 34, anchor, f'未发现国标必备部分“{part}”', part,
+        results['34']['findings'] = [_finding(ir, 34, anchor, f'未发现“{part}”', part,
             f'请补齐或核对{part}；依据 GB/T 7713.1—2025 附录 A、表 A.1。')
             for part, present in parts.items() if present is False and part in checked]
     if 35 in selected_rules:
