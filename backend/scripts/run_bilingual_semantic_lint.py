@@ -169,11 +169,12 @@ def _body_chunks(ir: dict[str, Any], size: int = 6000) -> list[dict[str, Any]]:
     current: list[str] = []
     segments: list[dict[str, Any]] = []
     length = 0
+    model_length = 0
     def flush() -> None:
-        nonlocal current, segments, length
+        nonlocal current, segments, length, model_length
         if current:
             chunks.append({"text": "\n".join(current), "model_text": "\n".join(_normalize_for_model(x) for x in current), "segments": segments[:], "page": segments[0].get("page") if segments else None})
-        current, segments, length = [], [], 0
+        current, segments, length, model_length = [], [], 0, 0
     for node in ordered:
         raw = str(node.get("text") or "").strip()
         if not raw: continue
@@ -183,8 +184,10 @@ def _body_chunks(ir: dict[str, Any], size: int = 6000) -> list[dict[str, Any]]:
         bbox = source.get("bbox") if isinstance(source.get("bbox"), list) else None
         for piece in _split_piece(raw, size):
             if length and length + len(piece) + 1 > size: flush()
+            normalized_piece = _normalize_for_model(piece)
             current.append(piece)
-            segments.append({"text": piece, "page": page, "bbox": bbox})
+            segments.append({"text": piece, "page": page, "bbox": bbox, "start": model_length, "end": model_length + len(normalized_piece)})
+            model_length += len(normalized_piece) + 1
             length += len(piece) + 1
     flush()
     return chunks[:80]
@@ -223,16 +226,30 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
             suggestion = str(row.get("suggestion") or "请结合上下文核对").strip()
             if _normalize_for_model(original) == _normalize_for_model(suggestion):
                 continue
-            segment = next((item for item in chunk.get("segments", [])
-                            if _normalize_for_model(original) in _normalize_for_model(item.get("text", ""))), None)
+            needle = _normalize_for_model(original)
+            model_text = chunk.get("model_text", "")
+            match_start = model_text.find(needle)
+            if match_start < 0:
+                # Do not show model-invented text that cannot be found in the PDF extraction.
+                continue
+            match_end = match_start + len(needle)
+            matched_segments = [item for item in chunk.get("segments", [])
+                                if item.get("end", 0) > match_start and item.get("start", 0) < match_end]
+            pages = [item.get("page") for item in matched_segments if item.get("page")]
+            rects = []
+            for item in matched_segments:
+                bbox = item.get("bbox")
+                if bbox and len(bbox) == 4 and item.get("page"):
+                    x1, y1, x2, y2 = [float(value) for value in bbox]
+                    rects.append({"x1": x1, "y1": y1, "x2": x2, "y2": y2, "width": x2 - x1, "height": y2 - y1, "page_number": item["page"]})
             location = None
-            if segment and segment.get("page"):
-                if segment.get("bbox") and len(segment["bbox"]) == 4:
-                    x1, y1, x2, y2 = [float(value) for value in segment["bbox"]]
-                    rect = {"x1": x1, "y1": y1, "x2": x2, "y2": y2, "width": x2 - x1, "height": y2 - y1, "page_number": segment["page"]}
-                    location = {"type": "pdf_bbox", "page_number": segment["page"], "bounding_rect": rect, "rects": [rect], "text_excerpt": original[:120]}
-                else:
-                    location = {"type": "pdf_page", "page_number": segment["page"], "text_excerpt": original[:120]}
+            if pages and rects:
+                x1 = min(rect["x1"] for rect in rects); y1 = min(rect["y1"] for rect in rects)
+                x2 = max(rect["x2"] for rect in rects); y2 = max(rect["y2"] for rect in rects)
+                bounding = {"x1": x1, "y1": y1, "x2": x2, "y2": y2, "width": x2 - x1, "height": y2 - y1, "page_number": pages[0]}
+                location = {"type": "pdf_bbox", "page_number": pages[0], "bounding_rect": bounding, "rects": rects, "text_excerpt": original[:120]}
+            elif pages:
+                location = {"type": "pdf_page", "page_number": pages[0], "text_excerpt": original[:120]}
             findings.append({
                 "finding_id": f"{TYPO_RULE}_{len(findings) + 1}", "rule_id": TYPO_RULE,
                 "message": f"疑似错别字：{original[:120]}",
