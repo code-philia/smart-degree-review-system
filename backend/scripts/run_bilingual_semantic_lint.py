@@ -129,45 +129,64 @@ def prompt_for(rule_id: str, facts: dict[str, Any]) -> str | None:
 
 
 
+def _normalize_for_model(text: str) -> str:
+    # PDF extraction may insert spaces inside Chinese words (e.g. "剔 除").
+    return re.sub(r"(?<=[\u3400-\u9fff])\s+(?=[\u3400-\u9fff])", "", text)
+
+
+def _split_piece(text: str, size: int) -> list[str]:
+    pieces = []
+    remaining = text
+    punctuation = "。！？；.!?;\n"
+    while len(remaining) > size:
+        candidates = [i + 1 for i, char in enumerate(remaining[:size]) if char in punctuation]
+        cut = max(candidates) if candidates else size
+        pieces.append(remaining[:cut])
+        remaining = remaining[cut:]
+    if remaining:
+        pieces.append(remaining)
+    return pieces
+
+
 def _body_chunks(ir: dict[str, Any], size: int = 6000) -> list[dict[str, Any]]:
-    """Return bounded body chunks while retaining source-page provenance."""
+    """Return sentence-aware chunks and source segments for precise locations."""
     nodes = {node.get("id"): node for node in ir.get("nodes", [])}
     body = next((node for node in ir.get("nodes", []) if node.get("kind") == "Body"), None)
     ordered: list[dict[str, Any]] = []
     seen: set[str] = set()
     def walk(node_id: str) -> None:
-        if node_id in seen:
-            return
+        if node_id in seen: return
         seen.add(node_id)
         node = nodes.get(node_id)
-        if not node:
-            return
-        if node.get("kind") == "Paragraph":
-            ordered.append(node)
-        for child in node.get("children", []) or []:
-            walk(child)
-    for child in (body or {}).get("children", []) or []:
-        walk(child)
+        if not node: return
+        if node.get("kind") == "Paragraph": ordered.append(node)
+        for child in node.get("children", []) or []: walk(child)
+    for child in (body or {}).get("children", []) or []: walk(child)
     if not ordered:
-        ordered = [node for node in ir.get("nodes", []) if node.get("kind") in {"Paragraph", "UnknownBlock"} and str(node.get("text") or "").strip()]
+        ordered = [node for node in ir.get("nodes", [])
+                   if node.get("kind") in {"Paragraph", "UnknownBlock"} and str(node.get("text") or "").strip()]
     chunks: list[dict[str, Any]] = []
     current: list[str] = []
-    page = None
+    segments: list[dict[str, Any]] = []
     length = 0
+    def flush() -> None:
+        nonlocal current, segments, length
+        if current:
+            chunks.append({"text": "\n".join(current), "model_text": "\n".join(_normalize_for_model(x) for x in current), "segments": segments[:], "page": segments[0].get("page") if segments else None})
+        current, segments, length = [], [], 0
     for node in ordered:
-        text = str(node.get("text") or "").strip()
-        if not text:
-            continue
-        if length and length + len(text) + 1 > size:
-            chunks.append({"text": "\n".join(current), "page": page})
-            current, length, page = [], 0, None
-        if page is None:
-            page = next((int(item.get("page_index")) + 1 for item in (node.get("provenance") or [])
-                         if isinstance(item.get("page_index"), int)), None)
-        current.append(text)
-        length += len(text) + 1
-    if current:
-        chunks.append({"text": "\n".join(current), "page": page})
+        raw = str(node.get("text") or "").strip()
+        if not raw: continue
+        provenance = node.get("provenance") or []
+        source = next((item for item in provenance if isinstance(item.get("page_index"), int)), {})
+        page = int(source["page_index"]) + 1 if isinstance(source.get("page_index"), int) else None
+        bbox = source.get("bbox") if isinstance(source.get("bbox"), list) else None
+        for piece in _split_piece(raw, size):
+            if length and length + len(piece) + 1 > size: flush()
+            current.append(piece)
+            segments.append({"text": piece, "page": page, "bbox": bbox})
+            length += len(piece) + 1
+    flush()
     return chunks[:80]
 
 
@@ -175,7 +194,7 @@ def typo_prompt(text: str) -> str:
     return (
         "你是学位论文校对助手。只检查下面正文中明确可判断的中文错别字或明显的英文拼写错误。"
         "不要修改专业术语、作者名、缩写、公式、数字、引用、专有名词，也不要把 PDF 跨行连字符"
-        "（如 \"re-\nverse\"）当作拼写错误。无法确定时不要报告。请用简体中文返回严格 JSON："
+        "（如 \"re-\nverse\"）当作拼写错误。PDF 提取可能在中文词内插入空格（如“剔 除”），这不是错别字，必须忽略。无法确定时不要报告。请用简体中文返回严格 JSON："
         "{\"findings\":[{\"text\":\"原文短语\",\"suggestion\":\"建议文字\","
         "\"reason\":\"简短理由\"}]}。原文如下：\n" + text
     )
@@ -188,7 +207,7 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
     failure = None
     for index, chunk in enumerate(chunks):
         try:
-            payload, usage = request_json([{"role": "user", "content": typo_prompt(chunk["text"])}])
+            payload, usage = request_json([{"role": "user", "content": typo_prompt(chunk["model_text"])}])
         except Exception as exc:
             failure = str(exc)[:300]
             break
@@ -200,12 +219,25 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
         for row in rows[:20]:
             if not isinstance(row, dict) or not str(row.get("text") or "").strip():
                 continue
+            original = str(row.get("text") or "").strip()
+            suggestion = str(row.get("suggestion") or "请结合上下文核对").strip()
+            if _normalize_for_model(original) == _normalize_for_model(suggestion):
+                continue
+            segment = next((item for item in chunk.get("segments", [])
+                            if _normalize_for_model(original) in _normalize_for_model(item.get("text", ""))), None)
+            location = None
+            if segment and segment.get("page"):
+                if segment.get("bbox") and len(segment["bbox"]) == 4:
+                    x1, y1, x2, y2 = [float(value) for value in segment["bbox"]]
+                    rect = {"x1": x1, "y1": y1, "x2": x2, "y2": y2, "width": x2 - x1, "height": y2 - y1, "page_number": segment["page"]}
+                    location = {"type": "pdf_bbox", "page_number": segment["page"], "bounding_rect": rect, "rects": [rect], "text_excerpt": original[:120]}
+                else:
+                    location = {"type": "pdf_page", "page_number": segment["page"], "text_excerpt": original[:120]}
             findings.append({
                 "finding_id": f"{TYPO_RULE}_{len(findings) + 1}", "rule_id": TYPO_RULE,
-                "message": f"疑似错别字：{str(row.get('text'))[:120]}",
-                "suggestion": str(row.get("suggestion") or "请结合上下文核对")[:300],
-                "location": ({"type": "pdf_page", "page_number": chunk["page"],
-                              "text_excerpt": str(row.get("text"))[:120]} if chunk.get("page") else None),
+                "message": f"疑似错别字：{original[:120]}",
+                "suggestion": suggestion[:300],
+                "location": location,
                 "anchors": [],
                 "evidence": [{"id": f"typo-chunk-{index + 1}", "kind": "source_span",
                               "provider": "repo-paper-model", "quote": str(row.get("text"))[:120]}],

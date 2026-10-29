@@ -18,3 +18,20 @@ def test_prompt_excludes_line_break_hyphen_as_error():
     prompt = mod.typo_prompt('re-\nverse')
     assert '不要把 PDF 跨行连字符' in prompt
     assert '严格 JSON' in prompt
+
+
+def test_chinese_extraction_space_is_not_a_typo_and_other_finding_has_bbox(monkeypatch):
+    ir = {'nodes': [
+        {'id':'body','kind':'Body','children':['section']},
+        {'id':'section','kind':'Section','children':['p']},
+        {'id':'p','kind':'Paragraph','text':'这是剔 除和錯字。','provenance':[{'page_index':4,'bbox':[10,20,100,40]}]},
+    ]}
+    monkeypatch.setattr(mod, 'request_json', lambda _messages: ({'findings': [
+        {'text':'剔 除','suggestion':'剔除','reason':'提取空格'},
+        {'text':'錯字','suggestion':'错字','reason':'字形错误'},
+    ]}, {'input_tokens': 1, 'output_tokens': 1}))
+    result = mod.run_typo_rule_from_ir(ir)
+    assert len(result['findings']) == 1
+    assert result['findings'][0]['message'] == '疑似错别字：錯字'
+    assert result['findings'][0]['location']['type'] == 'pdf_bbox'
+    assert result['findings'][0]['location']['page_number'] == 5
