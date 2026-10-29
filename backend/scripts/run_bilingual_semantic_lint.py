@@ -180,19 +180,31 @@ def _body_chunks(ir: dict[str, Any], size: int = 6000) -> list[dict[str, Any]]:
         raw = str(node.get("text") or "").strip()
         if not raw: continue
         provenance = node.get("provenance") or []
-        source = next((item for item in provenance if isinstance(item.get("page_index"), int)), {})
-        page = int(source["page_index"]) + 1 if isinstance(source.get("page_index"), int) else None
-        bbox = source.get("bbox") if isinstance(source.get("bbox"), list) else None
-        for piece in _split_piece(raw, size):
-            if length and length + len(piece) + 1 > size: flush()
-            normalized_piece = _normalize_for_model(piece)
-            current.append(piece)
-            page_width, page_height = page_sizes.get(page, (0.0, 0.0))
-            segments.append({"text": piece, "page": page, "bbox": bbox,
-                             "page_width": page_width, "page_height": page_height,
-                             "start": model_length, "end": model_length + len(normalized_piece)})
-            model_length += len(normalized_piece) + 1
-            length += len(piece) + 1
+        source_parts = []
+        for source in provenance:
+            if not isinstance(source, dict) or not isinstance(source.get("page_index"), int):
+                continue
+            start = source.get("node_text_start")
+            end = source.get("node_text_end")
+            if not isinstance(start, int) or not isinstance(end, int) or not (0 <= start < end <= len(raw)):
+                continue
+            source_parts.append((raw[start:end], int(source["page_index"]) + 1,
+                                 source.get("bbox") if isinstance(source.get("bbox"), list) else None))
+        if not source_parts:
+            source = next((item for item in provenance if isinstance(item.get("page_index"), int)), {})
+            source_parts = [(raw, int(source["page_index"]) + 1 if isinstance(source.get("page_index"), int) else None,
+                            source.get("bbox") if isinstance(source.get("bbox"), list) else None)]
+        for source_text, page, bbox in source_parts:
+            for piece in _split_piece(source_text, size):
+                if length and length + len(piece) + 1 > size: flush()
+                normalized_piece = _normalize_for_model(piece)
+                current.append(piece)
+                page_width, page_height = page_sizes.get(page, (0.0, 0.0))
+                segments.append({"text": piece, "page": page, "bbox": bbox,
+                                 "page_width": page_width, "page_height": page_height,
+                                 "start": model_length, "end": model_length + len(normalized_piece)})
+                model_length += len(normalized_piece) + 1
+                length += len(piece) + 1
     flush()
     return chunks[:80]
 
