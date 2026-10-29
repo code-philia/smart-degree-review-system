@@ -14,6 +14,7 @@ export const THIRTY_RULE_IDS = new Set([
   'chapter_new_page_check',
   'bilingual_keywords_correspondence_check',
   'bilingual_abstract_consistency_check',
+  'typo_detection_check',
   'required_section_completeness_check',
   'chinese_english_symbol_mix_check',
 ]);
