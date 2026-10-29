@@ -537,6 +537,9 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
             'batch_protocol_sha256': hashlib.sha256(FLAT_BATCH_INSTRUCTIONS.encode()).hexdigest()}
     packages = list(packages)
     reject_answers(packages)
+    rule_ids = sorted({str(value) for package in packages
+                       for spec in [package.get('program_spec') or package.get('rule_ir') or {}]
+                       for value in ([spec.get('rule_id')] if spec.get('rule_id') is not None else []) + list(spec.get('rule_ids') or [])})
     if evidence_environment is not None:
         reject_answers(evidence_environment)
     capabilities, requests = _plan(packages)
@@ -544,7 +547,8 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
                                  for n in ir['nodes']) for r in requests.values())
     models = [package.get('model') for package in packages]
     definitions = [{'model': package.get('model'), 'requests': package['program_spec'].get('analysis_requests', []),
-                    'generation': package.get('manifest', {}).get('version_id')} for package in packages]
+                    'generation': package.get('manifest', {}).get('version_id'),
+                    'rule_ids': rule_ids} for package in packages]
     config = getattr(client, 'config', {})
     policy = {'snapshot': snapshot_id or datetime.now(timezone.utc).date().isoformat(),
               'gateway_snapshot': getattr(gateway, 'snapshot_id', None), 'providers': getattr(gateway, 'providers', []),
@@ -592,7 +596,7 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
     controlled = isinstance(evidence_environment, dict) and evidence_environment.get('domain') == 'controlled_catalog'
     if controlled and ('external_work' in known or reference_requests):
         known.discard('external_work'); known.add('bibliography_fields')
-    builtin_package = {'rule_ir': {'requires': sorted(known)}, 'registry': REGISTRY}
+    builtin_package = {'rule_ir': {'requires': sorted(known), 'rule_ids': rule_ids}, 'registry': REGISTRY}
     projected = _builtin_ir(ir)
     builtin_context = {'definitions': definitions, 'response_decoder': policy['response_decoder']}
     if serialization != LEGACY_INPUT_SERIALIZATION:

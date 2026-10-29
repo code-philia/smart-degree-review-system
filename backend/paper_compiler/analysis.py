@@ -306,7 +306,14 @@ def enrich(ir,rule_packages,*,client,gateway,cache_dir:Path,snapshot_id=None):
     bind_references(ir,a);citation_syntax(ir,a);ordering_facts(ir,a)
     if required & {'external_work','citation_relevance'}:
         external=a['results'].setdefault('external_work',{})
-        has_r32 = any(str(p.get('program_spec', p.get('rule_ir', {})).get('rule_id')) == '32' for p in rule_packages)
+        def package_rule_ids(package):
+            spec = package.get('program_spec') or package.get('rule_ir') or {}
+            values = []
+            if spec.get('rule_id') is not None:
+                values.append(spec.get('rule_id'))
+            values.extend(spec.get('rule_ids') or [])
+            return {str(value) for value in values}
+        has_r32 = any('32' in package_rule_ids(package) for package in rule_packages)
         for node in ir['nodes']:
             if node['kind']!='BibliographyEntry':continue
             fields=a['results']['bibliography_fields'][node['id']]
@@ -314,8 +321,13 @@ def enrich(ir,rule_packages,*,client,gateway,cache_dir:Path,snapshot_id=None):
             query['authors']=query.get('authors') or []
             retrieval_error = None
             try:
-                lookup = getattr(gateway, 'lookup_rule32', None) if gateway and has_r32 else None
-                records = lookup(query) if lookup and query.get('title') else (gateway.lookup(query) if gateway and query.get('title') else [])
+                if has_r32:
+                    lookup = getattr(gateway, 'lookup_rule32', None) if gateway else None
+                    if not callable(lookup):
+                        raise RuntimeError('rule 32 requires the SerpAPI Scholar gateway')
+                    records = lookup(query) if query.get('title') else []
+                else:
+                    records = gateway.lookup(query) if gateway and query.get('title') else []
             except Exception as error:
                 retrieval_error = type(error).__name__ + ': ' + str(error)
                 records = []
@@ -335,7 +347,8 @@ def enrich(ir,rule_packages,*,client,gateway,cache_dir:Path,snapshot_id=None):
             # A source-backed arXiv URL is an exact discovery key, never a fact
             # about existence. Failed/absent metadata keeps the original UNKNOWN.
             exact_lookup = getattr(gateway,'lookup_arxiv_url',None)
-            if identity.get('value') is not True and callable(exact_lookup) and isinstance(source_url,str):
+            if (not has_r32 and identity.get('value') is not True
+                    and callable(exact_lookup) and isinstance(source_url,str)):
                 extra = exact_lookup(source_url)
                 for record in extra:_add_evidence(a,record)
                 if extra:
