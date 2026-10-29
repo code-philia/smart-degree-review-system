@@ -12,7 +12,11 @@ const IDS = new Set(DEFINITIONS.map((rule) => rule.rule_id));
 const TERMINAL = new Set(['PASS','VIOLATION','UNKNOWN','ERROR','NOT_APPLICABLE']);
 function failure(status, code, message) { return Object.assign(new Error(message), { status, code }); }
 function isCompilerRuleId(id) { return IDS.has(id); }
-function packagePath(number) { return path.join(process.env.PAPER_COMPILER_PACKAGE_ROOT || '', String(number)); }
+function packageRoot() {
+  return process.env.PAPER_COMPILER_PACKAGE_ROOT
+    || path.resolve(__dirname, '../../paper_compiler/packages');
+}
+function packagePath(number) { return path.join(packageRoot(), String(number)); }
 function serpApiReferenceLibrary() {
   return process.env.PAPER_COMPILER_REFERENCE_LIBRARY
     || path.join(process.env.PAPER_COMPILER_CACHE_ROOT || '/data/runtime/paper-compiler', 'reference-library');
