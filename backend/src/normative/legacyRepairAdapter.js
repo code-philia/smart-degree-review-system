@@ -7,6 +7,7 @@ const RULE_TEXT = Object.freeze({
   ...basicRuleText,
   bilingual_abstract_consistency_check: '中英文摘要内容对应：根据告警中提供的中文摘要和英文摘要证据，修复实质内容不一致之处。仅依据证据提出最小修改；不得编造研究结论、数据或术语。',
   bilingual_keywords_correspondence_check: '中英文关键词语义对应：根据告警中提供的中英文关键词及语义匹配证据，使两组关键词表达同一组概念并一一对应。不得仅按数量判断，不得编造关键词。',
+  typo_detection_check: '正文错别字检测：仅根据告警定位和 PDF 原文上下文，核对明确存在的错别字。建议必须同时给出“修改前”和“修改后”的短语，保持原意；无法确认时使用 insufficient_context，不得把 PDF 跨行连字符、中文提取空格、专业术语或专有名词擅自改写。',
   required_section_completeness_check: '核心章节完整性：按 GB/T 7713.1—2025 附录 A 表 A.1 检查题名页、原创性声明、使用授权说明、摘要及关键词、目录、引言、主体、结论、参考文献。根据告警中具体缺失项提出补齐建议。告警是全文检查的缺失记录，没有可引用的缺失原句或精确修改页；不得将封面题名当作错误原文，不得编造研究内容、签名或日期。',
   chinese_english_symbol_mix_check: '本地检测已确认中文文字之间误用了英文标点。根据告警定位和原文，明确指出该处误用的英文逗号、分号、冒号、问号或感叹号，并改为对应中文标点；使用中英文标点的说法，不使用全角、半角等术语。只修改告警指定的标点，保持其余文字和正常英文、公式、代码及网址不变。',
   keyword_count_check: '中文关键词数量应为 3—8 个，依据 GB/T 7713.1—2025 附录 A 表 A.1。根据告警定位和原文中的关键词列表，保留最能代表论文主题的关键词，或删除、合并冗余关键词，并用分号分隔；只修改关键词列表，保持题名、摘要和正文不变，不得编造关键词或研究内容。',
@@ -29,7 +30,8 @@ const RULE_TEXT = Object.freeze({
 
 const CITATION_REPAIR_RULE_IDS = new Set(['sjtu_rule_31', 'sjtu_rule_32', 'sjtu_rule_33']);
 const BILINGUAL_REPAIR_RULE_IDS = new Set(['bilingual_abstract_consistency_check', 'bilingual_keywords_correspondence_check']);
-const ruleVersion = (id) => CITATION_REPAIR_RULE_IDS.has(id) ? 'citation-repair-20261020' : BILINGUAL_REPAIR_RULE_IDS.has(id) ? 'bilingual-repair-20261026' : BASIC_REPAIR_RULE_IDS.has(id) ? 'basic-repair-20261020' : 'legacy-rule-text-20261018';
+const TYPO_REPAIR_RULE_IDS = new Set(['typo_detection_check']);
+const ruleVersion = (id) => CITATION_REPAIR_RULE_IDS.has(id) ? 'citation-repair-20261020' : BILINGUAL_REPAIR_RULE_IDS.has(id) ? 'bilingual-repair-20261026' : TYPO_REPAIR_RULE_IDS.has(id) ? 'typo-repair-20261029' : BASIC_REPAIR_RULE_IDS.has(id) ? 'basic-repair-20261020' : 'legacy-rule-text-20261018';
 
 // Keep the compiler's cited-content evidence and all supplied normative excerpts.
 // Group normative text so unrelated clauses cannot exhaust the eight evidence slots.
@@ -230,6 +232,7 @@ function appendEvidence(request, nextEvidence) {
 
 module.exports = {
   BASIC_REPAIR_RULE_IDS,
+  TYPO_REPAIR_RULE_IDS,
   RULE_TEXT,
   appendEvidence,
   buildLegacyRepairRequest,

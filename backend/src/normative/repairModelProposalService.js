@@ -75,6 +75,10 @@ function buildMessages(request) {
   const evidence = boundedEvidence(request.evidence, request.rule.rule_id);
   const bilingual = ['bilingual_abstract_consistency_check', 'bilingual_keywords_correspondence_check']
     .includes(request.rule.rule_id);
+  const typo = request.rule.rule_id === 'typo_detection_check';
+  const typoInstructions = typo ? `
+## 错别字规则专用要求
+只处理证据中能够在 PDF 原文定位到的明确错别字。必须保留原文短语的准确字面，并在 instruction 中使用“修改前：……；修改后：……”明确标注；不要把跨行连字符、中文字符间的 PDF 提取空格、专业术语或专有名词当成错误。无法确认时返回 insufficient_context，不要强行改写。` : '';
   const bilingualInstructions = bilingual ? `
 ## 中英文双语规则专用要求
 这是中英文摘要/关键词对应规则。输入证据中的“中文原文”和“英文原文”是本次判断的核心上下文，不能把它们当成泛泛的摘要信息。
@@ -100,7 +104,7 @@ function buildMessages(request) {
 4. **精准简洁**：尽量包含页码、原文短片段及明确修改动作，优先使用“在第X页‘原文片段’处，将A修改为B”。原文片段必须来自输入证据，不得改写或补造。每条建议原则上为1～2句话，不输出排查流程。
 5. **定位准确**：使用原文上下文作为定位锚点：如果输入证据包含问题原文及其前后文，应优先提取能够唯一识别修改位置的连续原文片段。片段应包含待修改内容，并尽量保留其前后各约 10～20 个汉字。不得改写、补造或拼接不存在的原文。若原文较长，只截取与修改直接相关的部分。
 
-${bilingualInstructions}
+${bilingualInstructions}${typoInstructions}
 ## 状态规则
 
 - suggested：现有证据支持合理的具体修复方案，包括必要的合理推断。
@@ -169,6 +173,10 @@ function validateModelAnswer(answer, request) {
     : [];
   const bilingual = ['bilingual_abstract_consistency_check', 'bilingual_keywords_correspondence_check']
     .includes(request.rule.rule_id);
+  const typo = request.rule.rule_id === 'typo_detection_check';
+  const typoInstructions = typo ? `
+## 错别字规则专用要求
+只处理证据中能够在 PDF 原文定位到的明确错别字。必须保留原文短语的准确字面，并在 instruction 中使用“修改前：……；修改后：……”明确标注；不要把跨行连字符、中文字符间的 PDF 提取空格、专业术语或专有名词当成错误。无法确认时返回 insufficient_context，不要强行改写。` : '';
   if (bilingual && answer.status === 'suggested') {
     const bilingualIds = validIds.has('bilingual-evidence-1') && validIds.has('bilingual-evidence-2')
       ? ['bilingual-evidence-1', 'bilingual-evidence-2'] : [];
