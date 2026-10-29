@@ -19,7 +19,8 @@ import pymupdf
 RULES = (6, 18, 22, 24, 28)
 TITLES = {6: '摘要连续内容重复', 18: '公式引用目标不存在', 22: '文献引用目标不存在',
           24: '参考文献未被全文引用', 28: '目录页码与正文不一致'}
-_CITATION = re.compile(r'\[(\d+(?:(?:\s*[-–—－,，、;；]\s*|\s+)\d+)*)\]')
+_BRACKET_TRANSLATION = str.maketrans('［］', '[]')
+_CITATION = re.compile(r'[\[［](\d+(?:(?:\s*[-–—－,，、;；]\s*|\s+)\d+)*)[\]］]')
 # A bare 式 can introduce an equation, but 方式/模式/形式/范式： often introduce numbered lists.
 _FORMULA_REFERENCE = re.compile(r'(?:公式[\s:：]*|(?<![公方模形范样类])式\s*|equation[\s:：]*|eq\.?[\s:：]*)[（(]\s*(\d+(?:\s*[.．–—－−-]\s*\d+)*[a-z]?)\s*[)）]', re.I)
 # Bare English references require chapter numbering; EQ1 and equation 4x are also code/data.
@@ -28,7 +29,10 @@ _DISPLAY_FORMULA = re.compile(r'^[（(]\s*(\d+(?:\s*[.．–—－−-]\s*\d+)*[
 _DISPLAY_FORMULA_TAIL = re.compile(r'[（(]\s*(\d+(?:\s*[.．–—－−-]\s*\d+)*[a-z]?)\s*[)）]\s*$', re.I)
 _TOC_ENTRY = re.compile(r'^\s*(.+?)(?:(?:\.\s*){2,}|…{2,}|⋯{2,}|·{2,})[\s\u2060]*(\d{1,4})\s*$')
 _TOC_HEADING = re.compile(r'^(?:第\s*[一二三四五六七八九十\d]+\s*章|[1-9]\d*(?:[.．]\d+)*(?=\s|[\u4e00-\u9fff])|chapter\s+[1-9]\d*|致谢|参考文献|附录|acknowledg(?:e)?ments?|references|bibliography|学术论文|科研成果|研究成果|攻读.{0,20}期间|发表.{0,12}论文|个人简历|作者简介|publications?|research\s+(?:outputs?|achievements?))', re.I)
-_REF_LABEL = re.compile(r'^\s*\[(\d+)\]')
+_REF_LABEL = re.compile(r'^\s*[\[［](\d+)[\]］]')
+_ACADEMIC_OUTPUT_HEADING = re.compile(
+    r'^(?:学术论文和科研成果|学术论文|科研成果|研究成果|research(?:outputs?|achievements?)|攻读.{0,20}(?:期间|发表)|作者在学期间(?:取得的)?(?:学术|科研)成果|发表论文(?:和|与|及)参加科研情况说明|作者简介|个人简历)', re.I)
+_OUTPUT_LABEL = re.compile(r'^\s*(?:[•●▪◦*–—-]\s*)?[\[［]\d+[\]］]')
 _CHAPTER = re.compile(r'^(?:第\s*(?:\d+|[一二三四五六七八九十]+)\s*章|chapter\s+[1-9]\d*|1[\s.．]+[^0-9]|introduction|引言|绪论)', re.I)
 
 
@@ -40,6 +44,7 @@ class Line:
     page_width: float
     page_height: float
     span_sizes: tuple[tuple[int, int, float], ...] = ()
+    citation_links: tuple[tuple[int, int], ...] = ()
 
 
 def extract_lines(pdf_path: Path) -> tuple[list[Line], int]:
@@ -48,10 +53,18 @@ def extract_lines(pdf_path: Path) -> tuple[list[Line], int]:
     text_flags = pymupdf.TEXTFLAGS_DICT & ~pymupdf.TEXT_PRESERVE_IMAGES
     with pymupdf.open(pdf_path) as pdf:
         for page_number, page in enumerate(pdf, 1):
-            for block in page.get_text('dict', sort=True, flags=text_flags)['blocks']:
+            # Only citation-named native links can validate unbracketed integers.
+            # Character boxes ensure that unrelated numbers on the row stay data.
+            citation_rects = [link['from'] for link in page.get_links()
+                              if re.match(r'^cit(?:e|ation)[.:_@-]', str(link.get('nameddest', '')), re.I)] if hasattr(page, 'get_links') else []
+            text_kind = 'rawdict' if citation_rects else 'dict'
+            for block in page.get_text(text_kind, sort=True, flags=text_flags)['blocks']:
                 if block['type'] != 0:
                     continue
                 for raw in block['lines']:
+                    if citation_rects:
+                        for span in raw['spans']:
+                            span['text'] = ''.join(char['c'] for char in span['chars'])
                     untrimmed = ''.join(span['text'] for span in raw['spans'])
                     content = untrimmed.strip()
                     if content:
@@ -64,8 +77,21 @@ def extract_lines(pdf_path: Path) -> tuple[list[Line], int]:
                             if end > start:
                                 span_sizes.append((start, end, float(span['size'])))
                             cursor += len(span['text'])
+                        citation_links = []
+                        if citation_rects:
+                            chars = [char for span in raw['spans'] for char in span['chars']]
+                            chars = chars[left_trim:left_trim + len(content)]
+                            for match in re.finditer(r'(?<![A-Za-z0-9])\d+(?![A-Za-z0-9])', content):
+                                marker_chars = chars[match.start():match.end()]
+                                if marker_chars and any(all(
+                                        rect.contains(pymupdf.Point(
+                                            (char['bbox'][0] + char['bbox'][2]) / 2,
+                                            (char['bbox'][1] + char['bbox'][3]) / 2))
+                                        for char in marker_chars) for rect in citation_rects):
+                                    citation_links.append((match.start(), match.end()))
                         lines.append(Line(page_number, content, tuple(raw['bbox']),
-                                          page.rect.width, page.rect.height, tuple(span_sizes)))
+                                          page.rect.width, page.rect.height, tuple(span_sizes),
+                                          tuple(citation_links)))
         return lines, len(pdf)
 
 
@@ -340,8 +366,9 @@ def _reference_bounds(lines: list[Line], ref_start: int | None) -> tuple[int, in
                   and _heading(line.text) in {'参考文献', 'references', 'bibliography'}),
                  next((i for i, line in enumerate(lines) if line.page >= ref_start), len(lines)))
     end = next((i for i in range(start + 1, len(lines))
-                if re.match(r'^(?:致谢|附录|acknowledg(?:e)?ments?|appendix|学术论文和科研成果|学术论文|科研成果|研究成果|research(?:outputs?|achievements?)|攻读.{0,20}(?:期间|发表)|作者简介|个人简历)',
-                            _heading(lines[i].text), re.I)), len(lines))
+                if re.match(r'^(?:致谢|附录|acknowledg(?:e)?ments?|appendix)',
+                            _heading(lines[i].text), re.I)
+                or _ACADEMIC_OUTPUT_HEADING.match(_heading(lines[i].text))), len(lines))
     # Some converted PDFs retain a "参考文献" running header on appendix pages
     # and lose the appendix label, leaving only a numbered subsection such as
     # ".1 核函数". The first new subsection after the final numbered reference
@@ -409,6 +436,8 @@ def _is_array_index(text: str, match: re.Match[str]) -> bool:
 def _numeric_bracket_is_data(text: str, match: re.Match[str], numbers: list[int], max_ref: int,
                              marker_ratio: float | None, citation_style: float | None) -> bool:
     """Reject common numeric arrays, years and subscripts before citation lookup."""
+    # One-character folding keeps original citation spans and PDF offsets intact.
+    text = text.translate(_BRACKET_TRANSLATION)
     before = text[max(0, match.start() - 45):match.start()]
     after = text[match.end():match.end() + 12]
     # A short metric row with an attached numeric annotation is table data,
@@ -424,6 +453,14 @@ def _numeric_bracket_is_data(text: str, match: re.Match[str], numbers: list[int]
         return True
     if not numbers:
         return True
+    if len(numbers) == 1 and numbers[0] > max_ref and len(match.group(1)) >= 6:
+        funding_before = re.search(
+            r'(?:基金|项目|课题|资助|grant|fund(?:ing)?|project)(?:编号|批准号|资助号|号为|号)?\s*[:：]?\s*$',
+            before, re.I)
+        funding_after = re.match(
+            r'\s*(?:(?:国家)?自然科学基金|国家.{0,12}(?:项目|课题)|grant\b|project\b)', after, re.I)
+        if funding_before or funding_after:
+            return True
     # Numeric brackets also occur in regular expressions, code, vector shapes,
     # parameter intervals and binary strings.  These are syntax, not citations.
     if '(?:' in text or r'\d' in text or r'\w' in text:
@@ -546,7 +583,7 @@ def _citation_numbers(line: Line, max_ref: int, citation_style: float | None) ->
             variable = re.search(r'([A-Za-z_][A-Za-z0-9_]*)$', before)
             if variable and re.search(
                     r'(?<![A-Za-z0-9_])' + re.escape(variable.group(1)) + r'\[[1-9]\d*\]',
-                    text[match.end():]):
+                    text[match.end():].translate(_BRACKET_TRANSLATION)):
                 continue  # repeated indices of the same variable, e.g. V[0], V[1]
             ratio = _marker_size_ratio(line, match)
             math_line = bool(re.search(r'[=∈∉←⊙∑{}]', text))
@@ -565,6 +602,13 @@ def _citation_numbers(line: Line, max_ref: int, citation_style: float | None) ->
             continue
         found.extend((number, match.group(0), [match.start(), match.end()])
                      for number in numbers)
+    bracket_ranges = [(match.start(), match.end()) for match in _CITATION.finditer(text)]
+    for start, end in line.citation_links:
+        if any(left <= start and end <= right for left, right in bracket_ranges):
+            continue
+        marker = text[start:end]
+        if marker.isdigit():
+            found.append((int(marker), marker, [start, end]))
     return found
 
 
@@ -573,7 +617,7 @@ def _continued_citations(body: list[Line], max_ref: int,
     """Recover bracketed citations broken by PDF line wrapping."""
     opener = re.compile(r'\[\s*\d[\d\s,\uFF0C\u3001;\uFF1B\-\u2013\u2014\uFF0D]*$')
     for index, first in enumerate(body):
-        if not opener.search(first.text):
+        if not opener.search(first.text.translate(_BRACKET_TRANSLATION)):
             continue
         parts = [first]
         for next_line in body[index + 1:index + 4]:
@@ -592,7 +636,7 @@ def _continued_citations(body: list[Line], max_ref: int,
             for number, marker, span in _citation_numbers(synthetic, max_ref, citation_style):
                 if span[0] < split < span[1]:
                     yield first, number, marker, span, tuple(parts)
-            if ']' in next_line.text:
+            if ']' in next_line.text.translate(_BRACKET_TRANSLATION):
                 break
 
 
@@ -749,13 +793,11 @@ def detect_lines(lines: list[Line], selected_rules=RULES, page_count: int | None
         citation_scope = []
         in_academic_outputs = False
         for index, line in enumerate(ordered):
-            if index >= ref_last and re.match(
-                    r'^(?:学术论文和科研成果|学术论文|科研成果|研究成果|research(?:outputs?|achievements?)|攻读.{0,20}(?:期间|发表)|作者简介|个人简历)',
-                    _heading(line.text)):
+            if index >= ref_last and _ACADEMIC_OUTPUT_HEADING.match(_heading(line.text)):
                 in_academic_outputs = True
             if ref_first <= index < ref_last or line.page in toc_pages:
                 continue
-            if in_academic_outputs and _REF_LABEL.match(line.text):
+            if in_academic_outputs and _OUTPUT_LABEL.match(line.text):
                 continue  # numbered patents/publications are not literature citations
             citation_scope.append(line)
         r22, r24 = _rules_22_24(citation_scope, _references(ordered, ref_start))
