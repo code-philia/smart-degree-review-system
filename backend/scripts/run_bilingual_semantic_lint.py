@@ -8,6 +8,8 @@ import re
 import urllib.request
 import urllib.error
 import time
+
+_LAST_REQUEST_AT = 0.0
 from pathlib import Path
 from typing import Any
 
@@ -49,6 +51,15 @@ def api_config() -> tuple[str, str, str, str]:
 
 
 def request_json(messages: list[dict[str, str]]) -> tuple[dict[str, Any], dict[str, int]]:
+    global _LAST_REQUEST_AT
+    try:
+        min_interval = max(0.0, float(os.environ.get("SJTU_API_MIN_INTERVAL_SECONDS", "6")))
+    except (TypeError, ValueError):
+        min_interval = 6.0
+    wait = min_interval - (time.monotonic() - _LAST_REQUEST_AT)
+    if wait > 0:
+        time.sleep(wait)
+    _LAST_REQUEST_AT = time.monotonic()
     key, base_url, model, _provider = api_config()
     payload = {
         "model": model,
@@ -174,8 +185,13 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
     findings = []
     usage_total = {"input_tokens": 0, "output_tokens": 0}
     chunks = _body_chunks(ir)
+    failure = None
     for index, chunk in enumerate(chunks):
-        payload, usage = request_json([{"role": "user", "content": typo_prompt(chunk["text"])}])
+        try:
+            payload, usage = request_json([{"role": "user", "content": typo_prompt(chunk["text"])}])
+        except Exception as exc:
+            failure = str(exc)[:300]
+            break
         usage_total["input_tokens"] += usage["input_tokens"]
         usage_total["output_tokens"] += usage["output_tokens"]
         rows = payload.get("findings") if isinstance(payload, dict) else []
@@ -197,8 +213,9 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
             })
     return {"rule_run_id": f"run_{TYPO_RULE}", "rule_id": TYPO_RULE, "severity": "warning",
             "params": {"chunk_count": len(chunks), "chunk_size": 6000},
-            "execution_status": "completed", "evidence_mode": "derived",
-            "outcome": "issues_found" if findings else "passed", "message": None,
+            "execution_status": "error" if failure else "completed", "evidence_mode": "derived",
+            "outcome": "inconclusive" if failure else ("issues_found" if findings else "passed"),
+            "message": (f"错别字分块检测未完成：{failure}" if failure else None),
             "findings": findings, "model_usage": usage_total}
 
 def _has_cjk(value: Any) -> bool:
@@ -311,9 +328,9 @@ def run(pdf: Path, rule_ids: list[str]) -> dict[str, Any]:
         "rule_runs": runs,
         "summary": {
             "rule_count": len(runs),
-            "completed_rule_count": len(runs),
-            "unsupported_rule_count": 0,
-            "error_rule_count": 0,
+            "completed_rule_count": sum(item.get("execution_status") == "completed" for item in runs),
+            "unsupported_rule_count": sum(item.get("execution_status") == "unsupported" for item in runs),
+            "error_rule_count": sum(item.get("execution_status") == "error" for item in runs),
             "issue_rule_count": sum(bool(item["findings"]) for item in runs),
             "finding_count": finding_count,
             "error_finding_count": 0,
