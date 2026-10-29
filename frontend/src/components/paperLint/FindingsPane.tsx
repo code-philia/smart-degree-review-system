@@ -36,7 +36,7 @@ const severityLabels = { error: '严重', warning: '警告', info: '提示' };
 
 function repairActionParts(instruction: string) {
   const text = instruction.trim();
-  const match = text.match(/^(.*?)(?:将|把)\s*[“"「『]([^”"」』]{1,160})[”"」』]\s*(?:修改为|改为|替换为)\s*[“"「『]([^”"」』]{1,160})[”"」』](.*)$/s);
+  const match = text.match(/^(.*?)(?:将|把)\s*[“"「『]([^”"」』]+)[”"」』]\s*(?:修改为|改为|替换为)\s*[“"「『]([^”"」』]+)[”"」』](.*)$/s);
   if (match) return { prefix: `${match[1]}${match[1] ? ' ' : ''}`, before: match[2], after: match[3], suffix: match[4] };
   // Also accept the explicit format emitted by some repair-model responses.
   const labelled = text.match(/^(.*?)(?:修改前|原文)\s*[:：]\s*([\s\S]*?)\s*(?:修改后|建议修改后|改为)\s*[:：]\s*([\s\S]*)$/);

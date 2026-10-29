@@ -188,14 +188,15 @@ def _body_chunks(ir: dict[str, Any], size: int = 6000) -> list[dict[str, Any]]:
     page_sizes = {int(page.get('page_index', -1)) + 1: (float(page.get('width') or 0), float(page.get('height') or 0)) for page in (ir.get('layout', {}).get('pages', []) or [])}
     chunks: list[dict[str, Any]] = []
     current: list[str] = []
+    current_model: list[str] = []
     segments: list[dict[str, Any]] = []
     length = 0
     model_length = 0
     def flush() -> None:
-        nonlocal current, segments, length, model_length
+        nonlocal current, current_model, segments, length, model_length
         if current:
-            chunks.append({"text": "\n".join(current), "model_text": _join_model_parts(current), "segments": segments[:], "page": segments[0].get("page") if segments else None})
-        current, segments, length, model_length = [], [], 0, 0
+            chunks.append({"text": "\n".join(current), "model_text": "".join(current_model), "segments": segments[:], "page": segments[0].get("page") if segments else None})
+        current, current_model, segments, length, model_length = [], [], [], 0, 0
     for node in ordered:
         raw = str(node.get("text") or "").strip()
         if not raw: continue
@@ -214,19 +215,28 @@ def _body_chunks(ir: dict[str, Any], size: int = 6000) -> list[dict[str, Any]]:
             source = next((item for item in provenance if isinstance(item.get("page_index"), int)), {})
             source_parts = [(raw, int(source["page_index"]) + 1 if isinstance(source.get("page_index"), int) else None,
                             source.get("bbox") if isinstance(source.get("bbox"), list) else None)]
+        paragraph_break = bool(current)
         for source_text, page, bbox in source_parts:
             for piece in _split_piece(source_text, size):
-                if length and length + len(piece) + 1 > size: flush()
+                if length and length + len(piece) + 1 > size:
+                    flush()
+                    paragraph_break = False
                 normalized_piece = _model_piece(piece)
-                # Join CJK split across PDF provenance lines in model text.
+                # Keep paragraph boundaries, but join CJK split across lines
+                # inside the same paragraph. This prevents unrelated rows from
+                # becoming one artificial word while preserving source offsets.
                 separator_length = 0
                 previous_normalized = _model_piece(current[-1]) if current else ""
-                if current and previous_normalized and normalized_piece and _is_cjk(previous_normalized[-1:]) and _is_cjk(normalized_piece[:1]):
+                if current and paragraph_break:
+                    separator_length = 2
+                elif current and previous_normalized and normalized_piece and _is_cjk(previous_normalized[-1:]) and _is_cjk(normalized_piece[:1]):
                     separator_length = 0
                 elif current:
                     separator_length = 1
                 model_length += separator_length
                 current.append(piece)
+                current_model.append(("\n" * separator_length) + normalized_piece)
+                paragraph_break = False
                 page_width, page_height = page_sizes.get(page, (0.0, 0.0))
                 segments.append({"text": piece, "page": page, "bbox": bbox,
                                  "page_width": page_width, "page_height": page_height,
