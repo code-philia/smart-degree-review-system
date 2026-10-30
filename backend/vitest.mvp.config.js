@@ -4,6 +4,7 @@ module.exports = defineConfig({
   test: {
     environment: 'node',
     include: [
+      'tests/numeric-review.integration.test.js',
       'tests/auth-password.integration.test.js',
       'tests/auth-session.integration.test.js',
       'tests/internal-readiness.test.js',

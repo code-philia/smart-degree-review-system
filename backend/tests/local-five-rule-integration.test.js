@@ -33,6 +33,7 @@ describe('four local rules in the existing basic-check flow', () => {
       'sjtu_rule_32', 'sjtu_rule_33',
       'typo_detection_check',
       'bilingual_keywords_correspondence_check', 'bilingual_abstract_consistency_check',
+      'abstract_numeric_consistency_check',
     ]);
     expect(catalog.rules.slice(0, 4).every((rule) => rule.available && !rule.uses_external_model)).toBe(true);
   });

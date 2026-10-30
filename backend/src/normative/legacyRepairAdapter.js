@@ -112,7 +112,7 @@ function bilingualEvidence(finding) {
       const anchor = anchors.get(entry.id);
       const location = anchor?.location || {};
       const page = location.page_number || location.pdf_page || entry.page_number;
-      const label = anchor?.label || (index === 0 ? '中文原文' : '英文原文');
+      const label = anchor?.label || entry.label || (index === 0 ? '中文原文' : '英文原文');
       return {
         evidence_id: `bilingual-evidence-${index + 1}`,
         source_kind: 'pdf_text',
@@ -150,7 +150,7 @@ function buildLegacyRepairRequest({ job, document, ruleRun, finding }) {
   const evidence = [
     evidenceFromFinding(finding),
     ...(CITATION_REPAIR_RULE_IDS.has(ruleRun.rule_id) ? citationEvidence(finding) : []),
-    ...(BILINGUAL_REPAIR_RULE_IDS.has(ruleRun.rule_id) ? bilingualEvidence(finding) : []),
+    ...((BILINGUAL_REPAIR_RULE_IDS.has(ruleRun.rule_id) || ruleRun.rule_id === 'abstract_numeric_consistency_check') ? bilingualEvidence(finding) : []),
     ...(Array.isArray(finding.anchors) ? finding.anchors.map((anchor, index) => evidenceFromAnchor(anchor, index + 1)) : []),
   ].filter(Boolean);
   if (BASIC_REPAIR_RULE_IDS.has(ruleRun.rule_id) && !finding.location?.text_excerpt) {
@@ -192,7 +192,7 @@ function buildPaperLintReportRepairRequest({ report, ruleRun, finding, documentS
   const evidence = [
     evidenceFromFinding(finding),
     ...(CITATION_REPAIR_RULE_IDS.has(ruleRun.rule_id) ? citationEvidence(finding) : []),
-    ...(BILINGUAL_REPAIR_RULE_IDS.has(ruleRun.rule_id) ? bilingualEvidence(finding) : []),
+    ...((BILINGUAL_REPAIR_RULE_IDS.has(ruleRun.rule_id) || ruleRun.rule_id === 'abstract_numeric_consistency_check') ? bilingualEvidence(finding) : []),
     ...(Array.isArray(finding.anchors) ? finding.anchors.map((anchor, index) => evidenceFromAnchor(anchor, index + 1)) : []),
   ].filter(Boolean).map((item) => ({ ...item, source_ref: item.source_ref.replace('legacy_archive:', 'paper_lint_report:') }));
   if (BASIC_REPAIR_RULE_IDS.has(ruleRun.rule_id) && !finding.location?.text_excerpt) {

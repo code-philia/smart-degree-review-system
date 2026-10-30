@@ -5,6 +5,7 @@ export default {
   test: {
     ...baseConfig.test,
     include: [
+      'tests/numeric-review-details.test.tsx',
       'tests/auth-password.test.tsx',
       'tests/auth-session.test.tsx',
       'tests/local-four-rule-history.test.tsx',

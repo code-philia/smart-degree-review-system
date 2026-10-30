@@ -14,6 +14,7 @@ import {
   type PaperLintRule,
 } from '../api/paperLint';
 import { PaperLintWorkspace } from '../components/paperLint/Workspace';
+import { NumericReviewDetails } from '../components/paperLint/NumericReviewDetails';
 import { compilerPublicationLabel, compilerPublicationSummary, flattenPaperLintFindings } from '../components/paperLint/model';
 import { usePaperLintRepairSuggestions } from '../hooks/usePaperLintRepairSuggestions';
 import {
@@ -42,8 +43,8 @@ type CheckMode = 'basic' | 'thirty' | 'semantic';
 type ResultFile = File | { name: string; url: string };
 type StoredPaperLintJob = { jobId: string | null; requestId: string; filename: string; selectedRuleIds: string[] };
 
-function activeJobStorageKey(userId: string) {
-  return `paper-lint-active-job:${userId}`;
+function activeJobStorageKey(userId: string, mode?: CheckMode) {
+  return mode === 'semantic' ? `numeric-review-active-job:${userId}` : `paper-lint-active-job:${userId}`;
 }
 
 function newRequestId() {
@@ -138,7 +139,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     try {
       const nextCatalog = await fetchReviewPilotPaperLintRules();
       setCatalog(nextCatalog);
-      const hasRestoredSelection = user && localStorage.getItem(activeJobStorageKey(user.id));
+      const hasRestoredSelection = user && localStorage.getItem(activeJobStorageKey(user.id, mode));
       if (!hasRestoredSelection) {
         const defaultRules = mode === 'semantic'
           ? rulesForMode(nextCatalog.rules, mode)
@@ -268,13 +269,13 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
 
   function saveActiveJob(job: StoredPaperLintJob) {
     if (!user) return;
-    localStorage.setItem(activeJobStorageKey(user.id), JSON.stringify(job));
+    localStorage.setItem(activeJobStorageKey(user.id, mode), JSON.stringify(job));
     setActiveJobId(job.jobId);
   }
 
   function savePendingRequest(requestId: string, filename: string, selectedRuleIdsToSave: string[]) {
     if (!user) return;
-    localStorage.setItem(activeJobStorageKey(user.id), JSON.stringify({
+    localStorage.setItem(activeJobStorageKey(user.id, mode), JSON.stringify({
       jobId: null,
       requestId,
       filename,
@@ -283,7 +284,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   }
 
   function clearActiveJob() {
-    if (user) localStorage.removeItem(activeJobStorageKey(user.id));
+    if (user) localStorage.removeItem(activeJobStorageKey(user.id, mode));
     setActiveJobId(null);
     requestIdRef.current = null;
   }
@@ -387,9 +388,9 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     let cancelled = false;
     let stored: StoredPaperLintJob | null = null;
     try {
-      stored = JSON.parse(localStorage.getItem(activeJobStorageKey(user.id)) || 'null') as StoredPaperLintJob | null;
+      stored = JSON.parse(localStorage.getItem(activeJobStorageKey(user.id, mode)) || 'null') as StoredPaperLintJob | null;
     } catch {
-      localStorage.removeItem(activeJobStorageKey(user.id));
+      localStorage.removeItem(activeJobStorageKey(user.id, mode));
     }
     if (!stored?.requestId || !stored.filename) return;
     requestIdRef.current = stored.requestId || null;
@@ -418,7 +419,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     if (activeJobId) clearActiveJob();
     if (user && requestIdRef.current && !activeJobId) {
       try {
-        const stored = JSON.parse(localStorage.getItem(activeJobStorageKey(user.id)) || 'null') as StoredPaperLintJob | null;
+        const stored = JSON.parse(localStorage.getItem(activeJobStorageKey(user.id, mode)) || 'null') as StoredPaperLintJob | null;
         if (!nextFile || (stored?.jobId === null && stored.filename !== nextFile.name)) clearActiveJob();
       } catch {
         clearActiveJob();
@@ -563,13 +564,19 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
       <ModuleTabs
         ariaLabel={`${title}功能导航`}
         items={[
-          { label: '发起检测', to: isThirty ? '/thirty-rules-check' : '/normative-check', active: true },
-          { label: '历史报告', to: isThirty ? '/thirty-rules-check/reports' : '/normative-reports', active: false },
+          { label: '发起检测', to: isSemantic ? '/semantic-rules-check' : isThirty ? '/thirty-rules-check' : '/normative-check', active: true },
+          { label: '历史报告', to: isThirty || isSemantic ? '/thirty-rules-check/reports' : '/normative-reports', active: false },
         ]}
       />
 
+      {isSemantic ? <Card title="摘要数值声明与实验结果一致性">
+        <p>请上传可提取文本且有目录层级的 PDF。系统先验证三项要求：摘要中明确列出研究贡献和可核验数值；每项声明能自动定位正文研究章节；该章节下存在实验或性能评估子章节。</p>
+        <p className="mt-2">推荐结构：摘要列出贡献及数值结论 → 第三章介绍研究方法 → 3.3 实验设计 → 3.4 实验结果与分析。只有独立的全篇实验章不满足本规则要求。</p>
+        <p className="mt-2">任一前置条件未通过时不会执行数值核验。图像中的数值及无法确认行列关系的表格可能无法确定，需要作者核对。</p>
+      </Card> : null}
+
       <section
-        aria-label={isThirty ? '发起 PDF 规则检测' : '发起基础规则检测'}
+        aria-label={isSemantic ? '发起语义规则检测' : isThirty ? '发起 PDF 规则检测' : '发起基础规则检测'}
         className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6"
       >
         <div className="mb-5 flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-5">
@@ -795,7 +802,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
                       : 'success'
                 }
               >
-                {compilerPublicationSummary(response.result) || (response.result.summary.finding_count
+                {compilerPublicationSummary(response.result) || (response.result.rule_runs.some(run => run.rule_id === 'abstract_numeric_consistency_check' && run.outcome === 'inconclusive') ? '数值声明尚无法全部确定' : response.result.summary.finding_count
                   ? `发现 ${response.result.summary.finding_count} 项问题`
                   : response.result.summary.unsupported_rule_count + response.result.summary.error_rule_count
                     ? '部分规则无法判定'
@@ -842,6 +849,8 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
               </div>
             </details>
           </Card>
+
+          {response.result.rule_runs.filter(run => run.rule_id === 'abstract_numeric_consistency_check').map(run => <Card key={run.rule_run_id} title="摘要数值声明核验详情"><NumericReviewDetails run={run} pdfUrl={`/api/normative/paper-lint/reports/${encodeURIComponent(response.id)}/pdf`} /></Card>)}
 
           <div className="flex items-center gap-2">
             <FileCheck2 className="size-5 text-brand-600" />

@@ -10,6 +10,7 @@ import {
 } from '../api/paperLint';
 import { CompilerDiagnostics } from '../components/paperLint/CompilerEvidence';
 import { PaperLintWorkspace } from '../components/paperLint/Workspace';
+import { NumericReviewDetails } from '../components/paperLint/NumericReviewDetails';
 import { compilerPublicationLabel, compilerPublicationSummary, flattenPaperLintFindings } from '../components/paperLint/model';
 import { usePaperLintRepairSuggestions } from '../hooks/usePaperLintRepairSuggestions';
 import {
@@ -32,10 +33,6 @@ const outcomeTones = {
   not_applicable: 'neutral',
 } as const;
 
-function numericResults(run: PaperLintRuleRun) {
-  const rows = run.params?.numeric_results;
-  return Array.isArray(rows) ? rows.filter((row): row is Record<string, unknown> => Boolean(row && typeof row === 'object')) : [];
-}
 
 function executionStatusLabel(status: PaperLintRuleRun['execution_status']) {
   if (status === 'unsupported') return '无法判定';
@@ -231,32 +228,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
                   {rules.find((rule) => rule.rule_id === run.rule_id)?.title || run.rule_id}
                 </p>
                 {run.message ? <p className="mt-1 text-xs text-slate-600">{run.message}</p> : null}
-                {Array.isArray(run.params?.preconditions) && run.params.preconditions.length ? (
-                  <div className="mt-2 space-y-1 rounded border border-slate-200 bg-white p-2 text-xs">
-                    <p className="font-semibold text-slate-800">前置条件检查</p>
-                    {run.params.preconditions.map((condition, index) => {
-                      const row = condition as Record<string, unknown>;
-                      return (
-                        <div key={String(row.id || index)} className="flex gap-2 text-slate-700">
-                          <span className={row.passed ? 'text-emerald-700' : 'text-amber-700'}>{row.passed ? '通过' : '未通过'}</span>
-                          <span>{String(row.reason || row.id || `条件 ${index + 1}`)}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : null}
-                {numericResults(run).length ? (
-                  <div className="mt-2 space-y-1 rounded border border-violet-100 bg-violet-50 p-2 text-xs">
-                    <p className="font-semibold text-violet-900">数值声明逐项核验</p>
-                    {numericResults(run).map((row, index) => (
-                      <div key={String(row.declaration_id || index)} className="text-violet-900">
-                        <span className="font-semibold">{String((row.declaration as Record<string, unknown> | undefined)?.text || row.declaration_id || `声明 ${index + 1}`)}：</span>
-                        {String(row.status || 'inconclusive') === 'consistent' ? '一致' : String(row.status || '') === 'inconsistent' ? '不一致' : '无法确定'}
-                        {row.evidence_quote ? ` · 证据：${String(row.evidence_quote)}` : ''}
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
+                <NumericReviewDetails run={run} pdfUrl={pdfUrl} />
                 <CompilerDiagnostics items={run.compiler_diagnostics} />
               </div>
               <StatusBadge tone={run.execution_status === 'error' ? 'danger' : outcomeTones[run.outcome]}>
