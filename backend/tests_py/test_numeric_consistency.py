@@ -532,3 +532,41 @@ def test_conservative_statistical_evidence_guard(status, claim, reason, source, 
     assert row['status'] == expected
     assert bool(limits) == (expected != status)
     if limits: assert row['model_status'] == status and row['model_reason'] == reason
+
+
+def test_locator_selects_source_spans_and_program_supplies_exact_heading():
+    ir, facts, data = fixture()
+    model = n.source_model(ir)
+    facts['chinese_abstract'] = '本文提出融合模型，在数据集A准确率92.5%。'
+    context = n.structure_context(facts, model)
+    span = context['abstract_spans'][0]
+    data['contributions'][0].pop('text')
+    data['contributions'][0]['abstract_span_id'] = span['id']
+    data['declarations'][0].pop('text')
+    data['declarations'][0]['abstract_span_id'] = span['id']
+    data['mappings'][0].pop('evidence')
+    resolved = n.resolve_structure(data, context, model)
+    assert 'text' not in data['contributions'][0]
+    assert resolved['declarations'][0]['text'] == '在数据集A准确率92.5%'
+    assert resolved['mappings'][0]['evidence'][0]['source_node_id'] == 'eh'
+    assert n.validate_structure(resolved, context, model)
+    data['declarations'][0]['abstract_span_id'] = 'invented'
+    with pytest.raises(n.ContractError): n.validate_structure(n.resolve_structure(data, context, model), context, model)
+
+
+def test_simultaneous_metrics_in_one_span_need_individual_numbers():
+    ir, facts, data = fixture()
+    facts['chinese_abstract'] = '本文提出融合模型，准确率92.5%，同时降低体积54%。'
+    model = n.source_model(ir)
+    context = n.structure_context(facts, model)
+    span = context['abstract_spans'][0]
+    data['contributions'][0]['text'] = '本文提出融合模型'
+    data['declarations'][0].pop('text')
+    data['declarations'][0]['abstract_span_id'] = span['id']
+    with pytest.raises(n.ContractError, match='missing abstract percentage'):
+        n.validate_structure(n.resolve_structure(data, context, model), context, model)
+    data['declarations'].append({**data['declarations'][0], 'id': 'd2', 'number': 54, 'metric': '体积'})
+    data['mappings'].append({**data['mappings'][0], 'declaration_id': 'd2'})
+    resolved = n.resolve_structure(data, context, model)
+    assert resolved['declarations'][1]['text'] == '同时降低体积54%'
+    assert n.validate_structure(resolved, context, model)
