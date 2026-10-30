@@ -127,3 +127,38 @@ def test_context_never_cuts_json_or_block():
 def json_roundtrip(obj):
     import json
     return json.loads(json.dumps(obj))
+
+
+@pytest.mark.parametrize('metric,number', [('准确率', '92.5'), ('Accuracy', '89.3'), ('提升', '5.3'), ('f1', '999')])
+def test_retrieval_conflict_aliases_and_fallback(metric, number):
+    ir, facts, data = fixture()
+    data['declarations'][0].update(metric=metric, number=number)
+    if metric == 'f1':
+        data['declarations'][0]['condition'] = '未知数据集'
+    model = n.source_model(ir)
+    candidates, diagnostics = n.retrieve_candidates(data['declarations'], data['mappings'], model)
+    assert 'data' in {c['source_node_id'] for c in candidates}
+    assert 'op' not in {c['source_node_id'] for c in candidates}
+    assert {'caption', 'data'} <= {c['source_node_id'] for c in candidates}
+    assert all(c['page'] == 8 for c in candidates)
+    if metric == 'f1':
+        assert diagnostics[0]['fallback'] is not None
+    else:
+        assert any(s['kind'] == 'metric' for c in candidates for s in c['matched_signals']) or metric == '提升'
+
+
+def test_numeric_match_never_outweighs_metric_condition():
+    d = {'metric': '准确率', 'condition': '数据集A', 'number': '92.5'}
+    wrong = {'text': '另一个数据集92.5%', 'block_type': 'Paragraph'}
+    right = {'text': '数据集A Accuracy89.3%', 'block_type': 'Paragraph'}
+    assert n.retrieval_signals(d, right)[0] > n.retrieval_signals(d, wrong)[0]
+
+
+def test_empty_scope_and_recall_metric():
+    ir, facts, data = fixture()
+    model = n.source_model(ir)
+    candidates, diagnostics = n.retrieve_candidates(data['declarations'], data['mappings'], model)
+    assert n.evidence_recall_at_k(candidates, {'d1': ['data']}, 6)['d1'] == 1
+    model['blocks'] = []
+    candidates, diagnostics = n.retrieve_candidates(data['declarations'], data['mappings'], model)
+    assert not candidates and diagnostics[0]['fallback'] == 'empty_experiment_scope'
