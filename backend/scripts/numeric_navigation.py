@@ -97,6 +97,8 @@ def attach_navigation(pdf, ir):
         line_id = group[0]['id']
         source_page = line_pages[line_id]
         owner = owners.get(line_id)
+        heading_owners = list(dict.fromkeys(owners.get(g['id']) for g in group if owners.get(g['id'])))
+        semantic_owner = next((owners.get(g['id']) for g in reversed(group) if title_key(g.get('text', ''))), owner)
         original_section = parent.get(owner)
         sid = original_section if nodes.get(owner, {}).get('kind') == 'Heading' and nodes.get(original_section, {}).get('kind') == 'Section' else 'nav-section-' + line_id
         if sid in {x['section_id'] for x in resolved} or (level > 1 and (not outline_parent or outline_parent['section_id'] is None)):
@@ -106,7 +108,7 @@ def attach_navigation(pdf, ir):
         item = {'section_id': sid, 'level': level, 'title': text, 'outline_title': title,
                 'parent_id': outline_parent['section_id'] if outline_parent else None, 'page': source_page,
                 'outline_target_page': page,
-                'y': y, 'heading_node_id': owner, 'heading_line_ids': [g['id'] for g in group],
+                'y': y, 'heading_node_id': semantic_owner, 'heading_node_ids': heading_owners, 'heading_line_ids': [g['id'] for g in group],
                 'outline_index': index}
         resolved.append(item)
         stack.append(item)

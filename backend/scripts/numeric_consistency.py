@@ -177,6 +177,8 @@ def structure_context(facts, model):
                for s in model['sections'].values()]
     # Round-robin across sections avoids spending the budget entirely on early chapters.
     groups = [[b for b in model['blocks'] if b['section_id'] == sid] for sid in model['sections']]
+    for group in groups:
+        group.sort(key=lambda b: b['source_node_id'] != model['sections'][b['section_id']].get('heading_node_id'))
     ordered = [g[i] for i in range(max([len(g) for g in groups] or [0])) for g in groups if i < len(g)]
     blocks, coverage = pack_blocks(ordered, 45000)
     context = {'abstract': abstract, 'toc': model['toc'], 'sections': catalog, 'blocks': blocks,
