@@ -7,7 +7,7 @@ import re
 from typing import Any
 
 RULE = 'abstract_numeric_consistency_check'
-CONTEXT_VERSION = 'numeric-context/2.0'
+CONTEXT_VERSION = 'numeric-context/3.0'
 CONTRACT_VERSION = 'numeric-contract/2.2'
 RETRIEVAL_VERSION = 'numeric-lexical/1.0'
 CONDITIONS = {'abstract_numeric', 'contribution_mapping', 'experiment_subsection'}
@@ -57,6 +57,9 @@ def unique(items, key='id'):
 
 def source_model(ir):
     """Collect Sections, never Heading subtrees. Retain page-scoped source blocks."""
+    if ir.get('numeric_navigation'):
+        from numeric_navigation import navigation_model
+        return navigation_model(ir)
     nodes = {n['id']: n for n in ir.get('nodes', [])}
     sections, blocks = {}, []
     pages = {int(p['page_index']) + 1: p for p in ir.get('layout', {}).get('pages', [])}
@@ -153,6 +156,16 @@ def pack_blocks(blocks, budget):
     return kept, {'kept': [b['block_id'] for b in kept], 'dropped': dropped, 'characters': size}
 
 
+def structure_input(context):
+    """Send source content, not the potentially huge omitted-block audit inventory."""
+    public = {**context}
+    coverage = context['coverage']
+    public['coverage'] = {'kept_count': len(coverage['kept']), 'dropped_count': len(coverage['dropped']), 'characters': coverage['characters']}
+    public['toc'] = [{**row, 'text': re.sub(r'(?:\.\s*){3,}|…{2,}|⋯', ' … ', row.get('text', '')).strip()}
+                     for row in context['toc'] if re.search(r'[\w\u3400-\u9fff]{2}', re.sub(r'\s+', '', row.get('text', '')))]
+    return public
+
+
 def structure_context(facts, model):
     abstract = facts.get('chinese_abstract') or facts.get('english_abstract') or ''
     if isinstance(abstract, dict):
@@ -160,14 +173,15 @@ def structure_context(facts, model):
     require(isinstance(abstract, str), 'invalid abstract text')
     require(len(abstract) <= 18000, 'abstract exceeds context budget; no silent truncation')
     require(len(model['sections']) <= 400, 'section catalog exceeds context budget')
-    catalog = list(model['sections'].values())
+    catalog = [{k: s.get(k) for k in ('section_id', 'parent_id', 'level', 'title', 'heading_node_id', 'page')}
+               for s in model['sections'].values()]
     # Round-robin across sections avoids spending the budget entirely on early chapters.
     groups = [[b for b in model['blocks'] if b['section_id'] == sid] for sid in model['sections']]
     ordered = [g[i] for i in range(max([len(g) for g in groups] or [0])) for g in groups if i < len(g)]
     blocks, coverage = pack_blocks(ordered, 45000)
     context = {'abstract': abstract, 'toc': model['toc'], 'sections': catalog, 'blocks': blocks,
-               'coverage': coverage, 'limitations': model['limitations']}
-    require(len(json.dumps(context, ensure_ascii=False)) <= 100000, 'structure context exceeds budget')
+               'coverage': coverage, 'limitations': model['limitations'], 'navigation': model.get('navigation')}
+    require(len(json.dumps(structure_input(context), ensure_ascii=False)) <= 100000, 'structure context exceeds budget')
     return context
 
 
@@ -198,7 +212,7 @@ def structure_prompt(context):
             '所有文本字段必须为字符串；没有比较关系或无调整建议时填空字符串""，禁止null。'
             '以下模板仅约束输出形状，其中示例数值和占位符不是论文事实，必须替换为输入中的真实信息；'
             '未找到贡献、声明或可信映射时相应数组为空并给出前置条件失败原因。\n输出模板：\n' +
-            json.dumps(template, ensure_ascii=False) + '\n输入：\n' + json.dumps(context, ensure_ascii=False))
+            json.dumps(template, ensure_ascii=False) + '\n输入：\n' + json.dumps(structure_input(context), ensure_ascii=False))
 
 
 def validate_structure(data, context, model):
@@ -467,6 +481,7 @@ def run_numeric(ir, facts, request, trace=None):
         return payload
     try:
         model = source_model(ir)
+        params['versions']['navigation'] = model.get('navigation', {}).get('version', 'paper-model-native')
         context = structure_context(facts, model)
         params['context_coverage'] = context['coverage']
         params['limitations'] = model['limitations']

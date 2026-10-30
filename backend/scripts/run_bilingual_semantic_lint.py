@@ -426,6 +426,10 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
 def run_numeric_consistency_rule(ir: dict[str, Any], run_id=None) -> dict[str, Any]:
     from numeric_consistency import run_numeric
     from numeric_run_trace import NumericRunTrace
+    from numeric_navigation import attach_navigation
+    source = next((a.get('path') for a in ir.get('source_artifacts', []) if a.get('kind') == 'pdf'), None)
+    if source and Path(source).is_file():
+        attach_navigation(source, ir)
     trace = NumericRunTrace(ir, task_id=run_id)
     result = run_numeric(ir, extract_bilingual_facts(ir), lambda messages: trace.call(request_json, messages), trace=trace)
     return trace.finish(result)

@@ -37,7 +37,7 @@ class NumericRunTrace:
                          'pdf_sha256': next((a.get('sha256') for a in ir.get('source_artifacts', []) if a.get('kind') == 'pdf'), None),
                          'status': 'running', 'artifacts': []}
         self.manifest['implementation_sha256'] = {name: hashlib.sha256((Path(__file__).parent / name).read_bytes()).hexdigest()
-                                                  for name in ('numeric_consistency.py', 'numeric_run_trace.py', 'run_bilingual_semantic_lint.py')}
+                                                  for name in ('numeric_consistency.py', 'numeric_navigation.py', 'numeric_run_trace.py', 'run_bilingual_semantic_lint.py')}
         self.save('paper_model', ir)
         self.write('running.json', self.manifest)
 

@@ -333,3 +333,53 @@ def test_nonstandard_title_can_be_supported_by_experimental_body():
     model = n.source_model(ir)
     assert n.experimental_support(model, 'exp')
     assert n.validate_structure(data, n.structure_context(facts, model), model)
+
+
+@pytest.mark.parametrize('off_by_one', [False, True])
+def test_pdf_navigation_recovers_split_hierarchy_and_spaced_toc(monkeypatch, off_by_one):
+    import pymupdf
+    from numeric_navigation import attach_navigation
+    nodes = [{'id': 'body', 'kind': 'Body', 'children': ['ch'], 'attrs': {}}]
+    pages = [{'page_index': i, 'width': 600, 'height': 800, 'lines': []} for i in range(3)]
+    def line(nid, text, page, y, size=12, kind='Paragraph', parent='ch'):
+        lid = f'p{page-1}-{nid}'
+        box = [10, y, 300, y+size]
+        pages[page-1]['lines'].append({'id': lid, 'text': text, 'bbox': box, 'font_size': size})
+        nodes.append({'id': nid, 'kind': kind, 'text': text, 'attrs': {}, 'children': [],
+                      'provenance': [{'line_id': lid, 'page_index': page-1, 'bbox': box, 'node_text_start': 0, 'node_text_end': len(text)}]})
+        if parent:
+            next(n for n in nodes if n['id'] == parent)['children'].append(nid)
+    nodes.append({'id': 'ch', 'kind': 'Section', 'text': None, 'children': [], 'attrs': {'level': 1}})
+    line('toc1', '目', 1, 80, 16, parent=None)
+    line('toc2', '录', 1, 80, 16, parent=None)
+    line('toc3', '第三章 融合模型........2', 1, 120, parent=None)
+    line('header', '第三章 融合模型', 2, 40, 10)
+    line('chapter_number', '第三章', 2, 100, 18, 'Heading')
+    line('chapter_title', '融合模型', 2, 100, 18)
+    line('intro', '模型采用动态权重。', 2, 150)
+    line('section_number', '3.1', 3, 100, 14)
+    line('section_title', '实验评估', 3, 100, 14)
+    line('result', '实验准确率89.3%。', 3, 150)
+    class Doc:
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def get_toc(self, **kwargs):
+            return [[1, '3 融合模型', 2, {'kind': 4, 'to': pymupdf.Point(0, 700)}],
+                    [2, '3.1 实验评估', 2 if off_by_one else 3, {'kind': 4, 'to': pymupdf.Point(0, 700)}]]
+    monkeypatch.setattr(pymupdf, 'open', lambda *args: Doc())
+    ir = {'nodes': nodes, 'layout': {'pages': pages}}
+    attach_navigation('unused.pdf', ir)
+    model = n.source_model(ir)
+    assert len(model['sections']) == 2 and model['toc']
+    experiment = next(s for s in model['sections'].values() if s['level'] == 2)
+    assert experiment['parent_id'] == 'ch' and experiment['page'] == 3
+    assert experiment['section_id'] != 'ch'
+    assert '89.3%' in '\n'.join(b['text'] for b in n.section_blocks(model, experiment['section_id']))
+    assert all('header' != b['source_node_id'] for b in model['blocks'])
+
+
+def test_structure_prompt_omits_large_coverage_inventory():
+    context = {'abstract': '', 'toc': [], 'sections': [], 'blocks': [], 'coverage': {'kept': [], 'dropped': ['unused-' + str(i) for i in range(20000)], 'characters': 0}}
+    public = n.structure_input(context)
+    assert public['coverage']['dropped_count'] == 20000
+    assert 'unused-19999' not in n.structure_prompt(context)
