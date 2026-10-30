@@ -379,6 +379,10 @@ def test_pdf_navigation_recovers_split_hierarchy_and_spaced_toc(monkeypatch, off
     result = next(b for b in model['blocks'] if b['source_node_id'] == 'result')
     assert result['block_type'] == 'Paragraph' and result['paper_model_kind'] == 'Heading'
     assert all('header' != b['source_node_id'] for b in model['blocks'])
+    context = n.structure_context({'chinese_abstract': '本文提出融合模型，准确率89.3%。'}, model)
+    assert all(b['source_node_id'] != 'chapter_number' for b in context['blocks'])
+    assert any('chapter_number' in bid for bid in context['coverage']['dropped'])
+    assert any(b['source_node_id'] == 'chapter_title' for b in context['blocks'])
 
 
 def test_structure_prompt_omits_large_coverage_inventory():
