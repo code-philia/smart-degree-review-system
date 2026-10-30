@@ -38,7 +38,7 @@ import {
 } from '../components/ui';
 
 const MAX_PDF_BYTES = 50 * 1024 * 1024;
-type CheckMode = 'basic' | 'thirty';
+type CheckMode = 'basic' | 'thirty' | 'semantic';
 type ResultFile = File | { name: string; url: string };
 type StoredPaperLintJob = { jobId: string | null; requestId: string; filename: string; selectedRuleIds: string[] };
 
@@ -53,7 +53,8 @@ function newRequestId() {
 }
 
 function rulesForMode(rules: PaperLintRule[], mode: CheckMode) {
-  const filtered = rules.filter((rule) => Boolean(rule.enabled_in_mvp) === (mode === 'thirty'));
+  if (mode === 'semantic') return rules.filter((rule) => rule.rule_id === 'abstract_numeric_consistency_check');
+  const filtered = rules.filter((rule) => Boolean(rule.enabled_in_mvp) === (mode === 'thirty') && rule.rule_id !== 'abstract_numeric_consistency_check');
   if (mode === 'thirty') {
     filtered.sort(
       (a, b) => Number(a.rule_id.slice('sjtu_rule_'.length)) - Number(b.rule_id.slice('sjtu_rule_'.length)),
@@ -108,7 +109,8 @@ const outcomeTones = {
 
 function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   const isThirty = mode === 'thirty';
-  const title = isThirty ? 'PDF 规则检测' : '基础规则检测';
+  const isSemantic = mode === 'semantic';
+  const title = isSemantic ? '语义规则检测' : isThirty ? 'PDF 规则检测' : '基础规则检测';
   const { status, user } = useAuthSession();
   const [catalog, setCatalog] = useState<PaperLintCatalogResponse | null>(null);
   const [selectedRuleIds, setSelectedRuleIds] = useState<string[]>([]);
@@ -138,11 +140,10 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
       setCatalog(nextCatalog);
       const hasRestoredSelection = user && localStorage.getItem(activeJobStorageKey(user.id));
       if (!hasRestoredSelection) {
-        setSelectedRuleIds(
-          rulesForMode(nextCatalog.rules, mode)
-            .filter((rule) => rule.default_enabled)
-            .map((rule) => rule.rule_id),
-        );
+        const defaultRules = mode === 'semantic'
+          ? rulesForMode(nextCatalog.rules, mode)
+          : rulesForMode(nextCatalog.rules, mode).filter((rule) => rule.default_enabled);
+        setSelectedRuleIds(defaultRules.map((rule) => rule.rule_id));
       }
     } catch (error) {
       setCatalog(null);
@@ -773,7 +774,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
             </span>
             <div>
               <p className="font-bold text-slate-900">{uploadPercent !== null && uploadPercent < 100 ? `正在上传 PDF（${uploadPercent}%）` : jobProgress && jobProgress.total ? `正在检查规则（已完成 ${jobProgress.completed}/${jobProgress.total}）` : '正在进行本地检查'}</p>
-              <p className="mt-1 text-sm text-slate-500">{uploadPercent !== null && uploadPercent < 100 ? '正在传输论文文件，上传完成后立即开始检测。' : selectedRuleIds.includes('typo_detection_check') ? '已完成的规则会先展示；正文错别字检测按段落处理，耗时可能较长，可随时停止。' : '已完成的规则会先展示，可随时停止检查。'}</p>
+              <p className="mt-1 text-sm text-slate-500">{uploadPercent !== null && uploadPercent < 100 ? '正在传输论文文件，上传完成后立即开始检测。' : selectedRuleIds.includes('abstract_numeric_consistency_check') ? '先检查摘要数值声明、研究章节映射和实验子章节；三项前置条件全部通过后才进行数值一致性核验。' : selectedRuleIds.includes('typo_detection_check') ? '已完成的规则会先展示；正文错别字检测按段落处理，耗时可能较长，可随时停止。' : '已完成的规则会先展示，可随时停止检查。'}</p>
             </div>
           </div>
         </Card>

@@ -306,6 +306,20 @@
       "default_selected": false,
       "availability_probe": "pymupdf",
       "repair_surfaces": ["paper_lint"]
+    },
+    {
+      "rule_id": "abstract_numeric_consistency_check",
+      "number": 39,
+      "title": "摘要数值声明与实验结果一致性",
+      "description": "检查摘要中的数值型研究声明是否与对应研究章节下实验子章节的结果一致。",
+      "family": "legacy_bridge",
+      "runner": "repo_paper_model_numeric_consistency",
+      "execution_mode": "semantic",
+      "uses_external_model": true,
+      "enabled_in_mvp": true,
+      "default_selected": false,
+      "availability_probe": "deepseek_api",
+      "repair_surfaces": ["paper_lint"]
     }
   ]
 }

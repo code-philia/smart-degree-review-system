@@ -21,7 +21,7 @@ const RUN_TIMEOUT_MESSAGE = '规则审查运行超时，请减少规则后重试
 const MAX_CONCURRENT_RUNS = Math.max(1, Number(process.env.REVIEW_PILOT_MAX_CONCURRENT_RUNS) || 2);
 const bridgeScript = path.resolve(__dirname, '../../scripts/run_review_pilot_deterministic_lint.py');
 const bilingualScript = path.resolve(__dirname, '../../scripts/run_bilingual_semantic_lint.py');
-const BILINGUAL_RULE_IDS = new Set(['bilingual_abstract_consistency_check', 'bilingual_keywords_correspondence_check', 'typo_detection_check']);
+const BILINGUAL_RULE_IDS = new Set(['bilingual_abstract_consistency_check', 'bilingual_keywords_correspondence_check', 'typo_detection_check', 'abstract_numeric_consistency_check']);
 
 let catalogPromise = null;
 let catalogExpiresAt = 0;
@@ -346,7 +346,7 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
   // browser request cannot later persist a seemingly successful report.
   const includesSixRules = Array.isArray(selectedRuleIds) &&
     selectedRuleIds.some(ruleId => (isSixRuleId(String(ruleId).trim()) || isCompilerRuleId(String(ruleId).trim())));
-  const includesLongLlmRule = Array.isArray(selectedRuleIds) && selectedRuleIds.some(ruleId => String(ruleId).trim() === 'typo_detection_check');
+  const includesLongLlmRule = Array.isArray(selectedRuleIds) && selectedRuleIds.some(ruleId => ['typo_detection_check', 'abstract_numeric_consistency_check'].includes(String(ruleId).trim()));
   const maximumTimeout = background || includesSixRules || includesLongLlmRule ? SIX_RULE_TIMEOUT_MS : ENGINE_TIMEOUT_MS;
   const requestedTimeout = Number(process.env.PAPER_LINT_RUN_TIMEOUT_MS);
   const timeoutMs = Number.isFinite(requestedTimeout) && requestedTimeout > 0

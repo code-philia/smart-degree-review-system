@@ -19,6 +19,7 @@ function App() {
       <Route element={<AppShell />}>
         <Route path="/" element={<Navigate replace to="/thirty-rules-check" />} />
         <Route path="/thirty-rules-check" element={<NormativeCheckPage mode="thirty" />} />
+        <Route path="/semantic-rules-check" element={<NormativeCheckPage mode="semantic" />} />
         <Route path="/thirty-rules-check/reports" element={<NormativeReportPage mode="thirty" />} />
         <Route path="/thirty-rules-check/reports/pdf/:reportId" element={<PaperLintReportPage mode="thirty" />} />
         <Route path="*" element={<NotFoundPage />} />

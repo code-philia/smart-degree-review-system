@@ -19,6 +19,7 @@ type QuickAction = { label: string; description: string; to: string };
 const QUICK_ACTIONS: Record<AuthRole, QuickAction[]> = {
   STUDENT: [
     { label: '基础规则检测', description: '运行 PDF 版式规则并定位原文问题', to: '/normative-check' },
+    { label: '摘要数值语义检测', description: '核验摘要数值声明与正文实验结果', to: '/semantic-rules-check' },
     { label: '内置审查案例', description: '查看跨页论点与论据定位示例', to: '/review-cases' },
     { label: '高级语义规则检测', description: '查看论点论据、新颖性与对比工作固定示例', to: '/advanced-semantic-rule-check' },
     { label: '创新性量表评估', description: '五维度量表评估创新参考分', to: '/innovation-assessment' },
