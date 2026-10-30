@@ -37,6 +37,7 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
         const checked = await paperLintService.runPaperLint({
           pdfBuffer, selectedRuleIds, externalProcessingConsent: Boolean(job.external_consent),
           background: true,
+          runId: id,
           signal: controller.signal,
           onProgress: (progress) => repository.updateProgress(id, progress),
         });

@@ -193,10 +193,10 @@ function runBridge(args, timeoutMs = ENGINE_TIMEOUT_MS, signal) {
   );
 }
 
-function runBilingualSemanticRules(pdfPath, ruleIds, timeoutMs = ENGINE_TIMEOUT_MS, signal) {
+function runBilingualSemanticRules(pdfPath, ruleIds, timeoutMs = ENGINE_TIMEOUT_MS, signal, runId) {
   return runJsonScript(
     bilingualScript,
-    ['--pdf', pdfPath, ...ruleIds.flatMap((ruleId) => ['--rule', ruleId])],
+    ['--pdf', pdfPath, ...ruleIds.flatMap((ruleId) => ['--rule', ruleId]), ...(runId ? ['--run-id', runId] : [])],
     {
       python: resolvePaperModelPython(),
       cwd: path.resolve(__dirname, '../..'),
@@ -340,7 +340,7 @@ function mergePaperLintResults(existingResult, localResult, selectedRuleIds) {
   };
 }
 
-async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingConsent = false, background = false, onProgress, signal }) {
+async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingConsent = false, background = false, onProgress, signal, runId }) {
   validatePdf(pdfBuffer);
   // The deadline covers catalog loading, queueing, and both engines so a timed-out
   // browser request cannot later persist a seemingly successful report.
@@ -380,7 +380,7 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
           const bilingualTimeout = bilingualRuleIds.some(id => ['typo_detection_check', 'abstract_numeric_consistency_check'].includes(id))
             ? SIX_RULE_TIMEOUT_MS
             : ENGINE_TIMEOUT_MS;
-          tasks.push(runBilingualSemanticRules(pdfPath, bilingualRuleIds, bilingualTimeout, controller.signal)
+          tasks.push(runBilingualSemanticRules(pdfPath, bilingualRuleIds, bilingualTimeout, controller.signal, runId)
             .then(async (part) => { parts.push(part); await reportProgress(bilingualRuleIds, part); }));
         }
         if (otherRuleIds.length) {

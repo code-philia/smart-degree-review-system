@@ -29,6 +29,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--pdf", type=Path, required=True)
     parser.add_argument("--rule", action="append", required=True)
+    parser.add_argument("--run-id", default=None)
     return parser.parse_args()
 
 
@@ -51,7 +52,7 @@ def api_config() -> tuple[str, str, str, str]:
     return key, "https://api.deepseek.com", "deepseek-v4-flash", "deepseek"
 
 
-def request_json(messages: list[dict[str, str]]) -> tuple[dict[str, Any], dict[str, int]]:
+def request_json(messages: list[dict[str, str]], *, observer=None) -> tuple[dict[str, Any], dict[str, int]]:
     global _LAST_REQUEST_AT
     try:
         min_interval = max(0.0, float(os.environ.get("SJTU_API_MIN_INTERVAL_SECONDS", "6")))
@@ -69,6 +70,9 @@ def request_json(messages: list[dict[str, str]]) -> tuple[dict[str, Any], dict[s
         "max_tokens": 8192,
         "response_format": {"type": "json_object"},
     }
+    if observer:
+        from urllib.parse import urlsplit
+        observer('request_config', {'provider': _provider, 'host': urlsplit(base_url).hostname, 'parameters': payload})
     request = urllib.request.Request(
         f"{base_url}/chat/completions",
         data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
@@ -84,12 +88,16 @@ def request_json(messages: list[dict[str, str]]) -> tuple[dict[str, Any], dict[s
     except (TypeError, ValueError):
         request_timeout = 300.0
     for attempt in range(4):
+        if observer:
+            observer('request_attempt', {'attempt': attempt + 1})
         try:
             with opener.open(request, timeout=request_timeout) as response:
                 raw = response.read(8 * 1024 * 1024 + 1)
             break
         except urllib.error.HTTPError as error:
             detail = error.read(2000).decode("utf-8", "replace")
+            if observer:
+                observer('http_error', {'attempt': attempt + 1, 'status': error.code})
             if error.code == 429 and attempt < 3:
                 retry_after = error.headers.get("Retry-After") if error.headers else None
                 try: delay = min(30.0, max(1.0, float(retry_after)))
@@ -97,7 +105,11 @@ def request_json(messages: list[dict[str, str]]) -> tuple[dict[str, Any], dict[s
                 time.sleep(delay)
                 continue
             raise RuntimeError(f"校内 DeepSeek 请求失败（HTTP {error.code}）：{detail[:500]}") from error
+    if observer:
+        observer('raw_response', {'body': raw.decode('utf-8', 'replace')})
     data = json.loads(raw)
+    if observer and (data.get('choices') or [{}])[0].get('finish_reason') == 'length':
+        raise ValueError('模型输出达到上限，数值核验未完成')
     content = (((data.get("choices") or [{}])[0]).get("message") or {}).get("content")
     if isinstance(content, dict):
         result = content
@@ -411,9 +423,12 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
             "message": (f"错别字分块检测未完成：{failure}" if failure else None),
             "findings": findings, "model_usage": usage_total}
 
-def run_numeric_consistency_rule(ir: dict[str, Any]) -> dict[str, Any]:
+def run_numeric_consistency_rule(ir: dict[str, Any], run_id=None) -> dict[str, Any]:
     from numeric_consistency import run_numeric
-    return run_numeric(ir, extract_bilingual_facts(ir), request_json)
+    from numeric_run_trace import NumericRunTrace
+    trace = NumericRunTrace(ir, task_id=run_id)
+    result = run_numeric(ir, extract_bilingual_facts(ir), lambda messages: trace.call(request_json, messages), trace=trace)
+    return trace.finish(result)
 
 def _has_cjk(value: Any) -> bool:
     return any("\u3400" <= char <= "\u9fff" for char in str(value or ""))
@@ -456,7 +471,7 @@ def _chinese_summary(value: Any, abstract: bool) -> str:
             "中英文关键词存在语义不对应，请结合两侧关键词原文逐项核对。")
 
 
-def run(pdf: Path, rule_ids: list[str]) -> dict[str, Any]:
+def run(pdf: Path, rule_ids: list[str], run_id=None) -> dict[str, Any]:
     ir = build_paper(pdf, include_citations=False)
     facts = extract_bilingual_facts(ir) if any(rule in BILINGUAL_RULES for rule in rule_ids) else {}
     runs = []
@@ -465,7 +480,7 @@ def run(pdf: Path, rule_ids: list[str]) -> dict[str, Any]:
             runs.append(run_typo_rule_from_ir(ir))
             continue
         if rule_id == NUMERIC_RULE:
-            runs.append(run_numeric_consistency_rule(ir))
+            runs.append(run_numeric_consistency_rule(ir, run_id=run_id))
             continue
         prompt = prompt_for(rule_id, facts)
         if prompt is None:
@@ -546,7 +561,7 @@ def main() -> None:
     unknown = [rule for rule in args.rule if rule not in BILINGUAL_RULES and rule not in {TYPO_RULE, NUMERIC_RULE}]
     if unknown:
         raise RuntimeError(f"未知双语语义规则：{unknown[0]}")
-    print(json.dumps(run(args.pdf, args.rule), ensure_ascii=False))
+    print(json.dumps(run(args.pdf, args.rule, run_id=args.run_id), ensure_ascii=False))
 
 
 if __name__ == "__main__":

@@ -3,3 +3,4 @@ node_modules
 .arc-test-db
 .env
 coverage
+/data/numeric-runs/

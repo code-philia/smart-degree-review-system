@@ -8,7 +8,7 @@ from typing import Any
 
 RULE = 'abstract_numeric_consistency_check'
 CONTEXT_VERSION = 'numeric-context/2.0'
-CONTRACT_VERSION = 'numeric-contract/2.0'
+CONTRACT_VERSION = 'numeric-contract/2.1'
 RETRIEVAL_VERSION = 'numeric-lexical/1.0'
 CONDITIONS = {'abstract_numeric', 'contribution_mapping', 'experiment_subsection'}
 
@@ -18,13 +18,28 @@ class ContractError(ValueError):
 
 
 def normalized(text):
-    # Only layout whitespace is ignored. Numbers, punctuation and case stay intact.
-    return re.sub(r'\s+', '', text)
+    # Keep ASCII token boundaries: two table cells "8 9" must never become "89".
+    protected = re.sub(r'(?<=[A-Za-z0-9.])\s+(?=[A-Za-z0-9.])', '\u0000', text)
+    return re.sub(r'\s+', '', protected).replace('\u0000', ' ')
 
 
 def require(value, message):
     if not value:
         raise ContractError(message)
+
+
+def grounded_quote(quote, source):
+    needle, text = normalized(quote), normalized(source)
+    if not needle:
+        return False
+    for match in re.finditer(re.escape(needle), text):
+        before, after = text[max(0, match.start()-1):match.start()], text[match.end():match.end()+1]
+        if needle[0].isdigit() and before and re.fullmatch(r'[\d.eE+\-]', before):
+            continue
+        if needle[-1].isdigit() and after and re.fullmatch(r'[\d.eE]', after):
+            continue
+        return True
+    return False
 
 
 def rows(obj, key):
@@ -134,6 +149,7 @@ def structure_context(facts, model):
     blocks, coverage = pack_blocks(ordered, 45000)
     context = {'abstract': abstract, 'toc': model['toc'], 'sections': catalog, 'blocks': blocks,
                'coverage': coverage, 'limitations': model['limitations']}
+    require(len(json.dumps(context, ensure_ascii=False)) <= 100000, 'structure context exceeds budget')
     return context
 
 
@@ -161,10 +177,10 @@ def validate_structure(data, context, model):
     declarations = unique(rows(data, 'declarations'))
     abstract = normalized(context['abstract'])
     for c in contributions.values():
-        require(isinstance(c.get('text'), str) and normalized(c['text']) and normalized(c['text']) in abstract, 'contribution not grounded in abstract')
+        require(isinstance(c.get('text'), str) and grounded_quote(c['text'], context['abstract']), 'contribution not grounded in abstract')
     for d in declarations.values():
         require(d.get('contribution_id') in contributions, 'invalid contribution reference')
-        require(isinstance(d.get('text'), str) and normalized(d['text']) and normalized(d['text']) in abstract, 'declaration not grounded in abstract')
+        require(isinstance(d.get('text'), str) and grounded_quote(d['text'], context['abstract']), 'declaration not grounded in abstract')
         for key in ('metric', 'unit', 'comparison', 'condition'):
             require(isinstance(d.get(key), str), f'invalid declaration {key}')
         require(bool(d['metric'].strip()), 'missing metric')
@@ -183,7 +199,7 @@ def validate_structure(data, context, model):
         require(bool(evidence), 'mapping evidence required')
         for e in evidence:
             require(type(e.get('page')) is int and isinstance(e.get('quote'), str) and normalized(e['quote']), 'invalid mapping evidence')
-            matches = [b for b in visible if b['source_node_id'] == e.get('source_node_id') and b['page'] == e['page'] and normalized(e['quote']) in normalized(b['text'])]
+            matches = [b for b in visible if b['source_node_id'] == e.get('source_node_id') and b['page'] == e['page'] and grounded_quote(e['quote'], b['text'])]
             require(any(b['section_id'] == chapter or descendant(model, b['section_id'], chapter) for b in matches), 'mapping evidence not in supplied chapter source')
     passed = all(c['passed'] for c in conditions.values())
     if passed:
@@ -203,7 +219,7 @@ METRIC_ALIASES = [
 
 
 def lexical(text):
-    return normalized(text).casefold()
+    return re.sub(r'\s+', '', text).casefold()
 
 
 def retrieval_signals(declaration, block):
@@ -315,7 +331,7 @@ def validated_results(payload, declarations, candidates):
     require(isinstance(payload, dict), 'verifier output must be object')
     supplied = rows(payload, 'results')
     ids = {d['id'] for d in declarations}
-    unknown = [r.get('declaration_id') for r in supplied if r.get('declaration_id') not in ids]
+    unknown = [r.get('declaration_id') for r in supplied if not isinstance(r.get('declaration_id'), str) or r.get('declaration_id') not in ids]
     diagnostics, results = [], []
     if unknown:
         diagnostics.append({'kind': 'unknown_declaration', 'ids': unknown})
@@ -328,7 +344,7 @@ def validated_results(payload, declarations, candidates):
             problems.append('missing_result' if not entries else 'duplicate_result')
         else:
             entry = entries[0]
-            if entry.get('status') not in {'consistent', 'inconsistent', 'inconclusive'}:
+            if not isinstance(entry.get('status'), str) or entry.get('status') not in {'consistent', 'inconsistent', 'inconclusive'}:
                 problems.append('invalid_status')
             if not isinstance(entry.get('reason'), str) or not entry.get('reason', '').strip() or not isinstance(entry.get('suggestion'), str):
                 problems.append('invalid_reason_or_suggestion')
@@ -343,11 +359,11 @@ def validated_results(payload, declarations, candidates):
                     problems.append('unknown_or_cross_declaration_evidence')
                 elif type(e.get('page')) is not int or e['page'] != candidate['page']:
                     problems.append('wrong_evidence_page')
-                elif not isinstance(e.get('quote'), str) or not normalized(e['quote']) or normalized(e['quote']) not in normalized(candidate['text']):
+                elif not isinstance(e.get('quote'), str) or not grounded_quote(e['quote'], candidate['text']):
                     problems.append('untraceable_quote')
                 else:
                     valid.append({**e, 'source_node_id': candidate['source_node_id'], 'section_id': candidate['section_id'], 'block_id': candidate['block_id'], 'provenance': candidate['provenance']})
-            if entry.get('status') in {'consistent', 'inconsistent'} and not valid:
+            if entry.get('status') in ('consistent', 'inconsistent') and not valid:
                 problems.append('supporting_evidence_required')
             if not problems:
                 row.update(status=entry['status'], reason=entry['reason'], suggestion=entry['suggestion'], evidence=valid)
@@ -373,6 +389,27 @@ def location(e, model):
     return {'type': 'pdf_bbox', 'page_number': e['page'], 'rects': rects, 'bounding_rect': bounding, 'text_excerpt': e['quote']}
 
 
+def abstract_anchors(ir, quote, anchor_id):
+    anchors = []
+    needle = normalized(quote)
+    for page in ir.get('layout', {}).get('pages', []):
+        lines = page.get('lines') or []
+        text = ''.join(normalized(line.get('text') or '') for line in lines)
+        start = text.find(needle)
+        if start < 0:
+            continue
+        cursor, sources = 0, []
+        for line in lines:
+            end = cursor + len(normalized(line.get('text') or ''))
+            if end > start and cursor < start + len(needle):
+                sources.append({'bbox': line.get('bbox')})
+            cursor = end
+        loc = location({'page': page['page_index'] + 1, 'quote': quote, 'provenance': sources}, {'pages': {page['page_index'] + 1: page}})
+        anchors.append({'anchor_id': anchor_id, 'role': 'source_span', 'label': '摘要数值声明', 'location': loc})
+        break
+    return anchors
+
+
 def run_numeric(ir, facts, request, trace=None):
     usage = {'input_tokens': 0, 'output_tokens': 0}
     params = {'stage': 'structure_locator', 'versions': {'context': CONTEXT_VERSION, 'retrieval': RETRIEVAL_VERSION, 'contract': CONTRACT_VERSION, 'prompts': 'numeric-prompts/2.0'}}
@@ -395,6 +432,9 @@ def run_numeric(ir, facts, request, trace=None):
         if trace:
             trace('structure_output', structure)
         passed = validate_structure(structure, context, model)
+        for mapping in structure['mappings']:
+            mapping['chapter_title'] = model['sections'][mapping['chapter_id']]['title']
+            mapping['experiment_titles'] = [model['sections'][sid]['title'] for sid in mapping['experiment_section_ids']]
         params.update({key: structure[key] for key in ('contributions', 'declarations', 'mappings', 'preconditions')})
         if not passed:
             result['message'] = '前置条件未全部通过，未执行数值一致性检测。'
@@ -405,21 +445,26 @@ def run_numeric(ir, facts, request, trace=None):
         if trace:
             trace('retrieval', {'candidates': candidates, 'diagnostics': retrieval})
         # No silent JSON truncation or unbounded request. Later retrieval versions select Top-K.
-        require(len(json.dumps(candidates, ensure_ascii=False)) <= 100000, 'experiment context exceeds budget')
-        checked = call(verifier_prompt(structure, candidates))
+        prompt = verifier_prompt(structure, candidates)
+        require(len(prompt) <= 100000, 'experiment context exceeds budget')
+        checked = call(prompt)
         if trace:
             trace('verifier_output', checked)
         results, errors = validated_results(checked, structure['declarations'], candidates)
         params['numeric_results'], params['validation_errors'] = results, errors
         params['coverage'] = {'expected': len(structure['declarations']), 'returned_valid': sum(not any(x.get('declaration_id') == r['declaration_id'] for x in errors) for r in results), 'complete': not errors}
         for row in results:
+            row['abstract_anchors'] = abstract_anchors(ir, row['declaration']['text'], 'abstract-' + row['declaration_id'])
             if row['status'] == 'inconsistent':
-                anchors = [{'anchor_id': f'{row["declaration_id"]}-{i}', 'role': 'source_span', 'label': '实验结果证据', 'location': location(e, model)} for i, e in enumerate(row['evidence'])]
+                anchors = [{'anchor_id': e['candidate_id'], 'role': 'source_span', 'label': '实验结果证据', 'location': location(e, model)} for e in row['evidence']]
+                source_anchors = row['abstract_anchors']
+                evidence = [{'id': e['candidate_id'], 'label': '实验结果证据', 'kind': 'source_span', 'provider': 'repo-paper-model', 'quote': e['quote'], 'page_number': e['page']} for e in row['evidence']]
+                evidence.append({'id': 'abstract-' + row['declaration_id'], 'label': '摘要数值声明', 'kind': 'source_span', 'provider': 'repo-paper-model', 'quote': row['declaration']['text']})
                 result['findings'].append({'finding_id': RULE + '_' + row['declaration_id'], 'rule_id': RULE,
                     'message': '摘要数值声明与实验结果不一致，请核对指标、数值及实验条件。',
                     'suggestion': row['suggestion'], 'reason': row['reason'],
-                    'location': anchors[0]['location'], 'anchors': anchors,
-                    'evidence': [{'id': e['candidate_id'], 'kind': 'source_span', 'provider': 'repo-paper-model', 'quote': e['quote']} for e in row['evidence']]})
+                    'location': anchors[0]['location'], 'anchors': anchors + source_anchors,
+                    'evidence': evidence})
         if errors:
             result['execution_status'] = 'error'
         result['outcome'] = 'issues_found' if result['findings'] else 'passed' if results and not errors and all(r['status'] == 'consistent' for r in results) else 'inconclusive'
@@ -427,5 +472,10 @@ def run_numeric(ir, facts, request, trace=None):
     except Exception as exc:
         result['execution_status'] = 'error'
         params['failure'] = {'stage': params['stage'], 'error_type': type(exc).__name__, 'message': str(exc)}
+        if params['stage'] == 'numeric_verifier' and 'numeric_results' not in params:
+            params['numeric_results'] = [{'declaration_id': d['id'], 'declaration': d, 'status': 'inconclusive',
+                                          'reason': f'核验执行失败：{type(exc).__name__}', 'suggestion': '', 'evidence': []}
+                                         for d in params.get('declarations', [])]
+            params['coverage'] = {'expected': len(params.get('declarations', [])), 'returned_valid': 0, 'complete': False}
         result['message'] = '语义检测执行失败：' + str(exc)[:300]
     return result

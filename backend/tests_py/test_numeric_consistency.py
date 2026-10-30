@@ -162,3 +162,129 @@ def test_empty_scope_and_recall_metric():
     model['blocks'] = []
     candidates, diagnostics = n.retrieve_candidates(data['declarations'], data['mappings'], model)
     assert not candidates and diagnostics[0]['fallback'] == 'empty_experiment_scope'
+
+
+def test_trace_replay_and_redaction(tmp_path, monkeypatch):
+    import json
+    from numeric_run_trace import NumericRunTrace, load_replay
+    from replay_numeric_run import replay
+    monkeypatch.setenv('SJTU_API_KEY', 'unit-test-secret-credential')
+    ir, facts, structure = fixture()
+    trace = NumericRunTrace(ir, 'task-123', root=tmp_path)
+    responses = []
+    def transport(messages, observer=None):
+        observer('raw_response', {'body': 'unit-test-secret-credential', 'Authorization': 'discard'})
+        if not responses:
+            responses.append(True)
+            return structure, {'input_tokens': 1, 'output_tokens': 2}
+        candidates, _ = n.retrieve_candidates(structure['declarations'], structure['mappings'], n.source_model(ir))
+        return valid_output(candidates[0]), {'input_tokens': 3, 'output_tokens': 4}
+    result = n.run_numeric(ir, facts, lambda messages: trace.call(transport, messages), trace)
+    trace.finish(result)
+    manifest, artifacts = load_replay(trace.path)
+    assert manifest['task_id'] == 'task-123' and len(artifacts['call_input']) == 2
+    assert all('unit-test-secret-credential' not in p.read_text() for p in trace.path.glob('*.json'))
+    repeated = replay(trace.path)
+    assert repeated['outcome'] == result['outcome']
+    assert repeated['params']['numeric_results'] == result['params']['numeric_results']
+    target = trace.path / manifest['artifacts'][0]['file']
+    target.write_text('{}')
+    with pytest.raises(ValueError, match='hash mismatch'): load_replay(trace.path)
+
+
+def test_multiple_experiments_and_dataset_ranking():
+    ir, facts, data = fixture()
+    extra = [
+        {'id': 'exp2', 'kind': 'Section', 'children': ['eh2', 'data2'], 'attrs': {'level': 2}},
+        {'id': 'eh2', 'kind': 'Heading', 'text': '3.5 性能评估', 'children': [], 'provenance': []},
+        {'id': 'data2', 'kind': 'Paragraph', 'text': '数据集B 本文模型Accuracy92.5% 基线90%', 'children': [],
+         'provenance': [{'page_index': 8, 'node_text_start': 0, 'node_text_end': len('数据集B 本文模型Accuracy92.5% 基线90%'), 'bbox': [1, 1, 2, 2]}]},
+    ]
+    next(x for x in ir['nodes'] if x['id'] == 'ch')['children'].append('exp2')
+    ir['nodes'].extend(extra)
+    data['mappings'][0]['experiment_section_ids'].append('exp2')
+    candidates, diagnostics = n.retrieve_candidates(data['declarations'], data['mappings'], n.source_model(ir))
+    assert {'data', 'data2'} <= {c['source_node_id'] for c in candidates}
+    by_node = {c['source_node_id']: c for c in candidates}
+    assert by_node['data']['retrieval_score'] > by_node['data2']['retrieval_score']
+    assert diagnostics[0]['scope'] == ['exp', 'exp2']
+
+
+def test_real_pdf_frontend_supplies_paragraphs_and_table_text(tmp_path):
+    import fitz
+    from paper_compiler.frontend import build_paper
+    pdf = tmp_path / 'source.pdf'
+    document = fitz.open()
+    page = document.new_page()
+    page.insert_text((60, 80), 'Abstract', fontsize=16)
+    page.insert_text((60, 110), 'We propose Fusion. Accuracy on Dataset A is 92.5%.', fontsize=12)
+    page.insert_text((60, 145), 'Keywords: Fusion; Accuracy', fontsize=12)
+    page.insert_text((60, 200), 'Contents', fontsize=16)
+    page.insert_text((60, 230), 'Chapter 3 Fusion model ... 2', fontsize=12)
+    page = document.new_page()
+    page.insert_text((60, 80), 'Chapter 3 Fusion model', fontsize=16)
+    page.insert_text((60, 110), 'Our proposed Fusion method uses dynamic weights.', fontsize=12)
+    page.insert_text((60, 160), '3.1 Experiments', fontsize=16)
+    page.insert_text((60, 200), 'Table 3-1 Accuracy on Dataset A', fontsize=12)
+    page.insert_text((60, 230), 'Method       Dataset       Accuracy', fontsize=12)
+    page.insert_text((60, 255), 'Fusion       A             89.3%', fontsize=12)
+    document.save(pdf)
+    document.close()
+    model = n.source_model(build_paper(pdf, include_citations=False))
+    source = '\n'.join(b['text'] for b in model['blocks'])
+    assert '89.3%' in source and 'Method' in source and 'Table 3-1' in source
+    chapter = next(s for s in model['sections'].values() if s['title'] == 'Chapter 3 Fusion model')
+    assert 'dynamic weights' in '\n'.join(b['text'] for b in n.section_blocks(model, chapter['section_id']))
+
+
+@pytest.mark.parametrize('failure', ['malformed', 'timeout', 'empty_results'])
+def test_execution_errors_never_become_paper_violations(failure):
+    ir, facts, structure = fixture()
+    calls = []
+    def request(messages):
+        calls.append(messages)
+        if len(calls) == 1:
+            return structure, {}
+        if failure == 'timeout': raise TimeoutError('slow request')
+        return ({'results': None} if failure == 'malformed' else {'results': []}), {}
+    result = n.run_numeric(ir, facts, request)
+    assert result['execution_status'] == 'error'
+    assert result['outcome'] == 'inconclusive' and not result['findings']
+    assert result['params']['declarations'] == structure['declarations']
+    assert result['params']['numeric_results'][0]['status'] == 'inconclusive'
+
+
+@pytest.mark.parametrize('finish_reason', ['stop', 'length'])
+def test_transport_observer_records_raw_response_without_network(monkeypatch, finish_reason):
+    import json
+    import run_bilingual_semantic_lint as transport
+    monkeypatch.setenv('SJTU_API_KEY', 'transport-unit-test-secret')
+    monkeypatch.setenv('SJTU_API_BASE_URL', 'https://example.invalid/api/v1')
+    monkeypatch.setenv('SJTU_API_MODEL', 'test-model')
+    monkeypatch.setenv('SJTU_API_MIN_INTERVAL_SECONDS', '0')
+    response = {'choices': [{'finish_reason': finish_reason, 'message': {'content': '{"test":true}'}}], 'usage': {'prompt_tokens': 2, 'completion_tokens': 1}}
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def read(self, size): return json.dumps(response).encode()
+    class Opener:
+        def open(self, *args, **kwargs): return Response()
+    monkeypatch.setattr(transport.urllib.request, 'build_opener', lambda *args: Opener())
+    events = []
+    if finish_reason == 'length':
+        with pytest.raises(ValueError, match='达到上限'):
+            transport.request_json([{'role': 'user', 'content': 'test'}], observer=lambda key, value: events.append((key, value)))
+    else:
+        payload, usage = transport.request_json([{'role': 'user', 'content': 'test'}], observer=lambda key, value: events.append((key, value)))
+        assert payload == {'test': True} and usage['input_tokens'] == 2
+    assert [key for key, _ in events] == ['request_config', 'request_attempt', 'raw_response']
+    assert 'transport-unit-test-secret' not in json.dumps(events)
+
+
+def test_whitespace_cannot_invent_a_numeric_or_english_token():
+    assert n.normalized('准确率 92.5 %') == n.normalized('准确率92.5%')
+    assert n.normalized('8\n9') != n.normalized('89')
+    assert n.normalized('Model A') != n.normalized('ModelA')
+    assert not n.grounded_quote('9%', '准确率89%')
+    assert not n.grounded_quote('准确率92', '准确率92.5%')
+    assert n.grounded_quote('准确率92.5%', '准确率 92.5 %')
