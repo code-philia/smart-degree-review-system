@@ -1,4 +1,5 @@
 import copy
+import json
 import sys
 from pathlib import Path
 
@@ -394,3 +395,16 @@ def test_retrieval_includes_other_result_settings_without_matching_abstract_numb
     assert n.retrieval_signals(d, result)[0] > n.retrieval_signals(d, setup)[0]
     assert n.lexical('Example-\nMethod') == 'examplemethod'
     assert n.lexical('Multiplication-Friendly') == 'multiplication-friendly'
+
+
+def test_explicit_main_chapter_catalog_and_compact_verifier_input():
+    ir, facts, structure = fixture()
+    model = n.source_model(ir)
+    context = n.structure_context(facts, model)
+    assert 'ch' in context['main_chapter_ids']
+    assert next(s for s in context['sections'] if s['section_id'] == 'exp')['main_chapter_id'] == 'ch'
+    candidates, _ = n.retrieve_candidates(structure['declarations'], structure['mappings'], model)
+    candidates[0]['debug_payload'] = 'unused-debug' * 10000
+    prompt = n.verifier_prompt(structure, candidates)
+    assert 'unused-debug' not in prompt
+    assert all(c['text'] in json.loads(prompt.split('输入：\n', 1)[1])['candidates'][i]['text'] for i, c in enumerate(candidates))
