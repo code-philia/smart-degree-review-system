@@ -76,6 +76,7 @@ export type PaperLintFinding = {
   source_kind?: string;
   node_id?: string;
   check_id?: string;
+  prompt_only?: boolean;
 };
 
 export type PaperLintRuntimeSnapshot = { freeze: boolean; generation: number; active_version: string | null };

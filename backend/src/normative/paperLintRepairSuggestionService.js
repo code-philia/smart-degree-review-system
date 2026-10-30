@@ -90,6 +90,25 @@ async function findLatestPaperLintRepairSuggestionRecord({ reportId, userId, rul
   return { ...row, response: JSON.parse(row.response_json) };
 }
 
+async function listPaperLintRepairSuggestionRecords({ reportId, userId }) {
+  const rows = await db.all(
+    `SELECT id, rule_id, finding_id, generation, document_sha256, response_json, created_at
+       FROM paper_lint_repair_suggestions
+      WHERE report_id=? AND user_id=?
+      ORDER BY rule_id, finding_id, generation ASC, created_at ASC`,
+    [reportId, userId],
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    rule_id: row.rule_id,
+    finding_id: row.finding_id,
+    generation: row.generation,
+    document_sha256: row.document_sha256,
+    created_at: row.created_at,
+    response: JSON.parse(row.response_json),
+  }));
+}
+
 async function savePaperLintRepairSuggestion(request, userId, response) {
   response = { ...response, provenance: { ...response.provenance, source_identity_sha256: request.source_identity_sha256 } };
   const saved = await db.withTransaction(async (tx) => {
@@ -129,5 +148,6 @@ module.exports = {
   findPaperLintRepairSuggestion,
   findLatestPaperLintRepairSuggestion,
   findLatestPaperLintRepairSuggestionRecord,
+  listPaperLintRepairSuggestionRecords,
   savePaperLintRepairSuggestion,
 };

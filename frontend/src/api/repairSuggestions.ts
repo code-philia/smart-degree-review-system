@@ -68,6 +68,24 @@ function paperLintReportSuggestionUrl(reportId: string) {
   return `/normative/paper-lint/reports/${encodeURIComponent(reportId)}/repair-suggestions`;
 }
 
+export type PaperLintRepairSuggestionHistoryItem = {
+  id: string;
+  rule_id: string;
+  finding_id: string;
+  generation: number;
+  document_sha256: string;
+  created_at: string;
+  response: RepairSuggestion;
+};
+
+export async function fetchPaperLintRepairSuggestionHistory(reportId: string): Promise<PaperLintRepairSuggestionHistoryItem[]> {
+  const response = await apiClient.get<{ suggestions: PaperLintRepairSuggestionHistoryItem[] }>(
+    `${paperLintReportSuggestionUrl(reportId)}/history`,
+    { timeout: 40_000 },
+  );
+  return response.data.suggestions;
+}
+
 export async function fetchPaperLintFindingRepairSuggestion(
   reference: PaperLintFindingReference,
 ): Promise<RepairSuggestion | null> {

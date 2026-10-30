@@ -26,7 +26,7 @@ export function useFindingRepairSuggestions({scopeKey, fetchSaved, evaluate, sup
     setSuggestions({}); setErrors({}); setLoading({});
     return () => {epoch.current++;};
   }, [scopeKey]);
-  const supportsRepairSuggestion = useCallback((item: Item) => !supportedRuleIds || supportedRuleIds.has(item.ruleRun.rule_id), [supportedRuleIds]);
+  const supportsRepairSuggestion = useCallback((item: Item) => !item.finding.prompt_only && (!supportedRuleIds || supportedRuleIds.has(item.ruleRun.rule_id)), [supportedRuleIds]);
   const run = useCallback(async (item: Item, force: boolean) => {
     if (!scopeKey || !supportsRepairSuggestion(item) || inFlight.current.has(item.key) || (!force && loaded.current.has(item.key))) return;
     const generation = epoch.current;

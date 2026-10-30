@@ -61,6 +61,9 @@ async function runJsonProcess(command,args,{signal,timeoutMs=1200000,maxBytes=64
     try { stopped=JSON.parse(typeof error.stdout==='string' ? error.stdout : ''); } catch {}
     if(stopped?.status==='error' && stopped.error_type==='BudgetExceeded')throw failure(429,'COMPILER_BUDGET_EXHAUSTED','API预算已达到上限，未完成的检测已停止');
     if(stopped?.status==='error' && stopped.error_type==='RequestDeadlineExceeded')throw failure(504,'COMPILER_TIME_LIMIT','本次任务已达到时限，未完成的检测已停止');
+    if(stopped?.status==='error' && typeof stopped.message==='string' && stopped.message.trim()) {
+      throw failure(error.code==='ENOENT'?503:502,'COMPILER_PROCESS_FAILED',`规则编译器执行失败：${stopped.message.slice(0,500)}`);
+    }
     throw failure(error.code==='ENOENT'?503:502,'COMPILER_PROCESS_FAILED','规则编译检测未完成，请检查运行记录');
   }
   try { const result=JSON.parse(stdout);if(!result || typeof result!=='object' || (Array.isArray(result) && !allowArray))throw new Error();return result; }
@@ -136,21 +139,40 @@ function toCompilerResult(output,selectedRuleIds) {
     });
     const diagnostics=publication && ruleId !== 'sjtu_rule_32' ? [] : raw.results.filter(r=>['UNKNOWN','ERROR'].includes(r.status)).map(r=>({
       node_id:r.node_id, check_id:r.check_id, status:r.status, message:r.message || null,
+      location:r.location_mode === 'synthetic' ? null : (r.location || null),
       kind: ruleId === 'sjtu_rule_32' && r.status === 'UNKNOWN' &&
         Array.isArray(r.reasons) && r.reasons.includes('serpapi_not_found') ? 'serpapi_not_found' : null,
       reasons:r.reasons || [], evidence:r.display_evidence || [], basis_details:basisDetails(r),
     }));
+    const serpApiNotFoundDiagnostics = diagnostics.filter(item => item.kind === 'serpapi_not_found');
+    if (ruleId === 'sjtu_rule_32' && serpApiNotFoundDiagnostics.length) {
+      const promptFindings = serpApiNotFoundDiagnostics.map((item, index) => ({
+        finding_id: `${ruleId}_prompt_${index + 1}`,
+        rule_id: ruleId,
+        node_id: item.node_id,
+        message: item.message || '未在 SerpAPI 中查到该参考文献，请人工复核。',
+        suggestion: null,
+        location: item.location || null,
+        anchors: [],
+        source_kind: item.location ? 'source' : 'unlocated',
+        evidence: item.evidence || [],
+        basis_details: item.basis_details || [],
+        check_id: item.check_id,
+        prompt_only: true,
+      }));
+      findings = [...findings, ...promptFindings];
+    }
     const unknown=raw.counts?.UNKNOWN || 0;
-    const serpApiNotFoundCount=diagnostics.filter(item=>item.kind==='serpapi_not_found').length;
+    const serpApiNotFoundCount=serpApiNotFoundDiagnostics.length;
     const reason=raw.status==='ERROR' ? executionReason(raw.execution_error) : null;
     const runMessage = serpApiNotFoundCount
       ? `${serpApiNotFoundCount} 条参考文献未在 SerpAPI 中查到；仅作提示，不计入规则警告。`
       : [raw.status==='UNKNOWN' || unknown || raw.coverage?.incomplete_scopes?.length ? `${unknown} 项证据不足；未覆盖的内容保留无法判定。` : null,
         reason ? `规则执行异常：${reason}` : null, refinementMessage, baselineMessage].filter(Boolean).join(' ') || null;
-    return {rule_run_id:`run_${ruleId}`,rule_id:ruleId,severity:'warning',params:null,
+    return {rule_run_id:`run_${ruleId}`,rule_id:ruleId,severity:ruleId === 'sjtu_rule_32' && serpApiNotFoundCount ? 'info' : 'warning',params:null,
       execution_status:raw.status==='ERROR'?'error':'completed',evidence_mode:findings.some(f=>f.source_kind==='synthetic')?'derived':'native',
       outcome:findings.length?'issues_found':publication?'inconclusive':raw.status==='PASS'?'passed':raw.status==='NOT_APPLICABLE'?'not_applicable':'inconclusive',
-      ...(publication ? {publication_status:findings.length?'ALERT':'NO_ALERT'} : {}),
+      ...(publication ? {publication_status:ruleId === 'sjtu_rule_32' && serpApiNotFoundCount ? 'NO_ALERT' : findings.length ? 'ALERT' : 'NO_ALERT'} : {}),
       message:publication && !(ruleId === 'sjtu_rule_32' && serpApiNotFoundCount) ? (raw.status==='ERROR' ? `规则执行失败${reason ? '：'+reason : ''}` : findings.length ? '发现经复核确认的告警' : '未触发告警') : runMessage,
       compiler_runtime_status:typeof output.runtime?.status==='string' ? output.runtime.status : null,
       findings,compiler_diagnostics:diagnostics,...(publication ? {} : {coverage:raw.coverage,compiler_counts:raw.counts}),package_sha256:raw.package_sha256,

@@ -30,6 +30,26 @@ function createPaperLintRepairSuggestionRouter({ modelIdentity = getRepairModelI
     }
   };
 
+  router.get('/reports/:reportId/repair-suggestions/history', handler(async (req, res) => {
+    await service.getPaperLintReportFinding({
+      reportId: req.params.reportId, userId: req.user.id,
+      ruleId: req.query.rule_id || 'sjtu_rule_32',
+      findingId: req.query.finding_id || '__history_probe__',
+    }).catch((error) => {
+      // The report itself is authorized by the finding lookup; a missing probe
+      // finding must not make the history endpoint unusable.
+      if (error.status !== 404 || error.message !== '该报告中不存在指定告警') throw error;
+    });
+    const report = await require('../paperLintReportRepository').findPaperLintReportByIdForUser(
+      req.params.reportId, req.user.id,
+    );
+    if (!report) throw problem(404, '未找到该审查报告');
+    const suggestions = await service.listPaperLintRepairSuggestionRecords({
+      reportId: req.params.reportId, userId: req.user.id,
+    });
+    res.json({ suggestions });
+  }));
+
   router.get('/reports/:reportId/repair-suggestions', handler(async (req, res) => {
     const { ruleId, findingId } = findingIds(req.query);
     await service.getPaperLintReportFinding({
@@ -43,7 +63,9 @@ function createPaperLintRepairSuggestionRouter({ modelIdentity = getRepairModelI
       // Reading a saved suggestion must remain available when the model or
       // ledger is temporarily unavailable. The current prompt version still
       // controls whether the saved response is a usable generation cache.
-      identity: { promptVersion: PROMPT_VERSION },
+      // Historical reports must continue to display a saved suggestion even
+      // after the active prompt/model version changes. Prompt identity is only
+      // used for deciding whether a new generation may be cached below.
       sourceIdentity: sourceIdentity || undefined,
     });
     const record = response ? await service.findLatestPaperLintRepairSuggestionRecord({
