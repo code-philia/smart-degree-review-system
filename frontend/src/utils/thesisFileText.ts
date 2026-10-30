@@ -1,3 +1,5 @@
+import '../pdfjs-byte-compat';
+
 const MAX_TEXT_FILE_BYTES = 50 * 1024 * 1024;
 const MAX_PDF_FILE_BYTES = 50 * 1024 * 1024;
 const MAX_EXTRACTED_TEXT_BYTES = 50 * 1024 * 1024;
