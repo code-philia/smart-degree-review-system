@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 from decimal import Decimal
 import json
+import os
 import re
 from typing import Any
 
@@ -169,6 +170,34 @@ def structure_input(context):
 
 def percentage_values(text):
     return {format(Decimal(value).normalize(), 'f') for value in re.findall(r'(?<![\d.])(\d+(?:\.\d+)?)\s*[%％]', text)}
+
+
+def merge_duplicate_ranges(data):
+    """Canonicalize identical interval claims split into one row per bound."""
+    import copy
+    output, seen, merged = copy.deepcopy(data), {}, []
+    if not isinstance(output, dict) or not isinstance(output.get('declarations'), list) or not isinstance(output.get('mappings'), list):
+        return output, merged
+    kept = []
+    for d in output['declarations']:
+        if not isinstance(d, dict):
+            kept.append(d)
+            continue
+        text = d.get('text', '')
+        mapping = next((m for m in output['mappings'] if isinstance(m, dict) and m.get('declaration_id') == d.get('id')), {})
+        key = tuple(normalized(str(d.get(k, ''))) for k in ('text', 'metric', 'unit', 'comparison', 'condition', 'method', 'baseline')) + (mapping.get('chapter_id'), tuple(mapping.get('experiment_section_ids', [])))
+        is_range = isinstance(text, str) and re.search(r'\d+(?:\.\d+)?\s*[%％]\s*[—–\-~至到]\s*\d+(?:\.\d+)?\s*[%％]', text)
+        if is_range and key in seen:
+            seen[key]['number'] = '—'.join(sorted(percentage_values(text), key=Decimal))
+            merged.append({'kept_id': seen[key]['id'], 'removed_id': d['id'], 'reason': 'identical_interval_source_and_scope'})
+        else:
+            kept.append(d)
+            if is_range:
+                seen[key] = d
+    removed = {m['removed_id'] for m in merged}
+    output['declarations'] = kept
+    output['mappings'] = [m for m in output['mappings'] if not isinstance(m, dict) or m.get('declaration_id') not in removed]
+    return output, merged
 
 
 def structure_context(facts, model):
@@ -536,10 +565,13 @@ def abstract_anchors(ir, quote, anchor_id):
     return anchors
 
 
-def run_numeric(ir, facts, request, trace=None):
+def run_numeric(ir, facts, request, trace=None, verification_mode=None):
     usage = {'input_tokens': 0, 'output_tokens': 0}
     params = {'stage': 'structure_locator', 'versions': {'context': CONTEXT_VERSION, 'retrieval': RETRIEVAL_VERSION, 'contract': CONTRACT_VERSION, 'prompts': 'numeric-prompts/2.6', 'structure_locator': 'structure-locator/2.4', 'numeric_verifier': 'numeric-verifier/2.5', 'citation_resolution': 'candidate-exact/1.0'}}
-    params['versions']['contract_repair_policy'] = 'once-per-stage/1.0'
+    params['versions']['contract_repair_policy'] = 'once-per-call/1.1'
+    mode = verification_mode or os.environ.get('PAPER_NUMERIC_VERIFIER_MODE', 'per_declaration')
+    require(mode in {'batch', 'per_declaration'}, 'invalid numeric verifier mode')
+    params['versions']['verification_mode'] = mode
     result = {'rule_run_id': 'run_' + RULE, 'rule_id': RULE, 'severity': 'warning', 'params': params,
               'execution_status': 'completed', 'evidence_mode': 'derived', 'outcome': 'inconclusive', 'message': None, 'findings': [], 'model_usage': usage}
     def call(prompt):
@@ -568,6 +600,11 @@ def run_numeric(ir, facts, request, trace=None):
         params['structure_output'] = structure
         if trace:
             trace('structure_output', structure)
+        structure, merged = merge_duplicate_ranges(structure)
+        if merged:
+            params['merged_interval_declarations'] = merged
+            if trace:
+                trace('structure_normalized_output', structure)
         try:
             passed = validate_structure(structure, context, model)
         except ContractError as exc:
@@ -575,6 +612,11 @@ def run_numeric(ir, facts, request, trace=None):
             params['structure_output'] = structure
             if trace:
                 trace('structure_repaired_output', structure)
+            structure, merged = merge_duplicate_ranges(structure)
+            if merged:
+                params['merged_interval_declarations'] = merged
+                if trace:
+                    trace('structure_normalized_output', structure)
             passed = validate_structure(structure, context, model)
         for mapping in structure['mappings']:
             mapping['chapter_title'] = model['sections'][mapping['chapter_id']]['title']
@@ -589,30 +631,40 @@ def run_numeric(ir, facts, request, trace=None):
         params['retrieval'] = retrieval
         if trace:
             trace('retrieval', {'candidates': candidates, 'diagnostics': retrieval})
-        # No silent JSON truncation or unbounded request. Later retrieval versions select Top-K.
-        prompt = verifier_prompt(structure, candidates)
-        require(len(prompt) <= 100000, 'experiment context exceeds budget')
-        checked = call(prompt)
+        groups = [structure['declarations']] if mode == 'batch' else [[d] for d in structure['declarations']]
+        results, errors = [], []
+        for group in groups:
+            ids = {d['id'] for d in group}
+            scoped = [c for c in candidates if c['declaration_id'] in ids]
+            task = {**structure, 'declarations': group, 'mappings': [m for m in structure['mappings'] if m['declaration_id'] in ids]}
+            prompt = verifier_prompt(task, scoped)
+            try:
+                require(len(prompt) <= 100000, 'experiment context exceeds budget')
+                checked = call(prompt)
+                if trace:
+                    trace('verifier_group_output', {'declaration_ids': sorted(ids), 'output': checked})
+                checked = resolve_citations(checked, scoped)
+                current, problems = validated_results(checked, group, scoped)
+                invalid = {e.get('declaration_id') for e in problems if e.get('declaration_id')}
+                if invalid:
+                    try:
+                        retry = repair(prompt, checked, problems, 'numeric_verifier:' + ','.join(sorted(ids)))
+                        corrected = rows(resolve_citations(retry, scoped), 'results')
+                        checked = {'results': [row for row in rows(checked, 'results') if row.get('declaration_id') not in invalid] +
+                                              [row for row in corrected if row.get('declaration_id') in invalid]}
+                        current, problems = validated_results(checked, group, scoped)
+                    except Exception as exc:
+                        params['contract_repairs'][-1]['failure'] = {'type': type(exc).__name__, 'message': str(exc)}
+                results.extend(current)
+                errors.extend(problems)
+            except Exception as exc:
+                for d in group:
+                    results.append({'declaration_id': d['id'], 'declaration': d, 'status': 'inconclusive',
+                                    'reason': '该声明核验执行失败：' + type(exc).__name__, 'suggestion': '', 'evidence': [],
+                                    'evidence_quote': '', 'evidence_page': None})
+                    errors.append({'declaration_id': d['id'], 'errors': ['model_call_failed'], 'type': type(exc).__name__, 'message': str(exc)})
         if trace:
-            trace('verifier_output', checked)
-        checked = resolve_citations(checked, candidates)
-        if trace:
-            trace('verifier_resolved_output', checked)
-        results, errors = validated_results(checked, structure['declarations'], candidates)
-        if errors:
-            invalid = {e.get('declaration_id') for e in errors if e.get('declaration_id')}
-            if invalid:
-                try:
-                    retry = repair(prompt, checked, errors, 'numeric_verifier')
-                    # Preserve every originally valid result, even if the retry changes it.
-                    corrected = rows(resolve_citations(retry, candidates), 'results')
-                    checked = {'results': [row for row in rows(checked, 'results') if row.get('declaration_id') not in invalid] +
-                                          [row for row in corrected if row.get('declaration_id') in invalid]}
-                    if trace:
-                        trace('verifier_repaired_output', checked)
-                    results, errors = validated_results(checked, structure['declarations'], candidates)
-                except Exception as exc:
-                    params['contract_repairs'][-1]['failure'] = {'type': type(exc).__name__, 'message': str(exc)}
+            trace('verifier_validated_output', {'results': results, 'errors': errors})
         params['numeric_results'], params['validation_errors'] = results, errors
         params['coverage'] = {'expected': len(structure['declarations']), 'returned_valid': sum(not any(x.get('declaration_id') == r['declaration_id'] for x in errors) for r in results), 'complete': not errors}
         for row in results:

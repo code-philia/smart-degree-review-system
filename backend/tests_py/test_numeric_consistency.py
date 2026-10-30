@@ -452,7 +452,7 @@ def test_verifier_contract_repair_is_bounded():
     responses = iter([structure, {'results': []}, answer])
     result = n.run_numeric(ir, facts, lambda messages: (next(responses), {}))
     assert result['execution_status'] == 'completed' and result['params']['coverage']['complete']
-    assert result['params']['contract_repairs'][0]['stage'] == 'numeric_verifier'
+    assert result['params']['contract_repairs'][0]['stage'] == 'numeric_verifier:d1'
 
 
 def test_program_citations_are_exact_and_never_fix_unknown_or_cross_ids():
@@ -481,3 +481,38 @@ def test_percentage_inventory_rejects_silent_omission_and_merged_metrics():
     with pytest.raises(n.ContractError):
         n.validate_structure(data, context, model)
     assert n.percentage_values('20.0%与20%及0.2%') == {'20', '0.2'}
+
+
+def test_identical_interval_bounds_merge_without_changing_raw_output():
+    ir, facts, data = fixture()
+    d = data['declarations'][0]
+    d['text'] = '准确率范围18.2%—21.4%'
+    d['number'] = 18.2
+    other = {**d, 'id': 'd2', 'number': 21.4}
+    data['declarations'].append(other)
+    data['mappings'].append({**data['mappings'][0], 'declaration_id': 'd2'})
+    normalized, merged = n.merge_duplicate_ranges(data)
+    assert len(data['declarations']) == 2 and len(normalized['declarations']) == 1
+    assert merged == [{'kept_id': 'd1', 'removed_id': 'd2', 'reason': 'identical_interval_source_and_scope'}]
+    assert normalized['declarations'][0]['number'] == '18.2—21.4'
+
+
+def test_verifier_isolates_claim_inputs_and_preserves_other_claim_after_timeout():
+    ir, facts, structure = fixture()
+    structure['declarations'].append({**structure['declarations'][0], 'id': 'd2', 'text': '提升5.3个百分点', 'number': 5.3, 'metric': '提升', 'unit': '百分点'})
+    structure['mappings'].append({**structure['mappings'][0], 'declaration_id': 'd2'})
+    inputs = []
+    def request(messages):
+        if not inputs:
+            inputs.append('locator')
+            return structure, {}
+        payload = json.loads(messages[0]['content'].split('输入：\n', 1)[1])
+        assert len(payload['tasks']) == 1
+        task = payload['tasks'][0]
+        inputs.append(task['declaration']['id'])
+        assert all(c['declaration_id'] == task['declaration']['id'] for c in task['candidates'])
+        if task['declaration']['id'] == 'd1': raise TimeoutError('first claim timed out')
+        return {'results': [{'declaration_id': 'd2', 'reason': '数值可核验', 'suggestion': '', 'status': 'consistent', 'evidence': [task['candidates'][0]['candidate_id']]}]}, {}
+    result = n.run_numeric(ir, facts, request)
+    assert inputs == ['locator', 'd1', 'd2']
+    assert [r['status'] for r in result['params']['numeric_results']] == ['inconclusive', 'consistent']

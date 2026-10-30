@@ -21,7 +21,8 @@ def replay(directory):
         except StopIteration:
             raise RuntimeError('Recorded call failed; see call_error artifacts')
         return result['parsed'], result['usage']
-    return run_numeric(ir, {'chinese_abstract': context['abstract']}, request)
+    return run_numeric(ir, {'chinese_abstract': context['abstract']}, request,
+                       verification_mode=manifest.get('versions', {}).get('verification_mode', 'batch'))
 
 
 if __name__ == '__main__':
