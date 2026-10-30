@@ -75,9 +75,16 @@ def request_json(messages: list[dict[str, str]]) -> tuple[dict[str, Any], dict[s
         method="POST",
     )
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    try:
+        request_timeout = max(
+            120.0,
+            float(os.environ.get("SJTU_API_REQUEST_TIMEOUT_SECONDS", "300")),
+        )
+    except (TypeError, ValueError):
+        request_timeout = 300.0
     for attempt in range(4):
         try:
-            with opener.open(request, timeout=120) as response:
+            with opener.open(request, timeout=request_timeout) as response:
                 raw = response.read(8 * 1024 * 1024 + 1)
             break
         except urllib.error.HTTPError as error:

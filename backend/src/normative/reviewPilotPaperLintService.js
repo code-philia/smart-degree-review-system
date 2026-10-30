@@ -377,7 +377,10 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
           if (typeof onProgress === 'function') await onProgress({ completed_rule_ids: [...completedRuleIds], total_rule_ids: normalizedRuleIds, rule_runs: [...completedRuns] });
         };
         if (bilingualRuleIds.length) {
-          tasks.push(runBilingualSemanticRules(pdfPath, bilingualRuleIds, ENGINE_TIMEOUT_MS, controller.signal)
+          const bilingualTimeout = bilingualRuleIds.includes('typo_detection_check')
+            ? SIX_RULE_TIMEOUT_MS
+            : ENGINE_TIMEOUT_MS;
+          tasks.push(runBilingualSemanticRules(pdfPath, bilingualRuleIds, bilingualTimeout, controller.signal)
             .then(async (part) => { parts.push(part); await reportProgress(bilingualRuleIds, part); }));
         }
         if (otherRuleIds.length) {
