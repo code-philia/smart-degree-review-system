@@ -580,3 +580,19 @@ def test_named_method_mapping_requires_its_actual_body_chapter():
         n.validate_structure(data, n.structure_context(facts, model), model)
     next(b for b in model['blocks'] if b['source_node_id'] == 'data')['text'] += ' GuardMODEL'
     assert n.validate_structure(data, n.structure_context(facts, model), model)
+
+
+def test_locator_section_aliases_cannot_be_confused_with_text_node_ids():
+    ir, facts, data = fixture()
+    model = n.source_model(ir)
+    context = n.structure_context(facts, model)
+    public = n.structure_input(context)
+    assert all(s['section_id'].startswith('S') for s in public['sections'])
+    assert all('source_node_id' not in b and 'block_id' not in b for b in public['blocks'])
+    assert all('heading_node_id' not in s for s in public['sections'])
+    reverse = {native: alias for alias, native in context['section_aliases'].items()}
+    data['mappings'][0] = {'declaration_id': 'd1', 'chapter_id': reverse['ch'], 'experiment_section_ids': [reverse['exp']]}
+    resolved = n.resolve_structure(data, context, model)
+    assert resolved['mappings'][0]['chapter_id'] == 'ch'
+    assert resolved['mappings'][0]['experiment_section_ids'] == ['exp']
+    assert n.validate_structure(resolved, context, model)

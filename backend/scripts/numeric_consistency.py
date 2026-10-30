@@ -9,7 +9,7 @@ import re
 from typing import Any
 
 RULE = 'abstract_numeric_consistency_check'
-CONTEXT_VERSION = 'numeric-context/4.0'
+CONTEXT_VERSION = 'numeric-context/4.1'
 CONTRACT_VERSION = 'numeric-contract/3.0'
 RETRIEVAL_VERSION = 'numeric-lexical/1.4'
 CONDITIONS = {'abstract_numeric', 'contribution_mapping', 'experiment_subsection'}
@@ -162,10 +162,21 @@ def structure_input(context):
     """Send source content, not the potentially huge omitted-block audit inventory."""
     public = {**context}
     public.pop('abstract', None)
+    aliases = context.get('section_aliases', {})
+    reverse = {native: alias for alias, native in aliases.items()}
+    public.pop('section_aliases', None)
+    public['sections'] = [{k: (reverse.get(v, v) if k in {'section_id', 'parent_id', 'main_chapter_id'} else v)
+                           for k, v in s.items() if k != 'heading_node_id'} for s in context['sections']]
+    public['main_chapter_ids'] = [reverse.get(s, s) for s in context.get('main_chapter_ids', [])]
+    public['blocks'] = [{'section_id': reverse.get(b['section_id'], b['section_id']),
+                         **{k: b[k] for k in ('page', 'block_type', 'text')}} for b in context['blocks']]
+    if context.get('navigation'):
+        public['navigation'] = {k: context['navigation'][k] for k in ('version', 'toc_visible_page') if k in context['navigation']}
     coverage = context['coverage']
     public['coverage'] = {'kept_count': len(coverage['kept']), 'dropped_count': len(coverage['dropped']), 'characters': coverage['characters']}
     public['toc'] = [{**row, 'text': re.sub(r'(?:\.\s*){3,}|…{2,}|⋯', ' … ', row.get('text', '')).strip()}
                      for row in context['toc'] if re.search(r'[\w\u3400-\u9fff]{2}', re.sub(r'\s+', '', row.get('text', '')))]
+    public['toc'] = [{k: v for k, v in row.items() if k in {'text', 'page', 'target_page'}} for row in public['toc']]
     return public
 
 
@@ -199,7 +210,14 @@ def resolve_structure(data, context, model):
                         text = matched[0]
                 row.update(text=text, text_origin='program_abstract_span')
     for mapping in resolved.get('mappings', []) if isinstance(resolved.get('mappings'), list) else []:
-        if not isinstance(mapping, dict) or 'evidence' in mapping:
+        if not isinstance(mapping, dict):
+            continue
+        aliases = context.get('section_aliases', {})
+        if isinstance(mapping.get('chapter_id'), str):
+            mapping['chapter_id'] = aliases.get(mapping['chapter_id'], mapping['chapter_id'])
+        if isinstance(mapping.get('experiment_section_ids'), list):
+            mapping['experiment_section_ids'] = [aliases.get(s, s) if isinstance(s, str) else s for s in mapping['experiment_section_ids']]
+        if 'evidence' in mapping:
             continue
         evidence = []
         for sid in mapping.get('experiment_section_ids', []) if isinstance(mapping.get('experiment_section_ids'), list) else []:
@@ -267,6 +285,7 @@ def structure_context(facts, model):
                'coverage': coverage, 'limitations': model['limitations'], 'navigation': model.get('navigation')}
     context['abstract_percentage_inventory'] = sorted(percentage_values(abstract))
     context['abstract_spans'] = abstract_spans(abstract)
+    context['section_aliases'] = {'S' + str(i+1): s['section_id'] for i, s in enumerate(catalog)}
     require(len(json.dumps(structure_input(context), ensure_ascii=False)) <= 100000, 'structure context exceeds budget')
     return context
 
