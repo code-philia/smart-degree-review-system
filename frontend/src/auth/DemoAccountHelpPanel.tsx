@@ -34,7 +34,7 @@ function DemoAccountHelpPanel() {
       </summary>
 
       <p className="mt-3 text-sm leading-6 text-slate-600">
-        试点版本目前仅支持账号密码方式登录。默认演示密码为
+        也可使用本地账号密码登录。默认演示密码为
         ArcDemo123!，四个账号分别对应不同角色，可用于体验登录后的界面与操作。
       </p>
 
@@ -62,7 +62,7 @@ function DemoAccountHelpPanel() {
       </div>
 
       <div className="mt-4 rounded border border-amber-100 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
-        说明：试点版本尚未接入 jAccount、短信验证码或扫码登录；如需登录，请直接使用上方试用账号与密码。
+        说明：交大师生可使用上方 jAccount 入口登录；本地试用账号继续保留。
       </div>
     </details>
   );

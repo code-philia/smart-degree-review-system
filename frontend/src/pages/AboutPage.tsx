@@ -1,6 +1,7 @@
 import { PageHeader, Card } from '../components/ui';
 
 const AVAILABLE_CAPABILITIES = [
+  { title: '统一身份认证', text: '支持 jAccount 统一身份认证与本地账号密码登录。' },
   { title: '基础规则检测', text: '按当前生效规则检查章节顺序、标点配对、参考文献和禁用词等问题，并定位到具体行列。' },
   {
     title: 'PDF 语义规则审查',
@@ -15,7 +16,6 @@ const AVAILABLE_CAPABILITIES = [
 ];
 
 const UNAVAILABLE_CAPABILITIES = [
-  { title: '统一身份认证', text: '暂未接入 jAccount、短信验证码或微信扫码登录，当前使用账号密码方式登录。' },
   {
     title: '通用大模型能力',
     text: '外部模型目前只用于 3 条明确标注的 PDF 语义规则；润色、创新性评估和辅助评阅仍由本地规则与公式计算。',

@@ -31,6 +31,10 @@ async function login(username, password) {
     return null;
   }
 
+  return createUserSession(user);
+}
+
+async function createUserSession(user) {
   const sessionId = crypto.randomUUID();
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
   await sessionRepository.createSession(sessionId, user.id, expiresAt);
@@ -66,6 +70,7 @@ async function logout(sessionId) {
 module.exports = {
   SESSION_COOKIE_NAME,
   SESSION_TTL_MS,
+  createUserSession,
   login,
   loadSession,
   logout,

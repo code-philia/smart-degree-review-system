@@ -28,16 +28,22 @@ function HeroPanel() {
   );
 }
 
-function UnsupportedQrColumn() {
+function JaccountColumn() {
+  const error = new URLSearchParams(window.location.search).get('jaccount_error');
+  const errors: Record<string, string> = {
+    state: 'jAccount 登录已过期，请重新登录。',
+    provider: 'jAccount 登录暂未完成，请重试。',
+    denied: '已取消 jAccount 登录，可重新登录。',
+    unavailable: 'jAccount 登录暂不可用，请使用本地账号登录。',
+  };
   return (
-    <section className="flex w-56 flex-col items-center text-center" aria-label="扫码登录说明">
+    <section className="flex w-56 flex-col items-center text-center" aria-label="校内账号登录">
       <h2 className="text-xl font-bold text-slate-800">其他登录方式</h2>
-      <div className="mt-6 flex h-44 w-44 items-center justify-center border border-dashed border-slate-300 bg-slate-50 text-sm font-semibold leading-6 text-slate-500">
-        微信扫码、交我办与短信验证码登录
-        <br />
-        试点版本暂未开放
-      </div>
-      <p className="mt-5 text-sm leading-6 text-slate-500">请使用右侧账号密码方式登录。</p>
+      <a href="/api/auth/jaccount" className="mt-6 flex min-h-12 w-full items-center justify-center rounded bg-[#4F7FF0] px-4 py-3 font-bold text-white hover:bg-blue-600">
+        使用 jAccount 登录
+      </a>
+      <p className="mt-5 text-sm leading-6 text-slate-500">跳转交大统一身份认证，使用校内账号登录。</p>
+      {error && typeof errors[error] === 'string' ? <p role="alert" className="mt-4 text-sm text-red-600">{errors[error]}</p> : null}
     </section>
   );
 }
@@ -70,7 +76,7 @@ function AuthPage({ accountFormSlot, helpSlot }: AuthPageProps) {
         </div>
 
         <section className="flex flex-1 flex-col gap-10 pt-2 lg:flex-row lg:items-start" aria-label="身份认证区域">
-          <UnsupportedQrColumn />
+          <JaccountColumn />
 
           <section className="w-full max-w-[370px]" aria-label="账号密码登录区域">
             <h2 className="text-2xl font-black text-slate-900">登录本地账号</h2>

@@ -1,6 +1,7 @@
 const express = require('express');
 const { SESSION_COOKIE_NAME, SESSION_TTL_MS, loadSession, login, logout } = require('./sessionService');
 const { parseCookies, requireAuth } = require('./authMiddleware');
+const jaccount = require('./jaccountService');
 
 const router = express.Router();
 
@@ -12,6 +13,37 @@ const cookieOptions = {
   secure: process.env.ARC_COOKIE_SECURE === '1',
   path: '/',
 };
+
+const campusCookieOptions = { ...cookieOptions, path: '/api/auth/jaccount' };
+
+router.get('/jaccount/config', (req, res) => {
+  res.json({ enabled: jaccount.isConfigured() });
+});
+
+router.get('/jaccount', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const result = await jaccount.beginLogin();
+    res.cookie(jaccount.STATE_COOKIE_NAME, result.state, { ...campusCookieOptions, maxAge: jaccount.STATE_TTL_MS });
+    res.redirect(result.url);
+  } catch (error) {
+    res.redirect(`/auth?jaccount_error=${error.jaccountCode || 'unavailable'}`);
+  }
+});
+
+router.get('/jaccount/callback', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const cookies = parseCookies(req.headers.cookie || '');
+  res.clearCookie(jaccount.STATE_COOKIE_NAME, campusCookieOptions);
+  try {
+    const result = await jaccount.completeLogin({ state: req.query.state,
+      browserState: cookies[jaccount.STATE_COOKIE_NAME], code: req.query.code, providerError: req.query.error });
+    res.cookie(SESSION_COOKIE_NAME, result.sessionId, { ...cookieOptions, maxAge: SESSION_TTL_MS });
+    res.redirect('/thirty-rules-check');
+  } catch (error) {
+    res.redirect(`/auth?jaccount_error=${error.jaccountCode || 'provider'}`);
+  }
+});
 
 router.post('/login', async (req, res, next) => {
   try {

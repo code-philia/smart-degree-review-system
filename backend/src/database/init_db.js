@@ -83,6 +83,11 @@ async function initializeDatabase(options = {}) {
       );`,
     );
 
+    await runStatement(database, `CREATE TABLE IF NOT EXISTS auth_jaccount_states (
+      state_hash TEXT PRIMARY KEY,
+      expires_at TEXT NOT NULL
+    );`);
+
     await runStatement(
       database,
       `CREATE TABLE IF NOT EXISTS demo_seed_metadata (
