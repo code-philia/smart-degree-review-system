@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Authenticated host CLI for paper compilation and evaluation; no public compiler endpoint."""
-import argparse,hashlib,json,os,sys
+import argparse,hashlib,json,os,sys,traceback
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from paper_compiler.storage import write_json_atomic,json_bytes
@@ -198,5 +198,8 @@ def main():
         # Preserve the bounded, non-secret root cause for the authenticated host
         # so callers can distinguish API, evidence, validation and program errors.
         message = str(error).strip() or 'Compiler operation failed'
-        print(json.dumps({'status':'error','error_type':type(error).__name__,'message':message[:1000]}));return 1
+        detail = traceback.format_exc(limit=6).strip()
+        if detail and detail != 'NoneType: None':
+            message = f'{message} [{detail[-1200:]}]'
+        print(json.dumps({'status':'error','error_type':type(error).__name__,'message':message[:2000]}));return 1
 if __name__=='__main__':sys.exit(main())
