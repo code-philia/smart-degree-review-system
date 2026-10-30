@@ -173,7 +173,7 @@
     {
       "rule_id": "sjtu_rule_32",
       "number": 32,
-      "title": "规则 32 · 引用的外部文献不存在",
+      "title": "引用的外部文献不存在",
       "description": "仅展示经规范与原文复核确认的告警。",
       "family": "compiler",
       "runner": "paper_compiler",
