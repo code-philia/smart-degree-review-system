@@ -405,6 +405,14 @@ def test_explicit_main_chapter_catalog_and_compact_verifier_input():
     assert next(s for s in context['sections'] if s['section_id'] == 'exp')['main_chapter_id'] == 'ch'
     candidates, _ = n.retrieve_candidates(structure['declarations'], structure['mappings'], model)
     candidates[0]['debug_payload'] = 'unused-debug' * 10000
+    structure['mappings'][0]['evidence'][0]['quote'] = 'locator-only-private-source'
     prompt = n.verifier_prompt(structure, candidates)
     assert 'unused-debug' not in prompt
+    assert 'locator-only-private-source' not in prompt
     assert all(c['text'] in json.loads(prompt.split('输入：\n', 1)[1])['candidates'][i]['text'] for i, c in enumerate(candidates))
+
+
+@pytest.mark.parametrize('metric,text', [('软件攻击面', '攻击面削减得分为0.20'), ('程序体积', '代码体积减少0.54')])
+def test_metric_alias_retrieves_fractional_result(metric, text):
+    score, signals = n.retrieval_signals({'metric': metric, 'number': 20}, {'text': text, 'block_type': 'Paragraph'})
+    assert score >= 6 and any(s['kind'] == 'metric' for s in signals)
