@@ -547,7 +547,7 @@ def conservative_evidence_guard(results):
         reason, declaration = row['reason'], row['declaration']['text']
         source = '\n'.join(e['quote'] for e in row['evidence'])
         gap = None
-        if status == 'inconsistent' and re.search(r'无法(?:支持|确认|判断|证明)|不能(?:确认|判定)|证据不足|缺乏(?:直接)?证据', reason):
+        if status == 'inconsistent' and re.search(r'无法(?:支持|确认|判断|证明)|不能(?:确认|判定)|证据不足|证据不支持|未提供可核验|缺乏(?:直接)?证据', reason):
             gap = '模型解释仅能说明证据不足，不能据此认定摘要与实验结果矛盾。'
         elif status == 'consistent' and re.search(r'平均|均值|\b(?:mean|average)\b', declaration, re.I) and not re.search(r'平均|均值|\b(?:mean|average)\b', source, re.I):
             gap = '已定位相关数值，但引用原文未明确该指标的平均统计口径，需要核实统计范围。'
@@ -595,7 +595,7 @@ def run_numeric(ir, facts, request, trace=None, verification_mode=None):
     mode = verification_mode or os.environ.get('PAPER_NUMERIC_VERIFIER_MODE', 'per_declaration')
     require(mode in {'batch', 'per_declaration'}, 'invalid numeric verifier mode')
     params['versions']['verification_mode'] = mode
-    params['versions']['evidence_sufficiency'] = 'conservative-statistics/1.0'
+    params['versions']['evidence_sufficiency'] = 'conservative-statistics/1.1'
     result = {'rule_run_id': 'run_' + RULE, 'rule_id': RULE, 'severity': 'warning', 'params': params,
               'execution_status': 'completed', 'evidence_mode': 'derived', 'outcome': 'inconclusive', 'message': None, 'findings': [], 'model_usage': usage}
     def call(prompt):
