@@ -1,73 +1,9 @@
 import type { ReactNode } from 'react';
-import { ArrowUpRight, BookOpenCheck, Check, FileText, ScanLine, Sparkles } from 'lucide-react';
+import { ArrowUpRight, BookOpenCheck, Pause, Play, ScanLine, Sparkles } from 'lucide-react';
+import useAuthCampusScene from './useAuthCampusScene';
+import './auth-campus.css';
 
 type AuthPageProps = { accountFormSlot?: ReactNode; helpSlot?: ReactNode };
-
-function AcademicIllustration() {
-  return (
-    <figure className="academic-illustration" aria-label="校园与智能论文审阅插图">
-      <div className="illustration-grid" aria-hidden="true" />
-      <svg className="illustration-connections" viewBox="0 0 600 330" fill="none" aria-hidden="true">
-        <path d="M55 95H150Q175 95 175 120V200Q175 220 200 220H425M120 285H265Q290 285 290 260V65H500" />
-        <circle cx="55" cy="95" r="5" />
-        <circle cx="120" cy="285" r="4" />
-        <circle cx="500" cy="65" r="5" />
-        <circle className="connection-pulse" cx="175" cy="170" r="9" />
-      </svg>
-      <div className="campus-photo">
-        <img
-          src="/sjtu-portal-gate.png"
-          alt="交通大学校门线稿，与交大教学信息服务网使用相同背景"
-          width="1920"
-          height="1080"
-          fetchPriority="high"
-        />
-      </div>
-      <div className="review-document" aria-hidden="true">
-        <div className="document-heading">
-          <span className="document-icon">
-            <FileText size={19} />
-          </span>
-          <span>
-            学位论文<span className="document-caption">智能规范检测</span>
-          </span>
-          <span className="document-dot" />
-        </div>
-        <div className="document-title-line" />
-        <div className="document-line" />
-        <div className="document-line short" />
-        <div className="document-scan">
-          <span />
-          <span />
-          <span />
-          <span />
-        </div>
-        <div className="document-check">
-          <Check size={14} />
-          <span>格式排版</span>
-          <i />
-        </div>
-        <div className="document-check">
-          <Check size={14} />
-          <span>文字表述</span>
-          <i />
-        </div>
-        <div className="document-check">
-          <Check size={14} />
-          <span>语言规范</span>
-          <i />
-        </div>
-        <div className="document-foot">
-          <Sparkles size={13} /> AI 辅助 · 专注研究
-        </div>
-      </div>
-      <div className="ai-note" aria-hidden="true">
-        <Sparkles size={17} />
-        <span>让规范检查更轻松</span>
-      </div>
-    </figure>
-  );
-}
 
 function HeroPanel() {
   return (
@@ -85,7 +21,6 @@ function HeroPanel() {
         <br className="hidden sm:block" />
         都得到更细致的审阅。
       </p>
-      <AcademicIllustration />
       <div className="auth-capabilities" aria-label="系统检测能力">
         <span>
           <BookOpenCheck size={17} />
@@ -138,12 +73,19 @@ function DefaultAccountSlot() {
 }
 
 export default function AuthPage({ accountFormSlot, helpSlot }: AuthPageProps) {
+  const { imageRef, motionRef, enabled, preference, toggleMotion } = useAuthCampusScene();
+  const motionLabel = enabled ? '暂停背景动效' : '开启轻微视差';
   return (
-    <main className="auth-page">
+    <main className="auth-page auth-campus-login" data-motion={preference}>
+      <div className="auth-campus-scene" aria-hidden="true">
+        <div className="auth-photo-motion" ref={motionRef}>
+          <img ref={imageRef} src="/sjtu-siyuan-monument.jpg" alt="" width="2048" height="1397" fetchPriority="high" />
+        </div>
+      </div>
       <div className="auth-container">
         <header className="auth-brand">
           <div className="auth-brand-lockup">
-            <img src="/brand-mark.jpg" alt="上海交通大学校徽" width="40" height="40" />
+            <img src="/brand-mark.jpg" alt="上海交通大学校徽" width="43" height="43" />
             <div>
               <p>
                 智慧学位 <span>AI 评阅辅助系统</span>
@@ -151,9 +93,22 @@ export default function AuthPage({ accountFormSlot, helpSlot }: AuthPageProps) {
               <span className="auth-brand-en">SMART DEGREE · AI REVIEW</span>
             </div>
           </div>
-          <span className="pilot-badge">
-            <span /> 试点验证版 V0.9
-          </span>
+          <div className="auth-header-actions">
+            <button
+              className="auth-motion-toggle"
+              type="button"
+              onClick={toggleMotion}
+              aria-label={motionLabel}
+              aria-pressed={enabled}
+              title={motionLabel}
+            >
+              {enabled ? <Pause size={13} aria-hidden="true" /> : <Play size={13} aria-hidden="true" />}
+              <span>{enabled ? '轻微视差' : '开启视差'}</span>
+            </button>
+            <span className="pilot-badge">
+              <span /> 试点验证版 V0.9
+            </span>
+          </div>
         </header>
         <div className="auth-layout">
           <HeroPanel />
@@ -175,26 +130,14 @@ export default function AuthPage({ accountFormSlot, helpSlot }: AuthPageProps) {
               </details>
               {helpSlot ? <div className="auth-demo">{helpSlot}</div> : null}
             </section>
+            <section className="system-description" aria-label="系统说明">
+              <h2>关于本系统</h2>
+              <p>
+                本系统依托人工智能技术，对照国家标准与学校规范，为学位论文提供格式排版、文字表述、语言规范等自动化检测，并给出修改建议。论文数据均在校内处理，保障信息安全。检测结果仅供参考，系统尚在测试中，欢迎通过“使用反馈”提出建议，我们将持续优化。
+              </p>
+            </section>
           </section>
         </div>
-        <section className="system-description" aria-label="系统说明">
-          <span className="system-description-icon">
-            <BookOpenCheck size={20} aria-hidden="true" />
-          </span>
-          <div>
-            <h2>关于本系统</h2>
-            <p>
-              本系统依托人工智能技术，对照国家标准与学校规范，为学位论文提供格式排版、文字表述、语言规范等自动化检测，并给出修改建议。论文数据均在校内处理，保障信息安全。检测结果仅供参考，系统尚在测试中，欢迎通过“使用反馈”提出建议，我们将持续优化。
-            </p>
-          </div>
-        </section>
-        <footer className="auth-footer">
-          <span>智慧学位 AI 评阅辅助系统</span>
-          <a href="https://i.sjtu.edu.cn/" target="_blank" rel="noreferrer">
-            校门背景：交大教学信息服务网
-            <ArrowUpRight size={12} aria-hidden="true" />
-          </a>
-        </footer>
       </div>
     </main>
   );
