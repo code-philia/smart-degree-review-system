@@ -67,6 +67,11 @@ def main():
                       'failure': result['params'].get('failure'), 'trace': result['params'].get('trace'),
                       'preconditions': result['params'].get('preconditions'),
                       'results': [{'id': r['declaration_id'], 'status': r['status'], 'reason': r['reason'], 'evidence': r.get('evidence_quote')} for r in result['params'].get('numeric_results', [])]}, ensure_ascii=False), flush=True)
+    expected = {'consistent': 'passed', 'conflict': 'issues_found', 'missing-experiments': 'inconclusive'}[args.case]
+    if result['execution_status'] != 'completed' or result['outcome'] != expected:
+        raise SystemExit(2)
+    if args.case == 'missing-experiments' and result['params']['stage'] != 'structure_locator':
+        raise SystemExit('Missing experiments must stop before numeric_verifier')
 
 
 if __name__ == '__main__':
