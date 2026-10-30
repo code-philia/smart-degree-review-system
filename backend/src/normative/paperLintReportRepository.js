@@ -2,6 +2,7 @@ const { randomUUID } = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { all, get, run } = require('../database');
+const { withTransaction } = require('../database/db_runtime');
 
 function reportsDirectory() {
   return path.resolve(process.env.PAPER_LINT_REPORTS_DIR || path.join(process.cwd(), 'data', 'paper-lint-reports'));
@@ -88,9 +89,29 @@ async function getPaperLintReportPdfFile(id, userId) {
   }
 }
 
+async function deletePaperLintReportsForUser(ids, userId) {
+  const uniqueIds = [...new Set(ids)];
+  const placeholders = uniqueIds.map(() => '?').join(',');
+  const rows = await withTransaction(async (tx) => {
+    const owned = await tx.all(`SELECT id, source_pdf_path FROM paper_lint_reports WHERE user_id = ? AND id IN (${placeholders})`, [userId, ...uniqueIds]);
+    if (owned.length !== uniqueIds.length) return null;
+    await tx.run(`DELETE FROM paper_lint_reports WHERE user_id = ? AND id IN (${placeholders})`, [userId, ...uniqueIds]);
+    return owned;
+  });
+  if (!rows) return null;
+  await Promise.all(rows.map(row => fs.promises.rm(row.source_pdf_path, { force: true })));
+  return uniqueIds;
+}
+
+async function deletePaperLintReportForUser(id, userId) {
+  return Boolean(await deletePaperLintReportsForUser([id], userId));
+}
+
 module.exports = {
   createPaperLintReport,
   findPaperLintReportByIdForUser,
   listPaperLintReportsByUser,
   getPaperLintReportPdfFile,
+  deletePaperLintReportForUser,
+  deletePaperLintReportsForUser,
 };

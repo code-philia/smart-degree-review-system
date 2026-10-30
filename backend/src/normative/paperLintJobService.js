@@ -6,6 +6,7 @@ const defaultPaperLintService = require('./reviewPilotPaperLintService');
 function createPaperLintJobService(paperLintService = defaultPaperLintService) {
   const queue = [];
   const queued = new Set();
+  const activeRuns = new Map();
   let active = false;
 
   function add(id) {
@@ -16,37 +17,69 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
   }
 
   async function process(id) {
-    if (!(await repository.claimJob(id))) return;
-    const job = await repository.getJob(id);
-    if (!job) return;
+    const controller = new AbortController();
+    let finish;
+    const finished = new Promise(resolve => { finish = resolve; });
+    activeRuns.set(id, { controller, finished });
+    let job;
     try {
+      if (!(await repository.claimJob(id))) return;
+      job = await repository.getJob(id);
+      if (!job || job.cancelled_at || controller.signal.aborted) return;
       const alreadySaved = await reportRepository.findPaperLintReportByIdForUser(id, job.user_id);
       if (alreadySaved) {
-        await repository.completeJob(id, id);
+        if (!(await repository.completeJob(id, id))) {
+          await reportRepository.deletePaperLintReportForUser(id, job.user_id);
+        }
       } else {
         const pdfBuffer = await fs.promises.readFile(job.source_pdf_path);
         const selectedRuleIds = JSON.parse(job.selected_rule_ids_json);
         const checked = await paperLintService.runPaperLint({
           pdfBuffer, selectedRuleIds, externalProcessingConsent: Boolean(job.external_consent),
           background: true,
+          signal: controller.signal,
           onProgress: (progress) => repository.updateProgress(id, progress),
         });
+        if (controller.signal.aborted) return;
         await reportRepository.createPaperLintReport({
           userId: job.user_id, sourceFilename: job.source_filename, pdfBuffer,
           selectedRuleIds: checked.selectedRuleIds, result: checked.result, reportId: id,
         });
-        await repository.completeJob(id, id);
+        if (!(await repository.completeJob(id, id))) {
+          await reportRepository.deletePaperLintReportForUser(id, job.user_id);
+        }
       }
-      await fs.promises.rm(job.source_pdf_path, { force: true });
     } catch (error) {
+      if (controller.signal.aborted) return;
       const message = error?.code === 'INVALID_PDF'
         ? 'PDF 文件无效或无法解析，请重新上传'
         : error?.message
           ? `检测失败，请重试：${error.message}`
           : '检测失败，请重试';
       await repository.failJob(id, message);
-      await fs.promises.rm(job.source_pdf_path, { force: true });
+    } finally {
+      try {
+        if (job) await fs.promises.rm(job.source_pdf_path, { force: true });
+      } finally {
+        activeRuns.delete(id);
+        finish();
+      }
     }
+  }
+
+  async function cancelForUser(id, userId) {
+    const job = await repository.cancelJobForUser(id, userId);
+    if (!job) return null;
+    if (job.cancelled_at) {
+      const activeRun = activeRuns.get(id);
+      if (activeRun) {
+        activeRun.controller.abort();
+        await activeRun.finished;
+      } else {
+        await fs.promises.rm(job.source_pdf_path, { force: true });
+      }
+    }
+    return repository.getJobForUser(id, userId);
   }
 
   async function drain() {
@@ -84,7 +117,7 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
     }
   }
 
-  return { enqueue, getForUser: repository.getJobForUser, resumeJobs, waitForIdle };
+  return { enqueue, getForUser: repository.getJobForUser, cancelForUser, resumeJobs, waitForIdle };
 }
 
 const defaultJobService = createPaperLintJobService();

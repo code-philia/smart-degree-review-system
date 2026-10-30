@@ -30,6 +30,8 @@ def _join_wrapped_keyword_lines(parts: list[str], *, remove_wrap_hyphen: bool = 
             continue
         if re.search(r"[A-Za-z]-$", combined) and re.match(r"^[A-Za-z]", next_part):
             combined = (combined[:-1] if remove_wrap_hyphen else combined) + next_part
+        elif _CJK.search(combined[-1:]) and _CJK.match(next_part):
+            combined += next_part
         else:
             combined += " " + next_part
     return combined
@@ -110,112 +112,190 @@ def _overlapping_keyword_fragment(previous_bbox, current_bbox, previous_text, cu
     height = min(py2 - py1, cy2 - cy1)
     return overlap >= max(1.0, height * 0.5) and cx2 <= px1 + 12
 
+
 def extract_bilingual_facts(ir):
     nodes = ir.get("nodes", [])
     by_id = {node.get("id"): node for node in nodes if node.get("id")}
-    abstracts = [_node_text(node, by_id) for node in nodes if node.get("kind") == "Abstract" and _node_text(node, by_id)]
+    # Native layout is authoritative: paragraph nodes can contain only the first
+    # keyword row, or can still belong to a front-matter section after its end.
+    flat = [(page, line) for page in ir.get("layout", {}).get("pages", [])
+            for line in _keyword_layout_lines(page.get("lines", []))
+            if str(line.get("text", "")).strip()]
+
+    def compact(text):
+        return re.sub(r"\s+", "", text).casefold()
+
+    def text_at(index):
+        return str(flat[index][1].get("text", "")).strip()
+
+    def locator(text):
+        return bool(re.fullmatch(r"(?:[-—–]\s*)?(?:第\s*)?[ivxlcdm\d]+(?:\s*页)?(?:\s*[-—–])?",
+                                 text.strip(), re.I))
+
+    def metadata(text):
+        return bool(re.match(r"^(?:中图分类号|分类号|CLC\s*code|UDC)\s*[:：]", text, re.I))
+
+    def section_boundary(text, index=None, previous_body=None):
+        value = compact(text)
+        numbered = False
+        if index and previous_body is not None and re.fullmatch(r"\d+(?:\.\d+)*\s+\S.{0,65}", text):
+            box = flat[index][1].get("bbox")
+            previous_box = flat[previous_body][1].get("bbox")
+            numbered = bool(box and previous_box and box[3] - box[1] >
+                            (previous_box[3] - previous_box[1]) * 1.2)
+        return (value in {"目录", "目次", "contents", "tableofcontents", "摘要", "abstract"}
+                or metadata(text) or numbered
+                or bool(re.match(r"^(?:第[一二三四五六七八九十百\d]+章|chapter\s+\d+)",
+                                 text, re.I)))
+
+    def location(index):
+        page, _line = flat[index]
+        return {"page_number": int(page.get("page_index", 0)) + 1,
+                "text_excerpt": text_at(index)[:500]}
+
     keywords = []
-    for line in [str(node.get("text") or "") for node in nodes] + _line_rows(ir):
-        for part in line.splitlines():
-            match = _KEYWORDS.match(part)
-            if match:
-                values = [item.strip() for item in _SEPARATOR.split(match.group(2)) if item.strip()]
-                if not values:
-                    continue
-                item = {"label": match.group(1), "values": values,
-                        "match_values": _keyword_match_values(values), "text": part}
-                if item not in keywords: keywords.append(item)
-    # Paper Model layout is authoritative even when a split heading (摘/要) leaves
-    # the body as ordinary paragraphs. Stitch each abstract from native lines.
-    flat = []
-    flat_bboxes = []
-    for page in ir.get("layout", {}).get("pages", []):
-        for line in _keyword_layout_lines(page.get("lines", [])):
-            text = str(line.get("text", "")).strip()
-            if text:
-                flat.append((page.get("page_index", 0), text))
-                flat_bboxes.append(line.get("bbox"))
-    # Rejoin keyword lines split by PDF layout (e.g. Re- / verse).
-    for i, (_, text) in enumerate(flat):
-        match = _KEYWORDS.match(text)
+    keyword_locations = {}
+    for index, (page, line) in enumerate(flat):
+        match = _KEYWORDS.match(text_at(index))
         if not match:
             continue
         parts = [match.group(2)]
-        for offset, (_, following) in enumerate(flat[i + 1:i + 9], 1):
-            absolute_index = i + offset
-            if _overlapping_keyword_fragment(
-                flat_bboxes[absolute_index - 1], flat_bboxes[absolute_index],
-                flat[absolute_index - 1][1], following,
-            ):
+        previous = line
+        for following_page, following_line in flat[index + 1:]:
+            following = str(following_line.get("text", "")).strip()
+            if following_page.get("page_index") != page.get("page_index"):
+                break
+            if _overlapping_keyword_fragment(previous.get("bbox"), following_line.get("bbox"),
+                                             str(previous.get("text", "")), following):
                 continue
-            compact_following = re.sub(r"\s+", "", following)
-            if re.fullmatch(r"[ivxlcdm]+", compact_following, re.I) or _KEYWORDS.match(following):
+            if locator(following) or _KEYWORDS.match(following) or section_boundary(following):
                 break
-            if compact_following in {"目录", "目次", "contents", "abstract"}:
-                break
+            previous_box, box = previous.get("bbox"), following_line.get("bbox")
+            if previous_box and box:
+                line_height = max(previous_box[3] - previous_box[1], box[3] - box[1], 1)
+                # A continuation is the next physical text row, not arbitrary
+                # subsequent text elsewhere on the page.
+                gap = box[1] - previous_box[3]
+                if gap < -line_height * .5 or gap > line_height * 1.5:
+                    break
             parts.append(following)
+            previous = following_line
         combined = _join_wrapped_keyword_lines(parts)
         match_combined = _join_wrapped_keyword_lines(parts, remove_wrap_hyphen=True)
         values = [item.strip() for item in _SEPARATOR.split(combined) if item.strip()]
         if not values:
             continue
-        match_values = [item.strip() for item in _SEPARATOR.split(match_combined) if item.strip()]
-        candidate = {"label": match.group(1), "values": values,
-                     "match_values": match_values, "text": combined}
-        for index, existing in enumerate(keywords):
-            if existing["label"].casefold() == candidate["label"].casefold():
-                if len(candidate["text"]) > len(existing["text"]): keywords[index] = candidate
-                break
-        else:
-            keywords.append(candidate)
+        item = {"label": match.group(1), "values": values,
+                "match_values": [item.strip() for item in _SEPARATOR.split(match_combined) if item.strip()],
+                "text": combined}
+        keywords.append(item)
+        keyword_locations[id(item)] = location(index)
 
-    def section(label, stop):
-        normalized_label = re.sub(r"\s+", "", label).casefold()
-        start = next((i for i, (_, text) in enumerate(flat)
-                      if re.sub(r"\s+", "", text).casefold() == normalized_label), None)
-        if start is None and label == "摘要":
-            start = next((i for i in range(len(flat)-1)
-                          if re.sub(r"\s+", "", flat[i][1]) == "摘"
-                          and re.sub(r"\s+", "", flat[i+1][1]) == "要"), None)
-        if start is None:
-            return None, None
-        body = []
-        first_body = None
-        for page_index, text in flat[start + 1:]:
-            compact = re.sub(r"\s+", "", text).casefold()
-            normalized_stop = {re.sub(r"\s+", "", item).casefold() for item in stop}
-            if compact in normalized_stop or _KEYWORDS.match(text):
-                break
-            if compact in {normalized_label, "摘要", "abstract"}:
+    if not flat:
+        for node in nodes:
+            for part in str(node.get("text") or "").splitlines():
+                match = _KEYWORDS.match(part)
+                if match:
+                    values = [value.strip() for value in _SEPARATOR.split(match.group(2)) if value.strip()]
+                    if values:
+                        keywords.append({"label": match.group(1), "values": values,
+                                         "match_values": _keyword_match_values(values), "text": part})
+
+    ignored_ids = {source.get("line_id") for node in nodes
+                   if node.get("attrs", {}).get("role") in {"running_header", "running_footer", "page_number"}
+                   for source in node.get("provenance", [])}
+    top_rows = {}
+    top_sizes = {}
+    for page, line in flat:
+        box = line.get("bbox")
+        if box and box[1] < float(page.get("height") or 840) * .13:
+            value = compact(str(line.get("text", "")))
+            top_rows.setdefault(value, set()).add(page.get("page_index"))
+            top_sizes.setdefault(value, []).append(float(line.get("font_size") or box[3] - box[1]))
+
+    def noise(index):
+        page, line = flat[index]
+        if line.get("id") in ignored_ids or locator(text_at(index)):
+            return True
+        box = line.get("bbox")
+        return bool(box and box[1] < float(page.get("height") or 840) * .13
+                    and len(top_rows.get(compact(text_at(index)), set())) > 1)
+
+    def heading_end(index, label):
+        value = compact(text_at(index))
+        end = index
+        if value != label:
+            if not (label == "摘要" and value == "摘" and index + 1 < len(flat)
+                    and compact(text_at(index + 1)) == "要"
+                    and flat[index + 1][0].get("page_index") == flat[index][0].get("page_index")):
+                return None
+            first_box, next_box = flat[index][1].get("bbox"), flat[index + 1][1].get("bbox")
+            if first_box and next_box and abs(first_box[1] - next_box[1]) > max(first_box[3] - first_box[1], 1) * .5:
+                return None
+            end += 1
+        # TOC labels may be exposed as exact titles with a separate page
+        # locator on the same baseline. They are not content headings.
+        box = flat[end][1].get("bbox")
+        if box:
+            for other_page, other in flat[end + 1:end + 4]:
+                other_box = other.get("bbox")
+                if other_page.get("page_index") != flat[index][0].get("page_index"):
+                    break
+                if (other_box and abs(other_box[1] - box[1]) <= max(box[3] - box[1], 1) * .5
+                        and locator(str(other.get("text", "")))):
+                    return None
+        return end
+
+    def section(label):
+        candidates = []
+        for start in range(len(flat)):
+            end = heading_end(start, label)
+            if end is None:
                 continue
-            if first_body is None:
-                first_body = {"page_number": int(page_index) + 1,
-                              "text_excerpt": text[:500]}
-            body.append(text)
-            if len(body) >= 180:
-                break
-        return "\n".join(body).strip() or None, first_body
+            if noise(start):
+                line = flat[start][1]
+                box = line.get("bbox")
+                size = float(line.get("font_size") or (box[3] - box[1] if box else 0))
+                # A real title can share its text and top-margin position with
+                # smaller continuation headers. Retain its source typography.
+                if size <= min(top_sizes.get(compact(text_at(start)), [size])):
+                    continue
+            body = []
+            first_body = None
+            previous_body = None
+            matched_keywords = False
+            cursor = end + 1
+            while cursor < len(flat):
+                text = text_at(cursor)
+                keyword = _KEYWORDS.match(text)
+                if keyword:
+                    matched_keywords = bool(_CJK.search(keyword.group(1))) == (label == "摘要")
+                    break
+                repeated_heading = heading_end(cursor, label)
+                if repeated_heading is not None:
+                    cursor = repeated_heading + 1
+                    continue
+                if section_boundary(text, cursor, previous_body):
+                    break
+                if not noise(cursor):
+                    body.append(text)
+                    first_body = first_body or location(cursor)
+                    previous_body = cursor
+                cursor += 1
+            if body:
+                candidates.append((matched_keywords, "\n".join(body), first_body))
+        if candidates:
+            # A matching keyword terminator corroborates the actual abstract,
+            # rather than a title mentioned elsewhere in the front matter.
+            selected = next((item for item in candidates if item[0]), candidates[0])
+            return selected[1], selected[2]
+        if not flat:
+            abstracts = [_node_text(node, by_id) for node in nodes if node.get("kind") == "Abstract"]
+            return next((text for text in abstracts if text and bool(_CJK.search(text)) == (label == "摘要")), None), None
+        return None, None
 
-    chinese_abstract, chinese_abstract_location = section(
-        "摘要", {"关键词", "关键字", "keywords", "key words"})
-    english_abstract, english_abstract_location = section(
-        "abstract", {"关键词", "关键字", "keywords", "key words"})
-    if not chinese_abstract:
-        chinese_abstract = next((text for text in abstracts if _CJK.search(text)), None)
-    if not english_abstract:
-        english_abstract = next((text for text in abstracts
-                                 if not _CJK.search(text) and re.search(r"[A-Za-z]", text)), None)
-
-    def keyword_location(item):
-        if not item:
-            return None
-        label = str(item.get("label") or "")
-        for page_index, text in flat:
-            if label.casefold() in text.casefold():
-                return {"page_number": int(page_index) + 1,
-                        "text_excerpt": text[:500]}
-        return None
-
+    chinese_abstract, chinese_abstract_location = section("摘要")
+    english_abstract, english_abstract_location = section("abstract")
     chinese_keywords = next((item for item in keywords if _CJK.search(item["label"])), None)
     english_keywords = next((item for item in keywords if not _CJK.search(item["label"])), None)
     return {
@@ -228,8 +308,8 @@ def extract_bilingual_facts(ir):
         "locations": {
             "chinese_abstract": chinese_abstract_location,
             "english_abstract": english_abstract_location,
-            "chinese_keywords": keyword_location(chinese_keywords),
-            "english_keywords": keyword_location(english_keywords),
+            "chinese_keywords": keyword_locations.get(id(chinese_keywords)),
+            "english_keywords": keyword_locations.get(id(english_keywords)),
         },
     }
 

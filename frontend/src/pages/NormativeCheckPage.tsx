@@ -1,10 +1,11 @@
 import axios from 'axios';
-import { FileCheck2, FileText, LoaderCircle, Play, Upload, X } from 'lucide-react';
+import { FileCheck2, FileText, LoaderCircle, Play, Square, Upload, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { useAuthSession } from '../auth/AuthSessionProvider';
 import {
   fetchReviewPilotPaperLintRules,
   fetchPaperLintJob,
+  cancelPaperLintJob,
   fetchPaperLintReport,
   isPaperLintJobResponse,
   runReviewPilotPaperLint,
@@ -116,6 +117,9 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   const [response, setResponse] = useState<PaperLintRunResponse | null>(null);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [running, setRunning] = useState(false);
+  const [stopping, setStopping] = useState(false);
+  const [stopped, setStopped] = useState(false);
+  const runGenerationRef = useRef(0);
   const [uploadPercent, setUploadPercent] = useState<number | null>(null);
   const [dragging, setDragging] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
@@ -124,6 +128,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [jobProgress, setJobProgress] = useState<{ completed: number; total: number } | null>(null);
   const [externalConsent, setExternalConsent] = useState(false);
+  useEffect(() => () => { runGenerationRef.current += 1; }, []);
 
   const loadCatalog = async () => {
     setCatalogLoading(true);
@@ -282,22 +287,25 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     requestIdRef.current = null;
   }
 
-  async function showSavedReport(reportId: string, filename: string, sourceFile?: File) {
+  async function showSavedReport(reportId: string, filename: string, sourceFile?: File, generation = runGenerationRef.current) {
     const nextReport = await fetchPaperLintReport(reportId);
+    if (generation !== runGenerationRef.current) return;
     setResponse(nextReport);
+    setRunError(null);
     setResultFile(sourceFile || {
-      name: filename,
+      name: nextReport.source_filename || filename,
       url: `/api/normative/paper-lint/reports/${encodeURIComponent(reportId)}/pdf`,
     });
     clearActiveJob();
   }
 
-  async function pollJob(jobId: string, filename: string, sourceFile?: File) {
+  async function pollJob(jobId: string, filename: string, sourceFile?: File, generation = runGenerationRef.current) {
     const deadline = Date.now() + 25 * 60 * 1000;
     let disconnected = false;
-    while (Date.now() <= deadline) {
+    while (generation === runGenerationRef.current && Date.now() <= deadline) {
       try {
         const job = await fetchPaperLintJob(jobId);
+        if (generation !== runGenerationRef.current) return;
         if (disconnected) {
           disconnected = false;
           setRunError(null);
@@ -313,6 +321,14 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
           await new Promise((resolve) => setTimeout(resolve, 300));
           continue;
         }
+        if (job.status === 'cancelled') {
+          clearActiveJob();
+          setStopped(true);
+          setResponse(null);
+          setResultFile(null);
+          setJobProgress(null);
+          return;
+        }
         if (job.status === 'failed') {
           clearActiveJob();
           throw new Error(job.error_message || '检测失败，请重试');
@@ -321,16 +337,48 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
           clearActiveJob();
           throw new Error('检测完成，但报告未保存，请重试');
         }
-        await showSavedReport(job.report_id, filename, sourceFile);
+        await showSavedReport(job.report_id, filename, sourceFile, generation);
         return;
       } catch (error) {
+        if (generation !== runGenerationRef.current) return;
         if (error instanceof Error && !/网络|连接|timeout|Network|ECONN/i.test(error.message)) throw error;
         disconnected = true;
         setRunError('连接中断，请重试获取检测状态');
         await new Promise((resolve) => setTimeout(resolve, 1500));
       }
     }
+    if (generation !== runGenerationRef.current) return;
     throw new Error('检测任务等待超时，请稍后在历史报告中查看');
+  }
+
+  async function stopReview() {
+    if (!activeJobId || stopping) return;
+    let generation = runGenerationRef.current;
+    const jobId = activeJobId;
+    setStopping(true);
+    setRunError(null);
+    try {
+      const job = await cancelPaperLintJob(jobId);
+      if (generation !== runGenerationRef.current) return;
+      if (job.status === 'failed') throw new Error(job.error_message || '检测失败，请重试');
+      generation = ++runGenerationRef.current;
+      if (job.status === 'completed' && job.report_id) {
+        await showSavedReport(job.report_id, file?.name || '论文.pdf', file || undefined, generation);
+      } else {
+        clearActiveJob();
+        setRunError(null);
+        setStopped(true);
+        setResponse(null);
+        setResultFile(null);
+        setJobProgress(null);
+      }
+      setRunning(false);
+      setUploadPercent(null);
+    } catch (error) {
+      if (generation === runGenerationRef.current) setRunError(errorMessage(error, '停止检查失败，请重试'));
+    } finally {
+      setStopping(false);
+    }
   }
 
   useEffect(() => {
@@ -352,15 +400,17 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     setActiveJobId(stored.jobId);
     setSelectedRuleIds(stored.selectedRuleIds || []);
     setRunning(true);
-    void pollJob(stored.jobId, stored.filename).catch((error) => {
-      if (!cancelled) setRunError(errorMessage(error, '检测任务恢复失败'));
+    const generation = ++runGenerationRef.current;
+    void pollJob(stored.jobId, stored.filename, undefined, generation).catch((error) => {
+      if (!cancelled && generation === runGenerationRef.current) setRunError(errorMessage(error, '检测任务恢复失败'));
     }).finally(() => {
-      if (!cancelled) setRunning(false);
+      if (!cancelled && generation === runGenerationRef.current) setRunning(false);
     });
-    return () => { cancelled = true; };
+    return () => { cancelled = true; if (generation === runGenerationRef.current) runGenerationRef.current += 1; };
   }, [user?.id]);
 
   function chooseFile(nextFile: File | null) {
+    setStopped(false);
     setRunError(null);
     setResponse(null);
     setResultFile(null);
@@ -408,6 +458,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   }
 
   async function runReview() {
+    if (running || stopping) return;
     if (!file) {
       setRunError('请先选择 PDF 文件');
       return;
@@ -420,7 +471,10 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
       setRunError('运行 DeepSeek 语义规则前，请先确认论文相关文本允许发送至外部 API');
       return;
     }
+    const generation = ++runGenerationRef.current;
     setRunning(true);
+    setStopped(false);
+    setJobProgress(null);
     setRunError(null);
     setResponse(null);
     setResultFile(null);
@@ -434,19 +488,23 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
       let nextResponse: PaperLintRunResponse;
       if (isPaperLintJobResponse(submitted)) {
         saveActiveJob({ jobId: submitted.job_id, requestId, filename: file.name, selectedRuleIds });
-        await pollJob(submitted.job_id, file.name, file);
+        if (generation !== runGenerationRef.current) return;
+        await pollJob(submitted.job_id, file.name, file, generation);
         return;
       } else {
         nextResponse = submitted;
       }
+      if (generation !== runGenerationRef.current) return;
       setResponse(nextResponse);
       setResultFile(file);
       clearActiveJob();
     } catch (error) {
-      setRunError(errorMessage(error, '规则审查运行失败'));
+      if (generation === runGenerationRef.current) setRunError(errorMessage(error, '规则审查运行失败'));
     } finally {
-      setUploadPercent(null);
-      setRunning(false);
+      if (generation === runGenerationRef.current) {
+        setUploadPercent(null);
+        setRunning(false);
+      }
     }
   }
 
@@ -665,12 +723,21 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
               <p className="text-sm text-slate-600">
                 已选择 <strong className="text-slate-900">{selectedRuleIds.length}</strong> 条规则
               </p>
+              <div className="flex items-center gap-2">
+              {running || stopping ? (
+                <Button variant="danger" disabled={!activeJobId || stopping}
+                  title={!activeJobId ? '上传完成后可停止检查' : undefined} onClick={() => void stopReview()}>
+                  {stopping ? <LoaderCircle className="size-4 animate-spin" /> : <Square className="size-4" />}
+                  {stopping ? '正在停止…' : '停止检查'}
+                </Button>
+              ) : null}
               <Button
                 disabled={
                   !file ||
                   !catalog ||
                   selectedRuleIds.length === 0 ||
                   running ||
+                  stopping ||
                   (selectedExternalRule && !externalConsent)
                 }
                 onClick={() => void runReview()}
@@ -678,6 +745,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
                 {running ? <LoaderCircle className="size-4 animate-spin" /> : <Play className="size-4" />}
                 {running ? uploadPercent !== null && uploadPercent < 100 ? '正在上传…' : '正在检查…' : '开始检查'}
               </Button>
+              </div>
             </div>
           </Card>
         </div>
@@ -685,12 +753,17 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
       </section>
 
       {runError ? <ErrorState title="审查未完成" message={runError} onRetry={() => {
+        if (stopping) return;
+        if (!activeJobId) { void runReview(); return; }
+        const generation = ++runGenerationRef.current;
         setRunning(true);
         setRunError(null);
-        void (activeJobId
-          ? pollJob(activeJobId, file?.name || '论文.pdf', file || undefined)
-          : runReview()).catch((error) => setRunError(errorMessage(error, '检测任务恢复失败'))).finally(() => setRunning(false));
+        void pollJob(activeJobId, file?.name || '论文.pdf', file || undefined, generation)
+          .catch((error) => { if (generation === runGenerationRef.current) setRunError(errorMessage(error, '检测任务恢复失败')); })
+          .finally(() => { if (generation === runGenerationRef.current) setRunning(false); });
       }} /> : null}
+
+      {stopped ? <Card><p className="text-sm text-slate-600" role="status">已停止检查，可以重新开始。</p></Card> : null}
 
       {running ? (
         <Card>
@@ -700,7 +773,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
             </span>
             <div>
               <p className="font-bold text-slate-900">{uploadPercent !== null && uploadPercent < 100 ? `正在上传 PDF（${uploadPercent}%）` : jobProgress && jobProgress.total ? `正在检查规则（已完成 ${jobProgress.completed}/${jobProgress.total}）` : '正在进行本地检查'}</p>
-              <p className="mt-1 text-sm text-slate-500">{uploadPercent !== null && uploadPercent < 100 ? '正在传输论文文件，上传完成后立即开始本地检测。' : '检测结果先展示，AI 修复建议随后加载。'}</p>
+              <p className="mt-1 text-sm text-slate-500">{uploadPercent !== null && uploadPercent < 100 ? '正在传输论文文件，上传完成后立即开始检测。' : selectedRuleIds.includes('typo_detection_check') ? '已完成的规则会先展示；正文错别字检测按段落处理，耗时可能较长，可随时停止。' : '已完成的规则会先展示，可随时停止检查。'}</p>
             </div>
           </div>
         </Card>

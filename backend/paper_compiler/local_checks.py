@@ -14,6 +14,10 @@ _KEYWORD_LABEL = re.compile(r'(?:关键词|关键字)\s*[:：]\s*(.*)', re.I | r
 _TERM_SPLIT = re.compile(r'[；;，,、]')
 _FRONT_TEXT = {'摘要', '中文摘要', 'abstract', '目录', '目次', 'contents', 'tableofcontents'}
 _ABSTRACT_HEADING = {'摘要', '中文摘要', '英文摘要', 'abstract'}
+_ABSTRACT_KEYWORDS = re.compile(r'^(?:关键词|关键字|key\s*words?)\s*[:：]', re.I)
+_ABSTRACT_END_HEADING = {'目录', '目次', 'contents', 'tableofcontents', '插图', '插图目录',
+                         '表格', '表格目录', '图表目录', '算法', '算法目录', '符号对照表',
+                         'listoffigures', 'listoftables'}
 # Numbered objects a self-contained abstract must not cite. Each pattern needs a
 # digit so prose words such as 表明, 表达, 表决 and 形式 are never treated as 图/表/式.
 _OBJECT_NUMBERS = (
@@ -150,7 +154,8 @@ def core_parts(ir):
         '题名页': title_page_evidence(ir, visual_rows),
         '原创性声明': bool(re.search(r'原创性声明|独创性声明|原创声明|学术诚信声明', all_text)),
         '使用授权说明': bool(re.search(r'(?:使用|版权)授权(?:书|说明|声明)?|授权使用|版权使用(?:说明|声明|书)', all_text)),
-        '摘要': 'Abstract' in kinds or any(t in {'摘要', '中文摘要', 'abstract'} for t in texts),
+        '摘要': any(t in {'摘要', '中文摘要'} for t in texts),
+        '英文摘要': any(t in {'abstract', '英文摘要'} for t in texts),
         '关键词': any(re.match(r'^(?:关键词|关键字|keywords?)(?:[:：]|$)', text) for text in texts),
         '目录': 'ToC' in kinds or any(t in {'目录', '目次', 'contents', 'tableofcontents'} for t in texts),
         '引言': any(_INTRO.fullmatch(text) for text in headings),
@@ -293,6 +298,19 @@ def chapter_labels(ir):
     body_start = _body_start_page(ir)
     page_height = {page['page_index']: page.get('height', 0) for page in ir['layout']['pages']}
     visual = list(rows(ir))
+    directions = {line['id']: line.get('direction', [1, 0])
+                  for page in ir['layout']['pages'] for line in page.get('lines', [])}
+
+    def horizontal(node, box):
+        # A rotated table cell's bounding-box height is its text length, not a
+        # heading font size. Use the source baseline before judging its height.
+        for span in node['provenance']:
+            source = _source(span)
+            if source and source['bbox'][1] <= box[3] and source['bbox'][3] >= box[1]:
+                if abs(directions.get(source.get('line_id'), [1, 0])[1]) > .1:
+                    return False
+        return True
+
     prose = sorted(box[3] - box[1] for _, box, text, _ in visual
                    if len(compact(text)) >= 15 and 0 < box[3] - box[1] < 40)
     body = prose[len(prose) // 2] if prose else 0
@@ -308,6 +326,7 @@ def chapter_labels(ir):
         labels = [row for row in items
                   if _CHAPTER_LABEL.match(row[1].strip()) and not _LEADER_LINE.search(row[1])
                   and row[2]['kind'] not in {'TableCell', 'Caption'}
+                  and horizontal(row[2], row[0])
                   and row[0][3] > margin
                   and (not body or row[0][3] - row[0][1] >= body * _HEADING_SCALE)]
         if len(labels) >= 3:
@@ -323,7 +342,41 @@ def chapter_labels(ir):
 def _abstract_nodes(ir):
     """Front-matter abstract prose, including split headings and both languages."""
     body_start = _body_start_page(ir)
-    pages = {page for page, _, text, _ in rows(ir) if compact(text) in _ABSTRACT_HEADING}
+    visual = rows(ir)
+    starts = sorted((page, box[1]) for page, box, text, _ in visual
+                    if compact(text) in _ABSTRACT_HEADING and (not body_start or page < body_start))
+    if starts:
+        # Keywords end abstract continuation after this page; keep source-only
+        # paragraphs on the abstract page even when the tree missed their parent.
+        endings = [(page + 1, 0) for page, _, text, _ in visual
+                   if _ABSTRACT_KEYWORDS.match(text.strip())]
+        endings += [(page, box[1]) for page, box, text, _ in visual
+                    if compact(text) in _ABSTRACT_END_HEADING]
+        endings += starts + ([(body_start, 0)] if body_start else [])
+        ranges = [(start, min((end for end in endings if end > start), default=(10**9, 0)))
+                  for start in starts]
+        found = []
+        for node in ir['nodes']:
+            if not node['text'] or node['kind'] not in {'Paragraph', 'Abstract'}:
+                continue
+            selected = [span for span in node['provenance'] if (source := _source(span))
+                        and any(start <= (source['page_index'], source['bbox'][1]) < end
+                                for start, end in ranges)]
+            if not selected or _ABSTRACT_KEYWORDS.match(node['text'].strip()):
+                continue
+            if len(selected) == len(node['provenance']):
+                found.append(node)
+            else:
+                # Preserve precise source offsets if a paragraph straddles a boundary.
+                first = min(span.get('node_text_start', 0) for span in selected)
+                last = max(span.get('node_text_end', len(node['text'])) for span in selected)
+                found.append({**node, 'text': node['text'][first:last], 'provenance': [
+                    {**span, 'node_text_start': span.get('node_text_start', 0) - first,
+                     'node_text_end': span.get('node_text_end', len(node['text'])) - first}
+                    for span in selected]})
+        return found
+    # Retain typed abstract evidence when its source heading is unavailable.
+    pages = {page for page, _, text, _ in visual if compact(text) in _ABSTRACT_HEADING}
     pages |= {_node_page_index(node) for node in ir['nodes'] if node['kind'] == 'Abstract'}
     pages = {page for page in pages if page < 10**9 and (not body_start or page < body_start)}
     by_id = {node['id']: node for node in ir['nodes']}
@@ -365,7 +418,7 @@ def detect_ir(ir, selected_rules=RULES):
         checked = [part for part, present in parts.items() if present is True or complete
                    or (core_complete and part not in {'原创性声明', '使用授权说明'})]
         results['34']['checked_parts'] = checked
-        results['34']['findings'] = [_finding(ir, 34, anchor, f'未发现国标必备部分“{part}”', part,
+        results['34']['findings'] = [_finding(ir, 34, anchor, f'未发现“{part}”', part,
             f'请补齐或核对{part}；依据 GB/T 7713.1—2025 附录 A、表 A.1。')
             for part, present in parts.items() if present is False and part in checked]
     if 35 in selected_rules:

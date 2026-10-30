@@ -24,6 +24,7 @@ def sample_ir():
     add('abstract-heading', 'Heading', '摘要', 2, parent='abstract')
     add('keywords', 'Paragraph', '关键词：检测；论文；规则', 2, 160, parent='abstract')
     add('abstract-text', 'Paragraph', '本文提出一种论文检测方法，对文档结构进行建模与验证。', 2, 120, parent='abstract')
+    add('english-abstract-heading', 'Heading', 'Abstract', 2, 220, parent='abstract')
     add('toc', 'Paragraph', '目', 3, x=250)
     add('toc-fragment', 'Paragraph', '录', 3, x=280)
     for nid, title, page in [('intro', '第1章 绪论', 4), ('main', '第2章 方法', 5), ('conclusion', '第3章 总结与展望', 6)]:

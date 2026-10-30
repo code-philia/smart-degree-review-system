@@ -1,5 +1,12 @@
 const { getRuleDefinition } = require('../../rules/registry');
 
+async function settleRuleTasks(tasks) {
+  const settled = await Promise.allSettled(tasks);
+  const failed = settled.find(result => result.status === 'rejected');
+  if (failed) throw failed.reason;
+  return settled.map(result => result.value);
+}
+
 // This is deliberately an orchestration-only adapter. Existing detector
 // implementations remain responsible for parsing PDFs and producing report
 // runs; the runner only groups registry-backed rules by execution family.
@@ -18,7 +25,7 @@ async function runPaperLintRuleGroups({ pdfPath, selectedRuleIds, signal, runner
     if (typeof onGroupComplete === 'function') await onGroupComplete({ family, ruleIds, result });
     return result;
   });
-  return Promise.all(tasks);
+  return settleRuleTasks(tasks);
 }
 
-module.exports = { runPaperLintRuleGroups };
+module.exports = { runPaperLintRuleGroups, settleRuleTasks };

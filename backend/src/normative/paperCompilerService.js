@@ -1,11 +1,9 @@
-const { execFile } = require('child_process');
-const { promisify } = require('util');
+const { runPaperLintProcess } = require('./paperLintProcess');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { summarizeRuleRuns } = require('./localFiveRulePaperLintService');
 const { listRuleDefinitions } = require('../../rules/registry');
-const exec = promisify(execFile);
 const SCRIPT = path.resolve(__dirname, '../../scripts/paper_compiler_cli.py');
 const DEFINITIONS = listRuleDefinitions({ family: 'compiler' });
 const IDS = new Set(DEFINITIONS.map((rule) => rule.rule_id));
@@ -52,7 +50,10 @@ async function runJsonProcess(command,args,{signal,timeoutMs=1200000,maxBytes=64
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs<1 || timeoutMs>7200000 || !Number.isSafeInteger(maxBytes) || maxBytes<1 || maxBytes>128*1024*1024) throw new TypeError('Invalid compiler resource budget');
   if(signal?.aborted) throw failure(504,'COMPILER_ABORTED','规则编译检测已取消');
   let stdout;
-  try { ({stdout}=await exec(command,args,{signal,timeout:timeoutMs,maxBuffer:maxBytes,encoding:'utf8',windowsHide:true,killSignal:'SIGKILL',env:{...process.env,PYTHONIOENCODING:'utf-8'}})); }
+  try {
+    ({ stdout } = await runPaperLintProcess(command, args, { signal, timeoutMs, maxBytes,
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' } }));
+  }
   catch(error) {
     if(error.code==='ERR_CHILD_PROCESS_STDIO_MAXBUFFER') throw failure(502,'COMPILER_OUTPUT_LIMIT','规则编译检测输出超过资源上限');
     if(signal?.aborted || error.name==='AbortError' || error.killed) throw failure(504,'COMPILER_INTERRUPTED','规则编译检测超时或已取消');
