@@ -35,7 +35,7 @@ export function SystemFeedbackDialog() {
   return <Dialog open={open} onOpenChange={close}>
     <DialogTrigger asChild><Button variant="ghost" size="sm" className="shrink-0"><MessageSquare className="size-4" />使用反馈</Button></DialogTrigger>
     <DialogContent>
-      <DialogHeader><DialogTitle>使用反馈</DialogTitle><DialogDescription>帮助我们改进论文规则检测和 AI 修复建议。</DialogDescription></DialogHeader>
+      <DialogHeader><DialogTitle>使用反馈</DialogTitle><DialogDescription>帮助我们改进论文规则检测和 修复建议。</DialogDescription></DialogHeader>
       {message ? <p className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">{message}</p> : <>
         <fieldset><legend className="text-sm font-semibold">整体满意度（必选）</legend><div className="mt-2 flex gap-2" role="radiogroup" aria-label="整体满意度">{[1, 2, 3, 4, 5].map((value) => <label key={value} className={`flex size-9 cursor-pointer items-center justify-center rounded-lg border text-sm font-semibold ${score === value ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background hover:bg-muted'}`}><input className="sr-only" type="radio" name="satisfaction-score" value={value} checked={score === value} onChange={() => setScore(value)} />{value}</label>)}</div></fieldset>
         <fieldset><legend className="text-sm font-semibold">希望改进的方面（可多选）</legend><div className="mt-2 grid grid-cols-2 gap-2 text-sm">{areas.map(([value, label]) => <label key={value} className="flex items-center gap-2"><input type="checkbox" checked={selectedAreas.includes(value)} onChange={() => setSelectedAreas((current) => current.includes(value) ? current.filter((item) => item !== value) : [...current, value])} />{label}</label>)}</div></fieldset>

@@ -201,7 +201,7 @@
     {
       "rule_id": "typo_detection_check",
       "title": "正文错别字检测",
-      "description": "将正文按段落分块交由校内 DeepSeek 逐块检查明确的错别字，并保留页码定位。",
+      "description": "检查论文中是否存在错别字",
       "family": "legacy_bridge",
       "runner": "repo_paper_model_typo",
       "execution_mode": "semantic",
@@ -214,7 +214,7 @@
     {
       "rule_id": "bilingual_keywords_correspondence_check",
       "title": "中英文关键词语义对应",
-      "description": "使用 Paper Model 提取中英文关键词，并由 DeepSeek 判断语义是否一一对应。",
+      "description": "检查中英文关键词是否语义一致",
       "family": "legacy_bridge",
       "runner": "review_pilot",
       "execution_mode": "semantic",
@@ -227,7 +227,7 @@
     {
       "rule_id": "bilingual_abstract_consistency_check",
       "title": "中英文摘要内容一致性",
-      "description": "使用 Paper Model 提取中英文摘要，并由 DeepSeek 判断研究内容是否实质一致。",
+      "description": "检查中英文摘要内容是否语义一致",
       "family": "legacy_bridge",
       "runner": "review_pilot",
       "execution_mode": "semantic",

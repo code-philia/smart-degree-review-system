@@ -715,7 +715,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
                   disabled={running}
                 />
                 <span>
-                  我确认本次论文相关文本允许发送至外部 API（校内 DeepSeek）进行语义检测。
+                  我确认本次论文相关文本允许发送至校内 DeepSeek API进行语义检测。
                 </span>
               </label>
             ) : null}

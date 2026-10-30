@@ -274,7 +274,7 @@ export function FindingsPane({
                 {repairEnabled && (onLoadRepairSuggestion || onGenerateRepairSuggestion) && showRepairSuggestion ? (
                   <div className="mt-3 border-t border-slate-100 pt-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-xs font-bold text-slate-800">AI 修复建议</p>
+                      <p className="text-xs font-bold text-slate-800">修复建议</p>
                       {onGenerateRepairSuggestion ? (
                       <Button
                         size="sm"
@@ -286,14 +286,14 @@ export function FindingsPane({
                         }}
                       >
                         <Bot className="size-3.5" />
-                        {generating ? '正在生成建议…' : repair ? '重新生成修复建议' : '获取 AI 修改建议'}
+                        {generating ? '正在生成建议…' : repair ? '重新生成修复建议' : '获取修复建议'}
                       </Button>
                       ) : null}
                     </div>
                     {!repair && !repairError ? <p className="mt-2 text-xs text-slate-500">{generating ? '正在生成建议…' : '尚未生成建议。'}</p> : null}
                     {repairError ? (
                       <div className="mt-2 text-xs leading-5 text-slate-600" role="status">
-                        <p>{repair ? '本次更新暂未完成，继续显示已保存的 AI 建议。' : (repairError || 'AI 建议暂未生成，可点击按钮重试。')}</p>
+                        <p>{repair ? '本次更新暂未完成，继续显示已保存的修复建议。' : (repairError || '修复建议暂未生成，可点击按钮重试。')}</p>
                         {!repair && item.finding.suggestion ? (
                           <p className="mt-2 rounded-lg bg-slate-50 p-3"><strong>规则修改提示：</strong>{item.finding.suggestion}</p>
                         ) : null}
@@ -317,12 +317,10 @@ export function FindingsPane({
                               : repair.missing_context?.length
                                 ? '需要核对相关原文上下文后再决定修改方向'
                                 : '需要补充明确的原文片段和定位后再确定修改。'}
-                          {' · '}
-                          {repair.provenance.model} · {repair.provenance.prompt_version}
                         </p>
                       </div>
                       {onSuggestionFeedback && repair.suggestion_id ? <FeedbackControls
-                        label="这条 AI 修复建议是否有帮助？"
+                        label="这条修复建议是否有帮助？"
                         feedback={suggestionFeedback}
                         reasons={[['incorrect', '内容不正确'], ['not_directly_executable', '无法直接执行'], ['insufficient_basis', '依据不足'], ['unclear', '表达不清'], ['other', '其他']]}
                         onValue={(value) => onSuggestionFeedback(item, value)}

@@ -26,7 +26,7 @@ export function CompilerDiagnostics({ items }: { items?: CompilerDiagnostic[] })
   return <div className="mt-2 space-y-2 text-xs text-slate-600">
     {notFound.length ? <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
       <strong className="text-blue-900">检索提示：未在 SerpAPI 中查到（{notFound.length} 条）</strong>
-      <p className="mt-1 text-blue-800">这些条目不计入规则警告，也不会生成 AI 修复建议；请人工核对题名、作者或 DOI。</p>
+      <p className="mt-1 text-blue-800">这些条目不计入规则警告，也不会生成 修复建议；请人工核对题名、作者或 DOI。</p>
       <ul className="mt-2 list-disc space-y-1 pl-4 text-blue-900">
         {notFound.slice(0, 100).map((item, index) => <li key={`${item.node_id}-${index}`}>{item.message || '未在 SerpAPI 中查到该参考文献'}</li>)}
       </ul>
