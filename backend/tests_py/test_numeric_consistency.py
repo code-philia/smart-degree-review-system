@@ -45,7 +45,7 @@ def test_section_body_and_table_preserve_provenance():
     assert n.validate_structure(data, n.structure_context(facts, model), model)
 
 
-@pytest.mark.parametrize('change', ['false_string', 'missing_condition', 'duplicate_condition', 'unknown_condition', 'missing_mapping', 'bad_parent', 'bad_source', 'bad_contribution', 'duplicate_declaration'])
+@pytest.mark.parametrize('change', ['false_string', 'missing_condition', 'duplicate_condition', 'unknown_condition', 'missing_mapping', 'bad_parent', 'bad_source', 'bad_contribution', 'duplicate_declaration', 'condition_object', 'nullable_comparison'])
 def test_structure_contract_rejects_invalid(change):
     ir, facts, data = fixture()
     if change == 'false_string': data['preconditions'][0]['passed'] = 'false'
@@ -57,6 +57,8 @@ def test_structure_contract_rejects_invalid(change):
     if change == 'bad_source': data['mappings'][0]['evidence'][0]['quote'] = '幻觉来源'
     if change == 'bad_contribution': data['declarations'][0]['contribution_id'] = 'unknown'
     if change == 'duplicate_declaration': data['declarations'].append(data['declarations'][0])
+    if change == 'condition_object': data['preconditions'] = {row['id']: row for row in data['preconditions']}
+    if change == 'nullable_comparison': data['declarations'][0]['comparison'] = None
     model = n.source_model(ir)
     with pytest.raises(n.ContractError): n.validate_structure(data, n.structure_context(facts, model), model)
 
@@ -288,3 +290,46 @@ def test_whitespace_cannot_invent_a_numeric_or_english_token():
     assert not n.grounded_quote('9%', '准确率89%')
     assert not n.grounded_quote('准确率92', '准确率92.5%')
     assert n.grounded_quote('准确率92.5%', '准确率 92.5 %')
+
+
+def test_abstract_location_preserves_english_wrap_boundaries():
+    ir = {'layout': {'pages': [{'page_index': 0, 'width': 600, 'height': 800,
+        'lines': [{'text': 'The model achieves', 'bbox': [10, 10, 150, 30]},
+                  {'text': '92.5% accuracy.', 'bbox': [10, 35, 150, 55]}]}]}}
+    anchors = n.abstract_anchors(ir, 'The model achieves 92.5% accuracy.', 'a1')
+    assert len(anchors) == 1
+    assert anchors[0]['location']['page_number'] == 1
+    assert len(anchors[0]['location']['rects']) == 2
+
+
+def test_abstract_location_does_not_join_adjacent_numeric_cells():
+    ir = {'layout': {'pages': [{'page_index': 0, 'lines': [
+        {'text': '8', 'bbox': [10, 10, 20, 30]}, {'text': '9', 'bbox': [30, 10, 40, 30]}]}]}}
+    assert not n.abstract_anchors(ir, '89', 'a1')
+
+
+def test_method_section_cannot_be_admitted_as_experiment_from_only_toc():
+    ir, facts, data = fixture()
+    next(x for x in ir['nodes'] if x['id'] == 'eh')['text'] = '3.1 Method implementation'
+    # Keep source offsets valid after replacing the title.
+    next(x for x in ir['nodes'] if x['id'] == 'eh')['provenance'][0]['node_text_end'] = len('3.1 Method implementation')
+    for node in ir['nodes']:
+        if node['id'] in {'caption', 'data'}:
+            node['text'] = 'The architecture combines two dynamic feature streams.'
+            node['provenance'][0]['node_text_end'] = len(node['text'])
+    model = n.source_model(ir)
+    with pytest.raises(n.ContractError, match='classification lacks supporting'):
+        n.validate_structure(data, n.structure_context(facts, model), model)
+
+
+def test_nonstandard_title_can_be_supported_by_experimental_body():
+    ir, facts, data = fixture()
+    heading = next(x for x in ir['nodes'] if x['id'] == 'eh')
+    heading['text'] = '3.4 Model behavior'
+    heading['provenance'][0]['node_text_end'] = len(heading['text'])
+    paragraph = next(x for x in ir['nodes'] if x['id'] == 'data')
+    paragraph['text'] = 'We evaluate the proposed model on Dataset A.'
+    paragraph['provenance'][0]['node_text_end'] = len(paragraph['text'])
+    model = n.source_model(ir)
+    assert n.experimental_support(model, 'exp')
+    assert n.validate_structure(data, n.structure_context(facts, model), model)

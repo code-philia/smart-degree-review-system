@@ -27,10 +27,12 @@ class NumericRunTrace:
         self.started = time.monotonic()
         try:
             commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=Path(__file__).resolve().parents[2], text=True, timeout=5).strip()
+            dirty = subprocess.run(['git', 'diff', '--quiet', 'HEAD', '--'], cwd=Path(__file__).resolve().parents[2], timeout=5).returncode != 0
         except (OSError, subprocess.SubprocessError):
             commit = os.environ.get('APP_COMMIT', 'unknown')
+            dirty = None
         self.manifest = {'schema_version': 'numeric-run/1.0', 'run_id': self.run_id, 'task_id': task_id,
-                         'code_commit': commit, 'started_at': time.time(), 'model_version': ir.get('model_version'),
+                         'code_commit': commit, 'working_tree_dirty': dirty, 'started_at': time.time(), 'model_version': ir.get('model_version'),
                          'paper_model_schema': ir.get('schema_version'), 'paper_model_revision': ir.get('revision'),
                          'pdf_sha256': next((a.get('sha256') for a in ir.get('source_artifacts', []) if a.get('kind') == 'pdf'), None),
                          'status': 'running', 'artifacts': []}
