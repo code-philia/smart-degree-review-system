@@ -290,6 +290,7 @@ def structure_prompt(context):
             '逐项核对abstract_percentage_inventory，摘要中的每个百分比都必须覆盖，不能漏掉末尾整体框架或综合结果的声明。一个声明可保留同一指标区间的两个界限；含“同时”等连接词的不同指标数值必须拆为独立声明。若存在无法映射的百分比声明，前置条件不得全部通过。'
             'declarations还可提供dataset、method、baseline字符串，便于本地检索。只使用给定真实section_id和source_node_id。每项声明必须关联贡献、正文主要研究章节和其下级实验子章节；'
             'chapter_id必须从main_chapter_ids选择，即parent_id为null的章；禁止用3.3、4.3等设计与实现小节作为chapter_id。各小节main_chapter_id给出了所属章。experiment_section_ids必须选该章下真正的实验小节，可包含实验设置和实验结果两个并列小节，避免只选设置而遗漏结果。'
+            '按每条数值声明的具体方法定位研究章，而不是只按贡献的大主题；同一贡献可能涉及多个研究章。命名方法必须在所选章正文中实际出现，不能把防御方法的效果映射到只研究缺陷形成机理的前一章。'
             '实验子章节必须属于对应研究章节，不能使用独立统一实验章。映射只返回真实section_id，标题引用和原文页码由程序根据所选章节回填。'
             '方法介绍、模型结构、方法实现或章节小结不等同于实验。必须在真实正文子章节标题或其正文中找到实验、评估、验证等性质的依据；'
             '只有目录中出现实验条目而正文没有对应实验子章节，仍不满足要求。找不到实验子章节时experiment_subsection必须为false；不得用方法实现章节凑映射。'
@@ -334,6 +335,12 @@ def validate_structure(data, context, model):
     for did, mapping in mappings.items():
         chapter = mapping.get('chapter_id')
         require(chapter in model['sections'] and model['sections'][chapter]['parent_id'] is None, 'chapter is not a real main Section')
+        method = declarations[did].get('method', '')
+        compact_method = re.sub(r'\s+', '', method) if isinstance(method, str) else ''
+        if re.fullmatch(r'[A-Za-z][A-Za-z0-9-]{3,}', compact_method) and sum(c.isupper() for c in compact_method) >= 2:
+            roots = [sid for sid, section in model['sections'].items() if section['parent_id'] is None]
+            present = [sid for sid in roots if any(lexical(method) in lexical(b['text']) for b in section_blocks(model, sid))]
+            require(chapter in present, 'named method ' + method + ' not found in mapped chapter; source-backed chapter IDs: ' + ', '.join(present))
         experiments = mapping.get('experiment_section_ids')
         require(isinstance(experiments, list) and bool(experiments) and len(set(experiments)) == len(experiments), 'missing or duplicate experiment mapping')
         require(all(isinstance(e, str) and descendant(model, e, chapter) for e in experiments), 'experiment is not a descendant of chapter')

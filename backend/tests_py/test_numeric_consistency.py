@@ -570,3 +570,13 @@ def test_simultaneous_metrics_in_one_span_need_individual_numbers():
     resolved = n.resolve_structure(data, context, model)
     assert resolved['declarations'][1]['text'] == '同时降低体积54%'
     assert n.validate_structure(resolved, context, model)
+
+
+def test_named_method_mapping_requires_its_actual_body_chapter():
+    ir, facts, data = fixture()
+    data['declarations'][0]['method'] = 'GuardMODEL'
+    model = n.source_model(ir)
+    with pytest.raises(n.ContractError, match='named method GuardMODEL not found'):
+        n.validate_structure(data, n.structure_context(facts, model), model)
+    next(b for b in model['blocks'] if b['source_node_id'] == 'data')['text'] += ' GuardMODEL'
+    assert n.validate_structure(data, n.structure_context(facts, model), model)
