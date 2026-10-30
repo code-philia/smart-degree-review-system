@@ -32,6 +32,11 @@ const outcomeTones = {
   not_applicable: 'neutral',
 } as const;
 
+function numericResults(run: PaperLintRuleRun) {
+  const rows = run.params?.numeric_results;
+  return Array.isArray(rows) ? rows.filter((row): row is Record<string, unknown> => Boolean(row && typeof row === 'object')) : [];
+}
+
 function executionStatusLabel(status: PaperLintRuleRun['execution_status']) {
   if (status === 'unsupported') return '无法判定';
   if (status === 'error') return '执行失败';
@@ -226,6 +231,18 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
                   {rules.find((rule) => rule.rule_id === run.rule_id)?.title || run.rule_id}
                 </p>
                 {run.message ? <p className="mt-1 text-xs text-slate-600">{run.message}</p> : null}
+                {numericResults(run).length ? (
+                  <div className="mt-2 space-y-1 rounded border border-violet-100 bg-violet-50 p-2 text-xs">
+                    <p className="font-semibold text-violet-900">数值声明逐项核验</p>
+                    {numericResults(run).map((row, index) => (
+                      <div key={String(row.declaration_id || index)} className="text-violet-900">
+                        <span className="font-semibold">{String((row.declaration as Record<string, unknown> | undefined)?.text || row.declaration_id || `声明 ${index + 1}`)}：</span>
+                        {String(row.status || 'inconclusive') === 'consistent' ? '一致' : String(row.status || '') === 'inconsistent' ? '不一致' : '无法确定'}
+                        {row.evidence_quote ? ` · 证据：${String(row.evidence_quote)}` : ''}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
                 <CompilerDiagnostics items={run.compiler_diagnostics} />
               </div>
               <StatusBadge tone={run.execution_status === 'error' ? 'danger' : outcomeTones[run.outcome]}>
