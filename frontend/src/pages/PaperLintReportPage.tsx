@@ -231,6 +231,20 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
                   {rules.find((rule) => rule.rule_id === run.rule_id)?.title || run.rule_id}
                 </p>
                 {run.message ? <p className="mt-1 text-xs text-slate-600">{run.message}</p> : null}
+                {Array.isArray(run.params?.preconditions) && run.params.preconditions.length ? (
+                  <div className="mt-2 space-y-1 rounded border border-slate-200 bg-white p-2 text-xs">
+                    <p className="font-semibold text-slate-800">前置条件检查</p>
+                    {run.params.preconditions.map((condition, index) => {
+                      const row = condition as Record<string, unknown>;
+                      return (
+                        <div key={String(row.id || index)} className="flex gap-2 text-slate-700">
+                          <span className={row.passed ? 'text-emerald-700' : 'text-amber-700'}>{row.passed ? '通过' : '未通过'}</span>
+                          <span>{String(row.reason || row.id || `条件 ${index + 1}`)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
                 {numericResults(run).length ? (
                   <div className="mt-2 space-y-1 rounded border border-violet-100 bg-violet-50 p-2 text-xs">
                     <p className="font-semibold text-violet-900">数值声明逐项核验</p>
