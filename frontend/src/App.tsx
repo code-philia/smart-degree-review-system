@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import AppShell from './layout/AppShell';
 import DemoAccountHelpPanel from './auth/DemoAccountHelpPanel';
 import LocalAccountLoginForm from './auth/LocalAccountLoginForm';
+import RequireSession from './auth/RequireSession';
 import AuthPage from './pages/AuthPage';
 import NotFoundPage from './pages/NotFoundPage';
 import NormativeCheckPage from './pages/NormativeCheckPage';
@@ -16,12 +17,14 @@ function App() {
         element={<AuthPage accountFormSlot={<LocalAccountLoginForm />} helpSlot={<DemoAccountHelpPanel />} />}
       />
 
-      <Route element={<AppShell />}>
-        <Route path="/" element={<Navigate replace to="/thirty-rules-check" />} />
-        <Route path="/thirty-rules-check" element={<NormativeCheckPage mode="thirty" />} />
-        <Route path="/thirty-rules-check/reports" element={<NormativeReportPage mode="thirty" />} />
-        <Route path="/thirty-rules-check/reports/pdf/:reportId" element={<PaperLintReportPage mode="thirty" />} />
-        <Route path="*" element={<NotFoundPage />} />
+      <Route element={<RequireSession />}>
+        <Route element={<AppShell />}>
+          <Route path="/" element={<Navigate replace to="/thirty-rules-check" />} />
+          <Route path="/thirty-rules-check" element={<NormativeCheckPage mode="thirty" />} />
+          <Route path="/thirty-rules-check/reports" element={<NormativeReportPage mode="thirty" />} />
+          <Route path="/thirty-rules-check/reports/pdf/:reportId" element={<PaperLintReportPage mode="thirty" />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Route>
       </Route>
     </Routes>
   );

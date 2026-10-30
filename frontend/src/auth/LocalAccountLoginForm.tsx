@@ -1,10 +1,11 @@
 import { FormEvent, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthSession } from './AuthSessionProvider';
 
 function LocalAccountLoginForm() {
   const { login, status, user } = useAuthSession();
   const navigate = useNavigate();
+  const location = useLocation();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -17,7 +18,12 @@ function LocalAccountLoginForm() {
 
     try {
       await login({ username, password });
-      navigate('/');
+      const requested = location.state?.from;
+      const target =
+        typeof requested === 'string' && /^\/thirty-rules-check(?:[/?#]|$)/.test(requested)
+          ? requested
+          : '/thirty-rules-check';
+      navigate(target, { replace: true });
     } catch {
       setErrorMessage('用户名或密码错误，请重试。');
     } finally {
@@ -26,11 +32,11 @@ function LocalAccountLoginForm() {
   }
 
   return (
-    <form className="space-y-4" onSubmit={handleSubmit} aria-label="本地账号密码登录表单">
+    <form className="login-form space-y-4" onSubmit={handleSubmit} aria-label="本地账号密码登录表单">
       <label className="block">
         <span className="mb-2 block text-sm font-semibold text-slate-700">账号</span>
         <input
-          className="h-12 w-full border border-[#D6D6D6] px-4 outline-none focus:border-[#4F7FF0]"
+          className="login-input"
           autoComplete="username"
           value={username}
           onChange={(event) => setUsername(event.target.value)}
@@ -39,18 +45,14 @@ function LocalAccountLoginForm() {
       <label className="block">
         <span className="mb-2 block text-sm font-semibold text-slate-700">密码</span>
         <input
-          className="h-12 w-full border border-[#D6D6D6] px-4 outline-none focus:border-[#4F7FF0]"
+          className="login-input"
           type="password"
           autoComplete="current-password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
         />
       </label>
-      <button
-        className="h-12 w-full bg-[#4F7FF0] font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
-        type="submit"
-        disabled={submitting || status === 'loading'}
-      >
+      <button className="login-submit" type="submit" disabled={submitting || status === 'loading'}>
         {submitting ? '登录中…' : '登录'}
       </button>
       {errorMessage ? <p className="text-sm font-semibold text-red-600">{errorMessage}</p> : null}

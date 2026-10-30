@@ -1,34 +1,110 @@
 import type { ReactNode } from 'react';
+import { ArrowUpRight, BookOpenCheck, Check, FileText, ScanLine, Sparkles } from 'lucide-react';
 
-type AuthPageProps = {
-  accountFormSlot?: ReactNode;
-  helpSlot?: ReactNode;
-};
+type AuthPageProps = { accountFormSlot?: ReactNode; helpSlot?: ReactNode };
+
+function AcademicIllustration() {
+  return (
+    <figure className="academic-illustration" aria-label="校园与智能论文审阅插图">
+      <div className="illustration-grid" aria-hidden="true" />
+      <svg className="illustration-connections" viewBox="0 0 600 330" fill="none" aria-hidden="true">
+        <path d="M55 95H150Q175 95 175 120V200Q175 220 200 220H425M120 285H265Q290 285 290 260V65H500" />
+        <circle cx="55" cy="95" r="5" />
+        <circle cx="120" cy="285" r="4" />
+        <circle cx="500" cy="65" r="5" />
+        <circle className="connection-pulse" cx="175" cy="170" r="9" />
+      </svg>
+      <div className="campus-photo">
+        <img
+          src="/sjtu-portal-gate.png"
+          alt="交通大学校门线稿，与交大教学信息服务网使用相同背景"
+          width="1920"
+          height="1080"
+          fetchPriority="high"
+        />
+      </div>
+      <div className="review-document" aria-hidden="true">
+        <div className="document-heading">
+          <span className="document-icon">
+            <FileText size={19} />
+          </span>
+          <span>
+            学位论文<span className="document-caption">智能规范检测</span>
+          </span>
+          <span className="document-dot" />
+        </div>
+        <div className="document-title-line" />
+        <div className="document-line" />
+        <div className="document-line short" />
+        <div className="document-scan">
+          <span />
+          <span />
+          <span />
+          <span />
+        </div>
+        <div className="document-check">
+          <Check size={14} />
+          <span>格式排版</span>
+          <i />
+        </div>
+        <div className="document-check">
+          <Check size={14} />
+          <span>文字表述</span>
+          <i />
+        </div>
+        <div className="document-check">
+          <Check size={14} />
+          <span>语言规范</span>
+          <i />
+        </div>
+        <div className="document-foot">
+          <Sparkles size={13} /> AI 辅助 · 专注研究
+        </div>
+      </div>
+      <div className="ai-note" aria-hidden="true">
+        <Sparkles size={17} />
+        <span>让规范检查更轻松</span>
+      </div>
+    </figure>
+  );
+}
 
 function HeroPanel() {
   return (
-    <section className="relative flex min-h-[520px] overflow-hidden bg-gradient-to-br from-[#071B5F] via-[#1C62D8] to-[#58D9F6] px-10 py-12 text-white">
-      <div className="absolute inset-0 opacity-40" aria-hidden="true">
-        <div className="absolute left-10 top-12 h-40 w-40 rounded-full bg-cyan-300 blur-3xl" />
-        <div className="absolute bottom-8 right-8 h-56 w-56 rounded-full bg-blue-200 blur-3xl" />
-        <div className="absolute bottom-0 left-1/4 h-1/2 w-1/2 rotate-12 border-t border-cyan-100/60" />
-        <div className="absolute bottom-0 left-1/3 h-2/3 w-2/3 -rotate-6 border-t border-blue-100/40" />
-      </div>
-      <div className="relative z-10 flex w-full flex-col items-center justify-start text-center">
-        <img src="/brand-mark.jpg" alt="" className="h-16 w-16 rounded-full object-cover ring-4 ring-white/30" />
-        <p className="mt-6 text-sm font-semibold tracking-[0.3em] text-cyan-100">
-          智慧学位 AI 评阅辅助系统 · 试点验证版 V0.9
-        </p>
-        <h1 className="mt-4 text-4xl font-black leading-tight tracking-wide md:text-5xl">统一身份认证</h1>
-        <p className="mt-5 max-w-md text-lg leading-8 text-blue-50">
-          面向学生、导师、学院管理人员和学校管理人员的账号登录入口。
-        </p>
+    <section className="auth-hero">
+      <p className="auth-eyebrow">
+        <span /> 学位论文智能评阅
+      </p>
+      <h1>
+        让研究专注创新，
+        <br />
+        <em>让论文规范呈现。</em>
+      </h1>
+      <p className="auth-intro">
+        从格式到表达，让每一份学术成果
+        <br className="hidden sm:block" />
+        都得到更细致的审阅。
+      </p>
+      <AcademicIllustration />
+      <div className="auth-capabilities" aria-label="系统检测能力">
+        <span>
+          <BookOpenCheck size={17} />
+          格式排版
+        </span>
+        <span>
+          <ScanLine size={17} />
+          文字表述
+        </span>
+        <span>
+          <Sparkles size={17} />
+          语言规范
+        </span>
       </div>
     </section>
   );
 }
 
-function JaccountColumn() {
+function JaccountEntry() {
   const error = new URLSearchParams(window.location.search).get('jaccount_error');
   const errors: Record<string, string> = {
     state: 'jAccount 登录已过期，请重新登录。',
@@ -37,13 +113,17 @@ function JaccountColumn() {
     unavailable: 'jAccount 登录暂不可用，请使用本地账号登录。',
   };
   return (
-    <section className="flex w-56 flex-col items-center text-center" aria-label="校内账号登录">
-      <h2 className="text-xl font-bold text-slate-800">其他登录方式</h2>
-      <a href="/api/auth/jaccount" className="mt-6 flex min-h-12 w-full items-center justify-center rounded bg-[#4F7FF0] px-4 py-3 font-bold text-white hover:bg-blue-600">
+    <section aria-label="校内账号登录">
+      <a href="/api/auth/jaccount" className="jaccount-entry">
         使用 jAccount 登录
+        <ArrowUpRight size={18} aria-hidden="true" />
       </a>
-      <p className="mt-5 text-sm leading-6 text-slate-500">跳转交大统一身份认证，使用校内账号登录。</p>
-      {error && typeof errors[error] === 'string' ? <p role="alert" className="mt-4 text-sm text-red-600">{errors[error]}</p> : null}
+      <p className="campus-login-hint">交大师生可使用校内账号统一认证</p>
+      {error && typeof errors[error] === 'string' ? (
+        <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+          {errors[error]}
+        </p>
+      ) : null}
     </section>
   );
 }
@@ -51,59 +131,71 @@ function JaccountColumn() {
 function DefaultAccountSlot() {
   return (
     <div className="space-y-4" aria-label="账号登录表单">
-      <div className="flex h-14 items-center border border-[#D6D6D6] px-4 text-slate-400">
-        <span className="mr-3 text-lg" aria-hidden="true">
-          👤
-        </span>
-        <span>请输入账号</span>
-      </div>
-      <div className="flex h-14 items-center border border-[#D6D6D6] px-4 text-slate-400">
-        <span className="mr-3 text-lg" aria-hidden="true">
-          🔒
-        </span>
-        <span>请输入密码</span>
-      </div>
+      <div className="login-input text-slate-400">请输入账号</div>
+      <div className="login-input text-slate-400">请输入密码</div>
     </div>
   );
 }
 
-function AuthPage({ accountFormSlot, helpSlot }: AuthPageProps) {
+export default function AuthPage({ accountFormSlot, helpSlot }: AuthPageProps) {
   return (
-    <main className="min-h-screen bg-white text-[#333333]">
-      <section className="mx-auto flex w-full max-w-7xl flex-col gap-10 px-6 py-10 lg:flex-row lg:items-start lg:gap-14">
-        <div className="w-full lg:w-[43%]">
+    <main className="auth-page">
+      <div className="auth-container">
+        <header className="auth-brand">
+          <div className="auth-brand-lockup">
+            <img src="/brand-mark.jpg" alt="上海交通大学校徽" width="40" height="40" />
+            <div>
+              <p>
+                智慧学位 <span>AI 评阅辅助系统</span>
+              </p>
+              <span className="auth-brand-en">SMART DEGREE · AI REVIEW</span>
+            </div>
+          </div>
+          <span className="pilot-badge">
+            <span /> 试点验证版 V0.9
+          </span>
+        </header>
+        <div className="auth-layout">
           <HeroPanel />
-        </div>
-
-        <section className="flex flex-1 flex-col gap-10 pt-2 lg:flex-row lg:items-start" aria-label="身份认证区域">
-          <JaccountColumn />
-
-          <section className="w-full max-w-[370px]" aria-label="账号密码登录区域">
-            <h2 className="text-2xl font-black text-slate-900">登录本地账号</h2>
-            <div className="mt-6">{accountFormSlot ?? <DefaultAccountSlot />}</div>
-            <div className="mt-5 flex justify-between text-base font-semibold text-[#4A75E8]">
-              <a className="hover:underline focus:underline" href="#password">
-                忘记密码/用户名
-              </a>
-              <a className="hover:underline focus:underline" href="#roles">
-                试用账号说明
-              </a>
+          <section className="auth-card" aria-label="身份认证区域">
+            <div className="auth-card-heading">
+              <span className="auth-welcome">欢迎使用</span>
+              <h2>统一身份认证</h2>
+              <p>登录，开启论文智能审阅</p>
             </div>
-            <p
-              id="password"
-              className="mt-4 rounded border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600"
-            >
-              如忘记账号或密码，请联系系统管理员重置。试点阶段可直接使用下方试用账号登录体验。
-            </p>
-            <div className="mt-4 text-center text-sm text-slate-500 underline underline-offset-4">
-              短信验证码登录不属于本版本实现范围
-            </div>
-            {helpSlot ? <div className="mt-6">{helpSlot}</div> : null}
+            <JaccountEntry />
+            <section aria-label="账号密码登录区域">
+              <div className="auth-divider">
+                <h3>登录本地账号</h3>
+              </div>
+              {accountFormSlot ?? <DefaultAccountSlot />}
+              <details className="auth-help" id="password">
+                <summary>忘记密码/用户名</summary>
+                <p>如忘记账号或密码，请联系系统管理员重置。试点阶段可直接使用下方试用账号登录体验。</p>
+              </details>
+              {helpSlot ? <div className="auth-demo">{helpSlot}</div> : null}
+            </section>
           </section>
+        </div>
+        <section className="system-description" aria-label="系统说明">
+          <span className="system-description-icon">
+            <BookOpenCheck size={20} aria-hidden="true" />
+          </span>
+          <div>
+            <h2>关于本系统</h2>
+            <p>
+              本系统依托人工智能技术，对照国家标准与学校规范，为学位论文提供格式排版、文字表述、语言规范等自动化检测，并给出修改建议。论文数据均在校内处理，保障信息安全。检测结果仅供参考，系统尚在测试中，欢迎通过“使用反馈”提出建议，我们将持续优化。
+            </p>
+          </div>
         </section>
-      </section>
+        <footer className="auth-footer">
+          <span>智慧学位 AI 评阅辅助系统</span>
+          <a href="https://i.sjtu.edu.cn/" target="_blank" rel="noreferrer">
+            校门背景：交大教学信息服务网
+            <ArrowUpRight size={12} aria-hidden="true" />
+          </a>
+        </footer>
+      </div>
     </main>
   );
 }
-
-export default AuthPage;

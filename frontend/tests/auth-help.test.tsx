@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import App from '../src/App';
@@ -13,7 +14,7 @@ const expectedAccounts = [
 ] as const;
 
 describe('FEAT-AUTH-HELP local login help', () => {
-  it('renders the /auth page shell with the demo help disclosure and login form', () => {
+  it('renders the /auth page shell with the demo help disclosure and login form', async () => {
     render(
       <MemoryRouter initialEntries={['/auth']}>
         <AuthSessionProvider>
@@ -24,11 +25,11 @@ describe('FEAT-AUTH-HELP local login help', () => {
 
     expect(screen.getByRole('heading', { name: '统一身份认证' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '登录本地账号' })).toBeInTheDocument();
-    expect(screen.getByText('短信验证码登录不属于本版本实现范围')).toBeInTheDocument();
     expect(screen.getByLabelText('演示账号与登录帮助')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '使用 jAccount 登录' })).toHaveAttribute('href', '/api/auth/jaccount');
     expect(screen.getByText(/默认演示密码为\s*ArcDemo123!/)).toBeInTheDocument();
 
+    await userEvent.click(screen.getByText('试用账号说明'));
     const roster = screen.getByLabelText('四类演示账号');
     for (const [username, role] of expectedAccounts) {
       expect(within(roster).getByRole('heading', { name: username })).toBeInTheDocument();
@@ -45,10 +46,6 @@ describe('FEAT-AUTH-HELP local login help', () => {
         '也可使用本地账号密码登录。默认演示密码为 ArcDemo123!，四个账号分别对应不同角色，可用于体验登录后的界面与操作。',
       ),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        '说明：交大师生可使用上方 jAccount 入口登录；本地试用账号继续保留。',
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText('说明：交大师生可使用上方 jAccount 入口登录；本地试用账号继续保留。')).toBeInTheDocument();
   });
 });

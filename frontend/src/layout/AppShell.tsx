@@ -273,26 +273,27 @@ function AppShell() {
 
   return (
     <SidebarProvider
+      className="academic-shell"
       style={
         {
-          '--sidebar-width': '17.5rem',
-          '--sidebar-width-icon': '3.5rem',
+          '--sidebar-width': '15.25rem',
+          '--sidebar-width-icon': '3.25rem',
         } as CSSProperties
       }
     >
       <Sidebar collapsible="icon" aria-label="主导航">
-        <SidebarHeader className="p-3">
+        <SidebarHeader className="p-2.5">
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton size="lg" tooltip={PRODUCT_NAME} className="h-12 hover:bg-sidebar-accent/70">
+              <SidebarMenuButton size="lg" tooltip={PRODUCT_NAME} className="h-14 hover:bg-sidebar-accent/70">
                 <img
                   src="/brand-mark.jpg"
                   alt=""
-                  className="size-8 rounded-full object-cover ring-1 ring-sidebar-border"
+                  className="size-7 rounded-full object-cover ring-1 ring-sidebar-border"
                 />
                 <span className="min-w-0 leading-tight">
-                  <span className="block truncate font-semibold">{PRODUCT_NAME}</span>
-                  <span className="mt-1 block text-xs font-normal text-sidebar-foreground/60">{PRODUCT_TAGLINE}</span>
+                  <span className="block whitespace-normal text-xs font-semibold leading-5">{PRODUCT_NAME}</span>
+                  <span className="block text-[10px] font-normal text-sidebar-foreground/60">{PRODUCT_TAGLINE}</span>
                 </span>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -334,7 +335,7 @@ function AppShell() {
         </SidebarContent>
 
         <SidebarSeparator />
-        <SidebarFooter className="p-3">
+        <SidebarFooter className="p-2.5">
           {user ? (
             <div className="mb-1 flex items-center gap-2 px-2 text-xs text-sidebar-foreground/60 group-data-[collapsible=icon]:hidden">
               <ShieldCheck className="size-3.5" aria-hidden="true" />
@@ -347,7 +348,7 @@ function AppShell() {
       </Sidebar>
 
       <SidebarInset className="min-w-0 bg-background">
-        <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between gap-4 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6">
+        <header className="app-topbar sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between gap-4 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <SidebarTrigger aria-label="切换主导航" className="shrink-0" />
             <Separator orientation="vertical" className="h-5" />
@@ -382,10 +383,18 @@ function AppShell() {
             </Breadcrumb>
           </div>
 
-          <div className="flex items-center gap-2"><span className="hidden shrink-0 sm:inline-flex"><Badge variant="outline" className="border-primary/20 bg-primary/5 text-primary"><ShieldCheck aria-hidden="true" />试点验证版</Badge></span>{user ? <SystemFeedbackDialog /> : null}</div>
+          <div className="flex items-center gap-2">
+            <span className="hidden shrink-0 sm:inline-flex">
+              <Badge variant="outline" className="border-primary/20 bg-primary/5 text-primary">
+                <ShieldCheck aria-hidden="true" />
+                试点验证版
+              </Badge>
+            </span>
+            {user ? <SystemFeedbackDialog /> : null}
+          </div>
         </header>
 
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+        <main className="app-content flex-1 px-4 py-5 sm:px-6 lg:px-7">
           <div className="mx-auto w-full max-w-7xl">
             <Outlet />
           </div>

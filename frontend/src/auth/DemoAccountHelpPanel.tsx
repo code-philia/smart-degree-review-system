@@ -24,18 +24,14 @@ const demoAccounts = [
 function DemoAccountHelpPanel() {
   return (
     <details
-      className="rounded border border-slate-200 bg-slate-50 p-5 shadow-sm"
+      className="demo-help rounded-xl border border-slate-200 bg-slate-50 p-4"
       id="demo-help"
-      open
       aria-label="演示账号与登录帮助"
     >
-      <summary className="cursor-pointer list-none text-lg font-black text-slate-900 outline-none marker:hidden">
-        试用账号说明
-      </summary>
+      <summary className="cursor-pointer text-sm font-semibold text-slate-700">试用账号说明</summary>
 
       <p className="mt-3 text-sm leading-6 text-slate-600">
-        也可使用本地账号密码登录。默认演示密码为
-        ArcDemo123!，四个账号分别对应不同角色，可用于体验登录后的界面与操作。
+        也可使用本地账号密码登录。默认演示密码为 ArcDemo123!，四个账号分别对应不同角色，可用于体验登录后的界面与操作。
       </p>
 
       <div className="mt-4 grid gap-3" id="roles" aria-label="四类演示账号">
