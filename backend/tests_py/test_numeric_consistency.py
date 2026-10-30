@@ -414,7 +414,8 @@ def test_explicit_main_chapter_catalog_and_compact_verifier_input():
     assert 'unused-debug' not in prompt
     assert 'locator-only-private-source' not in prompt
     public = [c for task in json.loads(prompt.split('输入：\n', 1)[1])['tasks'] for c in task['candidates']]
-    assert [c['text'] for c in public] == [c['text'] for c in candidates]
+    assert sorted(c['text'] for c in public) == sorted(c['text'] for c in candidates)
+    assert public[0]['is_primary']
 
 
 @pytest.mark.parametrize('metric,text', [('软件攻击面', '攻击面削减得分为0.20'), ('程序体积', '代码体积减少0.54')])

@@ -11,7 +11,7 @@ from typing import Any
 RULE = 'abstract_numeric_consistency_check'
 CONTEXT_VERSION = 'numeric-context/3.3'
 CONTRACT_VERSION = 'numeric-contract/2.3'
-RETRIEVAL_VERSION = 'numeric-lexical/1.3'
+RETRIEVAL_VERSION = 'numeric-lexical/1.4'
 CONDITIONS = {'abstract_numeric', 'contribution_mapping', 'experiment_subsection'}
 
 
@@ -381,9 +381,17 @@ def retrieve_candidates(declarations, mappings, model, top_k=6):
             if block['block_type'] == 'Heading':
                 continue
             score, signals = retrieval_signals(d, block)
+            sid = block['section_id']
+            while sid in model['sections']:
+                section = model['sections'][sid]
+                if re.search(r'结果|实验发现|results|findings', section['title'], re.I):
+                    score += 2
+                    signals.append({'kind': 'result_scope', 'weight': 2})
+                    break
+                sid = section['parent_id']
             ranked.append((score, index, signals))
         ranked.sort(key=lambda x: (-x[0], x[1]))
-        related = [row for row in ranked if any(s['kind'] not in {'number', 'table_context'} for s in row[2])]
+        related = [row for row in ranked if any(s['kind'] not in {'number', 'table_context', 'result_scope', 'result_summary'} for s in row[2])]
         fallback = None
         if len(related) >= min(2, len(ranked)) and related:
             selected = related[:top_k]
@@ -431,7 +439,8 @@ def verifier_prompt(structure, candidates):
     # Ranking/debug metadata stays in retrieval artifacts; it is not model evidence.
     # Preserve every selected source text and ID, rather than raising the budget
     # or silently truncating candidates when long stable IDs dominate the JSON.
-    public_candidates = [{k: c[k] for k in ('candidate_id', 'declaration_id', 'section_id', 'page', 'block_type', 'text')} for c in candidates]
+    ordered = sorted(candidates, key=lambda c: (c['declaration_id'], not c.get('is_primary', False), c.get('retrieval_rank') or 10**9))
+    public_candidates = [{k: c[k] for k in ('candidate_id', 'declaration_id', 'section_id', 'page', 'block_type', 'text', 'is_primary')} for c in ordered]
     mappings = [{k: m[k] for k in ('declaration_id', 'chapter_id', 'experiment_section_ids', 'chapter_title', 'experiment_titles') if k in m}
                 for m in structure['mappings']]
     tasks = [{'declaration': d, 'mapping': next((m for m in mappings if m['declaration_id'] == d['id']), None),
@@ -443,6 +452,7 @@ def verifier_prompt(structure, candidates):
             'reason和suggestion必须为字符串；无建议填空字符串""，禁止null。evidence必须为数组，无证据填[]。'
             '核对数值、指标、单位、基线、数据集和条件。区分相对百分比与百分点，允许合理单位换算与舍入。'
             '先在reason中列出与该声明相关的全部数值和各自条件，然后进行比较。合理舍入必须遵守声明精度的四舍五入，不能任意截断小数；作者若可能使用概数但未写明，应提示核实精度，不能直接认证相等。'
+            '候选已按相关度排列，is_primary=true是必须逐项检查的主证据，不能读到一个相同数字就停止。最高值声明尤其要检查其他数据集或实验设置中的更大值；reason列出检查过的相关主证据ID及数值。'
             '同数字不代表一致；未检索到数字不代表不一致。证据不足或表格行列关系不明时为inconclusive。'
             '最高值、均值、范围等声明必须检查候选中的全部相关实验设置，不能只用一个子实验推断整体。若其他设置提供了更大值，应引用该反例；仅见部分设置或两个数据集，不能据此断言论文没有更多数据集。'
             '数值精度差异须明确说明差值及可能的近似表达，不武断认定作者写错；只有原文明确的约数或合理舍入才可按一致处理。'
