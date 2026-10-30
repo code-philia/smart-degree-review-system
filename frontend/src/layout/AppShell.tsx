@@ -3,7 +3,6 @@ import {
   ChevronDown,
   ClipboardList,
   History,
-  Home,
   LogIn,
   LogOut,
   ShieldCheck,
@@ -17,12 +16,10 @@ import { Badge } from '../components/shadcn/badge';
 import {
   Breadcrumb,
   BreadcrumbItem,
-  BreadcrumbLink,
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '../components/shadcn/breadcrumb';
-import { Button } from '../components/shadcn/button';
 import { SystemFeedbackDialog } from '../components/SystemFeedbackDialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../components/shadcn/collapsible';
 import {
@@ -269,7 +266,7 @@ function AppShell() {
     navigate('/auth');
   }
 
-  const pageTitle = location.pathname === '/' ? '工作台' : currentNavInfo?.label || '当前页面';
+  const pageTitle = currentNavInfo?.label || '当前页面';
 
   return (
     <SidebarProvider
@@ -303,26 +300,6 @@ function AppShell() {
         <SidebarSeparator />
 
         <SidebarContent aria-label="主导航菜单">
-          <SidebarGroup className="pb-1">
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location.pathname === '/'}
-                    tooltip="工作台"
-                    className="h-9 font-medium"
-                  >
-                    <NavLink to="/" end>
-                      <Home aria-hidden="true" />
-                      <span>工作台</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-
           {visibleGroups.map((group) => (
             <NavigationGroup
               key={group.key}
@@ -336,12 +313,6 @@ function AppShell() {
 
         <SidebarSeparator />
         <SidebarFooter className="p-2.5">
-          {user ? (
-            <div className="mb-1 flex items-center gap-2 px-2 text-xs text-sidebar-foreground/60 group-data-[collapsible=icon]:hidden">
-              <ShieldCheck className="size-3.5" aria-hidden="true" />
-              <span>{roleScopeLabels[user.role]}</span>
-            </div>
-          ) : null}
           <AccountMenu onLogout={handleLogout} />
         </SidebarFooter>
         <SidebarRail aria-label="收起或展开主导航" title="收起或展开主导航" />
@@ -354,31 +325,17 @@ function AppShell() {
             <Separator orientation="vertical" className="h-5" />
             <Breadcrumb className="min-w-0">
               <BreadcrumbList className="flex-nowrap text-xs sm:text-sm">
-                {location.pathname === '/' ? (
-                  <BreadcrumbItem>
-                    <BreadcrumbPage className="truncate font-medium">工作台</BreadcrumbPage>
-                  </BreadcrumbItem>
-                ) : (
+                {currentNavInfo?.groupTitle ? (
                   <>
                     <BreadcrumbItem className="hidden sm:inline-flex">
-                      <BreadcrumbLink asChild>
-                        <Link to="/">工作台</Link>
-                      </BreadcrumbLink>
+                      <span>{currentNavInfo.groupTitle}</span>
                     </BreadcrumbItem>
                     <BreadcrumbSeparator className="hidden sm:list-item" />
-                    {currentNavInfo?.groupTitle ? (
-                      <>
-                        <BreadcrumbItem className="hidden md:inline-flex">
-                          <span>{currentNavInfo.groupTitle}</span>
-                        </BreadcrumbItem>
-                        <BreadcrumbSeparator className="hidden md:list-item" />
-                      </>
-                    ) : null}
-                    <BreadcrumbItem className="min-w-0">
-                      <BreadcrumbPage className="truncate font-medium">{pageTitle}</BreadcrumbPage>
-                    </BreadcrumbItem>
                   </>
-                )}
+                ) : null}
+                <BreadcrumbItem className="min-w-0">
+                  <BreadcrumbPage className="truncate font-medium">{pageTitle}</BreadcrumbPage>
+                </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
           </div>

@@ -46,7 +46,7 @@ describe('AppShell shadcn layout', () => {
     const user = userEvent.setup();
     const { container } = renderShell();
 
-    expect(screen.getAllByRole('link', { name: 'PDF 检测' })[0]).toHaveAttribute('href', '/thirty-rules-check');
+    expect(screen.getAllByRole('link', { name: '论文上传' })[0]).toHaveAttribute('href', '/thirty-rules-check');
     expect(screen.getAllByRole('link', { name: '历史报告' })[0]).toHaveAttribute('href', '/thirty-rules-check/reports');
     expect(screen.queryByRole('link', { name: '内置审查案例' })).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'PDF 检测内容' })).toBeInTheDocument();
