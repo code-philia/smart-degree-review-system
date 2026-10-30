@@ -537,6 +537,29 @@ def location(e, model):
     return {'type': 'pdf_bbox', 'page_number': e['page'], 'rects': rects, 'bounding_rect': bounding, 'text_excerpt': e['quote']}
 
 
+def conservative_evidence_guard(results):
+    """Necessary evidence checks, not a second semantic verdict or numeric oracle."""
+    limitations = []
+    for row in results:
+        status = row['status']
+        if status == 'inconclusive':
+            continue
+        reason, declaration = row['reason'], row['declaration']['text']
+        source = '\n'.join(e['quote'] for e in row['evidence'])
+        gap = None
+        if status == 'inconsistent' and re.search(r'无法(?:支持|确认|判断|证明)|不能(?:确认|判定)|证据不足|缺乏(?:直接)?证据', reason):
+            gap = '模型解释仅能说明证据不足，不能据此认定摘要与实验结果矛盾。'
+        elif status == 'consistent' and re.search(r'平均|均值|\b(?:mean|average)\b', declaration, re.I) and not re.search(r'平均|均值|\b(?:mean|average)\b', source, re.I):
+            gap = '已定位相关数值，但引用原文未明确该指标的平均统计口径，需要核实统计范围。'
+        elif status == 'consistent' and re.search(r'最高|最大|\bmaximum\b', declaration, re.I) and not re.search(r'最高|最大|最多|\b(?:maximum|maximal|up to)\b', source, re.I):
+            gap = '已定位某个实验数值，但引用原文不足以证明它是摘要所述范围内的最高值。'
+        if gap:
+            row.update(model_status=status, model_reason=reason, status='inconclusive', reason=gap,
+                       suggestion=row.get('suggestion') or '请作者结合相应实验表格核实指标、基线和统计范围。')
+            limitations.append({'declaration_id': row['declaration_id'], 'model_status': status, 'reason': gap})
+    return limitations
+
+
 def abstract_anchors(ir, quote, anchor_id):
     anchors = []
     needle = normalized(quote)
@@ -572,6 +595,7 @@ def run_numeric(ir, facts, request, trace=None, verification_mode=None):
     mode = verification_mode or os.environ.get('PAPER_NUMERIC_VERIFIER_MODE', 'per_declaration')
     require(mode in {'batch', 'per_declaration'}, 'invalid numeric verifier mode')
     params['versions']['verification_mode'] = mode
+    params['versions']['evidence_sufficiency'] = 'conservative-statistics/1.0'
     result = {'rule_run_id': 'run_' + RULE, 'rule_id': RULE, 'severity': 'warning', 'params': params,
               'execution_status': 'completed', 'evidence_mode': 'derived', 'outcome': 'inconclusive', 'message': None, 'findings': [], 'model_usage': usage}
     def call(prompt):
@@ -665,6 +689,7 @@ def run_numeric(ir, facts, request, trace=None, verification_mode=None):
                     errors.append({'declaration_id': d['id'], 'errors': ['model_call_failed'], 'type': type(exc).__name__, 'message': str(exc)})
         if trace:
             trace('verifier_validated_output', {'results': results, 'errors': errors})
+        params['evidence_limitations'] = conservative_evidence_guard(results)
         params['numeric_results'], params['validation_errors'] = results, errors
         params['coverage'] = {'expected': len(structure['declarations']), 'returned_valid': sum(not any(x.get('declaration_id') == r['declaration_id'] for x in errors) for r in results), 'complete': not errors}
         for row in results:

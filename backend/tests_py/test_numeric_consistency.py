@@ -516,3 +516,18 @@ def test_verifier_isolates_claim_inputs_and_preserves_other_claim_after_timeout(
     result = n.run_numeric(ir, facts, request)
     assert inputs == ['locator', 'd1', 'd2']
     assert [r['status'] for r in result['params']['numeric_results']] == ['inconclusive', 'consistent']
+
+
+@pytest.mark.parametrize('status,claim,reason,source,expected', [
+    ('inconsistent', 'F1提升28.9%', '基线不明确，无法确认这一提升', 'F1提升20.3%', 'inconclusive'),
+    ('inconsistent', '准确率92.5%', '同一条件准确率89.3%，数值矛盾', '准确率89.3%', 'inconsistent'),
+    ('consistent', '攻击面平均减少20%', '0.20可换算20%', 'Util攻击面削减0.20', 'inconclusive'),
+    ('consistent', '准确率最高提升25%', '某数据集提升25%', '某数据集提升25%', 'inconclusive'),
+    ('consistent', '准确率最高提升25%', '三个数据集最多25%', '三个数据集最多25%', 'consistent'),
+])
+def test_conservative_statistical_evidence_guard(status, claim, reason, source, expected):
+    row = {'declaration_id': 'd1', 'declaration': {'text': claim}, 'status': status, 'reason': reason, 'suggestion': '', 'evidence': [{'quote': source}]}
+    limits = n.conservative_evidence_guard([row])
+    assert row['status'] == expected
+    assert bool(limits) == (expected != status)
+    if limits: assert row['model_status'] == status and row['model_reason'] == reason
