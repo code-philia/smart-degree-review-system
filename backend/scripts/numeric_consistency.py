@@ -506,6 +506,7 @@ def abstract_anchors(ir, quote, anchor_id):
 def run_numeric(ir, facts, request, trace=None):
     usage = {'input_tokens': 0, 'output_tokens': 0}
     params = {'stage': 'structure_locator', 'versions': {'context': CONTEXT_VERSION, 'retrieval': RETRIEVAL_VERSION, 'contract': CONTRACT_VERSION, 'prompts': 'numeric-prompts/2.5', 'structure_locator': 'structure-locator/2.4', 'numeric_verifier': 'numeric-verifier/2.4'}}
+    params['versions']['contract_repair_policy'] = 'once-per-stage/1.0'
     result = {'rule_run_id': 'run_' + RULE, 'rule_id': RULE, 'severity': 'warning', 'params': params,
               'execution_status': 'completed', 'evidence_mode': 'derived', 'outcome': 'inconclusive', 'message': None, 'findings': [], 'model_usage': usage}
     def call(prompt):
@@ -513,6 +514,14 @@ def run_numeric(ir, facts, request, trace=None):
         for key in usage:
             usage[key] += tokens.get(key, 0)
         return payload
+    def repair(prompt, output, errors, stage):
+        # One bounded contract repair per stage, never an unbounded semantic retry.
+        params.setdefault('contract_repairs', []).append({'stage': stage, 'errors': errors})
+        if trace:
+            trace('contract_repair', {'stage': stage, 'errors': errors})
+        suffix = '\n上次输出未通过程序契约校验，只纠正以下错误并重新返回所需JSON。不得修改已经有效的其他项，不得编造原文。\n' + json.dumps({'previous_output': output, 'validation_errors': errors}, ensure_ascii=False)
+        require(len(prompt + suffix) <= 100000, 'contract repair context exceeds budget')
+        return call(prompt + suffix)
     try:
         model = source_model(ir)
         params['versions']['navigation'] = model.get('navigation', {}).get('version', 'paper-model-native')
@@ -521,11 +530,19 @@ def run_numeric(ir, facts, request, trace=None):
         params['limitations'] = model['limitations']
         if trace:
             trace('context', context)
-        structure = call(structure_prompt(context))
+        locator_prompt = structure_prompt(context)
+        structure = call(locator_prompt)
         params['structure_output'] = structure
         if trace:
             trace('structure_output', structure)
-        passed = validate_structure(structure, context, model)
+        try:
+            passed = validate_structure(structure, context, model)
+        except ContractError as exc:
+            structure = repair(locator_prompt, structure, [str(exc)], 'structure_locator')
+            params['structure_output'] = structure
+            if trace:
+                trace('structure_repaired_output', structure)
+            passed = validate_structure(structure, context, model)
         for mapping in structure['mappings']:
             mapping['chapter_title'] = model['sections'][mapping['chapter_id']]['title']
             mapping['experiment_titles'] = [model['sections'][sid]['title'] for sid in mapping['experiment_section_ids']]
@@ -546,6 +563,20 @@ def run_numeric(ir, facts, request, trace=None):
         if trace:
             trace('verifier_output', checked)
         results, errors = validated_results(checked, structure['declarations'], candidates)
+        if errors:
+            invalid = {e.get('declaration_id') for e in errors if e.get('declaration_id')}
+            if invalid:
+                try:
+                    retry = repair(prompt, checked, errors, 'numeric_verifier')
+                    # Preserve every originally valid result, even if the retry changes it.
+                    corrected = rows(retry, 'results')
+                    checked = {'results': [row for row in rows(checked, 'results') if row.get('declaration_id') not in invalid] +
+                                          [row for row in corrected if row.get('declaration_id') in invalid]}
+                    if trace:
+                        trace('verifier_repaired_output', checked)
+                    results, errors = validated_results(checked, structure['declarations'], candidates)
+                except Exception as exc:
+                    params['contract_repairs'][-1]['failure'] = {'type': type(exc).__name__, 'message': str(exc)}
         params['numeric_results'], params['validation_errors'] = results, errors
         params['coverage'] = {'expected': len(structure['declarations']), 'returned_valid': sum(not any(x.get('declaration_id') == r['declaration_id'] for x in errors) for r in results), 'complete': not errors}
         for row in results:

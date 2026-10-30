@@ -420,3 +420,35 @@ def test_explicit_main_chapter_catalog_and_compact_verifier_input():
 def test_metric_alias_retrieves_fractional_result(metric, text):
     score, signals = n.retrieval_signals({'metric': metric, 'number': 20}, {'text': text, 'block_type': 'Paragraph'})
     assert score >= 6 and any(s['kind'] == 'metric' for s in signals)
+
+
+def test_contract_repair_is_bounded_and_keeps_raw_trace():
+    ir, facts, structure = fixture()
+    bad = copy.deepcopy(structure)
+    bad['declarations'][0]['text'] = '模型伪造92.5%'
+    model = n.source_model(ir)
+    candidates, _ = n.retrieve_candidates(structure['declarations'], structure['mappings'], model)
+    evidence = next(c for c in candidates if c['source_node_id'] == 'data')
+    answer = valid_output(evidence)
+    responses = iter([bad, structure, answer])
+    events = []
+    result = n.run_numeric(ir, facts, lambda messages: (next(responses), {}), lambda kind, data: events.append(kind))
+    assert result['execution_status'] == 'completed'
+    assert len(result['params']['contract_repairs']) == 1
+    assert 'structure_output' in events and 'structure_repaired_output' in events
+    calls = []
+    def invalid(messages):
+        calls.append(messages)
+        return bad, {}
+    result = n.run_numeric(ir, facts, invalid)
+    assert len(calls) == 2 and result['execution_status'] == 'error' and not result['findings']
+
+
+def test_verifier_contract_repair_is_bounded():
+    ir, facts, structure = fixture()
+    candidates, _ = n.retrieve_candidates(structure['declarations'], structure['mappings'], n.source_model(ir))
+    answer = valid_output(next(c for c in candidates if c['source_node_id'] == 'data'))
+    responses = iter([structure, {'results': []}, answer])
+    result = n.run_numeric(ir, facts, lambda messages: (next(responses), {}))
+    assert result['execution_status'] == 'completed' and result['params']['coverage']['complete']
+    assert result['params']['contract_repairs'][0]['stage'] == 'numeric_verifier'
