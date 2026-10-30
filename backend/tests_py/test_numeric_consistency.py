@@ -413,7 +413,8 @@ def test_explicit_main_chapter_catalog_and_compact_verifier_input():
     prompt = n.verifier_prompt(structure, candidates)
     assert 'unused-debug' not in prompt
     assert 'locator-only-private-source' not in prompt
-    assert all(c['text'] in json.loads(prompt.split('输入：\n', 1)[1])['candidates'][i]['text'] for i, c in enumerate(candidates))
+    public = [c for task in json.loads(prompt.split('输入：\n', 1)[1])['tasks'] for c in task['candidates']]
+    assert [c['text'] for c in public] == [c['text'] for c in candidates]
 
 
 @pytest.mark.parametrize('metric,text', [('软件攻击面', '攻击面削减得分为0.20'), ('程序体积', '代码体积减少0.54')])
@@ -452,3 +453,17 @@ def test_verifier_contract_repair_is_bounded():
     result = n.run_numeric(ir, facts, lambda messages: (next(responses), {}))
     assert result['execution_status'] == 'completed' and result['params']['coverage']['complete']
     assert result['params']['contract_repairs'][0]['stage'] == 'numeric_verifier'
+
+
+def test_program_citations_are_exact_and_never_fix_unknown_or_cross_ids():
+    ir, facts, structure = fixture()
+    candidates, _ = n.retrieve_candidates(structure['declarations'], structure['mappings'], n.source_model(ir))
+    c = next(c for c in candidates if c['source_node_id'] == 'data')
+    raw = {'results': [{'declaration_id': 'd1', 'evidence': [{'candidate_id': c['candidate_id']}]}]}
+    resolved = n.resolve_citations(raw, candidates)
+    assert 'quote' not in raw['results'][0]['evidence'][0]
+    assert resolved['results'][0]['evidence'][0]['quote'] == c['text']
+    assert resolved['results'][0]['evidence'][0]['quote_origin'] == 'program_candidate'
+    for did, cid in [('d1', 'invented'), ('other', c['candidate_id'])]:
+        x = n.resolve_citations({'results': [{'declaration_id': did, 'evidence': [{'candidate_id': cid}]}]}, candidates)
+        assert 'quote' not in x['results'][0]['evidence'][0]
