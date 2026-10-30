@@ -377,7 +377,7 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
           if (typeof onProgress === 'function') await onProgress({ completed_rule_ids: [...completedRuleIds], total_rule_ids: normalizedRuleIds, rule_runs: [...completedRuns] });
         };
         if (bilingualRuleIds.length) {
-          const bilingualTimeout = bilingualRuleIds.includes('typo_detection_check')
+          const bilingualTimeout = bilingualRuleIds.some(id => ['typo_detection_check', 'abstract_numeric_consistency_check'].includes(id))
             ? SIX_RULE_TIMEOUT_MS
             : ENGINE_TIMEOUT_MS;
           tasks.push(runBilingualSemanticRules(pdfPath, bilingualRuleIds, bilingualTimeout, controller.signal)

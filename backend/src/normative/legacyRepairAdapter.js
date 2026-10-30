@@ -4,6 +4,7 @@ const BASIC_REPAIR_RULE_IDS = new Set(basicRules.map(rule => rule.rule_id));
 const basicRuleText = Object.fromEntries(basicRules.map(rule => [rule.rule_id, `${rule.title}：${rule.description} 以告警及规则参数中的具体要求为准，不补造研究内容或事实；检测器记录不等于 PDF 原文，缺少核验上下文时使用 insufficient_context 并说明需要核对什么。`]));
 
 const RULE_TEXT = Object.freeze({
+  abstract_numeric_consistency_check: '根据摘要数值声明与已核验的正文实验证据，核对指标、单位、基线、数据集与实验条件。不得假定摘要或正文某一侧必然正确，不编造正确值；请作者依据实验数据确认需要修改哪一处。缺少两侧原文时使用 insufficient_context。',
   ...basicRuleText,
   bilingual_abstract_consistency_check: '中英文摘要内容对应：根据告警中提供的中文摘要和英文摘要证据，修复实质内容不一致之处。仅依据证据提出最小修改；不得编造研究结论、数据或术语。',
   bilingual_keywords_correspondence_check: '中英文关键词语义对应：根据告警中提供的中英文关键词及语义匹配证据，使两组关键词表达同一组概念并一一对应。不得仅按数量判断，不得编造关键词。',

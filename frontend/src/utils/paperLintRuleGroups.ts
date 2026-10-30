@@ -2,6 +2,7 @@
 // including the two bilingual semantic rules. Keep this shared set in sync
 // with the backend MVP registry so saved reports are not filtered out of history.
 export const THIRTY_RULE_IDS = new Set([
+  'abstract_numeric_consistency_check',
   'sjtu_rule_18',
   'sjtu_rule_22',
   'sjtu_rule_24',
