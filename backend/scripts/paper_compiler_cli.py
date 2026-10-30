@@ -195,5 +195,8 @@ def main():
     try:
         result=execute(args);print(json.dumps(result,ensure_ascii=True,allow_nan=False));return 0
     except Exception as error:
-        print(json.dumps({'status':'error','error_type':type(error).__name__,'message':'Compiler operation failed; inspect its saved artifacts and budget ledger.'}));return 1
+        # Preserve the bounded, non-secret root cause for the authenticated host
+        # so callers can distinguish API, evidence, validation and program errors.
+        message = str(error).strip() or 'Compiler operation failed'
+        print(json.dumps({'status':'error','error_type':type(error).__name__,'message':message[:1000]}));return 1
 if __name__=='__main__':sys.exit(main())
