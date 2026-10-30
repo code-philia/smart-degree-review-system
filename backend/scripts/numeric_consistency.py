@@ -9,7 +9,7 @@ from typing import Any
 RULE = 'abstract_numeric_consistency_check'
 CONTEXT_VERSION = 'numeric-context/3.0'
 CONTRACT_VERSION = 'numeric-contract/2.2'
-RETRIEVAL_VERSION = 'numeric-lexical/1.0'
+RETRIEVAL_VERSION = 'numeric-lexical/1.1'
 CONDITIONS = {'abstract_numeric', 'contribution_mapping', 'experiment_subsection'}
 
 
@@ -204,6 +204,7 @@ def structure_prompt(context):
             'preconditions:[{id,passed,reason,suggestion}]，id恰为abstract_numeric、contribution_mapping、experiment_subsection，passed为布尔值；'
             'mappings:[{declaration_id,chapter_id,experiment_section_ids,evidence:[{source_node_id,quote,page}]}]。'
             '贡献text和声明text必须逐字引用摘要（可忽略换行空白）；声明需包含数值和指标；明确拆分每项可独立核验的声明。'
+            '贡献text只摘录能够标识贡献的一段最短连续原文，优先选择方法名称所在短句，不复制整个贡献段落。禁止省略短句内部词语、拼接不连续原文或改写；声明同样如此。'
             'declarations还可提供dataset、method、baseline字符串，便于本地检索。只使用给定真实section_id和source_node_id。每项声明必须关联贡献、正文主要研究章节和其下级实验子章节；'
             '实验子章节必须属于对应研究章节，不能使用独立统一实验章。映射evidence逐字引用给定章节原文并使用真实页码。'
             '方法介绍、模型结构、方法实现或章节小结不等同于实验。必须在真实正文子章节标题或其正文中找到实验、评估、验证等性质的依据；'
@@ -272,6 +273,7 @@ METRIC_ALIASES = [
 
 
 def lexical(text):
+    text = re.sub(r'(?<=[A-Za-z])-\s*\n\s*(?=[A-Za-z])', '', text)
     return re.sub(r'\s+', '', text).casefold()
 
 
@@ -306,6 +308,11 @@ def retrieval_signals(declaration, block):
     if block['block_type'] in {'Table', 'Caption'}:
         score += 1
         signals.append({'kind': 'table_context', 'weight': 1})
+    # Results summaries often use EM/other aliases or omit the abstract's metric.
+    # Keep them ahead of repeated method mentions in experimental setup paragraphs.
+    if re.search(r'(?:对\s*RQ\d+\s*的回答|RQ\d+\s*的回答|实验结果表明|实验证明)', block['text'], re.I):
+        score += 5
+        signals.append({'kind': 'result_summary', 'weight': 5})
     return score, signals
 
 
@@ -375,6 +382,8 @@ def verifier_prompt(structure, candidates):
             'reason和suggestion必须为字符串；无建议填空字符串""，禁止null。evidence必须为数组，无证据填[]。'
             '核对数值、指标、单位、基线、数据集和条件。区分相对百分比与百分点，允许合理单位换算与舍入。'
             '同数字不代表一致；未检索到数字不代表不一致。证据不足或表格行列关系不明时为inconclusive。'
+            '最高值、均值、范围等声明必须检查候选中的全部相关实验设置，不能只用一个子实验推断整体。若其他设置提供了更大值，应引用该反例；仅见部分设置或两个数据集，不能据此断言论文没有更多数据集。'
+            '数值精度差异须明确说明差值及可能的近似表达，不武断认定作者写错；只有原文明确的约数或合理舍入才可按一致处理。'
             'consistent或inconsistent必须引用真实candidate_id及其text中的连续原文quote和page，不能把计算过程伪装成原文。'
             '计算和换算写在reason。证据仅在context中时必须引用context对应的candidate_id。'
             '不能确定哪处正确时请作者依据实验核实，不擅自给出正确值。\n输入：\n' +
@@ -473,7 +482,7 @@ def abstract_anchors(ir, quote, anchor_id):
 
 def run_numeric(ir, facts, request, trace=None):
     usage = {'input_tokens': 0, 'output_tokens': 0}
-    params = {'stage': 'structure_locator', 'versions': {'context': CONTEXT_VERSION, 'retrieval': RETRIEVAL_VERSION, 'contract': CONTRACT_VERSION, 'prompts': 'numeric-prompts/2.2', 'structure_locator': 'structure-locator/2.2', 'numeric_verifier': 'numeric-verifier/2.1'}}
+    params = {'stage': 'structure_locator', 'versions': {'context': CONTEXT_VERSION, 'retrieval': RETRIEVAL_VERSION, 'contract': CONTRACT_VERSION, 'prompts': 'numeric-prompts/2.3', 'structure_locator': 'structure-locator/2.3', 'numeric_verifier': 'numeric-verifier/2.2'}}
     result = {'rule_run_id': 'run_' + RULE, 'rule_id': RULE, 'severity': 'warning', 'params': params,
               'execution_status': 'completed', 'evidence_mode': 'derived', 'outcome': 'inconclusive', 'message': None, 'findings': [], 'model_usage': usage}
     def call(prompt):

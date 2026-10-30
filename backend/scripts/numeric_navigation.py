@@ -161,6 +161,7 @@ def navigation_model(ir):
     sections = {s['section_id']: {**s, 'block_ids': []} for s in nav['sections']}
     pages = {p['page_index'] + 1: p for p in ir['layout']['pages']}
     boundaries = sorted(nav['sections'], key=lambda s: (s['page'], s['y'], s['level']))
+    real_heading_lines = {lid for s in nav['sections'] for lid in s['heading_line_ids']}
     end = min(((b['page'], b['y']) for b in nav['end_boundaries']), default=(10**9, 0))
     excluded_roles = {'running_header', 'running_footer', 'page_number'}
     blocks = []
@@ -184,8 +185,13 @@ def navigation_model(ir):
             grouped[(owner, page+1)].append((source, text[start:stop]))
         for (sid, page), spans in grouped.items():
             block_id = f'{node["id"]}:p{page}:{sid}'
+            kind = node['kind']
+            # The generic parser can mistake bold table cells for headings. In this
+            # verified view, only outline-grounded heading lines receive that role.
+            if kind == 'Heading' and not any(s.get('line_id') in real_heading_lines for s, _ in spans):
+                kind = 'Paragraph'
             blocks.append({'block_id': block_id, 'source_node_id': node['id'], 'section_id': sid,
-                           'page': page, 'block_type': node['kind'], 'table_id': None,
+                           'page': page, 'block_type': kind, 'paper_model_kind': node['kind'], 'table_id': None,
                            'text': '\n'.join(t for _, t in spans), 'provenance': [s for s, _ in spans]})
             sections[sid]['block_ids'].append(block_id)
     blocks.sort(key=lambda b: (b['page'], b['provenance'][0]['bbox'][1], b['provenance'][0]['bbox'][0]))

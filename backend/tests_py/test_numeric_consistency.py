@@ -359,7 +359,7 @@ def test_pdf_navigation_recovers_split_hierarchy_and_spaced_toc(monkeypatch, off
     line('intro', '模型采用动态权重。', 2, 150)
     line('section_number', '3.1', 3, 100, 14)
     line('section_title', '实验评估', 3, 100, 14)
-    line('result', '实验准确率89.3%。', 3, 150)
+    line('result', '实验准确率89.3%。', 3, 150, kind='Heading')
     class Doc:
         def __enter__(self): return self
         def __exit__(self, *args): pass
@@ -375,6 +375,8 @@ def test_pdf_navigation_recovers_split_hierarchy_and_spaced_toc(monkeypatch, off
     assert experiment['parent_id'] == 'ch' and experiment['page'] == 3
     assert experiment['section_id'] != 'ch'
     assert '89.3%' in '\n'.join(b['text'] for b in n.section_blocks(model, experiment['section_id']))
+    result = next(b for b in model['blocks'] if b['source_node_id'] == 'result')
+    assert result['block_type'] == 'Paragraph' and result['paper_model_kind'] == 'Heading'
     assert all('header' != b['source_node_id'] for b in model['blocks'])
 
 
@@ -383,3 +385,12 @@ def test_structure_prompt_omits_large_coverage_inventory():
     public = n.structure_input(context)
     assert public['coverage']['dropped_count'] == 20000
     assert 'unused-19999' not in n.structure_prompt(context)
+
+
+def test_retrieval_includes_other_result_settings_without_matching_abstract_number():
+    d = {'id': 'd1', 'method': 'ExampleMethod', 'metric': '准确率', 'number': 25.5}
+    setup = {'text': 'ExampleMethod 实验设置', 'block_type': 'Paragraph'}
+    result = {'text': '对RQ2 的回答：Example-\nMethod 在另外两个数据集上分别提升9.4%和26.6%。', 'block_type': 'Paragraph'}
+    assert n.retrieval_signals(d, result)[0] > n.retrieval_signals(d, setup)[0]
+    assert n.lexical('Example-\nMethod') == 'examplemethod'
+    assert n.lexical('Multiplication-Friendly') == 'multiplication-friendly'
