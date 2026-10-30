@@ -596,3 +596,11 @@ def test_locator_section_aliases_cannot_be_confused_with_text_node_ids():
     assert resolved['mappings'][0]['chapter_id'] == 'ch'
     assert resolved['mappings'][0]['experiment_section_ids'] == ['exp']
     assert n.validate_structure(resolved, context, model)
+
+
+@pytest.mark.parametrize('claim,observed,expected', [('20', '20.73', 'inconclusive'), ('28.9', '28.6', 'inconclusive'), ('20.7', '20.73', 'consistent')])
+def test_approximation_must_obey_decimal_rounding(claim, observed, expected):
+    row = {'declaration_id': 'd1', 'declaration': {'text': '准确率' + claim + '%', 'number': claim}, 'status': 'consistent',
+           'reason': '属于合理近似和四舍五入', 'suggestion': '', 'evidence': [{'quote': '准确率' + observed + '%'}]}
+    n.conservative_evidence_guard([row])
+    assert row['status'] == expected
