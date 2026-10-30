@@ -145,8 +145,17 @@ def _is_cjk(char: str) -> bool:
     return bool(char) and "\u3400" <= char <= "\u9fff"
 
 
+def _normalize_layout_line_breaks(text: str) -> str:
+    # A PDF line break inside one paragraph is layout, not a sentence boundary.
+    # Rejoin hyphenated Latin words and CJK text before sending the chunk to the model.
+    text = re.sub(r"([A-Za-z])-\s*\r?\n\s*([A-Za-z])", r"\1-\2", text)
+    text = re.sub(r"(?<=[\u3400-\u9fff])\s*\r?\n\s*(?=[\u3400-\u9fff])", "", text)
+    text = re.sub(r"(?<=[A-Za-z])\s*\r?\n\s*(?=[A-Za-z])", " ", text)
+    return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
 def _model_piece(text: str) -> str:
-    return _normalize_for_model(text).strip("\r\n")
+    return _normalize_for_model(_normalize_layout_line_breaks(text)).strip("\r\n")
 
 
 def _join_model_parts(parts: list[str]) -> str:
@@ -179,19 +188,65 @@ def _body_chunks(ir: dict[str, Any], size: int = 6000) -> list[dict[str, Any]]:
     """Return sentence-aware chunks and source segments for precise locations."""
     nodes = {node.get("id"): node for node in ir.get("nodes", [])}
     body = next((node for node in ir.get("nodes", []) if node.get("kind") == "Body"), None)
-    ordered: list[dict[str, Any]] = []
+    candidates: list[dict[str, Any]] = []
     seen: set[str] = set()
     def walk(node_id: str) -> None:
         if node_id in seen: return
         seen.add(node_id)
         node = nodes.get(node_id)
         if not node: return
-        if node.get("kind") == "Paragraph": ordered.append(node)
+        if node.get("kind") in {"Paragraph", "Heading"}:
+            candidates.append(node)
         for child in node.get("children", []) or []: walk(child)
     for child in (body or {}).get("children", []) or []: walk(child)
+
+    def source_box(node: dict[str, Any], first: bool) -> tuple[int, list[float]] | None:
+        sources = [item for item in (node.get("provenance") or [])
+                   if isinstance(item, dict) and isinstance(item.get("page_index"), int)
+                   and isinstance(item.get("bbox"), list) and len(item["bbox"]) == 4]
+        if not sources:
+            return None
+        item = sources[0] if first else sources[-1]
+        return int(item["page_index"]), [float(value) for value in item["bbox"]]
+
+    def is_layout_continuation(left: dict[str, Any], right: dict[str, Any]) -> bool:
+        left_text = str(left.get("text") or "").strip()
+        right_text = str(right.get("text") or "").strip()
+        if left.get("kind") != "Heading" or right.get("kind") != "Paragraph":
+            return False
+        if len(left_text) < 20 or not left_text or not right_text:
+            return False
+        if not _is_cjk(left_text[-1:]) or not (_is_cjk(right_text[:1]) or right_text[:1].isalnum()):
+            return False
+        if re.search(r"[。！？；.!?;：:]$", left_text):
+            return False
+        if not re.search(r"[，、：,:]", left_text):
+            return False
+        left_source = source_box(left, False)
+        right_source = source_box(right, True)
+        if not left_source or not right_source or left_source[0] != right_source[0]:
+            return False
+        gap = right_source[1][1] - left_source[1][3]
+        return 0 <= gap <= 12
+
+    ordered: list[dict[str, Any]] = []
+    index = 0
+    while index < len(candidates):
+        node = candidates[index]
+        if node.get("kind") == "Heading" and index + 1 < len(candidates):
+            following = candidates[index + 1]
+            if is_layout_continuation(node, following):
+                following["_join_previous_layout_node"] = True
+                ordered.append(node)
+                index += 1
+                node = following
+        if node.get("kind") == "Paragraph":
+            ordered.append(node)
+        index += 1
     if not ordered:
         ordered = [node for node in ir.get("nodes", [])
-                   if node.get("kind") in {"Paragraph", "UnknownBlock"} and str(node.get("text") or "").strip()]
+                   if node.get("kind") in {"Paragraph", "UnknownBlock"} and str(
+                       node.get("text") or "").strip()]
     page_sizes = {int(page.get('page_index', -1)) + 1: (float(page.get('width') or 0), float(page.get('height') or 0)) for page in (ir.get('layout', {}).get('pages', []) or [])}
     chunks: list[dict[str, Any]] = []
     current: list[str] = []
@@ -222,7 +277,7 @@ def _body_chunks(ir: dict[str, Any], size: int = 6000) -> list[dict[str, Any]]:
             source = next((item for item in provenance if isinstance(item.get("page_index"), int)), {})
             source_parts = [(raw, int(source["page_index"]) + 1 if isinstance(source.get("page_index"), int) else None,
                             source.get("bbox") if isinstance(source.get("bbox"), list) else None)]
-        paragraph_break = bool(current)
+        paragraph_break = bool(current) and not node.get("_join_previous_layout_node")
         for source_text, page, bbox in source_parts:
             for piece in _split_piece(source_text, size):
                 if length and length + len(piece) + 1 > size:
@@ -256,11 +311,12 @@ def _body_chunks(ir: dict[str, Any], size: int = 6000) -> list[dict[str, Any]]:
 
 def typo_prompt(text: str) -> str:
     return (
-        "你是学位论文校对助手。只检查下面正文中明确可判断的中文错别字或明显的英文拼写错误。"
-        "不要修改专业术语、作者名、缩写、公式、数字、引用、专有名词，也不要把 PDF 跨行连字符"
-        "（如 \"re-\nverse\"）当作拼写错误。PDF 提取可能在中文词内插入空格（如“剔 除”），这不是错别字，必须忽略。无法确定时不要报告。请用简体中文返回严格 JSON："
-        "{\"findings\":[{\"text\":\"原文短语\",\"suggestion\":\"建议文字\","
-        "\"reason\":\"简短理由\"}]}。原文如下：\n" + text
+        "你是学位论文校对助手。只报告有充分证据的单字、词语或很短的局部短语错误，绝不得返回完整句子或句子片段。"
+        "不得只修改标点、空格、换行、连字符、大小写或排版；不得修改专业术语、作者名、缩写、模型名、代码库名、公式、数字、引用或专有名词。"
+        "PDF 同一段落中的换行已经由程序归一化；如遇跨行连字符（如 \"re-\nverse\"）或中文词内提取空格（如“剔 除”），不得报告。"
+        "每个候选必须有 confidence，范围为 0 到 1；confidence < 0.85 时不要返回。中文错别字只有在存在明确的常见字词替换关系、替换后语义明显合理且原字明显不合理，并且同一术语在正文其他位置有稳定写法或上下文能够证明当前字词不成立时才可返回。"
+        "请用简体中文返回严格 JSON，不要 Markdown："
+        "{\"findings\":[{\"text\":\"原文中的短词或短语\",\"suggestion\":\"建议文字\",\"reason\":\"简短理由\",\"confidence\":0.0,\"common_confusion\":true,\"semantic_validity\":true,\"stable_usage\":false,\"context_proof\":true}]}。原文如下：\n" + text
     )
 
 
@@ -284,16 +340,31 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
             if not isinstance(row, dict) or not str(row.get("text") or "").strip():
                 continue
             original = str(row.get("text") or "").strip()
-            suggestion = str(row.get("suggestion") or "请结合上下文核对").strip()
-            if _normalize_for_model(original) == _normalize_for_model(suggestion):
+            suggestion = str(row.get("suggestion") or "").strip()
+            try:
+                confidence = float(row.get("confidence"))
+            except (TypeError, ValueError):
+                continue
+            if confidence < 0.85:
+                continue
+            # Full sentences and layout-only edits are never typo findings.
+            if len(original) > 30 or re.search(r"[。！？；.!?]", original):
+                continue
+            surface_normalize = lambda value: re.sub(r"[^\w\u3400-\u9fff]", "", value.casefold())
+            if surface_normalize(original) == surface_normalize(suggestion):
                 continue
             needle = _normalize_for_model(original)
             model_text = chunk.get("model_text", "")
             match_start = model_text.find(needle)
             if match_start < 0:
-                # Do not show model-invented text that cannot be found in the PDF extraction.
                 continue
             match_end = match_start + len(needle)
+            # Do not accept a substring cut out of a longer CJK word.
+            if _has_cjk(original):
+                before = model_text[match_start - 1:match_start]
+                after = model_text[match_end:match_end + 1]
+                if (_is_cjk(original[:1]) and _is_cjk(before)) or (_is_cjk(original[-1:]) and _is_cjk(after)):
+                    continue
             matched_segments = [item for item in chunk.get("segments", [])
                                 if item.get("end", 0) > match_start and item.get("start", 0) < match_end]
             pages = [item.get("page") for item in matched_segments if item.get("page")]
