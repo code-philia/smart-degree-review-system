@@ -467,3 +467,17 @@ def test_program_citations_are_exact_and_never_fix_unknown_or_cross_ids():
     for did, cid in [('d1', 'invented'), ('other', c['candidate_id'])]:
         x = n.resolve_citations({'results': [{'declaration_id': did, 'evidence': [{'candidate_id': cid}]}]}, candidates)
         assert 'quote' not in x['results'][0]['evidence'][0]
+    aliases = n.resolve_citations({'results': [{'declaration_id': 'd1', 'evidence': [c['candidate_id']]}]}, candidates)
+    assert aliases['results'][0]['evidence'][0]['quote'] == c['text']
+
+
+def test_percentage_inventory_rejects_silent_omission_and_merged_metrics():
+    ir, facts, data = fixture()
+    model = n.source_model(ir)
+    context = n.structure_context({'chinese_abstract': facts['chinese_abstract'] + '整体框架提升18.2%—21.4%。'}, model)
+    with pytest.raises(n.ContractError, match='missing abstract percentage'):
+        n.validate_structure(data, context, model)
+    data['declarations'][0]['text'] += '，同时减少54%程序体积'
+    with pytest.raises(n.ContractError):
+        n.validate_structure(data, context, model)
+    assert n.percentage_values('20.0%与20%及0.2%') == {'20', '0.2'}

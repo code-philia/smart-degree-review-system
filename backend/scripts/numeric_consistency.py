@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 import hashlib
+from decimal import Decimal
 import json
 import re
 from typing import Any
 
 RULE = 'abstract_numeric_consistency_check'
-CONTEXT_VERSION = 'numeric-context/3.2'
-CONTRACT_VERSION = 'numeric-contract/2.2'
+CONTEXT_VERSION = 'numeric-context/3.3'
+CONTRACT_VERSION = 'numeric-contract/2.3'
 RETRIEVAL_VERSION = 'numeric-lexical/1.3'
 CONDITIONS = {'abstract_numeric', 'contribution_mapping', 'experiment_subsection'}
 
@@ -166,6 +167,10 @@ def structure_input(context):
     return public
 
 
+def percentage_values(text):
+    return {format(Decimal(value).normalize(), 'f') for value in re.findall(r'(?<![\d.])(\d+(?:\.\d+)?)\s*[%％]', text)}
+
+
 def structure_context(facts, model):
     abstract = facts.get('chinese_abstract') or facts.get('english_abstract') or ''
     if isinstance(abstract, dict):
@@ -192,6 +197,7 @@ def structure_context(facts, model):
     context = {'abstract': abstract, 'toc': model['toc'], 'sections': catalog,
                'main_chapter_ids': [s['section_id'] for s in catalog if s['parent_id'] is None], 'blocks': blocks,
                'coverage': coverage, 'limitations': model['limitations'], 'navigation': model.get('navigation')}
+    context['abstract_percentage_inventory'] = sorted(percentage_values(abstract))
     require(len(json.dumps(structure_input(context), ensure_ascii=False)) <= 100000, 'structure context exceeds budget')
     return context
 
@@ -213,6 +219,7 @@ def structure_prompt(context):
             'preconditions:[{id,passed,reason,suggestion}]，id恰为abstract_numeric、contribution_mapping、experiment_subsection，passed为布尔值；'
             'mappings:[{declaration_id,chapter_id,experiment_section_ids,evidence:[{source_node_id,quote,page}]}]。'
             '贡献text和声明text必须逐字引用摘要（可忽略换行空白）；声明需包含数值和指标；明确拆分每项可独立核验的声明。'
+            '逐项核对abstract_percentage_inventory，摘要中的每个百分比都必须覆盖，不能漏掉末尾整体框架或综合结果的声明。一个声明可保留同一指标区间的两个界限；含“同时”等连接词的不同指标数值必须拆为独立声明。若存在无法映射的百分比声明，前置条件不得全部通过。'
             '贡献text只摘录能够标识贡献的一段最短连续原文，优先选择方法名称所在短句，不复制整个贡献段落。禁止省略短句内部词语、拼接不连续原文或改写；声明同样如此。'
             'declarations还可提供dataset、method、baseline字符串，便于本地检索。只使用给定真实section_id和source_node_id。每项声明必须关联贡献、正文主要研究章节和其下级实验子章节；'
             'chapter_id必须从main_chapter_ids选择，即parent_id为null的章；禁止用3.3、4.3等设计与实现小节作为chapter_id。各小节main_chapter_id给出了所属章。experiment_section_ids必须选该章下真正的实验小节，可包含实验设置和实验结果两个并列小节，避免只选设置而遗漏结果。'
@@ -250,6 +257,7 @@ def validate_structure(data, context, model):
         require(bool(d['metric'].strip()), 'missing metric')
         require(type(d.get('number')) in (int, float, str) and re.search(r'\d', str(d['number'])) is not None, 'invalid numeric value')
         require(re.search(r'\d', d['text']) is not None, 'declaration has no numeric source')
+        require(not (len(percentage_values(d['text'])) > 1 and re.search(r'同时|以及|并且', d['text'])), 'split independent numeric metrics into separate declarations')
     mappings = unique(rows(data, 'mappings'), 'declaration_id')
     require(set(mappings) <= set(declarations), 'mapping has unknown declaration')
     visible = context['blocks']
@@ -271,6 +279,9 @@ def validate_structure(data, context, model):
         require(bool(context['abstract']) and bool(context['toc']), 'passed prerequisites without abstract or ToC')
         require(bool(contributions) and bool(declarations), 'passed prerequisites without declarations')
         require(set(mappings) == set(declarations), 'missing declaration mapping')
+        covered = set().union(*(percentage_values(d['text']) for d in declarations.values()))
+        missing = percentage_values(context['abstract']) - covered
+        require(not missing, 'missing abstract percentage declarations: ' + ', '.join(sorted(missing)))
     return passed
 
 
@@ -425,6 +436,7 @@ def resolve_citations(payload, candidates):
     for row in result['results']:
         if not isinstance(row, dict) or not isinstance(row.get('evidence'), list):
             continue
+        row['evidence'] = [{'candidate_id': e} if isinstance(e, str) else e for e in row['evidence']]
         for e in row['evidence']:
             if not isinstance(e, dict):
                 continue
