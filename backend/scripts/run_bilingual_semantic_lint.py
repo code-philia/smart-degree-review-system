@@ -306,7 +306,7 @@ def _body_chunks(ir: dict[str, Any], size: int = 6000) -> list[dict[str, Any]]:
                 model_length += len(normalized_piece)
                 length += len(piece) + 1
     flush()
-    return chunks[:80]
+    return chunks
 
 
 def typo_prompt(text: str) -> str:
@@ -364,6 +364,8 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
             if match_start < 0:
                 continue
             match_end = match_start + len(needle)
+            if _looks_like_code_context(model_text, match_start, match_end):
+                continue
             # Do not accept a substring cut out of a longer CJK word.
             if _has_cjk(original):
                 before = model_text[match_start - 1:match_start]
@@ -435,6 +437,19 @@ def _looks_like_code_or_math(value: Any) -> bool:
         if len(text) == 1 or (text.isupper() and len(text) <= 16):
             return True
     return False
+
+
+def _looks_like_code_context(text: str, start: int, end: int) -> bool:
+    """Ignore ordinary-looking words when they occur in code/identifier prose."""
+    window = text[max(0, start - 100):min(len(text), end + 100)]
+    patterns = (
+        r"\x60",
+        r"(?:参数名|变量名|变量|函数名|函数|方法名|类名|标识符|代码|代码片段|"
+        r"命令|路径|协议名|模型名|库名|调用|返回值|接口)",
+        r"\b(?:def|class|return|import|from|if|else|for|while|try|except)\b",
+        r"[A-Za-z_]\w*\s*(?:\(|=|::)",
+    )
+    return any(re.search(pattern, window, flags=re.IGNORECASE) for pattern in patterns)
 
 
 def _location(value: Any) -> dict[str, Any] | None:
