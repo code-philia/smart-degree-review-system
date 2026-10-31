@@ -5,6 +5,8 @@ import {
   fetchPaperLintBuiltInCase,
   fetchPaperLintBuiltInCasePdf,
   fetchPaperLintBuiltInCases,
+  fetchReviewPilotPaperLintRules,
+  type PaperLintRule,
   type PaperLintBuiltInCase,
   type PaperLintBuiltInCaseSummary,
 } from '../api/paperLint';
@@ -69,6 +71,7 @@ function CaseCatalog() {
 
 function CaseDetail({ caseId }: { caseId: string }) {
   const [reviewCase, setReviewCase] = useState<PaperLintBuiltInCase | null>(null);
+  const [rules, setRules] = useState<PaperLintRule[]>([]);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -77,11 +80,13 @@ function CaseDetail({ caseId }: { caseId: string }) {
     setReviewCase(null);
     setPdfFile(null);
     try {
-      const [caseResponse, pdf] = await Promise.all([
+      const [caseResponse, pdf, catalog] = await Promise.all([
         fetchPaperLintBuiltInCase(caseId),
         fetchPaperLintBuiltInCasePdf(caseId),
+        fetchReviewPilotPaperLintRules().catch(() => null),
       ]);
       setReviewCase(caseResponse);
+      setRules(catalog?.rules || [caseResponse.rule]);
       setPdfFile(new File([pdf], caseResponse.pdf_filename, { type: 'application/pdf' }));
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : '案例详情加载失败');
@@ -141,7 +146,7 @@ function CaseDetail({ caseId }: { caseId: string }) {
         </Card>
       </div>
 
-      <PaperLintWorkspace file={pdfFile} findings={findings} rules={[reviewCase.rule]} />
+      <PaperLintWorkspace file={pdfFile} findings={findings} rules={rules} />
     </div>
   );
 }

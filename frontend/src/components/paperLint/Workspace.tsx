@@ -6,6 +6,7 @@ import { FindingsPane } from './FindingsPane';
 import { NumericReviewDetails } from './NumericReviewDetails';
 import type { PaperLintFindingItem } from './model';
 import { PdfPane } from './PdfPane';
+import type { PdfPageLabels } from './pageLabels';
 
 function numericPdfFindings(run: PaperLintRuleRun | undefined): PaperLintFindingItem[] {
   if (!run || run.rule_id !== 'abstract_numeric_consistency_check') return [];
@@ -48,10 +49,10 @@ type Props = {
   findingFeedbackByKey?: Record<string, FindingFeedback | null | undefined>;
   suggestionFeedbackByFindingKey?: Record<string, SuggestionFeedback | null | undefined>;
   onFindingFeedback?: (finding: PaperLintFindingItem, value: 'positive' | 'negative') => void;
-  onFindingFeedbackReason?: (finding: PaperLintFindingItem, reasonCode: string | null, reasonText: string | null) => void;
+  onFindingFeedbackReason?: (finding: PaperLintFindingItem, reasonCode: string | null, reasonText: string | null) => void | Promise<void>;
   onFindingFeedbackCancel?: (finding: PaperLintFindingItem) => void;
   onSuggestionFeedback?: (finding: PaperLintFindingItem, value: 'positive' | 'negative') => void;
-  onSuggestionFeedbackReason?: (finding: PaperLintFindingItem, reasonCode: string | null, reasonText: string | null) => void;
+  onSuggestionFeedbackReason?: (finding: PaperLintFindingItem, reasonCode: string | null, reasonText: string | null) => void | Promise<void>;
   onSuggestionFeedbackCancel?: (finding: PaperLintFindingItem) => void;
 };
 
@@ -79,6 +80,7 @@ export function PaperLintWorkspace({
   onSuggestionFeedbackReason,
   onSuggestionFeedbackCancel,
 }: Props) {
+  const [pageLabels, setPageLabels] = useState<PdfPageLabels>({});
   const pdfFindings = (() => {
     if (layout !== 'semantic' || !numericReviewRun) return findings;
     const byKey = new Map(findings.map((item) => [item.key, item]));
@@ -120,6 +122,7 @@ export function PaperLintWorkspace({
         requestedPage={requestedPage}
         onFindingClick={selectFinding}
         onAnchorClick={selectAnchor}
+        onPageLabels={setPageLabels}
       />
       {layout === 'semantic' && numericReviewRun ? (
         <section className="min-h-0 overflow-y-auto rounded-xl border border-slate-200 bg-white p-4">
@@ -131,6 +134,7 @@ export function PaperLintWorkspace({
           />
         </section>
       ) : <FindingsPane
+        pageLabels={pageLabels}
         findings={findings}
         rules={rules}
         activeFindingKey={activeFindingKey}

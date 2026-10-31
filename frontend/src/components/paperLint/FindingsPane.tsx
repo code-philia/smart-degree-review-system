@@ -1,10 +1,12 @@
-import { Bot, Check, CheckCircle2, MapPin, ThumbsDown, ThumbsUp } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { Bot, Check, CheckCircle2, MapPin } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import type { PaperLintRule } from '../../api/paperLint';
 import type { RepairSuggestion } from '../../api/repairSuggestions';
 import type { FindingFeedback, SuggestionFeedback } from '../../api/feedback';
 import { Button, StatusBadge } from '../ui';
 import { comparePaperLintRuleIds, findingPageLabel, type PaperLintFindingItem } from './model';
+import { FeedbackControls } from './FeedbackControls';
+import { displayFindingPages, type PdfPageLabels } from './pageLabels';
 
 type Props = {
   findings: PaperLintFindingItem[];
@@ -13,6 +15,7 @@ type Props = {
   activeAnchorId: string | null;
   onFindingClick: (key: string) => void;
   onAnchorClick: (key: string, anchorId: string) => void;
+  pageLabels?: PdfPageLabels;
   repairSuggestionByFindingKey?: Record<string, RepairSuggestion | undefined>;
   repairSuggestionLoadingKey?: string | null;
   repairSuggestionLoadingByFindingKey?: Record<string, boolean>;
@@ -24,10 +27,10 @@ type Props = {
   findingFeedbackByKey?: Record<string, FindingFeedback | null | undefined>;
   suggestionFeedbackByFindingKey?: Record<string, SuggestionFeedback | null | undefined>;
   onFindingFeedback?: (finding: PaperLintFindingItem, value: 'positive' | 'negative') => void;
-  onFindingFeedbackReason?: (finding: PaperLintFindingItem, reasonCode: string | null, reasonText: string | null) => void;
+  onFindingFeedbackReason?: (finding: PaperLintFindingItem, reasonCode: string | null, reasonText: string | null) => void | Promise<void>;
   onFindingFeedbackCancel?: (finding: PaperLintFindingItem) => void;
   onSuggestionFeedback?: (finding: PaperLintFindingItem, value: 'positive' | 'negative') => void;
-  onSuggestionFeedbackReason?: (finding: PaperLintFindingItem, reasonCode: string | null, reasonText: string | null) => void;
+  onSuggestionFeedbackReason?: (finding: PaperLintFindingItem, reasonCode: string | null, reasonText: string | null) => void | Promise<void>;
   onSuggestionFeedbackCancel?: (finding: PaperLintFindingItem) => void;
 };
 
@@ -59,42 +62,6 @@ function RepairAction({ instruction }: { instruction: string }) {
 }
 
 
-function FeedbackControls({
-  label, feedback, reasons, onValue, onReason, onCancel,
-}: {
-  label: string;
-  feedback?: FindingFeedback | SuggestionFeedback | null;
-  reasons: [string, string][];
-  onValue: (value: 'positive' | 'negative') => void;
-  onReason: (code: string | null, text: string | null) => void;
-  onCancel: () => void;
-}) {
-  const [reasonCode, setReasonCode] = useState(feedback?.reason_code || '');
-  const [reasonText, setReasonText] = useState(feedback?.reason_text || '');
-  useEffect(() => {
-    setReasonCode(feedback?.reason_code || '');
-    setReasonText(feedback?.reason_text || '');
-  }, [feedback?.id, feedback?.reason_code, feedback?.reason_text]);
-  return (
-    <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50 p-2" onClick={(event) => event.stopPropagation()}>
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-slate-500">{label}</span>
-        <Button size="sm" variant="ghost" className={feedback?.feedback_value === 'positive' ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300 hover:bg-emerald-200' : ''} aria-label="有帮助" aria-pressed={feedback?.feedback_value === 'positive'} onClick={() => onValue('positive')}><ThumbsUp className="size-3.5" /></Button>
-        <Button size="sm" variant="ghost" className={feedback?.feedback_value === 'negative' ? 'bg-red-100 text-red-700 ring-1 ring-red-300 hover:bg-red-200' : ''} aria-label="需要改进" aria-pressed={feedback?.feedback_value === 'negative'} onClick={() => onValue('negative')}><ThumbsDown className="size-3.5" /></Button>
-        {feedback ? <Button size="sm" variant="ghost" className="ml-auto text-xs" onClick={onCancel}>取消评价</Button> : null}
-      </div>
-      {feedback?.feedback_value === 'negative' ? <div className="mt-2 space-y-2">
-        <select aria-label="负面反馈原因" className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs" value={reasonCode} onChange={(event) => setReasonCode(event.target.value)}>
-          <option value="">可选：选择原因</option>
-          {reasons.map(([value, text]) => <option key={value} value={value}>{text}</option>)}
-        </select>
-        <textarea aria-label="反馈补充说明" className="min-h-12 w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs" placeholder="可选补充说明" value={reasonText} onChange={(event) => setReasonText(event.target.value)} />
-        <Button size="sm" variant="ghost" onClick={() => onReason(reasonCode || null, reasonText || null)}>保存原因</Button>
-      </div> : null}
-    </div>
-  );
-}
-
 export function FindingsPane({
   findings,
   rules,
@@ -102,6 +69,7 @@ export function FindingsPane({
   activeAnchorId,
   onFindingClick,
   onAnchorClick,
+  pageLabels = {},
   repairSuggestionByFindingKey = {},
   repairSuggestionLoadingKey = null,
   repairSuggestionLoadingByFindingKey = {},
@@ -122,6 +90,7 @@ export function FindingsPane({
   const [ruleFilter, setRuleFilter] = useState('all');
   const [handledKeys, setHandledKeys] = useState<string[]>([]);
   const ruleNames = useMemo(() => new Map(rules.map((rule) => [rule.rule_id, rule.title])), [rules]);
+  const ruleNumbers = useMemo(() => new Map(rules.map((rule, index) => [rule.rule_id, index + 1])), [rules]);
   const ruleIds = Array.from(new Set(findings.map((item) => item.ruleRun.rule_id))).sort(comparePaperLintRuleIds);
   const filtered = findings.filter(
     (item) =>
@@ -133,8 +102,8 @@ export function FindingsPane({
     <section className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
       <div className="border-b border-slate-200 p-3">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-sm font-bold text-slate-900">审查问题</h2>
-          <StatusBadge>{filtered.length} 项</StatusBadge>
+          <h2 className="text-sm font-bold text-slate-900">检测错误总数</h2>
+          <StatusBadge>{findings.length} 项</StatusBadge>
         </div>
         <div className="mt-2 flex flex-wrap gap-1">
           {(['all', 'error', 'warning', 'info'] as const).map((value) => (
@@ -169,13 +138,15 @@ export function FindingsPane({
         {filtered.length === 0 ? (
           <div className="flex h-full min-h-60 flex-col items-center justify-center text-center">
             <CheckCircle2 className="size-8 text-success-600" />
-            <p className="mt-3 text-sm font-bold text-slate-900">当前筛选下没有问题</p>
-            <p className="mt-1 text-xs text-slate-500">可切换筛选条件查看其他问题，检测结论见页面顶部。</p>
+            <p className="mt-3 text-sm font-bold text-slate-900">{findings.length ? '当前筛选下未检测出问题' : '未检测出问题'}</p>
+            <p className="mt-1 max-w-sm text-xs leading-6 text-slate-500">基于当前规范性检测规则，证据不足的内容仍可能无法判定，检测结果仅供参考</p>
           </div>
         ) : (
           filtered.map((item) => {
             const active = item.key === activeFindingKey;
-            const page = findingPageLabel(item);
+            const page = displayFindingPages(item, pageLabels);
+            const physicalPages = findingPageLabel(item);
+            const ruleNumber = ruleNumbers.get(item.ruleRun.rule_id) ?? rules.length + ruleIds.indexOf(item.ruleRun.rule_id) + 1;
             const repair = repairSuggestionByFindingKey[item.key];
             const repairError = repairSuggestionErrorByFindingKey[item.key];
             const generating = repairSuggestionLoadingByFindingKey[item.key] || repairSuggestionLoadingKey === item.key;
@@ -207,14 +178,14 @@ export function FindingsPane({
                       {severityLabels[item.ruleRun.severity]}
                     </StatusBadge>
                     <h3 className="mt-2 text-sm font-bold text-slate-900">
-                      {ruleNames.get(item.ruleRun.rule_id) || item.ruleRun.rule_id}
+                      规则 {ruleNumber}：{ruleNames.get(item.ruleRun.rule_id) || item.ruleRun.rule_id}
                     </h3>
                   </div>
                   <div className="flex items-center gap-1">
                     {page ? (
-                      <span className="inline-flex shrink-0 items-center gap-1 text-xs text-slate-500">
+                      <span className="inline-flex shrink-0 items-center gap-1 text-xs text-slate-500" title={`PDF 第 ${physicalPages} 页`}>
                         <MapPin className="size-3" />
-                        PDF 第 {page} 页
+                        {page}
                       </span>
                     ) : (
                       <span className="text-xs text-slate-400">暂无精确定位</span>
@@ -244,7 +215,7 @@ export function FindingsPane({
                   feedback={findingFeedback}
                   reasons={[['false_positive', '误报'], ['location_inaccurate', '定位不准'], ['description_unclear', '说明不清'], ['other', '其他']]}
                   onValue={(value) => onFindingFeedback(item, value)}
-                  onReason={(code, text) => onFindingFeedbackReason?.(item, code, text)}
+                  onReason={onFindingFeedbackReason ? (code, text) => onFindingFeedbackReason(item, code, text) : undefined}
                   onCancel={() => onFindingFeedbackCancel?.(item)}
                 /> : null}
                 {page ? (
@@ -252,13 +223,13 @@ export function FindingsPane({
                     size="sm"
                     variant="ghost"
                     className="mt-2"
-                    aria-label={`跳到 PDF 第 ${page} 页`}
+                    aria-label={`跳到${page.startsWith('PDF ') ? ' ' : ''}${page}`}
                     onClick={(event) => {
                       event.stopPropagation();
                       onFindingClick(item.key);
                     }}
                   >
-                    跳到 PDF 第 {page} 页
+                    跳到{page.startsWith('PDF ') ? ' ' : ''}{page}
                   </Button>
                 ) : null}
                 {active && item.finding.source_kind === 'synthetic' ? <p className="mt-2 text-xs text-slate-600">该处来自变异内容，未标记为原始 PDF 中的文本。</p> : null}
@@ -321,7 +292,7 @@ export function FindingsPane({
                         feedback={suggestionFeedback}
                         reasons={[['incorrect', '内容不正确'], ['not_directly_executable', '无法直接执行'], ['insufficient_basis', '依据不足'], ['unclear', '表达不清'], ['other', '其他']]}
                         onValue={(value) => onSuggestionFeedback(item, value)}
-                        onReason={(code, text) => onSuggestionFeedbackReason?.(item, code, text)}
+                        onReason={onSuggestionFeedbackReason ? (code, text) => onSuggestionFeedbackReason(item, code, text) : undefined}
                         onCancel={() => onSuggestionFeedbackCancel?.(item)}
                       /> : null}
                       </>

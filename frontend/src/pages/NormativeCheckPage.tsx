@@ -215,15 +215,11 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     }
   }, [response?.id]);
   const updateFindingReason = useCallback(async (item: (typeof findings)[number], reasonCode: string | null, reasonText: string | null) => {
-    if (!response?.id) return;
-    try {
-      const feedback = await saveFindingFeedback(response.id, item.ruleRun.rule_id, item.finding.finding_id, {
-        feedback_value: 'negative', reason_code: reasonCode, reason_text: reasonText,
-      });
-      setFindingFeedbackByKey((current) => ({ ...current, [item.key]: feedback }));
-    } catch (cause) {
-      window.alert(cause instanceof Error ? cause.message : '反馈保存失败');
-    }
+    if (!response?.id) throw new Error('请重新打开检测报告后提交反馈');
+    const feedback = await saveFindingFeedback(response.id, item.ruleRun.rule_id, item.finding.finding_id, {
+      feedback_value: 'negative', reason_code: reasonCode, reason_text: reasonText,
+    });
+    setFindingFeedbackByKey((current) => ({ ...current, [item.key]: feedback }));
   }, [response?.id]);
   const cancelFindingFeedback = useCallback(async (item: (typeof findings)[number]) => {
     if (!response?.id) return;
@@ -246,15 +242,11 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   }, [response?.id, repairSuggestions.repairSuggestionByFindingKey]);
   const updateSuggestionReason = useCallback(async (item: (typeof findings)[number], reasonCode: string | null, reasonText: string | null) => {
     const suggestion = repairSuggestions.repairSuggestionByFindingKey[item.key];
-    if (!response?.id || !suggestion?.suggestion_id) return;
-    try {
-      const feedback = await saveSuggestionFeedback(response.id, suggestion.suggestion_id, {
-        feedback_value: 'negative', reason_code: reasonCode, reason_text: reasonText,
-      });
-      setSuggestionFeedbackByFindingKey((current) => ({ ...current, [item.key]: feedback }));
-    } catch (cause) {
-      window.alert(cause instanceof Error ? cause.message : '反馈保存失败');
-    }
+    if (!response?.id || !suggestion?.suggestion_id) throw new Error('请重新加载修复建议后提交反馈');
+    const feedback = await saveSuggestionFeedback(response.id, suggestion.suggestion_id, {
+      feedback_value: 'negative', reason_code: reasonCode, reason_text: reasonText,
+    });
+    setSuggestionFeedbackByFindingKey((current) => ({ ...current, [item.key]: feedback }));
   }, [response?.id, repairSuggestions.repairSuggestionByFindingKey]);
   const cancelSuggestionFeedback = useCallback(async (item: (typeof findings)[number]) => {
     const suggestion = repairSuggestions.repairSuggestionByFindingKey[item.key];
@@ -911,7 +903,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
             numericReviewRun={isSemantic ? response.result.rule_runs.find((run) => run.rule_id === 'abstract_numeric_consistency_check') : undefined}
             openPdfUrl={`/api/normative/paper-lint/reports/${encodeURIComponent(response.id)}/pdf`}
             findings={findings}
-            rules={visibleRules}
+            rules={catalog?.rules || []}
             repairSuggestionByFindingKey={repairSuggestions.repairSuggestionByFindingKey}
             repairSuggestionLoadingKey={repairSuggestions.repairSuggestionLoadingKey}
         repairSuggestionLoadingByFindingKey={repairSuggestions.repairSuggestionLoadingByFindingKey}

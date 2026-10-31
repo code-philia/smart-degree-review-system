@@ -8,6 +8,8 @@ import type { PaperLintFindingItem } from './model';
 import { buildAnnotations, findingTarget, groupAnnotationsByPage } from './geometry';
 import { PdfViewer, type PdfViewerHandle, type SupplementalPdfAnnotation } from './PdfViewer';
 import type { HighlightDensity } from './PdfOverlay';
+import { findingPageLabel } from './model';
+import { resolvePdfPageLabels, type PdfPageLabels } from './pageLabels';
 
 type Props = {
   file: File | { name: string; url: string };
@@ -19,6 +21,7 @@ type Props = {
   requestedPage?: number | null;
   onFindingClick: (key: string) => void;
   onAnchorClick: (key: string, anchorId: string) => void;
+  onPageLabels?: (labels: PdfPageLabels) => void;
   onTextSelection?: (selection: {
     pageNumber: number;
     text: string;
@@ -52,6 +55,7 @@ export function PdfPane({
   requestedPage = null,
   onFindingClick,
   onAnchorClick,
+  onPageLabels,
   onTextSelection,
   supplementalAnnotations = EMPTY_SUPPLEMENTAL_ANNOTATIONS,
   activeSupplementalAnnotationId = null,
@@ -99,6 +103,18 @@ export function PdfPane({
   }, [sourceUrl, sourceFile]);
 
   const annotationsByPage = useMemo(() => groupAnnotationsByPage(buildAnnotations(findings)), [findings]);
+  const labelPageKey = [...new Set([
+    ...findings.flatMap(item => findingPageLabel(item)?.split('、').map(Number) || []),
+    ...supplementalAnnotations.map(item => item.pageNumber),
+    ...(requestedPage ? [requestedPage] : []),
+  ])].sort((a, b) => a - b).join(',');
+  useEffect(() => {
+    onPageLabels?.({});
+    if (!document || !onPageLabels) return;
+    const controller = new AbortController();
+    void resolvePdfPageLabels(document, labelPageKey.split(',').map(Number), { signal: controller.signal, onUpdate: onPageLabels }).catch(() => {});
+    return () => controller.abort();
+  }, [document, labelPageKey, onPageLabels]);
   const activeItem = useMemo(
     () => findings.find((item) => item.key === activeFindingKey) || null,
     [activeFindingKey, findings],
@@ -131,9 +147,8 @@ export function PdfPane({
   return (
     <section className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-2">
-        <div>
-          <p className="text-sm font-bold text-slate-900">PDF 原文</p>
-          <p className="max-w-80 truncate text-xs text-slate-500">{file.name}</p>
+        <div className="min-w-0 flex-1">
+          <p className="line-clamp-2 text-sm font-bold text-slate-900" title={file.name}>文档名称：{file.name}</p>
         </div>
         <div role="toolbar" aria-label="PDF 工具" className="flex items-center gap-1">
           {(

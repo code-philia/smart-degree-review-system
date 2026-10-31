@@ -1,12 +1,13 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import App from '../src/App';
+import BuiltInReviewCasesPage from '../src/pages/BuiltInReviewCasesPage';
 import {
   fetchPaperLintBuiltInCase,
   fetchPaperLintBuiltInCasePdf,
   fetchPaperLintBuiltInCases,
+  fetchReviewPilotPaperLintRules,
   type PaperLintBuiltInCase,
 } from '../src/api/paperLint';
 import { fetchCurrentSession, type AuthenticatedUser } from '../src/api/authSession';
@@ -24,12 +25,13 @@ vi.mock('../src/api/paperLint', async () => {
     fetchPaperLintBuiltInCases: vi.fn(),
     fetchPaperLintBuiltInCase: vi.fn(),
     fetchPaperLintBuiltInCasePdf: vi.fn(),
+    fetchReviewPilotPaperLintRules: vi.fn(),
   };
 });
 
 vi.mock('../src/components/paperLint/Workspace', () => ({
-  PaperLintWorkspace: ({ file, findings }: { file: File; findings: Array<{ finding: { message: string } }> }) => (
-    <div data-testid="paper-lint-workspace">
+  PaperLintWorkspace: ({ file, findings, rules }: { file: File; findings: Array<{ finding: { message: string } }>; rules: Array<{ rule_id: string }> }) => (
+    <div data-testid="paper-lint-workspace" data-catalog={rules.map(rule => rule.rule_id).join(',')}>
       <span>{file.name}</span>
       <span>{findings.map((item) => item.finding.message).join('；')}</span>
     </div>
@@ -118,7 +120,10 @@ function renderRoute(path = '/review-cases') {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <AuthSessionProvider>
-        <App />
+        <Routes>
+          <Route path="/review-cases" element={<BuiltInReviewCasesPage />} />
+          <Route path="/review-cases/:caseId" element={<BuiltInReviewCasesPage />} />
+        </Routes>
       </AuthSessionProvider>
     </MemoryRouter>,
   );
@@ -156,6 +161,7 @@ describe('built-in review cases module', () => {
       ],
     };
     vi.mocked(fetchPaperLintBuiltInCase).mockResolvedValue(reviewCase);
+    vi.mocked(fetchReviewPilotPaperLintRules).mockResolvedValue({ rules: [{ ...reviewCase.rule, rule_id: 'preceding-rule' }, reviewCase.rule] } as never);
     vi.mocked(fetchPaperLintBuiltInCasePdf).mockResolvedValue(new Blob(['%PDF-1.7\n'], { type: 'application/pdf' }));
     const user = userEvent.setup();
 
@@ -172,6 +178,7 @@ describe('built-in review cases module', () => {
     expect(await screen.findByRole('heading', { name: '跨页数值论点与实验论据不一致' })).toBeInTheDocument();
     expect(screen.getByTestId('paper-lint-workspace')).toHaveTextContent('内置案例-论点与论据一致性.pdf');
     expect(screen.getByTestId('paper-lint-workspace')).toHaveTextContent('80.0% 与实验结果 60.5% 不一致');
+    expect(screen.getByTestId('paper-lint-workspace')).toHaveAttribute('data-catalog', 'preceding-rule,claim_evidence_inconsistency_check');
     expect(screen.queryByRole('button', { name: /重新运行/ })).not.toBeInTheDocument();
   });
 

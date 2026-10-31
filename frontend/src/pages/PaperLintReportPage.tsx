@@ -105,11 +105,9 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
     } catch (cause) { window.alert(cause instanceof Error ? cause.message : '反馈保存失败'); }
   }, [reportId]);
   const updateFindingReason = useCallback(async (item: (typeof findings)[number], reasonCode: string | null, reasonText: string | null) => {
-    if (!reportId) return;
-    try {
-      const feedback = await saveFindingFeedback(reportId, item.ruleRun.rule_id, item.finding.finding_id, { feedback_value: 'negative', reason_code: reasonCode, reason_text: reasonText });
-      setFindingFeedbackByKey((current) => ({ ...current, [item.key]: feedback }));
-    } catch (cause) { window.alert(cause instanceof Error ? cause.message : '反馈保存失败'); }
+    if (!reportId) throw new Error('请重新打开检测报告后提交反馈');
+    const feedback = await saveFindingFeedback(reportId, item.ruleRun.rule_id, item.finding.finding_id, { feedback_value: 'negative', reason_code: reasonCode, reason_text: reasonText });
+    setFindingFeedbackByKey((current) => ({ ...current, [item.key]: feedback }));
   }, [reportId]);
   const cancelFindingFeedback = useCallback(async (item: (typeof findings)[number]) => {
     if (!reportId) return;
@@ -124,9 +122,9 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
   }, [reportId, repairSuggestions.repairSuggestionByFindingKey]);
   const updateSuggestionReason = useCallback(async (item: (typeof findings)[number], reasonCode: string | null, reasonText: string | null) => {
     const suggestion = repairSuggestions.repairSuggestionByFindingKey[item.key];
-    if (!reportId || !suggestion?.suggestion_id) return;
-    try { const feedback = await saveSuggestionFeedback(reportId, suggestion.suggestion_id, { feedback_value: 'negative', reason_code: reasonCode, reason_text: reasonText }); setSuggestionFeedbackByFindingKey((current) => ({ ...current, [item.key]: feedback })); }
-    catch (cause) { window.alert(cause instanceof Error ? cause.message : '反馈保存失败'); }
+    if (!reportId || !suggestion?.suggestion_id) throw new Error('请重新加载修复建议后提交反馈');
+    const feedback = await saveSuggestionFeedback(reportId, suggestion.suggestion_id, { feedback_value: 'negative', reason_code: reasonCode, reason_text: reasonText });
+    setSuggestionFeedbackByFindingKey((current) => ({ ...current, [item.key]: feedback }));
   }, [reportId, repairSuggestions.repairSuggestionByFindingKey]);
   const cancelSuggestionFeedback = useCallback(async (item: (typeof findings)[number]) => {
     const suggestion = repairSuggestions.repairSuggestionByFindingKey[item.key];
@@ -207,7 +205,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
       </Card>
       {!isSemanticReport ? <div className="flex items-center gap-2">
         <FileText className="size-5 text-brand-600" />
-        <h2 className="text-lg font-black text-slate-900">逐项处理问题</h2>
+        <h2 className="text-lg font-black text-slate-900">检测报告详情预览</h2>
       </div> : null}
       <div className="mx-auto w-full max-w-7xl">
         <PaperLintWorkspace
