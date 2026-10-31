@@ -782,3 +782,56 @@ def test_retrieval_prioritizes_traceable_structured_tables():
     assert structured and structured[0]['candidate_id'] == 'd1:t1'
     assert structured[0]['is_primary'] is True
     assert structured[0]['provenance'][0]['bbox'] == [20, 100, 500, 300]
+
+def _fallback_fixture():
+    ir, facts, data = fixture()
+    model = n.source_model(ir)
+    # Turn the existing experiment subsection into a single independent root.
+    model['sections']['exp']['parent_id'] = None
+    model['sections']['exp']['level'] = 1
+    model['sections']['exp']['title'] = '实验结果与性能评估'
+    data = copy.deepcopy(data)
+    data['preconditions'][-1]['passed'] = False
+    data['preconditions'][-1]['reason'] = '标准映射失败'
+    data['mappings'][0]['experiment_section_ids'] = []
+    return model, n.structure_context(facts, model), data
+
+
+def test_single_contribution_fallback_accepts_independent_experiment_root():
+    model, context, data = _fallback_fixture()
+    assert n._single_contribution_fallback(data, context, model)
+    assert data['mappings'][0]['mapping_mode'] == 'single_contribution_fallback'
+    assert data['preconditions'][-1]['passed'] is True
+    assert n.validate_structure(data, context, model)
+
+
+def test_single_contribution_fallback_rejects_multiple_contributions():
+    model, context, data = _fallback_fixture()
+    data['contributions'].append({'id': 'c2', 'text': '另一项贡献'})
+    data['declarations'].append({
+        'id': 'd2', 'contribution_id': 'c2', 'text': '额外准确率92.5%',
+        'number': '92.5', 'metric': '准确率', 'unit': '%',
+        'comparison': 'absolute', 'condition': '数据集A',
+    })
+    assert not n._single_contribution_fallback(data, context, model)
+
+
+def test_single_contribution_fallback_rejects_unrelated_experiment_root():
+    model, context, data = _fallback_fixture()
+    data['declarations'][0]['method'] = '完全不同的方法'
+    data['declarations'][0]['metric'] = '不存在指标'
+    data['declarations'][0]['condition'] = '不存在数据集'
+    data['contributions'][0]['text'] = '提出一种完全不相关的方案'
+    assert not n._single_contribution_fallback(data, context, model)
+
+
+def test_single_contribution_fallback_rejects_multiple_experiment_roots():
+    model, context, data = _fallback_fixture()
+    model['sections']['other']['title'] = '第二实验评估'
+    model['sections']['other']['parent_id'] = None
+    model['blocks'].append({
+        'block_id': 'other-support', 'source_node_id': 'op',
+        'section_id': 'other', 'page': 10, 'block_type': 'Paragraph',
+        'text': '实验结果准确率92.5%',
+    })
+    assert not n._single_contribution_fallback(data, context, model)

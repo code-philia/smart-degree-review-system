@@ -316,6 +316,71 @@ def experimental_support(model, section_id):
     return support
 
 
+def _single_contribution_fallback(structure, context, model):
+    """Conservatively map one contribution to one independent experiment root."""
+    contributions = rows(structure, 'contributions')
+    declarations = rows(structure, 'declarations')
+    if len(contributions) != 1 or not declarations:
+        return False
+    contribution = contributions[0]
+    if any(d.get('contribution_id') != contribution.get('id') for d in declarations):
+        return False
+    roots = [s for s in model['sections'].values() if s.get('parent_id') is None]
+    title_pattern = re.compile(
+        r'实验|评估|评测|验证|测试|性能|结果分析|experiment|evaluation|validation|benchmark|performance|results|testing',
+        re.I,
+    )
+    experiment_roots = [s for s in roots if title_pattern.search(s.get('title', ''))]
+    if len(experiment_roots) != 1:
+        return False
+    root = experiment_roots[0]
+    support = experimental_support(model, root['section_id'])
+    if not support:
+        return False
+    corpus = lexical(' '.join(b['text'] for b in section_blocks(model, root['section_id'])))
+    terms = []
+    for d in declarations:
+        for key in ('method', 'metric', 'condition', 'dataset', 'baseline'):
+            value = d.get(key)
+            if isinstance(value, str):
+                terms.extend(x for x in re.split(r'[，,；;、|/\s]+', value) if len(lexical(x)) >= 2)
+    terms.extend(x for x in re.findall(r'[\u3400-\u9fff]{2,}|[A-Za-z][A-Za-z0-9-]{3,}', contribution.get('text', '')))
+    terms = [lexical(x) for x in terms if lexical(x)]
+    if not any(term in corpus for term in terms):
+        return False
+    experiment_ids = [s['section_id'] for s in model['sections'].values()
+                      if s['section_id'] == root['section_id'] or descendant(model, s['section_id'], root['section_id'])]
+    evidence = []
+    for item in support[:3]:
+        if item['kind'] == 'section_text':
+            evidence.append({
+                'source_node_id': item['source_node_id'],
+                'page': item['page'],
+                'quote': next((b['text'] for b in model['blocks']
+                               if b.get('source_node_id') == item['source_node_id']),
+                              item.get('matched_signal', '')),
+            })
+    if not evidence:
+        heading = next((b for b in model['blocks']
+                        if b.get('section_id') == root['section_id']
+                        and b.get('block_type') == 'Heading'), None)
+        if heading:
+            evidence.append({'source_node_id': heading['source_node_id'],
+                             'page': heading['page'], 'quote': heading['text']})
+    for mapping in structure.get('mappings', []):
+        mapping['chapter_id'] = root['section_id']
+        mapping['experiment_section_ids'] = experiment_ids
+        mapping['mapping_mode'] = 'single_contribution_fallback'
+        mapping['evidence'] = evidence
+    condition = next((c for c in rows(structure, 'preconditions')
+                      if c.get('id') == 'experiment_subsection'), None)
+    if condition:
+        condition['passed'] = True
+        condition['reason'] = '标准父子章节映射未满足；已通过唯一研究贡献与唯一独立实验章节的受限语义回退映射。'
+        condition['suggestion'] = ''
+    return True
+
+
 def pack_blocks(blocks, budget):
     """Omit complete blocks rather than corrupting text/JSON by cutting strings."""
     kept, dropped, size = [], [], 0
@@ -612,7 +677,7 @@ def validate_structure(data, context, model):
             require(chapter in present, 'named method ' + method + ' not found in mapped chapter; source-backed chapter IDs: ' + ', '.join(present))
         experiments = mapping.get('experiment_section_ids')
         require(isinstance(experiments, list) and bool(experiments) and len(set(experiments)) == len(experiments), 'missing or duplicate experiment mapping')
-        require(all(isinstance(e, str) and descendant(model, e, chapter) for e in experiments), 'experiment is not a descendant of chapter')
+        require(all(isinstance(e, str) and ((e == chapter and mapping.get('mapping_mode') == 'single_contribution_fallback') or descendant(model, e, chapter)) for e in experiments), 'experiment is not a descendant of chapter')
         require(all(experimental_support(model, e) for e in experiments), 'mapped experiment classification lacks supporting source text')
         evidence = rows(mapping, 'evidence')
         require(bool(evidence), 'mapping evidence required')
@@ -1072,9 +1137,28 @@ def run_numeric(ir, facts, request, trace=None, verification_mode=None):
                     trace('structure_normalized_output', structure)
             passed = validate_structure(structure, context, model)
         for mapping in structure['mappings']:
+            mapping.setdefault('mapping_mode', 'standard')
             mapping['chapter_title'] = model['sections'][mapping['chapter_id']]['title']
             mapping['experiment_titles'] = [model['sections'][sid]['title'] for sid in mapping['experiment_section_ids']]
             mapping['experiment_support'] = {sid: experimental_support(model, sid) for sid in mapping['experiment_section_ids']}
+        # Only after the standard parent/child validation fails, try the
+        # deliberately narrow single-contribution fallback.
+        fallback_used = False
+        if not passed:
+            failed_ids = {c['id'] for c in rows(structure, 'preconditions') if not c['passed']}
+            if failed_ids == {'experiment_subsection'}:
+                fallback_used = _single_contribution_fallback(structure, context, model)
+                if fallback_used:
+                    try:
+                        passed = validate_structure(structure, context, model)
+                    except ContractError:
+                        passed = False
+                    if passed:
+                        for mapping in structure['mappings']:
+                            mapping['chapter_title'] = model['sections'][mapping['chapter_id']]['title']
+                            mapping['experiment_titles'] = [model['sections'][sid]['title'] for sid in mapping['experiment_section_ids']]
+                            mapping['experiment_support'] = {sid: experimental_support(model, sid) for sid in mapping['experiment_section_ids']}
+        params['mapping_mode'] = 'single_contribution_fallback' if fallback_used and passed else 'standard'
         params.update({key: structure[key] for key in ('contributions', 'declarations', 'mappings', 'preconditions')})
         if not passed:
             result['message'] = '前置条件未全部通过，未执行数值一致性检测。'
