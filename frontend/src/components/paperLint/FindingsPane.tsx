@@ -51,10 +51,7 @@ function RepairAction({ instruction }: { instruction: string }) {
   return (
     <p className="whitespace-pre-wrap break-words">
       {parts.prefix}
-      <span className="mr-1 text-xs font-semibold text-rose-700">修改前：</span>
-      <span className="rounded bg-rose-100 px-1 text-rose-800 line-through" title="检测到的原文片段">{parts.before}</span>
-      <span className="mx-1 text-slate-500">改为</span>
-      <span className="mr-1 text-xs font-semibold text-emerald-700">修改后：</span>
+      <span className="mr-1 text-xs font-semibold text-emerald-700">建议修改为：</span>
       <span className="rounded bg-emerald-100 px-1 text-emerald-800" title="建议修改后的文字">{parts.after}</span>
       {parts.suffix}
     </p>
