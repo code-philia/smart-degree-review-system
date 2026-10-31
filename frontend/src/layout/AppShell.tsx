@@ -9,7 +9,7 @@ import {
   Sparkles,
   type LucideIcon,
 } from 'lucide-react';
-import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthSession } from '../auth/AuthSessionProvider';
 import { Avatar, AvatarFallback } from '../components/shadcn/avatar';
 import { Badge } from '../components/shadcn/badge';
@@ -52,9 +52,9 @@ import {
 import { Skeleton } from '../components/shadcn/skeleton';
 import {
   findNavItemLabel,
+  findActiveNavItem,
   getVisibleNavGroups,
   type NavGroup,
-  type NavItem,
 } from '../nav/navigationConfig';
 
 const PRODUCT_NAME = '智慧学位 AI 评阅辅助系统';
@@ -64,20 +64,6 @@ const NAV_ICONS: Record<string, LucideIcon> = {
   '/thirty-rules-check': ClipboardList,
   '/thirty-rules-check/reports': History,
 };
-
-function isNavItemActive(pathname: string, item: NavItem) {
-  if (pathname === item.to) {
-    return true;
-  }
-
-  const prefix = item.matchPrefix ?? item.to;
-  return (
-    pathname.startsWith(`${prefix}/`) ||
-    (item.relatedPrefixes || []).some(
-      (relatedPrefix) => pathname === relatedPrefix || pathname.startsWith(`${relatedPrefix}/`),
-    )
-  );
-}
 
 function NavigationGroup({
   group,
@@ -91,6 +77,7 @@ function NavigationGroup({
   onExpandedChange: (expanded: boolean) => void;
 }) {
   const { setOpenMobile } = useSidebar();
+  const activeItem = findActiveNavItem(pathname)?.item;
 
   return (
     <Collapsible open={expanded} onOpenChange={onExpandedChange} className="group/collapsible">
@@ -106,7 +93,7 @@ function NavigationGroup({
             <SidebarMenu>
               {group.items.map((item) => {
                 const Icon = NAV_ICONS[item.to] ?? Sparkles;
-                const isActive = isNavItemActive(pathname, item);
+                const isActive = activeItem?.to === item.to;
 
                 return (
                   <SidebarMenuItem key={item.to}>
@@ -116,10 +103,10 @@ function NavigationGroup({
                       tooltip={item.label}
                       className="h-9 font-medium data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground"
                     >
-                      <NavLink to={item.to} end onClick={() => setOpenMobile(false)}>
+                      <Link to={item.to} aria-current={isActive ? 'page' : undefined} onClick={() => setOpenMobile(false)}>
                         <Icon aria-hidden="true" />
                         <span>{item.label}</span>
-                      </NavLink>
+                      </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
@@ -224,9 +211,8 @@ function AppShell() {
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(() => new Set(visibleGroups.map((group) => group.key)));
 
   useEffect(() => {
-    const activeGroup = visibleGroups.find((group) =>
-      group.items.some((item) => isNavItemActive(location.pathname, item)),
-    );
+    const activeGroupKey = findActiveNavItem(location.pathname)?.group.key;
+    const activeGroup = visibleGroups.find((group) => group.key === activeGroupKey);
 
     if (!activeGroup) {
       return;

@@ -28,6 +28,8 @@ function renderShell(path = '/thirty-rules-check') {
       <Routes>
         <Route element={<AppShell />}>
           <Route path="/thirty-rules-check" element={<h1>PDF 检测内容</h1>} />
+          <Route path="/thirty-rules-check/reports" element={<h1>历史报告内容</h1>} />
+          <Route path="/thirty-rules-check/reports/pdf/:reportId" element={<h1>报告详情内容</h1>} />
         </Route>
         <Route path="/auth" element={<h1>登录页</h1>} />
       </Routes>
@@ -39,6 +41,20 @@ describe('AppShell shadcn layout', () => {
   beforeEach(() => {
     authMocks.logout.mockClear();
     Object.assign(authMocks.user, { id: 'student-ui-001', username: 'student01', displayName: undefined });
+  });
+
+  it.each([
+    ['/thirty-rules-check', '论文上传'],
+    ['/thirty-rules-check/reports', '历史报告'],
+    ['/thirty-rules-check/reports/pdf/example', '历史报告'],
+  ])('marks exactly one sidebar destination on %s', (path, selectedLabel) => {
+    const { container } = renderShell(path);
+    const links = [...container.querySelectorAll('[aria-label="主导航菜单"] a')];
+    const active = links.filter(link => link.getAttribute('data-active') === 'true');
+    expect(active).toHaveLength(1);
+    expect(active[0]).toHaveTextContent(selectedLabel);
+    expect(active[0]).toHaveAttribute('aria-current', 'page');
+    expect(links.filter(link => link.getAttribute('aria-current') === 'page')).toEqual(active);
   });
 
   it('shows the campus name in the account button and menu without role or scope captions', async () => {
