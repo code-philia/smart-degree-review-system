@@ -312,6 +312,7 @@ def _body_chunks(ir: dict[str, Any], size: int = 6000) -> list[dict[str, Any]]:
 def typo_prompt(text: str) -> str:
     return (
         "你是学位论文校对助手。只报告有充分证据的单字、词语或很短的局部短语错误，绝不得返回完整句子或句子片段。"
+        "英文只检查自然语言中的普通单词拼写；程序变量、函数名、类名、文件名、命令、路径、协议名、模型名、缩写和数学符号一律不是错别字。"
         "不得只修改标点、空格、换行、连字符、大小写或排版；不得修改专业术语、作者名、缩写、模型名、代码库名、公式、数字、引用或专有名词。"
         "PDF 同一段落中的换行已经由程序归一化；如遇跨行连字符（如 \"re-\nverse\"）或中文词内提取空格（如“剔 除”），不得报告。"
         "每个候选必须有 confidence，范围为 0 到 1；confidence < 0.85 时不要返回。中文错别字只有在存在明确的常见字词替换关系、替换后语义明显合理且原字明显不合理，并且同一术语在正文其他位置有稳定写法或上下文能够证明当前字词不成立时才可返回。"
@@ -352,6 +353,10 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
                 continue
             surface_normalize = lambda value: re.sub(r"[^\w\u3400-\u9fff]", "", value.casefold())
             if surface_normalize(original) == surface_normalize(suggestion):
+                continue
+            # English-looking identifiers and mathematical symbols are common in papers.
+            # They are not spelling candidates even when the model proposes a plausible replacement.
+            if _looks_like_code_or_math(original) or _looks_like_code_or_math(suggestion):
                 continue
             needle = _normalize_for_model(original)
             model_text = chunk.get("model_text", "")
@@ -410,6 +415,26 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
 
 def _has_cjk(value: Any) -> bool:
     return any("\u3400" <= char <= "\u9fff" for char in str(value or ""))
+
+
+def _looks_like_code_or_math(value: Any) -> bool:
+    """Reject identifiers/symbols before turning an LLM guess into a finding."""
+    text = str(value or "").strip()
+    if not text:
+        return True
+    # Non-ASCII characters outside CJK/whitespace are normally math glyphs or
+    # styled variables in extracted PDF text (𝑓, 𝑟, subscripts, etc.).
+    if any(ord(ch) > 127 and not ("\u3400" <= ch <= "\u9fff") and not ch.isspace()
+               for ch in text):
+        return True
+    if any(ch.isdigit() for ch in text) or re.search(r"[_\/$=<>\[\]{}()^~|]", text):
+        return True
+    if re.search(r"[a-z][A-Z]|[A-Z][a-z].*[A-Z]", text):
+        return True
+    if text.isascii() and text.isalpha():
+        if len(text) == 1 or (text.isupper() and len(text) <= 16):
+            return True
+    return False
 
 
 def _location(value: Any) -> dict[str, Any] | None:
