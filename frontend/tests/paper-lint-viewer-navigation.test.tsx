@@ -7,8 +7,8 @@ import type { PaperLintPdfAnnotation } from '../src/components/paperLint/geometr
 
 const { scrollPageIntoView, readyScale } = vi.hoisted(() => ({ scrollPageIntoView: vi.fn(), readyScale: vi.fn() }));
 
-vi.mock('pdfjs-dist', () => ({}));
-vi.mock('pdfjs-dist/web/pdf_viewer.mjs', () => {
+vi.mock('pdfjs-dist/legacy/build/pdf.mjs', () => ({GlobalWorkerOptions: {}, version: 'test'}));
+vi.mock('pdfjs-dist/legacy/web/pdf_viewer.mjs', () => {
   class EventBus {
     private listeners = new Map<string, Set<() => void>>();
     on(name: string, callback: () => void) {

@@ -9,17 +9,18 @@ const { scrollToAnnotation, getDocumentOptions } = vi.hoisted(() => ({
   getDocumentOptions: vi.fn(),
 }));
 
-vi.mock('pdfjs-dist', () => ({
-  GlobalWorkerOptions: {},
+vi.mock('pdfjs-dist/legacy/build/pdf.mjs', () => ({
+  GlobalWorkerOptions: {}, version: 'test',
   getDocument: (options: unknown) => {
     getDocumentOptions(options);
     return { promise: Promise.resolve({ destroy: async () => undefined }), destroy: vi.fn() };
   },
 }));
-vi.mock('pdfjs-dist/build/pdf.worker.min.mjs?url', () => ({ default: 'test-worker' }));
+vi.mock('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url', () => ({ default: 'test-worker' }));
 vi.mock('../src/components/paperLint/PdfViewer', async () => {
   const React = await import('react');
   return {
+    preloadPdfViewer: async () => {},
     PdfViewer: React.forwardRef((_props: unknown, ref) => {
       React.useImperativeHandle(ref, () => ({
         scrollToAnnotation,
@@ -80,7 +81,9 @@ describe('PDF pane navigation', () => {
         disableAutoFetch: true,
         disableStream: true,
         rangeChunkSize: 262144,
-        cMapUrl: '/pdfjs-cmaps/',
+        cMapUrl: '/pdfjs-resources/test/cmaps/',
+        standardFontDataUrl: '/pdfjs-resources/test/standard_fonts/',
+        wasmUrl: '/pdfjs-resources/test/wasm/',
         cMapPacked: true,
       }),
     );
@@ -91,7 +94,9 @@ describe('PDF pane navigation', () => {
       expect(getDocumentOptions).toHaveBeenCalledWith({
         data: expect.any(Uint8Array),
         disableAutoFetch: true,
-        cMapUrl: '/pdfjs-cmaps/',
+        cMapUrl: '/pdfjs-resources/test/cmaps/',
+        standardFontDataUrl: '/pdfjs-resources/test/standard_fonts/',
+        wasmUrl: '/pdfjs-resources/test/wasm/',
         cMapPacked: true,
       }),
     );

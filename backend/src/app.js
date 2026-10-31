@@ -35,7 +35,7 @@ app.use('/api/auth', bodyParser.json({ limit: '16kb' }), authRoutes);
 app.use('/api/normative', normativeRoutes);
 app.use('/api/example-rule-check', exampleRuleRoutes);
 
-const { compressedAssets } = require('./compressedAssets');
+const { registerFrontendStatic } = require('./frontendStatic');
 const frontendDistPath = path.resolve(__dirname, '../../frontend/dist');
 
 app.use((error, req, res, next) => {
@@ -47,13 +47,7 @@ app.use((error, req, res, next) => {
 });
 
 if (fs.existsSync(frontendDistPath)) {
-  app.use('/assets', compressedAssets(path.join(frontendDistPath, 'assets')));
-  app.use(express.static(frontendDistPath));
-
-  // Keep API routes on the backend and serve the SPA for all other GET requests.
-  app.get(/^(?!\/api(?:\/|$)).*/, (req, res) => {
-    res.sendFile(path.join(frontendDistPath, 'index.html'));
-  });
+  registerFrontendStatic(app, frontendDistPath);
 } else {
   app.get('/', (req, res) => {
     res

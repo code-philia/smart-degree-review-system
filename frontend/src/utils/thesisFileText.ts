@@ -1,4 +1,4 @@
-import '../pdfjs-byte-compat';
+import { loadPdfJs, pdfResourceOptions } from '../pdfRuntime';
 
 const MAX_TEXT_FILE_BYTES = 50 * 1024 * 1024;
 const MAX_PDF_FILE_BYTES = 50 * 1024 * 1024;
@@ -74,14 +74,10 @@ async function extractPdfText(
   file: File,
   onProgress?: (progress: ThesisFileExtractionProgress) => void,
 ): Promise<ThesisFileText> {
-  const [{ getDocument, GlobalWorkerOptions }, workerModule] = await Promise.all([
-    import('pdfjs-dist'),
-    import('pdfjs-dist/build/pdf.worker.min.mjs?url'),
-  ]);
-  GlobalWorkerOptions.workerSrc = workerModule.default;
+  const pdfjs = await loadPdfJs();
 
   const data = new Uint8Array(await readBinaryFile(file));
-  const loadingTask = getDocument({ data });
+  const loadingTask = pdfjs.getDocument({ data, ...pdfResourceOptions(pdfjs.version) });
 
   try {
     const document = await loadingTask.promise;

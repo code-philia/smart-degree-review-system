@@ -1,13 +1,14 @@
 import 'pdfjs-dist/web/pdf_viewer.css';
 
+import { loadPdfJs } from '../../pdfRuntime';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getPdfRectCenter, pageSize, type PaperLintPdfAnnotation } from './geometry';
 import { PdfOverlay, type HighlightDensity } from './PdfOverlay';
 
-type ViewerModule = typeof import('pdfjs-dist/web/pdf_viewer.mjs');
-type PdfJsModule = typeof import('pdfjs-dist');
+type ViewerModule = typeof import('pdfjs-dist/legacy/web/pdf_viewer.mjs');
+type PdfJsModule = typeof import('pdfjs-dist/legacy/build/pdf.mjs');
 type EventBus = InstanceType<ViewerModule['EventBus']>;
 type LinkService = InstanceType<ViewerModule['PDFLinkService']>;
 type Viewer = InstanceType<ViewerModule['PDFViewer']>;
@@ -15,12 +16,12 @@ type Scale = number | 'page-width';
 
 let viewerModulePromise: Promise<ViewerModule> | null = null;
 
-function loadViewerModule() {
+export function preloadPdfViewer() {
   if (!viewerModulePromise) {
-    viewerModulePromise = import('pdfjs-dist').then((pdfjsLib) => {
+    viewerModulePromise = loadPdfJs().then((pdfjsLib) => {
       (globalThis as typeof globalThis & { pdfjsLib?: PdfJsModule }).pdfjsLib = pdfjsLib;
-      return import('pdfjs-dist/web/pdf_viewer.mjs');
-    });
+      return import('pdfjs-dist/legacy/web/pdf_viewer.mjs');
+    }).catch((error) => { viewerModulePromise = null; throw error; });
   }
   return viewerModulePromise;
 }
@@ -41,6 +42,8 @@ export type SupplementalPdfAnnotation = {
 
 type Props = {
   pdfDocument: PDFDocumentProxy;
+  onReady?: () => void;
+  onError?: (error: unknown) => void;
   scale: Scale;
   annotationsByPage: Map<number, PaperLintPdfAnnotation[]>;
   activeFindingKey: string | null;
@@ -168,6 +171,8 @@ export const PdfViewer = memo(
   forwardRef<PdfViewerHandle, Props>(function PdfViewer(
     {
       pdfDocument,
+      onReady,
+      onError,
       scale,
       annotationsByPage,
       activeFindingKey,
@@ -264,7 +269,10 @@ export const PdfViewer = memo(
       if (!container || !viewerElement) return;
       let disposed = false;
       let cleanup: (() => void) | null = null;
-      const onPageRendered = () => {
+      let painted = false;
+      const onPageRendered = (event: { error?: unknown } = {}) => {
+        if (event.error) { onError?.(event.error); return; }
+        if (!painted) { painted = true; onReady?.(); }
         syncHosts();
         flushPending();
       };
@@ -287,7 +295,7 @@ export const PdfViewer = memo(
       };
       const onScaleChanging = () => window.requestAnimationFrame(syncHosts);
 
-      void loadViewerModule().then(({ EventBus, PDFLinkService, PDFViewer }) => {
+      void preloadPdfViewer().then(({ EventBus, PDFLinkService, PDFViewer }) => {
         if (disposed) return;
         const eventBus = new EventBus();
         const linkService = new PDFLinkService({ eventBus });
@@ -299,6 +307,7 @@ export const PdfViewer = memo(
           textLayerMode: 2,
           annotationMode: 0,
           removePageBorders: true,
+          maxCanvasPixels: 8_388_608,
         });
         stateRef.current = { eventBus, linkService, viewer };
         pagesReadyRef.current = false;
@@ -319,14 +328,14 @@ export const PdfViewer = memo(
           pagesReadyRef.current = false;
           viewer.cleanup();
         };
-      });
+      }).catch((error: unknown) => { if (!disposed) onError?.(error); });
       return () => {
         disposed = true;
         cleanup?.();
         stateRef.current = null;
         setHosts([]);
       };
-    }, [flushPending, pdfDocument, syncHosts]);
+    }, [flushPending, pdfDocument, syncHosts, onReady, onError]);
 
     useEffect(() => {
       const container = containerRef.current;
