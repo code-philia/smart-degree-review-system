@@ -1,11 +1,34 @@
 import { useCallback, useState } from 'react';
-import type { PaperLintRule, PaperLintRuleRun } from '../../api/paperLint';
+import type { PaperLintFinding, PaperLintRule, PaperLintRuleRun } from '../../api/paperLint';
 import type { RepairSuggestion } from '../../api/repairSuggestions';
 import type { FindingFeedback, SuggestionFeedback } from '../../api/feedback';
 import { FindingsPane } from './FindingsPane';
 import { NumericReviewDetails } from './NumericReviewDetails';
 import type { PaperLintFindingItem } from './model';
 import { PdfPane } from './PdfPane';
+
+function numericPdfFindings(run: PaperLintRuleRun | undefined): PaperLintFindingItem[] {
+  if (!run || run.rule_id !== 'abstract_numeric_consistency_check') return [];
+  const rows = Array.isArray(run.params?.numeric_results)
+    ? run.params.numeric_results.filter((row): row is Record<string, unknown> => Boolean(row && typeof row === 'object'))
+    : [];
+  return rows.flatMap((row, index) => {
+    const declarationId = String(row.declaration_id || index);
+    const anchors = [row.abstract_anchors, row.evidence_anchors]
+      .flatMap((value) => Array.isArray(value) ? value : [])
+      .filter((anchor): anchor is Record<string, unknown> => Boolean(anchor && typeof anchor === 'object' && anchor.location));
+    if (!anchors.length) return [];
+    const findingId = `${run.rule_id}_${declarationId}`;
+    const finding: PaperLintFinding = {
+      finding_id: findingId,
+      rule_id: run.rule_id,
+      message: String(row.reason || '数值论点原文证据'),
+      location: (anchors[0].location || null) as PaperLintFinding['location'],
+      anchors: anchors as PaperLintFinding['anchors'],
+    };
+    return [{ key: findingId, finding, ruleRun: run, index }];
+  });
+}
 
 type Props = {
   file: File | { name: string; url: string };
@@ -56,6 +79,12 @@ export function PaperLintWorkspace({
   onSuggestionFeedbackReason,
   onSuggestionFeedbackCancel,
 }: Props) {
+  const pdfFindings = (() => {
+    if (layout !== 'semantic' || !numericReviewRun) return findings;
+    const byKey = new Map(findings.map((item) => [item.key, item]));
+    for (const item of numericPdfFindings(numericReviewRun)) if (!byKey.has(item.key)) byKey.set(item.key, item);
+    return Array.from(byKey.values());
+  })();
   const [activeFindingKey, setActiveFindingKey] = useState<string | null>(findings[0]?.key || null);
   const [activeAnchorId, setActiveAnchorId] = useState<string | null>(null);
   const [navigationRequest, setNavigationRequest] = useState(0);
@@ -84,7 +113,7 @@ export function PaperLintWorkspace({
       <PdfPane
         file={file}
         openPdfUrl={openPdfUrl}
-        findings={findings}
+        findings={pdfFindings}
         activeFindingKey={activeFindingKey}
         activeAnchorId={activeAnchorId}
         navigationRequest={navigationRequest}
@@ -96,7 +125,7 @@ export function PaperLintWorkspace({
         <section className="min-h-0 overflow-y-auto rounded-xl border border-slate-200 bg-white p-4">
           <NumericReviewDetails
             run={numericReviewRun}
-            findings={findings}
+            findings={pdfFindings}
             onAnchorClick={selectAnchor}
             onPageClick={selectPage}
           />
