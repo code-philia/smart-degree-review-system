@@ -21,6 +21,17 @@ function pageNumber(value: unknown) { const page = Number(value); return Number.
 function statusLabel(status: string) { return status === 'consistent' ? '一致' : status === 'inconsistent' ? '不一致' : '无法确定'; }
 function statusTone(status: string) { return status === 'consistent' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : status === 'inconsistent' ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-amber-200 bg-amber-50 text-amber-700'; }
 
+function compactClaimText(value: unknown, declaration: Row | undefined) {
+  const raw = String(value || '').replace(/\s+/g, ' ').trim();
+  if (!raw) return '未提供论点文本';
+  const number = String(declaration?.number || '').trim();
+  const metric = String(declaration?.metric || '').trim();
+  const parts = raw.split(/[，,；;。！？!？\n]+/).map((part) => part.trim()).filter(Boolean);
+  const match = parts.find((part) => (number && part.includes(number)) || (metric && part.includes(metric)));
+  const compact = match || raw;
+  return compact.length > 140 ? `${compact.slice(0, 137)}…` : compact;
+}
+
 type Props = {
   run: PaperLintRuleRun;
   findings?: PaperLintFindingItem[];
@@ -75,7 +86,7 @@ export function NumericReviewDetails({ run, findings = [], onAnchorClick, onPage
         const evidence = objects(row.evidence);
         const evidenceAnchors = objects(row.evidence_anchors);
         return <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm" key={String(row.declaration_id || i)}>
-          <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">论点 {i + 1}</p><h4 className="mt-1 text-base font-bold text-slate-950">{String(declaration?.text || row.declaration_id || '未提供论点文本')}</h4></div><span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${statusTone(status)}`}>{statusLabel(status)}</span></div>
+          <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">论点 {i + 1}</p><h4 className="mt-1 text-base font-bold text-slate-950">{compactClaimText(declaration?.text || row.declaration_id, declaration)}</h4></div><span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${statusTone(status)}`}>{statusLabel(status)}</span></div>
           <div className="mt-4 grid gap-3 lg:grid-cols-2">
             <div className="rounded-lg bg-slate-50 p-3"><p className="text-xs font-semibold text-slate-500">摘要数值论点</p>{abstractAnchors.length ? abstractAnchors.map((anchor, index) => <EvidenceButton key={index} label="摘要数值论点" page={pageNumber((anchor.location as Row)?.page_number)} findingKey={findingKey} anchorId={String(anchor.anchor_id || `abstract-${row.declaration_id}`)} />) : <p className="mt-2 text-xs text-slate-500">暂无摘要定位</p>}</div>
             <div className="rounded-lg bg-slate-50 p-3"><p className="text-xs font-semibold text-slate-500">实验结果证据</p>{evidence.length ? evidence.map((e, index) => { const anchorId = String(e.candidate_id || e.id || ''); const anchor = evidenceAnchors.find((candidate) => String(candidate.anchor_id || '') === anchorId); const anchorLocation = anchor?.location as Row | undefined; return <EvidenceButton key={index} label="实验结果证据" page={pageNumber(anchorLocation?.page_number ?? e.page)} findingKey={findingKey} anchorId={anchorId} />; }) : <p className="mt-2 text-xs text-slate-500">暂无实验结果定位</p>}</div>
