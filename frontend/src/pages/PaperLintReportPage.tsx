@@ -24,6 +24,7 @@ import {
 } from '../api/feedback';
 import { Card, ErrorState, LoadingState, StatusBadge } from '../components/ui';
 import { formatChinaDateTime } from '../utils/dateTime';
+import { ReportExportDialog } from '../components/paperLint/ReportExportDialog';
 
 function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) {
   const isThirty = mode === 'thirty';
@@ -158,7 +159,10 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
               </time>
             </div>
           </div>
-          <Link className="text-sm font-semibold text-brand-700 hover:underline" to={historyPath}>返回历史报告</Link>
+          <div className="flex shrink-0 flex-wrap items-center gap-3">
+            <ReportExportDialog report={report} rules={rules} metrics={metrics} repairs={repairSuggestions.repairSuggestionByFindingKey} />
+            <Link className="text-sm font-semibold text-brand-700 hover:underline" to={historyPath}>返回历史报告</Link>
+          </div>
         </div>
         <div className="my-4 flex flex-wrap items-center justify-between gap-2">
           <h2 id="report-conclusion-title" className="font-bold text-slate-900">检测结论</h2>

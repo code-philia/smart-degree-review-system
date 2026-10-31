@@ -40,7 +40,7 @@ function createPaperLintRepairSuggestionRouter({ modelIdentity = getRepairModelI
       // finding must not make the history endpoint unusable.
       if (error.status !== 404 || error.message !== '该报告中不存在指定告警') throw error;
     });
-    const report = await require('../paperLintReportRepository').findPaperLintReportByIdForUser(
+    const report = await require('./paperLintReportRepository').findPaperLintReportByIdForUser(
       req.params.reportId, req.user.id,
     );
     if (!report) throw problem(404, '未找到该审查报告');

@@ -4,7 +4,7 @@ const suggestionService = require('./paperLintRepairSuggestionService');
 
 const FINDING_REASONS = new Set(['false_positive', 'location_inaccurate', 'description_unclear', 'other']);
 const SUGGESTION_REASONS = new Set(['incorrect', 'not_directly_executable', 'insufficient_basis', 'unclear', 'other']);
-const SYSTEM_AREAS = new Set(['detection_accuracy', 'ai_suggestion_quality', 'pdf_location', 'system_stability', 'page_design', 'other']);
+const SYSTEM_AREAS = new Set(['detection_accuracy', 'ai_suggestion_quality', 'pdf_location', 'system_response_speed', 'system_stability', 'page_design', 'other']);
 
 function problem(status, message) {
   const error = new Error(message);
