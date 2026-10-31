@@ -53,8 +53,6 @@ import { Skeleton } from '../components/shadcn/skeleton';
 import {
   findNavItemLabel,
   getVisibleNavGroups,
-  roleLabels,
-  roleScopeLabels,
   type NavGroup,
   type NavItem,
 } from '../nav/navigationConfig';
@@ -155,7 +153,6 @@ function AccountMenu({ onLogout }: { onLogout: () => Promise<void> }) {
         <Skeleton className="size-8 rounded-full bg-sidebar-accent" />
         <div className="min-w-0 flex-1 space-y-1.5 group-data-[collapsible=icon]:hidden">
           <Skeleton className="h-3 w-24 bg-sidebar-accent" />
-          <Skeleton className="h-2.5 w-16 bg-sidebar-accent" />
         </div>
       </div>
     );
@@ -176,7 +173,8 @@ function AccountMenu({ onLogout }: { onLogout: () => Promise<void> }) {
     );
   }
 
-  const userInitial = Array.from(user.username)[0]?.toUpperCase() ?? '用';
+  const displayName = user.displayName?.trim() || user.username;
+  const userInitial = Array.from(displayName)[0]?.toUpperCase() ?? '用';
 
   return (
     <SidebarMenu>
@@ -190,18 +188,14 @@ function AccountMenu({ onLogout }: { onLogout: () => Promise<void> }) {
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0 flex-1 text-left leading-tight">
-                <span className="block truncate font-semibold">{user.username}</span>
-                <span className="block truncate text-xs text-sidebar-foreground/65">{roleLabels[user.role]}</span>
+                <span className="block truncate font-semibold">{displayName}</span>
               </div>
               <ChevronDown className="ml-auto" aria-hidden="true" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent side="right" align="end" sideOffset={8} className="w-64">
             <DropdownMenuLabel className="space-y-1 px-2 py-2">
-              <span className="block text-sm font-semibold text-popover-foreground">{user.username}</span>
-              <span className="block font-normal text-muted-foreground">
-                {roleLabels[user.role]} · {roleScopeLabels[user.role]}
-              </span>
+              <span className="block truncate text-sm font-semibold text-popover-foreground">{displayName}</span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem

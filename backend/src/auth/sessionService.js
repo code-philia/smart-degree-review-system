@@ -13,6 +13,7 @@ function serializeUser(row) {
   return {
     id: row.userId || row.id,
     username: row.username,
+    ...(row.displayName ? { displayName: row.displayName } : {}),
     role: row.role,
     collegeId: row.collegeId || null,
     supervisorId: row.supervisorId || null,

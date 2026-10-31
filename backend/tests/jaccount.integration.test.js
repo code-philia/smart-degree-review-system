@@ -87,7 +87,7 @@ describe('campus authorization-code sign-in', () => {
     const sessionCookie = cookie(response, 'arc_session');
     expect(sessionCookie).toBeTruthy();
     const me = await request(app).get('/api/auth/me').set('Cookie', sessionCookie).expect(200);
-    expect(me.body.user).toMatchObject({ id: 'jaccount:person-success', username: 'jaccount:campus-user', role: 'STUDENT', scope: 'COLLEGE' });
+    expect(me.body.user).toMatchObject({ id: 'jaccount:person-success', username: 'jaccount:campus-user', displayName: 'Campus User', role: 'STUDENT', scope: 'COLLEGE' });
     expect(JSON.stringify(response.headers)).not.toContain('private-campus-token');
     expect(JSON.stringify(me.body)).not.toContain('test-campus-secret');
     await request(app).post('/api/auth/logout').set('Cookie', sessionCookie).expect(204);
@@ -140,13 +140,26 @@ describe('campus authorization-code sign-in', () => {
   });
 
   it('keeps one campus identity and preserves roles assigned by the application', async () => {
-    provider({ id: 'person-repeat', account: 'repeat', userType: 'student' });
+    provider({ id: 'person-repeat', account: 'repeat', name: '原姓名', userType: 'student' });
     await finish(await start()).expect(302).expect('Location', '/thirty-rules-check');
     await run("UPDATE auth_users SET role='SUPERVISOR' WHERE id='jaccount:person-repeat'");
+    provider({ id: 'person-repeat', account: 'repeat', name: ' 更新姓名 ', userType: 'student' });
     const response = await finish(await start()).expect(302).expect('Location', '/thirty-rules-check');
     const me = await request(app).get('/api/auth/me').set('Cookie', cookie(response, 'arc_session')).expect(200);
     expect(me.body.user.role).toBe('SUPERVISOR');
+    expect(me.body.user.displayName).toBe('更新姓名');
+    expect((await get("SELECT display_name FROM auth_users WHERE id='jaccount:person-repeat'")).display_name).toBe('更新姓名');
     expect((await get("SELECT COUNT(*) AS count FROM auth_users WHERE id='jaccount:person-repeat'")).count).toBe(1);
+  });
+
+  it.each([undefined, '', '  ', { unexpected: 'value' }])('preserves a stored name when a later profile has no usable name (%j)', async (name) => {
+    const id = 'person-name-fallback-' + String(name);
+    provider({ id, account: id, name: '张三' });
+    await finish(await start()).expect(302);
+    provider({ id, account: id, name });
+    const response = await finish(await start()).expect(302);
+    const me = await request(app).get('/api/auth/me').set('Cookie', cookie(response, 'arc_session')).expect(200);
+    expect(me.body.user.displayName).toBe('张三');
   });
 
   it.each([{ profile: null, errno: 0 }, { profile: { account: 'no-person-id' }, errno: 0 }, { profile: { id: 'untrusted', account: 'untrusted' }, errno: 10002 }])('rejects missing or unauthenticated profile data ($errno)', async ({ profile, errno }) => {

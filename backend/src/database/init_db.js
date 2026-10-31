@@ -74,6 +74,7 @@ async function initializeDatabase(options = {}) {
       `CREATE TABLE IF NOT EXISTS auth_users (
         id TEXT PRIMARY KEY,
         username TEXT NOT NULL UNIQUE,
+        display_name TEXT,
         password_hash TEXT NOT NULL,
         role TEXT NOT NULL CHECK (role IN ('STUDENT', 'SUPERVISOR', 'SCHOOL_ADMIN', 'COLLEGE_ADMIN')),
         college_id TEXT,
@@ -82,6 +83,12 @@ async function initializeDatabase(options = {}) {
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       );`,
     );
+
+    const authUserColumns = await new Promise((resolve, reject) =>
+      database.all('PRAGMA table_info(auth_users)', (error, rows) => error ? reject(error) : resolve(rows)));
+    if (!authUserColumns.some((column) => column.name === 'display_name')) {
+      await runStatement(database, 'ALTER TABLE auth_users ADD COLUMN display_name TEXT;');
+    }
 
     await runStatement(database, `CREATE TABLE IF NOT EXISTS auth_jaccount_states (
       state_hash TEXT PRIMARY KEY,
