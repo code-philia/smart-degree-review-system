@@ -1243,8 +1243,9 @@ def run_numeric(ir, facts, request, trace=None, verification_mode=None):
         params['coverage'] = {'expected': len(structure['declarations']), 'returned_valid': sum(not any(x.get('declaration_id') == r['declaration_id'] for x in errors) for r in results), 'complete': not errors}
         for row in results:
             row['abstract_anchors'] = abstract_anchors(ir, row['declaration']['text'], 'abstract-' + row['declaration_id'])
+            row['evidence_anchors'] = [{'anchor_id': e['candidate_id'], 'role': 'source_span', 'label': '实验结果证据', 'location': location(e, model)} for e in row['evidence']]
             if row['status'] == 'inconsistent':
-                anchors = [{'anchor_id': e['candidate_id'], 'role': 'source_span', 'label': '实验结果证据', 'location': location(e, model)} for e in row['evidence']]
+                anchors = row['evidence_anchors']
                 source_anchors = row['abstract_anchors']
                 evidence = [{'id': e['candidate_id'], 'label': '实验结果证据', 'kind': 'source_span', 'provider': 'repo-paper-model', 'quote': e['quote'], 'page_number': e['page']} for e in row['evidence']]
                 evidence.append({'id': 'abstract-' + row['declaration_id'], 'label': '摘要数值声明', 'kind': 'source_span', 'provider': 'repo-paper-model', 'quote': row['declaration']['text']})
