@@ -1,64 +1,18 @@
-const demoAccounts = [
-  {
-    username: 'student01',
-    role: '学生',
-    scope: '校内学习场景',
-  },
-  {
-    username: 'supervisor01',
-    role: '导师',
-    scope: '学院指导场景',
-  },
-  {
-    username: 'college_admin01',
-    role: '学院管理人员',
-    scope: '学院级管理场景',
-  },
-  {
-    username: 'school_admin01',
-    role: '学校管理人员',
-    scope: '学校级管理场景',
-  },
-] as const;
-
 function DemoAccountHelpPanel() {
   return (
     <details
       className="demo-help rounded-xl border border-slate-200 bg-slate-50 p-4"
       id="demo-help"
-      aria-label="演示账号与登录帮助"
+      aria-label="本地账号登录帮助"
     >
-      <summary className="cursor-pointer text-sm font-semibold text-slate-700">试用账号说明</summary>
+      <summary className="cursor-pointer text-sm font-semibold text-slate-700">本地账号登录帮助</summary>
 
       <p className="mt-3 text-sm leading-6 text-slate-600">
-        也可使用本地账号密码登录。默认演示密码为 ArcDemo123!，四个账号分别对应不同角色，可用于体验登录后的界面与操作。
+        本地账号由系统管理员统一创建和管理。如需试用账号，请向管理员申请，不在登录页面公开账号或密码。
       </p>
 
-      <div className="mt-4 grid gap-3" id="roles" aria-label="四类演示账号">
-        {demoAccounts.map((account) => (
-          <article key={account.username} className="rounded bg-white px-4 py-3 shadow-sm ring-1 ring-slate-200">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-base font-bold text-slate-900">{account.username}</h3>
-              <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
-                {account.role}
-              </span>
-            </div>
-            <dl className="mt-2 grid gap-1 text-sm text-slate-600 sm:grid-cols-2">
-              <div>
-                <dt className="font-semibold text-slate-500">初始密码</dt>
-                <dd className="font-medium text-slate-800">ArcDemo123!</dd>
-              </div>
-              <div>
-                <dt className="font-semibold text-slate-500">适用范围</dt>
-                <dd>{account.scope}</dd>
-              </div>
-            </dl>
-          </article>
-        ))}
-      </div>
-
       <div className="mt-4 rounded border border-amber-100 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
-        说明：交大师生可使用上方 jAccount 入口登录；本地试用账号继续保留。
+        交大师生可使用上方 jAccount 入口登录；本地账号登录继续保留。
       </div>
     </details>
   );
