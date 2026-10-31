@@ -111,7 +111,7 @@ const outcomeTones = {
 function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   const isThirty = mode === 'thirty';
   const isSemantic = mode === 'semantic';
-  const title = isSemantic ? '语义规则检测' : isThirty ? 'PDF 规则检测' : '基础规则检测';
+  const title = isSemantic ? '论文语义审查' : isThirty ? 'PDF 规则检测' : '基础规则检测';
   const { status, user } = useAuthSession();
   const [catalog, setCatalog] = useState<PaperLintCatalogResponse | null>(null);
   const [selectedRuleIds, setSelectedRuleIds] = useState<string[]>([]);
@@ -559,7 +559,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
           </div>
         </section>
       ) : (
-        <PageHeader title={title} description="上传 PDF 论文并选择检查项，生成可定位问题的检查报告。" />
+          <PageHeader title={title} description={isSemantic ? '上传论文后，自动检查摘要数值声明与正文实验结果的一致性。' : '上传 PDF 论文并选择检查项，生成可定位问题的检查报告。'} />
       )}
       <ModuleTabs
         ariaLabel={`${title}功能导航`}
@@ -569,11 +569,29 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
         ]}
       />
 
-      {isSemantic ? <Card title="摘要数值声明与实验结果一致性">
-        <p>请上传可提取文本且有目录层级的 PDF。系统先验证三项要求：摘要中明确列出研究贡献和可核验数值；每项声明能自动定位正文研究章节；该章节下存在实验或性能评估子章节。</p>
-        <p className="mt-2">推荐结构：摘要列出贡献及数值结论 → 第三章介绍研究方法 → 3.3 实验设计 → 3.4 实验结果与分析。只有独立的全篇实验章不满足本规则要求。</p>
-        <p className="mt-2">任一前置条件未通过时不会执行数值核验。图像中的数值及无法确认行列关系的表格可能无法确定，需要作者核对。</p>
-      </Card> : null}
+      {isSemantic ? (
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+          <div className="max-w-3xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-600">论文语义审查</p>
+            <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">摘要数值声明与实验结果核验</h1>
+            <p className="mt-3 text-sm leading-7 text-slate-600 sm:text-base">
+              系统从摘要中定位数值型研究声明，并与正文中的研究章节和实验结果进行核对。上传论文后自动完成结构检查，无需手动填写章节映射。
+            </p>
+          </div>
+          <ol className="mt-6 grid gap-3 border-t border-slate-100 pt-5 md:grid-cols-3">
+            {[
+              ['01', '摘要数值声明', '摘要中存在可核验的指标、数值和条件。'],
+              ['02', '研究贡献映射', '每项声明都能对应到正文研究章节。'],
+              ['03', '实验依据', '对应章节下存在可追溯的实验或评估小节。'],
+            ].map(([number, label, description]) => (
+              <li key={number} className="flex gap-3 rounded-xl bg-slate-50 px-3 py-3">
+                <span className="text-xs font-bold text-brand-600">{number}</span>
+                <span className="min-w-0"><strong className="block text-sm text-slate-900">{label}</strong><span className="mt-1 block text-xs leading-5 text-slate-500">{description}</span></span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
 
       <section
         aria-label={isSemantic ? '发起语义规则检测' : isThirty ? '发起 PDF 规则检测' : '发起基础规则检测'}
@@ -581,11 +599,11 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
       >
         <div className="mb-5 flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-5">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">发起检查</h2>
-            <p className="mt-1 text-sm text-slate-500">完成后自动保存至历史报告，可继续查看问题定位与修改建议。</p>
+              <h2 className="text-lg font-bold text-slate-900">{isSemantic ? '上传论文并开始审查' : '发起检查'}</h2>
+              <p className="mt-1 text-sm text-slate-500">{isSemantic ? '系统会自动完成 PDF 解析、前置校验和数值核验，并将结果保存到历史报告。' : '完成后自动保存至历史报告，可继续查看问题定位与修改建议。'}</p>
           </div>
           <span className="rounded-full bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700">
-            PDF 论文检查
+              {isSemantic ? '语义审查' : 'PDF 论文检查'}
           </span>
         </div>
 
@@ -643,15 +661,17 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
             </label>
           </Card>
 
-          <Card
-            title="2. 选择审查规则"
+            <Card
+              title={isSemantic ? '检查设置' : '2. 选择审查规则'}
             description={
-              isThirty
+                isSemantic
+                  ? '当前默认检查摘要数值声明与正文实验结果的一致性。'
+                  : isThirty
                 ? '请选择本次需要执行的规则。规则不可用时会显示原因并禁止提交。'
                 : '基础检查默认启用；需要额外文本分析的检查项可按需选择。'
             }
             actions={
-              catalog ? (
+              !isSemantic && catalog ? (
                 <div className="flex gap-1">
                   <Button
                     size="sm"
@@ -672,7 +692,18 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
             {catalogLoading ? <LoadingState label="正在读取检查项…" /> : null}
             {catalogError ? <ErrorState message={catalogError} onRetry={() => void loadCatalog()} /> : null}
             {catalog ? (
-              <div className={`grid gap-3 md:grid-cols-2 ${isThirty ? '' : 'max-h-80 overflow-y-auto pr-1'}`}>
+              isSemantic ? (
+                <div className="rounded-xl border border-brand-200 bg-brand-50/50 p-4">
+                  <div className="flex items-start gap-3">
+                    <span className="mt-0.5 flex size-5 items-center justify-center rounded-full bg-brand-600 text-[10px] font-bold text-white">✓</span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-slate-900">{visibleRules[0]?.title || '摘要数值声明与实验结果一致性'}</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-600">{visibleRules[0]?.description || '检查摘要中的数值声明是否能在正文实验结果中得到支持。'}</p>
+                    </div>
+                  </div>
+                  {visibleRules.length > 1 ? <details className="mt-3 border-t border-brand-100 pt-3"><summary className="cursor-pointer text-xs font-medium text-brand-700">查看其他语义规则</summary><div className="mt-2 space-y-2">{visibleRules.slice(1).map((rule) => <label key={rule.rule_id} className="flex items-start gap-2 text-xs text-slate-700"><input className="mt-0.5 accent-brand-500" type="checkbox" checked={selectedRuleIds.includes(rule.rule_id)} disabled={running || !rule.available} onChange={() => toggleRule(rule.rule_id)} /><span>{rule.title}</span></label>)}</div></details> : null}
+                </div>
+              ) : <div className={`grid gap-3 md:grid-cols-2 ${isThirty ? '' : 'max-h-80 overflow-y-auto pr-1'}`}>
                 {visibleRules.map((rule: PaperLintRule) => {
                   const checked = selectedRuleIds.includes(rule.rule_id);
                   return (
@@ -775,15 +806,23 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
 
       {running ? (
         <Card>
-          <div className="flex items-center gap-4 py-5">
-            <span className="flex size-11 items-center justify-center rounded-full bg-brand-100 text-brand-600">
-              <LoaderCircle className="size-5 animate-spin" />
-            </span>
-            <div>
-              <p className="font-bold text-slate-900">{uploadPercent !== null && uploadPercent < 100 ? `正在上传 PDF（${uploadPercent}%）` : jobProgress && jobProgress.total ? `正在检查规则（已完成 ${jobProgress.completed}/${jobProgress.total}）` : '正在进行本地检查'}</p>
-              <p className="mt-1 text-sm text-slate-500">{uploadPercent !== null && uploadPercent < 100 ? '正在传输论文文件，上传完成后立即开始检测。' : selectedRuleIds.includes('abstract_numeric_consistency_check') ? '先检查摘要数值声明、研究章节映射和实验子章节；三项前置条件全部通过后才进行数值一致性核验。' : selectedRuleIds.includes('typo_detection_check') ? '已完成的规则会先展示；正文错别字检测按段落处理，耗时可能较长，可随时停止。' : '已完成的规则会先展示，可随时停止检查。'}</p>
-            </div>
-          </div>
+          {isSemantic ? (() => {
+            const stage = uploadPercent !== null && uploadPercent < 100 ? 0 : jobProgress?.total && jobProgress.completed >= jobProgress.total ? 2 : 1;
+            const stages = [
+              ['PDF 解析', '读取论文文本、目录和版面结构'],
+              ['前置校验', '检查摘要数值、研究贡献和实验章节映射'],
+              ['数值核验与报告生成', '核对正文实验结果并保存报告'],
+            ];
+            return <div className="py-2">
+              <div className="flex items-center justify-between gap-3"><div><p className="text-sm font-bold text-slate-900">正在进行语义审查</p><p className="mt-1 text-xs text-slate-500">当前阶段：{stages[stage][0]}</p></div><LoaderCircle className="size-5 animate-spin text-brand-600" /></div>
+              <ol className="mt-5 grid gap-2 sm:grid-cols-3">
+                {stages.map(([label, description], index) => <li key={label} className={`rounded-xl border px-3 py-3 ${index < stage ? 'border-emerald-200 bg-emerald-50' : index === stage ? 'border-brand-300 bg-brand-50' : 'border-slate-200 bg-slate-50'}`}><p className="text-xs font-semibold text-slate-900">{index < stage ? '已完成 · ' : index === stage ? '进行中 · ' : '待处理 · '}{label}</p><p className="mt-1 text-[11px] leading-5 text-slate-500">{description}</p></li>)}
+              </ol>
+            </div>;
+          })() : <div className="flex items-center gap-4 py-5">
+            <span className="flex size-11 items-center justify-center rounded-full bg-brand-100 text-brand-600"><LoaderCircle className="size-5 animate-spin" /></span>
+            <div><p className="font-bold text-slate-900">{uploadPercent !== null && uploadPercent < 100 ? `正在上传 PDF（${uploadPercent}%）` : jobProgress && jobProgress.total ? `正在检查规则（已完成 ${jobProgress.completed}/${jobProgress.total}）` : '正在进行本地检查'}</p><p className="mt-1 text-sm text-slate-500">{uploadPercent !== null && uploadPercent < 100 ? '正在传输论文文件，上传完成后立即开始检测。' : selectedRuleIds.includes('abstract_numeric_consistency_check') ? '先检查摘要数值声明、研究章节映射和实验子章节；三项前置条件全部通过后才进行数值一致性核验。' : selectedRuleIds.includes('typo_detection_check') ? '已完成的规则会先展示；正文错别字检测按段落处理，耗时可能较长，可随时停止。' : '已完成的规则会先展示，可随时停止检查。'}</p></div>
+          </div>}
         </Card>
       ) : null}
 

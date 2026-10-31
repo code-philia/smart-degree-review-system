@@ -33,6 +33,11 @@ const outcomeTones = {
   not_applicable: 'neutral',
 } as const;
 
+function numericResultRows(run?: PaperLintRuleRun) {
+  const rows = run?.params?.numeric_results;
+  return Array.isArray(rows) ? rows.filter((row): row is Record<string, unknown> => Boolean(row && typeof row === 'object')) : [];
+}
+
 
 function executionStatusLabel(status: PaperLintRuleRun['execution_status']) {
   if (status === 'unsupported') return '无法判定';
@@ -144,6 +149,14 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
     summary.rule_count - summary.unsupported_rule_count - summary.error_rule_count,
   );
   const pdfUrl = `/api/normative/paper-lint/reports/${encodeURIComponent(reportId!)}/pdf`;
+  const isSemanticReport = report.selected_rule_ids.includes('abstract_numeric_consistency_check');
+  const numericRows = numericResultRows(report.result.rule_runs.find((run) => run.rule_id === 'abstract_numeric_consistency_check'));
+  const numericSummary = {
+    total: numericRows.length,
+    consistent: numericRows.filter((row) => row.status === 'consistent').length,
+    inconsistent: numericRows.filter((row) => row.status === 'inconsistent').length,
+    inconclusive: numericRows.filter((row) => row.status !== 'consistent' && row.status !== 'inconsistent').length,
+  };
   return (
     <div className="space-y-6">
       <PageHeader
@@ -170,8 +183,8 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
         }
       />
       <Card
-        title="检测结论"
-        description="以下结论用于修改前自查，不替代导师或学院的正式审核。"
+        title={isSemanticReport ? '语义审查概览' : '检测结论'}
+        description={isSemanticReport ? '围绕摘要数值声明展示核验结果；不一致与无法确定分别统计。' : '以下结论用于修改前自查，不替代导师或学院的正式审核。'}
         actions={
           <StatusBadge
             tone={
@@ -184,7 +197,11 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
                     : 'success'
             }
           >
-            {compilerPublicationSummary(report.result) || (summary.finding_count
+            {isSemanticReport
+              ? numericSummary.inconsistent ? `待关注 ${numericSummary.inconsistent + numericSummary.inconclusive} 项`
+                : numericSummary.inconclusive ? `无法确定 ${numericSummary.inconclusive} 项`
+                  : '全部声明一致'
+              : compilerPublicationSummary(report.result) || (summary.finding_count
               ? `待处理 ${summary.finding_count} 项`
                 : summary.error_rule_count
                   ? '部分规则执行失败'
@@ -192,18 +209,23 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
                     ? '部分规则无法判定'
                 : isThirty
                   ? '规则检查通过'
-                  : '基础检查通过')}
+                    : '基础检查通过')}
           </StatusBadge>
         }
       >
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          {[
+          {(isSemanticReport ? [
+            ['核验声明', numericSummary.total],
+            ['一致', numericSummary.consistent],
+            ['不一致', numericSummary.inconsistent],
+            ['无法确定', numericSummary.inconclusive],
+          ] : [
             ['选择规则', report.selected_rule_ids.length],
             ['已完成', completedRuleCount],
             ['无法判定', summary.unsupported_rule_count],
             ['执行失败', summary.error_rule_count],
             ['问题总数', summary.finding_count],
-          ].map(([label, value]) => (
+          ]).map(([label, value]) => (
             <div key={String(label)} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
               <p className="text-xs text-slate-500">{label}</p>
               <p className="mt-1 text-2xl font-black text-slate-900">{value}</p>
