@@ -108,6 +108,11 @@
   align-items: center;
   gap: 13px;
   min-width: 0;
+  padding: 10px 16px 10px 12px;
+  border: 1px solid #dfd1bb;
+  border-radius: 14px;
+  background: #fffdf8f5;
+  box-shadow: 0 4px 18px #573d1c0a;
 }
 .campus-signin .campus-brand img {
   width: 47px;
@@ -123,20 +128,22 @@
   font-size: 24px;
   line-height: 1.2;
   letter-spacing: 0.02em;
-  font-weight: 650;
-  color: #342e2a;
+  font-weight: 700;
+  color: #2b231e;
 }
 .campus-signin .campus-brand p span {
-  font-size: 14px;
+  font-size: 16px;
   letter-spacing: 0.015em;
-  font-weight: 450;
+  font-weight: 600;
 }
 .campus-signin .campus-brand-en {
   display: block;
   margin-top: 6px;
-  font-size: 9px;
-  letter-spacing: 0.19em;
-  color: #85766b;
+  font-size: 11px;
+  line-height: 1.4;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: #665243;
 }
 .campus-signin .campus-version {
   display: flex;
@@ -398,7 +405,7 @@
     font-size: 21px;
   }
   .campus-signin .campus-brand p span {
-    font-size: 12px;
+    font-size: 14px;
   }
   .campus-signin .campus-content {
     gap: 25px;
@@ -433,6 +440,11 @@
   }
   .campus-signin .campus-brand {
     gap: 10px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
   }
   .campus-signin .campus-brand img {
     width: 40px;
@@ -444,7 +456,7 @@
   }
   .campus-signin .campus-brand p span {
     display: block;
-    font-size: 11px;
+    font-size: 13px;
     margin-top: 5px;
   }
   .campus-signin .campus-brand-en {
