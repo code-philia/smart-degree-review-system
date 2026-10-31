@@ -83,6 +83,24 @@ def test_gate_and_failure_preserve_first_stage():
     assert r['execution_status'] == 'error' and r['params']['declarations'] == data['declarations']
 
 
+def test_no_numeric_scope_is_completed_without_llm_call():
+    ir, facts, _ = fixture()
+    facts = copy.deepcopy(facts)
+    facts['chinese_abstract'] = '本文提出融合模型，并介绍了数据集和实验方法。'
+
+    def request(_messages):
+        raise AssertionError('locator must not be called without abstract percentages')
+
+    result = n.run_numeric(ir, facts, request)
+    assert result['execution_status'] == 'completed'
+    assert result['outcome'] == 'not_applicable'
+    assert result['params']['stage'] == 'preconditions'
+    assert [row['id'] for row in result['params']['preconditions']] == [
+        'abstract_numeric', 'contribution_mapping', 'experiment_subsection']
+    assert result['params']['preconditions'][0]['status'] == 'failed'
+    assert all(row['status'] == 'skipped' for row in result['params']['preconditions'][1:])
+
+
 def valid_output(candidate):
     return {'results': [{'declaration_id': 'd1', 'status': 'inconsistent', 'reason': '数值冲突', 'suggestion': '请核对原始实验数据',
                          'evidence': [{'candidate_id': candidate['candidate_id'], 'quote': candidate['text'], 'page': candidate['page']}]}]}

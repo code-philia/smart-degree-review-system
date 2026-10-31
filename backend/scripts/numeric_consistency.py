@@ -13,6 +13,11 @@ CONTEXT_VERSION = 'numeric-context/4.1'
 CONTRACT_VERSION = 'numeric-contract/3.0'
 RETRIEVAL_VERSION = 'numeric-lexical/1.4'
 CONDITIONS = {'abstract_numeric', 'contribution_mapping', 'experiment_subsection'}
+FIXED_PRECONDITION_SUGGESTIONS = {
+    'abstract_numeric': '请在摘要中补充可与正文实验结果对应的明确数值、指标和条件；如果摘要本身没有数值声明，则无需进行这项一致性核验。',
+    'contribution_mapping': '请将每个数值型研究结论明确关联到摘要中的具体方法或研究贡献，避免只给出孤立的数字。',
+    'experiment_subsection': '请在对应研究章节下组织实验设置、评估或结果小节，并确保数值声明能够映射到真实实验依据。',
+}
 
 
 class ContractError(ValueError):
@@ -339,6 +344,21 @@ def structure_context(facts, model):
     context['section_aliases'] = {'S' + str(i+1): s['section_id'] for i, s in enumerate(catalog)}
     require(len(json.dumps(structure_input(context), ensure_ascii=False)) <= 100000, 'structure context exceeds budget')
     return context
+
+
+def no_numeric_preconditions():
+    """Return a deterministic, non-LLM result when the rule has no scope."""
+    return [
+        {'id': 'abstract_numeric', 'passed': False, 'status': 'failed',
+         'reason': '摘要中未识别到可核验的百分比数值声明。',
+         'suggestion': FIXED_PRECONDITION_SUGGESTIONS['abstract_numeric']},
+        {'id': 'contribution_mapping', 'passed': False, 'status': 'skipped',
+         'reason': '未识别到数值声明，因此未进入研究贡献映射。',
+         'suggestion': FIXED_PRECONDITION_SUGGESTIONS['contribution_mapping']},
+        {'id': 'experiment_subsection', 'passed': False, 'status': 'skipped',
+         'reason': '未识别到数值声明，因此未进入实验子章节映射。',
+         'suggestion': FIXED_PRECONDITION_SUGGESTIONS['experiment_subsection']},
+    ]
 
 
 def structure_prompt(context):
@@ -763,6 +783,23 @@ def run_numeric(ir, facts, request, trace=None, verification_mode=None):
         params['limitations'] = model['limitations']
         if trace:
             trace('context', context)
+        # Deterministic scope guard: do not ask the locator model to invent
+        # metric fields when the abstract contains no percentage declaration.
+        if not context['abstract_percentage_inventory']:
+            params.update({
+                'stage': 'preconditions',
+                'contributions': [],
+                'declarations': [],
+                'mappings': [],
+                'preconditions': no_numeric_preconditions(),
+                'scope': 'no_abstract_percentage_declarations',
+            })
+            result['outcome'] = 'not_applicable'
+            result['message'] = '摘要中未发现可核验的数值声明，已跳过数值一致性检测。'
+            if trace:
+                trace('preconditions', {'reason': 'no_abstract_percentage_declarations',
+                                        'preconditions': params['preconditions']})
+            return result
         locator_prompt = structure_prompt(context)
         structure = call(locator_prompt)
         params['structure_output'] = structure
