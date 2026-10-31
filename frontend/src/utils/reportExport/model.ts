@@ -14,6 +14,25 @@ import { formatChinaDateTime } from '../dateTime';
 import { numericReportBlocks } from './numericDetails';
 
 export const EXPORT_NOTICE = '检测结果仅供参考，请结合论文原文和学校要求人工复核。';
+export type DetectionScopeItem = { id: string; title: string; description: string };
+
+export function buildDetectionScope(report: PaperLintRunResponse, rules: PaperLintRule[]): DetectionScopeItem[] {
+  const ids = report.selected_rule_ids?.length
+    ? report.selected_rule_ids
+    : report.result.rule_runs.map((run) => run.rule_id);
+  const catalog = new Map(rules.map((rule) => [rule.rule_id, rule]));
+  return [...new Set(ids)].map((id) => {
+    const rule = catalog.get(id);
+    const description = rule?.description?.trim().replace(/\s+/g, ' ');
+    const characters = Array.from(description || '规则说明暂不可用（目录中未提供）。');
+    return {
+      id,
+      title: rule?.title?.trim() || id,
+      description: characters.length > 120 ? characters.slice(0, 120).join('') + '…' : characters.join(''),
+    };
+  });
+}
+
 export type ExportFinding = {
   number: number;
   id: string;
@@ -35,6 +54,7 @@ export type ExportReport = {
   ruleset: string;
   conclusion: string;
   summary: PaperLintSummary;
+  scope: DetectionScopeItem[];
   rules: {
     id: string;
     title: string;
@@ -85,6 +105,7 @@ export function buildExportReport(
     ruleset: result.ruleset.version_label || result.ruleset.name,
     conclusion,
     summary,
+    scope: buildDetectionScope(report, rules),
     rules: result.rule_runs.map((run) => ({
       id: run.rule_id,
       title: title(run.rule_id),
@@ -165,6 +186,14 @@ export function reportBlocks(model: ExportReport): ReportBlock[] {
       text: `错误总数：${model.summary.finding_count}    严重错误数：${model.summary.error_finding_count}    警告错误数：${model.summary.warning_finding_count}    提示错误数：${model.summary.info_finding_count}`,
     },
     { kind: 'notice', text: model.notice },
+    { kind: 'heading', text: '本次检测范围' },
+    { kind: 'meta', text: `已选择 ${model.scope.length} 项规则` },
+    ...(model.scope.length
+      ? model.scope.map((rule): ReportBlock => ({
+          kind: 'text',
+          text: `${rule.title}（${rule.id}）：${rule.description}`,
+        }))
+      : [{ kind: 'text' as const, text: '未记录检测规则，无法确认本次检测范围。' }]),
     { kind: 'heading', text: '问题清单' },
   ];
   if (!model.findings.length)

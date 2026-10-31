@@ -25,6 +25,7 @@ import {
 import { Card, ErrorState, LoadingState, StatusBadge } from '../components/ui';
 import { formatChinaDateTime } from '../utils/dateTime';
 import { ReportExportDialog } from '../components/paperLint/ReportExportDialog';
+import { DetectionScope } from '../components/paperLint/DetectionScope';
 
 function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) {
   const isThirty = mode === 'thirty';
@@ -143,7 +144,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
     .map((run) => run.message).filter(Boolean))];
   const metricsPlaceholder = metricsLoading ? '统计中…' : '未统计';
   const pdfUrl = `/api/normative/paper-lint/reports/${encodeURIComponent(reportId!)}/pdf`;
-  const isSemanticReport = report.selected_rule_ids.includes('abstract_numeric_consistency_check');
+  const isSemanticReport = report.selected_rule_ids?.includes('abstract_numeric_consistency_check') ?? false;
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-5">
       <Card aria-labelledby="report-conclusion-title">
@@ -203,6 +204,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
         </div>
         {unavailableReasons.length > 0 ? <p className="mt-3 text-sm text-slate-600">{unavailableReasons.join('；')}</p> : null}
       </Card>
+      <DetectionScope report={report} rules={rules} />
       {!isSemanticReport ? <div className="flex items-center gap-2">
         <FileText className="size-5 text-brand-600" />
         <h2 className="text-lg font-black text-slate-900">检测报告详情预览</h2>

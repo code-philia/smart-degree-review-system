@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { FileCheck2, FileText, LoaderCircle, Play, Square, Upload, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuthSession } from '../auth/AuthSessionProvider';
 import {
   fetchReviewPilotPaperLintRules,
@@ -14,6 +15,7 @@ import {
   type PaperLintRule,
 } from '../api/paperLint';
 import { PaperLintWorkspace } from '../components/paperLint/Workspace';
+import { ThesisUploadPanel } from '../components/paperLint/ThesisUploadPanel';
 import { compilerPublicationLabel, compilerPublicationSummary, flattenPaperLintFindings } from '../components/paperLint/model';
 import { usePaperLintRepairSuggestions } from '../hooks/usePaperLintRepairSuggestions';
 import {
@@ -112,6 +114,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   const isSemantic = mode === 'semantic';
   const title = isSemantic ? '论文语义审查' : isThirty ? 'PDF 规则检测' : '基础规则检测';
   const { status, user } = useAuthSession();
+  const navigate = useNavigate();
   const [catalog, setCatalog] = useState<PaperLintCatalogResponse | null>(null);
   const [selectedRuleIds, setSelectedRuleIds] = useState<string[]>([]);
   const [file, setFile] = useState<File | null>(null);
@@ -128,6 +131,8 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   const [runError, setRunError] = useState<string | null>(null);
   const requestIdRef = useRef<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [activeFilename, setActiveFilename] = useState<string | null>(null);
+  const [jobStatus, setJobStatus] = useState<'pending' | 'running' | null>(null);
   const [jobProgress, setJobProgress] = useState<{ completed: number; total: number } | null>(null);
   const [semanticStage, setSemanticStage] = useState<0 | 1 | 2>(0);
   const [externalConsent, setExternalConsent] = useState(false);
@@ -143,7 +148,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
       if (!hasRestoredSelection) {
         const defaultRules = mode === 'semantic'
           ? rulesForMode(nextCatalog.rules, mode)
-          : rulesForMode(nextCatalog.rules, mode).filter((rule) => rule.default_enabled);
+          : rulesForMode(nextCatalog.rules, mode).filter((rule) => isThirty ? rule.available : rule.default_enabled);
         setSelectedRuleIds(defaultRules.map((rule) => rule.rule_id));
       }
     } catch (error) {
@@ -291,6 +296,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
       url: `/api/normative/paper-lint/reports/${encodeURIComponent(reportId)}/pdf`,
     });
     clearActiveJob();
+    if (isThirty) navigate(`/thirty-rules-check/reports/pdf/${encodeURIComponent(reportId)}`, { replace: true });
   }
 
   async function pollJob(jobId: string, filename: string, sourceFile?: File, generation = runGenerationRef.current) {
@@ -300,6 +306,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
       try {
         const job = await fetchPaperLintJob(jobId);
         if (generation !== runGenerationRef.current) return;
+        if (job.status === 'pending' || job.status === 'running') setJobStatus(job.status);
         if (disconnected) {
           disconnected = false;
           setRunError(null);
@@ -315,7 +322,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
               stage === 'numeric_verifier' || run?.execution_status === 'completed' ? 2 : 1,
             );
           }
-          if (sourceFile && job.progress.rule_runs?.length) {
+          if (!isThirty && sourceFile && job.progress.rule_runs?.length) {
             setResponse((current) => current || partialPaperLintResponse(job.job_id, filename, job.progress?.rule_runs || []));
             setResultFile((current) => current || sourceFile);
           }
@@ -401,6 +408,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
       return;
     }
     setActiveJobId(stored.jobId);
+    setActiveFilename(stored.filename);
     setSelectedRuleIds(stored.selectedRuleIds || []);
     setRunning(true);
     const generation = ++runGenerationRef.current;
@@ -413,6 +421,8 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   }, [user?.id]);
 
   function chooseFile(nextFile: File | null) {
+    if (running || stopping) return;
+    setActiveFilename(nextFile?.name || null);
     setStopped(false);
     setRunError(null);
     setResponse(null);
@@ -468,7 +478,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
       return;
     }
     if (selectedRuleIds.length === 0) {
-      setRunError('请至少选择一条审查规则');
+      setRunError(isThirty ? '请至少选择一项检测规则' : '请至少选择一条审查规则');
       return;
     }
     if (selectedExternalRule && !externalConsent) {
@@ -479,6 +489,8 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     setRunning(true);
     setStopped(false);
     setJobProgress(null);
+    setJobStatus(null);
+    setActiveFilename(file.name);
     setSemanticStage(0);
     setRunError(null);
     setResponse(null);
@@ -503,6 +515,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
       setResponse(nextResponse);
       setResultFile(file);
       clearActiveJob();
+      if (isThirty) navigate(`/thirty-rules-check/reports/pdf/${encodeURIComponent(nextResponse.id)}`, { replace: true });
     } catch (error) {
       if (generation === runGenerationRef.current) setRunError(errorMessage(error, '规则审查运行失败'));
     } finally {
@@ -526,6 +539,32 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
       </Card>
     );
   }
+
+  if (isThirty) return <ThesisUploadPanel
+    rules={visibleRules}
+    selectedRuleIds={selectedRuleIds}
+    onSelectionChange={replaceSelectedRules}
+    file={file}
+    onChooseFile={chooseFile}
+    catalogLoading={catalogLoading}
+    catalogReady={Boolean(catalog)}
+    catalogError={catalogError}
+    onReloadCatalog={() => void loadCatalog()}
+    running={running}
+    stopping={stopping}
+    stopped={stopped}
+    canStop={Boolean(activeJobId)}
+    onStop={() => void stopReview()}
+    onStart={() => void runReview()}
+    error={runError}
+    uploadPercent={uploadPercent}
+    jobStatus={jobStatus}
+    jobProgress={jobProgress}
+    activeFilename={activeFilename}
+    requiresConsent={selectedExternalRule}
+    consent={externalConsent}
+    onConsentChange={setExternalConsent}
+  />;
 
   return (
     <div className="space-y-6">
