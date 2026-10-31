@@ -172,7 +172,8 @@ def _table_structure(table, page_number, table_index, model, page_height, page=N
     # Some borderless/merged tables expose header names and cell geometry but
     # return an empty extract matrix. Reconstruct text from each cell rectangle
     # before declaring the table empty.
-    if not matrix and rows and page is not None:
+    matrix_has_text = any(cell for row in matrix for cell in row)
+    if (not matrix or not matrix_has_text) and rows and page is not None:
         import fitz
         for row in rows:
             values = []
@@ -185,7 +186,7 @@ def _table_structure(table, page_number, table_index, model, page_height, page=N
                 values.append(_clean_table_text(text) or None)
             if values:
                 matrix.append(values)
-    if not matrix:
+    if not matrix or not any(cell for row in matrix for cell in row):
         header = getattr(table, 'header', None)
         header_names = [_clean_table_text(v) for v in (getattr(header, 'names', []) or [])]
         if any(header_names):
