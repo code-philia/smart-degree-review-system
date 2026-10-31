@@ -1,5 +1,9 @@
 """Shared source-grounded passes, external identity, and citation-purpose analysis."""
+from collections import deque
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 import hashlib
+from itertools import islice
 import json
 import os
 import re
@@ -227,6 +231,37 @@ def _extract_field(node,name,item,complete,a):
     _add_evidence(a,evidence)
     return {**observed(value,[eid]),'source_range':[start,end]}
 
+def _bibliography_responses(batches, client, instructions, opt_in):
+    def extract(batch):
+        max_tokens = min(16384, max(6000, 3000*len(batch))) if opt_in else 6000
+        if client is None:
+            return batch, {}, None
+        from .llm import ModelError
+        try:
+            answer=client.complete_json('bibliography-fields/1.1',instructions,_bibliography_data(batch),max_tokens)
+            return batch, answer, None
+        except ModelError as error:
+            return batch, {}, 'optional bibliography field extraction unavailable: '+type(error).__name__+': '+str(error)
+
+    if getattr(client, 'config', {}).get('MODEL_PROVIDER') != 'sjtu':
+        yield from map(extract, batches)
+        return
+    # Only model requests run on workers. Source validation and evidence writes
+    # stay on the caller thread, in source order, with a bounded pending window.
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        batches = iter(batches)
+        pending = deque(pool.submit(extract, batch) for batch in islice(batches, 8))
+        try:
+            while pending:
+                yield pending.popleft().result()
+                batch = next(batches, None)
+                if batch is not None:
+                    pending.append(pool.submit(extract, batch))
+        finally:
+            for future in pending:
+                future.cancel()
+
+
 def parse_entries(ir,a,client,*,batch_size=None):
     entries=[n for n in ir['nodes'] if n['kind']=='BibliographyEntry']
     results=a['results'].setdefault('bibliography_fields',{})
@@ -234,30 +269,21 @@ def parse_entries(ir,a,client,*,batch_size=None):
     opt_in = bool(execution and execution['opt_in'])
     if batch_size is None:batch_size = execution['batch_size']
     instructions = BIBLIOGRAPHY_INSTRUCTIONS + (BIBLIOGRAPHY_BATCH_INSTRUCTIONS if opt_in else '')
-    for batch in _bibliography_batches(entries, batch_size, execution['input_soft_limit_bytes'] if opt_in else None):
-        max_tokens = min(16384, max(6000, 3000*len(batch))) if opt_in else 6000
-        extraction_error=None
-        if client is None:
-            answer={}
-        else:
-            from .llm import ModelError
-            try:
-                answer=client.complete_json('bibliography-fields/1.1',instructions,_bibliography_data(batch),max_tokens)
-            except ModelError as error:
-                answer={}
-                extraction_error='optional bibliography field extraction unavailable: '+type(error).__name__+': '+str(error)
-        raw={item.get('id'):item for item in answer.get('entries',[]) if isinstance(item,dict)}
-        for node in batch:
-            item=raw.get(node['id'],{});complete=item.get('complete') is True;fields=item.get('fields',{})
-            fields=_coerce_bibliography_fields(node, fields)
-            for name in item.get('absent',[]):
-                if name in FIELD_TYPES and name not in fields:fields[name]={'state':'confirmed_absent'}
-            facts={name:_extract_field(node,name,fields.get(name),complete,a) for name in FIELD_TYPES}
-            results[node['id']]=facts
-            a['coverage'][node['id']]={'status':'complete' if complete else 'partial','protocol':'bibliography-fields/1.1'}
-            if extraction_error is not None:
-                results[node['id']]={name:unknown(extraction_error) for name in FIELD_TYPES}
-                a['coverage'][node['id']]['reason']=extraction_error
+    batches = _bibliography_batches(entries, batch_size, execution['input_soft_limit_bytes'] if opt_in else None)
+    with closing(_bibliography_responses(batches, client, instructions, opt_in)) as responses:
+        for batch, answer, extraction_error in responses:
+            raw={item.get('id'):item for item in answer.get('entries',[]) if isinstance(item,dict)}
+            for node in batch:
+                item=raw.get(node['id'],{});complete=item.get('complete') is True;fields=item.get('fields',{})
+                fields=_coerce_bibliography_fields(node, fields)
+                for name in item.get('absent',[]):
+                    if name in FIELD_TYPES and name not in fields:fields[name]={'state':'confirmed_absent'}
+                facts={name:_extract_field(node,name,fields.get(name),complete,a) for name in FIELD_TYPES}
+                results[node['id']]=facts
+                a['coverage'][node['id']]={'status':'complete' if complete else 'partial','protocol':'bibliography-fields/1.1'}
+                if extraction_error is not None:
+                    results[node['id']]={name:unknown(extraction_error) for name in FIELD_TYPES}
+                    a['coverage'][node['id']]['reason']=extraction_error
     _entry_shapes(ir,a)
     _resource_attributes(ir,a)
     return a
