@@ -259,11 +259,28 @@ def recover_pdf_tables(pdf_path, model):
     return tables, diagnostics
 
 
-def _table_quote(table):
+def _table_view(table, declaration=None, max_rows=40, max_cell_chars=180):
+    matrix = table.get('matrix', []) or []
+    cleaned = [[None if cell is None else str(cell)[:max_cell_chars] for cell in row] for row in matrix]
+    if len(cleaned) <= max_rows:
+        return cleaned
+    declaration = declaration or {}
+    terms = set(re.findall(r'\d+(?:\.\d+)?', str(declaration.get('number', ''))))
+    terms.update(x for x in re.split(r'[，,；;、|/ ]+', str(declaration.get('metric', ''))) if len(x) >= 2)
+    selected = list(range(min(3, len(cleaned))))
+    for index, row in enumerate(cleaned[3:], 3):
+        row_text = ' '.join(cell or '' for cell in row)
+        if any(term and term in row_text for term in terms):
+            selected.append(index)
+    selected = sorted(dict.fromkeys(selected))[:max_rows]
+    return [cleaned[index] for index in selected]
+
+
+def _table_quote(table, declaration=None):
     lines = []
     if table.get('caption'):
         lines.append(table['caption'])
-    for row in table.get('matrix', []):
+    for row in _table_view(table, declaration):
         lines.append(' | '.join('' if cell is None else str(cell) for cell in row))
     return '\n'.join(lines)
 
@@ -720,6 +737,18 @@ def retrieve_candidates(declarations, mappings, model, top_k=6):
                 for sid in mapping['experiment_section_ids']
             )
         ]
+        structured_ranked = []
+        for table in structured_tables:
+            score, signals = retrieval_signals(d, {
+                'text': _table_quote(table, d),
+                'block_type': 'StructuredTable',
+            })
+            if table.get('reliability') == 'reliable':
+                score += 2
+            structured_ranked.append((score, table))
+        structured_tables = [
+            table for _, table in sorted(structured_ranked, key=lambda item: -item[0])[:4]
+        ]
         for table_index, table in enumerate(structured_tables, 1):
             cid = d['id'] + ':t' + str(table_index)
             candidates.append({
@@ -730,7 +759,8 @@ def retrieve_candidates(declarations, mappings, model, top_k=6):
                 'block_id': table['table_id'],
                 'page': table['page'],
                 'block_type': 'StructuredTable',
-                'text': _table_quote(table),
+                'text': _table_quote(table, d),
+                'table_view': _table_view(table, d),
                 'provenance': [{'bbox': table['bbox']}],
                 'table_structure': table,
                 'context': [],
@@ -782,8 +812,8 @@ def verifier_prompt(structure, candidates):
                 'table_id': table.get('table_id'),
                 'caption': table.get('caption'),
                 'bbox': table.get('bbox'),
-                'matrix': table.get('matrix'),
-                'rows': table.get('rows'),
+                'matrix': candidate.get('table_view', table.get('matrix')),
+                'rows': [],
                 'column_headers': table.get('column_headers'),
                 'reliability': table.get('reliability'),
                 'limitations': table.get('limitations'),
