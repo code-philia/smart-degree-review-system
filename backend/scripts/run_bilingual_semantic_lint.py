@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import json
 import os
 import re
@@ -15,6 +16,7 @@ from typing import Any
 
 from paper_model_bilingual_rules import extract_bilingual_facts, _json_object, _bounded_text
 from paper_compiler.frontend import build_paper
+from paper_compiler.campus_requests import campus_request_slot
 
 
 BILINGUAL_RULES = {
@@ -54,15 +56,16 @@ def api_config() -> tuple[str, str, str, str]:
 
 def request_json(messages: list[dict[str, str]], *, observer=None) -> tuple[dict[str, Any], dict[str, int]]:
     global _LAST_REQUEST_AT
-    try:
-        min_interval = max(0.0, float(os.environ.get("SJTU_API_MIN_INTERVAL_SECONDS", "6")))
-    except (TypeError, ValueError):
-        min_interval = 6.0
-    wait = min_interval - (time.monotonic() - _LAST_REQUEST_AT)
-    if wait > 0:
-        time.sleep(wait)
-    _LAST_REQUEST_AT = time.monotonic()
     key, base_url, model, _provider = api_config()
+    if _provider != "sjtu":
+        try:
+            min_interval = max(0.0, float(os.environ.get("SJTU_API_MIN_INTERVAL_SECONDS", "6")))
+        except (TypeError, ValueError):
+            min_interval = 6.0
+        wait = min_interval - (time.monotonic() - _LAST_REQUEST_AT)
+        if wait > 0:
+            time.sleep(wait)
+        _LAST_REQUEST_AT = time.monotonic()
     payload = {
         "model": model,
         "messages": messages,
@@ -91,8 +94,9 @@ def request_json(messages: list[dict[str, str]], *, observer=None) -> tuple[dict
         if observer:
             observer('request_attempt', {'attempt': attempt + 1})
         try:
-            with opener.open(request, timeout=request_timeout) as response:
-                raw = response.read(8 * 1024 * 1024 + 1)
+            with campus_request_slot(request.full_url, dict(request.header_items()), request_timeout) as remaining:
+                with opener.open(request, timeout=remaining) as response:
+                    raw = response.read(8 * 1024 * 1024 + 1)
             break
         except urllib.error.HTTPError as error:
             detail = error.read(2000).decode("utf-8", "replace")
@@ -341,88 +345,92 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
     usage_total = {"input_tokens": 0, "output_tokens": 0}
     chunks = _body_chunks(ir)
     failure = None
-    for index, chunk in enumerate(chunks):
-        try:
-            payload, usage = request_json([{"role": "user", "content": typo_prompt(chunk["model_text"])}])
-        except Exception as exc:
-            failure = str(exc)[:300]
-            break
-        usage_total["input_tokens"] += usage["input_tokens"]
-        usage_total["output_tokens"] += usage["output_tokens"]
-        rows = payload.get("findings") if isinstance(payload, dict) else []
-        if not isinstance(rows, list):
-            continue
-        for row in rows[:20]:
-            if not isinstance(row, dict) or not str(row.get("text") or "").strip():
-                continue
-            original = str(row.get("text") or "").strip()
-            suggestion = str(row.get("suggestion") or "").strip()
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        futures = [pool.submit(request_json, [{"role": "user", "content": typo_prompt(chunk["model_text"])}]) for chunk in chunks]
+        for index, chunk in enumerate(chunks):
             try:
-                confidence = float(row.get("confidence"))
-            except (TypeError, ValueError):
+                payload, usage = futures[index].result()
+            except Exception as exc:
+                failure = str(exc)[:300] or type(exc).__name__
+                for pending in futures:
+                    pending.cancel()
+                break
+            usage_total["input_tokens"] += usage["input_tokens"]
+            usage_total["output_tokens"] += usage["output_tokens"]
+            rows = payload.get("findings") if isinstance(payload, dict) else []
+            if not isinstance(rows, list):
                 continue
-            if confidence < 0.85:
-                continue
-            # Full sentences and layout-only edits are never typo findings.
-            if len(original) > 30 or re.search(r"[。！？；.!?]", original):
-                continue
-            surface_normalize = lambda value: re.sub(r"[^\w\u3400-\u9fff]", "", value.casefold())
-            if surface_normalize(original) == surface_normalize(suggestion):
-                continue
-            # English-looking identifiers and mathematical symbols are common in papers.
-            # They are not spelling candidates even when the model proposes a plausible replacement.
-            if _looks_like_code_or_math(original) or _looks_like_code_or_math(suggestion):
-                continue
-            needle = _normalize_for_model(original)
-            model_text = chunk.get("model_text", "")
-            match_start = model_text.find(needle)
-            if match_start < 0:
-                continue
-            match_end = match_start + len(needle)
-            if _looks_like_code_context(model_text, match_start, match_end):
-                continue
-            # Do not accept a substring cut out of a longer CJK word.
-            if _has_cjk(original):
-                before = model_text[match_start - 1:match_start]
-                after = model_text[match_end:match_end + 1]
-                if (_is_cjk(original[:1]) and _is_cjk(before)) or (_is_cjk(original[-1:]) and _is_cjk(after)):
+            for row in rows[:20]:
+                if not isinstance(row, dict) or not str(row.get("text") or "").strip():
                     continue
-            matched_segments = [item for item in chunk.get("segments", [])
-                                if item.get("end", 0) > match_start and item.get("start", 0) < match_end]
-            pages = [item.get("page") for item in matched_segments if item.get("page")]
-            rects = []
-            for item in matched_segments:
-                bbox = item.get("bbox")
-                if bbox and len(bbox) == 4 and item.get("page"):
-                    x1, y1, x2, y2 = [float(value) for value in bbox]
-                    rects.append({"x1": x1, "y1": y1, "x2": x2, "y2": y2,
-                                  "width": float(item.get("page_width") or 0),
-                                  "height": float(item.get("page_height") or 0),
-                                  "page_number": item["page"]})
-            location = None
-            if pages and rects:
-                x1 = min(rect["x1"] for rect in rects); y1 = min(rect["y1"] for rect in rects)
-                x2 = max(rect["x2"] for rect in rects); y2 = max(rect["y2"] for rect in rects)
-                first_rect = rects[0]
-                bounding = {"x1": x1, "y1": y1, "x2": x2, "y2": y2,
-                            "width": first_rect["width"], "height": first_rect["height"],
-                            "page_number": pages[0]}
-                location = {"type": "pdf_bbox", "page_number": pages[0], "bounding_rect": bounding, "rects": rects, "text_excerpt": original[:120]}
-            elif pages:
-                location = {"type": "pdf_page", "page_number": pages[0], "text_excerpt": original[:120]}
-            findings.append({
-                "finding_id": f"{TYPO_RULE}_{len(findings) + 1}", "rule_id": TYPO_RULE,
-                "message": f"疑似错别字：{original[:120]}",
-                "suggestion": suggestion,
-                "location": location,
-                "anchors": ([{"anchor_id": f"typo-{len(findings) + 1}",
-                               "role": "source_span", "label": "疑似错别字",
-                               "description": original, "location": location}]
-                             if location else []),
-                "evidence": [{"id": f"typo-chunk-{index + 1}", "kind": "source_span",
-                              "provider": "repo-paper-model", "quote": str(row.get("text"))[:120]}],
-                "reason": str(row.get("reason") or "")[:300],
-            })
+                original = str(row.get("text") or "").strip()
+                suggestion = str(row.get("suggestion") or "").strip()
+                try:
+                    confidence = float(row.get("confidence"))
+                except (TypeError, ValueError):
+                    continue
+                if confidence < 0.85:
+                    continue
+                # Full sentences and layout-only edits are never typo findings.
+                if len(original) > 30 or re.search(r"[。！？；.!?]", original):
+                    continue
+                surface_normalize = lambda value: re.sub(r"[^\w\u3400-\u9fff]", "", value.casefold())
+                if surface_normalize(original) == surface_normalize(suggestion):
+                    continue
+                # English-looking identifiers and mathematical symbols are common in papers.
+                # They are not spelling candidates even when the model proposes a plausible replacement.
+                if _looks_like_code_or_math(original) or _looks_like_code_or_math(suggestion):
+                    continue
+                needle = _normalize_for_model(original)
+                model_text = chunk.get("model_text", "")
+                match_start = model_text.find(needle)
+                if match_start < 0:
+                    continue
+                match_end = match_start + len(needle)
+                if _looks_like_code_context(model_text, match_start, match_end):
+                    continue
+                # Do not accept a substring cut out of a longer CJK word.
+                if _has_cjk(original):
+                    before = model_text[match_start - 1:match_start]
+                    after = model_text[match_end:match_end + 1]
+                    if (_is_cjk(original[:1]) and _is_cjk(before)) or (_is_cjk(original[-1:]) and _is_cjk(after)):
+                        continue
+                matched_segments = [item for item in chunk.get("segments", [])
+                                    if item.get("end", 0) > match_start and item.get("start", 0) < match_end]
+                pages = [item.get("page") for item in matched_segments if item.get("page")]
+                rects = []
+                for item in matched_segments:
+                    bbox = item.get("bbox")
+                    if bbox and len(bbox) == 4 and item.get("page"):
+                        x1, y1, x2, y2 = [float(value) for value in bbox]
+                        rects.append({"x1": x1, "y1": y1, "x2": x2, "y2": y2,
+                                      "width": float(item.get("page_width") or 0),
+                                      "height": float(item.get("page_height") or 0),
+                                      "page_number": item["page"]})
+                location = None
+                if pages and rects:
+                    x1 = min(rect["x1"] for rect in rects); y1 = min(rect["y1"] for rect in rects)
+                    x2 = max(rect["x2"] for rect in rects); y2 = max(rect["y2"] for rect in rects)
+                    first_rect = rects[0]
+                    bounding = {"x1": x1, "y1": y1, "x2": x2, "y2": y2,
+                                "width": first_rect["width"], "height": first_rect["height"],
+                                "page_number": pages[0]}
+                    location = {"type": "pdf_bbox", "page_number": pages[0], "bounding_rect": bounding, "rects": rects, "text_excerpt": original[:120]}
+                elif pages:
+                    location = {"type": "pdf_page", "page_number": pages[0], "text_excerpt": original[:120]}
+                findings.append({
+                    "finding_id": f"{TYPO_RULE}_{len(findings) + 1}", "rule_id": TYPO_RULE,
+                    "message": f"疑似错别字：{original[:120]}",
+                    "suggestion": suggestion,
+                    "location": location,
+                    "anchors": ([{"anchor_id": f"typo-{len(findings) + 1}",
+                                   "role": "source_span", "label": "疑似错别字",
+                                   "description": original, "location": location}]
+                                 if location else []),
+                    "evidence": [{"id": f"typo-chunk-{index + 1}", "kind": "source_span",
+                                  "provider": "repo-paper-model", "quote": str(row.get("text"))[:120]}],
+                    "reason": str(row.get("reason") or "")[:300],
+                })
     return {"rule_run_id": f"run_{TYPO_RULE}", "rule_id": TYPO_RULE, "severity": "warning",
             "params": {"chunk_count": len(chunks), "chunk_size": 6000},
             "execution_status": "error" if failure else "completed", "evidence_mode": "derived",
@@ -515,65 +523,65 @@ def _chinese_summary(value: Any, abstract: bool) -> str:
             "中英文关键词存在语义不对应，请结合两侧关键词原文逐项核对。")
 
 
-def run(pdf: Path, rule_ids: list[str], run_id=None) -> dict[str, Any]:
-    ir = build_paper(pdf, include_citations=False)
-    facts = extract_bilingual_facts(ir) if any(rule in BILINGUAL_RULES for rule in rule_ids) else {}
-    runs = []
-    for rule_id in rule_ids:
-        if rule_id == TYPO_RULE:
-            runs.append(run_typo_rule_from_ir(ir))
-            continue
-        if rule_id == NUMERIC_RULE:
-            runs.append(run_numeric_consistency_rule(ir, run_id=run_id))
-            continue
-        prompt = prompt_for(rule_id, facts)
-        if prompt is None:
-            runs.append({
-                "rule_run_id": f"run_{rule_id}",
-                "rule_id": rule_id,
-                "severity": "warning",
-                "params": None,
-                "execution_status": "completed",
-                "evidence_mode": "derived",
-                "outcome": "inconclusive",
-                "message": "未能从 Paper Model 中同时识别中英文摘要或关键词。",
-                "findings": [],
-            })
-            continue
-        payload, usage = request_json([{"role": "user", "content": prompt}])
-        outcome = str(payload.get("outcome", "inconclusive")).lower()
-        findings = []
-        if outcome == "inconsistent":
-            abstract = rule_id.endswith("abstract_consistency_check")
-            anchors, evidence = _anchors_and_evidence(facts, "abstract" if abstract else "keywords")
-            primary_location = anchors[0]["location"] if anchors else None
-            findings.append({
-                "finding_id": f"{rule_id}_1",
-                "rule_id": rule_id,
-                "message": _chinese_summary(payload.get("summary"), abstract),
-                "suggestion": (
-                    "请依据下方中文摘要和英文摘要原文，定位研究对象、方法、数据、结果或结论的具体差异，并只对不一致的一侧作最小修改。"
-                    if abstract else
-                    "请依据下方中英文关键词原文，逐项核对语义对应关系；对不对应项进行补齐、删除或修正，不要仅按数量调整。"
-                ),
-                "location": primary_location,
-                "anchors": anchors,
-                "evidence": evidence,
-            })
-        runs.append({
+def _run_semantic_rule(ir, facts, rule_id, run_id=None):
+    if rule_id == TYPO_RULE:
+        return run_typo_rule_from_ir(ir)
+    if rule_id == NUMERIC_RULE:
+        return run_numeric_consistency_rule(ir, run_id=run_id)
+    prompt = prompt_for(rule_id, facts)
+    if prompt is None:
+        return {
             "rule_run_id": f"run_{rule_id}",
             "rule_id": rule_id,
             "severity": "warning",
             "params": None,
             "execution_status": "completed",
             "evidence_mode": "derived",
-            "outcome": "issues_found" if findings else (
-                "inconclusive" if outcome == "inconclusive" else "passed"
+            "outcome": "inconclusive",
+            "message": "未能从 Paper Model 中同时识别中英文摘要或关键词。",
+            "findings": [],
+        }
+    payload, usage = request_json([{"role": "user", "content": prompt}])
+    outcome = str(payload.get("outcome", "inconclusive")).lower()
+    findings = []
+    if outcome == "inconsistent":
+        abstract = rule_id.endswith("abstract_consistency_check")
+        anchors, evidence = _anchors_and_evidence(facts, "abstract" if abstract else "keywords")
+        primary_location = anchors[0]["location"] if anchors else None
+        findings.append({
+            "finding_id": f"{rule_id}_1",
+            "rule_id": rule_id,
+            "message": _chinese_summary(payload.get("summary"), abstract),
+            "suggestion": (
+                "请依据下方中文摘要和英文摘要原文，定位研究对象、方法、数据、结果或结论的具体差异，并只对不一致的一侧作最小修改。"
+                if abstract else
+                "请依据下方中英文关键词原文，逐项核对语义对应关系；对不对应项进行补齐、删除或修正，不要仅按数量调整。"
             ),
-            "message": str(payload.get("summary")) if outcome == "inconclusive" else None,
-            "findings": findings,
-            "model_usage": usage,
+            "location": primary_location,
+            "anchors": anchors,
+            "evidence": evidence,
         })
+    return {
+        "rule_run_id": f"run_{rule_id}",
+        "rule_id": rule_id,
+        "severity": "warning",
+        "params": None,
+        "execution_status": "completed",
+        "evidence_mode": "derived",
+        "outcome": "issues_found" if findings else (
+            "inconclusive" if outcome == "inconclusive" else "passed"
+        ),
+        "message": str(payload.get("summary")) if outcome == "inconclusive" else None,
+        "findings": findings,
+        "model_usage": usage,
+    }
+
+
+def run(pdf: Path, rule_ids: list[str], run_id=None) -> dict[str, Any]:
+    ir = build_paper(pdf, include_citations=False)
+    facts = extract_bilingual_facts(ir) if any(rule in BILINGUAL_RULES for rule in rule_ids) else {}
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        runs = list(pool.map(lambda rule: _run_semantic_rule(ir, facts, rule, run_id), rule_ids))
     finding_count = sum(len(item["findings"]) for item in runs)
     return {
         "type": "paper_lint",

@@ -90,6 +90,12 @@ def load_config(path):
 
 
 def _http(url, headers, payload, timeout):
+    from .campus_requests import campus_request_slot
+    with campus_request_slot(url, headers, timeout) as remaining:
+        return _http_request(url, headers, payload, remaining)
+
+
+def _http_request(url, headers, payload, timeout):
     request = urllib.request.Request(url, data=json_bytes(payload), headers=headers, method='POST')
     # Reject redirects: Authorization must never follow a provider redirect.
     class NoRedirect(urllib.request.HTTPRedirectHandler):

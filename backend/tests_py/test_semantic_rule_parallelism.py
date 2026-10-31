@@ -1,0 +1,50 @@
+import importlib.util
+from pathlib import Path
+import threading
+
+
+def module():
+    path = Path(__file__).parents[1] / 'scripts/run_bilingual_semantic_lint.py'
+    spec = importlib.util.spec_from_file_location('parallel_semantic_test', path)
+    result = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(result)
+    return result
+
+
+def test_independent_semantic_rules_overlap_and_preserve_selected_order(monkeypatch):
+    lint = module()
+    barrier = threading.Barrier(4, timeout=1)
+    parsed = []
+    ir = {'nodes': []}
+    monkeypatch.setattr(lint, 'build_paper', lambda *a, **k: parsed.append(1) or ir)
+    monkeypatch.setattr(lint, 'extract_bilingual_facts', lambda _: {})
+    monkeypatch.setattr(lint, 'prompt_for', lambda rule, facts: rule)
+    def local(rule):
+        barrier.wait()
+        return {'rule_id': rule, 'execution_status': 'completed', 'findings': []}
+    monkeypatch.setattr(lint, 'run_typo_rule_from_ir', lambda _: local(lint.TYPO_RULE))
+    monkeypatch.setattr(lint, 'run_numeric_consistency_rule', lambda *a, **k: local(lint.NUMERIC_RULE))
+    def request(messages):
+        barrier.wait()
+        return {'outcome': 'consistent'}, {'input_tokens': 1, 'output_tokens': 1}
+    monkeypatch.setattr(lint, 'request_json', request)
+    ids = [lint.TYPO_RULE, *sorted(lint.BILINGUAL_RULES), lint.NUMERIC_RULE]
+    result = lint.run(Path('unused.pdf'), ids)
+    assert [row['rule_id'] for row in result['rule_runs']] == ids
+    assert result['summary']['completed_rule_count'] == 4
+    assert parsed == [1]
+
+
+def test_typo_chunks_overlap_without_changing_usage_totals(monkeypatch):
+    lint = module()
+    barrier = threading.Barrier(4, timeout=1)
+    chunks = [{'model_text': f'piece{i}'} for i in range(4)]
+    monkeypatch.setattr(lint, '_body_chunks', lambda _: chunks)
+    def request(messages):
+        barrier.wait()
+        return {'findings': []}, {'input_tokens': 3, 'output_tokens': 2}
+    monkeypatch.setattr(lint, 'request_json', request)
+    result = lint.run_typo_rule_from_ir({})
+    assert result['execution_status'] == 'completed'
+    assert result['params']['chunk_count'] == 4
+    assert result['model_usage'] == {'input_tokens': 12, 'output_tokens': 8}
