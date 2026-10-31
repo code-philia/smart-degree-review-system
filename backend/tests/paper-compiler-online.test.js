@@ -10,6 +10,18 @@ const folders = [];
 function env(name, value) { if (!(name in originals)) originals[name] = process.env[name]; process.env[name] = value; }
 afterEach(() => { for (const [name, value] of Object.entries(originals)) { if (value === undefined) delete process.env[name]; else process.env[name] = value; delete originals[name]; } for (const folder of folders.splice(0)) fs.rmSync(folder, { recursive: true, force: true }); });
 const report = { schema_version: 'paper-check/1.0', pipeline_version: 'pipeline-20261019', publication: {public: {status: 'NO_ALERT', findings: []}}, rules: [{ rule_id: '32', status: 'PASS', results: [], counts: { PASS: 1 }, coverage: { incomplete_scopes: [] } }] };
+it('does not pass monetary caps to the configured campus model', async () => {
+  const { capture } = transport(report);
+  env('SJTU_API_KEY', 'fake-never-sent');
+  env('SJTU_API_BASE_URL', 'https://models.sjtu.edu.cn/api/v1');
+  env('SJTU_API_MODEL', 'deepseek-chat');
+  env('PAPER_COMPILER_BUDGET_CNY', 'NaN');
+  env('PAPER_COMPILER_PHASE_BUDGET_CNY', 'NaN');
+  await service.runCompilerRules('/data/tmp/input.pdf', ['sjtu_rule_32']);
+  const argv = JSON.parse(fs.readFileSync(capture, 'utf8'));
+  expect(argv[argv.indexOf('--budget') + 1]).toBe('0');
+  expect(argv[argv.indexOf('--phase-budget') + 1]).toBe('0');
+});
 function transport(output) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'compiler-online-test-')); folders.push(root);
   const capture = path.join(root, 'argv.json');

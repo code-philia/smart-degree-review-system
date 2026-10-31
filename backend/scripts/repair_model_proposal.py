@@ -56,7 +56,7 @@ def main():
         raise ValueError('repair request too large')
     ledger = BudgetLedger(
         Path(os.environ.get('PAPER_COMPILER_LEDGER', DEFAULT_LEDGER)),
-        os.environ.get('PAPER_COMPILER_BUDGET_CNY', '500'),
+        os.environ.get('PAPER_COMPILER_BUDGET_CNY', '500'), model_config=config,
     )
     cache = Path(os.environ.get('PAPER_COMPILER_CACHE_ROOT', DEFAULT_CACHE_ROOT))
     return execute(json.loads(raw)['messages'], config_path=config, ledger=ledger, cache=cache)

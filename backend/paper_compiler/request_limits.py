@@ -20,11 +20,12 @@ class _Scope:
     def __init__(self, scope_id, max_cost_cny, timeout_seconds, ledger):
         if not isinstance(scope_id, str) or not scope_id.strip() or len(scope_id) > 200:
             raise ValueError('scope id must be a nonempty string of at most 200 characters')
-        self.limit_micro = micros(max_cost_cny)
+        self.enforce_cost = ledger is None or getattr(ledger, 'enforce_limits', True)
+        self.limit_micro = micros(max_cost_cny) if self.enforce_cost else 0
         if isinstance(timeout_seconds, bool):
             raise ValueError('scope timeout must be positive and finite')
         self.timeout_seconds = float(timeout_seconds)
-        if self.limit_micro <= 0 or not math.isfinite(self.timeout_seconds) or self.timeout_seconds <= 0:
+        if (self.enforce_cost and self.limit_micro <= 0) or not math.isfinite(self.timeout_seconds) or self.timeout_seconds <= 0:
             raise ValueError('scope cost and timeout must be positive and finite')
         self.scope_id = scope_id
         self.ledger = ledger
@@ -115,7 +116,7 @@ def bounded_client(client, scope_id, max_cost_cny='5', timeout_seconds=1200):
         raise TypeError('client must implement complete_json')
     if isinstance(client, _BoundedClient):
         scope = client._scope
-        if (scope_id != scope.scope_id or micros(max_cost_cny) != scope.limit_micro
+        if (scope_id != scope.scope_id or (scope.enforce_cost and micros(max_cost_cny) != scope.limit_micro)
                 or isinstance(timeout_seconds, bool) or float(timeout_seconds) != scope.timeout_seconds):
             raise ValueError('already bounded client cannot change scope limits')
         return client

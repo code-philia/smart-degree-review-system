@@ -57,7 +57,7 @@ def execute(args):
     from paper_compiler.runtime import load_package,check
     from paper_compiler.frontend import build_paper
     from paper_compiler.analysis import enrich
-    ledger=BudgetLedger(args.ledger,args.budget)
+    ledger=BudgetLedger(args.ledger,args.budget,model_config=None if args.offline else args.config)
     client=None if args.offline else MaasClient(args.config,ledger,Path(args.cache)/'model-cache',args.phase,args.phase_budget,max_attempts=1,json_output=True,semantic_thinking=True)
     if client is not None and args.command=='check':
         from paper_compiler.request_limits import bounded_client

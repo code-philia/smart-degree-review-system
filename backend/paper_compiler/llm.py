@@ -12,7 +12,7 @@ import urllib.error
 import uuid
 from pathlib import Path
 
-from .budget import BudgetExceeded
+from .budget import BudgetExceeded, BudgetLedger
 from .storage import json_bytes, write_json_atomic
 
 RATE_VERSION = 'huawei-cn-2026-10-12-daytime'
@@ -221,10 +221,11 @@ class MaasClient:
         self.config['PAPER_COMPILER_INPUT_SERIALIZATION'] = self.input_serialization
         if program_synthesis_thinking:
             self.config['PAPER_COMPILER_PROGRAM_SYNTHESIS_THINKING'] = True
-        self.ledger = ledger
+        campus = self.config['MODEL_PROVIDER'] == 'sjtu'
+        self.ledger = ledger.without_limits() if campus and isinstance(ledger, BudgetLedger) else ledger
         self.cache_dir = Path(cache_dir)
         self.phase = phase
-        self.phase_limit_cny = Decimal(str(phase_limit_cny))
+        self.phase_limit_cny = Decimal('0') if campus else Decimal(str(phase_limit_cny))
         self.transport = transport or _http
         self.max_attempts = max_attempts
         self.retry_delay = retry_delay

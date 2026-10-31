@@ -181,6 +181,7 @@ function toCompilerResult(output,selectedRuleIds) {
   return {type:'paper_lint',paper_title:'上传论文',runtime:runtimeSnapshot,ruleset:{id:'paper-compiler',name:'引用规则编译检测',version_number:1,version_label:`引用规则 · ${versionLabel}`},rule_runs:ruleRuns,summary:summarizeRuleRuns(ruleRuns)};
 }
 function compilerBudget(name) {
+  if (['SJTU_API_KEY', 'SJTU_API_BASE_URL', 'SJTU_API_MODEL'].every(key => process.env[key]?.trim())) return '0';
   const value = process.env[name] === undefined ? '200' : process.env[name].trim();
   if (!/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(value) || !Number.isFinite(Number(value)) || Number(value) <= 0 || Number(value) > 500)
     throw failure(503,'COMPILER_BUDGET_CONFIG_INVALID','检测预算配置无效，请联系管理员');
