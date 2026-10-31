@@ -572,6 +572,43 @@ def test_simultaneous_metrics_in_one_span_need_individual_numbers():
     assert n.validate_structure(resolved, context, model)
 
 
+def test_source_clause_narrows_broader_indexed_metric_before_verification():
+    ir, facts, data = fixture()
+    facts['chinese_abstract'] = ('本文提出融合模型，在数据集A的Pass@1/3/5/10指标上均有提升，'
+                                 '其中Pass@1相对提升41.46%—53.49%。')
+    model = n.source_model(ir)
+    context = n.structure_context(facts, model)
+    span = context['abstract_spans'][0]
+    data['contributions'][0].pop('text')
+    data['contributions'][0]['abstract_span_id'] = span['id']
+    data['declarations'][0].pop('text')
+    data['declarations'][0].update(abstract_span_id=span['id'], number='41.46—53.49',
+                                    metric='Pass@1/3/5/10相对提升',
+                                    condition='数据集A的Pass@1/3/5/10指标')
+    data['mappings'][0].pop('evidence')
+    resolved = n.resolve_structure(data, context, model)
+    declaration = resolved['declarations'][0]
+    assert declaration['text'] == '其中Pass@1相对提升41.46%—53.49%'
+    assert declaration['metric'] == 'Pass@1相对提升'
+    assert declaration['condition'] == '数据集A的Pass@1指标'
+    assert declaration['source_metric_constraint'] == 'Pass@1'
+    assert declaration['model_metric'] == 'Pass@1/3/5/10相对提升'
+    candidates, _ = n.retrieve_candidates(resolved['declarations'], resolved['mappings'], model)
+    prompt = n.verifier_prompt(resolved, candidates)
+    task = json.loads(prompt.split('输入：\n', 1)[1])['tasks'][0]['declaration']
+    assert task['metric'] == 'Pass@1相对提升'
+    assert task['condition'] == '数据集A的Pass@1指标'
+    assert 'model_metric' not in task and 'model_condition' not in task
+
+
+def test_source_clause_only_narrows_the_same_named_indexed_metric():
+    row = {'metric': 'Recall@1/5', 'condition': 'Pass@1/3/5/10指标'}
+    n.narrow_indexed_metric_constraint(row, '其中Pass@1相对提升41.46%—53.49%')
+    assert row['metric'] == 'Recall@1/5'
+    assert row['condition'] == 'Pass@1指标'
+    assert row['source_metric_constraint'] == 'Pass@1'
+
+
 def test_named_method_mapping_requires_its_actual_body_chapter():
     ir, facts, data = fixture()
     data['declarations'][0]['method'] = 'GuardMODEL'
