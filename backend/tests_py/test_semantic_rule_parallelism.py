@@ -48,3 +48,19 @@ def test_typo_chunks_overlap_without_changing_usage_totals(monkeypatch):
     assert result['execution_status'] == 'completed'
     assert result['params']['chunk_count'] == 4
     assert result['model_usage'] == {'input_tokens': 12, 'output_tokens': 8}
+
+
+def test_eight_typo_chunks_can_run_together(monkeypatch):
+    lint = module()
+    for name, value in [('SJTU_API_KEY', 'test-campus-key'), ('SJTU_API_BASE_URL', 'https://models.sjtu.edu.cn/api/v1'), ('SJTU_API_MODEL', 'deepseek-chat')]:
+        monkeypatch.setenv(name, value)
+    barrier = threading.Barrier(8, timeout=2)
+    chunks = [{'model_text': f'piece{i}'} for i in range(8)]
+    monkeypatch.setattr(lint, '_body_chunks', lambda _: chunks)
+    def request(messages):
+        barrier.wait()
+        return {'findings': []}, {'input_tokens': 3, 'output_tokens': 2}
+    monkeypatch.setattr(lint, 'request_json', request)
+    result = lint.run_typo_rule_from_ir({})
+    assert result['execution_status'] == 'completed'
+    assert result['model_usage'] == {'input_tokens': 24, 'output_tokens': 16}

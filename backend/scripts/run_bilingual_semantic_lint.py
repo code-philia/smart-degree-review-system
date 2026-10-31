@@ -345,7 +345,9 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
     usage_total = {"input_tokens": 0, "output_tokens": 0}
     chunks = _body_chunks(ir)
     failure = None
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    workers = 8 if all(os.environ.get(name, '').strip() for name in
+                       ('SJTU_API_KEY', 'SJTU_API_BASE_URL', 'SJTU_API_MODEL')) else 4
+    with ThreadPoolExecutor(max_workers=workers) as pool:
         futures = [pool.submit(request_json, [{"role": "user", "content": typo_prompt(chunk["model_text"])}]) for chunk in chunks]
         for index, chunk in enumerate(chunks):
             try:

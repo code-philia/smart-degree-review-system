@@ -21,7 +21,7 @@ def _setting(name, default, maximum):
 
 
 class CampusRequestCoordinator:
-    def __init__(self, path, *, max_concurrent=8, requests_per_minute=90):
+    def __init__(self, path, *, max_concurrent=16, requests_per_minute=90):
         if not 1 <= max_concurrent <= 32 or not 1 <= requests_per_minute <= 100:
             raise ValueError('invalid campus request concurrency or rate')
         self.path = Path(path)
@@ -130,7 +130,7 @@ def campus_request_slot(url, headers, timeout):
     # No token or document text is stored in the coordination database.
     authorization = headers.get('Authorization', headers.get('authorization', ''))
     account = hashlib.sha256((target.netloc + '\0' + authorization).encode()).hexdigest()
-    gate = _coordinator(path, _setting('SJTU_API_MAX_CONCURRENCY', 8, 32),
+    gate = _coordinator(path, _setting('SJTU_API_MAX_CONCURRENCY', 16, 32),
                         _setting('SJTU_API_REQUESTS_PER_MINUTE', 90, 100))
     with gate.slot(account, timeout=timeout) as remaining:
         yield remaining

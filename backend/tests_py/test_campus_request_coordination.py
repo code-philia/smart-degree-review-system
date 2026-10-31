@@ -1,4 +1,5 @@
 from concurrent.futures import ProcessPoolExecutor
+from contextlib import ExitStack
 import hashlib
 import importlib
 import json
@@ -37,6 +38,29 @@ def test_request_starts_are_spaced_across_coordinator_instances(tmp_path, monkey
         with gate.slot('account', timeout=10):
             starts.append(clock.now)
     assert all(b - a >= 60 / 90 - .00001 for a, b in zip(starts, starts[1:]))
+
+
+@pytest.mark.parametrize('transport', [False, True])
+def test_default_capacity_allows_sixteen_inflight_requests_then_waits(tmp_path, monkeypatch, transport):
+    api, clock = fake_clock(monkeypatch)
+    path = tmp_path / 'rate.sqlite'
+    monkeypatch.setenv('SJTU_API_COORDINATOR_DB', str(path))
+    monkeypatch.delenv('SJTU_API_MAX_CONCURRENCY', raising=False)
+    gate = api.CampusRequestCoordinator(path)
+    def slot(timeout):
+        return (api.campus_request_slot('https://models.sjtu.edu.cn/api/v1/chat/completions',
+                                       {'Authorization': 'Bearer capacity-test'}, timeout)
+                if transport else gate.slot('same-account', timeout=timeout))
+    with ExitStack() as slots:
+        for _ in range(16):
+            slots.enter_context(slot(15))
+        with sqlite3.connect(path) as db:
+            assert db.execute('SELECT count(*) FROM leases').fetchone()[0] == 16
+        with pytest.raises(TimeoutError):
+            with slot(.2):
+                pytest.fail('The seventeenth request must wait for capacity')
+    with sqlite3.connect(path) as db:
+        assert db.execute('SELECT count(*) FROM leases').fetchone()[0] == 0
 
 
 def _process_request(values):
