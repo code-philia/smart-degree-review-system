@@ -21,9 +21,9 @@ it('offers all six formats and exports only saved data without triggering a dete
     ['PDF', 'pdf'],
     ['Markdown', 'markdown'],
     ['文本', 'text'],
-    ['Word / DOCX', 'docx'],
-    ['图片 / PNG', 'image'],
-    ['JSON', 'json'],
+    ['Docx', 'docx'],
+    ['图片', 'image'],
+    ['Json', 'json'],
   ]) {
     await user.click(screen.getByRole('button', { name: `导出 ${label}` }));
     await waitFor(() =>
@@ -69,7 +69,7 @@ it('does not download a report after the view unmounts', async () => {
   );
   const view = render(<ReportExportDialog report={fixture} rules={[]} metrics={null} />);
   fireEvent.click(screen.getByRole('button', { name: '下载检测报告' }));
-  fireEvent.click(screen.getByRole('button', { name: '导出 JSON' }));
+  fireEvent.click(screen.getByRole('button', { name: '导出 Json' }));
   view.unmount();
   resolve([]);
   await Promise.resolve();
@@ -90,6 +90,6 @@ it('cancels a pending export without downloading and allows a fresh attempt', as
   resolve([]);
   await waitFor(() => expect(screen.getByRole('button', { name: '导出 PDF' })).toBeEnabled());
   expect(downloadReportFile).not.toHaveBeenCalled();
-  await user.click(screen.getByRole('button', { name: '导出 JSON' }));
+  await user.click(screen.getByRole('button', { name: '导出 Json' }));
   await waitFor(() => expect(downloadReportFile).toHaveBeenCalledTimes(1));
 });
