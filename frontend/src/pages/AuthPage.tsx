@@ -49,7 +49,6 @@ export default function AuthPage({ accountFormSlot, helpSlot }: AuthPageProps) {
             <p>
               智慧学位 <span>AI 评阅辅助系统</span>
             </p>
-            <span className="campus-brand-en">SMART DEGREE · AI REVIEW</span>
           </div>
         </div>
         <span className="campus-version">
