@@ -183,7 +183,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
       />
       <Card
         title={isSemanticReport ? '语义审查概览' : '检测结论'}
-        description={isSemanticReport ? '围绕摘要数值型论点展示核验结果；不一致与无法确定分别统计。' : '以下结论用于修改前自查，不替代导师或学院的正式审核。'}
+        description={isSemanticReport ? '围绕摘要数值型论点展示核验结果；不一致与论据不明确分别统计。' : '以下结论用于修改前自查，不替代导师或学院的正式审核。'}
         actions={
           <StatusBadge
             tone={
@@ -198,7 +198,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
           >
             {isSemanticReport
               ? numericSummary.inconsistent ? `待关注 ${numericSummary.inconsistent + numericSummary.inconclusive} 项`
-                : numericSummary.inconclusive ? `无法确定 ${numericSummary.inconclusive} 项`
+                : numericSummary.inconclusive ? `论据不明确 ${numericSummary.inconclusive} 项`
                   : '全部论点一致'
               : compilerPublicationSummary(report.result) || (summary.finding_count
               ? `待处理 ${summary.finding_count} 项`
@@ -217,7 +217,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
             ['核验论点', numericSummary.total],
             ['一致', numericSummary.consistent],
             ['不一致', numericSummary.inconsistent],
-            ['无法确定', numericSummary.inconclusive],
+            ['论据不明确', numericSummary.inconclusive],
           ] : [
             ['选择规则', report.selected_rule_ids.length],
             ['已完成', completedRuleCount],

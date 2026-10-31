@@ -18,7 +18,7 @@ type Filter = 'attention' | 'all' | 'inconsistent' | 'inconclusive' | 'consisten
 function objects(value: unknown): Row[] { return Array.isArray(value) ? value.filter((r): r is Row => Boolean(r && typeof r === 'object')) : []; }
 function statusOf(row: Row) { return row.status === 'consistent' || row.status === 'inconsistent' ? row.status : 'inconclusive'; }
 function pageNumber(value: unknown) { const page = Number(value); return Number.isInteger(page) && page > 0 ? page : null; }
-function statusLabel(status: string) { return status === 'consistent' ? '一致' : status === 'inconsistent' ? '不一致' : '无法确定'; }
+function statusLabel(status: string) { return status === 'consistent' ? '一致' : status === 'inconsistent' ? '不一致' : '论据不明确'; }
 function statusTone(status: string) { return status === 'consistent' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : status === 'inconsistent' ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-amber-200 bg-amber-50 text-amber-700'; }
 
 function compactClaimText(value: unknown, declaration: Row | undefined) {
@@ -67,7 +67,7 @@ export function NumericReviewDetails({ run, findings = [], onAnchorClick, onPage
   return <div className="mt-4 space-y-5 text-sm" data-testid="numeric-review-details">
     <section aria-label="数值核验概览">
       <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-600">报告概览</p><h3 className="mt-1 text-lg font-bold text-slate-950">摘要数值型论点核验</h3></div><p className="text-xs text-slate-500">共核验 {results.length} 项论点</p></div>
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">{([['总数', results.length, 'text-slate-900'], ['一致', counts.consistent, 'text-emerald-700'], ['不一致', counts.inconsistent, 'text-rose-700'], ['无法确定', counts.inconclusive, 'text-amber-700']] as const).map(([label, value, color]) => <div key={label} className="rounded-xl border border-slate-200 bg-white px-3 py-3"><p className="text-xs text-slate-500">{label}</p><p className={`mt-1 text-2xl font-black ${color}`}>{value}</p></div>)}</div>
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">{([['总数', results.length, 'text-slate-900'], ['一致', counts.consistent, 'text-emerald-700'], ['不一致', counts.inconsistent, 'text-rose-700'], ['论据不明确', counts.inconclusive, 'text-amber-700']] as const).map(([label, value, color]) => <div key={label} className="rounded-xl border border-slate-200 bg-white px-3 py-3"><p className="text-xs text-slate-500">{label}</p><p className={`mt-1 text-2xl font-black ${color}`}>{value}</p></div>)}</div>
     </section>
     {conditions.length ? <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-4" aria-label="前置条件结果">
       <div className="flex items-center justify-between gap-3"><h3 className="font-bold text-slate-900">前置条件</h3><span className="text-xs text-slate-500">三项要求按顺序检查</span></div>
@@ -75,7 +75,7 @@ export function NumericReviewDetails({ run, findings = [], onAnchorClick, onPage
       {conditions.some(row => row.passed !== true) ? <p className="mt-3 text-xs text-amber-800">前置校验未全部通过，本次未执行正式数值一致性核验。</p> : null}
     </section> : null}
     {prerequisitesPassed && results.length ? <section aria-label="数值型论点核验列表">
-      <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-bold text-slate-900">逐项论点核验</h3><p className="mt-1 text-xs text-slate-500">默认优先显示需要人工关注的论点。</p></div><div className="flex flex-wrap gap-1 rounded-lg bg-slate-100 p-1">{([['attention', '需关注'], ['all', '全部'], ['inconsistent', '不一致'], ['inconclusive', '无法确定'], ['consistent', '一致']] as const).map(([value, label]) => <button type="button" key={value} className={`rounded-md px-2 py-1 text-xs ${filter === value ? 'bg-white font-semibold text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`} onClick={() => setFilter(value)}>{label}</button>)}</div></div>
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-bold text-slate-900">逐项论点核验</h3><p className="mt-1 text-xs text-slate-500">默认优先显示需要人工关注的论点。</p></div><div className="flex flex-wrap gap-1 rounded-lg bg-slate-100 p-1">{([['attention', '需关注'], ['all', '全部'], ['inconsistent', '不一致'], ['inconclusive', '论据不明确'], ['consistent', '一致']] as const).map(([value, label]) => <button type="button" key={value} className={`rounded-md px-2 py-1 text-xs ${filter === value ? 'bg-white font-semibold text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`} onClick={() => setFilter(value)}>{label}</button>)}</div></div>
       <div className="mt-3 space-y-3">{visibleResults.length ? visibleResults.map((row, i) => {
         const status = statusOf(row);
         const declaration = row.declaration as Row | undefined;
