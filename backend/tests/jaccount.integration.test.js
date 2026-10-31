@@ -83,7 +83,7 @@ describe('campus authorization-code sign-in', () => {
   it('exchanges the code server-side and creates a restorable application session', async () => {
     provider({ id: 'person-success', account: 'campus-user', name: 'Campus User', userType: 'student' });
     const response = await finish(await start()).expect(302);
-    expect(response.headers.location).toBe('/thirty-rules-check');
+    expect(response.headers.location).toBe('/paper-upload');
     const sessionCookie = cookie(response, 'arc_session');
     expect(sessionCookie).toBeTruthy();
     const me = await request(app).get('/api/auth/me').set('Cookie', sessionCookie).expect(200);
@@ -107,7 +107,7 @@ describe('campus authorization-code sign-in', () => {
   it('consumes state once so a captured callback cannot create another session', async () => {
     const fetch = provider({ id: 'person-replay', account: 'replay' });
     const login = await start();
-    await finish(login).expect(302).expect('Location', '/thirty-rules-check');
+    await finish(login).expect(302).expect('Location', '/paper-upload');
     await finish(login).expect(302).expect('Location', '/auth?jaccount_error=state');
     expect(fetch).toHaveBeenCalledTimes(2);
     expect((await get("SELECT COUNT(*) AS count FROM auth_sessions WHERE user_id='jaccount:person-replay'")).count).toBe(1);
@@ -131,7 +131,7 @@ describe('campus authorization-code sign-in', () => {
 
   it('does not merge a campus account into a same-named local administrator', async () => {
     provider({ id: 'person-collision', account: 'school_admin01', name: 'Campus Staff', userType: 'faculty' });
-    const response = await finish(await start()).expect(302).expect('Location', '/thirty-rules-check');
+    const response = await finish(await start()).expect(302).expect('Location', '/paper-upload');
     const me = await request(app).get('/api/auth/me').set('Cookie', cookie(response, 'arc_session')).expect(200);
     expect(me.body.user.role).toBe('STUDENT');
     expect(me.body.user.id).toBe('jaccount:person-collision');
@@ -141,10 +141,10 @@ describe('campus authorization-code sign-in', () => {
 
   it('keeps one campus identity and preserves roles assigned by the application', async () => {
     provider({ id: 'person-repeat', account: 'repeat', name: '原姓名', userType: 'student' });
-    await finish(await start()).expect(302).expect('Location', '/thirty-rules-check');
+    await finish(await start()).expect(302).expect('Location', '/paper-upload');
     await run("UPDATE auth_users SET role='SUPERVISOR' WHERE id='jaccount:person-repeat'");
     provider({ id: 'person-repeat', account: 'repeat', name: ' 更新姓名 ', userType: 'student' });
-    const response = await finish(await start()).expect(302).expect('Location', '/thirty-rules-check');
+    const response = await finish(await start()).expect(302).expect('Location', '/paper-upload');
     const me = await request(app).get('/api/auth/me').set('Cookie', cookie(response, 'arc_session')).expect(200);
     expect(me.body.user.role).toBe('SUPERVISOR');
     expect(me.body.user.displayName).toBe('更新姓名');

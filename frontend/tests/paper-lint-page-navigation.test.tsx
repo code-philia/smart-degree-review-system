@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, expect, it, vi } from 'vitest';
 import NormativeCheckPage from '../src/pages/NormativeCheckPage';
@@ -26,28 +26,17 @@ beforeEach(() => {
   });
 });
 
-it('offers the same three destinations and exactly one current page through the full switching flow', async () => {
-  render(<MemoryRouter initialEntries={['/thirty-rules-check']}><Routes>
-    <Route path="/thirty-rules-check" element={<NormativeCheckPage mode="thirty" />} />
-    <Route path="/semantic-rules-check" element={<NormativeCheckPage key="semantic" mode="semantic" />} />
-    <Route path="/thirty-rules-check/reports" element={<NormativeReportPage mode="thirty" />} />
+it.each([
+  ['/paper-upload', '论文上传'],
+  ['/abstract-check', '摘要数值语义检测'],
+  ['/reports', '历史报告'],
+])('renders %s without a duplicate page switching bar', async (path, title) => {
+  render(<MemoryRouter initialEntries={[path]}><Routes>
+    <Route path="/paper-upload" element={<NormativeCheckPage mode="thirty" />} />
+    <Route path="/abstract-check" element={<NormativeCheckPage key="semantic" mode="semantic" />} />
+    <Route path="/reports" element={<NormativeReportPage mode="thirty" />} />
   </Routes></MemoryRouter>);
-  const destinations = [
-    ['论文上传', '/thirty-rules-check'],
-    ['摘要数值语义检测', '/semantic-rules-check'],
-    ['历史报告', '/thirty-rules-check/reports'],
-  ];
-  for (const [active] of destinations) {
-    const navigation = await screen.findByRole('navigation', { name: '论文检测页面切换' });
-    for (const [label, path] of destinations) {
-      const link = within(navigation).getByRole('link', { name: label, exact: true });
-      expect(link).toHaveAttribute('href', path);
-      if (label === active) expect(link).toHaveAttribute('aria-current', 'page');
-      else expect(link).not.toHaveAttribute('aria-current');
-    }
-    expect(within(navigation).getAllByRole('link').filter(link => link.getAttribute('aria-current') === 'page')).toHaveLength(1);
-    const next = destinations[destinations.findIndex(([name]) => name === active) + 1];
-    if (next) fireEvent.click(within(navigation).getByRole('link', { name: next[0], exact: true }));
-  }
-  expect(await screen.findByText('暂无检测记录')).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: title, exact: true })).toBeInTheDocument();
+  expect(screen.queryByRole('navigation', { name: '论文检测页面切换' })).not.toBeInTheDocument();
+  if (path === '/reports') expect(await screen.findByText('暂无检测记录')).toBeInTheDocument();
 });

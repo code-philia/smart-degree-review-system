@@ -39,7 +39,7 @@ router.get('/jaccount/callback', async (req, res) => {
     const result = await jaccount.completeLogin({ state: req.query.state,
       browserState: cookies[jaccount.STATE_COOKIE_NAME], code: req.query.code, providerError: req.query.error });
     res.cookie(SESSION_COOKIE_NAME, result.sessionId, { ...cookieOptions, maxAge: SESSION_TTL_MS });
-    res.redirect('/thirty-rules-check');
+    res.redirect('/paper-upload');
   } catch (error) {
     res.redirect(`/auth?jaccount_error=${error.jaccountCode || 'provider'}`);
   }

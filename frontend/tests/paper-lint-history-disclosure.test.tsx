@@ -12,7 +12,7 @@ const reports: PaperLintReportListItem[] = [{ id: 'example', source_filename: '�
 function show(onDelete = vi.fn()) {
   function History() {
     const [selected, setSelected] = useState<string[]>([]);
-    return <ReportHistoryTable reports={reports} historyPath="/thirty-rules-check/reports" selectedReportIds={selected}
+    return <ReportHistoryTable reports={reports} historyPath="/reports" selectedReportIds={selected}
       onSelectionChange={setSelected} deleting={false} onDelete={onDelete} />;
   }
   render(<MemoryRouter><History /></MemoryRouter>);
@@ -24,10 +24,20 @@ it('keeps all required fields and detail navigation without exposing deletion co
   const table = screen.getByRole('table', { name: 'PDF 论文检查报告' });
   expect(within(table).getAllByRole('columnheader').map(header => header.textContent)).toEqual(['文档名称','检测类型','检测结果','报告生成时间','操作']);
   expect(screen.getByText('错误总数：8')).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: '查看详情' })).toHaveAttribute('href','/thirty-rules-check/reports/pdf/example');
+  expect(screen.getByRole('link', { name: '查看详情' })).toHaveAttribute('href','/reports/pdf/example');
   expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: /删除/ })).not.toBeInTheDocument();
   expect(screen.queryByRole('menuitem', { name: /删除/ })).not.toBeInTheDocument();
+});
+
+it('opens the same report from its filename and detail action with a safe encoded identifier', () => {
+  render(<MemoryRouter><ReportHistoryTable reports={[{ ...reports[0], id: 'example/论文 #1' }]}
+    historyPath="/reports" selectedReportIds={[]} onSelectionChange={vi.fn()}
+    deleting={false} onDelete={vi.fn()} /></MemoryRouter>);
+  expect(screen.getByRole('link', { name: '示例论文.pdf' }))
+    .toHaveAttribute('href', '/reports/pdf/example%2F%E8%AE%BA%E6%96%87%20%231');
+  expect(screen.getByRole('link', { name: '查看详情' }))
+    .toHaveAttribute('href', '/reports/pdf/example%2F%E8%AE%BA%E6%96%87%20%231');
 });
 
 it('reveals a single deletion only through the row menu and allows dismissing it safely', async () => {

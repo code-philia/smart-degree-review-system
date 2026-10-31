@@ -1,3 +1,4 @@
+import { REVIEW_ROUTES } from '../nav/reviewRoutes';
 import { ArrowLeft, FileText } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -29,7 +30,7 @@ import { DetectionScope } from '../components/paperLint/DetectionScope';
 
 function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) {
   const isThirty = mode === 'thirty';
-  const historyPath = isThirty ? '/thirty-rules-check/reports' : '/normative-reports';
+  const historyPath = isThirty ? REVIEW_ROUTES.history : '/normative-reports';
   const { reportId } = useParams();
   const [report, setReport] = useState<PaperLintRunResponse | null>(null);
   const [rules, setRules] = useState<PaperLintRule[]>([]);

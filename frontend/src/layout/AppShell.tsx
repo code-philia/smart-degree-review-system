@@ -61,8 +61,8 @@ const PRODUCT_NAME = '智慧学位 AI 评阅辅助系统';
 const PRODUCT_TAGLINE = '试点验证版 V0.9';
 
 const NAV_ICONS: Record<string, LucideIcon> = {
-  '/thirty-rules-check': ClipboardList,
-  '/thirty-rules-check/reports': History,
+  '/paper-upload': ClipboardList,
+  '/reports': History,
 };
 
 function NavigationGroup({

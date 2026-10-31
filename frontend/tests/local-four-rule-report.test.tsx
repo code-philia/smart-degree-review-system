@@ -122,14 +122,14 @@ describe('saved local four-rule PDF report', () => {
       rules: [],
     });
     render(
-      <MemoryRouter initialEntries={['/thirty-rules-check/reports/pdf/report-24']}>
+      <MemoryRouter initialEntries={['/reports/pdf/report-24']}>
         <Routes>
-          <Route path="/thirty-rules-check/reports/pdf/:reportId" element={<PaperLintReportPage mode="thirty" />} />
+          <Route path="/reports/pdf/:reportId" element={<PaperLintReportPage mode="thirty" />} />
         </Routes>
       </MemoryRouter>,
     );
     expect(await screen.findByRole('heading', { name: '待检论文.pdf' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '返回历史报告' })).toHaveAttribute('href', '/thirty-rules-check/reports');
+    expect(screen.getByRole('link', { name: '返回历史报告' })).toHaveAttribute('href', '/reports');
   });
 });
 
@@ -138,8 +138,8 @@ it('shows a saved report before PDF bytes and the rule catalog have downloaded',
   vi.mocked(fetchPaperLintReport).mockResolvedValue(report);
   vi.mocked(fetchPaperLintReportPdf).mockClear().mockImplementation(()=>new Promise(()=>{}));
   vi.mocked(fetchReviewPilotPaperLintRules).mockImplementation(()=>new Promise(()=>{}));
-  render(<MemoryRouter initialEntries={['/thirty-rules-check/reports/pdf/report-24']}><Routes>
-    <Route path="/thirty-rules-check/reports/pdf/:reportId" element={<PaperLintReportPage mode="thirty" />} />
+  render(<MemoryRouter initialEntries={['/reports/pdf/report-24']}><Routes>
+    <Route path="/reports/pdf/:reportId" element={<PaperLintReportPage mode="thirty" />} />
   </Routes></MemoryRouter>);
   expect(await screen.findByRole('heading',{name:'待检论文.pdf'})).toBeInTheDocument();
   expect(screen.getByTestId('workspace')).toHaveAttribute('data-stream-pdf-url','/api/normative/paper-lint/reports/report-24/pdf');

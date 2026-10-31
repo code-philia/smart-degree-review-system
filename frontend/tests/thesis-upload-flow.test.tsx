@@ -58,10 +58,10 @@ function ReportDestination() {
 }
 function showUpload() {
   return render(
-    <MemoryRouter initialEntries={['/thirty-rules-check']}>
+    <MemoryRouter initialEntries={['/paper-upload']}>
       <Routes>
-        <Route path="/thirty-rules-check" element={<NormativeCheckPage mode="thirty" />} />
-        <Route path="/thirty-rules-check/reports/pdf/:reportId" element={<ReportDestination />} />
+        <Route path="/paper-upload" element={<NormativeCheckPage mode="thirty" />} />
+        <Route path="/reports/pdf/:reportId" element={<ReportDestination />} />
       </Routes>
     </MemoryRouter>,
   );

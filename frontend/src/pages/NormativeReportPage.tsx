@@ -1,3 +1,4 @@
+import { REVIEW_ROUTES } from '../nav/reviewRoutes';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuthSession } from '../auth/AuthSessionProvider';
@@ -31,8 +32,8 @@ type ActiveIssue = {
 
 function NormativeReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) {
   const isThirty = mode === 'thirty';
-  const checkPath = isThirty ? '/thirty-rules-check' : '/normative-check';
-  const historyPath = isThirty ? '/thirty-rules-check/reports' : '/normative-reports';
+  const checkPath = isThirty ? REVIEW_ROUTES.upload : '/normative-check';
+  const historyPath = isThirty ? REVIEW_ROUTES.history : '/normative-reports';
   const { reportId } = useParams();
   const { status, user } = useAuthSession();
   const userId = user?.id;
@@ -228,7 +229,7 @@ function NormativeReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
   }
 
   return (
-    <div className={isThirty ? 'mx-auto w-full max-w-5xl space-y-5' : undefined}>
+    <div className={isThirty ? 'mx-auto w-full max-w-6xl space-y-5' : undefined}>
       {isThirty ? <DetectionPageHeader title="历史报告" description="查找已保存的检测报告，查看问题定位与修改建议。" /> : <>
       <PageHeader
         title={isThirty ? '历史报告' : '基础规则检测'}

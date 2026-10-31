@@ -52,7 +52,7 @@ beforeEach(() => {
 });
 
 describe('workspace sign-in routing', () => {
-  it.each(['/', '/thirty-rules-check', '/thirty-rules-check/reports/pdf/saved-report'])(
+  it.each(['/', '/paper-upload', '/abstract-check', '/reports', '/thirty-rules-check', '/thirty-rules-check/reports/pdf/saved-report'])(
     'sends a guest at %s directly to sign-in',
     async (path) => {
       vi.mocked(fetchCurrentSession).mockRejectedValue({ response: { status: 401 } });
@@ -82,7 +82,7 @@ describe('workspace sign-in routing', () => {
     vi.mocked(fetchCurrentSession).mockResolvedValue({ user: student });
     mount('/thirty-rules-check/reports/pdf/saved-report');
     expect(await screen.findByRole('heading', { name: 'Saved PDF report' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Current route')).toHaveTextContent('/thirty-rules-check/reports/pdf/saved-report');
+    expect(screen.getByLabelText('Current route')).toHaveTextContent('/reports/pdf/saved-report');
   });
 
   it('returns a guest to the requested report after password sign-in', async () => {
@@ -95,7 +95,7 @@ describe('workspace sign-in routing', () => {
     await user.click(screen.getByRole('button', { name: '登录', exact: true }));
     expect(await screen.findByRole('heading', { name: 'Saved PDF report' })).toBeInTheDocument();
     expect(screen.getByLabelText('Current route')).toHaveTextContent(
-      '/thirty-rules-check/reports/pdf/saved-report?view=pdf#page=3',
+      '/reports/pdf/saved-report?view=pdf#page=3',
     );
   });
 
@@ -110,7 +110,7 @@ describe('workspace sign-in routing', () => {
       await user.type(screen.getByLabelText('密码'), 'test-password');
       await user.click(screen.getByRole('button', { name: '登录', exact: true }));
       expect(await screen.findByRole('heading', { name: 'Review workspace' })).toBeInTheDocument();
-      expect(screen.getByLabelText('Current route')).toHaveTextContent(/^\/thirty-rules-check$/);
+      expect(screen.getByLabelText('Current route')).toHaveTextContent(/^\/paper-upload$/);
     },
   );
 });

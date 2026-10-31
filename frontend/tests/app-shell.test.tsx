@@ -22,14 +22,14 @@ vi.mock('../src/auth/AuthSessionProvider', () => ({
 
 import AppShell from '../src/layout/AppShell';
 
-function renderShell(path = '/thirty-rules-check') {
+function renderShell(path = '/paper-upload') {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route element={<AppShell />}>
-          <Route path="/thirty-rules-check" element={<h1>PDF 检测内容</h1>} />
-          <Route path="/thirty-rules-check/reports" element={<h1>历史报告内容</h1>} />
-          <Route path="/thirty-rules-check/reports/pdf/:reportId" element={<h1>报告详情内容</h1>} />
+          <Route path="/paper-upload" element={<h1>PDF 检测内容</h1>} />
+          <Route path="/reports" element={<h1>历史报告内容</h1>} />
+          <Route path="/reports/pdf/:reportId" element={<h1>报告详情内容</h1>} />
         </Route>
         <Route path="/auth" element={<h1>登录页</h1>} />
       </Routes>
@@ -44,9 +44,9 @@ describe('AppShell shadcn layout', () => {
   });
 
   it.each([
-    ['/thirty-rules-check', '论文上传'],
-    ['/thirty-rules-check/reports', '历史报告'],
-    ['/thirty-rules-check/reports/pdf/example', '历史报告'],
+    ['/paper-upload', '论文上传'],
+    ['/reports', '历史报告'],
+    ['/reports/pdf/example', '历史报告'],
   ])('marks exactly one sidebar destination on %s', (path, selectedLabel) => {
     const { container } = renderShell(path);
     const links = [...container.querySelectorAll('[aria-label="主导航菜单"] a')];
@@ -75,8 +75,8 @@ describe('AppShell shadcn layout', () => {
     const user = userEvent.setup();
     const { container } = renderShell();
 
-    expect(screen.getAllByRole('link', { name: '论文上传' })[0]).toHaveAttribute('href', '/thirty-rules-check');
-    expect(screen.getAllByRole('link', { name: '历史报告' })[0]).toHaveAttribute('href', '/thirty-rules-check/reports');
+    expect(screen.getAllByRole('link', { name: '论文上传' })[0]).toHaveAttribute('href', '/paper-upload');
+    expect(screen.getAllByRole('link', { name: '历史报告' })[0]).toHaveAttribute('href', '/reports');
     expect(screen.queryByRole('link', { name: '内置审查案例' })).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'PDF 检测内容' })).toBeInTheDocument();
 

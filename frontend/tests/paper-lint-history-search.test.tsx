@@ -32,7 +32,7 @@ function show(savedReports = reports) {
   const onDelete = vi.fn();
   function History() {
     const [selected, setSelected] = useState<string[]>([]);
-    return <ReportHistoryTable reports={savedReports} historyPath="/thirty-rules-check/reports"
+    return <ReportHistoryTable reports={savedReports} historyPath="/reports"
       selectedReportIds={selected} onSelectionChange={setSelected} deleting={false} onDelete={onDelete} />;
   }
   render(<MemoryRouter><History /></MemoryRouter>);

@@ -1,3 +1,4 @@
+import { reportDetailPath } from '../nav/reviewRoutes';
 import axios from 'axios';
 import { FileCheck2, FileText, LoaderCircle, Play, Square, Upload, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
@@ -298,7 +299,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
       url: `/api/normative/paper-lint/reports/${encodeURIComponent(reportId)}/pdf`,
     });
     clearActiveJob();
-    if (isThirty) navigate(`/thirty-rules-check/reports/pdf/${encodeURIComponent(reportId)}`, { replace: true });
+    if (isThirty) navigate(reportDetailPath(reportId), { replace: true });
   }
 
   async function pollJob(jobId: string, filename: string, sourceFile?: File, generation = runGenerationRef.current) {
@@ -517,7 +518,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
       setResponse(nextResponse);
       setResultFile(file);
       clearActiveJob();
-      if (isThirty) navigate(`/thirty-rules-check/reports/pdf/${encodeURIComponent(nextResponse.id)}`, { replace: true });
+      if (isThirty) navigate(reportDetailPath(nextResponse.id), { replace: true });
     } catch (error) {
       if (generation === runGenerationRef.current) setRunError(errorMessage(error, '规则审查运行失败'));
     } finally {

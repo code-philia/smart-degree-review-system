@@ -80,7 +80,7 @@ it('shows the required report columns, numeric results, seconds and existing det
   expect(within(first).getByText('规范性检测')).toBeInTheDocument();
   expect(within(first).getByText('错误总数：0')).toBeInTheDocument();
   expect(within(first).getByText('2026-10-31 02:07:09')).toBeInTheDocument();
-  expect(within(first).getByRole('link', { name: '查看详情' })).toHaveAttribute('href', '/thirty-rules-check/reports/pdf/report-1');
+  expect(within(first).getByRole('link', { name: '查看详情' })).toHaveAttribute('href', '/reports/pdf/report-1');
   expect(within(shownRows()[1]).getByText('错误总数：12')).toBeInTheDocument();
 });
 

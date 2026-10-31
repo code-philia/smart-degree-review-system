@@ -1,6 +1,7 @@
 import { FormEvent, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthSession } from './AuthSessionProvider';
+import { canonicalReviewUrl, REVIEW_ROUTES } from '../nav/reviewRoutes';
 
 function LocalAccountLoginForm() {
   const { login, status, user } = useAuthSession();
@@ -19,10 +20,7 @@ function LocalAccountLoginForm() {
     try {
       await login({ username, password });
       const requested = location.state?.from;
-      const target =
-        typeof requested === 'string' && /^\/thirty-rules-check(?:[/?#]|$)/.test(requested)
-          ? requested
-          : '/thirty-rules-check';
+      const target = canonicalReviewUrl(requested) || REVIEW_ROUTES.upload;
       navigate(target, { replace: true });
     } catch {
       setErrorMessage('用户名或密码错误，请重试。');

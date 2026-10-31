@@ -32,15 +32,15 @@ beforeEach(() => {
   vi.mocked(fetchReviewPilotPaperLintRules).mockResolvedValue({ engine: 'sjtu-local', mode: 'pdf_lint', semantic_model: 'deepseek-v4-flash', rules: [] });
 });
 function show() {
-  render(<MemoryRouter initialEntries={['/thirty-rules-check/reports/pdf/layout-report']}><Routes>
-    <Route path="/thirty-rules-check/reports/pdf/:reportId" element={<PaperLintReportPage mode="thirty" />} />
+  render(<MemoryRouter initialEntries={['/reports/pdf/layout-report']}><Routes>
+    <Route path="/reports/pdf/:reportId" element={<PaperLintReportPage mode="thirty" />} />
   </Routes></MemoryRouter>);
 }
 it('places a clear back action before the report title and keeps export separate', async () => {
   show();
   const title = await screen.findByRole('heading', { name: '实际上传文件.pdf' });
   const back = screen.getByRole('link', { name: '返回历史报告' });
-  expect(back).toHaveAttribute('href', '/thirty-rules-check/reports');
+  expect(back).toHaveAttribute('href', '/reports');
   expect(back.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(back.closest('section')).toBeNull();
   expect(screen.getByRole('button', { name: '下载检测报告' })).toBeInTheDocument();
@@ -64,7 +64,7 @@ it('shows the report without waiting for PDF text statistics', async () => {
   show();
   expect(await screen.findByRole('heading', { name: '实际上传文件.pdf' })).toBeInTheDocument();
   expect(screen.getAllByText('统计中…')).toHaveLength(2);
-  expect(screen.getByRole('link', { name: '返回历史报告' })).toHaveAttribute('href', '/thirty-rules-check/reports');
+  expect(screen.getByRole('link', { name: '返回历史报告' })).toHaveAttribute('href', '/reports');
 });
 it('does not invent zero pages or words when statistics cannot be read', async () => {
   vi.mocked(fetchPaperLintDocumentMetrics).mockRejectedValue(new Error('统计暂不可用'));

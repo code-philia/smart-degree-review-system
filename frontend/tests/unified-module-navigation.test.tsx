@@ -9,13 +9,13 @@ describe('FEAT-UNIFIED-MODULE-HISTORY unified module navigation', () => {
     const visibleLabels = getVisibleNavGroups('STUDENT').flatMap((group) => group.items.map((item) => item.label));
 
     expect(visibleLabels).toEqual(['论文上传', '摘要数值语义检测', '历史报告']);
-    expect(findNavItemLabel('/thirty-rules-check')).toEqual({ groupTitle: '论文规范性检测', label: '论文上传' });
-    expect(findNavItemLabel('/thirty-rules-check/reports')).toEqual({
+    expect(findNavItemLabel('/paper-upload')).toEqual({ groupTitle: '论文规范性检测', label: '论文上传' });
+    expect(findNavItemLabel('/reports')).toEqual({
       groupTitle: '论文规范性检测',
       label: '历史报告',
     });
     expect(findNavItemLabel('/duplication-history')).toBeNull();
-    expect(findNavItemLabel('/semantic-rules-check')).toEqual({
+    expect(findNavItemLabel('/abstract-check')).toEqual({
       groupTitle: '论文规范性检测', label: '摘要数值语义检测',
     });
   });
