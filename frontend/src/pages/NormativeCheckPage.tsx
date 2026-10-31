@@ -897,6 +897,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
           </div>
           <PaperLintWorkspace
             file={resultFile}
+            layout={isSemantic ? 'semantic' : 'default'}
             openPdfUrl={`/api/normative/paper-lint/reports/${encodeURIComponent(response.id)}/pdf`}
             findings={findings}
             rules={visibleRules}

@@ -266,6 +266,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
       </div>
       <PaperLintWorkspace
         file={{ name: report.source_filename, url: pdfUrl }}
+        layout={isSemanticReport ? 'semantic' : 'default'}
         openPdfUrl={pdfUrl}
         findings={findings}
         rules={rules}

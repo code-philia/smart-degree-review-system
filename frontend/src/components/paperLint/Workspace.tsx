@@ -8,6 +8,7 @@ import { PdfPane } from './PdfPane';
 
 type Props = {
   file: File | { name: string; url: string };
+  layout?: 'default' | 'semantic';
   findings: PaperLintFindingItem[];
   rules: PaperLintRule[];
   openPdfUrl?: string;
@@ -31,6 +32,7 @@ type Props = {
 
 export function PaperLintWorkspace({
   file,
+  layout = 'default',
   findings,
   rules,
   openPdfUrl,
@@ -66,7 +68,7 @@ export function PaperLintWorkspace({
   }, []);
 
   return (
-    <div className="grid min-h-[620px] gap-4 lg:h-[min(78vh,860px)] lg:grid-cols-[minmax(0,1.25fr)_minmax(340px,.75fr)]">
+    <div className={`grid min-h-[620px] gap-4 lg:h-[min(78vh,860px)] ${layout === 'semantic' ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]' : 'lg:grid-cols-[minmax(0,1.25fr)_minmax(340px,.75fr)]'}`}>
       <PdfPane
         file={file}
         openPdfUrl={openPdfUrl}

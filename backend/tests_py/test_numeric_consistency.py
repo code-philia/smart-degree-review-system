@@ -101,6 +101,17 @@ def test_no_numeric_scope_is_completed_without_llm_call():
     assert all(row['status'] == 'skipped' for row in result['params']['preconditions'][1:])
 
 
+def test_non_percentage_numeric_claims_remain_in_scope_and_heading_toc_is_valid():
+    ir, facts, _ = fixture()
+    facts = copy.deepcopy(facts)
+    facts['chinese_abstract'] = '本文方法在三个区域的平均误差分别为3.57 m、3.69 m和3.62 m。'
+    model = n.source_model(ir)
+    model['toc'] = []
+    context = n.structure_context(facts, model)
+    assert '3.57' in context['abstract_numeric_inventory']
+    assert context['toc'], 'section headings should provide a source-backed ToC fallback'
+
+
 def valid_output(candidate):
     return {'results': [{'declaration_id': 'd1', 'status': 'inconsistent', 'reason': '数值冲突', 'suggestion': '请核对原始实验数据',
                          'evidence': [{'candidate_id': candidate['candidate_id'], 'quote': candidate['text'], 'page': candidate['page']}]}]}

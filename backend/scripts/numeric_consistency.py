@@ -189,6 +189,11 @@ def percentage_values(text):
     return {format(Decimal(value).normalize(), 'f') for value in re.findall(r'(?<![\d.])(\d+(?:\.\d+)?)\s*[%％]', text)}
 
 
+def numeric_values(text):
+    """Return explicit Arabic numeric tokens, including non-percentage claims."""
+    return {format(Decimal(value).normalize(), 'f') for value in re.findall(r'(?<![A-Za-z0-9])\d+(?:\.\d+)?', text)}
+
+
 def abstract_spans(text):
     spans = []
     for match in re.finditer(r'[^。！？]+[。！？]?|[。！？]', text):
@@ -336,10 +341,17 @@ def structure_context(facts, model):
     ordered = [g[i] for i in range(max([len(g) for g in groups] or [0])) for g in groups if i < len(g)]
     blocks, coverage = pack_blocks(ordered, 45000)
     coverage['dropped'].extend(b['block_id'] for b in numbering)
-    context = {'abstract': abstract, 'toc': model['toc'], 'sections': catalog,
+    toc = model.get('toc') or []
+    if not toc:
+        # Some Paper Model revisions preserve section headings but do not emit
+        # ToCEntry nodes.  A heading-derived catalog is still source-backed and
+        # should not make an otherwise valid numeric report fail at validation.
+        toc = [{'node_id': s['section_id'], 'text': s.get('title') or ''} for s in catalog if s.get('title')]
+    context = {'abstract': abstract, 'toc': toc, 'sections': catalog,
                'main_chapter_ids': [s['section_id'] for s in catalog if s['parent_id'] is None], 'blocks': blocks,
                'coverage': coverage, 'limitations': model['limitations'], 'navigation': model.get('navigation')}
     context['abstract_percentage_inventory'] = sorted(percentage_values(abstract))
+    context['abstract_numeric_inventory'] = sorted(numeric_values(abstract))
     context['abstract_spans'] = abstract_spans(abstract)
     context['section_aliases'] = {'S' + str(i+1): s['section_id'] for i, s in enumerate(catalog)}
     require(len(json.dumps(structure_input(context), ensure_ascii=False)) <= 100000, 'structure context exceeds budget')
@@ -350,7 +362,7 @@ def no_numeric_preconditions():
     """Return a deterministic, non-LLM result when the rule has no scope."""
     return [
         {'id': 'abstract_numeric', 'passed': False, 'status': 'failed',
-         'reason': '摘要中未识别到可核验的百分比数值声明。',
+         'reason': '摘要中未识别到可核验的数值型声明。',
          'suggestion': FIXED_PRECONDITION_SUGGESTIONS['abstract_numeric']},
         {'id': 'contribution_mapping', 'passed': False, 'status': 'skipped',
          'reason': '未识别到数值声明，因此未进入研究贡献映射。',
@@ -377,7 +389,7 @@ def structure_prompt(context):
             'preconditions:[{id,passed,reason,suggestion}]，id恰为abstract_numeric、contribution_mapping、experiment_subsection，passed为布尔值；'
             'mappings:[{declaration_id,chapter_id,experiment_section_ids}]。'
             '贡献与声明通过abstract_span_id选择真实摘要原文片段。不要生成text、quote、page或evidence；原文及实验标题证据由程序回填，不要复述改写。每项独立数值指标单独一条声明，即使位于同一摘要片段，也应分别选择该片段并填写各自number和metric。同一指标区间可用number字符串保留上下界。'
-            '逐项核对abstract_percentage_inventory，摘要中的每个百分比都必须覆盖，不能漏掉末尾整体框架或综合结果的声明。一个声明可保留同一指标区间的两个界限；含“同时”等连接词的不同指标数值必须拆为独立声明。若存在无法映射的百分比声明，前置条件不得全部通过。'
+            '逐项核对abstract_numeric_inventory，摘要中的每个明确数值都应在声明中覆盖，不能漏掉非百分比的绝对数值、距离、次数、时延或误差。百分比仍需单独覆盖；一个声明可保留同一指标区间的两个界限；含“同时”等连接词的不同指标数值必须拆为独立声明。若存在无法映射的数值声明，前置条件不得全部通过。'
             'declarations还可提供dataset、method、baseline字符串，便于本地检索。只使用给定真实section_id和source_node_id。每项声明必须关联贡献、正文主要研究章节和其下级实验子章节；'
             'chapter_id必须从main_chapter_ids选择，即parent_id为null的章；禁止用3.3、4.3等设计与实现小节作为chapter_id。各小节main_chapter_id给出了所属章。experiment_section_ids必须选该章下真正的实验小节，可包含实验设置和实验结果两个并列小节，避免只选设置而遗漏结果。'
             '按每条数值声明的具体方法定位研究章，而不是只按贡献的大主题；同一贡献可能涉及多个研究章。命名方法必须在所选章正文中实际出现，不能把防御方法的效果映射到只研究缺陷形成机理的前一章。'
@@ -785,19 +797,19 @@ def run_numeric(ir, facts, request, trace=None, verification_mode=None):
             trace('context', context)
         # Deterministic scope guard: do not ask the locator model to invent
         # metric fields when the abstract contains no percentage declaration.
-        if not context['abstract_percentage_inventory']:
+        if not context['abstract_numeric_inventory']:
             params.update({
                 'stage': 'preconditions',
                 'contributions': [],
                 'declarations': [],
                 'mappings': [],
                 'preconditions': no_numeric_preconditions(),
-                'scope': 'no_abstract_percentage_declarations',
+                'scope': 'no_abstract_numeric_declarations',
             })
             result['outcome'] = 'not_applicable'
             result['message'] = '摘要中未发现可核验的数值声明，已跳过数值一致性检测。'
             if trace:
-                trace('preconditions', {'reason': 'no_abstract_percentage_declarations',
+                trace('preconditions', {'reason': 'no_abstract_numeric_declarations',
                                         'preconditions': params['preconditions']})
             return result
         locator_prompt = structure_prompt(context)
