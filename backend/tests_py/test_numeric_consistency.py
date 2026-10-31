@@ -670,3 +670,115 @@ def test_approximation_must_obey_decimal_rounding(claim, observed, expected):
            'reason': '属于合理近似和四舍五入', 'suggestion': '', 'evidence': [{'quote': '准确率' + observed + '%'}]}
     n.conservative_evidence_guard([row])
     assert row['status'] == expected
+
+
+def _fake_table(matrix, bbox=(10, 100, 300, 300)):
+    from types import SimpleNamespace
+    rows = []
+    width = (bbox[2] - bbox[0]) / max(len(matrix[0]), 1)
+    height = (bbox[3] - bbox[1]) / max(len(matrix), 1)
+    for row_index, row in enumerate(matrix):
+        cells = []
+        for column_index in range(len(row)):
+            cells.append((bbox[0] + column_index * width,
+                          bbox[1] + row_index * height,
+                          bbox[0] + (column_index + 1) * width,
+                          bbox[1] + (row_index + 1) * height))
+        rows.append(SimpleNamespace(
+            bbox=(bbox[0], bbox[1] + row_index * height, bbox[2],
+                  bbox[1] + (row_index + 1) * height),
+            cells=cells,
+        ))
+    return SimpleNamespace(
+        bbox=bbox,
+        rows=rows,
+        header=SimpleNamespace(names=list(matrix[0])),
+        extract=lambda: matrix,
+    )
+
+
+def _table_model():
+    return {
+        'blocks': [{
+            'page': 1,
+            'block_type': 'Caption',
+            'text': 'Table 1 Results',
+            'section_id': 'exp',
+            'source_node_id': 'caption',
+            'provenance': [{'bbox': [10, 50, 100, 70]}],
+        }]
+    }
+
+
+def test_structured_table_restores_rows_columns_and_source_binding():
+    table, failure = n._table_structure(
+        _fake_table([['', 'mean error', 'median error'],
+                     ['method A', '3.57', '3.38'],
+                     ['method B', '3.73', '3.62']]),
+        1, 1, _table_model(), 800,
+    )
+    assert failure is None
+    assert table['reliability'] == 'reliable'
+    assert table['matrix'][1][1] == '3.57'
+    assert table['rows'][1]['cells'][1]['column_index'] == 1
+    assert table['section_id'] == 'exp'
+    assert table['source_node_ids'] == ['caption']
+
+
+def test_structured_table_marks_merged_or_multilevel_headers_limited():
+    table, failure = n._table_structure(
+        _fake_table([['', 'position', None, None],
+                     ['id', 'actual x', 'actual y', 'estimated x'],
+                     ['1', '2', '6', '6']]),
+        1, 1, _table_model(), 800,
+    )
+    assert failure is None
+    assert table['reliability'] == 'limited'
+    assert 'merged_or_multilevel_header_cells' in table['limitations']
+
+
+def test_structured_table_marks_possible_cross_page_continuation():
+    table, failure = n._table_structure(
+        _fake_table([['metric', 'value'], ['mean error', '3.57']],
+                    bbox=(10, 100, 300, 790)),
+        1, 1, _table_model(), 800,
+    )
+    assert failure is None
+    assert table['cross_page'] is True
+    assert 'possible_cross_page_continuation' in table['limitations']
+
+
+def test_unbound_table_is_retained_but_not_claimed_as_reliable():
+    model = {'blocks': []}
+    table, failure = n._table_structure(
+        _fake_table([['metric', 'value'], ['mean error', '3.57']]),
+        1, 1, model, 800,
+    )
+    assert failure is None
+    assert table['section_id'] is None
+    assert table['reliability'] == 'limited'
+    assert 'no_paper_model_source_binding' in table['limitations']
+
+
+def test_retrieval_prioritizes_traceable_structured_tables():
+    ir, facts, data = fixture()
+    model = n.source_model(ir)
+    model['tables'] = [{
+        'table_id': 'p8-t1',
+        'page': 8,
+        'bbox': [20, 100, 500, 300],
+        'caption': 'Table 3-2',
+        'source_node_ids': ['caption'],
+        'section_id': 'exp',
+        'matrix': [['', 'Accuracy'], ['dataset A', '89.3%']],
+        'rows': [],
+        'column_headers': ['', 'Accuracy'],
+        'reliability': 'reliable',
+        'limitations': [],
+        'cross_page': False,
+    }]
+    candidates, traces = n.retrieve_candidates(data['declarations'], data['mappings'], model)
+    structured = [c for c in candidates if c['block_type'] == 'StructuredTable']
+    assert structured and structured[0]['candidate_id'] == 'd1:t1'
+    assert structured[0]['is_primary'] is True
+    assert structured[0]['provenance'][0]['bbox'] == [20, 100, 500, 300]

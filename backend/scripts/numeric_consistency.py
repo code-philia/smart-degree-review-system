@@ -6,12 +6,14 @@ from decimal import Decimal, ROUND_HALF_UP
 import json
 import os
 import re
+from pathlib import Path
 from typing import Any
 
 RULE = 'abstract_numeric_consistency_check'
 CONTEXT_VERSION = 'numeric-context/4.1'
 CONTRACT_VERSION = 'numeric-contract/3.0'
 RETRIEVAL_VERSION = 'numeric-lexical/1.4'
+TABLE_RECOVERY_VERSION = 'pymupdf-find-tables/1.0'
 CONDITIONS = {'abstract_numeric', 'contribution_mapping', 'experiment_subsection'}
 FIXED_PRECONDITION_SUGGESTIONS = {
     'abstract_numeric': '请在摘要中补充可与正文实验结果对应的明确数值、指标和条件；如果摘要本身没有数值声明，则无需进行这项一致性核验。',
@@ -116,6 +118,154 @@ def source_model(ir):
     toc = [dict(node_id=n['id'], text=n.get('text') or '') for n in nodes.values() if n.get('kind') == 'ToCEntry']
     return {'sections': sections, 'blocks': blocks, 'pages': pages, 'toc': toc,
             'limitations': ['native_text_only', 'table_cells_not_reliably_reconstructed']}
+
+
+
+
+def _clean_table_text(value):
+    if value is None:
+        return None
+    return re.sub(r'\s+', ' ', str(value)).strip()
+
+
+def _rect_list(value):
+    try:
+        values = list(value)
+    except Exception:
+        return None
+    return [float(v) for v in values] if len(values) == 4 else None
+
+
+def _table_caption_and_section(page_number, bbox, model):
+    """Bind a recovered PDF table to the nearest Paper Model source block."""
+    candidates = []
+    top = float(bbox[1])
+    for block in model.get('blocks', []):
+        if block.get('page') != page_number:
+            continue
+        source_bbox = None
+        for provenance in block.get('provenance') or []:
+            source_bbox = _rect_list(provenance.get('bbox'))
+            if source_bbox:
+                break
+        if not source_bbox:
+            continue
+        distance = top - source_bbox[3]
+        text = str(block.get('text') or '').strip()
+        is_caption = block.get('block_type') == 'Caption' or re.search(
+            r'^(?:图|表)\s*[\d一二三四五六七八九十]', text
+        )
+        if distance >= -8 and distance <= 180:
+            candidates.append((0 if is_caption else 1, abs(distance), block))
+    if not candidates:
+        return '', None, []
+    candidates.sort(key=lambda item: (item[0], item[1]))
+    _, _, selected = candidates[0]
+    return str(selected.get('text') or ''), selected.get('section_id'), [selected.get('source_node_id')]
+
+
+def _table_structure(table, page_number, table_index, model, page_height):
+    """Convert a PyMuPDF Table into traceable rows/cells without inventing links."""
+    matrix = [[_clean_table_text(cell) for cell in row] for row in (table.extract() or [])]
+    bbox = _rect_list(getattr(table, 'bbox', None))
+    if not bbox or not matrix:
+        return None, 'empty_or_missing_table_geometry'
+    row_objects = []
+    rows = list(getattr(table, 'rows', []) or [])
+    for row_index, values in enumerate(matrix):
+        row_obj = {'row_index': row_index, 'bbox': None, 'cells': []}
+        row = rows[row_index] if row_index < len(rows) else None
+        row_obj['bbox'] = _rect_list(getattr(row, 'bbox', None)) if row else None
+        cell_rects = list(getattr(row, 'cells', []) or []) if row else []
+        for column_index, value in enumerate(values):
+            cell_bbox = _rect_list(cell_rects[column_index]) if column_index < len(cell_rects) else None
+            row_obj['cells'].append({
+                'row_index': row_index,
+                'column_index': column_index,
+                'text': value,
+                'bbox': cell_bbox,
+            })
+        row_objects.append(row_obj)
+    reasons = []
+    has_sparse_cells = any(cell is None for row in matrix for cell in row)
+    if has_sparse_cells:
+        reasons.append('merged_or_multilevel_header_cells')
+    if len(matrix) < 2 or max((len(row) for row in matrix), default=0) < 2:
+        reasons.append('insufficient_rows_or_columns')
+    if bbox[1] <= 28 or bbox[3] >= page_height - 28:
+        reasons.append('possible_cross_page_continuation')
+    caption, section_id, source_node_ids = _table_caption_and_section(page_number, bbox, model)
+    if not section_id:
+        reasons.append('no_paper_model_source_binding')
+    header = getattr(table, 'header', None)
+    header_names = [_clean_table_text(v) for v in (getattr(header, 'names', []) or [])]
+    structure = {
+        'table_id': f'p{page_number}-t{table_index}',
+        'page': page_number,
+        'bbox': bbox,
+        'caption': caption,
+        'source_node_ids': [x for x in source_node_ids if x],
+        'section_id': section_id,
+        'matrix': matrix,
+        'rows': row_objects,
+        'column_headers': header_names,
+        'row_count': len(matrix),
+        'column_count': max((len(row) for row in matrix), default=0),
+        'reliability': 'limited' if reasons else 'reliable',
+        'limitations': reasons,
+        'cross_page': 'possible_cross_page_continuation' in reasons,
+    }
+    return structure, None
+
+
+def recover_pdf_tables(pdf_path, model):
+    """Recover page-local tables for this rule only; never mutate Paper Model IR."""
+    diagnostics = {'version': TABLE_RECOVERY_VERSION, 'attempted_pages': 0, 'successes': 0, 'failures': []}
+    tables = []
+    if not pdf_path or not Path(pdf_path).is_file():
+        diagnostics['failures'].append({'reason': 'pdf_source_unavailable'})
+        return tables, diagnostics
+    try:
+        import fitz
+        document = fitz.open(str(pdf_path))
+    except Exception as exc:
+        diagnostics['failures'].append({'reason': 'pdf_open_failed', 'error': type(exc).__name__})
+        return tables, diagnostics
+    try:
+        for page_index, page in enumerate(document):
+            diagnostics['attempted_pages'] += 1
+            detected_by_strategy = {}
+            for strategy in ('lines', 'text'):
+                try:
+                    found = list(page.find_tables(strategy=strategy).tables)
+                    detected_by_strategy[strategy] = found
+                    diagnostics.setdefault('strategy_counts', {}).setdefault(strategy, 0)
+                    diagnostics['strategy_counts'][strategy] += len(found)
+                except Exception as exc:
+                    diagnostics['failures'].append({'page': page_index + 1, 'strategy': strategy, 'reason': type(exc).__name__})
+                    detected_by_strategy[strategy] = []
+            detected = [('lines', table) for table in detected_by_strategy.get('lines', [])] or [('text', table) for table in detected_by_strategy.get('text', [])]
+            for table_index, (strategy, table) in enumerate(detected, 1):
+                structure, failure = _table_structure(table, page_index + 1, table_index, model, float(page.rect.height))
+                if failure:
+                    diagnostics['failures'].append({'page': page_index + 1, 'strategy': strategy, 'reason': failure})
+                    continue
+                structure['strategy'] = strategy
+                structure['detection'] = 'default_lines' if strategy == 'lines' else 'text_mode'
+                tables.append(structure)
+                diagnostics['successes'] += 1
+    finally:
+        document.close()
+    return tables, diagnostics
+
+
+def _table_quote(table):
+    lines = []
+    if table.get('caption'):
+        lines.append(table['caption'])
+    for row in table.get('matrix', []):
+        lines.append(' | '.join('' if cell is None else str(cell) for cell in row))
+    return '\n'.join(lines)
 
 
 def descendant(model, child, parent):
@@ -562,8 +712,35 @@ def retrieve_candidates(declarations, mappings, model, top_k=6):
             previous_caption = next((j for j in range(index - 1, max(-1, index - 8), -1) if scoped[j]['block_type'] == 'Caption'), None)
             if previous_caption is not None and scoped[previous_caption]['section_id'] == scoped[index]['section_id']:
                 chosen.add(previous_caption)
-        rank_by_index = {index: (rank + 1, score, signals) for rank, (score, index, signals) in enumerate(ranked)}
         selected_ids = []
+        structured_tables = [
+            table for table in model.get('tables', [])
+            if table.get('section_id') and any(
+                table['section_id'] == sid or descendant(model, table['section_id'], sid)
+                for sid in mapping['experiment_section_ids']
+            )
+        ]
+        for table_index, table in enumerate(structured_tables, 1):
+            cid = d['id'] + ':t' + str(table_index)
+            candidates.append({
+                'candidate_id': cid,
+                'declaration_id': d['id'],
+                'source_node_id': (table.get('source_node_ids') or [table['table_id']])[0],
+                'section_id': table['section_id'],
+                'block_id': table['table_id'],
+                'page': table['page'],
+                'block_type': 'StructuredTable',
+                'text': _table_quote(table),
+                'provenance': [{'bbox': table['bbox']}],
+                'table_structure': table,
+                'context': [],
+                'retrieval_score': 100 if table.get('reliability') == 'reliable' else 80,
+                'matched_signals': [{'kind': 'structured_table', 'weight': 100}],
+                'retrieval_rank': 0 if table.get('reliability') == 'reliable' else 1,
+                'is_primary': True,
+            })
+            selected_ids.append(table['table_id'])
+        rank_by_index = {index: (rank + 1, score, signals) for rank, (score, index, signals) in enumerate(ranked)}
         for index in sorted(chosen):
             b = scoped[index]
             rank, score, signals = rank_by_index.get(index, (None, 0, []))
@@ -596,7 +773,23 @@ def verifier_prompt(structure, candidates):
     # Preserve every selected source text and ID, rather than raising the budget
     # or silently truncating candidates when long stable IDs dominate the JSON.
     ordered = sorted(candidates, key=lambda c: (c['declaration_id'], not c.get('is_primary', False), c.get('retrieval_rank') or 10**9))
-    public_candidates = [{k: c[k] for k in ('candidate_id', 'declaration_id', 'section_id', 'page', 'block_type', 'text', 'is_primary')} for c in ordered]
+    public_candidates = []
+    for candidate in ordered:
+        public = {k: candidate[k] for k in ('candidate_id', 'declaration_id', 'section_id', 'page', 'block_type', 'text', 'is_primary')}
+        table = candidate.get('table_structure')
+        if table:
+            public['table'] = {
+                'table_id': table.get('table_id'),
+                'caption': table.get('caption'),
+                'bbox': table.get('bbox'),
+                'matrix': table.get('matrix'),
+                'rows': table.get('rows'),
+                'column_headers': table.get('column_headers'),
+                'reliability': table.get('reliability'),
+                'limitations': table.get('limitations'),
+                'cross_page': table.get('cross_page'),
+            }
+        public_candidates.append(public)
     mappings = [{k: m[k] for k in ('declaration_id', 'chapter_id', 'experiment_section_ids', 'chapter_title', 'experiment_titles') if k in m}
                 for m in structure['mappings']]
     declaration_fields = ('id', 'contribution_id', 'abstract_span_id', 'number', 'metric', 'unit', 'comparison',
@@ -613,6 +806,7 @@ def verifier_prompt(structure, candidates):
             '先在reason中列出与该声明相关的全部数值和各自条件，然后进行比较。合理舍入必须遵守声明精度的四舍五入，不能任意截断小数；作者若可能使用概数但未写明，应提示核实精度，不能直接认证相等。'
             '候选已按相关度排列，is_primary=true是必须逐项检查的主证据，不能读到一个相同数字就停止。最高值声明尤其要检查其他数据集或实验设置中的更大值；reason列出检查过的相关主证据ID及数值。'
             '同数字不代表一致；未检索到数字不代表不一致。证据不足或表格行列关系不明时为inconclusive。'
+            'table.reliability=limited或limitations非空时，只能使用其原始矩阵作为待核对证据，不得推断未明确给出的行标签—列指标—数值关系。'
             '最高值、均值、范围等声明必须检查候选中的全部相关实验设置，不能只用一个子实验推断整体。若其他设置提供了更大值，应引用该反例；仅见部分设置或两个数据集，不能据此断言论文没有更多数据集。'
             '数值精度差异须明确说明差值及可能的近似表达，不武断认定作者写错；只有原文明确的约数或合理舍入才可按一致处理。'
             '严格尊重声明的限定范围：“其中指标A相对提升a—b”只核验指标A，其他指标不得当作反例，不制造原文没有的歧义。'
@@ -790,6 +984,12 @@ def run_numeric(ir, facts, request, trace=None, verification_mode=None):
     try:
         model = source_model(ir)
         params['versions']['navigation'] = model.get('navigation', {}).get('version', 'paper-model-native')
+        source_pdf = next((a.get('path') for a in ir.get('source_artifacts', []) if a.get('kind') == 'pdf'), None)
+        tables, table_diagnostics = recover_pdf_tables(source_pdf, model)
+        model['tables'] = tables
+        params['table_recovery'] = table_diagnostics
+        if trace:
+            trace('table_recovery', {'diagnostics': table_diagnostics, 'tables': tables})
         context = structure_context(facts, model)
         params['context_coverage'] = context['coverage']
         params['limitations'] = model['limitations']
