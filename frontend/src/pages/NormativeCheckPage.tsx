@@ -130,6 +130,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   const requestIdRef = useRef<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [jobProgress, setJobProgress] = useState<{ completed: number; total: number } | null>(null);
+  const [semanticStage, setSemanticStage] = useState<0 | 1 | 2>(0);
   const [externalConsent, setExternalConsent] = useState(false);
   useEffect(() => () => { runGenerationRef.current += 1; }, []);
 
@@ -314,6 +315,15 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
         }
         if (job.progress) {
           setJobProgress({ completed: job.progress.completed_rule_ids?.length || 0, total: job.progress.total_rule_ids?.length || 0 });
+          if (isSemantic) {
+            const run = job.progress.rule_runs?.[0] as
+              | { params?: { stage?: string }; execution_status?: string }
+              | undefined;
+            const stage = run?.params?.stage;
+            setSemanticStage(
+              stage === 'numeric_verifier' || run?.execution_status === 'completed' ? 2 : 1,
+            );
+          }
           if (sourceFile && job.progress.rule_runs?.length) {
             setResponse((current) => current || partialPaperLintResponse(job.job_id, filename, job.progress?.rule_runs || []));
             setResultFile((current) => current || sourceFile);
@@ -416,6 +426,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     setRunError(null);
     setResponse(null);
     setResultFile(null);
+    setSemanticStage(0);
     if (activeJobId) clearActiveJob();
     if (user && requestIdRef.current && !activeJobId) {
       try {
@@ -477,6 +488,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     setRunning(true);
     setStopped(false);
     setJobProgress(null);
+    setSemanticStage(0);
     setRunError(null);
     setResponse(null);
     setResultFile(null);
@@ -807,7 +819,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
       {running ? (
         <Card>
           {isSemantic ? (() => {
-            const stage = uploadPercent !== null && uploadPercent < 100 ? 0 : jobProgress?.total && jobProgress.completed >= jobProgress.total ? 2 : 1;
+            const stage = uploadPercent !== null && uploadPercent < 100 ? 0 : semanticStage;
             const stages = [
               ['PDF 解析', '读取论文文本、目录和版面结构'],
               ['前置校验', '检查摘要数值、研究贡献和实验章节映射'],
