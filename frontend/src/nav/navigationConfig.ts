@@ -46,12 +46,12 @@ export function getVisibleNavGroups(role: AuthRole | null): NavGroup[] {
   })).filter((group) => group.items.length > 0);
 }
 
-export function findNavItemLabel(pathname: string): { groupTitle: string; label: string } | null {
+export function findActiveNavItem(pathname: string): { group: NavGroup; item: NavItem } | null {
   const allItems = NAV_GROUPS.flatMap((group) => group.items.map((item) => ({ group, item })));
 
   const exact = allItems.find(({ item }) => item.to === pathname);
   if (exact) {
-    return { groupTitle: exact.group.title, label: exact.item.label };
+    return exact;
   }
 
   const prefixMatches = allItems
@@ -62,7 +62,12 @@ export function findNavItemLabel(pathname: string): { groupTitle: string; label:
     .sort((a, b) => b.prefix.length - a.prefix.length);
 
   const best = prefixMatches[0];
-  return best ? { groupTitle: best.group.title, label: best.item.label } : null;
+  return best ? { group: best.group, item: best.item } : null;
+}
+
+export function findNavItemLabel(pathname: string): { groupTitle: string; label: string } | null {
+  const active = findActiveNavItem(pathname);
+  return active ? { groupTitle: active.group.title, label: active.item.label } : null;
 }
 
 export const roleLabels: Record<AuthRole, string> = {

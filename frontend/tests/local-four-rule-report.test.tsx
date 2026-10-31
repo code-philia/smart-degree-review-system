@@ -15,6 +15,7 @@ vi.mock('../src/api/paperLint', async () => {
     ...actual,
     fetchPaperLintReport: vi.fn(),
     fetchPaperLintReportPdf: vi.fn(),
+    fetchPaperLintDocumentMetrics: vi.fn(async () => ({ page_count: 1, word_count: 100, text_available: true, counting_method: 'cjk_characters_and_words' })),
     fetchReviewPilotPaperLintRules: vi.fn(),
   };
 });
@@ -111,7 +112,7 @@ describe('saved local four-rule PDF report', () => {
     expect(screen.queryByRole('link', { name: '在浏览器中打开完整 PDF' })).not.toBeInTheDocument();
   });
 
-  it('keeps report breadcrumbs and return link in the 30-rule section', async () => {
+  it('keeps the return link in the 30-rule section', async () => {
     vi.mocked(fetchPaperLintReport).mockResolvedValue(report);
     vi.mocked(fetchPaperLintReportPdf).mockResolvedValue(new Blob(['%PDF-1.7\n'], { type: 'application/pdf' }));
     vi.mocked(fetchReviewPilotPaperLintRules).mockResolvedValue({
@@ -128,7 +129,6 @@ describe('saved local four-rule PDF report', () => {
       </MemoryRouter>,
     );
     expect(await screen.findByRole('heading', { name: '待检论文.pdf' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'PDF 规则检测' })).toHaveAttribute('href', '/thirty-rules-check');
     expect(screen.getByRole('link', { name: '返回历史报告' })).toHaveAttribute('href', '/thirty-rules-check/reports');
   });
 });

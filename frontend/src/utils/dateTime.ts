@@ -5,11 +5,15 @@ const shanghaiDateTimeFormatter = new Intl.DateTimeFormat('zh-CN', {
   day: '2-digit',
   hour: '2-digit',
   minute: '2-digit',
+  second: '2-digit',
   hourCycle: 'h23',
 });
 
 /** Formats API timestamps for the trial system's China-based users. */
-export function formatChinaDateTime(value: string | null | undefined) {
+export function formatChinaDateTime(
+  value: string | null | undefined,
+  { includeSeconds = false }: { includeSeconds?: boolean } = {},
+) {
   if (!value) return '—';
 
   const date = new Date(value);
@@ -22,5 +26,5 @@ export function formatChinaDateTime(value: string | null | undefined) {
       .map((part) => [part.type, part.value]),
   );
 
-  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
+  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}${includeSeconds ? `:${parts.second}` : ''}`;
 }

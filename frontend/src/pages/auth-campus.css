@@ -1,440 +1,985 @@
-/* Original campus photograph; these selectors affect sign-in only. */
-.auth-page.auth-campus-login {
-  min-height: 100svh;
-  isolation: isolate;
-  background: #252b30;
-  color: #fff;
-  --auth-primary: #9b293a;
-  --auth-ink: #382e32;
-  --auth-muted: #6b6265;
-  --auth-border: #e8ddd5;
+/* Selected Siyuan sign-in design, scoped to this page. */
+
+.campus-signin {
+  font-family: Inter, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  color: #302b28;
+  background: #fcf8f0;
+  font-synthesis: none;
+  --red: #9d2034;
+  --ink: #302b28;
+  --muted: #786b61;
+  --line: #dcd2c6;
+  --paper: #fcf8f0;
 }
-.auth-campus-login .auth-container {
+.campus-signin * {
+  box-sizing: border-box;
+}
+.campus-signin body {
+  margin: 0;
+}
+.campus-signin button,
+.campus-signin input {
+  font: inherit;
+}
+.campus-signin button,
+.campus-signin a {
+  -webkit-tap-highlight-color: transparent;
+}
+.campus-signin button {
+  cursor: pointer;
+}
+.campus-signin a {
+  color: inherit;
+  text-decoration: none;
+}
+.campus-signin button:focus-visible,
+.campus-signin a:focus-visible,
+.campus-signin summary:focus-visible,
+.campus-signin input:focus-visible {
+  outline: 3px solid #a1283c66;
+  outline-offset: 4px;
+}
+.campus-signin svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+}
+.campus-signin button:disabled {
+  cursor: default;
+}
+.campus-signin p,
+.campus-signin h1,
+.campus-signin h2,
+.campus-signin h3 {
+  margin: 0;
+}
+.campus-signin {
   position: relative;
-  z-index: 1;
-  width: min(1320px, calc(100% - 96px));
-  max-width: none;
-  margin: 0 auto;
-  padding: 38px 0 90px;
-}
-.auth-campus-login .auth-campus-scene {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
+  isolation: isolate;
+  min-height: calc(100svh);
   overflow: hidden;
-  pointer-events: none;
-  background: #31383a;
+  background: var(--paper);
 }
-.auth-campus-login .auth-photo-motion {
+.campus-signin .campus-background {
   position: absolute;
   inset: 0;
-  transition: transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
+  z-index: -2;
+  margin: 0;
+  pointer-events: none;
+  overflow: hidden;
 }
-.auth-campus-login .auth-campus-scene img {
+.campus-signin .campus-background img {
   position: absolute;
-  max-width: none;
-  filter: none;
-  opacity: 1;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: left center;
   animation: none;
-  object-fit: fill;
   transform: none;
+  filter: none;
 }
-.auth-campus-login .auth-campus-scene::after {
+.campus-signin .campus-background img[hidden] {
+  display: none;
+}
+.campus-signin .campus-background::after {
   content: '';
   position: absolute;
   inset: 0;
-  background:
-    linear-gradient(90deg, #19141c59 0%, transparent 46%, #19141c14 100%),
-    linear-gradient(180deg, #18202b55 0%, transparent 35%, #13182066 100%);
+  background: linear-gradient(90deg, transparent 54%, #fcf8f020 63%, #fcf8f0dd 76%, #fcf8f0f7 100%);
 }
-.auth-campus-login .auth-brand {
-  gap: 16px;
-  animation: none;
-}
-.auth-campus-login .auth-brand-lockup {
-  gap: 13px;
-  text-shadow: 0 2px 15px #1b1e2599;
-}
-.auth-campus-login .auth-brand-lockup img {
-  width: 43px;
-  height: 43px;
-  background: white;
-}
-.auth-campus-login .auth-brand-lockup p {
-  font-size: 20px;
-  color: #fff;
-  font-weight: 650;
-  letter-spacing: 0.04em;
-}
-.auth-campus-login .auth-brand-lockup p span {
-  font-size: 12px;
-  font-weight: 400;
-  margin-left: 9px;
-}
-.auth-campus-login .auth-brand-en {
-  font-size: 9px;
-  margin-top: 6px;
-  letter-spacing: 0.23em;
-  color: #ffffffe0;
-}
-.auth-campus-login .auth-header-actions {
+.campus-signin .campus-header {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
+  justify-content: space-between;
+  gap: 24px;
+  height: 100px;
+  padding: 0 clamp(32px, 4vw, 76px);
+  background: linear-gradient(180deg, #fcf8f0f2, #fcf8f0b3 70%, #fcf8f000);
 }
-.auth-campus-login .pilot-badge {
-  color: #ffffffe6;
-  font-size: 11px;
-  border: 1px solid #ffffff44;
-  background: #ffffff12;
-  padding: 9px 13px;
-  border-radius: 99px;
-  backdrop-filter: blur(12px);
+.campus-signin .campus-brand {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-width: 0;
 }
-.auth-campus-login .pilot-badge > span {
-  background: #b9d0ac;
-  box-shadow: none;
-  width: 5px;
-  height: 5px;
+.campus-signin .campus-brand img {
+  width: 47px;
+  height: 47px;
+  object-fit: cover;
+  border-radius: 50%;
+  background: #fff;
 }
-.auth-campus-login .auth-motion-toggle {
+.campus-signin .campus-brand p {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  font-size: 24px;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  font-weight: 650;
+  color: #342e2a;
+}
+.campus-signin .campus-brand p span {
+  font-size: 14px;
+  letter-spacing: 0.015em;
+  font-weight: 450;
+}
+.campus-signin .campus-brand-en {
+  display: block;
+  margin-top: 6px;
+  font-size: 9px;
+  letter-spacing: 0.19em;
+  color: #85766b;
+}
+.campus-signin .campus-version {
   display: flex;
   align-items: center;
   gap: 7px;
-  color: #fff;
-  border: 1px solid #ffffff44;
-  background: #ffffff12;
-  padding: 9px 11px;
-  border-radius: 99px;
-  cursor: pointer;
-  font-size: 10px;
+  font-size: 11px;
+  color: #75675c;
+  white-space: nowrap;
 }
-.auth-campus-login .auth-motion-toggle:hover {
-  background: #ffffff25;
+.campus-signin .campus-version::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  background: #b29156;
+  border-radius: 50%;
 }
-.auth-campus-login .auth-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 414px;
-  gap: 80px;
-  align-items: start;
-  padding: 0;
-  margin: 58px 0 0;
-}
-.auth-campus-login .auth-hero {
+.campus-signin .campus-content {
+  width: 100%;
+  min-height: calc(100svh - 148px);
   position: relative;
-  min-width: 0;
-  min-height: 600px;
-  padding: 10px 0 0;
-  border: 0;
-  border-radius: 0;
-  background: none;
-  box-shadow: none;
-  animation: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(330px, 374px);
+  gap: 56px;
+  padding: 26px clamp(40px, 4vw, 76px) 34px;
 }
-.auth-campus-login .auth-eyebrow {
+.campus-signin .campus-intro {
+  align-self: end;
+  padding: 0 0 13px;
+  max-width: 520px;
+}
+.campus-signin .campus-intro-surface p {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.13em;
+  color: #584b3c;
+  margin-bottom: 15px;
+}
+.campus-signin .campus-capabilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  color: #423b32;
+  font-size: 17px;
+  font-weight: 500;
+}
+.campus-signin .campus-capabilities span {
   display: flex;
   align-items: center;
-  gap: 10px;
-  color: #fff0d5;
-  font-size: 11px;
-  font-weight: 400;
-  letter-spacing: 0.2em;
+  gap: 8px;
 }
-.auth-campus-login .auth-eyebrow > span {
-  width: 28px;
-  height: 1px;
-  border-radius: 0;
-  background: #f1d8a4;
-  box-shadow: none;
+.campus-signin .campus-capabilities svg {
+  width: 21px;
+  height: 21px;
+  color: #8c4b39;
 }
-.auth-campus-login .auth-hero h1 {
-  font-family: 'STSong', 'SimSun', serif;
-  color: #fff;
-  font-size: clamp(35px, 3.3vw, 48px);
-  font-weight: 550;
-  line-height: 1.48;
-  letter-spacing: 0.04em;
-  margin: 24px 0 18px;
-  text-shadow: 0 2px 22px #121d2999;
+.campus-signin .campus-intro-surface {
+  width: max-content;
+  max-width: 100%;
+  padding: 17px 21px;
+  background: #fffaf0e8;
+  border: 1px solid #ffffffa6;
+  border-radius: 10px;
+  box-shadow: 0 6px 24px #684d2910;
 }
-.auth-campus-login .auth-hero h1 em {
-  color: #f1d8a4;
-  font-style: normal;
+.campus-signin .campus-login {
+  align-self: center;
+  min-width: 0;
+  max-width: 374px;
+  width: 100%;
+  padding: 0 0 4px;
 }
-.auth-campus-login .auth-intro {
-  width: fit-content;
-  max-width: 400px;
-  margin: 0;
-  color: #ffffffe6;
-  font-size: 13px;
-  line-height: 1.95;
-  letter-spacing: 0.04em;
-  text-shadow: 0 2px 12px #15202be6;
+.campus-signin .campus-heading {
+  margin-bottom: 23px;
 }
-.auth-campus-login .auth-capabilities {
-  position: absolute;
-  left: 0;
-  top: 540px;
-  display: flex;
-  gap: 20px;
-  margin: 0;
-  color: #ffffffe6;
-  font-size: 11px;
-  text-shadow: 0 1px 9px #14202b;
-}
-.auth-campus-login .auth-capabilities svg {
-  color: #f1d8a4;
-  width: 15px;
-  height: 15px;
-}
-.auth-campus-login .auth-card {
-  padding: 29px 31px 25px;
-  border: 1px solid #ffffffbf;
-  border-radius: 22px;
-  color: var(--auth-ink);
-  background: #fffaf4f5;
-  backdrop-filter: blur(22px);
-  box-shadow: 0 24px 75px -25px #0d1c3c66;
-  animation: auth-arrive 0.85s cubic-bezier(0.2, 0.7, 0.2, 1) both;
-}
-.auth-campus-login .auth-welcome {
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  color: var(--auth-muted);
-}
-.auth-campus-login .auth-card-heading h2 {
-  font-size: 25px;
-  letter-spacing: 0.02em;
-  font-weight: 650;
-  margin: 9px 0 8px;
-}
-.auth-campus-login .auth-card-heading p {
+.campus-signin .campus-heading > span {
+  display: block;
+  margin-bottom: 9px;
+  color: #8d7967;
   font-size: 12px;
-  color: var(--auth-muted);
-  margin: 0 0 23px;
+  letter-spacing: 0.08em;
 }
-.auth-campus-login .jaccount-entry,
-.auth-campus-login .login-submit {
-  min-height: 46px;
-  height: auto;
-  border-radius: 9px;
-  font-size: 13px;
+.campus-signin .campus-heading h1 {
+  font-size: 30px;
+  line-height: 1.35;
   font-weight: 600;
+  letter-spacing: -0.035em;
+  color: #302927;
 }
-.auth-campus-login .jaccount-entry {
-  background: var(--auth-primary);
-  color: #fff;
-  box-shadow: 0 6px 20px -10px var(--auth-primary);
+.campus-signin .campus-heading p {
+  color: #847367;
+  font-size: 13px;
+  margin-top: 9px;
+  line-height: 1.6;
 }
-.auth-campus-login .jaccount-entry:hover {
-  background: #812033;
-  box-shadow: 0 8px 22px -10px var(--auth-primary);
-}
-.auth-campus-login .campus-login-hint {
-  color: var(--auth-muted);
-  font-size: 10px;
-  margin: 10px 0 0;
-}
-.auth-campus-login .auth-divider {
+.campus-signin .jaccount-entry {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   gap: 13px;
-  color: var(--auth-muted);
-  font-size: 10px;
-  margin: 21px 0;
+  width: 100%;
+  min-height: 50px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: var(--red);
+  color: white;
+  font-size: 15px;
+  font-weight: 550;
+  box-shadow: 0 5px 14px #8a263117;
+  transition:
+    background 160ms,
+    box-shadow 160ms;
 }
-.auth-campus-login .auth-divider h3 {
-  font-size: 10px;
-  font-weight: 400;
+.campus-signin .jaccount-entry:hover {
+  background: #84172b;
+  box-shadow: 0 6px 18px #8a263129;
 }
-.auth-campus-login .auth-divider::before,
-.auth-campus-login .auth-divider::after {
-  background: var(--auth-border);
+.campus-signin .jaccount-entry svg {
+  width: 18px;
+  height: 18px;
 }
-.auth-campus-login .login-form > label > span {
+.campus-signin .campus-login-hint {
+  text-align: center;
   font-size: 11px;
-  font-weight: 400;
-  color: var(--auth-muted);
+  color: #8b7a6d;
+  margin: 11px 0 0;
+  line-height: 1.6;
+}
+.campus-signin .auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin: 21px 0 18px;
+  color: #9b8c80;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.campus-signin .auth-divider::before,
+.campus-signin .auth-divider::after {
+  content: '';
+  height: 1px;
+  flex: 1;
+  background: #dccfc1;
+}
+.campus-signin .login-form {
+  display: grid;
+  gap: 16px;
+}
+.campus-signin .login-form label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #65574d;
+  font-weight: 500;
+}
+.campus-signin .login-submit {
+  min-height: 46px;
+  border: 1px solid #bfa995;
+  border-radius: 7px;
+  background: #fffaf3ad;
+  color: #6e463b;
+  font-size: 14px;
+  font-weight: 550;
+  transition:
+    background 160ms,
+    border-color 160ms;
+}
+.campus-signin .login-submit:hover {
+  background: #f1e5d7;
+  border-color: #a68a73;
+}
+.campus-signin .campus-help-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 15px;
+  font-size: 11px;
+  color: #857263;
+}
+.campus-signin .campus-help-row button {
+  padding: 0;
+  line-height: 1.6;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: none;
+  color: inherit;
+}
+.campus-signin .campus-help-row button:hover {
+  color: #8e2838;
+  border-color: #8e2838;
+}
+.campus-signin .campus-help-row button:last-child {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.campus-signin .campus-help-row svg {
+  width: 13px;
+  height: 13px;
+}
+.campus-signin .system-description {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid #d9cbbb;
+}
+.campus-signin .system-description h2 {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: #766252;
   margin-bottom: 8px;
 }
-.auth-campus-login .login-input {
-  min-height: 43px;
-  height: 43px;
-  padding: 0 12px;
-  color: var(--auth-ink);
-  font-size: 14px;
-  background: #fffdf9;
-  border: 1px solid var(--auth-border);
-  border-radius: 8px;
+.campus-signin .system-description p {
+  font-size: 11px;
+  line-height: 1.95;
+  color: #8a796b;
+  text-wrap: pretty;
 }
-.auth-campus-login .login-input:focus {
-  outline: none;
-  border-color: var(--auth-primary);
-  box-shadow: 0 0 0 3px #9b293a19;
+.campus-signin {
+  --red: #963748;
+  --paper: #fcf8ef;
 }
-.auth-campus-login .login-submit {
-  color: var(--auth-primary);
-  border: 1px solid #9b293a2e;
-  background: #faf4f0;
-  box-shadow: none;
+.campus-signin .campus-background::after {
+  background: linear-gradient(90deg, transparent 51%, #fcf8ef0a 62%, #fcf8efad 77%, #fcf8efe6 100%);
 }
-.auth-campus-login .login-submit:hover {
-  background: #f3e8e4;
+.campus-signin .campus-background img {
+  object-position: left center;
 }
-.auth-campus-login .auth-help {
-  font-size: 10px;
-  color: var(--auth-muted);
-  margin-top: 17px;
+.campus-signin .campus-intro-surface {
+  background: #fffaf0d6;
 }
-.auth-campus-login .auth-demo {
-  margin-top: 15px;
-  padding-top: 13px;
-  border-top: 1px solid var(--auth-border);
-  color: var(--auth-muted);
+.campus-signin .campus-capabilities svg {
+  color: #746d43;
 }
-.auth-campus-login .system-description {
-  display: block;
-  margin: 19px 0 0;
-  padding: 14px 0 0;
-  border: 0;
-  border-top: 1px solid var(--auth-border);
-  border-radius: 0;
-  background: none;
-  box-shadow: none;
-}
-.auth-campus-login .system-description h2 {
-  color: var(--auth-ink);
-  font-size: 10px;
-  letter-spacing: 0.05em;
-  margin: 0 0 7px;
-}
-.auth-campus-login .system-description p {
-  color: var(--auth-muted);
-  font-size: 10.5px;
-  line-height: 1.9;
-  margin: 0;
-}
-.auth-campus-login :is(a, button, summary):focus-visible {
-  outline: 3px solid #e3bd74;
-  outline-offset: 4px;
-}
-@media (min-width: 1800px) {
-  .auth-campus-login .auth-layout {
-    margin-top: 75px;
+@media (min-width: 1550px) {
+  .campus-signin .campus-content {
+    grid-template-columns: minmax(0, 1fr) 390px;
+    padding-top: 46px;
+    padding-bottom: 48px;
   }
-  .auth-campus-login .auth-hero h1 {
-    font-size: 50px;
+  .campus-signin .campus-login {
+    max-width: 390px;
   }
-}
-@media (max-width: 1050px) {
-  .auth-campus-login .auth-container {
-    width: calc(100% - 64px);
+  .campus-signin .campus-heading h1 {
+    font-size: 32px;
   }
-  .auth-campus-login .auth-layout {
-    grid-template-columns: minmax(0, 1fr) 360px;
-    gap: 42px;
-  }
-  .auth-campus-login .auth-card {
-    padding: 25px;
-  }
-  .auth-campus-login .auth-hero h1 {
-    font-size: 34px;
-  }
-  .auth-campus-login .auth-intro {
+  .campus-signin .system-description p {
     font-size: 12px;
   }
+  .campus-signin .campus-intro {
+    padding-bottom: 10px;
+  }
 }
-@media (max-width: 950px) {
-  .auth-campus-login .auth-container {
-    width: calc(100% - 40px);
-    padding: 26px 0 50px;
+@media (max-width: 1100px) and (min-width: 801px) {
+  .campus-signin .campus-header {
+    padding: 0 32px;
   }
-  .auth-campus-login .auth-brand-lockup p {
-    font-size: 17px;
+  .campus-signin .campus-brand p {
+    font-size: 21px;
   }
-  .auth-campus-login .auth-brand-lockup p span {
-    display: block;
-    font-size: 10px;
-    margin: 4px 0 0;
-  }
-  .auth-campus-login .auth-brand-en {
-    display: none;
-  }
-  .auth-campus-login .auth-brand-lockup img {
-    height: 37px;
-    width: 37px;
-  }
-  .auth-campus-login .auth-header-actions {
-    gap: 7px;
-  }
-  .auth-campus-login .pilot-badge {
-    font-size: 9px;
-    padding: 7px 9px;
-  }
-  .auth-campus-login .auth-motion-toggle {
-    padding: 7px;
-  }
-  .auth-campus-login .auth-motion-toggle span {
-    display: none;
-  }
-  .auth-campus-login .auth-layout {
-    display: block;
-    width: min(460px, 100%);
-    margin: 42px auto 0;
-  }
-  .auth-campus-login .auth-hero {
-    min-height: 600px;
-    padding: 0;
-  }
-  .auth-campus-login .auth-hero h1 {
-    font-size: 31px;
-    line-height: 1.5;
-    margin: 18px 0 12px;
-  }
-  .auth-campus-login .auth-intro {
+  .campus-signin .campus-brand p span {
     font-size: 12px;
-    max-width: 310px;
   }
-  .auth-campus-login .auth-eyebrow {
-    font-size: 9px;
-    letter-spacing: 0.12em;
+  .campus-signin .campus-content {
+    gap: 25px;
+    grid-template-columns: minmax(0, 1fr) 330px;
+    padding: 16px 32px 26px;
   }
-  .auth-campus-login .auth-capabilities {
-    top: 560px;
-    width: 100%;
-    justify-content: space-between;
-    gap: 0;
-    font-size: 10px;
+  .campus-signin .campus-capabilities {
+    gap: 16px;
+    font-size: 15px;
   }
-  .auth-campus-login .auth-card {
-    padding: 28px;
-    border-radius: 19px;
+  .campus-signin .campus-intro-surface {
+    padding: 15px;
+  }
+  .campus-signin .campus-heading h1 {
+    font-size: 27px;
+  }
+  .campus-signin .campus-background::after {
+    background: linear-gradient(90deg, transparent 40%, #fcf8f080 61%, #fcf8f0f7 78%);
+  }
+  .campus-signin .campus-background::after {
+    background: linear-gradient(90deg, transparent 45%, #fcf8efad 69%, #fcf8eff5 86%);
   }
 }
-@media (hover: none), (pointer: coarse) {
-  .auth-campus-login .auth-photo-motion {
-    transform: none !important;
+@media (max-width: 800px) {
+  .campus-signin {
+    min-height: calc(100svh);
   }
-  .auth-campus-login .auth-motion-toggle {
+  .campus-signin .campus-header {
+    height: 88px;
+    padding: 0 23px;
+    background: #fcf8eff5;
+  }
+  .campus-signin .campus-brand {
+    gap: 10px;
+  }
+  .campus-signin .campus-brand img {
+    width: 40px;
+    height: 40px;
+  }
+  .campus-signin .campus-brand p {
+    display: block;
+    font-size: 21px;
+  }
+  .campus-signin .campus-brand p span {
+    display: block;
+    font-size: 11px;
+    margin-top: 5px;
+  }
+  .campus-signin .campus-brand-en {
     display: none;
   }
-}
-@media (prefers-reduced-motion: reduce) {
-  .auth-campus-login .auth-photo-motion {
-    transition: none;
+  .campus-signin .campus-version {
+    font-size: 9px;
+    gap: 5px;
   }
-  .auth-campus-login[data-motion='on'] .auth-photo-motion {
-    transition: transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) !important;
+  .campus-signin .campus-content {
+    display: block;
+    padding: 0 24px 35px;
+    min-height: 0;
+  }
+  .campus-signin .campus-background {
+    top: 88px;
+    height: 340px;
+    bottom: auto;
+    z-index: -1;
+  }
+  .campus-signin .campus-background img {
+    object-position: left center;
+  }
+  .campus-signin .campus-background::after,
+  .campus-signin .campus-background::after {
+    background: linear-gradient(180deg, transparent 70%, #fcf8ef);
+  }
+  .campus-signin .campus-intro {
+    display: flex;
+    align-items: flex-end;
+    min-height: 340px;
+    margin: 0 -2px;
+    padding: 0 0 18px;
+    max-width: none;
+  }
+  .campus-signin .campus-intro-surface p {
+    font-size: 11px;
+    margin-bottom: 10px;
+  }
+  .campus-signin .campus-intro-surface {
+    padding: 12px 15px;
+    background: #fffaf0e3;
+  }
+  .campus-signin .campus-capabilities {
+    gap: 17px;
+    font-size: 14px;
+  }
+  .campus-signin .campus-capabilities span {
+    gap: 6px;
+  }
+  .campus-signin .campus-capabilities svg {
+    width: 18px;
+    height: 18px;
+  }
+  .campus-signin .campus-login {
+    margin: 11px auto 0;
+    max-width: 430px;
+    padding: 8px 0 0;
+  }
+  .campus-signin .campus-heading {
+    margin-bottom: 22px;
+  }
+  .campus-signin .campus-heading h1 {
+    font-size: 28px;
+  }
+  .campus-signin .system-description p {
+    font-size: 12px;
+    line-height: 1.9;
+  }
+  .campus-signin .system-description {
+    margin-top: 24px;
+  }
+  .campus-signin .campus-heading > span {
+    font-size: 11px;
+  }
+  .campus-signin .campus-background img {
+    object-position: left center;
   }
 }
 
-/* Give the inscription its own space on short landscape screens. */
-@media (max-width: 950px) and (max-height: 480px) {
-  .auth-campus-login .auth-hero h1,
-  .auth-campus-login .auth-intro,
-  .auth-campus-login .auth-capabilities {
-    display: none;
+.campus-signin .campus-header {
+  height: 86px;
+  background: linear-gradient(180deg, #fcf8f0ed, #fcf8f099 63%, #fcf8f000);
+}
+.campus-signin .campus-content {
+  min-height: calc(100svh - 86px);
+  padding-top: 12px;
+  pointer-events: none;
+}
+.campus-signin .campus-login,
+.campus-signin .campus-intro {
+  pointer-events: auto;
+}
+.campus-signin .campus-login {
+  align-self: start;
+}
+.campus-signin .campus-background img {
+  object-position: right center;
+}
+.campus-signin .campus-background::after {
+  background: linear-gradient(90deg, transparent 46%, #fcf8f000 55%, #fcf8f0f0 65%, #fcf8f0 100%);
+}
+.campus-signin .campus-background::after {
+  background: linear-gradient(90deg, transparent 52%, #fcf8ef33 62%, #fcf8eff2 72%, #fcf8ef 100%);
+}
+.campus-signin .campus-heading > span {
+  margin-bottom: 7px;
+}
+.campus-signin .campus-heading {
+  margin-bottom: 20px;
+}
+.campus-signin .auth-divider {
+  margin-top: 19px;
+  margin-bottom: 16px;
+}
+.campus-signin .system-description {
+  margin-top: 20px;
+  padding-top: 16px;
+}
+.campus-signin .campus-wind {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 64%;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+.campus-signin .campus-wind-leaf {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: var(--size, 20px);
+  height: var(--size, 20px);
+  fill: #d7a02c;
+  stroke: #a974281a;
+  stroke-width: 0.5;
+  opacity: 0;
+}
+@keyframes leaf-drift {
+  0% {
+    transform: translate3d(-30px, -30px, 0) rotate(-35deg);
+    opacity: 0;
   }
-  .auth-campus-login .auth-hero {
-    min-height: max(280px, calc(100svh - 110px));
+  12% {
+    opacity: 0.72;
+  }
+  38% {
+    transform: translate3d(40px, 68px, 0) rotate(35deg);
+  }
+  68% {
+    transform: translate3d(126px, 120px, 0) rotate(90deg);
+    opacity: 0.65;
+  }
+  100% {
+    transform: translate3d(190px, 240px, 0) rotate(195deg);
+    opacity: 0;
+  }
+}
+.campus-signin .campus-grass {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 220px;
+  height: 100px;
+  fill: none;
+  stroke: #79793b;
+  stroke-width: 1.3;
+  opacity: 0.75;
+}
+.campus-signin .campus-grass g {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+@keyframes grass-sway {
+  from {
+    transform: skewX(-3deg) rotate(-1deg);
+  }
+  to {
+    transform: skewX(5deg) rotate(2deg);
+  }
+}
+.campus-signin .campus-gear-stage {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: hidden;
+  pointer-events: none;
+}
+.campus-signin .campus-gear-button {
+  pointer-events: all;
+  cursor: pointer;
+  outline: none;
+}
+.campus-signin .campus-gear-focus {
+  fill: none;
+  stroke: #9d2034;
+  stroke-width: 2;
+  stroke-dasharray: 4 4;
+  opacity: 0;
+  pointer-events: none;
+}
+.campus-signin .campus-gear-button:focus-visible .campus-gear-focus {
+  opacity: 0.7;
+}
+.campus-signin .campus-gear-rotor {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  filter: brightness(0.61) saturate(0.62);
+}
+.campus-signin .campus-gear-button[aria-disabled='true'] {
+  cursor: progress;
+}
+@media (min-width: 1550px) {
+  .campus-signin .campus-content {
+    padding-top: 32px;
+  }
+}
+@media (max-width: 1100px) and (min-width: 801px) {
+  .campus-signin .campus-background::after {
+    background: linear-gradient(90deg, transparent 40%, #fcf8f080 58%, #fcf8f0 67%);
+  }
+  .campus-signin .campus-background::after {
+    background: linear-gradient(90deg, transparent 43%, #fcf8efbb 62%, #fcf8ef 73%);
+  }
+}
+@media (max-width: 800px) {
+  .campus-signin .campus-header {
+    height: 88px;
+    background: #fcf8eff5;
+  }
+  .campus-signin .campus-content {
+    padding-top: 0;
+    pointer-events: auto;
+  }
+  .campus-signin .campus-background img {
+    object-position: left center;
+  }
+  .campus-signin .campus-background::after,
+  .campus-signin .campus-background::after {
+    background: linear-gradient(180deg, transparent 78%, #fcf8ef);
+  }
+  .campus-signin .campus-wind {
+    top: 88px;
+    bottom: auto;
+    width: 100%;
+    height: 340px;
+  }
+  .campus-signin .campus-grass {
+    width: 150px;
+    height: 65px;
+  }
+  .campus-signin .campus-login {
+    padding-top: 8px;
+  }
+}
+
+.campus-signin .campus-water-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.campus-signin .campus-water {
+  mask-image: linear-gradient(90deg, #000 48%, transparent 65%);
+}
+.campus-signin .campus-background::after {
+  background: linear-gradient(90deg, transparent 51%, #fcf8efb3 60%, #fcf8ef 65%);
+}
+.campus-signin {
+  height: calc(100svh);
+  min-height: 0;
+}
+.campus-signin .campus-content {
+  height: calc(100svh - 86px);
+  min-height: 0;
+  padding-top: 18px;
+  padding-bottom: 24px;
+}
+.campus-signin .campus-login {
+  position: relative;
+  z-index: 3;
+  max-height: calc(100svh - 128px);
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #d9c5b2 transparent;
+  padding-right: 8px;
+}
+.campus-signin .campus-header {
+  z-index: 3;
+}
+.campus-signin .campus-intro {
+  position: relative;
+  z-index: 3;
+}
+.campus-signin .campus-gear-rotor {
+  transform-origin: 0 0;
+  transform-box: view-box;
+  filter: none;
+}
+.campus-signin .campus-water {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  mask-image: linear-gradient(90deg, #000 50%, transparent 74%);
+}
+.campus-signin .campus-water-stage {
+  stroke: none;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.campus-signin .campus-water-hit {
+  pointer-events: all;
+  cursor: default;
+}
+@media (max-width: 800px) {
+  .campus-signin {
+    height: auto;
+    min-height: calc(100svh);
+  }
+  .campus-signin .campus-content {
+    height: auto;
+    min-height: 0;
+    padding-top: 0;
+  }
+  .campus-signin .campus-login {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+  }
+  .campus-signin .campus-water {
+    top: 88px;
+    bottom: auto;
+    height: 340px;
+    mask-image: none;
+  }
+  .campus-signin .campus-intro {
+    pointer-events: none;
+  }
+}
+.campus-signin .campus-wind-leaf {
+  fill: #bdad56;
+  stroke: #7a793a44;
+}
+.campus-signin .campus-grass {
+  width: 110px;
+  height: 100px;
+  stroke: #7f874a;
+  opacity: 0.6;
+}
+
+.campus-signin {
+  height: 100svh;
+  margin: 0;
+}
+.campus-signin .campus-scene {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.campus-signin .campus-background {
+  z-index: auto;
+}
+.campus-signin .campus-background img {
+  object-position: left center;
+}
+.campus-signin .campus-gear-stage {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.campus-signin .campus-header {
+  height: 86px;
+}
+.campus-signin .campus-content {
+  pointer-events: none;
+}
+.campus-signin .campus-intro-surface,
+.campus-signin .campus-login {
+  pointer-events: auto;
+}
+.campus-signin .campus-wind-leaf {
+  animation: leaf-drift var(--duration, 16s) linear var(--delay, 0s) infinite !important;
+  fill: #bdad56;
+  stroke: #7a793a44;
+}
+.campus-signin .campus-grass {
+  width: 110px;
+  height: 100px;
+  stroke: #7f874a;
+  opacity: 0.6;
+}
+.campus-signin .campus-grass g {
+  animation: grass-sway 4.7s ease-in-out infinite alternate !important;
+}
+.campus-signin .campus-grass g:last-child {
+  animation-delay: -2.2s !important;
+  animation-duration: 5.6s !important;
+}
+.campus-signin .campus-scene[data-active='false'] .campus-wind-leaf,
+.campus-signin .campus-scene[data-active='false'] .campus-grass g {
+  animation-play-state: paused !important;
+}
+.campus-signin .login-form {
+  display: grid;
+  gap: 16px;
+}
+.campus-signin .login-form > * {
+  margin: 0;
+}
+.campus-signin .login-input {
+  width: 100%;
+  height: 46px;
+  min-height: 46px;
+  border: 1px solid #d9cec1;
+  border-radius: 7px;
+  background: #fffefaed;
+  padding: 0 13px;
+  color: #362e28;
+  font-size: 14px;
+}
+.campus-signin .login-input:focus-visible {
+  outline: none;
+  border-color: #a55761;
+  box-shadow: 0 0 0 3px #a1283c0a;
+  background: #fffefa;
+}
+.campus-signin .auth-divider h2 {
+  font-size: 11px;
+  font-weight: 400;
+  margin: 0;
+  line-height: 1.6;
+}
+.campus-signin .campus-help-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 15px;
+}
+.campus-signin .auth-help,
+.campus-signin .auth-demo {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: #857263;
+  font-size: 11px;
+  min-width: 0;
+}
+.campus-signin .auth-help {
+  max-width: 55%;
+}
+.campus-signin .auth-demo {
+  max-width: 45%;
+}
+.campus-signin .auth-help summary,
+.campus-signin .demo-help summary {
+  font-size: 11px;
+  font-weight: 400;
+  color: #857263;
+  cursor: pointer;
+}
+.campus-signin .demo-help {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.campus-signin .auth-help[open],
+.campus-signin .auth-demo:has(details[open]) {
+  max-width: none;
+  width: 100%;
+}
+.campus-signin .campus-help-row:has(details[open]) {
+  flex-wrap: wrap;
+}
+.campus-signin .demo-help article,
+.campus-signin .demo-help > div {
+  font-size: 11px;
+  background: #fffaf3;
+  box-shadow: none;
+}
+.campus-signin .system-description {
+  display: block;
+  margin: 20px 0 0;
+  padding: 16px 0 0;
+  border: 0;
+  border-top: 1px solid #d9cbbb;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+.campus-signin :is(a, button, summary):focus-visible {
+  outline: 3px solid #a1283c66;
+  outline-offset: 4px;
+}
+@media (max-width: 800px) {
+  .campus-signin {
+    height: auto;
+  }
+  .campus-signin .campus-header {
+    height: 88px;
+  }
+  .campus-signin .campus-scene {
+    top: 88px;
+    bottom: auto;
+    height: 340px;
+  }
+  .campus-signin .campus-background,
+  .campus-signin .campus-water,
+  .campus-signin .campus-wind {
+    top: 0;
+    bottom: 0;
+    height: 100%;
+  }
+  .campus-signin .campus-gear-stage {
+    height: 100%;
+  }
+  .campus-signin .campus-background::after {
+    background: linear-gradient(180deg, transparent 78%, #fcf8ef);
+  }
+  .campus-signin .campus-content {
+    pointer-events: auto;
+  }
+  .campus-signin .campus-intro-surface {
+    pointer-events: none;
+  }
+  .campus-signin .login-input {
+    height: 48px;
+    font-size: 16px;
   }
 }

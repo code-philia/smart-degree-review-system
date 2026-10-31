@@ -2,7 +2,7 @@ const { get, run } = require('../database');
 
 async function findUserByUsername(username) {
   return get(
-    `SELECT id, username, password_hash AS passwordHash, role, college_id AS collegeId,
+    `SELECT id, username, display_name AS displayName, password_hash AS passwordHash, role, college_id AS collegeId,
             supervisor_id AS supervisorId, scope
        FROM auth_users
       WHERE username = ?`,
@@ -12,7 +12,7 @@ async function findUserByUsername(username) {
 
 async function findUserById(userId) {
   return get(
-    `SELECT id, username, role, college_id AS collegeId, supervisor_id AS supervisorId, scope
+    `SELECT id, username, display_name AS displayName, role, college_id AS collegeId, supervisor_id AS supervisorId, scope
        FROM auth_users
       WHERE id = ?`,
     [userId],
@@ -30,7 +30,7 @@ async function createSession(sessionId, userId, expiresAt) {
 async function findSession(sessionId) {
   return get(
     `SELECT sessions.id, sessions.expires_at AS expiresAt, users.id AS userId,
-            users.username, users.role, users.college_id AS collegeId,
+            users.username, users.display_name AS displayName, users.role, users.college_id AS collegeId,
             users.supervisor_id AS supervisorId, users.scope
        FROM auth_sessions sessions
        JOIN auth_users users ON users.id = sessions.user_id

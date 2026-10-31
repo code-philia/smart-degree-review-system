@@ -9,7 +9,7 @@ import {
   Sparkles,
   type LucideIcon,
 } from 'lucide-react';
-import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthSession } from '../auth/AuthSessionProvider';
 import { Avatar, AvatarFallback } from '../components/shadcn/avatar';
 import { Badge } from '../components/shadcn/badge';
@@ -52,11 +52,9 @@ import {
 import { Skeleton } from '../components/shadcn/skeleton';
 import {
   findNavItemLabel,
+  findActiveNavItem,
   getVisibleNavGroups,
-  roleLabels,
-  roleScopeLabels,
   type NavGroup,
-  type NavItem,
 } from '../nav/navigationConfig';
 
 const PRODUCT_NAME = '智慧学位 AI 评阅辅助系统';
@@ -66,20 +64,6 @@ const NAV_ICONS: Record<string, LucideIcon> = {
   '/thirty-rules-check': ClipboardList,
   '/thirty-rules-check/reports': History,
 };
-
-function isNavItemActive(pathname: string, item: NavItem) {
-  if (pathname === item.to) {
-    return true;
-  }
-
-  const prefix = item.matchPrefix ?? item.to;
-  return (
-    pathname.startsWith(`${prefix}/`) ||
-    (item.relatedPrefixes || []).some(
-      (relatedPrefix) => pathname === relatedPrefix || pathname.startsWith(`${relatedPrefix}/`),
-    )
-  );
-}
 
 function NavigationGroup({
   group,
@@ -93,6 +77,7 @@ function NavigationGroup({
   onExpandedChange: (expanded: boolean) => void;
 }) {
   const { setOpenMobile } = useSidebar();
+  const activeItem = findActiveNavItem(pathname)?.item;
 
   return (
     <Collapsible open={expanded} onOpenChange={onExpandedChange} className="group/collapsible">
@@ -108,7 +93,7 @@ function NavigationGroup({
             <SidebarMenu>
               {group.items.map((item) => {
                 const Icon = NAV_ICONS[item.to] ?? Sparkles;
-                const isActive = isNavItemActive(pathname, item);
+                const isActive = activeItem?.to === item.to;
 
                 return (
                   <SidebarMenuItem key={item.to}>
@@ -118,10 +103,10 @@ function NavigationGroup({
                       tooltip={item.label}
                       className="h-9 font-medium data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground"
                     >
-                      <NavLink to={item.to} end onClick={() => setOpenMobile(false)}>
+                      <Link to={item.to} aria-current={isActive ? 'page' : undefined} onClick={() => setOpenMobile(false)}>
                         <Icon aria-hidden="true" />
                         <span>{item.label}</span>
-                      </NavLink>
+                      </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
@@ -155,7 +140,6 @@ function AccountMenu({ onLogout }: { onLogout: () => Promise<void> }) {
         <Skeleton className="size-8 rounded-full bg-sidebar-accent" />
         <div className="min-w-0 flex-1 space-y-1.5 group-data-[collapsible=icon]:hidden">
           <Skeleton className="h-3 w-24 bg-sidebar-accent" />
-          <Skeleton className="h-2.5 w-16 bg-sidebar-accent" />
         </div>
       </div>
     );
@@ -176,7 +160,8 @@ function AccountMenu({ onLogout }: { onLogout: () => Promise<void> }) {
     );
   }
 
-  const userInitial = Array.from(user.username)[0]?.toUpperCase() ?? '用';
+  const displayName = user.displayName?.trim() || user.username;
+  const userInitial = Array.from(displayName)[0]?.toUpperCase() ?? '用';
 
   return (
     <SidebarMenu>
@@ -190,18 +175,14 @@ function AccountMenu({ onLogout }: { onLogout: () => Promise<void> }) {
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0 flex-1 text-left leading-tight">
-                <span className="block truncate font-semibold">{user.username}</span>
-                <span className="block truncate text-xs text-sidebar-foreground/65">{roleLabels[user.role]}</span>
+                <span className="block truncate font-semibold">{displayName}</span>
               </div>
               <ChevronDown className="ml-auto" aria-hidden="true" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent side="right" align="end" sideOffset={8} className="w-64">
             <DropdownMenuLabel className="space-y-1 px-2 py-2">
-              <span className="block text-sm font-semibold text-popover-foreground">{user.username}</span>
-              <span className="block font-normal text-muted-foreground">
-                {roleLabels[user.role]} · {roleScopeLabels[user.role]}
-              </span>
+              <span className="block truncate text-sm font-semibold text-popover-foreground">{displayName}</span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -230,9 +211,8 @@ function AppShell() {
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(() => new Set(visibleGroups.map((group) => group.key)));
 
   useEffect(() => {
-    const activeGroup = visibleGroups.find((group) =>
-      group.items.some((item) => isNavItemActive(location.pathname, item)),
-    );
+    const activeGroupKey = findActiveNavItem(location.pathname)?.group.key;
+    const activeGroup = visibleGroups.find((group) => group.key === activeGroupKey);
 
     if (!activeGroup) {
       return;

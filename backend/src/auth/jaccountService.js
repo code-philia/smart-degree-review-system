@@ -78,9 +78,11 @@ async function completeLogin({ state, browserState, code, providerError }) {
   // The campus natural-person ID is stable across account names. Keep campus
   // identities separate from all password users and preserve assigned roles.
   const id = `jaccount:${profile.id}`;
-  await run(`INSERT INTO auth_users (id, username, password_hash, role, scope)
-    VALUES (?, ?, '!jaccount-only', 'STUDENT', 'COLLEGE')
-    ON CONFLICT(id) DO NOTHING`, [id, `jaccount:${profile.account}`]);
+  const displayName = typeof profile.name === 'string' ? profile.name.trim() || null : null;
+  await run(`INSERT INTO auth_users (id, username, display_name, password_hash, role, scope)
+    VALUES (?, ?, ?, '!jaccount-only', 'STUDENT', 'COLLEGE')
+    ON CONFLICT(id) DO UPDATE SET display_name = COALESCE(excluded.display_name, auth_users.display_name)`,
+  [id, `jaccount:${profile.account}`, displayName]);
   const user = await sessionRepository.findUserById(id);
   return createUserSession(user);
 }

@@ -262,6 +262,21 @@ export async function fetchPaperLintReport(reportId: string): Promise<PaperLintR
   return response.data;
 }
 
+export type PaperLintDocumentMetrics = {
+  page_count: number;
+  word_count: number | null;
+  text_available: boolean;
+  counting_method: 'cjk_characters_and_words';
+};
+
+export async function fetchPaperLintDocumentMetrics(reportId: string): Promise<PaperLintDocumentMetrics> {
+  const response = await apiClient.get<PaperLintDocumentMetrics>(
+    `/normative/paper-lint/reports/${encodeURIComponent(reportId)}/document-metrics`,
+    { timeout: 35_000 },
+  );
+  return response.data;
+}
+
 export async function fetchPaperLintReportPdf(reportId: string): Promise<Blob> {
   const response = await apiClient.get<Blob>(`/normative/paper-lint/reports/${reportId}/pdf`, { responseType: 'blob', timeout: 60_000 });
   return response.data;

@@ -5,6 +5,7 @@ export type AuthRole = 'STUDENT' | 'SUPERVISOR' | 'SCHOOL_ADMIN' | 'COLLEGE_ADMI
 export type AuthenticatedUser = {
   id: string;
   username: string;
+  displayName?: string | null;
   role: AuthRole;
   collegeId: string | null;
   supervisorId: string | null;

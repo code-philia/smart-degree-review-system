@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import NormativeReportPage from '../src/pages/NormativeReportPage';
 import { deletePaperLintReport, deletePaperLintReports, fetchPaperLintReports } from '../src/api/paperLint';
@@ -19,10 +20,15 @@ beforeEach(() => {
 });
 afterEach(() => vi.restoreAllMocks());
 const show = async () => { render(<MemoryRouter><NormativeReportPage mode="thirty" /></MemoryRouter>); await screen.findByText('first.pdf'); };
+async function deleteFirst() {
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: '更多操作：first.pdf' }));
+  await user.click(screen.getByRole('menuitem', { name: '删除报告' }));
+}
 
 it('confirms a single deletion and removes just that report from history', async () => {
   await show();
-  fireEvent.click(screen.getByRole('button', { name: '删除报告：first.pdf' }));
+  await deleteFirst();
   await waitFor(() => expect(screen.queryByText('first.pdf')).not.toBeInTheDocument());
   expect(window.confirm).toHaveBeenCalled();
   expect(deletePaperLintReport).toHaveBeenCalledWith('first');
@@ -31,6 +37,9 @@ it('confirms a single deletion and removes just that report from history', async
 
 it('deletes the selected reports as one confirmed batch', async () => {
   await show();
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: '报告管理' }));
+  await user.click(screen.getByRole('menuitem', { name: '批量管理' }));
   fireEvent.click(screen.getByRole('checkbox', { name: '全选报告' }));
   fireEvent.click(screen.getByRole('button', { name: '删除选中（2）' }));
   expect(await screen.findByText('暂无检测记录')).toBeInTheDocument();
@@ -41,10 +50,10 @@ it('deletes the selected reports as one confirmed batch', async () => {
 it('keeps reports when confirmation is declined or deletion fails', async () => {
   await show();
   vi.mocked(window.confirm).mockReturnValueOnce(false);
-  fireEvent.click(screen.getByRole('button', { name: '删除报告：first.pdf' }));
+  await deleteFirst();
   expect(deletePaperLintReport).not.toHaveBeenCalled();
   vi.mocked(deletePaperLintReport).mockRejectedValueOnce(new Error('删除未完成'));
-  fireEvent.click(screen.getByRole('button', { name: '删除报告：first.pdf' }));
+  await deleteFirst();
   expect(await screen.findByText('删除未完成')).toBeInTheDocument();
   expect(screen.getByText('first.pdf')).toBeInTheDocument();
   expect(screen.getByText('second.pdf')).toBeInTheDocument();
