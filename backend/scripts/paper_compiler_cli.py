@@ -132,9 +132,10 @@ def execute(args):
         generated=[p for p in packages if p['manifest'].get('schema_version')=='paper-program/2.0']
         legacy=[p for p in packages if p not in generated]
         if generated:
+            from paper_compiler.pipeline import shared_model,rebind
+            generated=rebind(generated,shared_model(generated))
             if args.analysis:
                 from paper_compiler.model_runtime import apply_model
-                from paper_compiler.pipeline import shared_model,rebind
                 from paper_compiler.programs import check_programs,digest
                 model=shared_model(generated);generated=rebind(generated,model)
                 ir=apply_model(ir,model,client=client);a=json.loads(args.analysis.read_text())
