@@ -1120,10 +1120,25 @@ def run_numeric(ir, facts, request, trace=None, verification_mode=None):
             params['merged_interval_declarations'] = merged
             if trace:
                 trace('structure_normalized_output', structure)
+        fallback_used = False
         try:
             passed = validate_structure(structure, context, model)
         except ContractError as exc:
-            structure = repair(locator_prompt, structure, [str(exc)], 'structure_locator')
+            # A malformed standard parent/child experiment mapping is a
+            # legitimate trigger for the narrow fallback.
+            if 'experiment' in str(exc).lower():
+                condition = next((c for c in rows(structure, 'preconditions')
+                                  if c.get('id') == 'experiment_subsection'), None)
+                if condition:
+                    condition['passed'] = False
+                    fallback_used = _single_contribution_fallback(structure, context, model)
+                    if fallback_used:
+                        try:
+                            passed = validate_structure(structure, context, model)
+                        except ContractError:
+                            fallback_used = False
+            if not fallback_used:
+                structure = repair(locator_prompt, structure, [str(exc)], 'structure_locator')
             params['structure_output'] = structure
             if trace:
                 trace('structure_repaired_output', structure)
@@ -1143,7 +1158,6 @@ def run_numeric(ir, facts, request, trace=None, verification_mode=None):
             mapping['experiment_support'] = {sid: experimental_support(model, sid) for sid in mapping['experiment_section_ids']}
         # Only after the standard parent/child validation fails, try the
         # deliberately narrow single-contribution fallback.
-        fallback_used = False
         if not passed:
             failed_ids = {c['id'] for c in rows(structure, 'preconditions') if not c['passed']}
             if failed_ids == {'experiment_subsection'}:
