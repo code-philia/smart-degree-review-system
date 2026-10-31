@@ -164,14 +164,35 @@ def _table_caption_and_section(page_number, bbox, model):
     return str(selected.get('text') or ''), selected.get('section_id'), [selected.get('source_node_id')]
 
 
-def _table_structure(table, page_number, table_index, model, page_height):
+def _table_structure(table, page_number, table_index, model, page_height, page=None):
     """Convert a PyMuPDF Table into traceable rows/cells without inventing links."""
     matrix = [[_clean_table_text(cell) for cell in row] for row in (table.extract() or [])]
     bbox = _rect_list(getattr(table, 'bbox', None))
+    rows = list(getattr(table, 'rows', []) or [])
+    # Some borderless/merged tables expose header names and cell geometry but
+    # return an empty extract matrix. Reconstruct text from each cell rectangle
+    # before declaring the table empty.
+    if not matrix and rows and page is not None:
+        import fitz
+        for row in rows:
+            values = []
+            for cell_bbox in list(getattr(row, 'cells', []) or []):
+                rect = _rect_list(cell_bbox)
+                if not rect:
+                    values.append(None)
+                    continue
+                text = page.get_text('text', clip=fitz.Rect(rect)).strip()
+                values.append(_clean_table_text(text) or None)
+            if values:
+                matrix.append(values)
+    if not matrix:
+        header = getattr(table, 'header', None)
+        header_names = [_clean_table_text(v) for v in (getattr(header, 'names', []) or [])]
+        if any(header_names):
+            matrix = [header_names]
     if not bbox or not matrix:
         return None, 'empty_or_missing_table_geometry'
     row_objects = []
-    rows = list(getattr(table, 'rows', []) or [])
     for row_index, values in enumerate(matrix):
         row_obj = {'row_index': row_index, 'bbox': None, 'cells': []}
         row = rows[row_index] if row_index < len(rows) else None
@@ -246,7 +267,7 @@ def recover_pdf_tables(pdf_path, model):
                     detected_by_strategy[strategy] = []
             detected = [('lines', table) for table in detected_by_strategy.get('lines', [])] or [('text', table) for table in detected_by_strategy.get('text', [])]
             for table_index, (strategy, table) in enumerate(detected, 1):
-                structure, failure = _table_structure(table, page_index + 1, table_index, model, float(page.rect.height))
+                structure, failure = _table_structure(table, page_index + 1, table_index, model, float(page.rect.height), page=page)
                 if failure:
                     diagnostics['failures'].append({'page': page_index + 1, 'strategy': strategy, 'reason': failure})
                     continue
