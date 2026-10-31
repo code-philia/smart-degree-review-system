@@ -6,6 +6,8 @@ import { formatChinaDateTime } from '../../utils/dateTime';
 import { Button } from '../ui';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../shadcn/dropdown-menu';
 
+const actionMenuClassName = 'w-40 rounded-xl border border-slate-200 bg-white p-1.5 text-slate-700 shadow-xl ring-0 duration-200 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-top-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 motion-reduce:animate-none!';
+
 type ReportHistoryTableProps = {
   reports: PaperLintReportListItem[];
   historyPath: string;
@@ -61,7 +63,7 @@ export function ReportHistoryTable({
               <MoreHorizontal className="size-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40 rounded-xl border border-slate-200 bg-white p-1.5 text-slate-700 shadow-xl ring-0 motion-reduce:animate-none">
+          <DropdownMenuContent align="end" className={actionMenuClassName}>
             <DropdownMenuItem disabled={deleting} onSelect={() => setManaging(true)} className="cursor-pointer gap-2 rounded-lg px-3 py-2.5 focus:bg-slate-100 focus:text-slate-900">
               <ListChecks />批量管理
             </DropdownMenuItem>
@@ -151,7 +153,7 @@ export function ReportHistoryTable({
                       <DropdownMenuTrigger asChild>
                         <Button size="sm" variant="ghost" className="size-8 shrink-0 rounded-lg p-0 text-slate-400" disabled={deleting} aria-label={`更多操作：${record.source_filename}`} title="更多操作"><MoreHorizontal className="size-4" /></Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-40 rounded-xl border border-slate-200 bg-white p-1.5 text-slate-700 shadow-xl ring-0 motion-reduce:animate-none">
+                      <DropdownMenuContent align="end" className={actionMenuClassName}>
                         <DropdownMenuItem disabled={deleting} onSelect={() => onDelete([record.id])} className="cursor-pointer gap-2 rounded-lg px-3 py-2.5 text-danger-600 focus:bg-red-50 focus:text-danger-600"><Trash2 />删除报告</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
