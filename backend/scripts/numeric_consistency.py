@@ -667,6 +667,10 @@ def validate_structure(data, context, model):
         require(type(c.get('passed')) is bool, 'passed must be boolean')
         require(isinstance(c.get('reason'), str) and c['reason'].strip(), 'precondition reason required')
         require(isinstance(c.get('suggestion'), str), 'precondition suggestion must be text')
+    # A failed prerequisite is a complete, user-visible result. Do not reject
+    # it because downstream mappings are intentionally absent or incomplete.
+    if not all(c['passed'] for c in conditions.values()):
+        return False
     contributions = unique(rows(data, 'contributions'))
     declarations = unique(rows(data, 'declarations'))
     abstract = normalized(context['abstract'])
@@ -1034,8 +1038,6 @@ def conservative_evidence_guard(results):
                 gap = '模型将不同数值视为近似，但引用证据不能按声明精度四舍五入得到该值，需要作者确认数值精度。'
         if gap:
             pass
-        elif status == 'inconsistent' and re.search(r'无法(?:支持|确认|判断|证明)|不能(?:确认|判定)|证据不足|证据不支持|未提供可核验|缺乏(?:直接)?证据', reason):
-            gap = '模型解释仅能说明证据不足，不能据此认定摘要与实验结果矛盾。'
         elif status == 'consistent' and re.search(r'平均|均值|\b(?:mean|average)\b', declaration, re.I) and not re.search(r'平均|均值|\b(?:mean|average)\b', source, re.I):
             gap = '已定位相关数值，但引用原文未明确该指标的平均统计口径，需要核实统计范围。'
         elif status == 'consistent' and re.search(r'最高|最大|\bmaximum\b', declaration, re.I) and not re.search(r'最高|最大|最多|\b(?:maximum|maximal|up to)\b', source, re.I):
