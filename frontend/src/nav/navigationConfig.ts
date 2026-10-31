@@ -17,9 +17,9 @@ export type NavGroup = {
 export const NAV_GROUPS: NavGroup[] = [
   {
     key: 'detection',
-    title: '论文审查',
+    title: '论文规范性检测',
     items: [
-      { label: 'PDF 检测', to: '/thirty-rules-check' },
+      { label: '论文上传', to: '/thirty-rules-check' },
       { label: '摘要数值语义检测', to: '/semantic-rules-check' },
       { label: '历史报告', to: '/thirty-rules-check/reports' },
     ],

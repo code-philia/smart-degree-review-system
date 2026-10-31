@@ -8,9 +8,12 @@ describe('FEAT-UNIFIED-MODULE-HISTORY unified module navigation', () => {
   it('keeps only the MVP PDF detection and history entries in the sidebar', () => {
     const visibleLabels = getVisibleNavGroups('STUDENT').flatMap((group) => group.items.map((item) => item.label));
 
-    expect(visibleLabels).toEqual(['PDF 检测', '历史报告']);
-    expect(findNavItemLabel('/thirty-rules-check')).toEqual({ groupTitle: '论文审查', label: 'PDF 检测' });
-    expect(findNavItemLabel('/thirty-rules-check/reports')).toEqual({ groupTitle: '论文审查', label: '历史报告' });
+    expect(visibleLabels).toEqual(['论文上传', '历史报告']);
+    expect(findNavItemLabel('/thirty-rules-check')).toEqual({ groupTitle: '论文规范性检测', label: '论文上传' });
+    expect(findNavItemLabel('/thirty-rules-check/reports')).toEqual({
+      groupTitle: '论文规范性检测',
+      label: '历史报告',
+    });
     expect(findNavItemLabel('/duplication-history')).toBeNull();
   });
 

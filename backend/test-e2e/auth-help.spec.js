@@ -19,7 +19,7 @@ test.describe('FEAT-AUTH-HELP local login help', () => {
     await expect(helpPanel).toBeVisible();
     await expect(helpPanel).toHaveAttribute('open', '');
     await expect(helpPanel.getByText(/默认演示密码为\s*ArcDemo123!/)).toBeVisible();
-    await expect(helpPanel.getByText(/未接入 jAccount、短信验证码或扫码登录/)).toBeVisible();
+    await expect(helpPanel.getByText(/交大师生可使用上方 jAccount 入口登录/)).toBeVisible();
 
     const roster = page.getByLabel('四类演示账号');
     for (const [username, role] of expectedAccounts) {

@@ -1,0 +1,440 @@
+/* Original campus photograph; these selectors affect sign-in only. */
+.auth-page.auth-campus-login {
+  min-height: 100svh;
+  isolation: isolate;
+  background: #252b30;
+  color: #fff;
+  --auth-primary: #9b293a;
+  --auth-ink: #382e32;
+  --auth-muted: #6b6265;
+  --auth-border: #e8ddd5;
+}
+.auth-campus-login .auth-container {
+  position: relative;
+  z-index: 1;
+  width: min(1320px, calc(100% - 96px));
+  max-width: none;
+  margin: 0 auto;
+  padding: 38px 0 90px;
+}
+.auth-campus-login .auth-campus-scene {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background: #31383a;
+}
+.auth-campus-login .auth-photo-motion {
+  position: absolute;
+  inset: 0;
+  transition: transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.auth-campus-login .auth-campus-scene img {
+  position: absolute;
+  max-width: none;
+  filter: none;
+  opacity: 1;
+  animation: none;
+  object-fit: fill;
+  transform: none;
+}
+.auth-campus-login .auth-campus-scene::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, #19141c59 0%, transparent 46%, #19141c14 100%),
+    linear-gradient(180deg, #18202b55 0%, transparent 35%, #13182066 100%);
+}
+.auth-campus-login .auth-brand {
+  gap: 16px;
+  animation: none;
+}
+.auth-campus-login .auth-brand-lockup {
+  gap: 13px;
+  text-shadow: 0 2px 15px #1b1e2599;
+}
+.auth-campus-login .auth-brand-lockup img {
+  width: 43px;
+  height: 43px;
+  background: white;
+}
+.auth-campus-login .auth-brand-lockup p {
+  font-size: 20px;
+  color: #fff;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+}
+.auth-campus-login .auth-brand-lockup p span {
+  font-size: 12px;
+  font-weight: 400;
+  margin-left: 9px;
+}
+.auth-campus-login .auth-brand-en {
+  font-size: 9px;
+  margin-top: 6px;
+  letter-spacing: 0.23em;
+  color: #ffffffe0;
+}
+.auth-campus-login .auth-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.auth-campus-login .pilot-badge {
+  color: #ffffffe6;
+  font-size: 11px;
+  border: 1px solid #ffffff44;
+  background: #ffffff12;
+  padding: 9px 13px;
+  border-radius: 99px;
+  backdrop-filter: blur(12px);
+}
+.auth-campus-login .pilot-badge > span {
+  background: #b9d0ac;
+  box-shadow: none;
+  width: 5px;
+  height: 5px;
+}
+.auth-campus-login .auth-motion-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #fff;
+  border: 1px solid #ffffff44;
+  background: #ffffff12;
+  padding: 9px 11px;
+  border-radius: 99px;
+  cursor: pointer;
+  font-size: 10px;
+}
+.auth-campus-login .auth-motion-toggle:hover {
+  background: #ffffff25;
+}
+.auth-campus-login .auth-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 414px;
+  gap: 80px;
+  align-items: start;
+  padding: 0;
+  margin: 58px 0 0;
+}
+.auth-campus-login .auth-hero {
+  position: relative;
+  min-width: 0;
+  min-height: 600px;
+  padding: 10px 0 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  animation: none;
+}
+.auth-campus-login .auth-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff0d5;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.2em;
+}
+.auth-campus-login .auth-eyebrow > span {
+  width: 28px;
+  height: 1px;
+  border-radius: 0;
+  background: #f1d8a4;
+  box-shadow: none;
+}
+.auth-campus-login .auth-hero h1 {
+  font-family: 'STSong', 'SimSun', serif;
+  color: #fff;
+  font-size: clamp(35px, 3.3vw, 48px);
+  font-weight: 550;
+  line-height: 1.48;
+  letter-spacing: 0.04em;
+  margin: 24px 0 18px;
+  text-shadow: 0 2px 22px #121d2999;
+}
+.auth-campus-login .auth-hero h1 em {
+  color: #f1d8a4;
+  font-style: normal;
+}
+.auth-campus-login .auth-intro {
+  width: fit-content;
+  max-width: 400px;
+  margin: 0;
+  color: #ffffffe6;
+  font-size: 13px;
+  line-height: 1.95;
+  letter-spacing: 0.04em;
+  text-shadow: 0 2px 12px #15202be6;
+}
+.auth-campus-login .auth-capabilities {
+  position: absolute;
+  left: 0;
+  top: 540px;
+  display: flex;
+  gap: 20px;
+  margin: 0;
+  color: #ffffffe6;
+  font-size: 11px;
+  text-shadow: 0 1px 9px #14202b;
+}
+.auth-campus-login .auth-capabilities svg {
+  color: #f1d8a4;
+  width: 15px;
+  height: 15px;
+}
+.auth-campus-login .auth-card {
+  padding: 29px 31px 25px;
+  border: 1px solid #ffffffbf;
+  border-radius: 22px;
+  color: var(--auth-ink);
+  background: #fffaf4f5;
+  backdrop-filter: blur(22px);
+  box-shadow: 0 24px 75px -25px #0d1c3c66;
+  animation: auth-arrive 0.85s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.auth-campus-login .auth-welcome {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--auth-muted);
+}
+.auth-campus-login .auth-card-heading h2 {
+  font-size: 25px;
+  letter-spacing: 0.02em;
+  font-weight: 650;
+  margin: 9px 0 8px;
+}
+.auth-campus-login .auth-card-heading p {
+  font-size: 12px;
+  color: var(--auth-muted);
+  margin: 0 0 23px;
+}
+.auth-campus-login .jaccount-entry,
+.auth-campus-login .login-submit {
+  min-height: 46px;
+  height: auto;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.auth-campus-login .jaccount-entry {
+  background: var(--auth-primary);
+  color: #fff;
+  box-shadow: 0 6px 20px -10px var(--auth-primary);
+}
+.auth-campus-login .jaccount-entry:hover {
+  background: #812033;
+  box-shadow: 0 8px 22px -10px var(--auth-primary);
+}
+.auth-campus-login .campus-login-hint {
+  color: var(--auth-muted);
+  font-size: 10px;
+  margin: 10px 0 0;
+}
+.auth-campus-login .auth-divider {
+  gap: 13px;
+  color: var(--auth-muted);
+  font-size: 10px;
+  margin: 21px 0;
+}
+.auth-campus-login .auth-divider h3 {
+  font-size: 10px;
+  font-weight: 400;
+}
+.auth-campus-login .auth-divider::before,
+.auth-campus-login .auth-divider::after {
+  background: var(--auth-border);
+}
+.auth-campus-login .login-form > label > span {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--auth-muted);
+  margin-bottom: 8px;
+}
+.auth-campus-login .login-input {
+  min-height: 43px;
+  height: 43px;
+  padding: 0 12px;
+  color: var(--auth-ink);
+  font-size: 14px;
+  background: #fffdf9;
+  border: 1px solid var(--auth-border);
+  border-radius: 8px;
+}
+.auth-campus-login .login-input:focus {
+  outline: none;
+  border-color: var(--auth-primary);
+  box-shadow: 0 0 0 3px #9b293a19;
+}
+.auth-campus-login .login-submit {
+  color: var(--auth-primary);
+  border: 1px solid #9b293a2e;
+  background: #faf4f0;
+  box-shadow: none;
+}
+.auth-campus-login .login-submit:hover {
+  background: #f3e8e4;
+}
+.auth-campus-login .auth-help {
+  font-size: 10px;
+  color: var(--auth-muted);
+  margin-top: 17px;
+}
+.auth-campus-login .auth-demo {
+  margin-top: 15px;
+  padding-top: 13px;
+  border-top: 1px solid var(--auth-border);
+  color: var(--auth-muted);
+}
+.auth-campus-login .system-description {
+  display: block;
+  margin: 19px 0 0;
+  padding: 14px 0 0;
+  border: 0;
+  border-top: 1px solid var(--auth-border);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+.auth-campus-login .system-description h2 {
+  color: var(--auth-ink);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  margin: 0 0 7px;
+}
+.auth-campus-login .system-description p {
+  color: var(--auth-muted);
+  font-size: 10.5px;
+  line-height: 1.9;
+  margin: 0;
+}
+.auth-campus-login :is(a, button, summary):focus-visible {
+  outline: 3px solid #e3bd74;
+  outline-offset: 4px;
+}
+@media (min-width: 1800px) {
+  .auth-campus-login .auth-layout {
+    margin-top: 75px;
+  }
+  .auth-campus-login .auth-hero h1 {
+    font-size: 50px;
+  }
+}
+@media (max-width: 1050px) {
+  .auth-campus-login .auth-container {
+    width: calc(100% - 64px);
+  }
+  .auth-campus-login .auth-layout {
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 42px;
+  }
+  .auth-campus-login .auth-card {
+    padding: 25px;
+  }
+  .auth-campus-login .auth-hero h1 {
+    font-size: 34px;
+  }
+  .auth-campus-login .auth-intro {
+    font-size: 12px;
+  }
+}
+@media (max-width: 950px) {
+  .auth-campus-login .auth-container {
+    width: calc(100% - 40px);
+    padding: 26px 0 50px;
+  }
+  .auth-campus-login .auth-brand-lockup p {
+    font-size: 17px;
+  }
+  .auth-campus-login .auth-brand-lockup p span {
+    display: block;
+    font-size: 10px;
+    margin: 4px 0 0;
+  }
+  .auth-campus-login .auth-brand-en {
+    display: none;
+  }
+  .auth-campus-login .auth-brand-lockup img {
+    height: 37px;
+    width: 37px;
+  }
+  .auth-campus-login .auth-header-actions {
+    gap: 7px;
+  }
+  .auth-campus-login .pilot-badge {
+    font-size: 9px;
+    padding: 7px 9px;
+  }
+  .auth-campus-login .auth-motion-toggle {
+    padding: 7px;
+  }
+  .auth-campus-login .auth-motion-toggle span {
+    display: none;
+  }
+  .auth-campus-login .auth-layout {
+    display: block;
+    width: min(460px, 100%);
+    margin: 42px auto 0;
+  }
+  .auth-campus-login .auth-hero {
+    min-height: 600px;
+    padding: 0;
+  }
+  .auth-campus-login .auth-hero h1 {
+    font-size: 31px;
+    line-height: 1.5;
+    margin: 18px 0 12px;
+  }
+  .auth-campus-login .auth-intro {
+    font-size: 12px;
+    max-width: 310px;
+  }
+  .auth-campus-login .auth-eyebrow {
+    font-size: 9px;
+    letter-spacing: 0.12em;
+  }
+  .auth-campus-login .auth-capabilities {
+    top: 560px;
+    width: 100%;
+    justify-content: space-between;
+    gap: 0;
+    font-size: 10px;
+  }
+  .auth-campus-login .auth-card {
+    padding: 28px;
+    border-radius: 19px;
+  }
+}
+@media (hover: none), (pointer: coarse) {
+  .auth-campus-login .auth-photo-motion {
+    transform: none !important;
+  }
+  .auth-campus-login .auth-motion-toggle {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-campus-login .auth-photo-motion {
+    transition: none;
+  }
+  .auth-campus-login[data-motion='on'] .auth-photo-motion {
+    transition: transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) !important;
+  }
+}
+
+/* Give the inscription its own space on short landscape screens. */
+@media (max-width: 950px) and (max-height: 480px) {
+  .auth-campus-login .auth-hero h1,
+  .auth-campus-login .auth-intro,
+  .auth-campus-login .auth-capabilities {
+    display: none;
+  }
+  .auth-campus-login .auth-hero {
+    min-height: max(280px, calc(100svh - 110px));
+  }
+}

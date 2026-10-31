@@ -1,43 +1,64 @@
 import type { ReactNode } from 'react';
+import { ArrowUpRight, BookOpenCheck, Pause, Play, ScanLine, Sparkles } from 'lucide-react';
+import useAuthCampusScene from './useAuthCampusScene';
+import './auth-campus.css';
 
-type AuthPageProps = {
-  accountFormSlot?: ReactNode;
-  helpSlot?: ReactNode;
-};
+type AuthPageProps = { accountFormSlot?: ReactNode; helpSlot?: ReactNode };
 
 function HeroPanel() {
   return (
-    <section className="relative flex min-h-[520px] overflow-hidden bg-gradient-to-br from-[#071B5F] via-[#1C62D8] to-[#58D9F6] px-10 py-12 text-white">
-      <div className="absolute inset-0 opacity-40" aria-hidden="true">
-        <div className="absolute left-10 top-12 h-40 w-40 rounded-full bg-cyan-300 blur-3xl" />
-        <div className="absolute bottom-8 right-8 h-56 w-56 rounded-full bg-blue-200 blur-3xl" />
-        <div className="absolute bottom-0 left-1/4 h-1/2 w-1/2 rotate-12 border-t border-cyan-100/60" />
-        <div className="absolute bottom-0 left-1/3 h-2/3 w-2/3 -rotate-6 border-t border-blue-100/40" />
-      </div>
-      <div className="relative z-10 flex w-full flex-col items-center justify-start text-center">
-        <img src="/brand-mark.jpg" alt="" className="h-16 w-16 rounded-full object-cover ring-4 ring-white/30" />
-        <p className="mt-6 text-sm font-semibold tracking-[0.3em] text-cyan-100">
-          智慧学位 AI 评阅辅助系统 · 试点验证版 V0.9
-        </p>
-        <h1 className="mt-4 text-4xl font-black leading-tight tracking-wide md:text-5xl">统一身份认证</h1>
-        <p className="mt-5 max-w-md text-lg leading-8 text-blue-50">
-          面向学生、导师、学院管理人员和学校管理人员的账号登录入口。
-        </p>
+    <section className="auth-hero">
+      <p className="auth-eyebrow">
+        <span /> 学位论文智能评阅
+      </p>
+      <h1>
+        让研究专注创新，
+        <br />
+        <em>让论文规范呈现。</em>
+      </h1>
+      <p className="auth-intro">
+        从格式到表达，让每一份学术成果
+        <br className="hidden sm:block" />
+        都得到更细致的审阅。
+      </p>
+      <div className="auth-capabilities" aria-label="系统检测能力">
+        <span>
+          <BookOpenCheck size={17} />
+          格式排版
+        </span>
+        <span>
+          <ScanLine size={17} />
+          文字表述
+        </span>
+        <span>
+          <Sparkles size={17} />
+          语言规范
+        </span>
       </div>
     </section>
   );
 }
 
-function UnsupportedQrColumn() {
+function JaccountEntry() {
+  const error = new URLSearchParams(window.location.search).get('jaccount_error');
+  const errors: Record<string, string> = {
+    state: 'jAccount 登录已过期，请重新登录。',
+    provider: 'jAccount 登录暂未完成，请重试。',
+    denied: '已取消 jAccount 登录，可重新登录。',
+    unavailable: 'jAccount 登录暂不可用，请使用本地账号登录。',
+  };
   return (
-    <section className="flex w-56 flex-col items-center text-center" aria-label="扫码登录说明">
-      <h2 className="text-xl font-bold text-slate-800">其他登录方式</h2>
-      <div className="mt-6 flex h-44 w-44 items-center justify-center border border-dashed border-slate-300 bg-slate-50 text-sm font-semibold leading-6 text-slate-500">
-        微信扫码、交我办与短信验证码登录
-        <br />
-        试点版本暂未开放
-      </div>
-      <p className="mt-5 text-sm leading-6 text-slate-500">请使用右侧账号密码方式登录。</p>
+    <section aria-label="校内账号登录">
+      <a href="/api/auth/jaccount" className="jaccount-entry">
+        使用 jAccount 登录
+        <ArrowUpRight size={18} aria-hidden="true" />
+      </a>
+      <p className="campus-login-hint">交大师生可使用校内账号统一认证</p>
+      {error && typeof errors[error] === 'string' ? (
+        <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+          {errors[error]}
+        </p>
+      ) : null}
     </section>
   );
 }
@@ -45,59 +66,79 @@ function UnsupportedQrColumn() {
 function DefaultAccountSlot() {
   return (
     <div className="space-y-4" aria-label="账号登录表单">
-      <div className="flex h-14 items-center border border-[#D6D6D6] px-4 text-slate-400">
-        <span className="mr-3 text-lg" aria-hidden="true">
-          👤
-        </span>
-        <span>请输入账号</span>
-      </div>
-      <div className="flex h-14 items-center border border-[#D6D6D6] px-4 text-slate-400">
-        <span className="mr-3 text-lg" aria-hidden="true">
-          🔒
-        </span>
-        <span>请输入密码</span>
-      </div>
+      <div className="login-input text-slate-400">请输入账号</div>
+      <div className="login-input text-slate-400">请输入密码</div>
     </div>
   );
 }
 
-function AuthPage({ accountFormSlot, helpSlot }: AuthPageProps) {
+export default function AuthPage({ accountFormSlot, helpSlot }: AuthPageProps) {
+  const { imageRef, motionRef, enabled, preference, toggleMotion } = useAuthCampusScene();
+  const motionLabel = enabled ? '暂停背景动效' : '开启轻微视差';
   return (
-    <main className="min-h-screen bg-white text-[#333333]">
-      <section className="mx-auto flex w-full max-w-7xl flex-col gap-10 px-6 py-10 lg:flex-row lg:items-start lg:gap-14">
-        <div className="w-full lg:w-[43%]">
-          <HeroPanel />
+    <main className="auth-page auth-campus-login" data-motion={preference}>
+      <div className="auth-campus-scene" aria-hidden="true">
+        <div className="auth-photo-motion" ref={motionRef}>
+          <img ref={imageRef} src="/sjtu-siyuan-monument.jpg" alt="" width="2048" height="1397" fetchPriority="high" />
         </div>
-
-        <section className="flex flex-1 flex-col gap-10 pt-2 lg:flex-row lg:items-start" aria-label="身份认证区域">
-          <UnsupportedQrColumn />
-
-          <section className="w-full max-w-[370px]" aria-label="账号密码登录区域">
-            <h2 className="text-2xl font-black text-slate-900">登录本地账号</h2>
-            <div className="mt-6">{accountFormSlot ?? <DefaultAccountSlot />}</div>
-            <div className="mt-5 flex justify-between text-base font-semibold text-[#4A75E8]">
-              <a className="hover:underline focus:underline" href="#password">
-                忘记密码/用户名
-              </a>
-              <a className="hover:underline focus:underline" href="#roles">
-                试用账号说明
-              </a>
+      </div>
+      <div className="auth-container">
+        <header className="auth-brand">
+          <div className="auth-brand-lockup">
+            <img src="/brand-mark.jpg" alt="上海交通大学校徽" width="43" height="43" />
+            <div>
+              <p>
+                智慧学位 <span>AI 评阅辅助系统</span>
+              </p>
+              <span className="auth-brand-en">SMART DEGREE · AI REVIEW</span>
             </div>
-            <p
-              id="password"
-              className="mt-4 rounded border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600"
+          </div>
+          <div className="auth-header-actions">
+            <button
+              className="auth-motion-toggle"
+              type="button"
+              onClick={toggleMotion}
+              aria-label={motionLabel}
+              aria-pressed={enabled}
+              title={motionLabel}
             >
-              如忘记账号或密码，请联系系统管理员重置。试点阶段可直接使用下方试用账号登录体验。
-            </p>
-            <div className="mt-4 text-center text-sm text-slate-500 underline underline-offset-4">
-              短信验证码登录不属于本版本实现范围
+              {enabled ? <Pause size={13} aria-hidden="true" /> : <Play size={13} aria-hidden="true" />}
+              <span>{enabled ? '轻微视差' : '开启视差'}</span>
+            </button>
+            <span className="pilot-badge">
+              <span /> 试点验证版 V0.9
+            </span>
+          </div>
+        </header>
+        <div className="auth-layout">
+          <HeroPanel />
+          <section className="auth-card" aria-label="身份认证区域">
+            <div className="auth-card-heading">
+              <span className="auth-welcome">欢迎使用</span>
+              <h2>统一身份认证</h2>
+              <p>登录，开启论文智能审阅</p>
             </div>
-            {helpSlot ? <div className="mt-6">{helpSlot}</div> : null}
+            <JaccountEntry />
+            <section aria-label="账号密码登录区域">
+              <div className="auth-divider">
+                <h3>登录本地账号</h3>
+              </div>
+              {accountFormSlot ?? <DefaultAccountSlot />}
+              <details className="auth-help" id="password">
+                <summary>忘记密码/用户名</summary>
+                <p>如忘记账号或密码，请联系系统管理员重置。试点阶段可直接使用下方试用账号登录体验。</p>
+              </details>
+              {helpSlot ? <div className="auth-demo">{helpSlot}</div> : null}
+            </section>
+            <section className="system-description" aria-label="系统说明">
+              <h2>关于本系统</h2>
+              <p>
+                本系统依托人工智能技术，对照国家标准与学校规范，为学位论文提供格式排版、文字表述、语言规范等自动化检测，并给出修改建议。论文数据均在校内处理，保障信息安全。检测结果仅供参考，系统尚在测试中，欢迎通过“使用反馈”提出建议，我们将持续优化。
+              </p>
+            </section>
           </section>
-        </section>
-      </section>
+        </div>
+      </div>
     </main>
   );
 }
-
-export default AuthPage;
