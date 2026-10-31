@@ -12,6 +12,22 @@ function objects(value: unknown): Row[] {
   return Array.isArray(value) ? value.filter((r): r is Row => Boolean(r && typeof r === 'object')) : [];
 }
 
+function evidencePages(results: Row[]): number[] {
+  const pages = new Set<number>();
+  for (const row of results) {
+    for (const evidence of objects(row.evidence)) {
+      const page = Number(evidence.page);
+      if (Number.isInteger(page) && page > 0) pages.add(page);
+    }
+    for (const anchor of objects(row.abstract_anchors)) {
+      const location = anchor.location as Row | undefined;
+      const page = Number(location?.page_number);
+      if (Number.isInteger(page) && page > 0) pages.add(page);
+    }
+  }
+  return Array.from(pages).sort((a, b) => a - b);
+}
+
 export function NumericReviewDetails({ run, pdfUrl }: { run: PaperLintRuleRun; pdfUrl?: string }) {
   if (run.rule_id !== 'abstract_numeric_consistency_check') return null;
   const params = run.params || {};
@@ -20,7 +36,19 @@ export function NumericReviewDetails({ run, pdfUrl }: { run: PaperLintRuleRun; p
   const mappings = objects(params.mappings);
   const contributions = objects(params.contributions);
   const trace = params.trace as Row | undefined;
+  const pages = evidencePages(results);
   return <div className="mt-3 space-y-3 text-sm" data-testid="numeric-review-details">
+    {pages.length ? <div className="rounded-lg border border-sky-200 bg-sky-50 p-3" data-testid="numeric-evidence-navigation">
+      <p className="font-semibold text-slate-900">摘要数值证明</p>
+      <p className="mt-1 text-slate-600">跳到 PDF 第 {pages.join('、')} 页</p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {pages.map(page => pdfUrl ? (
+          <a className="inline-flex items-center rounded-md border border-sky-300 bg-white px-2.5 py-1.5 text-xs font-medium text-sky-800 hover:bg-sky-100" href={`${pdfUrl}#page=${page}`} target="_blank" rel="noreferrer" key={page}>
+            查看第 {page} 页
+          </a>
+        ) : <span className="text-xs text-slate-500" key={page}>第 {page} 页</span>)}
+      </div>
+    </div> : null}
     {conditions.length ? <div className="rounded border border-slate-200 p-3">
       <p className="font-semibold">三项前置条件</p>
       <ol className="mt-3 space-y-0">
@@ -51,10 +79,7 @@ export function NumericReviewDetails({ run, pdfUrl }: { run: PaperLintRuleRun; p
         <p>摘要声明：{String(declaration?.text || row.declaration_id || '')}</p>
         <p className="text-xs text-slate-600">所属贡献：{String(contribution?.text || declaration?.contribution_id || '')} · 研究章节：{String(mapping?.chapter_title || mapping?.chapter_id || '')} · 实验子章节：{Array.isArray(mapping?.experiment_titles) ? mapping.experiment_titles.join('、') : Array.isArray(mapping?.experiment_section_ids) ? mapping.experiment_section_ids.join('、') : ''}</p>
         {objects(row.abstract_anchors).map((a, index) => <p className="text-xs text-slate-600" key={index}>摘要位置：第 {String((a.location as Row)?.page_number || '')} 页</p>)}
-        {objects(row.evidence).map((e, index) => <div key={index}>
-          <p>正文证据：{String(e.quote || '')}</p>
-          {pdfUrl ? <a className="text-brand-700 underline" href={`${pdfUrl}#page=${Number(e.page)}`} target="_blank" rel="noreferrer">查看 PDF 第 {String(e.page)} 页</a> : <p>第 {String(e.page)} 页</p>}
-        </div>)}
+        {objects(row.evidence).map((e, index) => <p key={index}>正文证据：{String(e.quote || '')}</p>)}
         <p>判断依据：{String(row.reason || '')}</p>
         {row.suggestion ? <p>核对建议：{String(row.suggestion)}</p> : null}
       </div>;
