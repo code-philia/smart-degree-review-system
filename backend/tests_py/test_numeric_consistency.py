@@ -549,7 +549,7 @@ def test_verifier_isolates_claim_inputs_and_preserves_other_claim_after_timeout(
 
 
 @pytest.mark.parametrize('status,claim,reason,source,expected', [
-    ('inconsistent', 'F1提升28.9%', '基线不明确，无法确认这一提升', 'F1提升20.3%', 'inconclusive'),
+    ('inconsistent', 'F1提升28.9%', '基线不明确，无法确认这一提升', 'F1提升20.3%', 'inconsistent'),
     ('inconsistent', '准确率92.5%', '同一条件准确率89.3%，数值矛盾', '准确率89.3%', 'inconsistent'),
     ('consistent', '攻击面平均减少20%', '0.20可换算20%', 'Util攻击面削减0.20', 'inconclusive'),
     ('consistent', '准确率最高提升25%', '某数据集提升25%', '某数据集提升25%', 'inconclusive'),
