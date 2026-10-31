@@ -1,6 +1,16 @@
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import { expect, it } from 'vitest';
+import { pdfResourceOptions } from '../src/pdfRuntime';
+
+it('uses absolute same-origin resource URLs that also work from a Blob worker', () => {
+  const options = pdfResourceOptions('5.4.624');
+  for (const key of ['cMapUrl', 'standardFontDataUrl', 'wasmUrl'] as const) {
+    const resolved = new URL(options[key]);
+    expect(resolved.origin).toBe(location.origin);
+    expect(resolved.pathname).toMatch(/^\/pdfjs-resources\/5\.4\.624\//);
+  }
+});
 
 it('parses a real PDF without modern byte, Promise and URL built-ins', async () => {
   const features = [[Uint8Array.prototype, 'toHex'], [Uint8Array.prototype, 'toBase64'], [Promise, 'try'], [Promise, 'withResolvers'], [URL, 'parse']] as const;

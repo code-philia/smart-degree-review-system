@@ -19,6 +19,7 @@ export function loadPdfJs(): Promise<PdfJs> {
 }
 
 export function pdfResourceOptions(version: string) {
-  const base = `${import.meta.env.BASE_URL}pdfjs-resources/${version}/`;
+  // Blob workers have no HTTP base URL for resolving root-relative font fetches.
+  const base = new URL(`${import.meta.env.BASE_URL}pdfjs-resources/${version}/`, globalThis.location?.href || 'http://localhost/').href;
   return { cMapUrl: `${base}cmaps/`, cMapPacked: true, standardFontDataUrl: `${base}standard_fonts/`, wasmUrl: `${base}wasm/` };
 }

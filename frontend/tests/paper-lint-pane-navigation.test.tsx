@@ -81,9 +81,9 @@ describe('PDF pane navigation', () => {
         disableAutoFetch: true,
         disableStream: true,
         rangeChunkSize: 262144,
-        cMapUrl: '/pdfjs-resources/test/cmaps/',
-        standardFontDataUrl: '/pdfjs-resources/test/standard_fonts/',
-        wasmUrl: '/pdfjs-resources/test/wasm/',
+        cMapUrl: new URL('/pdfjs-resources/test/cmaps/', location.href).href,
+        standardFontDataUrl: new URL('/pdfjs-resources/test/standard_fonts/', location.href).href,
+        wasmUrl: new URL('/pdfjs-resources/test/wasm/', location.href).href,
         cMapPacked: true,
       }),
     );
@@ -94,9 +94,9 @@ describe('PDF pane navigation', () => {
       expect(getDocumentOptions).toHaveBeenCalledWith({
         data: expect.any(Uint8Array),
         disableAutoFetch: true,
-        cMapUrl: '/pdfjs-resources/test/cmaps/',
-        standardFontDataUrl: '/pdfjs-resources/test/standard_fonts/',
-        wasmUrl: '/pdfjs-resources/test/wasm/',
+        cMapUrl: new URL('/pdfjs-resources/test/cmaps/', location.href).href,
+        standardFontDataUrl: new URL('/pdfjs-resources/test/standard_fonts/', location.href).href,
+        wasmUrl: new URL('/pdfjs-resources/test/wasm/', location.href).href,
         cMapPacked: true,
       }),
     );
