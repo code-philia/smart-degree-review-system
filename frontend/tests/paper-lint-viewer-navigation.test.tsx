@@ -5,7 +5,7 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { PdfViewer, type PdfViewerHandle } from '../src/components/paperLint/PdfViewer';
 import type { PaperLintPdfAnnotation } from '../src/components/paperLint/geometry';
 
-const { scrollPageIntoView } = vi.hoisted(() => ({ scrollPageIntoView: vi.fn() }));
+const { scrollPageIntoView, readyScale } = vi.hoisted(() => ({ scrollPageIntoView: vi.fn(), readyScale: vi.fn() }));
 
 vi.mock('pdfjs-dist', () => ({}));
 vi.mock('pdfjs-dist/web/pdf_viewer.mjs', () => {
@@ -25,9 +25,10 @@ vi.mock('pdfjs-dist/web/pdf_viewer.mjs', () => {
   }
   class PDFViewer {
     currentScale = 1;
-    currentScaleValue = 'page-width';
+    private ready = false;
+    set currentScaleValue(value: string) { if (this.ready) readyScale(value); }
     constructor(private options: { eventBus: EventBus }) {}
-    setDocument() { setTimeout(() => this.options.eventBus.dispatch('pagesinit'), 0); }
+    setDocument() { setTimeout(() => { this.ready = true; this.options.eventBus.dispatch('pagesinit'); }, 0); }
     scrollPageIntoView(options: { pageNumber: number }) { scrollPageIntoView(options); }
     cleanup() {}
   }
@@ -41,6 +42,13 @@ const annotation: PaperLintPdfAnnotation = {
 };
 
 describe('PDF viewer startup navigation', () => {
+  it('fits the page after PDF.js has created the page views', async () => {
+    readyScale.mockClear();
+    render(<PdfViewer pdfDocument={{} as PDFDocumentProxy} scale="page-width"
+      annotationsByPage={new Map()} activeFindingKey={null} activeAnchorId={null}
+      density="focus" onFindingClick={vi.fn()} onAnchorClick={vi.fn()} />);
+    await waitFor(() => expect(readyScale).toHaveBeenCalledWith('page-width'));
+  });
   it('jumps to a pending issue when PDF.js announces that pages are ready', async () => {
     const ref = createRef<PdfViewerHandle>();
     render(<PdfViewer ref={ref} pdfDocument={{} as PDFDocumentProxy} scale="page-width"

@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Trash2 } from 'lucide-react';
 import { useAuthSession } from '../auth/AuthSessionProvider';
 import { deletePaperLintReport, deletePaperLintReports, fetchPaperLintReports, type PaperLintReportListItem } from '../api/paperLint';
 import { formatChinaDateTime } from '../utils/dateTime';
 import { THIRTY_RULE_IDS } from '../utils/paperLintRuleGroups';
+import { ReportHistoryTable } from '../components/paperLint/ReportHistoryTable';
 import {
   downloadNormativeReportJson,
   fetchNormativeDetectionHistory,
@@ -250,74 +250,15 @@ function NormativeReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
         />
       ) : null}
       {pdfReports.length > 0 ? (
-        <section className="mb-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
-            <div>
-              <h2 className="font-bold text-slate-900">PDF 论文检查报告</h2>
-              <p className="mt-1 text-sm text-slate-500">可继续查看原文定位、问题说明和修改建议。</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <label className="flex items-center gap-2 text-sm text-slate-600">
-                <input type="checkbox" aria-label="全选报告" disabled={deleting}
-                  checked={selectedReportIds.length === pdfReports.length}
-                  ref={element => { if (element) element.indeterminate = selectedReportIds.length > 0 && selectedReportIds.length < pdfReports.length; }}
-                  onChange={event => setSelectedReportIds(event.target.checked ? pdfReports.map(record => record.id) : [])} />
-                全选
-              </label>
-              <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700">{pdfReports.length} 份</span>
-              <Button size="sm" variant="danger" disabled={deleting || !selectedReportIds.length}
-                onClick={() => void handleDeleteReports(selectedReportIds, true)}>
-                <Trash2 className="size-4" />删除选中（{selectedReportIds.length}）
-              </Button>
-            </div>
-          </div>
-          <div className="divide-y divide-slate-100">
-            {pdfReports.map((record) => (
-              <div
-                key={record.id}
-                className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 hover:bg-brand-50/40"
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <input type="checkbox" aria-label={`选择报告：${record.source_filename}`} disabled={deleting}
-                    checked={selectedReportIds.includes(record.id)}
-                    onChange={event => setSelectedReportIds(current => event.target.checked ? [...current, record.id] : current.filter(id => id !== record.id))} />
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold text-slate-900">{record.source_filename}</p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      {formatChinaDateTime(record.created_at)} · {record.summary.ruleset_label || '当前规则版本'}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 text-sm">
-                  <span
-                    className={
-                      record.summary.finding_count
-                        ? 'font-bold text-danger-600'
-                        : record.summary.unsupported_rule_count || record.summary.error_rule_count
-                          ? 'font-semibold text-amber-700'
-                          : 'font-semibold text-success-600'
-                    }
-                  >
-                    {record.summary.finding_count
-                      ? `${record.summary.finding_count} 项待处理`
-                      : record.summary.error_rule_count
-                        ? '部分规则检测失败'
-                        : record.summary.unsupported_rule_count
-                          ? '部分规则无法判定'
-                          : '未发现问题'}
-                  </span>
-                  <LinkButton size="sm" to={`${historyPath}/pdf/${record.id}`}>
-                    继续处理
-                  </LinkButton>
-                  <Button size="sm" variant="ghost" className="text-danger-600" disabled={deleting}
-                    aria-label={`删除报告：${record.source_filename}`} onClick={() => void handleDeleteReports([record.id])}>
-                    <Trash2 className="size-4" />删除
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+        <ReportHistoryTable
+          key={historyPath}
+          reports={pdfReports}
+          historyPath={historyPath}
+          selectedReportIds={selectedReportIds}
+          onSelectionChange={setSelectedReportIds}
+          deleting={deleting}
+          onDelete={(ids, batch) => void handleDeleteReports(ids, batch)}
+        />
       ) : null}
       {history.length > 0 ? (
         <section>

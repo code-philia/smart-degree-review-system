@@ -272,6 +272,9 @@ export const PdfViewer = memo(
         pagesReadyRef.current = true;
         const viewer = stateRef.current?.viewer;
         if (!viewer) return;
+        // PDF.js can only resolve page-width after its page views exist.
+        if (typeof scaleRef.current === 'number') viewer.currentScale = scaleRef.current;
+        else viewer.currentScaleValue = scaleRef.current;
         const annotation = pendingRef.current;
         if (annotation) {
           viewer.scrollPageIntoView({ pageNumber: annotation.pageNumber });

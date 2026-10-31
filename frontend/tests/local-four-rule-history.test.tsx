@@ -128,7 +128,7 @@ describe('saved PDF report history', () => {
     expect(screen.queryByText('基础规则论文.pdf')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: '发起检测' })).toHaveAttribute('href', '/thirty-rules-check');
     expect(
-      screen.getAllByRole('link', { name: '继续处理' }).map((link) => link.getAttribute('href')),
+      screen.getAllByRole('link', { name: '查看详情' }).map((link) => link.getAttribute('href')),
     ).toEqual(
       expect.arrayContaining([
         '/thirty-rules-check/reports/pdf/local-24',

@@ -99,7 +99,10 @@ async function deletePaperLintReportsForUser(ids, userId) {
     return owned;
   });
   if (!rows) return null;
-  await Promise.all(rows.map(row => fs.promises.rm(row.source_pdf_path, { force: true })));
+  await Promise.all(rows.map(async row => {
+    await fs.promises.rm(row.source_pdf_path, { force: true });
+    await fs.promises.rm(`${row.source_pdf_path}.metrics.json`, { force: true }).catch(() => {});
+  }));
   return uniqueIds;
 }
 

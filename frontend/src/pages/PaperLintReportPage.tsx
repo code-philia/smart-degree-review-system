@@ -1,14 +1,14 @@
-import { FileCheck2, FileText } from 'lucide-react';
+import { FileText } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   fetchPaperLintReport,
+  fetchPaperLintDocumentMetrics,
   fetchReviewPilotPaperLintRules,
+  type PaperLintDocumentMetrics,
   type PaperLintRule,
-  type PaperLintRuleRun,
   type PaperLintRunResponse,
 } from '../api/paperLint';
-import { CompilerDiagnostics } from '../components/paperLint/CompilerEvidence';
 import { PaperLintWorkspace } from '../components/paperLint/Workspace';
 import { compilerPublicationLabel, compilerPublicationSummary, flattenPaperLintFindings } from '../components/paperLint/model';
 import { usePaperLintRepairSuggestions } from '../hooks/usePaperLintRepairSuggestions';
@@ -22,21 +22,8 @@ import {
   type FindingFeedback,
   type SuggestionFeedback,
 } from '../api/feedback';
-import { Card, ErrorState, LoadingState, PageHeader, StatusBadge } from '../components/ui';
-
-const outcomeLabels = { passed: '通过', issues_found: '发现问题', inconclusive: '无法判定', not_applicable: '不适用' };
-const outcomeTones = {
-  passed: 'success',
-  issues_found: 'warning',
-  inconclusive: 'neutral',
-  not_applicable: 'neutral',
-} as const;
-
-function executionStatusLabel(status: PaperLintRuleRun['execution_status']) {
-  if (status === 'unsupported') return '无法判定';
-  if (status === 'error') return '执行失败';
-  return null;
-}
+import { Card, ErrorState, LoadingState, StatusBadge } from '../components/ui';
+import { formatChinaDateTime } from '../utils/dateTime';
 
 function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) {
   const isThirty = mode === 'thirty';
@@ -45,17 +32,29 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
   const [report, setReport] = useState<PaperLintRunResponse | null>(null);
   const [rules, setRules] = useState<PaperLintRule[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [metrics, setMetrics] = useState<PaperLintDocumentMetrics | null>(null);
+  const [metricsLoading, setMetricsLoading] = useState(true);
 
   useEffect(() => {
     if (!reportId) return;
     let cancelled = false;
     setReport(null);
     setError(null);
+    setMetrics(null);
+    setMetricsLoading(true);
     void fetchPaperLintReport(reportId)
       .then((nextReport) => {
         if (!cancelled) setReport(nextReport);
       })
       .catch((loadError) => !cancelled && setError(loadError instanceof Error ? loadError.message : '报告加载失败'));
+    void fetchPaperLintDocumentMetrics(reportId)
+      .then((nextMetrics) => {
+        if (!cancelled) setMetrics(nextMetrics);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setMetricsLoading(false);
+      });
     void fetchReviewPilotPaperLintRules()
       .then((catalog) => {
         if (!cancelled) setRules(catalog.rules);
@@ -137,70 +136,61 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
   if (error) return <ErrorState title="报告暂不可用" message={error} />;
   if (!report) return <LoadingState label="正在加载检测报告和原文定位…" />;
   const { summary } = report.result;
-  const completedRuleCount = summary.completed_rule_count ?? Math.max(
-    0,
-    summary.rule_count - summary.unsupported_rule_count - summary.error_rule_count,
-  );
+  const inconclusiveRuns = report.result.rule_runs.filter((run) =>
+    run.outcome === 'inconclusive' && compilerPublicationLabel(run) !== '未触发告警');
+  const hasInconclusiveRules = summary.unsupported_rule_count > 0 || inconclusiveRuns.length > 0;
+  const unavailableReasons = [...new Set(report.result.rule_runs
+    .filter((run) => run.execution_status === 'unsupported' || run.execution_status === 'error' || inconclusiveRuns.includes(run))
+    .map((run) => run.message).filter(Boolean))];
+  const metricsPlaceholder = metricsLoading ? '统计中…' : '未统计';
   const pdfUrl = `/api/normative/paper-lint/reports/${encodeURIComponent(reportId!)}/pdf`;
   return (
-    <div className="space-y-6">
-      <PageHeader
-        eyebrow={summary.error_rule_count ? '部分检测执行失败' : '已完成检测'}
-        title={
-          report.result.paper_title === '上传论文'
-            ? report.source_filename
-            : report.result.paper_title || report.source_filename
-        }
-        description={`检测于 ${new Date(report.created_at).toLocaleString('zh-CN')} 完成。请优先处理严重和警告问题。`}
-        breadcrumbs={[
-          { label: '首页', to: '/' },
-          {
-            label: isThirty ? 'PDF 规则检测' : '基础规则检测',
-            to: isThirty ? '/thirty-rules-check' : '/normative-check',
-          },
-          { label: '历史报告', to: historyPath },
-          { label: '检测报告' },
-        ]}
-        actions={
-          <Link className="text-sm font-semibold text-brand-700 hover:underline" to={historyPath}>
-            返回历史报告
-          </Link>
-        }
-      />
-      <Card
-        title="检测结论"
-        description="以下结论用于修改前自查，不替代导师或学院的正式审核。"
-        actions={
+    <div className="mx-auto w-full max-w-[1600px] space-y-5">
+      <Card aria-labelledby="report-conclusion-title">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-4">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold text-brand-700">规范性检测</p>
+            <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <h1 className="break-all text-lg font-bold text-slate-900 sm:text-xl">{report.source_filename}</h1>
+              <time dateTime={report.created_at} className="whitespace-nowrap text-xs text-slate-500">
+                {formatChinaDateTime(report.created_at, { includeSeconds: true })}
+              </time>
+            </div>
+          </div>
+          <Link className="text-sm font-semibold text-brand-700 hover:underline" to={historyPath}>返回历史报告</Link>
+        </div>
+        <div className="my-4 flex flex-wrap items-center justify-between gap-2">
+          <h2 id="report-conclusion-title" className="font-bold text-slate-900">检测结论</h2>
           <StatusBadge
             tone={
               summary.error_finding_count
                 ? 'danger'
                 : summary.warning_finding_count
                   ? 'warning'
-                  : summary.unsupported_rule_count + summary.error_rule_count
+                  : hasInconclusiveRules || summary.error_rule_count
                     ? 'neutral'
                     : 'success'
             }
           >
-            {compilerPublicationSummary(report.result) || (summary.finding_count
+            {summary.finding_count
               ? `待处理 ${summary.finding_count} 项`
                 : summary.error_rule_count
                   ? '部分规则执行失败'
-                  : summary.unsupported_rule_count
+                  : hasInconclusiveRules
                     ? '部分规则无法判定'
-                : isThirty
+                : compilerPublicationSummary(report.result) || (isThirty
                   ? '规则检查通过'
                   : '基础检查通过')}
           </StatusBadge>
-        }
-      >
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        </div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
           {[
-            ['选择规则', report.selected_rule_ids.length],
-            ['已完成', completedRuleCount],
-            ['无法判定', summary.unsupported_rule_count],
-            ['执行失败', summary.error_rule_count],
-            ['问题总数', summary.finding_count],
+            ['论文总页数', metrics?.page_count?.toLocaleString('en-US') ?? metricsPlaceholder],
+            ['论文总字数', metrics?.text_available && metrics.word_count != null ? metrics.word_count.toLocaleString('en-US') : metricsPlaceholder],
+            ['错误总数', summary.finding_count],
+            ['严重错误数', summary.error_finding_count],
+            ['警告错误数', summary.warning_finding_count],
+            ['提示错误数', summary.info_finding_count],
           ].map(([label, value]) => (
             <div key={String(label)} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
               <p className="text-xs text-slate-500">{label}</p>
@@ -208,38 +198,14 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
             </div>
           ))}
         </div>
-        <p className="mt-4 flex items-center gap-2 text-sm text-slate-600">
-          <FileCheck2 className="size-4 text-brand-600" />
-          规则版本：{report.summary.ruleset_label || '当前发布版本'} · 原文可定位问题{' '}
-          {findings.filter((item) => item.finding.location || item.finding.anchors?.length).length} 项
-        </p>
-      </Card>
-      <Card title="各规则执行状态">
-        <div className="grid gap-2 md:grid-cols-2">
-          {report.result.rule_runs.map((run) => (
-            <div
-              key={run.rule_run_id}
-              className="flex items-start justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2"
-            >
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-slate-800">
-                  {rules.find((rule) => rule.rule_id === run.rule_id)?.title || run.rule_id}
-                </p>
-                {run.message ? <p className="mt-1 text-xs text-slate-600">{run.message}</p> : null}
-                <CompilerDiagnostics items={run.compiler_diagnostics} />
-              </div>
-              <StatusBadge tone={run.execution_status === 'error' ? 'danger' : outcomeTones[run.outcome]}>
-                {compilerPublicationLabel(run) || executionStatusLabel(run.execution_status) || outcomeLabels[run.outcome]}
-              </StatusBadge>
-            </div>
-          ))}
-        </div>
+        {unavailableReasons.length > 0 ? <p className="mt-3 text-sm text-slate-600">{unavailableReasons.join('；')}</p> : null}
       </Card>
       <div className="flex items-center gap-2">
         <FileText className="size-5 text-brand-600" />
         <h2 className="text-lg font-black text-slate-900">逐项处理问题</h2>
       </div>
-      <PaperLintWorkspace
+      <div className="mx-auto w-full max-w-7xl">
+        <PaperLintWorkspace
         file={{ name: report.source_filename, url: pdfUrl }}
         openPdfUrl={pdfUrl}
         findings={findings}
@@ -260,7 +226,8 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
         onSuggestionFeedback={updateSuggestionFeedback}
         onSuggestionFeedbackReason={updateSuggestionReason}
         onSuggestionFeedbackCancel={cancelSuggestionFeedback}
-      />
+        />
+      </div>
     </div>
   );
 }

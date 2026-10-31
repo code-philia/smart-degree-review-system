@@ -3,6 +3,7 @@ const { requireAuth } = require('../auth/authMiddleware');
 const defaultService = require('./reviewPilotPaperLintService');
 const defaultExampleService = require('./paperLintExampleService');
 const paperLintReportRepository = require('./paperLintReportRepository');
+const paperLintDocumentMetrics = require('./paperLintDocumentMetrics');
 const { sendPrivatePdf } = require('./privatePdfResponse');
 const defaultJobService = require('./paperLintJobService');
 const defaultCompilerService = require('./paperCompilerService');
@@ -110,6 +111,18 @@ function createReviewPilotPaperLintRouter(service = defaultService, exampleServi
       if (!deleted) return res.status(404).json({ code: 404, message: '未找到该审查报告' });
       return res.json({ deleted_ids: [req.params.reportId] });
     } catch (error) { return sendError(error, res, next); }
+  });
+
+  router.get('/reports/:reportId/document-metrics', requireAuth({ allowedRoles }), async (req, res, next) => {
+    try {
+      const pdf = await paperLintReportRepository.getPaperLintReportPdfFile(req.params.reportId, req.user.id);
+      if (!pdf) return res.status(404).json({ code: 404, message: '未找到该审查报告' });
+      if (!pdf.path) return res.status(410).json({ code: 410, message: '该报告的原始 PDF 已不可用' });
+      res.set('Cache-Control', 'private, no-store');
+      return res.json(await paperLintDocumentMetrics.getPaperLintDocumentMetrics(pdf.path));
+    } catch (error) {
+      return sendError(error, res, next);
+    }
   });
 
   router.get('/reports/:reportId/pdf', requireAuth({ allowedRoles }), async (req, res, next) => {
