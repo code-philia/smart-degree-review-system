@@ -16,6 +16,7 @@ type Props = {
   activeFindingKey: string | null;
   activeAnchorId: string | null;
   navigationRequest?: number;
+  requestedPage?: number | null;
   onFindingClick: (key: string) => void;
   onAnchorClick: (key: string, anchorId: string) => void;
   onTextSelection?: (selection: {
@@ -48,6 +49,7 @@ export function PdfPane({
   activeFindingKey,
   activeAnchorId,
   navigationRequest = 0,
+  requestedPage = null,
   onFindingClick,
   onAnchorClick,
   onTextSelection,
@@ -111,12 +113,13 @@ export function PdfPane({
       : fullPdfUrl;
 
   useEffect(() => {
-    if (!activeFindingKey) return;
+    if (!activeFindingKey && !requestedPage) return;
     window.requestAnimationFrame(() => {
-      if (target.type === 'bbox') viewerRef.current?.scrollToAnnotation(target.annotation);
+      if (requestedPage) viewerRef.current?.scrollToPage(requestedPage);
+      else if (target.type === 'bbox') viewerRef.current?.scrollToAnnotation(target.annotation);
       else if (target.type === 'page') viewerRef.current?.scrollToPage(target.pageNumber);
     });
-  }, [activeFindingKey, activeAnchorId, target, document, navigationRequest]);
+  }, [activeFindingKey, activeAnchorId, target, document, navigationRequest, requestedPage]);
 
   const currentScale = useCallback(
     () => (typeof scale === 'number' ? scale : viewerRef.current?.currentScale() || 1),

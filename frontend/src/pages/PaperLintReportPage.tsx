@@ -10,7 +10,6 @@ import {
 } from '../api/paperLint';
 import { CompilerDiagnostics } from '../components/paperLint/CompilerEvidence';
 import { PaperLintWorkspace } from '../components/paperLint/Workspace';
-import { NumericReviewDetails } from '../components/paperLint/NumericReviewDetails';
 import { compilerPublicationLabel, compilerPublicationSummary, flattenPaperLintFindings } from '../components/paperLint/model';
 import { usePaperLintRepairSuggestions } from '../hooks/usePaperLintRepairSuggestions';
 import {
@@ -184,7 +183,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
       />
       <Card
         title={isSemanticReport ? '语义审查概览' : '检测结论'}
-        description={isSemanticReport ? '围绕摘要数值声明展示核验结果；不一致与无法确定分别统计。' : '以下结论用于修改前自查，不替代导师或学院的正式审核。'}
+        description={isSemanticReport ? '围绕摘要数值型论点展示核验结果；不一致与无法确定分别统计。' : '以下结论用于修改前自查，不替代导师或学院的正式审核。'}
         actions={
           <StatusBadge
             tone={
@@ -200,7 +199,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
             {isSemanticReport
               ? numericSummary.inconsistent ? `待关注 ${numericSummary.inconsistent + numericSummary.inconclusive} 项`
                 : numericSummary.inconclusive ? `无法确定 ${numericSummary.inconclusive} 项`
-                  : '全部声明一致'
+                  : '全部论点一致'
               : compilerPublicationSummary(report.result) || (summary.finding_count
               ? `待处理 ${summary.finding_count} 项`
                 : summary.error_rule_count
@@ -215,7 +214,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
       >
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           {(isSemanticReport ? [
-            ['核验声明', numericSummary.total],
+            ['核验论点', numericSummary.total],
             ['一致', numericSummary.consistent],
             ['不一致', numericSummary.inconsistent],
             ['无法确定', numericSummary.inconclusive],
@@ -250,7 +249,6 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
                   {rules.find((rule) => rule.rule_id === run.rule_id)?.title || run.rule_id}
                 </p>
                 {run.message ? <p className="mt-1 text-xs text-slate-600">{run.message}</p> : null}
-                <NumericReviewDetails run={run} pdfUrl={pdfUrl} />
                 <CompilerDiagnostics items={run.compiler_diagnostics} />
               </div>
               <StatusBadge tone={run.execution_status === 'error' ? 'danger' : outcomeTones[run.outcome]}>
@@ -267,6 +265,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
       <PaperLintWorkspace
         file={{ name: report.source_filename, url: pdfUrl }}
         layout={isSemanticReport ? 'semantic' : 'default'}
+        numericReviewRun={isSemanticReport ? report.result.rule_runs.find((run) => run.rule_id === 'abstract_numeric_consistency_check') : undefined}
         openPdfUrl={pdfUrl}
         findings={findings}
         rules={rules}

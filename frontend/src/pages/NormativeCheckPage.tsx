@@ -14,7 +14,6 @@ import {
   type PaperLintRule,
 } from '../api/paperLint';
 import { PaperLintWorkspace } from '../components/paperLint/Workspace';
-import { NumericReviewDetails } from '../components/paperLint/NumericReviewDetails';
 import { compilerPublicationLabel, compilerPublicationSummary, flattenPaperLintFindings } from '../components/paperLint/model';
 import { usePaperLintRepairSuggestions } from '../hooks/usePaperLintRepairSuggestions';
 import {
@@ -571,7 +570,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
           </div>
         </section>
       ) : (
-          <PageHeader title={title} description={isSemantic ? '上传论文后，自动检查摘要数值声明与正文实验结果的一致性。' : '上传 PDF 论文并选择检查项，生成可定位问题的检查报告。'} />
+          <PageHeader title={title} description={isSemantic ? '上传论文后，自动检查摘要数值型论点与正文实验结果的一致性。' : '上传 PDF 论文并选择检查项，生成可定位问题的检查报告。'} />
       )}
       <ModuleTabs
         ariaLabel={`${title}功能导航`}
@@ -585,15 +584,15 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
           <div className="max-w-3xl">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-600">论文语义审查</p>
-            <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">摘要数值声明与实验结果核验</h1>
+            <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">摘要数值型论点与实验结果核验</h1>
             <p className="mt-3 text-sm leading-7 text-slate-600 sm:text-base">
-              系统从摘要中定位数值型研究声明，并与正文中的研究章节和实验结果进行核对。上传论文后自动完成结构检查，无需手动填写章节映射。
+              系统从摘要中定位数值型研究论点，并与正文中的研究章节和实验结果进行核对。上传论文后自动完成结构检查，无需手动填写章节映射。
             </p>
           </div>
           <ol className="mt-6 grid gap-3 border-t border-slate-100 pt-5 md:grid-cols-3">
             {[
-              ['01', '摘要数值声明', '摘要中存在可核验的指标、数值和条件。'],
-              ['02', '研究贡献映射', '每项声明都能对应到正文研究章节。'],
+              ['01', '摘要数值型论点', '摘要中存在可核验的指标、数值和条件。'],
+              ['02', '研究贡献映射', '每项论点都能对应到正文研究章节。'],
               ['03', '实验依据', '对应章节下存在可追溯的实验或评估小节。'],
             ].map(([number, label, description]) => (
               <li key={number} className="flex gap-3 rounded-xl bg-slate-50 px-3 py-3">
@@ -677,7 +676,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
               title={isSemantic ? '检查设置' : '2. 选择审查规则'}
             description={
                 isSemantic
-                  ? '当前默认检查摘要数值声明与正文实验结果的一致性。'
+                  ? '当前默认检查摘要数值型论点与正文实验结果的一致性。'
                   : isThirty
                 ? '请选择本次需要执行的规则。规则不可用时会显示原因并禁止提交。'
                 : '基础检查默认启用；需要额外文本分析的检查项可按需选择。'
@@ -709,8 +708,8 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
                   <div className="flex items-start gap-3">
                     <span className="mt-0.5 flex size-5 items-center justify-center rounded-full bg-brand-600 text-[10px] font-bold text-white">✓</span>
                     <div className="min-w-0">
-                      <p className="text-sm font-bold text-slate-900">{visibleRules[0]?.title || '摘要数值声明与实验结果一致性'}</p>
-                      <p className="mt-1 text-xs leading-5 text-slate-600">{visibleRules[0]?.description || '检查摘要中的数值声明是否能在正文实验结果中得到支持。'}</p>
+                      <p className="text-sm font-bold text-slate-900">{visibleRules[0]?.title || '摘要数值型论点与实验结果一致性'}</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-600">{visibleRules[0]?.description || '检查摘要中的数值型论点是否能在正文实验结果中得到支持。'}</p>
                     </div>
                   </div>
                   {visibleRules.length > 1 ? <details className="mt-3 border-t border-brand-100 pt-3"><summary className="cursor-pointer text-xs font-medium text-brand-700">查看其他语义规则</summary><div className="mt-2 space-y-2">{visibleRules.slice(1).map((rule) => <label key={rule.rule_id} className="flex items-start gap-2 text-xs text-slate-700"><input className="mt-0.5 accent-brand-500" type="checkbox" checked={selectedRuleIds.includes(rule.rule_id)} disabled={running || !rule.available} onChange={() => toggleRule(rule.rule_id)} /><span>{rule.title}</span></label>)}</div></details> : null}
@@ -833,7 +832,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
             </div>;
           })() : <div className="flex items-center gap-4 py-5">
             <span className="flex size-11 items-center justify-center rounded-full bg-brand-100 text-brand-600"><LoaderCircle className="size-5 animate-spin" /></span>
-            <div><p className="font-bold text-slate-900">{uploadPercent !== null && uploadPercent < 100 ? `正在上传 PDF（${uploadPercent}%）` : jobProgress && jobProgress.total ? `正在检查规则（已完成 ${jobProgress.completed}/${jobProgress.total}）` : '正在进行本地检查'}</p><p className="mt-1 text-sm text-slate-500">{uploadPercent !== null && uploadPercent < 100 ? '正在传输论文文件，上传完成后立即开始检测。' : selectedRuleIds.includes('abstract_numeric_consistency_check') ? '先检查摘要数值声明、研究章节映射和实验子章节；三项前置条件全部通过后才进行数值一致性核验。' : selectedRuleIds.includes('typo_detection_check') ? '已完成的规则会先展示；正文错别字检测按段落处理，耗时可能较长，可随时停止。' : '已完成的规则会先展示，可随时停止检查。'}</p></div>
+            <div><p className="font-bold text-slate-900">{uploadPercent !== null && uploadPercent < 100 ? `正在上传 PDF（${uploadPercent}%）` : jobProgress && jobProgress.total ? `正在检查规则（已完成 ${jobProgress.completed}/${jobProgress.total}）` : '正在进行本地检查'}</p><p className="mt-1 text-sm text-slate-500">{uploadPercent !== null && uploadPercent < 100 ? '正在传输论文文件，上传完成后立即开始检测。' : selectedRuleIds.includes('abstract_numeric_consistency_check') ? '先检查摘要数值型论点、研究章节映射和实验子章节；三项前置条件全部通过后才进行数值一致性核验。' : selectedRuleIds.includes('typo_detection_check') ? '已完成的规则会先展示；正文错别字检测按段落处理，耗时可能较长，可随时停止。' : '已完成的规则会先展示，可随时停止检查。'}</p></div>
           </div>}
         </Card>
       ) : null}
@@ -853,7 +852,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
                       : 'success'
                 }
               >
-                {compilerPublicationSummary(response.result) || (response.result.rule_runs.some(run => run.rule_id === 'abstract_numeric_consistency_check' && run.outcome === 'inconclusive') ? '数值声明尚无法全部确定' : response.result.summary.finding_count
+                {compilerPublicationSummary(response.result) || (response.result.rule_runs.some(run => run.rule_id === 'abstract_numeric_consistency_check' && run.outcome === 'inconclusive') ? '数值型论点尚无法全部确定' : response.result.summary.finding_count
                   ? `发现 ${response.result.summary.finding_count} 项问题`
                   : response.result.summary.unsupported_rule_count + response.result.summary.error_rule_count
                     ? '部分规则无法判定'
@@ -901,7 +900,6 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
             </details>
           </Card>
 
-          {response.result.rule_runs.filter(run => run.rule_id === 'abstract_numeric_consistency_check').map(run => <Card key={run.rule_run_id} title="摘要数值声明核验详情"><NumericReviewDetails run={run} pdfUrl={`/api/normative/paper-lint/reports/${encodeURIComponent(response.id)}/pdf`} /></Card>)}
 
           <div className="flex items-center gap-2">
             <FileCheck2 className="size-5 text-brand-600" />
@@ -910,6 +908,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
           <PaperLintWorkspace
             file={resultFile}
             layout={isSemantic ? 'semantic' : 'default'}
+            numericReviewRun={isSemantic ? response.result.rule_runs.find((run) => run.rule_id === 'abstract_numeric_consistency_check') : undefined}
             openPdfUrl={`/api/normative/paper-lint/reports/${encodeURIComponent(response.id)}/pdf`}
             findings={findings}
             rules={visibleRules}

@@ -1,8 +1,9 @@
 import { useCallback, useState } from 'react';
-import type { PaperLintRule } from '../../api/paperLint';
+import type { PaperLintRule, PaperLintRuleRun } from '../../api/paperLint';
 import type { RepairSuggestion } from '../../api/repairSuggestions';
 import type { FindingFeedback, SuggestionFeedback } from '../../api/feedback';
 import { FindingsPane } from './FindingsPane';
+import { NumericReviewDetails } from './NumericReviewDetails';
 import type { PaperLintFindingItem } from './model';
 import { PdfPane } from './PdfPane';
 
@@ -12,6 +13,7 @@ type Props = {
   findings: PaperLintFindingItem[];
   rules: PaperLintRule[];
   openPdfUrl?: string;
+  numericReviewRun?: PaperLintRuleRun;
   repairSuggestionByFindingKey?: Record<string, RepairSuggestion | undefined>;
   repairSuggestionLoadingKey?: string | null;
   repairSuggestionLoadingByFindingKey?: Record<string, boolean>;
@@ -36,6 +38,7 @@ export function PaperLintWorkspace({
   findings,
   rules,
   openPdfUrl,
+  numericReviewRun,
   repairSuggestionByFindingKey = {},
   repairSuggestionLoadingKey = null,
   repairSuggestionLoadingByFindingKey = {},
@@ -59,11 +62,20 @@ export function PaperLintWorkspace({
   const selectFinding = useCallback((key: string) => {
     setActiveFindingKey(key);
     setActiveAnchorId(null);
+    setRequestedPage(null);
     setNavigationRequest((current) => current + 1);
+  }, [])
+  const selectPage = useCallback((page: number) => {
+    setActiveFindingKey(null);
+    setActiveAnchorId(null);
+    setNavigationRequest((current) => current + 1);
+    setRequestedPage(page);
   }, []);
+  const [requestedPage, setRequestedPage] = useState<number | null>(null);
   const selectAnchor = useCallback((key: string, anchorId: string) => {
     setActiveFindingKey(key);
     setActiveAnchorId(anchorId);
+    setRequestedPage(null);
     setNavigationRequest((current) => current + 1);
   }, []);
 
@@ -76,10 +88,20 @@ export function PaperLintWorkspace({
         activeFindingKey={activeFindingKey}
         activeAnchorId={activeAnchorId}
         navigationRequest={navigationRequest}
+        requestedPage={requestedPage}
         onFindingClick={selectFinding}
         onAnchorClick={selectAnchor}
       />
-      <FindingsPane
+      {layout === 'semantic' && numericReviewRun ? (
+        <section className="min-h-0 overflow-y-auto rounded-xl border border-slate-200 bg-white p-4">
+          <NumericReviewDetails
+            run={numericReviewRun}
+            findings={findings}
+            onAnchorClick={selectAnchor}
+            onPageClick={selectPage}
+          />
+        </section>
+      ) : <FindingsPane
         findings={findings}
         rules={rules}
         activeFindingKey={activeFindingKey}
@@ -102,7 +124,7 @@ export function PaperLintWorkspace({
         onSuggestionFeedback={onSuggestionFeedback}
         onSuggestionFeedbackReason={onSuggestionFeedbackReason}
         onSuggestionFeedbackCancel={onSuggestionFeedbackCancel}
-      />
+      />}
     </div>
   );
 }
