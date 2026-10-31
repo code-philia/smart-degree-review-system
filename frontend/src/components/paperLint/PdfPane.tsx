@@ -164,7 +164,7 @@ export function PdfPane({
           </Button>
           {fullPdfUrl ? (
             <a
-              href={browserPdfUrl}
+              href={browserPdfUrl || undefined}
               target="_blank"
               rel="noopener noreferrer"
               className={buttonClassName('ghost', 'sm', 'px-2')}
