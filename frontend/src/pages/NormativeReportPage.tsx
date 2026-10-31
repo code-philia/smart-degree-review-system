@@ -4,6 +4,7 @@ import { useAuthSession } from '../auth/AuthSessionProvider';
 import { deletePaperLintReport, deletePaperLintReports, fetchPaperLintReports, type PaperLintReportListItem } from '../api/paperLint';
 import { formatChinaDateTime } from '../utils/dateTime';
 import { THIRTY_RULE_IDS } from '../utils/paperLintRuleGroups';
+import { DetectionPageHeader } from '../components/paperLint/DetectionPageHeader';
 import { ReportHistoryTable } from '../components/paperLint/ReportHistoryTable';
 import {
   downloadNormativeReportJson,
@@ -80,7 +81,7 @@ function NormativeReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
               : savedPdfReports,
           );
           setReport(null);
-        } else {
+        } else if (!Array.isArray(response)) {
           setReport(response);
           setHistory([]);
         }
@@ -227,7 +228,8 @@ function NormativeReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
   }
 
   return (
-    <div>
+    <div className={isThirty ? 'mx-auto w-full max-w-5xl space-y-5' : undefined}>
+      {isThirty ? <DetectionPageHeader title="历史报告" description="查找已保存的检测报告，查看问题定位与修改建议。" /> : <>
       <PageHeader
         title={isThirty ? '历史报告' : '基础规则检测'}
         description={isThirty ? '查看已保存的 PDF 规则检测报告。' : '查看本人已保存的基础规则检测记录和报告。'}
@@ -239,6 +241,7 @@ function NormativeReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
           { label: '历史报告', to: historyPath, active: true, count: history.length + pdfReports.length },
         ]}
       />
+      </>}
       {loading ? <LoadingState label="正在加载历史记录…" /> : null}
       {errorMessage ? <ErrorState message={errorMessage} /> : null}
       {!loading && !errorMessage && history.length === 0 && pdfReports.length === 0 ? (

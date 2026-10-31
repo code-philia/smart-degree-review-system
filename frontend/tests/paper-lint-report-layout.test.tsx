@@ -36,6 +36,15 @@ function show() {
     <Route path="/thirty-rules-check/reports/pdf/:reportId" element={<PaperLintReportPage mode="thirty" />} />
   </Routes></MemoryRouter>);
 }
+it('places a clear back action before the report title and keeps export separate', async () => {
+  show();
+  const title = await screen.findByRole('heading', { name: '实际上传文件.pdf' });
+  const back = screen.getByRole('link', { name: '返回历史报告' });
+  expect(back).toHaveAttribute('href', '/thirty-rules-check/reports');
+  expect(back.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(back.closest('section')).toBeNull();
+  expect(screen.getByRole('button', { name: '下载检测报告' })).toBeInTheDocument();
+});
 it('puts the six real report totals beside a compact filename and completion time', async () => {
   show();
   expect(await screen.findByRole('heading', { name: '实际上传文件.pdf' })).toBeInTheDocument();

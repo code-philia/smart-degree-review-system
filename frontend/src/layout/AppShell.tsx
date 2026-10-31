@@ -101,7 +101,7 @@ function NavigationGroup({
                       asChild
                       isActive={isActive}
                       tooltip={item.label}
-                      className="h-9 font-medium data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground"
+                      className="h-11 gap-3 px-3 font-medium data-[active=true]:bg-sidebar-accent data-[active=true]:font-semibold data-[active=true]:text-sidebar-accent-foreground [&>svg]:size-5"
                     >
                       <Link to={item.to} aria-current={isActive ? 'page' : undefined} onClick={() => setOpenMobile(false)}>
                         <Icon aria-hidden="true" />
@@ -253,7 +253,7 @@ function AppShell() {
       className="academic-shell"
       style={
         {
-          '--sidebar-width': '15.25rem',
+          '--sidebar-width': '16rem',
           '--sidebar-width-icon': '3.25rem',
         } as CSSProperties
       }
@@ -266,11 +266,11 @@ function AppShell() {
                 <img
                   src="/brand-mark.jpg"
                   alt=""
-                  className="size-7 rounded-full object-cover ring-1 ring-sidebar-border"
+                  className="size-8 rounded-full object-cover ring-1 ring-sidebar-border"
                 />
                 <span className="min-w-0 leading-tight">
-                  <span className="block whitespace-normal text-xs font-semibold leading-5">{PRODUCT_NAME}</span>
-                  <span className="block text-[10px] font-normal text-sidebar-foreground/60">{PRODUCT_TAGLINE}</span>
+                  <span className="block whitespace-normal text-[13px] font-semibold leading-5 text-slate-800">{PRODUCT_NAME}</span>
+                  <span className="mt-0.5 block text-xs font-normal text-slate-600">{PRODUCT_TAGLINE}</span>
                 </span>
               </SidebarMenuButton>
             </SidebarMenuItem>

@@ -94,7 +94,7 @@
   --chart-4: #b45309;
   --chart-5: #16a34a;
   --sidebar: #ffffff;
-  --sidebar-foreground: #516079;
+  --sidebar-foreground: #334155;
   --sidebar-primary: #3564d9;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #edf2ff;
@@ -602,20 +602,24 @@
 .academic-shell [data-slot='sidebar-inner'] {
   border-right: 1px solid #e6ebf3;
 }
-.academic-shell [data-slot='sidebar-menu-button'] {
-  border-radius: 8px;
-  font-size: 12px;
+.academic-shell [data-slot='sidebar-menu-button'],
+[data-mobile='true'] [data-slot='sidebar-menu-button'] {
+  border-radius: 10px;
+  font-size: 15px;
+  line-height: 1.5;
   transition:
     background-color 0.18s,
     color 0.18s;
 }
-.academic-shell [data-slot='sidebar-group-label'] {
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  color: #93a0b3;
+.academic-shell [data-slot='sidebar-group-label'],
+[data-mobile='true'] [data-slot='sidebar-group-label'] {
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: #52627a;
 }
-.academic-shell [data-slot='sidebar-menu-button'][data-active='true'] {
-  box-shadow: inset 2px 0 0 #6284dd;
+.academic-shell [data-slot='sidebar-menu-button'][data-active='true'],
+[data-mobile='true'] [data-slot='sidebar-menu-button'][data-active='true'] {
+  box-shadow: inset 3px 0 0 #3561cc;
 }
 .academic-shell .app-topbar {
   background: #ffffffdb;
@@ -843,10 +847,12 @@
   }
 }
 
-.academic-shell [data-slot='sidebar-menu-button'][data-active='false'] {
+.academic-shell [data-slot='sidebar-menu-button'][data-active='false'],
+[data-mobile='true'] [data-slot='sidebar-menu-button'][data-active='false'] {
   background-color: transparent;
   color: var(--sidebar-foreground);
 }
-.academic-shell [data-slot='sidebar-menu-button'][data-active='false']:hover {
+.academic-shell [data-slot='sidebar-menu-button'][data-active='false']:hover,
+[data-mobile='true'] [data-slot='sidebar-menu-button'][data-active='false']:hover {
   background-color: var(--sidebar-accent);
 }

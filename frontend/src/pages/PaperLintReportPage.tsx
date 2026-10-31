@@ -1,4 +1,4 @@
-import { FileText } from 'lucide-react';
+import { ArrowLeft, FileText } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
@@ -147,6 +147,9 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
   const isSemanticReport = report.selected_rule_ids?.includes('abstract_numeric_consistency_check') ?? false;
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-5">
+      <Link to={historyPath} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 motion-reduce:transition-none">
+        <ArrowLeft className="size-[18px]" aria-hidden="true" />返回历史报告
+      </Link>
       <Card aria-labelledby="report-conclusion-title">
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-4">
           <div className="min-w-0 flex-1">
@@ -160,7 +163,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-3">
             <ReportExportDialog report={report} rules={rules} metrics={metrics} repairs={repairSuggestions.repairSuggestionByFindingKey} />
-            <Link className="text-sm font-semibold text-brand-700 hover:underline" to={historyPath}>返回历史报告</Link>
+
           </div>
         </div>
         <div className="my-4 flex flex-wrap items-center justify-between gap-2">

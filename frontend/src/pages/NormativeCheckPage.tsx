@@ -39,6 +39,8 @@ import {
   StatusBadge,
 } from '../components/ui';
 
+import { DetectionPageHeader } from '../components/paperLint/DetectionPageHeader';
+
 const MAX_PDF_BYTES = 50 * 1024 * 1024;
 type CheckMode = 'basic' | 'thirty' | 'semantic';
 type ResultFile = File | { name: string; url: string };
@@ -567,55 +569,23 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   />;
 
   return (
-    <div className="space-y-6">
-      {isThirty ? (
-        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-blue-950 to-cyan-900 p-6 text-white shadow-xl sm:p-9">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -right-14 -top-24 size-72 rounded-full border border-white/10 bg-cyan-300/10 blur-2xl"
-          />
-          <div className="relative grid gap-7 lg:grid-cols-[1fr_auto] lg:items-end">
-            <div>
-              <span className="inline-flex rounded-full border border-cyan-200/30 bg-cyan-300/10 px-3 py-1 text-xs font-semibold tracking-wide text-cyan-100">
-                论文规范专项检测
-              </span>
-              <h1 className="mt-5 text-3xl font-black tracking-tight sm:text-4xl">PDF 规则检测</h1>
-              <p className="mt-3 max-w-2xl text-sm leading-7 text-blue-100/85 sm:text-base">
-                聚焦公式引用、文献引用与目录页码等可定位问题。上传论文后，自主选择已开放规则，逐项查看检测结果和 PDF
-                原文位置。
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-3 sm:min-w-72">
-              <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
-                <p className="text-3xl font-black">
-                  {visibleRules.length}
-                  <span className="ml-1 text-base font-medium">/ {visibleRules.length}</span>
-                </p>
-                <p className="mt-2 text-xs text-blue-100">可选规则</p>
-              </div>
-              <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
-                <p className="text-3xl font-black">PDF</p>
-                <p className="mt-2 text-xs text-blue-100">原文定位报告</p>
-              </div>
-            </div>
-          </div>
-        </section>
-      ) : (
-          <PageHeader title={title} description={isSemantic ? '上传论文后，自动检查摘要数值型论点与正文实验结果的一致性。' : '上传 PDF 论文并选择检查项，生成可定位问题的检查报告。'} />
-      )}
-      <ModuleTabs
-        ariaLabel={`${title}功能导航`}
-        items={[
-          { label: '发起检测', to: isSemantic ? '/semantic-rules-check' : isThirty ? '/thirty-rules-check' : '/normative-check', active: true },
-          { label: '历史报告', to: isThirty || isSemantic ? '/thirty-rules-check/reports' : '/normative-reports', active: false },
-        ]}
-      />
+    <div className={isSemantic ? 'mx-auto w-full max-w-5xl space-y-5' : 'space-y-6'}>
+      {isSemantic ? <DetectionPageHeader
+        title="摘要数值语义检测"
+        description="核对摘要数值型论点与正文实验结果的一致性。"
+      /> : <>
+        <PageHeader title={title} description="上传 PDF 论文并选择检查项，生成可定位问题的检查报告。" />
+        <ModuleTabs ariaLabel={`${title}功能导航`} items={[
+          { label: '发起检测', to: '/normative-check', active: true },
+          { label: '历史报告', to: '/normative-reports', active: false },
+        ]} />
+      </>}
 
       {isSemantic ? (
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
           <div className="max-w-3xl">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-600">论文语义审查</p>
-            <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">摘要数值型论点与实验结果核验</h1>
+            <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950">摘要数值型论点与实验结果核验</h2>
             <p className="mt-3 text-sm leading-7 text-slate-600 sm:text-base">
               系统从摘要中定位数值型研究论点，并与正文中的研究章节和实验结果进行核对。上传论文后自动完成结构检查，无需手动填写章节映射。
             </p>

@@ -1,6 +1,6 @@
 import { ArrowRight, Check, ChevronDown, FileText, LoaderCircle, ShieldCheck, Square, Upload, X } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { DetectionPageHeader } from './DetectionPageHeader';
 import type { PaperLintRule } from '../../api/paperLint';
 import { Button } from '../ui';
 
@@ -187,19 +187,7 @@ export function ThesisUploadPanel(props: Props) {
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-5">
-      <header className="flex flex-wrap items-end justify-between gap-4 px-1 pt-1">
-        <div>
-          <p className="mb-1 text-xs font-medium tracking-wider text-brand-600">论文规范性检测</p>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">论文上传</h1>
-        </div>
-        <Link
-          to="/thirty-rules-check/reports"
-          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-white hover:text-brand-700"
-        >
-          查看历史报告
-          <ArrowRight className="size-4" />
-        </Link>
-      </header>
+      <DetectionPageHeader title="论文上传" description="上传 PDF 论文，选择检测规则并生成报告。" />
 
       <section
         aria-label="论文上传与检测设置"
