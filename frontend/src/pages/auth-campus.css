@@ -951,6 +951,119 @@
   outline: 3px solid #a1283c66;
   outline-offset: 4px;
 }
+/* One composed scene and one compact sign-in panel, including on wide screens. */
+.campus-signin .campus-scene {
+  transform: translateX(clamp(-64px, -3vw, -24px));
+}
+.campus-signin .campus-content {
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 460px);
+  align-items: center;
+  gap: clamp(24px, 4vw, 64px);
+  padding: 24px clamp(32px, 5vw, 88px) 42px;
+}
+.campus-signin .campus-login--sso {
+  align-self: center;
+  margin: 0;
+  max-width: 460px;
+  max-height: calc(100svh - 150px);
+  padding: clamp(28px, 2.8vw, 40px);
+  border: 1px solid #e9dece;
+  border-radius: 24px;
+  background: #fffdf8f2;
+  box-shadow: 0 24px 72px #62492e12, 0 2px 8px #62492e05;
+}
+.campus-signin .campus-heading {
+  margin-bottom: 28px;
+}
+.campus-signin .campus-heading > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  font-size: 12px;
+}
+.campus-signin .campus-account-label {
+  padding: 4px 9px;
+  border: 1px solid #ead7d7;
+  border-radius: 6px;
+  color: #8d3444;
+  font-size: 11px;
+  letter-spacing: 0;
+}
+.campus-signin .campus-heading h1 {
+  font-size: 32px;
+  letter-spacing: -0.04em;
+}
+.campus-signin .campus-heading p {
+  margin-top: 12px;
+  font-size: 14px;
+}
+.campus-signin .jaccount-entry {
+  min-height: 54px;
+  border-radius: 10px;
+  font-size: 16px;
+  background: #943448;
+}
+.campus-signin .campus-login-hint {
+  margin-top: 12px;
+  font-size: 11px;
+}
+.campus-signin .campus-services {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid #ece3d8;
+}
+.campus-signin .campus-services > p {
+  margin-bottom: 17px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #76654f;
+}
+.campus-signin .campus-capabilities {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  font-size: 13px;
+  color: #53483b;
+}
+.campus-signin .campus-capabilities span {
+  flex-direction: column;
+  gap: 10px;
+  padding: 3px 8px;
+}
+.campus-signin .campus-capabilities span + span {
+  border-left: 1px solid #ece3d8;
+}
+.campus-signin .campus-capabilities svg {
+  color: #9b7650;
+}
+.campus-signin .campus-login--sso .system-description {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-color: #ece3d8;
+}
+.campus-signin .system-description h2 {
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+.campus-signin .system-description p {
+  font-size: 12px;
+  line-height: 1.9;
+  color: #8a7c6e;
+}
+@media (max-width: 1100px) and (min-width: 801px) {
+  .campus-signin .campus-content {
+    grid-template-columns: minmax(0, 1fr) 360px;
+    padding-left: 28px;
+    padding-right: 28px;
+  }
+  .campus-signin .campus-login--sso {
+    padding: 26px;
+  }
+  .campus-signin .campus-heading h1 {
+    font-size: 29px;
+  }
+}
 @media (max-width: 800px) {
   .campus-signin {
     height: auto;
@@ -977,10 +1090,25 @@
     background: linear-gradient(180deg, transparent 78%, #fcf8ef);
   }
   .campus-signin .campus-content {
+    display: block;
+    height: auto;
+    min-height: 0;
+    padding: 0 20px 28px;
     pointer-events: auto;
   }
   .campus-signin .campus-login--sso {
-    margin-top: 0;
+    margin: 0 auto;
+    max-height: none;
+    max-width: 520px;
+    padding: 28px 24px;
+    overflow: visible;
+    border-radius: 20px;
+  }
+  .campus-signin .campus-scene-space {
+    height: 340px;
+  }
+  .campus-signin .campus-scene {
+    transform: none;
   }
   .campus-signin .campus-intro-surface {
     pointer-events: none;

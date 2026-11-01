@@ -47,32 +47,22 @@ export default function AuthPage() {
         </span>
       </header>
       <div className="campus-content">
-        <section className="campus-intro" aria-label="系统检测能力">
-          <div className="campus-intro-surface">
-            <p>学位论文智能评阅</p>
-            <div className="campus-capabilities">
-              <span>
-                <BookOpenCheck size={21} aria-hidden="true" />
-                格式排版
-              </span>
-              <span>
-                <ScanLine size={21} aria-hidden="true" />
-                文字表述
-              </span>
-              <span>
-                <PenLine size={21} aria-hidden="true" />
-                语言规范
-              </span>
-            </div>
-          </div>
-        </section>
+        <div className="campus-scene-space" aria-hidden="true" />
         <section className="campus-login campus-login--sso" aria-label="身份认证区域">
           <div className="campus-heading">
-            <span>欢迎使用</span>
+            <span>欢迎使用<span className="campus-account-label">jAccount</span></span>
             <h1>统一身份认证</h1>
             <p>登录，开启论文智能审阅</p>
           </div>
           <JaccountEntry />
+          <section className="campus-services" aria-label="系统检测能力">
+            <p>学位论文规范性检测</p>
+            <div className="campus-capabilities">
+              <span><BookOpenCheck size={21} aria-hidden="true" />格式排版</span>
+              <span><ScanLine size={21} aria-hidden="true" />文字表述</span>
+              <span><PenLine size={21} aria-hidden="true" />语言规范</span>
+            </div>
+          </section>
           <section className="system-description" aria-label="系统说明">
             <h2>关于本系统</h2>
             <p>

@@ -1,10 +1,17 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import AuthPage from '../src/pages/AuthPage';
 
 afterEach(() => window.history.replaceState({}, '', '/'));
 
 describe('campus sign-in entry', () => {
+  it('keeps authentication, detection capabilities and system information in one panel', () => {
+    render(<AuthPage />);
+    const panel = screen.getByRole('region', { name: '身份认证区域' });
+    expect(within(panel).getByRole('region', { name: '系统检测能力' })).toBeInTheDocument();
+    expect(within(panel).getByRole('heading', { name: '关于本系统' })).toBeInTheDocument();
+    expect(within(panel).getByRole('link', { name: '使用 jAccount 登录' })).toBeInTheDocument();
+  });
   it('offers only server-side campus authorization without local password sign-in', () => {
     render(<AuthPage />);
     expect(screen.getByRole('link', { name: '使用 jAccount 登录' })).toHaveAttribute('href', '/api/auth/jaccount');
