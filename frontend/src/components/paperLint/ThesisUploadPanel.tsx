@@ -1,5 +1,5 @@
 import { ArrowRight, Check, ChevronDown, FileText, FlaskConical, LoaderCircle, ShieldCheck, Square, Upload, X } from 'lucide-react';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
 import { DetectionPageHeader } from './DetectionPageHeader';
 import type { PaperLintRule } from '../../api/paperLint';
 import { Button } from '../ui';
@@ -195,6 +195,7 @@ export function ThesisUploadPanel(props: Props) {
     : `已选择 ${selectedRuleIds.length} 项检测规则`;
   const noSelection = catalogReady && !catalogLoading && !selectedRuleIds.length;
   const filename = file?.name || (busy ? props.activeFilename : null);
+  const groupRowCount = Math.max(1, ...GROUPS.map(group => rules.filter(rule => ruleGroup(rule.rule_id) === group).length));
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-5">
@@ -329,7 +330,8 @@ export function ThesisUploadPanel(props: Props) {
                   清空
                 </Button>
               </div>
-              <div className="grid gap-3 lg:grid-cols-3">
+              <div className="grid gap-3 xl:grid-cols-3 xl:gap-y-0"
+                style={{ '--rule-grid-rows': groupRowCount + 1, '--rule-content-rows': groupRowCount } as CSSProperties}>
                 {GROUPS.map((group) => {
                   const groupRules = rules.filter((rule) => ruleGroup(rule.rule_id) === group);
                   if (group === '内容规范') groupRules.sort((a, b) => CONTENT_ORDER.indexOf(a.rule_id) - CONTENT_ORDER.indexOf(b.rule_id));
@@ -338,7 +340,7 @@ export function ThesisUploadPanel(props: Props) {
                     <section
                       key={group}
                       aria-label={`${group}检测规则`}
-                      className="rounded-2xl border border-slate-200 bg-slate-50/40"
+                      className="rounded-2xl border border-slate-200 bg-slate-50/40 xl:row-span-[var(--rule-grid-rows)] xl:grid xl:grid-rows-subgrid"
                     >
                       <div className="flex min-h-16 items-center justify-between gap-2 border-b border-slate-100 px-3 py-3">
                         <div className="flex min-w-0 items-center gap-1">
@@ -366,7 +368,7 @@ export function ThesisUploadPanel(props: Props) {
                           </button>
                         </div>
                       </div>
-                      <div className="space-y-1 p-2">
+                      <div className="space-y-1 p-2 xl:row-span-[var(--rule-content-rows)] xl:grid xl:grid-rows-subgrid xl:gap-y-1 xl:space-y-0">
                         {groupRules.length ? (
                           groupRules.map((rule) => (
                             <label
