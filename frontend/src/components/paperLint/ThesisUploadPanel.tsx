@@ -46,8 +46,13 @@ function DetectionProgress({
   const uploading = uploadPercent !== null;
   const phase = uploading ? 0 : jobStatus === 'running' ? 2 : 1;
   const stages = ['正在上传', '开始解析', '开始检测', '检测完成'];
-  const percent = uploading ? Math.max(0, Math.min(100, uploadPercent)) : null;
-  const text = percent === null ? stages[phase] : `正在上传，${percent}%`;
+  const rulePercent = jobStatus === 'running' && jobProgress && jobProgress.total > 0
+    ? Math.round(Math.max(0, Math.min(1, jobProgress.completed / jobProgress.total)) * 100)
+    : null;
+  const percent = uploading ? Math.max(0, Math.min(100, uploadPercent)) : rulePercent;
+  const text = uploading ? `正在上传，${percent}%`
+    : rulePercent !== null ? `规则完成进度，${jobProgress!.completed} / ${jobProgress!.total} 项，${rulePercent}%`
+    : stages[phase];
   const circumference = 2 * Math.PI * 42;
   return (
     <section aria-label="检测任务状态" className="mt-5 rounded-2xl border border-brand-100 bg-brand-50/40 p-5 sm:p-6">
@@ -105,7 +110,9 @@ function DetectionProgress({
               : phase === 1
                 ? '论文已上传，正在等待后台解析和检测。'
                 : jobProgress?.total
-                  ? `后台检测已开始，已完成 ${jobProgress.completed} / ${jobProgress.total} 项规则。`
+                  ? jobProgress.completed >= jobProgress.total
+                    ? `已完成 ${jobProgress.completed} / ${jobProgress.total} 项规则，正在保存报告。`
+                    : `后台检测已开始，已完成 ${jobProgress.completed} / ${jobProgress.total} 项规则。`
                   : '后台检测已开始，正在解析论文并执行所选规则。'}
           </p>
           {phase > 0 ? (

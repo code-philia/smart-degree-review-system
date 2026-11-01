@@ -879,7 +879,8 @@
   background: #fffefa;
 }
 .campus-signin .campus-login--sso {
-  align-self: center;
+  align-self: start;
+  margin-top: clamp(24px, 7svh, 88px);
 }
 .campus-signin .auth-divider h2 {
   font-size: 11px;
@@ -977,6 +978,9 @@
   }
   .campus-signin .campus-content {
     pointer-events: auto;
+  }
+  .campus-signin .campus-login--sso {
+    margin-top: 0;
   }
   .campus-signin .campus-intro-surface {
     pointer-events: none;

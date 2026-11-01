@@ -194,7 +194,8 @@ it('restores a running subset and opens its saved report without another upload'
   expect(runReviewPilotPaperLint).not.toHaveBeenCalled();
 });
 
-it('shows real running counts without inventing an overall percentage', async () => {
+it('updates the ring from completed rules while keeping report completion controlled by the server', async () => {
+  let nextPoll!: (value: any) => void;
   vi.mocked(fetchPaperLintJob)
     .mockResolvedValueOnce({
       ...pendingJob,
@@ -204,15 +205,24 @@ it('shows real running counts without inventing an overall percentage', async ()
         total_rule_ids: ['sjtu_rule_18', 'typo_detection_check', 'bilingual_keywords_correspondence_check'],
       },
     })
-    .mockImplementation(() => new Promise(() => {}));
+    .mockImplementation(() => new Promise(resolve => { nextPoll = resolve; }));
   showUpload();
   await choosePdf();
   fireEvent.click(screen.getByRole('button', { name: '开始检测', exact: true }));
   await waitFor(() =>
-    expect(screen.getByRole('progressbar', { name: '检测进度' })).toHaveAttribute('aria-valuetext', '开始检测'),
+    expect(screen.getByRole('progressbar', { name: '检测进度' })).toHaveAttribute('aria-valuenow', '33'),
   );
-  expect(screen.getByRole('progressbar', { name: '检测进度' })).not.toHaveAttribute('aria-valuenow');
   expect(screen.getByText('后台检测已开始，已完成 1 / 3 项规则。')).toBeInTheDocument();
+  expect(screen.getByText('33%')).toBeInTheDocument();
+  expect(screen.getByRole('progressbar', { name: '检测进度' }).querySelector('svg')).not.toHaveClass('animate-spin');
+  await waitFor(() => expect(nextPoll).toBeTypeOf('function'));
+  await act(async () => nextPoll({ ...pendingJob, status: 'running', progress: {
+    completed_rule_ids: rules.slice(0, 3).map(rule => rule.rule_id),
+    total_rule_ids: rules.slice(0, 3).map(rule => rule.rule_id),
+  } }));
+  expect(screen.getByRole('progressbar', { name: '检测进度' })).toHaveAttribute('aria-valuenow', '100');
+  expect(screen.getByText(/正在保存报告/)).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: /报告详情/ })).not.toBeInTheDocument();
 });
 
 it('opens a synchronously saved report through the same detail route', async () => {

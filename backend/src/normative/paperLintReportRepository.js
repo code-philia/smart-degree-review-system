@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { all, get, run } = require('../database');
 const { withTransaction } = require('../database/db_runtime');
+const { removeBrowserPdf } = require('./browserPdf');
 
 function reportsDirectory() {
   return path.resolve(process.env.PAPER_LINT_REPORTS_DIR || path.join(process.cwd(), 'data', 'paper-lint-reports'));
@@ -101,6 +102,7 @@ async function deletePaperLintReportsForUser(ids, userId) {
   if (!rows) return null;
   await Promise.all(rows.map(async row => {
     await fs.promises.rm(row.source_pdf_path, { force: true });
+    await removeBrowserPdf(row.source_pdf_path);
     await fs.promises.rm(`${row.source_pdf_path}.metrics.json`, { force: true }).catch(() => {});
   }));
   return uniqueIds;
