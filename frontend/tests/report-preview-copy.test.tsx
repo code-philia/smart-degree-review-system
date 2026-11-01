@@ -26,7 +26,7 @@ const rules = [
   { rule_id: 'sjtu_rule_11', title: '标点' },
   { rule_id: 'sjtu_rule_15', title: '公式引用' },
 ] as PaperLintRule[];
-it('shows the stable catalog rule number and printed page while retaining the original finding jump', () => {
+it('shows only the rule name and printed page while retaining the original finding jump', () => {
   const click = vi.fn();
   render(
     <FindingsPane
@@ -40,7 +40,8 @@ it('shows the stable catalog rule number and printed page while retaining the or
     />,
   );
   expect(screen.getByRole('heading', { name: '检测错误总数' })).toBeInTheDocument();
-  expect(screen.getByRole('heading', { name: '规则 2：公式引用' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: '公式引用', exact: true })).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: /^规则\s*\d/ })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: '跳到第 33 页' }));
   expect(click).toHaveBeenCalledWith('f');
   expect(screen.getByText('第 33 页')).toHaveAttribute('title', 'PDF 第 42 页');

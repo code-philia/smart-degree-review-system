@@ -74,7 +74,7 @@ it.each([
       </Routes>
     </MemoryRouter>,
   );
-  expect(await screen.findByRole('heading', { name: '规则 3：公式引用' })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: '公式引用', exact: true })).toBeInTheDocument();
   const controls = within(
     (await screen.findByText(target === 'finding' ? '这个问题的判断是否准确？' : '这条修复建议是否有帮助？')).closest(
       '[aria-busy]',

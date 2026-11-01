@@ -92,7 +92,6 @@ export function FindingsPane({
   const [ruleFilter, setRuleFilter] = useState('all');
   const [handledKeys, setHandledKeys] = useState<string[]>([]);
   const ruleNames = useMemo(() => new Map(rules.map((rule) => [rule.rule_id, rule.title])), [rules]);
-  const ruleNumbers = useMemo(() => new Map(rules.map((rule, index) => [rule.rule_id, index + 1])), [rules]);
   const ruleIds = Array.from(new Set(findings.map((item) => item.ruleRun.rule_id))).sort(comparePaperLintRuleIds);
   const filtered = findings.filter(
     (item) =>
@@ -148,7 +147,6 @@ export function FindingsPane({
             const active = item.key === activeFindingKey;
             const page = displayFindingPages(item, pageLabels);
             const physicalPages = findingPageLabel(item);
-            const ruleNumber = ruleNumbers.get(item.ruleRun.rule_id) ?? rules.length + ruleIds.indexOf(item.ruleRun.rule_id) + 1;
             const repair = repairSuggestionByFindingKey[item.key];
             const repairError = repairSuggestionErrorByFindingKey[item.key];
             const generating = repairSuggestionLoadingByFindingKey[item.key] || repairSuggestionLoadingKey === item.key;
@@ -180,7 +178,7 @@ export function FindingsPane({
                       {severityLabels[item.ruleRun.severity]}
                     </StatusBadge>
                     <h3 className="mt-2 text-sm font-bold text-slate-900">
-                      规则 {ruleNumber}：{ruleNames.get(item.ruleRun.rule_id) || item.ruleRun.rule_id}
+                      {ruleNames.get(item.ruleRun.rule_id) || item.ruleRun.rule_id}
                     </h3>
                   </div>
                   <div className="flex items-center gap-1">

@@ -221,6 +221,8 @@ it('updates real report progress while keeping report completion controlled by t
   expect(screen.getByRole('progressbar', { name: '检测进度' }).querySelectorAll('svg circle')).toHaveLength(2);
   const progress = screen.getByRole('region', { name: '检测任务状态' });
   const liveReport = screen.getByRole('region', { name: '实时检测报告' });
+  const instructions = screen.getByRole('complementary', { name: '检测说明' });
+  expect(instructions.compareDocumentPosition(progress) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(progress.compareDocumentPosition(liveReport) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(within(liveReport).queryByRole('progressbar')).not.toBeInTheDocument();
   expect(screen.getByRole('region', { name: '论文上传与检测设置' })).toBeInTheDocument();
@@ -368,6 +370,8 @@ it.each([false, true])('updates the actual live report and preserves the selecte
   expect(ring).toHaveAttribute('aria-valuenow', '50');
   expect(ring.compareDocumentPosition(region) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(within(region).getByText('先完成的错别字结果')).toBeInTheDocument();
+  expect(within(region).getByRole('heading', { name: '正文错别字检测', exact: true })).toBeInTheDocument();
+  expect(within(region).queryByRole('heading', { name: /^规则\s*\d/ })).not.toBeInTheDocument();
   expect(within(region).queryByText('后完成的公式结果')).not.toBeInTheDocument();
   expect(screen.queryByRole('region', { name: '已完成规则结果' })).not.toBeInTheDocument();
   expect(within(region).getByText('错误总数').closest('div')).toHaveTextContent('1');

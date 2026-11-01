@@ -8,6 +8,7 @@ export const THIRTY_RULE_IDS = new Set([
   'sjtu_rule_24',
   'sjtu_rule_28',
   'sjtu_rule_31',
+  'sjtu_rule_32',
   'required_section_completeness_check',
   'chinese_english_symbol_mix_check',
   'keyword_count_check',
@@ -16,6 +17,4 @@ export const THIRTY_RULE_IDS = new Set([
   'bilingual_keywords_correspondence_check',
   'bilingual_abstract_consistency_check',
   'typo_detection_check',
-  'required_section_completeness_check',
-  'chinese_english_symbol_mix_check',
 ]);

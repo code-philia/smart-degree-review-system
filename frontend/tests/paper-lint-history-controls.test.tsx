@@ -58,3 +58,25 @@ it('keeps reports when confirmation is declined or deletion fails', async () => 
   expect(screen.getByText('first.pdf')).toBeInTheDocument();
   expect(screen.getByText('second.pdf')).toBeInTheDocument();
 });
+
+
+it('shows newly saved reports containing all fifteen enabled rules, including external references', async () => {
+  const selected_rule_ids = [
+    'sjtu_rule_18', 'sjtu_rule_22', 'sjtu_rule_24', 'sjtu_rule_28', 'sjtu_rule_31', 'sjtu_rule_32',
+    'required_section_completeness_check', 'chinese_english_symbol_mix_check', 'keyword_count_check',
+    'abstract_object_number_check', 'chapter_new_page_check', 'typo_detection_check',
+    'bilingual_keywords_correspondence_check', 'bilingual_abstract_consistency_check',
+    'abstract_numeric_consistency_check',
+  ];
+  vi.mocked(fetchPaperLintReports).mockResolvedValue([
+    { ...rows[0], id: 'new-report', source_filename: 'newly-finished.pdf', selected_rule_ids },
+    { ...rows[1], id: 'external-only', source_filename: 'external-references.pdf', selected_rule_ids: ['sjtu_rule_32'] },
+    { ...rows[0], id: 'basic-only', source_filename: 'basic-only.pdf', selected_rule_ids: ['toc_format_check'] },
+  ]);
+  render(<MemoryRouter><NormativeReportPage mode="thirty" /></MemoryRouter>);
+  expect(await screen.findByText('newly-finished.pdf')).toBeInTheDocument();
+  expect(screen.getByText('external-references.pdf')).toBeInTheDocument();
+  expect(screen.queryByText('basic-only.pdf')).not.toBeInTheDocument();
+  expect(screen.getAllByRole('link', { name: '查看详情' }).map(link => link.getAttribute('href')))
+    .toContain('/reports/pdf/new-report');
+});
