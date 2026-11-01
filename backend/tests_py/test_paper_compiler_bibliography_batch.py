@@ -236,6 +236,78 @@ def test_explicit_batch_size_keeps_legacy_protocol_even_when_opt_in_is_enabled(t
     assert all(c[1]==LEGACY_PROMPT and c[3]==6000 for c in client.calls)
 
 
+def test_campus_rule32_only_extracts_identity_fields_with_the_same_grounding(tmp_path, monkeypatch):
+    monkeypatch.setenv('PAPER_COMPILER_ANALYSIS_BATCH_SIZE', '8')
+    client = Fields()
+    client.config = {**client.config, 'MODEL_PROVIDER': 'sjtu'}
+    package = {'rule_ir': {'rule_id': '32', 'requires': ['bibliography_fields', 'external_work']}, 'registry': REGISTRY}
+    result = runtime.enrich(paper(tmp_path, 8), [package], client=client, gateway=None,
+                            cache_dir=tmp_path/'analysis-cache', snapshot_id='fixed')
+    expected = {'title', 'authors', 'year', 'doi', 'url', 'type_code', 'carrier_code'}
+    assert set(client.calls[0][2]['field_types']) == expected
+    assert set(result['policy']['bibliography']['field_names']) == expected
+    assert result['results']['bibliography_fields']['e0']['title']['value'] == 'Title 00'
+    assert result['results']['bibliography_fields']['e0']['publisher']['state'] == 'unknown'
+    assert result['results']['external_work']['e0']['exists']['state'] == 'unknown'
+    validate_analysis(paper(tmp_path, 8), result)
+
+
+def test_mixed_or_legacy_rule32_analysis_retains_all_bibliography_fields(tmp_path, monkeypatch):
+    package = {'rule_ir': {'rule_id': '32', 'requires': ['bibliography_fields', 'external_work']}, 'registry': REGISTRY}
+    for index, (mode, packages) in enumerate([
+        ('1', [package]),
+        ('8', [package, {'rule_ir': {'rule_id': '31', 'requires': ['bibliography_shape']}, 'registry': REGISTRY}]),
+    ]):
+        monkeypatch.setenv('PAPER_COMPILER_ANALYSIS_BATCH_SIZE', mode)
+        client = Fields(); client.config = {**client.config, 'MODEL_PROVIDER': 'sjtu'}
+        runtime.enrich(paper(tmp_path, 2), packages, client=client, gateway=None,
+                       cache_dir=tmp_path/('analysis-'+str(index)), snapshot_id='fixed')
+        assert client.calls[0][2]['field_types'] == FIELD_TYPES
+
+
+def test_identity_projection_keeps_unrequested_and_untraceable_fields_unknown(tmp_path, monkeypatch):
+    monkeypatch.setenv('PAPER_COMPILER_ANALYSIS_BATCH_SIZE', '8')
+    def ungrounded(answer, data):
+        for item in answer['entries']:
+            item['fields']['title']['value'] = 'Invented title outside the source'
+            item['fields']['publisher'] = {'state':'observed','value':'Writer','quote':'Writer'}
+            item['absent'] = ['publisher', 'doi']
+        return answer
+    client = Fields(transform=ungrounded)
+    client.config = {**client.config, 'MODEL_PROVIDER': 'sjtu'}
+    ir = paper(tmp_path, 2)
+    package = {'program_spec': {'rule_ids':['32']},
+               'rule_ir': {'requires':['bibliography_fields','external_work']}, 'registry': REGISTRY}
+    result = runtime.enrich(ir, [package], client=client, gateway=None,
+                            cache_dir=tmp_path/'analysis-cache', snapshot_id='fixed')
+    assert len(client.calls[0][2]['field_types']) == 7
+    for fields in result['results']['bibliography_fields'].values():
+        assert fields['title']['state'] == fields['publisher']['state'] == 'unknown'
+        assert fields['doi']['state'] == 'confirmed_absent'
+    validate_analysis(ir, result)
+
+
+def test_identity_projection_reuses_successful_full_field_cache_without_another_request(tmp_path, monkeypatch):
+    monkeypatch.setenv('PAPER_COMPILER_ANALYSIS_BATCH_SIZE', '8')
+    calls = []
+    def transport(url, headers, payload, timeout):
+        calls.append(payload)
+        data = json.loads(payload['messages'][1]['content'])
+        return {'choices':[{'finish_reason':'stop','message':{'content':json.dumps({'entries':[
+            {'id':n['id'],'complete':True,'fields':{'title':{'state':'observed','value':'Title 00','quote':'Title 00'}}}
+            for n in data['entries']]})}}], 'usage':{'prompt_tokens':10,'completion_tokens':10}}
+    client, ledger = make_client(tmp_path, transport, attempts=1)
+    client.config['MODEL_PROVIDER'] = 'sjtu'
+    ir = paper(tmp_path, 1)
+    runtime.parse_entries(ir, runtime.base_analysis(ir), client)
+    assert len(calls) == 1
+    package = {'rule_ir':{'rule_id':'32','requires':['bibliography_fields','external_work']}, 'registry':REGISTRY}
+    result = runtime.enrich(ir, [package], client=client, gateway=None,
+                            cache_dir=tmp_path/'analysis-cache', snapshot_id='fixed')
+    assert result['results']['bibliography_fields']['e0']['title']['value'] == 'Title 00'
+    assert len(calls) == ledger.summary()['requests'] == 1
+
+
 @pytest.mark.parametrize('error',[RuntimeError('fake HTTP failure'),BudgetExceeded('fake hard cap')])
 def test_model_failure_is_propagated_without_smaller_batch_fallback_or_retry(tmp_path,monkeypatch,error):
     monkeypatch.setenv('PAPER_COMPILER_ANALYSIS_BATCH_SIZE','8')

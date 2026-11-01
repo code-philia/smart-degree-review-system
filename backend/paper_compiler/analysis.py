@@ -16,6 +16,7 @@ from .citations import citation_context
 
 VERSION='shared-analysis/1.5'
 BIBLIOGRAPHY_EXTRACTION_POLICY='source-linewrap-reversible-word-repair/2.0'
+IDENTITY_FIELD_NAMES=('title','authors','year','doi','url','type_code','carrier_code')
 BIBLIOGRAPHY_INSTRUCTIONS="""Extract bibliographic fields from exactly the supplied entry text. Do not judge any rule.
 Return {entries:[{id,complete:boolean,fields:{FIELD:{state:'observed',value:STRING_OR_ARRAY,quote:EXACT_SOURCE_SUBSTRING}},absent:[FIELD_NAMES_CONFIRMED_NOT_PRESENT]}]}.
 Use the supplied field names/types. Include observed fields only in fields; list explicitly confirmed absent names in absent. Omitted names stay unknown. complete means this is one readable complete entry, not that all fields are present.
@@ -57,11 +58,12 @@ def bibliography_execution_policy():
             'extraction_policy':BIBLIOGRAPHY_EXTRACTION_POLICY}
 
 
-def _bibliography_data(batch):
-    return {'field_types':FIELD_TYPES,'entries':[{'id':n['id'],'text':n['text']} for n in batch]}
+def _bibliography_data(batch, field_names=None):
+    types = FIELD_TYPES if field_names is None else {name:FIELD_TYPES[name] for name in field_names}
+    return {'field_types':types,'entries':[{'id':n['id'],'text':n['text']} for n in batch]}
 
 
-def _bibliography_batches(entries, size, soft_limit):
+def _bibliography_batches(entries, size, soft_limit, field_names=None):
     if soft_limit is None:
         for start in range(0, len(entries), size):
             yield entries[start:start+size]
@@ -69,7 +71,7 @@ def _bibliography_batches(entries, size, soft_limit):
     batch = []
     for node in entries:
         candidate = batch + [node]
-        if batch and (len(candidate) > size or len(json.dumps(_bibliography_data(candidate), ensure_ascii=False, separators=(',', ':'), allow_nan=False).encode('utf-8', errors='backslashreplace')) > soft_limit):
+        if batch and (len(candidate) > size or len(json.dumps(_bibliography_data(candidate, field_names), ensure_ascii=False, separators=(',', ':'), allow_nan=False).encode('utf-8', errors='backslashreplace')) > soft_limit):
             yield batch
             batch = []
         batch.append(node)
@@ -231,14 +233,22 @@ def _extract_field(node,name,item,complete,a):
     _add_evidence(a,evidence)
     return {**observed(value,[eid]),'source_range':[start,end]}
 
-def _bibliography_responses(batches, client, instructions, opt_in):
+def _bibliography_responses(batches, client, instructions, opt_in, field_names=None):
     def extract(batch):
         max_tokens = min(16384, max(6000, 3000*len(batch))) if opt_in else 6000
         if client is None:
             return batch, {}, None
         from .llm import ModelError
         try:
-            answer=client.complete_json('bibliography-fields/1.1',instructions,_bibliography_data(batch),max_tokens)
+            data = _bibliography_data(batch, field_names)
+            cached = getattr(client, 'has_cached_response', None)
+            if field_names is not None and callable(cached):
+                full_data = _bibliography_data(batch)
+                if cached('bibliography-fields/1.1', instructions, full_data, max_tokens):
+                    # Preserve successful historical extraction without a new
+                    # request. Reading still goes through the guarded client.
+                    data = full_data
+            answer=client.complete_json('bibliography-fields/1.1',instructions,data,max_tokens)
             return batch, answer, None
         except ModelError as error:
             return batch, {}, 'optional bibliography field extraction unavailable: '+type(error).__name__+': '+str(error)
@@ -262,15 +272,15 @@ def _bibliography_responses(batches, client, instructions, opt_in):
                 future.cancel()
 
 
-def parse_entries(ir,a,client,*,batch_size=None):
+def parse_entries(ir,a,client,*,batch_size=None,field_names=None):
     entries=[n for n in ir['nodes'] if n['kind']=='BibliographyEntry']
     results=a['results'].setdefault('bibliography_fields',{})
     execution = bibliography_execution_policy() if batch_size is None else None
     opt_in = bool(execution and execution['opt_in'])
     if batch_size is None:batch_size = execution['batch_size']
     instructions = BIBLIOGRAPHY_INSTRUCTIONS + (BIBLIOGRAPHY_BATCH_INSTRUCTIONS if opt_in else '')
-    batches = _bibliography_batches(entries, batch_size, execution['input_soft_limit_bytes'] if opt_in else None)
-    with closing(_bibliography_responses(batches, client, instructions, opt_in)) as responses:
+    batches = _bibliography_batches(entries, batch_size, execution['input_soft_limit_bytes'] if opt_in else None, field_names)
+    with closing(_bibliography_responses(batches, client, instructions, opt_in, field_names)) as responses:
         for batch, answer, extraction_error in responses:
             raw={item.get('id'):item for item in answer.get('entries',[]) if isinstance(item,dict)}
             for node in batch:
@@ -278,6 +288,8 @@ def parse_entries(ir,a,client,*,batch_size=None):
                 fields=_coerce_bibliography_fields(node, fields)
                 for name in item.get('absent',[]):
                     if name in FIELD_TYPES and name not in fields:fields[name]={'state':'confirmed_absent'}
+                if field_names is not None:
+                    fields={name:value for name,value in fields.items() if name in field_names}
                 facts={name:_extract_field(node,name,fields.get(name),complete,a) for name in FIELD_TYPES}
                 results[node['id']]=facts
                 a['coverage'][node['id']]={'status':'complete' if complete else 'partial','protocol':'bibliography-fields/1.1'}
@@ -423,6 +435,14 @@ def enrich(ir,rule_packages,*,client,gateway,cache_dir:Path,snapshot_id=None):
         values.extend(spec.get('rule_ids') or [])
         return {str(value) for value in values}
     has_r32 = any('32' in package_rule_ids(package) for package in rule_packages)
+    field_names = None
+    # Existence checks consume identity metadata only. Format/relevance checks
+    # retain the complete extraction contract and their historical cache keys.
+    rule_ids = set().union(*(package_rule_ids(package) for package in rule_packages))
+    if (rule_ids == {'32'} and required == {'bibliography_fields','external_work'}
+            and config.get('MODEL_PROVIDER') == 'sjtu' and bibliography_policy['opt_in']):
+        field_names = IDENTITY_FIELD_NAMES
+        policy['bibliography']['field_names'] = list(field_names)
     if has_r32:
         from .serpapi_scholar import QUERY_PLAN_VERSION
         policy['serpapi_query_plan'] = QUERY_PLAN_VERSION
@@ -432,7 +452,7 @@ def enrich(ir,rule_packages,*,client,gateway,cache_dir:Path,snapshot_id=None):
         cached=json.loads(path.read_text());validate_analysis(ir,cached);return cached
     a=base_analysis(ir);a['policy']=policy
     a['capability_versions'].update({name:cap['version'] for name,cap in plan.items()})
-    if required & {'bibliography_fields','bibliography_shape','external_work','citation_relevance'}:parse_entries(ir,a,client)
+    if required & {'bibliography_fields','bibliography_shape','external_work','citation_relevance'}:parse_entries(ir,a,client,field_names=field_names)
     bind_references(ir,a);citation_syntax(ir,a);ordering_facts(ir,a)
     if required & {'external_work','citation_relevance'}:
         external=a['results'].setdefault('external_work',{})

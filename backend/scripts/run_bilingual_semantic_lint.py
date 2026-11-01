@@ -17,6 +17,7 @@ from typing import Any
 from paper_model_bilingual_rules import extract_bilingual_facts, _json_object, _bounded_text
 from paper_compiler.frontend import build_paper
 from paper_compiler.campus_requests import campus_request_slot
+from paper_compiler.semantic_cache import SemanticResponseCache
 
 
 BILINGUAL_RULES = {
@@ -73,6 +74,13 @@ def request_json(messages: list[dict[str, str]], *, observer=None) -> tuple[dict
         "max_tokens": 8192,
         "response_format": {"type": "json_object"},
     }
+    cache = None
+    cache_root = os.environ.get('SJTU_API_RESPONSE_CACHE_DIR', '').strip()
+    if _provider == 'sjtu' and observer is None and cache_root:
+        cache = SemanticResponseCache(cache_root, base_url, key, payload)
+        cached = cache.read()
+        if cached is not None:
+            return cached, {'input_tokens': 0, 'output_tokens': 0}
     if observer:
         from urllib.parse import urlsplit
         observer('request_config', {'provider': _provider, 'host': urlsplit(base_url).hostname, 'parameters': payload})
@@ -119,6 +127,8 @@ def request_json(messages: list[dict[str, str]], *, observer=None) -> tuple[dict
         result = content
     else:
         result = _json_object(content)
+    if cache and (data.get('choices') or [{}])[0].get('finish_reason') == 'stop':
+        cache.write(result)
     usage = data.get("usage") or {}
     return result, {
         "input_tokens": int(usage.get("prompt_tokens") or 0),

@@ -268,6 +268,15 @@ class MaasClient:
             fingerprint['input_serialization'] = self.input_serialization
         return fingerprint
 
+    def has_cached_response(self, task: str, instructions: str, data: dict, max_tokens: int) -> bool:
+        fingerprint = self.request_fingerprint(task, instructions, data, max_tokens)
+        key = hashlib.sha256(json_bytes(fingerprint)).hexdigest()
+        try:
+            record = json.loads((self.cache_dir / 'responses' / (key + '.json')).read_text())
+            return record.get('input_hash') == key and isinstance(record.get('result'), dict)
+        except (OSError, ValueError, AttributeError):
+            return False
+
     def complete_json(self, task: str, instructions: str, data: dict, max_tokens: int) -> dict:
         fingerprint = self.request_fingerprint(task, instructions, data, max_tokens)
         payload = fingerprint['payload']
