@@ -2,6 +2,7 @@ const express = require('express');
 const { SESSION_COOKIE_NAME, SESSION_TTL_MS, loadSession, login, logout } = require('./sessionService');
 const { parseCookies, requireAuth } = require('./authMiddleware');
 const jaccount = require('./jaccountService');
+const { ADMIN_ROLES, campusOnlyAuth, privateAdminRequest, sessionAllowed } = require('./loginPolicy');
 
 const router = express.Router();
 
@@ -47,7 +48,12 @@ router.get('/jaccount/callback', async (req, res) => {
 
 router.post('/login', async (req, res, next) => {
   try {
-    const result = await login(req.body?.username, req.body?.password);
+    if (campusOnlyAuth() && !privateAdminRequest(req)) {
+      res.status(403).json({ code: 403, message: '请使用 jAccount 登录' });
+      return;
+    }
+    const result = await login(req.body?.username, req.body?.password,
+      { allowedRoles: campusOnlyAuth() ? ADMIN_ROLES : undefined });
     if (!result) {
       res.status(401).json({ code: 401, message: 'Invalid username or password' });
       return;
@@ -67,7 +73,7 @@ router.get('/me', async (req, res, next) => {
   try {
     const cookies = parseCookies(req.headers.cookie || '');
     const user = await loadSession(cookies[SESSION_COOKIE_NAME]);
-    if (!user) {
+    if (!sessionAllowed(req, user)) {
       res.status(401).json({ code: 401, message: 'Authentication required' });
       return;
     }

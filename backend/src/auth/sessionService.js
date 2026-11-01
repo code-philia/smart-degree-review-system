@@ -21,9 +21,10 @@ function serializeUser(row) {
   };
 }
 
-async function login(username, password) {
+async function login(username, password, { allowedRoles } = {}) {
+  if (typeof username !== 'string' || typeof password !== 'string' || !username || !password) return null;
   const user = await sessionRepository.findUserByUsername(username);
-  if (!user) {
+  if (!user || (allowedRoles && !allowedRoles.includes(user.role))) {
     return null;
   }
 

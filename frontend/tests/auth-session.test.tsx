@@ -89,10 +89,8 @@ describe('FEAT-AUTH-SESSION frontend session provider and auth page', () => {
     expect(screen.getByText('role:none')).toBeInTheDocument();
   });
 
-  it('mounts the local login form through /auth and updates shared authenticated state on API-backed login', async () => {
+  it('mounts only campus sign-in through the public /auth route', async () => {
     vi.mocked(fetchCurrentSession).mockRejectedValue({ response: { status: 401 } });
-    vi.mocked(loginWithLocalAccount).mockResolvedValue({ user: studentUser });
-    const user = userEvent.setup();
 
     render(
       <MemoryRouter initialEntries={['/auth']}>
@@ -102,17 +100,11 @@ describe('FEAT-AUTH-SESSION frontend session provider and auth page', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByRole('heading', { name: '登录本地账号' })).toBeInTheDocument();
-    expect(screen.getByRole('form', { name: '本地账号密码登录表单' })).toBeInTheDocument();
-
-    await user.type(screen.getByLabelText('账号'), 'student01');
-    await user.type(screen.getByLabelText('密码'), 'ArcDemo123!');
-    await user.click(screen.getByRole('button', { name: '登录' }));
-
-    await waitFor(() =>
-      expect(loginWithLocalAccount).toHaveBeenCalledWith({ username: 'student01', password: 'ArcDemo123!' }),
-    );
-    expect(await screen.findByText(/已登录：student01（STUDENT）/)).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: '使用 jAccount 登录' })).toHaveAttribute('href', '/api/auth/jaccount');
+    expect(screen.queryByRole('form', { name: '本地账号密码登录表单' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('账号')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('密码')).not.toBeInTheDocument();
+    expect(loginWithLocalAccount).not.toHaveBeenCalled();
   });
 
   it('displays failed login errors without creating authenticated state', async () => {

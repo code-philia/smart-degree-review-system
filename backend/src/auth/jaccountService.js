@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const { get, run } = require('../database');
 const sessionRepository = require('./sessionRepository');
 const { createUserSession } = require('./sessionService');
+const { campusUserAllowed } = require('./loginPolicy');
 
 const STATE_COOKIE_NAME = 'arc_jaccount_state';
 const STATE_TTL_MS = 10 * 60 * 1000;
@@ -84,6 +85,7 @@ async function completeLogin({ state, browserState, code, providerError }) {
     ON CONFLICT(id) DO UPDATE SET display_name = COALESCE(excluded.display_name, auth_users.display_name)`,
   [id, `jaccount:${profile.account}`, displayName]);
   const user = await sessionRepository.findUserById(id);
+  if (!campusUserAllowed(user)) throw failure('forbidden_role');
   return createUserSession(user);
 }
 

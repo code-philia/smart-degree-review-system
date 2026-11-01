@@ -1,9 +1,6 @@
-import type { ReactNode } from 'react';
 import { ArrowUpRight, BookOpenCheck, ScanLine, PenLine } from 'lucide-react';
 import AuthCampusScene from './authCampus/AuthCampusScene';
 import './auth-campus.css';
-
-type AuthPageProps = { accountFormSlot?: ReactNode; helpSlot?: ReactNode };
 
 function JaccountEntry() {
   const error = new URLSearchParams(window.location.search).get('jaccount_error');
@@ -11,7 +8,8 @@ function JaccountEntry() {
     state: 'jAccount 登录已过期，请重新登录。',
     provider: 'jAccount 登录暂未完成，请重试。',
     denied: '已取消 jAccount 登录，可重新登录。',
-    unavailable: 'jAccount 登录暂不可用，请使用本地账号登录。',
+    unavailable: 'jAccount 登录暂不可用，请稍后重试或联系系统管理员。',
+    forbidden_role: '此账号无法通过 jAccount 登录，请联系系统管理员。',
   };
   return (
     <section aria-label="校内账号登录">
@@ -29,16 +27,7 @@ function JaccountEntry() {
   );
 }
 
-function DefaultAccountSlot() {
-  return (
-    <div className="space-y-4" aria-label="账号登录表单">
-      <div className="login-input text-slate-400">请输入账号</div>
-      <div className="login-input text-slate-400">请输入密码</div>
-    </div>
-  );
-}
-
-export default function AuthPage({ accountFormSlot, helpSlot }: AuthPageProps) {
+export default function AuthPage() {
   return (
     <main className="campus-signin">
       <AuthCampusScene />
@@ -77,26 +66,13 @@ export default function AuthPage({ accountFormSlot, helpSlot }: AuthPageProps) {
             </div>
           </div>
         </section>
-        <section className="campus-login" aria-label="身份认证区域">
+        <section className="campus-login campus-login--sso" aria-label="身份认证区域">
           <div className="campus-heading">
             <span>欢迎使用</span>
             <h1>统一身份认证</h1>
             <p>登录，开启论文智能审阅</p>
           </div>
           <JaccountEntry />
-          <section aria-label="账号密码登录区域">
-            <div className="auth-divider">
-              <h2>登录本地账号</h2>
-            </div>
-            {accountFormSlot ?? <DefaultAccountSlot />}
-            <div className="campus-help-row">
-              <details className="auth-help" id="password">
-                <summary>忘记密码 / 用户名</summary>
-                <p>如忘记账号或密码，请联系系统管理员重置。交大校内账号请通过 jAccount 官方渠道找回。</p>
-              </details>
-              {helpSlot ? <div className="auth-demo">{helpSlot}</div> : null}
-            </div>
-          </section>
           <section className="system-description" aria-label="系统说明">
             <h2>关于本系统</h2>
             <p>

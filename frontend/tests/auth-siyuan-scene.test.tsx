@@ -5,13 +5,13 @@ import { isInPool, poolLeft, POOL_PATH, WaterWaveSolver } from '../src/pages/aut
 
 describe('selected Siyuan sign-in scene', () => {
   it('ships the selected illustration without preview or motion toggles', () => {
-    render(<AuthPage accountFormSlot={<form aria-label="Real login" />} helpSlot={<p>Account help</p>} />);
+    render(<AuthPage />);
     expect(document.querySelector('img[src="/sjtu-siyuan-illustration.webp"]')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /暂停|开启.*动效|选用此方案/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: /使用 jAccount 登录/ })).toHaveAttribute('href', '/api/auth/jaccount');
-    expect(screen.getByRole('form', { name: 'Real login' })).toBeInTheDocument();
-    expect(screen.getByText('Account help')).toBeInTheDocument();
+    expect(screen.queryByRole('form')).not.toBeInTheDocument();
+    expect(screen.queryByText(/本地账号登录帮助|忘记密码/)).not.toBeInTheDocument();
     expect(document.querySelectorAll('.campus-wind-leaf')).toHaveLength(5);
   });
   it('supports keyboard gear activation and cancels its frame on unmount', () => {

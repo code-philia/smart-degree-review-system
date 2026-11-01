@@ -1,7 +1,7 @@
 import { PageHeader, Card } from '../components/ui';
 
 const AVAILABLE_CAPABILITIES = [
-  { title: '统一身份认证', text: '支持 jAccount 统一身份认证与本地账号密码登录。' },
+  { title: '统一身份认证', text: '支持 jAccount 统一身份认证。' },
   { title: '基础规则检测', text: '按当前生效规则检查章节顺序、标点配对、参考文献和禁用词等问题，并定位到具体行列。' },
   {
     title: 'PDF 语义规则审查',

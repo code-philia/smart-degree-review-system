@@ -1,8 +1,6 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { canonicalReviewUrl, REVIEW_ROUTES } from './nav/reviewRoutes';
 import AppShell from './layout/AppShell';
-import DemoAccountHelpPanel from './auth/DemoAccountHelpPanel';
-import LocalAccountLoginForm from './auth/LocalAccountLoginForm';
 import RequireSession from './auth/RequireSession';
 import AuthPage from './pages/AuthPage';
 import NotFoundPage from './pages/NotFoundPage';
@@ -21,7 +19,7 @@ function App() {
     <Routes>
       <Route
         path="/auth"
-        element={<AuthPage accountFormSlot={<LocalAccountLoginForm />} helpSlot={<DemoAccountHelpPanel />} />}
+        element={<AuthPage />}
       />
 
       <Route element={<RequireSession />}>

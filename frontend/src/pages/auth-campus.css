@@ -878,6 +878,9 @@
   box-shadow: 0 0 0 3px #a1283c0a;
   background: #fffefa;
 }
+.campus-signin .campus-login--sso {
+  align-self: center;
+}
 .campus-signin .auth-divider h2 {
   font-size: 11px;
   font-weight: 400;

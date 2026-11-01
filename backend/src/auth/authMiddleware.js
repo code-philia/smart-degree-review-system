@@ -1,4 +1,5 @@
 const { SESSION_COOKIE_NAME, loadSession } = require('./sessionService');
+const { sessionAllowed } = require('./loginPolicy');
 
 function parseCookies(cookieHeader = '') {
   return cookieHeader.split(';').reduce((cookies, pair) => {
@@ -33,7 +34,7 @@ function requireAuth(options = {}) {
     const cookies = parseCookies(req.headers.cookie || '');
     const user = await loadSession(cookies[SESSION_COOKIE_NAME]);
 
-    if (!user) {
+    if (!sessionAllowed(req, user)) {
       res.status(401).json({ code: 401, message: 'Authentication required' });
       return;
     }
