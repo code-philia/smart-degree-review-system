@@ -17,6 +17,7 @@ import {
 } from '../api/paperLint';
 import { PaperLintWorkspace } from '../components/paperLint/Workspace';
 import { ThesisUploadPanel } from '../components/paperLint/ThesisUploadPanel';
+import { LivePaperLintReport } from '../components/paperLint/LivePaperLintReport';
 import { compilerPublicationLabel, compilerPublicationSummary, flattenPaperLintFindings } from '../components/paperLint/model';
 import { usePaperLintRepairSuggestions } from '../hooks/usePaperLintRepairSuggestions';
 import {
@@ -556,6 +557,16 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     );
   }
 
+  if (isThirty && running && jobStatus && activeJobId) return <LivePaperLintReport
+    file={file || { name: activeFilename || '论文.pdf', url: `/api/normative/paper-lint/jobs/${encodeURIComponent(activeJobId)}/pdf` }}
+    rules={visibleRules}
+    runs={completedRuns}
+    progress={jobProgress}
+    stopping={stopping}
+    onStop={() => void stopReview()}
+    error={runError}
+  />;
+
   if (isThirty) return <ThesisUploadPanel
     rules={visibleRules}
     selectedRuleIds={selectedRuleIds}
@@ -580,7 +591,6 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     requiresConsent={selectedExternalRule}
     consent={externalConsent}
     onConsentChange={setExternalConsent}
-    completedRuns={completedRuns}
   />;
 
   return (

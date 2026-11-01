@@ -2,6 +2,7 @@ const fs = require('fs');
 const repository = require('./paperLintJobRepository');
 const reportRepository = require('./paperLintReportRepository');
 const defaultPaperLintService = require('./reviewPilotPaperLintService');
+const { removeBrowserPdf } = require('./browserPdf');
 
 function createPaperLintJobService(paperLintService = defaultPaperLintService) {
   const queue = [];
@@ -60,7 +61,10 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
       await repository.failJob(id, message);
     } finally {
       try {
-        if (job) await fs.promises.rm(job.source_pdf_path, { force: true });
+        if (job) {
+          await fs.promises.rm(job.source_pdf_path, { force: true });
+          await removeBrowserPdf(job.source_pdf_path);
+        }
       } finally {
         activeRuns.delete(id);
         finish();
@@ -78,6 +82,7 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
         await activeRun.finished;
       } else {
         await fs.promises.rm(job.source_pdf_path, { force: true });
+        await removeBrowserPdf(job.source_pdf_path);
       }
     }
     return repository.getJobForUser(id, userId);
@@ -118,7 +123,21 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
     }
   }
 
-  return { enqueue, getForUser: repository.getJobForUser, cancelForUser, resumeJobs, waitForIdle };
+  async function getPdfForUser(id, userId) {
+    const job = await repository.getJob(id);
+    if (!job || job.user_id !== userId) return null;
+    if (job.report_id) return reportRepository.getPaperLintReportPdfFile(job.report_id, userId);
+    if (job.cancelled_at || job.status === 'failed') return { source_filename: job.source_filename, path: null };
+    try {
+      const stat = await fs.promises.stat(job.source_pdf_path);
+      return { source_filename: job.source_filename, path: stat.isFile() ? job.source_pdf_path : null };
+    } catch (error) {
+      if (error.code === 'ENOENT') return { source_filename: job.source_filename, path: null };
+      throw error;
+    }
+  }
+
+  return { enqueue, getForUser: repository.getJobForUser, getPdfForUser, cancelForUser, resumeJobs, waitForIdle };
 }
 
 const defaultJobService = createPaperLintJobService();

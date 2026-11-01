@@ -1,4 +1,4 @@
-import { Bot, Check, CheckCircle2, MapPin } from 'lucide-react';
+import { Bot, Check, CheckCircle2, LoaderCircle, MapPin } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { PaperLintRule } from '../../api/paperLint';
 import type { RepairSuggestion } from '../../api/repairSuggestions';
@@ -10,6 +10,7 @@ import { displayFindingPages, type PdfPageLabels } from './pageLabels';
 
 type Props = {
   findings: PaperLintFindingItem[];
+  running?: boolean;
   rules: PaperLintRule[];
   activeFindingKey: string | null;
   activeAnchorId: string | null;
@@ -64,6 +65,7 @@ function RepairAction({ instruction }: { instruction: string }) {
 
 export function FindingsPane({
   findings,
+  running = false,
   rules,
   activeFindingKey,
   activeAnchorId,
@@ -137,9 +139,9 @@ export function FindingsPane({
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
         {filtered.length === 0 ? (
           <div className="flex h-full min-h-60 flex-col items-center justify-center text-center">
-            <CheckCircle2 className="size-8 text-success-600" />
-            <p className="mt-3 text-sm font-bold text-slate-900">{findings.length ? '当前筛选下未检测出问题' : '未检测出问题'}</p>
-            <p className="mt-1 max-w-sm text-xs leading-6 text-slate-500">基于当前规范性检测规则，证据不足的内容仍可能无法判定，检测结果仅供参考</p>
+            {running ? <LoaderCircle className="size-8 animate-spin text-brand-600 motion-reduce:animate-none" /> : <CheckCircle2 className="size-8 text-success-600" />}
+            <p className="mt-3 text-sm font-bold text-slate-900">{findings.length ? '当前筛选下未检测出问题' : running ? '正在检测，等待新的问题' : '未检测出问题'}</p>
+            <p className="mt-1 max-w-sm text-xs leading-6 text-slate-500">{running ? '规则报警后会自动显示在这里，可随时点击问题定位论文原文。' : '基于当前规范性检测规则，证据不足的内容仍可能无法判定，检测结果仅供参考'}</p>
           </div>
         ) : (
           filtered.map((item) => {

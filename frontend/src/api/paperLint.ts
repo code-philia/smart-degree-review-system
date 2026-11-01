@@ -198,7 +198,8 @@ export async function fetchReviewPilotPaperLintRules(): Promise<PaperLintCatalog
   const response = await apiClient.get<PaperLintCatalogResponse>('/normative/paper-lint/rules', {
     timeout: 60_000,
   });
-  return response.data;
+  return { ...response.data, rules: response.data.rules.map(rule => rule.rule_id === 'abstract_numeric_consistency_check'
+    ? { ...rule, title: '论点论据一致性检测' } : rule) };
 }
 
 export async function runReviewPilotPaperLint(

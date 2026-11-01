@@ -24,7 +24,7 @@ export function comparePaperLintRuleIds(left: string, right: string): number {
   return leftNumber - rightNumber;
 }
 
-export function flattenPaperLintFindings(result: PaperLintResult): PaperLintFindingItem[] {
+export function flattenPaperLintFindings(result: Pick<PaperLintResult, 'rule_runs'>): PaperLintFindingItem[] {
   const items: PaperLintFindingItem[] = [];
   for (const ruleRun of result.rule_runs || []) {
     for (const finding of ruleRun.findings || []) {

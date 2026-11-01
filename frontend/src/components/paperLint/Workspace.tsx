@@ -38,6 +38,7 @@ type Props = {
   rules: PaperLintRule[];
   openPdfUrl?: string;
   numericReviewRun?: PaperLintRuleRun;
+  running?: boolean;
   repairSuggestionByFindingKey?: Record<string, RepairSuggestion | undefined>;
   repairSuggestionLoadingKey?: string | null;
   repairSuggestionLoadingByFindingKey?: Record<string, boolean>;
@@ -63,6 +64,7 @@ export function PaperLintWorkspace({
   rules,
   openPdfUrl,
   numericReviewRun,
+  running = false,
   repairSuggestionByFindingKey = {},
   repairSuggestionLoadingKey = null,
   repairSuggestionLoadingByFindingKey = {},
@@ -157,6 +159,7 @@ export function PaperLintWorkspace({
       <FindingsPane
         pageLabels={pageLabels}
         findings={findings}
+        running={running}
         rules={rules}
         activeFindingKey={activeFindingKey}
         activeAnchorId={activeAnchorId}

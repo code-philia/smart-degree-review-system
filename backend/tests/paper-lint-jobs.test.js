@@ -82,6 +82,22 @@ describe('durable MinerU paper-lint jobs', () => {
     expect(service.runPaperLint).toHaveBeenCalledTimes(1);
   });
 
+  it('previews only the current user pending PDF and continues serving it after completion', async () => {
+    const id = await jobRepository.createJob({ userId: 'student01', sourceFilename: 'private.pdf', pdfBuffer: pdf,
+      selectedRuleIds: ['sjtu_rule_18'], externalProcessingConsent: false });
+    const url = '/api/normative/paper-lint/jobs/' + id + '/pdf';
+    await request(app).get(url).expect(401);
+    await request(app).get(url).set('Cookie', cookies.supervisor01).expect(404);
+    const preview = await request(app).get(url).set('Cookie', cookies.student01).expect(200);
+    expect(preview.headers['content-type']).toContain('application/pdf');
+    expect(preview.headers['cache-control']).toContain('private');
+    await request(app).get(url).set('Cookie', cookies.student01).set('Range', 'bytes=0-7').expect(206);
+    await jobs.resumeJobs();
+    await jobs.waitForIdle();
+    await request(app).get(url).set('Cookie', cookies.student01).expect(200);
+    await request(app).get(url).set('Cookie', cookies.supervisor01).expect(404);
+  });
+
   it('resumes a persisted running job once and keeps failure visible', async () => {
     service.runPaperLint.mockRejectedValueOnce(new Error('parse failed'));
     const submitted = await request(app).post('/api/normative/paper-lint/run')

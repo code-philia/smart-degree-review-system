@@ -146,6 +146,15 @@ function createReviewPilotPaperLintRouter(service = defaultService, exampleServi
     }
   });
 
+  router.get('/jobs/:jobId/pdf', requireAuth({ allowedRoles }), async (req, res, next) => {
+    try {
+      const pdf = await jobService.getPdfForUser(req.params.jobId, req.user.id);
+      if (!pdf) return res.status(404).json({ code: 404, message: '未找到该检查任务' });
+      if (!pdf.path) return res.status(410).json({ code: 410, message: '该任务的原始 PDF 已不可用' });
+      return sendPrivatePdf(req, res, pdf.path, pdf.source_filename, next);
+    } catch (error) { return sendError(error, res, next); }
+  });
+
   router.get('/jobs/:jobId', requireAuth({ allowedRoles }), async (req, res, next) => {
     try {
       const job = await jobService.getForUser(req.params.jobId, req.user.id);

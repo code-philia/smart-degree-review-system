@@ -25,7 +25,10 @@ vi.mock('../src/api/paperLint', async () => ({
 vi.mock('../src/hooks/usePaperLintRepairSuggestions', () => ({
   usePaperLintRepairSuggestions: () => ({ repairSuggestionByFindingKey: {} }),
 }));
-vi.mock('../src/components/paperLint/Workspace', () => ({ PaperLintWorkspace: () => null }));
+vi.mock('../src/components/paperLint/PdfPane', () => ({
+  PdfPane: ({ file, activeFindingKey }: { file: File | { name: string; url: string }; activeFindingKey: string | null }) =>
+    <div aria-label="实时原文预览" data-source={'url' in file ? file.url : file.name} data-active={activeFindingKey} />,
+}));
 
 const rules: PaperLintRule[] = [
   ['sjtu_rule_18', '正文公式引用目标缺失', '核对公式编号'],
@@ -194,7 +197,7 @@ it('restores a running subset and opens its saved report without another upload'
   expect(runReviewPilotPaperLint).not.toHaveBeenCalled();
 });
 
-it('updates the ring from completed rules while keeping report completion controlled by the server', async () => {
+it('updates real report progress while keeping report completion controlled by the server', async () => {
   let nextPoll!: (value: any) => void;
   vi.mocked(fetchPaperLintJob)
     .mockResolvedValueOnce({
@@ -212,9 +215,10 @@ it('updates the ring from completed rules while keeping report completion contro
   await waitFor(() =>
     expect(screen.getByRole('progressbar', { name: '检测进度' })).toHaveAttribute('aria-valuenow', '33'),
   );
-  expect(screen.getByText('后台检测已开始，已完成 1 / 3 项规则。')).toBeInTheDocument();
+  expect(screen.getByText('已完成 1 / 3 项规则')).toBeInTheDocument();
   expect(screen.getByText('33%')).toBeInTheDocument();
-  expect(screen.getByRole('progressbar', { name: '检测进度' }).querySelector('svg')).not.toHaveClass('animate-spin');
+  expect(screen.getByText('正在检测，等待新的问题')).toBeInTheDocument();
+  expect(screen.queryByText('未检测出问题')).not.toBeInTheDocument();
   await waitFor(() => expect(nextPoll).toBeTypeOf('function'));
   await act(async () => nextPoll({ ...pendingJob, status: 'running', progress: {
     completed_rule_ids: rules.slice(0, 3).map(rule => rule.rule_id),
@@ -306,13 +310,13 @@ it('groups reference existence with content and offers numeric checking as an op
   expect(within(content).getByRole('checkbox', { name: /关键词语义/ })).toBeChecked();
   const experiment = screen.getByRole('region', { name: '论文逻辑审查检测规则' });
   expect(within(experiment).getByText('实验型功能')).toBeVisible();
-  expect(within(experiment).getByRole('checkbox', { name: /摘要数值/ })).not.toBeChecked();
+  expect(within(experiment).getByRole('checkbox', { name: /论点论据一致性检测/ })).not.toBeChecked();
   expect(within(experiment).getByText('实验性')).toBeVisible();
   fireEvent.click(within(experiment).getByRole('button', { name: '全选论文逻辑审查' }));
-  expect(within(experiment).getByRole('checkbox', { name: /摘要数值/ })).toBeChecked();
+  expect(within(experiment).getByRole('checkbox', { name: /论点论据一致性检测/ })).toBeChecked();
 });
 
-it.each([false, true])('shows every incremental result in completion order before the report is saved (restored=%s)', async (restored) => {
+it.each([false, true])('updates the actual live report and preserves the selected finding (restored=%s)', async (restored) => {
   const ids = ['sjtu_rule_18', 'typo_detection_check'];
   const run = (rule_id: string, message: string) => ({ rule_id, rule_run_id: rule_id,
     severity: 'warning', execution_status: 'completed', outcome: 'issues_found',
@@ -331,17 +335,37 @@ it.each([false, true])('shows every incremental result in completion order befor
     await choosePdf();
     fireEvent.click(screen.getByRole('button', { name: '开始检测', exact: true }));
   }
-  const region = await screen.findByRole('region', { name: '已完成规则结果' });
+  const region = await screen.findByRole('region', { name: '实时检测报告' });
   expect(within(region).getByText('先完成的错别字结果')).toBeInTheDocument();
   expect(within(region).queryByText('后完成的公式结果')).not.toBeInTheDocument();
+  expect(screen.queryByRole('region', { name: '已完成规则结果' })).not.toBeInTheDocument();
+  expect(within(region).getByText('错误总数').closest('div')).toHaveTextContent('1');
+  fireEvent.click(within(region).getByText('先完成的错别字结果').closest('article')!);
+  const preview = screen.getByLabelText('实时原文预览');
+  expect(preview).toHaveAttribute('data-active', ids[1]);
+  expect(preview).toHaveAttribute('data-source', restored ? '/api/normative/paper-lint/jobs/upload-job/pdf' : '论文.pdf');
   await waitFor(() => expect(nextPoll).toBeTypeOf('function'));
   await act(async () => nextPoll({ ...pendingJob, status: 'running', progress: {
     completed_rule_ids: [ids[1], ids[0]], total_rule_ids: ids, rule_runs: [first, second],
   } }));
   expect(within(region).getByText('后完成的公式结果')).toBeInTheDocument();
-  const items = within(region).getAllByRole('listitem');
-  expect(items[0]).toHaveTextContent('正文错别字检测');
-  expect(items[1]).toHaveTextContent('正文公式引用目标缺失');
+  expect(within(region).getByText('错误总数').closest('div')).toHaveTextContent('2');
+  expect(screen.getByLabelText('实时原文预览')).toBe(preview);
+  expect(preview).toHaveAttribute('data-active', ids[1]);
   expect(screen.getByRole('button', { name: '停止检测' })).toBeInTheDocument();
   expect(fetchPaperLintReport).not.toHaveBeenCalled();
+});
+
+it('keeps the original content group order and puts external references last', async () => {
+  const ids = ['sjtu_rule_32', 'bilingual_keywords_correspondence_check', 'chinese_english_symbol_mix_check', 'bilingual_abstract_consistency_check', 'typo_detection_check'];
+  vi.mocked(fetchReviewPilotPaperLintRules).mockResolvedValue({ ...catalog, rules: ids.map(rule_id => ({ ...rules[0], rule_id, title: rule_id })) } as never);
+  showUpload();
+  fireEvent.click(await screen.findByRole('button', { name: '展开选择' }));
+  expect(within(screen.getByRole('region', { name: '内容规范检测规则' })).getAllByRole('checkbox').map(input => input.closest('label')?.textContent)).toEqual([
+    expect.stringContaining('typo_detection_check'),
+    expect.stringContaining('bilingual_abstract_consistency_check'),
+    expect.stringContaining('chinese_english_symbol_mix_check'),
+    expect.stringContaining('bilingual_keywords_correspondence_check'),
+    expect.stringContaining('sjtu_rule_32'),
+  ]);
 });
