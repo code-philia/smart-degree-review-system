@@ -17,7 +17,8 @@ export function canonicalReviewUrl(value: unknown): string | null {
   const suffix = match[2] || '';
   const aliases: Record<string, string> = {
     '/thirty-rules-check': REVIEW_ROUTES.upload,
-    '/semantic-rules-check': REVIEW_ROUTES.semantic,
+    '/semantic-rules-check': REVIEW_ROUTES.upload,
+    '/abstract-check': REVIEW_ROUTES.upload,
     '/thirty-rules-check/reports': REVIEW_ROUTES.history,
   };
   if (aliases[path]) return aliases[path] + suffix;

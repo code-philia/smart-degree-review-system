@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom';
 import { beforeEach, expect, it, vi } from 'vitest';
@@ -92,7 +92,7 @@ it('starts with all available rules selected and collapsed below the two-line up
   const input = screen.getByLabelText('上传待审查 PDF');
   expect(input.compareDocumentPosition(expand) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   await user.click(expand);
-  for (const name of ['格式排版', '文字表述', '语言规范'])
+  for (const name of ['格式规范', '内容规范', '论文逻辑审查'])
     expect(screen.getByRole('heading', { name, exact: true })).toBeInTheDocument();
   expect(screen.getByRole('checkbox', { name: /正文公式引用目标缺失/ })).toBeChecked();
   expect(screen.getByRole('checkbox', { name: /正文错别字检测/ })).toBeChecked();
@@ -111,9 +111,9 @@ it('supports global and group selection, warns after clear, and retains the subs
   expect(screen.getByRole('button', { name: '开始检测', exact: true })).toBeDisabled();
   await user.click(screen.getByRole('checkbox', { name: /正文错别字检测/ }));
   expect(screen.queryByText('请至少选择一项检测规则')).not.toBeInTheDocument();
-  await user.click(screen.getByRole('button', { name: '全选格式排版' }));
+  await user.click(screen.getByRole('button', { name: '全选格式规范' }));
   expect(screen.getByRole('checkbox', { name: /正文公式/ })).toBeChecked();
-  await user.click(screen.getByRole('button', { name: '清空格式排版' }));
+  await user.click(screen.getByRole('button', { name: '清空格式规范' }));
   expect(screen.getByRole('checkbox', { name: /正文公式/ })).not.toBeChecked();
   await user.click(screen.getByRole('button', { name: '收起选择' }));
   expect(screen.getByText('已选择 1 项检测规则')).toBeInTheDocument();
@@ -290,4 +290,58 @@ it('shows file validation and failed jobs without navigating or consuming anothe
   expect(await screen.findByRole('alert')).toHaveTextContent('解析失败，请更换文件');
   expect(screen.queryByRole('heading', { name: /报告详情/ })).not.toBeInTheDocument();
   expect(runReviewPilotPaperLint).toHaveBeenCalledTimes(1);
+});
+
+it('groups reference existence with content and offers numeric checking as an opt-in experiment', async () => {
+  const extra = (rule_id: string, title: string) => ({ ...rules[0], rule_id, title });
+  vi.mocked(fetchReviewPilotPaperLintRules).mockResolvedValue({ ...catalog, rules: [
+    ...rules.slice(0, 3), extra('sjtu_rule_32', '引用的外部文献不存在'),
+    extra('abstract_numeric_consistency_check', '摘要数值声明与实验结果一致性'),
+  ] } as never);
+  showUpload();
+  fireEvent.click(await screen.findByRole('button', { name: '展开选择' }));
+  const content = screen.getByRole('region', { name: '内容规范检测规则' });
+  expect(within(content).getByRole('checkbox', { name: /外部文献/ })).toBeChecked();
+  expect(within(content).getByRole('checkbox', { name: /错别字/ })).toBeChecked();
+  expect(within(content).getByRole('checkbox', { name: /关键词语义/ })).toBeChecked();
+  const experiment = screen.getByRole('region', { name: '论文逻辑审查检测规则' });
+  expect(within(experiment).getByText('实验型功能')).toBeVisible();
+  expect(within(experiment).getByRole('checkbox', { name: /摘要数值/ })).not.toBeChecked();
+  expect(within(experiment).getByText('实验性')).toBeVisible();
+  fireEvent.click(within(experiment).getByRole('button', { name: '全选论文逻辑审查' }));
+  expect(within(experiment).getByRole('checkbox', { name: /摘要数值/ })).toBeChecked();
+});
+
+it.each([false, true])('shows every incremental result in completion order before the report is saved (restored=%s)', async (restored) => {
+  const ids = ['sjtu_rule_18', 'typo_detection_check'];
+  const run = (rule_id: string, message: string) => ({ rule_id, rule_run_id: rule_id,
+    severity: 'warning', execution_status: 'completed', outcome: 'issues_found',
+    findings: [{ finding_id: rule_id, rule_id, message, location: null, anchors: [] }] });
+  const first = run(ids[1], '先完成的错别字结果');
+  const second = run(ids[0], '后完成的公式结果');
+  let nextPoll!: (value: any) => void;
+  vi.mocked(fetchPaperLintJob).mockResolvedValueOnce({ ...pendingJob, status: 'running', progress: {
+    completed_rule_ids: [ids[1]], total_rule_ids: ids, rule_runs: [first],
+  } } as never).mockImplementation(() => new Promise(resolve => { nextPoll = resolve; }));
+  if (restored) localStorage.setItem('paper-lint-active-job:upload-student', JSON.stringify({
+    jobId: pendingJob.job_id, requestId: 'restored', filename: '论文.pdf', selectedRuleIds: ids,
+  }));
+  showUpload();
+  if (!restored) {
+    await choosePdf();
+    fireEvent.click(screen.getByRole('button', { name: '开始检测', exact: true }));
+  }
+  const region = await screen.findByRole('region', { name: '已完成规则结果' });
+  expect(within(region).getByText('先完成的错别字结果')).toBeInTheDocument();
+  expect(within(region).queryByText('后完成的公式结果')).not.toBeInTheDocument();
+  await waitFor(() => expect(nextPoll).toBeTypeOf('function'));
+  await act(async () => nextPoll({ ...pendingJob, status: 'running', progress: {
+    completed_rule_ids: [ids[1], ids[0]], total_rule_ids: ids, rule_runs: [first, second],
+  } }));
+  expect(within(region).getByText('后完成的公式结果')).toBeInTheDocument();
+  const items = within(region).getAllByRole('listitem');
+  expect(items[0]).toHaveTextContent('正文错别字检测');
+  expect(items[1]).toHaveTextContent('正文公式引用目标缺失');
+  expect(screen.getByRole('button', { name: '停止检测' })).toBeInTheDocument();
+  expect(fetchPaperLintReport).not.toHaveBeenCalled();
 });

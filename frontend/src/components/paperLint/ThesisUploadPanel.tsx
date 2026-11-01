@@ -1,7 +1,8 @@
-import { ArrowRight, Check, ChevronDown, FileText, LoaderCircle, ShieldCheck, Square, Upload, X } from 'lucide-react';
+import { ArrowRight, Check, ChevronDown, FileText, FlaskConical, LoaderCircle, ShieldCheck, Square, Upload, X } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { DetectionPageHeader } from './DetectionPageHeader';
-import type { PaperLintRule } from '../../api/paperLint';
+import type { PaperLintRule, PaperLintRuleRun } from '../../api/paperLint';
+import { compilerPublicationLabel } from './model';
 import { Button } from '../ui';
 
 type Props = {
@@ -28,13 +29,16 @@ type Props = {
   requiresConsent: boolean;
   consent: boolean;
   onConsentChange: (value: boolean) => void;
+  completedRuns?: PaperLintRuleRun[];
 };
 
-const GROUPS = ['格式排版', '文字表述', '语言规范'] as const;
+const NUMERIC_RULE = 'abstract_numeric_consistency_check';
+const GROUPS = ['格式规范', '内容规范', '论文逻辑审查'] as const;
 function ruleGroup(id: string) {
-  if (['typo_detection_check', 'bilingual_abstract_consistency_check'].includes(id)) return '文字表述';
-  if (['chinese_english_symbol_mix_check', 'bilingual_keywords_correspondence_check'].includes(id)) return '语言规范';
-  return '格式排版';
+  if (id === NUMERIC_RULE) return '论文逻辑审查';
+  if (['typo_detection_check', 'bilingual_abstract_consistency_check', 'sjtu_rule_32',
+    'chinese_english_symbol_mix_check', 'bilingual_keywords_correspondence_check'].includes(id)) return '内容规范';
+  return '格式规范';
 }
 
 function DetectionProgress({
@@ -336,7 +340,10 @@ export function ThesisUploadPanel(props: Props) {
                       className="rounded-2xl border border-slate-200 bg-slate-50/40"
                     >
                       <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-3 py-3">
-                        <h3 className="whitespace-nowrap text-sm font-semibold text-slate-800">{group}</h3>
+                        <div>
+                          <h3 className="text-sm font-semibold text-slate-800">{group}</h3>
+                          {group === '论文逻辑审查' ? <p className="mt-1 text-[11px] text-amber-700">实验型功能</p> : null}
+                        </div>
                         <div className="flex">
                           <Button
                             size="sm"
@@ -381,7 +388,9 @@ export function ThesisUploadPanel(props: Props) {
                                 }
                               />
                               <span className="min-w-0">
-                                <span className="block text-xs font-medium leading-5 text-slate-800">{rule.title}</span>
+                                <span className="block text-xs font-medium leading-5 text-slate-800">{rule.title}
+                                  {rule.rule_id === NUMERIC_RULE ? <span className="ml-1.5 inline-flex items-center gap-1 rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-800"><FlaskConical aria-hidden="true" className="size-3" />实验性</span> : null}
+                                </span>
                                 <span className="mt-1 block text-[11px] leading-5 text-slate-500">
                                   {rule.description}
                                 </span>
@@ -482,6 +491,31 @@ export function ThesisUploadPanel(props: Props) {
         <div ref={progressRef}>
           <DetectionProgress {...props} />
         </div>
+      ) : null}
+      {props.completedRuns?.length ? (
+        <section aria-label="已完成规则结果" className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-7">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-base font-semibold text-slate-900">已完成规则结果</h2>
+            <span className="text-xs text-slate-500">按完成顺序更新 · {props.completedRuns.length} 项</span>
+          </div>
+          <p className="mt-2 text-xs leading-6 text-slate-500">完成一项即可查看一项，全部结束后自动打开完整报告。</p>
+          <ol className="mt-4 space-y-3">
+            {props.completedRuns.map(run => {
+              const label = run.execution_status === 'error' ? '检测失败'
+                : run.execution_status === 'unsupported' ? '暂无法判定'
+                : compilerPublicationLabel(run) || ({ passed: '未发现问题', issues_found: '发现问题', inconclusive: '无法判定', not_applicable: '不适用' }[run.outcome]);
+              return <li key={run.rule_id} className="rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3 motion-safe:animate-in motion-safe:fade-in">
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="text-sm font-medium text-slate-900">{rules.find(rule => rule.rule_id === run.rule_id)?.title || run.rule_id}</h3>
+                  <span className={`shrink-0 rounded-md px-2 py-1 text-xs ${run.execution_status === 'completed' && run.outcome === 'passed' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'}`}>{label}{run.findings.length ? ` · ${run.findings.length} 项` : ''}</span>
+                </div>
+                {run.message ? <p className="mt-2 text-xs leading-6 text-slate-500">{run.message}</p> : null}
+                {run.findings.slice(0, 3).map((finding, index) => <p key={finding.finding_id || index} className="mt-2 text-sm leading-6 text-slate-600">{finding.message}</p>)}
+                {run.findings.length > 3 ? <details className="mt-2 text-sm text-slate-600"><summary className="cursor-pointer text-xs font-medium text-brand-700">展开其余 {run.findings.length - 3} 项问题</summary>{run.findings.slice(3).map((finding, index) => <p key={finding.finding_id || index} className="mt-2 leading-6">{finding.message}</p>)}</details> : null}
+              </li>;
+            })}
+          </ol>
+        </section>
       ) : null}
       <aside aria-label="检测说明" className="px-1 pb-3 text-xs leading-6 text-slate-500">
         <p>

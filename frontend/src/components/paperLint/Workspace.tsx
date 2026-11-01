@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useId, useState } from 'react';
 import type { PaperLintFinding, PaperLintRule, PaperLintRuleRun } from '../../api/paperLint';
 import type { RepairSuggestion } from '../../api/repairSuggestions';
 import type { FindingFeedback, SuggestionFeedback } from '../../api/feedback';
@@ -81,8 +81,11 @@ export function PaperLintWorkspace({
   onSuggestionFeedbackCancel,
 }: Props) {
   const [pageLabels, setPageLabels] = useState<PdfPageLabels>({});
+  const [detail, setDetail] = useState('findings');
+  const detailId = useId();
+  const showNumeric = Boolean(numericReviewRun && (layout === 'semantic' || detail === 'numeric'));
   const pdfFindings = (() => {
-    if (layout !== 'semantic' || !numericReviewRun) return findings;
+    if (!numericReviewRun) return findings;
     const byKey = new Map(findings.map((item) => [item.key, item]));
     for (const item of numericPdfFindings(numericReviewRun)) if (!byKey.has(item.key)) byKey.set(item.key, item);
     return Array.from(byKey.values());
@@ -124,8 +127,21 @@ export function PaperLintWorkspace({
         onAnchorClick={selectAnchor}
         onPageLabels={setPageLabels}
       />
-      {layout === 'semantic' && numericReviewRun ? (
-        <section className="min-h-0 overflow-y-auto rounded-xl border border-slate-200 bg-white p-4">
+      <div className="flex min-h-0 flex-col gap-3">
+      {layout !== 'semantic' && numericReviewRun ? <div role="tablist" aria-label="报告结果分类" className="flex gap-1 rounded-xl bg-slate-100 p-1">
+        {(['findings', 'numeric'] as const).map(value => <button key={value} type="button" role="tab"
+          id={`${detailId}-${value}`} aria-controls={`${detailId}-${value}-panel`} aria-selected={detail === value}
+          tabIndex={detail === value ? 0 : -1}
+          onKeyDown={event => { if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) { event.preventDefault(); const next = event.key === 'Home' ? 'findings' : event.key === 'End' ? 'numeric' : detail === 'findings' ? 'numeric' : 'findings'; setDetail(next); document.getElementById(`${detailId}-${next}`)?.focus(); } }}
+          onClick={() => setDetail(value)} className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${detail === value ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}>
+          {value === 'findings' ? '规范检测问题' : '论文逻辑审查'}
+        </button>)}
+      </div> : null}
+      {numericReviewRun ? (
+        <section id={`${detailId}-numeric-panel`} hidden={!showNumeric}
+          role={layout !== 'semantic' ? 'tabpanel' : undefined}
+          aria-labelledby={layout !== 'semantic' ? `${detailId}-numeric` : undefined}
+          className={`${showNumeric ? '' : 'hidden'} min-h-0 flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-white p-4`}>
           <NumericReviewDetails
             run={numericReviewRun}
             findings={pdfFindings}
@@ -133,7 +149,12 @@ export function PaperLintWorkspace({
             onPageClick={selectPage}
           />
         </section>
-      ) : <FindingsPane
+      ) : null}
+      <div id={`${detailId}-findings-panel`} hidden={showNumeric}
+        role={layout !== 'semantic' && numericReviewRun ? 'tabpanel' : undefined}
+        aria-labelledby={layout !== 'semantic' && numericReviewRun ? `${detailId}-findings` : undefined}
+        className={`${showNumeric ? 'hidden' : 'flex'} min-h-0 flex-1 flex-col`}>
+      <FindingsPane
         pageLabels={pageLabels}
         findings={findings}
         rules={rules}
@@ -157,7 +178,9 @@ export function PaperLintWorkspace({
         onSuggestionFeedback={onSuggestionFeedback}
         onSuggestionFeedbackReason={onSuggestionFeedbackReason}
         onSuggestionFeedbackCancel={onSuggestionFeedbackCancel}
-      />}
+      />
+      </div>
+      </div>
     </div>
   );
 }

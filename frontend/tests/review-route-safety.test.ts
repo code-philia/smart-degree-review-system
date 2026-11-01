@@ -3,7 +3,7 @@ import { canonicalReviewUrl, reportDetailPath } from '../src/nav/reviewRoutes';
 
 it.each([
   ['/paper-upload', '/paper-upload'],
-  ['/abstract-check?source=login#rules', '/abstract-check?source=login#rules'],
+  ['/abstract-check?source=login#rules', '/paper-upload?source=login#rules'],
   ['/reports/', '/reports'],
   ['/reports/pdf/id%2Fone?view=pdf#page=2', '/reports/pdf/id%2Fone?view=pdf#page=2'],
   ['/thirty-rules-check/reports/pdf/id%2Fone?view=pdf#page=2', '/reports/pdf/id%2Fone?view=pdf#page=2'],

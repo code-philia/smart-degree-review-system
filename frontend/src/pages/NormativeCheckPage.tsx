@@ -48,6 +48,13 @@ type ResultFile = File | { name: string; url: string };
 type StoredPaperLintJob = { jobId: string | null; requestId: string; filename: string; selectedRuleIds: string[] };
 
 function activeJobStorageKey(userId: string, mode?: CheckMode) {
+  if (mode === 'thirty' && !localStorage.getItem(`paper-lint-active-job:${userId}`)) {
+    const legacy = localStorage.getItem(`numeric-review-active-job:${userId}`);
+    if (legacy) {
+      localStorage.setItem(`paper-lint-active-job:${userId}`, legacy);
+      localStorage.removeItem(`numeric-review-active-job:${userId}`);
+    }
+  }
   return mode === 'semantic' ? `numeric-review-active-job:${userId}` : `paper-lint-active-job:${userId}`;
 }
 
@@ -59,7 +66,7 @@ function newRequestId() {
 
 function rulesForMode(rules: PaperLintRule[], mode: CheckMode) {
   if (mode === 'semantic') return rules.filter((rule) => rule.rule_id === 'abstract_numeric_consistency_check');
-  const filtered = rules.filter((rule) => Boolean(rule.enabled_in_mvp) === (mode === 'thirty') && rule.rule_id !== 'abstract_numeric_consistency_check');
+  const filtered = rules.filter((rule) => Boolean(rule.enabled_in_mvp) === (mode === 'thirty'));
   if (mode === 'thirty') {
     filtered.sort(
       (a, b) => Number(a.rule_id.slice('sjtu_rule_'.length)) - Number(b.rule_id.slice('sjtu_rule_'.length)),
@@ -151,7 +158,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
       if (!hasRestoredSelection) {
         const defaultRules = mode === 'semantic'
           ? rulesForMode(nextCatalog.rules, mode)
-          : rulesForMode(nextCatalog.rules, mode).filter((rule) => isThirty ? rule.available : rule.default_enabled);
+          : rulesForMode(nextCatalog.rules, mode).filter((rule) => isThirty ? rule.available && rule.rule_id !== 'abstract_numeric_consistency_check' : rule.default_enabled);
         setSelectedRuleIds(defaultRules.map((rule) => rule.rule_id));
       }
     } catch (error) {
@@ -173,6 +180,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     [selectedRuleIds, visibleRules],
   );
   const findings = useMemo(() => (response ? flattenPaperLintFindings(response.result) : []), [response]);
+  const [completedRuns, setCompletedRuns] = useState<PaperLintRunResponse['result']['rule_runs']>([]);
   const repairSuggestions = usePaperLintRepairSuggestions(response?.id);
   const [findingFeedbackByKey, setFindingFeedbackByKey] = useState<Record<string, FindingFeedback | null>>({});
   const [suggestionFeedbackByFindingKey, setSuggestionFeedbackByFindingKey] = useState<Record<string, SuggestionFeedback | null>>({});
@@ -315,6 +323,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
           setRunError(null);
         }
         if (job.progress) {
+          setCompletedRuns(job.progress.rule_runs || []);
           setJobProgress({ completed: job.progress.completed_rule_ids?.length || 0, total: job.progress.total_rule_ids?.length || 0 });
           if (isSemantic) {
             const run = job.progress.rule_runs?.[0] as
@@ -326,7 +335,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
             );
           }
           if (!isThirty && sourceFile && job.progress.rule_runs?.length) {
-            setResponse((current) => current || partialPaperLintResponse(job.job_id, filename, job.progress?.rule_runs || []));
+            setResponse(partialPaperLintResponse(job.job_id, filename, job.progress.rule_runs));
             setResultFile((current) => current || sourceFile);
           }
         }
@@ -340,6 +349,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
           setResponse(null);
           setResultFile(null);
           setJobProgress(null);
+          setCompletedRuns([]);
           return;
         }
         if (job.status === 'failed') {
@@ -384,6 +394,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
         setResponse(null);
         setResultFile(null);
         setJobProgress(null);
+        setCompletedRuns([]);
       }
       setRunning(false);
       setUploadPercent(null);
@@ -429,6 +440,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     setStopped(false);
     setRunError(null);
     setResponse(null);
+    setCompletedRuns([]);
     setResultFile(null);
     setSemanticStage(0);
     if (activeJobId) clearActiveJob();
@@ -490,6 +502,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     }
     const generation = ++runGenerationRef.current;
     setRunning(true);
+    setCompletedRuns([]);
     setStopped(false);
     setJobProgress(null);
     setJobStatus(null);
@@ -567,6 +580,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     requiresConsent={selectedExternalRule}
     consent={externalConsent}
     onConsentChange={setExternalConsent}
+    completedRuns={completedRuns}
   />;
 
   return (

@@ -16,12 +16,13 @@ function LocationProbe() {
 }
 it.each([
   ['/paper-upload', '/paper-upload', '上传内容', '论文上传'],
-  ['/abstract-check', '/abstract-check', '摘要核验内容', '摘要数值语义检测'],
+  ['/abstract-check', '/paper-upload', '上传内容', '论文上传'],
   ['/reports', '/reports', '历史内容', '历史报告'],
   ['/reports/pdf/saved?view=pdf#page=3', '/reports/pdf/saved?view=pdf#page=3', '报告内容', '历史报告'],
   ['/', '/paper-upload', '上传内容', '论文上传'],
   ['/thirty-rules-check?source=bookmark#rules', '/paper-upload?source=bookmark#rules', '上传内容', '论文上传'],
-  ['/semantic-rules-check', '/abstract-check', '摘要核验内容', '摘要数值语义检测'],
+  ['/semantic-rules-check', '/paper-upload', '上传内容', '论文上传'],
+  ['/abstract-check?source=bookmark#rules', '/paper-upload?source=bookmark#rules', '上传内容', '论文上传'],
   ['/thirty-rules-check/reports', '/reports', '历史内容', '历史报告'],
   ['/thirty-rules-check/reports/pdf/saved?view=pdf#page=3', '/reports/pdf/saved?view=pdf#page=3', '报告内容', '历史报告'],
 ])('opens %s at its meaningful canonical URL', async (entry, target, heading, active) => {
@@ -29,7 +30,8 @@ it.each([
   expect(await screen.findByRole('heading', { name: heading })).toBeInTheDocument();
   expect(screen.getByLabelText('当前地址')).toHaveTextContent(target);
   const sidebar = screen.getByLabelText('主导航菜单');
-  for (const [name, path] of [['论文上传', '/paper-upload'], ['摘要数值语义检测', '/abstract-check'], ['历史报告', '/reports']]) {
+  expect(within(sidebar).queryByRole('link', { name: '摘要数值语义检测' })).not.toBeInTheDocument();
+  for (const [name, path] of [['论文上传', '/paper-upload'], ['历史报告', '/reports']]) {
     const link = within(sidebar).getByRole('link', { name, exact: true });
     expect(link).toHaveAttribute('href', path);
     if (name === active) expect(link).toHaveAttribute('aria-current', 'page');

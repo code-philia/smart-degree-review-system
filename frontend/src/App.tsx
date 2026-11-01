@@ -26,7 +26,7 @@ function App() {
         <Route element={<AppShell />}>
           <Route path="/" element={<Navigate replace to={REVIEW_ROUTES.upload} />} />
           <Route path={REVIEW_ROUTES.upload} element={<NormativeCheckPage key="ordinary" mode="thirty" />} />
-          <Route path={REVIEW_ROUTES.semantic} element={<NormativeCheckPage key="semantic" mode="semantic" />} />
+          <Route path={REVIEW_ROUTES.semantic} element={<LegacyReviewRedirect />} />
           <Route path={REVIEW_ROUTES.history} element={<NormativeReportPage mode="thirty" />} />
           <Route path={`${REVIEW_ROUTES.history}/pdf/:reportId`} element={<PaperLintReportPage mode="thirty" />} />
           <Route path="/thirty-rules-check" element={<LegacyReviewRedirect />} />

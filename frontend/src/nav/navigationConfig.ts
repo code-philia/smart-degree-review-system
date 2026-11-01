@@ -20,8 +20,7 @@ export const NAV_GROUPS: NavGroup[] = [
     key: 'detection',
     title: '论文规范性检测',
     items: [
-      { label: '论文上传', to: REVIEW_ROUTES.upload },
-      { label: '摘要数值语义检测', to: REVIEW_ROUTES.semantic },
+      { label: '论文上传', to: REVIEW_ROUTES.upload, relatedPrefixes: [REVIEW_ROUTES.semantic] },
       { label: '历史报告', to: REVIEW_ROUTES.history },
     ],
   },

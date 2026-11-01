@@ -8,6 +8,7 @@ const { getSixRules, isSixRuleId, runSixRules, SIX_RULE_TIMEOUT_MS } = require('
 
 const { getCompilerRules, isCompilerRuleId, runCompilerRules } = require('./paperCompilerService');
 const { runPaperLintRuleGroups, settleRuleTasks } = require('./paperLintRuleRunner');
+const { createRuleProgressStream } = require('./paperLintRuleProgress');
 const { listRuleDefinitions } = require('../../rules/registry');
 
 const RETIRED_RULE_IDS = new Set([
@@ -120,6 +121,7 @@ function runJsonScript(script, args, {
   cwd,
   timeoutMs = ENGINE_TIMEOUT_MS,
   signal,
+  progressStream,
   unavailableMessage = '规则脚本无法启动',
 } = {}) {
   if (signal?.aborted) return Promise.reject(createHttpError(504, RUN_TIMEOUT_MESSAGE));
@@ -130,7 +132,8 @@ function runJsonScript(script, args, {
       shell: false,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
-    let stdout = '';
+    const stdout = [];
+    let stdoutBytes = 0;
     let stderr = '';
     let timedOut = false;
     let outputTooLarge = false;
@@ -150,10 +153,13 @@ function runJsonScript(script, args, {
     }, timeoutMs);
     child.stdout.on('data', (chunk) => {
       if (outputTooLarge) return;
-      stdout += chunk.toString('utf8');
-      if (Buffer.byteLength(stdout, 'utf8') > MAX_ENGINE_OUTPUT_BYTES) {
+      stdoutBytes += chunk.length;
+      if (stdoutBytes > MAX_ENGINE_OUTPUT_BYTES) {
         outputTooLarge = true;
         child.kill('SIGTERM');
+      } else {
+        stdout.push(chunk);
+        progressStream?.write(chunk);
       }
     });
     child.stderr.on('data', (chunk) => {
@@ -163,13 +169,16 @@ function runJsonScript(script, args, {
       clearRun();
       reject(signal?.aborted ? createHttpError(504, RUN_TIMEOUT_MESSAGE) : createHttpError(503, unavailableMessage));
     });
-    child.once('close', (code) => {
+    child.once('close', async (code) => {
       clearRun();
+      try { await progressStream?.finish(); } catch (error) { return reject(error); }
       if (timedOut || signal?.aborted) return reject(createHttpError(504, RUN_TIMEOUT_MESSAGE));
       if (outputTooLarge) return reject(createHttpError(502, '规则审查结果过大，无法返回'));
       if (code !== 0) return reject(createHttpError(502, parseLastEngineError(stderr) || unavailableMessage));
       try {
-        resolve(parseLastEnginePayload(stdout));
+        const result = parseLastEnginePayload(Buffer.concat(stdout).toString('utf8'));
+        if (!Array.isArray(result?.rule_runs) && progressStream) throw new Error('missing final result');
+        resolve(result);
       } catch {
         reject(createHttpError(502, '规则脚本返回了无法解析的结果'));
       }
@@ -193,15 +202,16 @@ function runBridge(args, timeoutMs = ENGINE_TIMEOUT_MS, signal) {
   );
 }
 
-function runBilingualSemanticRules(pdfPath, ruleIds, timeoutMs = ENGINE_TIMEOUT_MS, signal, runId) {
+function runBilingualSemanticRules(pdfPath, ruleIds, timeoutMs = ENGINE_TIMEOUT_MS, signal, runId, onRuleComplete) {
   return runJsonScript(
     bilingualScript,
-    ['--pdf', pdfPath, ...ruleIds.flatMap((ruleId) => ['--rule', ruleId]), ...(runId ? ['--run-id', runId] : [])],
+    ['--pdf', pdfPath, '--progress-jsonl', ...ruleIds.flatMap((ruleId) => ['--rule', ruleId]), ...(runId ? ['--run-id', runId] : [])],
     {
       python: resolvePaperModelPython(),
       cwd: path.resolve(__dirname, '../..'),
       timeoutMs,
       signal,
+      progressStream: createRuleProgressStream(ruleIds, onRuleComplete),
       unavailableMessage: '仓库 Paper Model 双语语义规则运行失败',
     },
   );
@@ -371,16 +381,22 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
         const completedRuns = [];
         const parts = [];
         const tasks = [];
-        const reportProgress = async (ruleIds, result) => {
-          completedRuleIds.push(...ruleIds);
-          if (Array.isArray(result?.rule_runs)) completedRuns.push(...result.rule_runs);
-          if (typeof onProgress === 'function') await onProgress({ completed_rule_ids: [...completedRuleIds], total_rule_ids: normalizedRuleIds, rule_runs: [...completedRuns] });
+        let progressWrites = Promise.resolve();
+        const reportProgress = (ruleIds, result) => {
+          const fresh = (result?.rule_runs || []).filter(run => ruleIds.includes(run.rule_id) && !completedRuleIds.includes(run.rule_id));
+          if (!fresh.length) return progressWrites;
+          completedRuleIds.push(...fresh.map(run => run.rule_id));
+          completedRuns.push(...fresh);
+          const snapshot = { completed_rule_ids: [...completedRuleIds], total_rule_ids: normalizedRuleIds, rule_runs: [...completedRuns] };
+          progressWrites = progressWrites.then(() => onProgress?.(snapshot));
+          return progressWrites;
         };
         if (bilingualRuleIds.length) {
           const bilingualTimeout = bilingualRuleIds.some(id => ['typo_detection_check', 'abstract_numeric_consistency_check'].includes(id))
             ? SIX_RULE_TIMEOUT_MS
             : ENGINE_TIMEOUT_MS;
-          tasks.push(runBilingualSemanticRules(pdfPath, bilingualRuleIds, bilingualTimeout, controller.signal, runId)
+          tasks.push(runBilingualSemanticRules(pdfPath, bilingualRuleIds, bilingualTimeout, controller.signal, runId,
+            run => reportProgress([run.rule_id], { rule_runs: [run] }))
             .then(async (part) => { parts.push(part); await reportProgress(bilingualRuleIds, part); }));
         }
         if (otherRuleIds.length) {

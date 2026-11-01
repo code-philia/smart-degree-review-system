@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import argparse
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import os
 import re
@@ -33,6 +33,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--pdf", type=Path, required=True)
     parser.add_argument("--rule", action="append", required=True)
     parser.add_argument("--run-id", default=None)
+    parser.add_argument("--progress-jsonl", action="store_true")
     return parser.parse_args()
 
 
@@ -593,11 +594,18 @@ def _run_semantic_rule(ir, facts, rule_id, run_id=None):
     }
 
 
-def run(pdf: Path, rule_ids: list[str], run_id=None) -> dict[str, Any]:
+def run(pdf: Path, rule_ids: list[str], run_id=None, on_rule_complete=None) -> dict[str, Any]:
     ir = build_paper(pdf, include_citations=False)
     facts = extract_bilingual_facts(ir) if any(rule in BILINGUAL_RULES for rule in rule_ids) else {}
     with ThreadPoolExecutor(max_workers=4) as pool:
-        runs = list(pool.map(lambda rule: _run_semantic_rule(ir, facts, rule, run_id), rule_ids))
+        futures = {pool.submit(_run_semantic_rule, ir, facts, rule, run_id): index
+                   for index, rule in enumerate(rule_ids)}
+        runs = [None] * len(rule_ids)
+        for future in as_completed(futures):
+            completed = future.result()
+            runs[futures[future]] = completed
+            if on_rule_complete:
+                on_rule_complete(completed)
     finding_count = sum(len(item["findings"]) for item in runs)
     return {
         "type": "paper_lint",
@@ -629,7 +637,12 @@ def main() -> None:
     unknown = [rule for rule in args.rule if rule not in BILINGUAL_RULES and rule not in {TYPO_RULE, NUMERIC_RULE}]
     if unknown:
         raise RuntimeError(f"未知双语语义规则：{unknown[0]}")
-    print(json.dumps(run(args.pdf, args.rule, run_id=args.run_id), ensure_ascii=False))
+    def publish(completed):
+        print(json.dumps({'type': 'paper_lint_rule_complete', 'rule_run': completed},
+                         ensure_ascii=False), flush=True)
+    result = run(args.pdf, args.rule, run_id=args.run_id,
+                 on_rule_complete=publish if args.progress_jsonl else None)
+    print(json.dumps(result, ensure_ascii=False), flush=True)
 
 
 if __name__ == "__main__":

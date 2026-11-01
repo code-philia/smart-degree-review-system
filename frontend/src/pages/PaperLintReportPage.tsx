@@ -145,7 +145,8 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
     .map((run) => run.message).filter(Boolean))];
   const metricsPlaceholder = metricsLoading ? '统计中…' : '未统计';
   const pdfUrl = `/api/normative/paper-lint/reports/${encodeURIComponent(reportId!)}/pdf`;
-  const isSemanticReport = report.selected_rule_ids?.includes('abstract_numeric_consistency_check') ?? false;
+  const numericReviewRun = report.result.rule_runs.find(run => run.rule_id === 'abstract_numeric_consistency_check');
+  const isSemanticReport = Boolean(numericReviewRun && report.result.rule_runs.length === 1);
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-5">
       <Link to={historyPath} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 motion-reduce:transition-none">
@@ -216,7 +217,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
       <div className="mx-auto w-full max-w-7xl">
         <PaperLintWorkspace
         layout={isSemanticReport ? 'semantic' : 'default'}
-        numericReviewRun={isSemanticReport ? report.result.rule_runs.find((run) => run.rule_id === 'abstract_numeric_consistency_check') : undefined}
+        numericReviewRun={numericReviewRun}
         file={{ name: report.source_filename, url: pdfUrl }}
         openPdfUrl={pdfUrl}
         findings={findings}

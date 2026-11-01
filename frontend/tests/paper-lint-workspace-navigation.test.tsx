@@ -11,6 +11,9 @@ vi.mock('../src/components/paperLint/FindingsPane', () => ({
   FindingsPane: ({ onFindingClick }: { onFindingClick: (key: string) => void }) =>
     <button type="button" onClick={() => onFindingClick('finding-1')}>跳到 PDF</button>,
 }));
+vi.mock('../src/components/paperLint/NumericReviewDetails', () => ({
+  NumericReviewDetails: () => <div>数值核验依据</div>,
+}));
 
 const finding: PaperLintFindingItem = {
   key: 'finding-1', index: 0,
@@ -20,6 +23,16 @@ const finding: PaperLintFindingItem = {
 };
 
 describe('finding selection', () => {
+  it('keeps ordinary findings and numeric evidence reachable in a mixed report', () => {
+    render(<PaperLintWorkspace file={{ name: 'mixed.pdf' } as File} findings={[finding]} rules={[]}
+      numericReviewRun={{ ...finding.ruleRun, rule_id: 'abstract_numeric_consistency_check' }} />);
+    expect(screen.getByRole('button', { name: '跳到 PDF' })).toBeVisible();
+    fireEvent.click(screen.getByRole('tab', { name: '论文逻辑审查' }));
+    expect(screen.getByText('数值核验依据')).toBeVisible();
+    fireEvent.click(screen.getByRole('tab', { name: '规范检测问题' }));
+    fireEvent.click(screen.getByRole('button', { name: '跳到 PDF' }));
+    expect(screen.getByTestId('navigation-request').textContent).toBe('1');
+  });
   it('sends a new navigation request even when the already selected problem is clicked again', () => {
     render(<PaperLintWorkspace file={{ name: 'mutant.pdf' } as File}
       findings={[finding]} rules={[]} />);

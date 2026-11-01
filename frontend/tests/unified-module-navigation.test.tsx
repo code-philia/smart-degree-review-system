@@ -5,10 +5,10 @@ import ModuleTabs from '../src/components/ui/ModuleTabs';
 import { findNavItemLabel, getVisibleNavGroups } from '../src/nav/navigationConfig';
 
 describe('FEAT-UNIFIED-MODULE-HISTORY unified module navigation', () => {
-  it('keeps the upload, semantic detection and history entries in the sidebar', () => {
+  it('keeps one upload workflow and history in the sidebar', () => {
     const visibleLabels = getVisibleNavGroups('STUDENT').flatMap((group) => group.items.map((item) => item.label));
 
-    expect(visibleLabels).toEqual(['论文上传', '摘要数值语义检测', '历史报告']);
+    expect(visibleLabels).toEqual(['论文上传', '历史报告']);
     expect(findNavItemLabel('/paper-upload')).toEqual({ groupTitle: '论文规范性检测', label: '论文上传' });
     expect(findNavItemLabel('/reports')).toEqual({
       groupTitle: '论文规范性检测',
@@ -16,7 +16,7 @@ describe('FEAT-UNIFIED-MODULE-HISTORY unified module navigation', () => {
     });
     expect(findNavItemLabel('/duplication-history')).toBeNull();
     expect(findNavItemLabel('/abstract-check')).toEqual({
-      groupTitle: '论文规范性检测', label: '摘要数值语义检测',
+      groupTitle: '论文规范性检测', label: '论文上传',
     });
   });
 
