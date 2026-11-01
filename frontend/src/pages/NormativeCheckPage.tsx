@@ -159,7 +159,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
       if (!hasRestoredSelection) {
         const defaultRules = mode === 'semantic'
           ? rulesForMode(nextCatalog.rules, mode)
-          : rulesForMode(nextCatalog.rules, mode).filter((rule) => isThirty ? rule.available && rule.rule_id !== 'abstract_numeric_consistency_check' : rule.default_enabled);
+          : rulesForMode(nextCatalog.rules, mode).filter((rule) => isThirty ? rule.available : rule.default_enabled);
         setSelectedRuleIds(defaultRules.map((rule) => rule.rule_id));
       }
     } catch (error) {
@@ -557,17 +557,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     );
   }
 
-  if (isThirty && running && jobStatus && activeJobId) return <LivePaperLintReport
-    file={file || { name: activeFilename || '论文.pdf', url: `/api/normative/paper-lint/jobs/${encodeURIComponent(activeJobId)}/pdf` }}
-    rules={visibleRules}
-    runs={completedRuns}
-    progress={jobProgress}
-    stopping={stopping}
-    onStop={() => void stopReview()}
-    error={runError}
-  />;
-
-  if (isThirty) return <ThesisUploadPanel
+  if (isThirty) return <div className="space-y-6"><ThesisUploadPanel
     rules={visibleRules}
     selectedRuleIds={selectedRuleIds}
     onSelectionChange={replaceSelectedRules}
@@ -591,7 +581,13 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     requiresConsent={selectedExternalRule}
     consent={externalConsent}
     onConsentChange={setExternalConsent}
-  />;
+  />
+    {running && jobStatus && activeJobId ? <LivePaperLintReport
+      file={file || { name: activeFilename || '论文.pdf', url: `/api/normative/paper-lint/jobs/${encodeURIComponent(activeJobId)}/pdf` }}
+      rules={visibleRules}
+      runs={completedRuns}
+    /> : null}
+  </div>;
 
   return (
     <div className={isSemantic ? 'mx-auto w-full max-w-5xl space-y-5' : 'space-y-6'}>

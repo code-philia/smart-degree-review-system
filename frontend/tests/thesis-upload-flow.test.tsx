@@ -215,8 +215,15 @@ it('updates real report progress while keeping report completion controlled by t
   await waitFor(() =>
     expect(screen.getByRole('progressbar', { name: '检测进度' })).toHaveAttribute('aria-valuenow', '33'),
   );
-  expect(screen.getByText('已完成 1 / 3 项规则')).toBeInTheDocument();
+  expect(screen.getByText('后台检测已开始，已完成 1 / 3 项规则。')).toBeInTheDocument();
   expect(screen.getByText('33%')).toBeInTheDocument();
+  expect(screen.getAllByRole('progressbar', { name: '检测进度' })).toHaveLength(1);
+  expect(screen.getByRole('progressbar', { name: '检测进度' }).querySelectorAll('svg circle')).toHaveLength(2);
+  const progress = screen.getByRole('region', { name: '检测任务状态' });
+  const liveReport = screen.getByRole('region', { name: '实时检测报告' });
+  expect(progress.compareDocumentPosition(liveReport) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(within(liveReport).queryByRole('progressbar')).not.toBeInTheDocument();
+  expect(screen.getByRole('region', { name: '论文上传与检测设置' })).toBeInTheDocument();
   expect(screen.getByText('正在检测，等待新的问题')).toBeInTheDocument();
   expect(screen.queryByText('未检测出问题')).not.toBeInTheDocument();
   await waitFor(() => expect(nextPoll).toBeTypeOf('function'));
@@ -296,7 +303,7 @@ it('shows file validation and failed jobs without navigating or consuming anothe
   expect(runReviewPilotPaperLint).toHaveBeenCalledTimes(1);
 });
 
-it('groups reference existence with content and offers numeric checking as an opt-in experiment', async () => {
+it('groups reference existence with content and selects the experimental rule by default', async () => {
   const extra = (rule_id: string, title: string) => ({ ...rules[0], rule_id, title });
   vi.mocked(fetchReviewPilotPaperLintRules).mockResolvedValue({ ...catalog, rules: [
     ...rules.slice(0, 3), extra('sjtu_rule_32', '引用的外部文献不存在'),
@@ -310,10 +317,30 @@ it('groups reference existence with content and offers numeric checking as an op
   expect(within(content).getByRole('checkbox', { name: /关键词语义/ })).toBeChecked();
   const experiment = screen.getByRole('region', { name: '论文逻辑审查检测规则' });
   expect(within(experiment).getByText('实验型功能')).toBeVisible();
-  expect(within(experiment).getByRole('checkbox', { name: /论点论据一致性检测/ })).not.toBeChecked();
+  expect(within(experiment).getByRole('checkbox', { name: /论点论据一致性检测/ })).toBeChecked();
   expect(within(experiment).getByText('实验性')).toBeVisible();
   fireEvent.click(within(experiment).getByRole('button', { name: '全选论文逻辑审查' }));
   expect(within(experiment).getByRole('checkbox', { name: /论点论据一致性检测/ })).toBeChecked();
+});
+
+it('selects all fifteen available rules including logic review on a new upload', async () => {
+  const ids = ['sjtu_rule_18', 'sjtu_rule_22', 'sjtu_rule_24', 'sjtu_rule_28', 'sjtu_rule_31',
+    'required_section_completeness_check', 'keyword_count_check', 'abstract_object_number_check', 'chapter_new_page_check',
+    'typo_detection_check', 'bilingual_abstract_consistency_check', 'chinese_english_symbol_mix_check',
+    'bilingual_keywords_correspondence_check', 'sjtu_rule_32', 'abstract_numeric_consistency_check'];
+  vi.mocked(fetchReviewPilotPaperLintRules).mockResolvedValue({ ...catalog, rules: ids.map(rule_id => ({
+    ...rules[0], rule_id, title: rule_id, uses_external_model: rule_id === 'abstract_numeric_consistency_check',
+  })) } as never);
+  showUpload();
+  expect(await screen.findByText('已选择全部检测规则')).toBeInTheDocument();
+  expect(screen.getByText('15 / 15')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '展开选择' }));
+  const selection = screen.getByRole('region', { name: '检测规则选择' });
+  const checkboxes = within(selection).getAllByRole('checkbox');
+  expect(checkboxes).toHaveLength(15);
+  checkboxes.forEach(input => expect(input).toBeChecked());
+  fireEvent.click(within(selection).getByRole('checkbox', { name: /论点论据一致性检测/ }));
+  expect(screen.getByText('已选择 14 项检测规则')).toBeInTheDocument();
 });
 
 it.each([false, true])('updates the actual live report and preserves the selected finding (restored=%s)', async (restored) => {
@@ -336,6 +363,10 @@ it.each([false, true])('updates the actual live report and preserves the selecte
     fireEvent.click(screen.getByRole('button', { name: '开始检测', exact: true }));
   }
   const region = await screen.findByRole('region', { name: '实时检测报告' });
+  const ring = screen.getByRole('progressbar', { name: '检测进度' });
+  expect(ring.querySelectorAll('svg circle')).toHaveLength(2);
+  expect(ring).toHaveAttribute('aria-valuenow', '50');
+  expect(ring.compareDocumentPosition(region) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(within(region).getByText('先完成的错别字结果')).toBeInTheDocument();
   expect(within(region).queryByText('后完成的公式结果')).not.toBeInTheDocument();
   expect(screen.queryByRole('region', { name: '已完成规则结果' })).not.toBeInTheDocument();
@@ -350,6 +381,8 @@ it.each([false, true])('updates the actual live report and preserves the selecte
   } }));
   expect(within(region).getByText('后完成的公式结果')).toBeInTheDocument();
   expect(within(region).getByText('错误总数').closest('div')).toHaveTextContent('2');
+  expect(screen.getByRole('progressbar', { name: '检测进度' })).toBe(ring);
+  expect(ring).toHaveAttribute('aria-valuenow', '100');
   expect(screen.getByLabelText('实时原文预览')).toBe(preview);
   expect(preview).toHaveAttribute('data-active', ids[1]);
   expect(screen.getByRole('button', { name: '停止检测' })).toBeInTheDocument();

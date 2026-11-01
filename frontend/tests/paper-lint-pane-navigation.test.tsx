@@ -121,6 +121,22 @@ describe('PDF pane navigation', () => {
     await waitFor(() => expect(scrollToAnnotation).toHaveBeenCalledWith(expect.objectContaining({ pageNumber: 99 })));
   });
 
+  it('keeps the reading position when live findings refresh and still honors explicit navigation', async () => {
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { callback(0); return 1; });
+    const props = { file, activeFindingKey: finding.key, activeAnchorId: null,
+      onFindingClick: vi.fn(), onAnchorClick: vi.fn(), navigationRequest: 0 };
+    const { rerender } = render(<PdfPane {...props} findings={[finding]} />);
+    await waitFor(() => expect(scrollToAnnotation).toHaveBeenCalled());
+    scrollToAnnotation.mockClear();
+    const refreshed = JSON.parse(JSON.stringify([finding, { ...finding, key: 'new-finding',
+      finding: { ...finding.finding, finding_id: 'new-finding', message: '新增规则报警' } }])) as PaperLintFindingItem[];
+    rerender(<PdfPane {...props} findings={refreshed} />);
+    expect(scrollToAnnotation).not.toHaveBeenCalled();
+    expect(getDocumentOptions).toHaveBeenCalledTimes(1);
+    rerender(<PdfPane {...props} findings={refreshed} navigationRequest={1} />);
+    await waitFor(() => expect(scrollToAnnotation).toHaveBeenCalledTimes(1));
+  });
+
   it('explains the icon-only toolbar controls on hover', () => {
     render(
       <PdfPane

@@ -173,13 +173,29 @@ export function PdfPane({
       ? `${fullPdfUrl.split('#')[0]}#page=${pageNumber}`
       : fullPdfUrl;
 
+  const lastNavigationRef = useRef<{
+    document: PDFDocumentProxy;
+    findingKey: string | null;
+    anchorId: string | null;
+    request: number;
+    page: number | null;
+  } | null>(null);
+
   useEffect(() => {
-    if (!activeFindingKey && !requestedPage) return;
-    window.requestAnimationFrame(() => {
-      if (requestedPage) viewerRef.current?.scrollToPage(requestedPage);
-      else if (target.type === 'bbox') viewerRef.current?.scrollToAnnotation(target.annotation);
-      else if (target.type === 'page') viewerRef.current?.scrollToPage(target.pageNumber);
+    if (!document || (!activeFindingKey && !requestedPage)) return;
+    if (!requestedPage && target.type === 'none') return;
+    const previous = lastNavigationRef.current;
+    if (previous?.document === document && previous.findingKey === activeFindingKey &&
+      previous.anchorId === activeAnchorId && previous.request === navigationRequest && previous.page === requestedPage) return;
+    const frame = window.requestAnimationFrame(() => {
+      const viewer = viewerRef.current;
+      if (!viewer) return;
+      if (requestedPage) viewer.scrollToPage(requestedPage);
+      else if (target.type === 'bbox') viewer.scrollToAnnotation(target.annotation);
+      else if (target.type === 'page') viewer.scrollToPage(target.pageNumber);
+      lastNavigationRef.current = { document, findingKey: activeFindingKey, anchorId: activeAnchorId, request: navigationRequest, page: requestedPage };
     });
+    return () => window.cancelAnimationFrame(frame);
   }, [activeFindingKey, activeAnchorId, target, document, navigationRequest, requestedPage]);
 
   const currentScale = useCallback(
