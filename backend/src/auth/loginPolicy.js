@@ -1,4 +1,5 @@
 const ADMIN_ROLES = Object.freeze(['SCHOOL_ADMIN', 'COLLEGE_ADMIN']);
+const { trialSessionAllowed } = require('./trialLoginPolicy');
 const LOOPBACK_ADDRESSES = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]']);
 
@@ -42,10 +43,11 @@ function campusUserAllowed(user) {
   return Boolean(user) && !ADMIN_ROLES.includes(user.role);
 }
 
-function sessionAllowed(req, user) {
+function sessionAllowed(req, user, sessionId) {
   if (!user) return false;
   if (!campusOnlyAuth()) return true;
   if (privateAdminRequest(req)) return ADMIN_ROLES.includes(user.role);
+  if (trialSessionAllowed(user, sessionId)) return true;
   return typeof user.id === 'string' && user.id.startsWith('jaccount:') && campusUserAllowed(user);
 }
 

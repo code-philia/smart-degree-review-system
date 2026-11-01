@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import {
   fetchCurrentSession,
   loginWithLocalAccount,
+  loginWithTrialAccount,
   logoutCurrentSession,
   type AuthenticatedUser,
   type LoginRequest,
@@ -14,6 +15,7 @@ type AuthSessionContextValue = {
   user: AuthenticatedUser | null;
   refreshSession: () => Promise<void>;
   login: (payload: LoginRequest) => Promise<AuthenticatedUser>;
+  loginTrial: (payload: LoginRequest) => Promise<AuthenticatedUser>;
   logout: () => Promise<void>;
 };
 
@@ -55,9 +57,16 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
     setStatus('anonymous');
   }, []);
 
+  const loginTrial = useCallback(async (payload: LoginRequest) => {
+    const session = await loginWithTrialAccount(payload);
+    setUser(session.user);
+    setStatus('authenticated');
+    return session.user;
+  }, []);
+
   const value = useMemo(
-    () => ({ status, user, refreshSession, login, logout }),
-    [status, user, refreshSession, login, logout],
+    () => ({ status, user, refreshSession, login, loginTrial, logout }),
+    [status, user, refreshSession, login, loginTrial, logout],
   );
 
   return <AuthSessionContext.Provider value={value}>{children}</AuthSessionContext.Provider>;

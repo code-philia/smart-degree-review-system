@@ -26,6 +26,11 @@ export async function loginWithLocalAccount(payload: LoginRequest): Promise<Sess
   return response.data;
 }
 
+export async function loginWithTrialAccount(payload: LoginRequest): Promise<SessionResponse> {
+  const response = await apiClient.post<SessionResponse>('/auth/trial-login', payload);
+  return response.data;
+}
+
 export async function fetchCurrentSession(): Promise<SessionResponse> {
   const response = await apiClient.get<SessionResponse>('/auth/me');
   return response.data;

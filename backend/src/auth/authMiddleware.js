@@ -34,7 +34,7 @@ function requireAuth(options = {}) {
     const cookies = parseCookies(req.headers.cookie || '');
     const user = await loadSession(cookies[SESSION_COOKIE_NAME]);
 
-    if (!sessionAllowed(req, user)) {
+    if (!sessionAllowed(req, user, cookies[SESSION_COOKIE_NAME])) {
       res.status(401).json({ code: 401, message: 'Authentication required' });
       return;
     }

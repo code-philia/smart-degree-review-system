@@ -1,5 +1,6 @@
 import { ArrowUpRight, BookOpenCheck, ScanLine, PenLine } from 'lucide-react';
 import AuthCampusScene from './authCampus/AuthCampusScene';
+import TrialAccountEntry from '../auth/TrialAccountEntry';
 import './auth-campus.css';
 
 function JaccountEntry() {
@@ -41,10 +42,7 @@ export default function AuthPage() {
             <span className="campus-brand-en">SMART DEGREE · AI REVIEW</span>
           </div>
         </div>
-        <span className="campus-version">
-          <i />
-          试点验证版 V0.9
-        </span>
+        <TrialAccountEntry />
       </header>
       <div className="campus-content">
         <div className="campus-scene-space" aria-hidden="true" />

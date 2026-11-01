@@ -1,12 +1,22 @@
 # Campus sign-in and private administrator access
 
-Production browser access uses jAccount. The public login page contains no local password form or local-account recovery/help links. A jAccount identity is separate from a same-named password account and cannot sign in with a school or college administrator role.
+Production browser access uses jAccount by default. The public login page contains no visible local password form or local-account recovery/help links. A jAccount identity is separate from a same-named password account and cannot sign in with a school or college administrator role.
+
+## Owner-requested trial access
+
+Clicking the existing **试点验证版 V0.9** label opens a dialog for the four existing trial identities: `student01`, `supervisor01`, `college_admin01`, and `school_admin01`. Their existing database passwords, roles and data scopes remain authoritative; no credentials appear in the frontend bundle or help text.
+
+Public trial access is disabled unless both `ARC_TRIAL_LOGIN_ENABLED=1` and `ARC_TRIAL_LOGIN_ORIGIN` are explicitly configured. The latter must be the site's exact HTTP(S) origin, for example `http://121.36.247.138:3000`.
+
+The separate `POST /api/auth/trial-login` endpoint requires same-origin JSON, a trusted Host and an exact trial user ID/name/role match. A process-local bounded limiter allows five attempts per TCP-peer/account pair and twenty per TCP peer in fifteen minutes; spoofed forwarding headers do not change the peer. Trial sessions have a server-created `trial:` random-ID prefix and the usual HttpOnly/SameSite cookie. Prefixing an existing cookie cannot produce a valid database session. Disabling the feature or changing a trial identity's expected role immediately rejects that session.
+
+This is an explicit exception to campus-only access requested by the owner. The hidden label is not a security boundary: anyone with valid trial credentials has that trial account's existing permissions. Other local accounts and old private administrator sessions remain rejected by the public listener.
 
 ## Public authentication boundary
 
 - Production always enforces campus-only public authentication. `ARC_AUTH_MODE=jaccount-only` enables the same policy in development and tests; a legacy value cannot disable the production policy.
 - Public `POST /api/auth/login` returns 403 before checking a password or creating a session.
-- Public session restoration and protected APIs accept only non-administrator jAccount identities. Existing local account cookies and administrator cookies cannot grant public access.
+- Public session restoration and protected APIs accept non-administrator jAccount identities and explicitly enabled, newly authenticated trial sessions. Other existing local-account cookies and private administrator cookies cannot grant public access.
 - Accounts, assigned roles, password hashes, reports and existing session records are retained; access is checked against the listener on every request.
 
 ## Private administrator API

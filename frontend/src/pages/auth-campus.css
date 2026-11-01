@@ -139,6 +139,9 @@
   color: #85766b;
 }
 .campus-signin .campus-version {
+  border: 0;
+  padding: 0;
+  background: transparent;
   display: flex;
   align-items: center;
   gap: 7px;
@@ -146,6 +149,87 @@
   color: #75675c;
   white-space: nowrap;
 }
+.campus-signin .campus-version:hover { color: #9d2034; }
+
+.trial-account-dialog {
+  width: min(420px, calc(100vw - 32px));
+  max-width: 420px;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  gap: 0;
+  padding: 34px;
+  border: 1px solid #e2d8c9;
+  border-radius: 24px;
+  background: #fcf8f0;
+  color: #302b28;
+  font-family: Inter, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  box-shadow: 0 24px 80px #302b2826;
+}
+.trial-account-mark {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 22px;
+  border: 1px solid #9d20341c;
+  border-radius: 15px;
+  background: #9d20340a;
+  color: #9d2034;
+}
+.trial-account-title { font-size: 24px; font-weight: 650; line-height: 1.4; letter-spacing: -.025em; }
+.trial-account-description { margin-top: 8px; color: #857367; font-size: 13px; line-height: 1.7; }
+.trial-account-close {
+  position: absolute;
+  right: 18px;
+  top: 18px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #857367;
+  cursor: pointer;
+}
+.trial-account-close:hover { background: #9d203408; color: #9d2034; }
+.trial-account-form { display: grid; margin-top: 26px; }
+.trial-account-form label { margin-bottom: 9px; color: #69594f; font-size: 13px; font-weight: 550; }
+.trial-account-form input {
+  width: 100%;
+  min-width: 0;
+  height: 48px;
+  margin-bottom: 21px;
+  padding: 0 14px;
+  border: 1px solid #dcd2c6;
+  border-radius: 11px;
+  background: #fffdf9;
+  color: #302b28;
+  font: inherit;
+  font-size: 14px;
+}
+.trial-account-form input::placeholder { color: #b0a296; }
+.trial-account-form input:focus { border-color: #9d2034; outline: 3px solid #9d203410; }
+.trial-account-error { margin: -5px 0 16px; color: #9d2034; font-size: 12px; line-height: 1.7; }
+.trial-account-submit {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 48px;
+  border: 0;
+  border-radius: 11px;
+  background: #9d2034;
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.trial-account-submit:hover { background: #851b2d; }
+.trial-account-submit:disabled { opacity: .65; cursor: wait; }
+.trial-account-submit:focus-visible, .trial-account-close:focus-visible { outline: 3px solid #9d203455; outline-offset: 3px; }
 .campus-signin .campus-version::before {
   content: '';
   width: 5px;

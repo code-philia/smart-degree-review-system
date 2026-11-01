@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const sessionRepository = require('./sessionRepository');
+const { TRIAL_SESSION_PREFIX, trialUserAllowed } = require('./trialLoginPolicy');
 
 const SESSION_COOKIE_NAME = 'arc_session';
 const SESSION_TTL_MS = 1000 * 60 * 60 * 8;
@@ -21,10 +22,10 @@ function serializeUser(row) {
   };
 }
 
-async function login(username, password, { allowedRoles } = {}) {
+async function login(username, password, { allowedRoles, allowedUser, sessionKind } = {}) {
   if (typeof username !== 'string' || typeof password !== 'string' || !username || !password) return null;
   const user = await sessionRepository.findUserByUsername(username);
-  if (!user || (allowedRoles && !allowedRoles.includes(user.role))) {
+  if (!user || (allowedRoles && !allowedRoles.includes(user.role)) || (allowedUser && !allowedUser(user))) {
     return null;
   }
 
@@ -33,11 +34,12 @@ async function login(username, password, { allowedRoles } = {}) {
     return null;
   }
 
-  return createUserSession(user);
+  return createUserSession(user, { kind: sessionKind });
 }
 
-async function createUserSession(user) {
-  const sessionId = crypto.randomUUID();
+async function createUserSession(user, { kind } = {}) {
+  if (kind === 'trial' && !trialUserAllowed(user)) throw new Error('Invalid trial identity');
+  const sessionId = (kind === 'trial' ? TRIAL_SESSION_PREFIX : '') + crypto.randomUUID();
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
   await sessionRepository.createSession(sessionId, user.id, expiresAt);
 

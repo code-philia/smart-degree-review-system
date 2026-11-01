@@ -3,6 +3,7 @@ const { SESSION_COOKIE_NAME, SESSION_TTL_MS, loadSession, login, logout } = requ
 const { parseCookies, requireAuth } = require('./authMiddleware');
 const jaccount = require('./jaccountService');
 const { ADMIN_ROLES, campusOnlyAuth, privateAdminRequest, sessionAllowed } = require('./loginPolicy');
+const { trialUserAllowed, trialLoginRequest, trialAttempts } = require('./trialLoginPolicy');
 
 const router = express.Router();
 
@@ -16,6 +17,33 @@ const cookieOptions = {
 };
 
 const campusCookieOptions = { ...cookieOptions, path: '/api/auth/jaccount' };
+
+router.post('/trial-login', async (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    if (!trialLoginRequest(req)) {
+      res.status(403).json({ code: 403, message: '试验账号登录暂不可用，请联系管理员。' });
+      return;
+    }
+    const retryAfter = trialAttempts.consume(req);
+    if (retryAfter) {
+      res.set('Retry-After', String(retryAfter));
+      res.status(429).json({ code: 429, message: '尝试次数过多，请稍后再试。' });
+      return;
+    }
+    const username = req.body?.username;
+    const password = req.body?.password;
+    const result = typeof username === 'string' && username.length <= 128
+      && typeof password === 'string' && password.length <= 256
+      ? await login(username, password, { allowedUser: trialUserAllowed, sessionKind: 'trial' }) : null;
+    if (!result) {
+      res.status(401).json({ code: 401, message: '账号或密码错误，请重试。' });
+      return;
+    }
+    res.cookie(SESSION_COOKIE_NAME, result.sessionId, { ...cookieOptions, maxAge: SESSION_TTL_MS });
+    res.json({ user: result.user });
+  } catch (error) { next(error); }
+});
 
 router.get('/jaccount/config', (req, res) => {
   res.json({ enabled: jaccount.isConfigured() });
@@ -73,7 +101,7 @@ router.get('/me', async (req, res, next) => {
   try {
     const cookies = parseCookies(req.headers.cookie || '');
     const user = await loadSession(cookies[SESSION_COOKIE_NAME]);
-    if (!sessionAllowed(req, user)) {
+    if (!sessionAllowed(req, user, cookies[SESSION_COOKIE_NAME])) {
       res.status(401).json({ code: 401, message: 'Authentication required' });
       return;
     }
