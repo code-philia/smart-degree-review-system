@@ -119,3 +119,12 @@ def test_cache_is_private_and_noncampus_requests_cannot_reuse_it(semantic, monke
     module.request_json(messages)
     module.request_json(messages)
     assert len(calls) == 3
+
+
+def test_campus_semantic_requests_explicitly_disable_thinking_but_audited_requests_keep_their_contract(semantic):
+    module, calls, _, _ = semantic
+    messages = [{'role':'user','content':'source'}]
+    module.request_json(messages)
+    assert calls[0]['chat_template_kwargs'] == {'thinking': False}
+    module.request_json(messages, observer=lambda *args: None)
+    assert 'chat_template_kwargs' not in calls[1]

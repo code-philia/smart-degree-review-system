@@ -74,6 +74,10 @@ def request_json(messages: list[dict[str, str]], *, observer=None) -> tuple[dict
         "max_tokens": 8192,
         "response_format": {"type": "json_object"},
     }
+    if _provider == 'sjtu' and observer is None:
+        # Match the campus compiler's extraction mode; numeric audits retain
+        # their existing request contract and trace.
+        payload['chat_template_kwargs'] = {'thinking': False}
     cache = None
     cache_root = os.environ.get('SJTU_API_RESPONSE_CACHE_DIR', '').strip()
     if _provider == 'sjtu' and observer is None and cache_root:
