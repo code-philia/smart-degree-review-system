@@ -961,6 +961,9 @@
   gap: clamp(24px, 4vw, 64px);
   padding: 24px clamp(32px, 5vw, 88px) 42px;
 }
+.campus-signin .campus-scene-space {
+  pointer-events: none;
+}
 .campus-signin .campus-login--sso {
   align-self: center;
   margin: 0;
@@ -1094,7 +1097,7 @@
     height: auto;
     min-height: 0;
     padding: 0 20px 28px;
-    pointer-events: auto;
+    pointer-events: none;
   }
   .campus-signin .campus-login--sso {
     margin: 0 auto;
