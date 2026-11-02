@@ -112,6 +112,7 @@ export type PaperLintSummary = {
   error_finding_count: number;
   warning_finding_count: number;
   info_finding_count: number;
+  execution_warning_count?: number;
   derived_rule_count: number;
 };
 

@@ -18,7 +18,7 @@ import {
 import { PaperLintWorkspace } from '../components/paperLint/Workspace';
 import { ThesisUploadPanel } from '../components/paperLint/ThesisUploadPanel';
 import { LivePaperLintReport } from '../components/paperLint/LivePaperLintReport';
-import { compilerPublicationLabel, compilerPublicationSummary, flattenPaperLintFindings } from '../components/paperLint/model';
+import { compilerPublicationLabel, compilerPublicationSummary, flattenPaperLintFindings, paperLintPresentation } from '../components/paperLint/model';
 import { usePaperLintRepairSuggestions } from '../hooks/usePaperLintRepairSuggestions';
 import {
   deleteFindingFeedback,
@@ -130,7 +130,8 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   const [selectedRuleIds, setSelectedRuleIds] = useState<string[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [resultFile, setResultFile] = useState<ResultFile | null>(null);
-  const [response, setResponse] = useState<PaperLintRunResponse | null>(null);
+  const [rawResponse, setResponse] = useState<PaperLintRunResponse | null>(null);
+  const response = useMemo(() => rawResponse ? { ...rawResponse, result: paperLintPresentation(rawResponse.result) } : null, [rawResponse]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [running, setRunning] = useState(false);
   const [stopping, setStopping] = useState(false);

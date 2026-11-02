@@ -99,6 +99,7 @@ export function FindingsPane({
   const [filter, setFilter] = useState<RuleFilterLevel>('all');
   const [ruleFilter, setRuleFilter] = useState('all');
   const [handledKeys, setHandledKeys] = useState<string[]>([]);
+  const issueTotal = findings.length + executionWarnings.length;
   const ruleNames = useMemo(() => new Map(rules.map((rule) => [rule.rule_id, rule.title])), [rules]);
   const ruleIds = Array.from(new Set(selectedRuleIds ?? [...rules.map(rule => rule.rule_id), ...findings.map(item => item.ruleRun.rule_id)])).sort(comparePaperLintRuleIds);
   const runById = new Map([...findings.map(item => item.ruleRun), ...(ruleRuns || [])].map(run => [run.rule_id, run]));
@@ -135,7 +136,7 @@ export function FindingsPane({
   };
   const selectedOption = ruleOptions.find(option => option.id === effectiveRuleFilter);
   const selectedRun = runById.get(effectiveRuleFilter);
-  const selectedTotal = selectedOption?.count ?? findings.length;
+  const selectedTotal = selectedOption?.count ?? issueTotal;
   const pending = selectedOption ? selectedOption.status === 'running' : running && visibleRuleOptions.some(option => option.status === 'running');
   const incomplete = selectedOption ? ['error', 'needs_review', 'not_applicable', 'execution_warning'].includes(selectedOption.status)
     : visibleRuleOptions.some(option => option.status !== 'completed');
@@ -150,7 +151,7 @@ export function FindingsPane({
     : selectedRun?.rule_id === 'sjtu_rule_32' ? '未发现疑似不存在的引用'
     : selectedOption ? '本规则未检测出问题' : '未检测出问题';
   const emptyDescription = pending ? '检测完成后自动更新，您可以先查看其他已完成规则的结果。'
-    : severityEmpty ? selectedTotal > 0 ? `${selectedOption ? '该规则' : '当前报告'}共发现 ${selectedTotal} 处问题，分布在其他级别。` : '当前筛选下暂无该级别的问题。'
+    : severityEmpty ? selectedTotal > 0 ? `${selectedOption ? '该规则' : '当前报告'}共发现 ${selectedTotal} ${!selectedOption && executionWarnings.length ? '项问题，分布在其他级别或规则未实现警告' : '处问题，分布在其他级别'}。` : '当前筛选下暂无该级别的问题。'
     : incomplete ? referenceReviewMessage(selectedRun) || selectedRun?.message || '请在规则下拉框查看检测状态；证据不足或检测失败不代表没有问题。'
     : selectedRun?.rule_id === 'sjtu_rule_32' ? '检测结果仅供参考。'
     : '基于当前规范性检测规则，证据不足的内容仍可能无法判定，检测结果仅供参考';
@@ -170,7 +171,7 @@ export function FindingsPane({
       <div className="border-b border-slate-200 p-4">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-sm font-bold text-slate-900">检测结果</h2>
-          <span className="text-sm font-medium text-slate-700 tabular-nums">{findings.length} 项问题</span>
+          <span className="text-sm font-medium text-slate-700 tabular-nums">{issueTotal} 项问题</span>
         </div>
         <div className="mt-2 flex flex-wrap gap-1">
           {(['all', 'error', 'warning', 'info'] as const).map((value) => (
@@ -187,7 +188,7 @@ export function FindingsPane({
           {executionWarnings.length ? <Button size="sm" variant={filter === 'execution' ? 'secondary' : 'ghost'} aria-pressed={filter === 'execution'} onClick={() => changeFilter('execution')}>规则未实现警告 {executionWarnings.length}</Button> : null}
         </div>
         {ruleIds.length > 0 ? (
-          <RuleFilter options={ruleOptions} value={effectiveRuleFilter} onValueChange={setRuleFilter} totalCount={findings.length} severity={filter} />
+          <RuleFilter options={ruleOptions} value={effectiveRuleFilter} onValueChange={setRuleFilter} totalCount={issueTotal} severity={filter} />
         ) : null}
       </div>
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">

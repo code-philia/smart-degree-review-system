@@ -29,7 +29,7 @@ describe('numeric results in the unified report', () => {
       onFindingClick={() => {}} onAnchorClick={() => {}} />);
     expect(screen.getByRole('heading', { name: '摘要中不存在可核验的含有数值的论点' })).toBeInTheDocument();
     expect(screen.getByText('公式引用问题')).toBeInTheDocument();
-    expect(screen.getByText('1 项问题')).toBeInTheDocument();
+    expect(screen.getByText('2 项问题')).toBeInTheDocument();
     const select = async (title: string) => {
       fireEvent.keyDown(screen.getByRole('combobox'), { key: 'ArrowDown' });
       const option = await screen.findByRole('option', { name: new RegExp(`^${title}，`) });
@@ -57,7 +57,7 @@ describe('numeric results in the unified report', () => {
     expect(screen.getByText('论据不明确：统计范围不明确')).toBeTruthy();
     expect(screen.queryByText('论点与论据不一致：同一指标数值矛盾')).toBeNull();
   });
-  it('keeps prerequisite and technical failures outside the issue total', () => {
+  it('counts prerequisite and technical notices in the total while keeping them outside severity counts', () => {
     const value = run();
     value.execution_status = 'error';
     value.params!.preconditions = [{ id: 'experiment_subsection', passed: false, reason: '没有对应实验章节', suggestion: '补充实验章节' }];
@@ -65,6 +65,8 @@ describe('numeric results in the unified report', () => {
     expect(warnings).toHaveLength(2);
     expect(flattenPaperLintFindings({ rule_runs: [value] })).toHaveLength(0);
     render(<FindingsPane findings={[]} rules={[]} executionWarnings={warnings} activeFindingKey={null} activeAnchorId={null} onFindingClick={() => {}} onAnchorClick={() => {}} />);
+    expect(screen.getByText('2 项问题')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '警告 0', exact: true })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /规则未实现警告/ }));
     expect(screen.getByText('研究贡献下不存在明确的实验章节')).toBeTruthy();
     expect(screen.getByText(/请稍后重试/)).toBeTruthy();

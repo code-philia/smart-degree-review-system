@@ -77,3 +77,22 @@ it.each([false, true])('keeps historical export totals and conclusions consisten
   expect(paperLintPresentation(view)).toEqual(view);
   expect(view.rule_runs[0].outcome).toBe('inconclusive');
 });
+
+it('counts four warnings plus one prerequisite notice consistently in live and exported totals', () => {
+  const numeric: PaperLintRuleRun = { ...base, rule_id: 'abstract_numeric_consistency_check', outcome: 'not_applicable', findings: [],
+    params: { preconditions: [{ id: 'abstract_numeric', passed: false, status: 'failed' }] } };
+  const warning: PaperLintRuleRun = { ...base, rule_id: 'sjtu_rule_18', severity: 'warning', outcome: 'issues_found', params: {},
+    findings: [1, 2, 3, 4].map(n => ({ finding_id: `w-${n}`, rule_id: 'sjtu_rule_18', message: `警告 ${n}` })) };
+  const result = { ...fixture.result, rule_runs: [numeric, warning], summary: { ...fixture.result.summary,
+    finding_count: 4, warning_finding_count: 4, info_finding_count: 0, error_finding_count: 0 } };
+  const view = paperLintPresentation(result);
+  expect(view.summary).toMatchObject({ finding_count: 5, warning_finding_count: 4, info_finding_count: 0, execution_warning_count: 1 });
+  expect(paperLintPresentation(view)).toEqual(view);
+  expect(buildExportReport({ ...fixture, result }, [], null).summary.finding_count).toBe(5);
+  render(<LivePaperLintReport file={{ name: 'paper.pdf', url: '/paper.pdf' }} rules={rules} runs={[numeric, warning]} />);
+  expect(screen.getByText('错误总数').closest('div')).toHaveTextContent('5');
+  for (const label of ['严重 0', '警告 4', '提示 0', '规则未实现警告 1', '全部']) {
+    fireEvent.click(screen.getByRole('button', { name: label, exact: true }));
+    expect(screen.getByText('5 项问题')).toBeInTheDocument();
+  }
+});

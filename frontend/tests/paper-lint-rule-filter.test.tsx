@@ -29,6 +29,18 @@ async function selectRule(title: string) {
 }
 
 describe('clear report rule selector', () => {
+  it.each(['all', 'prerequisite'])('shows only execution status badges in the execution-warning category (selected=%s)', async value => {
+    const options: RuleFilterOption[] = [
+      { id: 'warnings', title: '有警告的规则', count: 4, counts: { error: 0, warning: 4, info: 0 }, status: 'completed' },
+      { id: 'prerequisite', title: '前置条件未满足的规则', count: 1, counts: { error: 0, warning: 1, info: 0 }, status: 'execution_warning' },
+    ];
+    render(<RuleFilter options={options} value={value} onValueChange={vi.fn()} totalCount={5} severity="execution" />);
+    expect(screen.getByRole('combobox')).toHaveTextContent('规则未实现警告');
+    expect(within(screen.getByRole('combobox')).queryByTitle(/警告 \d+ 处/)).not.toBeInTheDocument();
+    const list = await openMenu();
+    expect(within(list).queryByText('有警告的规则')).not.toBeInTheDocument();
+    expect(within(list).queryByTitle(/警告 \d+ 处/)).not.toBeInTheDocument();
+  });
   it.each([false, true])('keeps review and prerequisite rules in their own categories and resets excluded selections (live=%s)', async running => {
     const numeric = { ...zero, rule_id: 'abstract_numeric_consistency_check', rule_run_id: 'numeric', outcome: 'not_applicable' as const,
       params: { preconditions: [{ id: 'abstract_numeric', passed: false, status: 'failed' }] } };
@@ -59,7 +71,7 @@ describe('clear report rule selector', () => {
     expect(within(list).getAllByRole('option').map(row => row.textContent?.split('，')[0])).toEqual(['全部检查项', '论点论据一致性检测']);
     fireEvent.keyDown(list, { key: 'Escape' });
     expect(screen.getByText('符合要求的示例：')).toBeInTheDocument();
-    expect(screen.getByText('2 项问题')).toBeInTheDocument();
+    expect(screen.getByText('3 项问题')).toBeInTheDocument();
   });
   it('shows severity totals and puts rules with findings first in the all-level menu', async () => {
     render(<FindingsPane {...props} running findings={flattenPaperLintFindings({ rule_runs: [issues, zero] })} ruleRuns={[issues, zero]} />);

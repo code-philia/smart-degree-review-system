@@ -10,6 +10,7 @@ import {
   compilerPublicationSummary,
   flattenPaperLintFindings,
   paperLintPresentation,
+  numericExecutionWarnings,
 } from '../../components/paperLint/model';
 import { formatChinaDateTime } from '../dateTime';
 import { numericReportBlocks } from './numericDetails';
@@ -120,7 +121,7 @@ export function buildExportReport(
                 run.outcome
               ]),
       message: run.message || '',
-      finding_count: run.findings.length,
+      finding_count: run.findings.length + numericExecutionWarnings(run).length,
       details: numericReportBlocks(run),
     })),
     findings: flattenPaperLintFindings(result).map(({ key, finding, ruleRun }, index) => {

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import type { PaperLintRule, PaperLintRuleRun } from '../../api/paperLint';
 import { StatusBadge } from '../ui';
-import { flattenPaperLintFindings, referencePresentationRun } from './model';
+import { flattenPaperLintFindings, numericExecutionWarnings, referencePresentationRun } from './model';
 import { PaperLintWorkspace } from './Workspace';
 
 type Props = {
@@ -15,6 +15,7 @@ export function LivePaperLintReport({ file, rules, runs, selectedRuleIds }: Prop
   const reportRuns = useMemo(() => runs.map(referencePresentationRun), [runs]);
   const findings = useMemo(() => flattenPaperLintFindings({ rule_runs: reportRuns }), [reportRuns]);
   const numericRun = runs.find(run => run.rule_id === 'abstract_numeric_consistency_check');
+  const issueTotal = findings.length + numericExecutionWarnings(numericRun).length;
   const failed = reportRuns.filter(run => run.execution_status === 'error');
   const undecided = reportRuns.filter(run => run.execution_status !== 'error'
     && !(run.rule_id === 'sjtu_rule_32' && run.execution_status === 'completed')
@@ -32,7 +33,7 @@ export function LivePaperLintReport({ file, rules, runs, selectedRuleIds }: Prop
         <h3 className="mt-5 text-sm font-bold text-slate-900">检测结论</h3>
         <dl className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4" aria-live="polite" aria-atomic="true">
           {[
-            ['错误总数', findings.length],
+            ['错误总数', issueTotal],
             ['严重错误数', findings.filter(item => item.ruleRun.severity === 'error').length],
             ['警告错误数', findings.filter(item => item.ruleRun.severity === 'warning').length],
             ['提示错误数', findings.filter(item => item.ruleRun.severity === 'info').length],

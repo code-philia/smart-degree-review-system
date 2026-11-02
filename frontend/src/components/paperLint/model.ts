@@ -38,7 +38,7 @@ export function referenceReviewMessage(run?: PaperLintRuleRun): string | null {
 }
 
 export function numericExecutionWarnings(run?: PaperLintRuleRun): RuleExecutionWarning[] {
-  if (!run) return [];
+  if (!run || run.rule_id !== numericRule) return [];
   const params = run.params || {};
   const preconditionCopy = {
     abstract_numeric: {
@@ -170,15 +170,17 @@ export function referencePresentationRun(run: PaperLintRuleRun): PaperLintRuleRu
 }
 
 export function paperLintPresentation(result: PaperLintResult): PaperLintResult {
-  if (!result.rule_runs.some(run => run.rule_id === 'sjtu_rule_32')) return result;
+  const executionWarnings = result.rule_runs.flatMap(numericExecutionWarnings);
+  if (!executionWarnings.length && !result.rule_runs.some(run => run.rule_id === 'sjtu_rule_32')) return result;
   const rule_runs = result.rule_runs.map(referencePresentationRun);
   const findings = flattenPaperLintFindings({ rule_runs });
   return { ...result, rule_runs, summary: { ...result.summary,
-    finding_count: findings.length,
+    finding_count: findings.length + executionWarnings.length,
+    execution_warning_count: executionWarnings.length,
     error_finding_count: findings.filter(item => item.ruleRun.severity === 'error').length,
     warning_finding_count: findings.filter(item => item.ruleRun.severity === 'warning').length,
     info_finding_count: findings.filter(item => item.ruleRun.severity === 'info').length,
-    issue_rule_count: new Set(findings.map(item => item.ruleRun.rule_id)).size,
+    issue_rule_count: new Set([...findings.map(item => item.ruleRun.rule_id), ...executionWarnings.map(warning => warning.ruleId || numericRule)]).size,
   } };
 }
 
