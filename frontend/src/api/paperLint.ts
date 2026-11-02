@@ -199,7 +199,12 @@ export async function fetchReviewPilotPaperLintRules(): Promise<PaperLintCatalog
     timeout: 60_000,
   });
   return { ...response.data, rules: response.data.rules.map(rule => rule.rule_id === 'abstract_numeric_consistency_check'
-    ? { ...rule, title: '论点论据一致性检测' } : rule) };
+    ? {
+        ...rule,
+        title: '论点论据一致性检测',
+        description: '检查摘要中的含有数值的论点是否与正文论据一致。',
+      }
+    : rule) };
 }
 
 export async function runReviewPilotPaperLint(
