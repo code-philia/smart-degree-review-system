@@ -23,7 +23,7 @@ function ExperimentalBadge({ ruleId }: { ruleId: string }) {
 }
 
 function resultOrder(option: RuleFilterOption) {
-  return option.count > 0 ? 0 : option.status === 'completed' ? 3 : option.status === 'running' ? 2 : 1;
+  return option.count > 0 ? 0 : option.status === 'execution_warning' ? 1 : option.status === 'completed' ? 4 : option.status === 'running' ? 3 : 2;
 }
 
 function statusLabel(option: RuleFilterOption, severity: 'all' | RuleSeverity) {
@@ -35,7 +35,7 @@ function ExecutionStatus({ status, summary, runningCount }: { status: RuleFilter
   if (status === 'completed') return null;
   const base = 'inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] font-medium';
   const option = { status };
-  const Icon = option.status === 'running' ? LoaderCircle : option.status === 'error' ? CircleAlert : CircleHelp;
+  const Icon = option.status === 'running' ? LoaderCircle : option.status === 'execution_warning' ? TriangleAlert : option.status === 'error' ? CircleAlert : CircleHelp;
   const tone = option.status === 'running' ? 'bg-brand-50 text-brand-700' : option.status === 'error' ? 'bg-rose-50 text-rose-700' : ['needs_review', 'execution_warning'].includes(option.status) ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500';
   return <span className={`${base} ${tone}`}>
     <Icon className={`size-3.5 ${option.status === 'running' ? 'animate-spin motion-reduce:animate-none' : ''}`} />
@@ -66,7 +66,7 @@ export function RuleFilter({ options, value, onValueChange, totalCount, severity
   const visible = options.filter(option => severity === 'all' || option.counts[severity] > 0 || ['running', 'error', 'needs_review', 'execution_warning'].includes(option.status))
     .sort((a, b) => resultOrder(a) - resultOrder(b));
   const counts = options.reduce((result, option) => ({ error: result.error + option.counts.error, warning: result.warning + option.counts.warning, info: result.info + option.counts.info }), { error: 0, warning: 0, info: 0 });
-  const overallStatus = visible.some(o => o.status === 'running') ? 'running' : visible.some(o => o.status === 'error') ? 'error' : visible.some(o => o.status === 'needs_review') ? 'needs_review' : visible.some(o => o.status === 'execution_warning') ? 'execution_warning' : visible.some(o => o.status === 'not_applicable') ? 'not_applicable' : 'completed';
+  const overallStatus = visible.some(o => o.status === 'running') ? 'running' : visible.some(o => o.status === 'error') ? 'error' : visible.some(o => o.status === 'execution_warning') ? 'execution_warning' : visible.some(o => o.status === 'needs_review') ? 'needs_review' : visible.some(o => o.status === 'not_applicable') ? 'not_applicable' : 'completed';
   const all: RuleFilterOption = { id: 'all', title: '全部检查项', count: totalCount, counts, status: overallStatus };
   const selected = visible.find(option => option.id === value) || all;
   return <Select.Root value={value} onValueChange={onValueChange}>
