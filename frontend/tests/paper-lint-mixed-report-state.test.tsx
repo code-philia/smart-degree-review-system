@@ -6,7 +6,7 @@ import type { PaperLintFindingItem } from '../src/components/paperLint/model';
 vi.mock('../src/components/paperLint/PdfPane', () => ({ PdfPane: () => <div /> }));
 vi.mock('../src/components/paperLint/NumericReviewDetails', () => ({ NumericReviewDetails: () => <div>数值核验依据</div> }));
 
-it('retains handled marks in the actual findings pane across numeric tab switches', () => {
+it('retains handled marks in the unified findings pane for numeric reports', () => {
   const item: PaperLintFindingItem = { key: 'one', index: 0,
     ruleRun: { rule_id: 'sjtu_rule_24', rule_run_id: 'run', severity: 'warning',
       execution_status: 'completed', outcome: 'issues_found', findings: [] },
@@ -16,9 +16,6 @@ it('retains handled marks in the actual findings pane across numeric tab switche
     numericReviewRun={{ ...item.ruleRun, rule_id: 'abstract_numeric_consistency_check' }} />);
   fireEvent.click(screen.getByRole('button', { name: '标记为已处理' }));
   expect(screen.getByText('已标记为本次已处理')).toBeVisible();
-  fireEvent.click(screen.getByRole('tab', { name: '论文逻辑审查' }));
-  expect(screen.getByText('数值核验依据')).toBeVisible();
-  fireEvent.click(screen.getByRole('tab', { name: '规范检测问题' }));
   expect(screen.getByText('已标记为本次已处理')).toBeVisible();
   expect(screen.getByRole('button', { name: '取消已处理标记' })).toBeVisible();
 });
@@ -39,15 +36,8 @@ it.each([
       rule_id: 'abstract_numeric_consistency_check', rule_run_id: 'passed', severity: 'warning',
       execution_status: 'completed', outcome: 'passed', findings: [],
     } : undefined} />);
-  expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual(names);
-  if (names.includes('规范检测问题')) {
-    fireEvent.click(screen.getByRole('tab', { name: '规范检测问题' }));
-    const options = Array.from(screen.getByRole('combobox', { name: '按检查项筛选' }).querySelectorAll('option'));
-    expect(options.map(option => option.value)).toEqual(expect.arrayContaining(['all', ...ids]));
-    expect(options.map(option => option.value)).not.toContain('typo_detection_check');
-  }
-  if (names.includes('论文逻辑审查')) {
-    fireEvent.click(screen.getByRole('tab', { name: '论文逻辑审查' }));
-    expect(screen.getByText('数值核验依据')).toBeVisible();
-  }
+  expect(screen.queryAllByRole('tab')).toHaveLength(0);
+  const options = Array.from(screen.getByRole('combobox', { name: '按检查项筛选' }).querySelectorAll('option'));
+  expect(options.map(option => option.value)).toEqual(expect.arrayContaining(['all', ...ids]));
+  expect(options.map(option => option.value)).not.toContain('typo_detection_check');
 });
