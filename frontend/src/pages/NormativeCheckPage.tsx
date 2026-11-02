@@ -497,7 +497,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
       setRunError(isThirty ? '请至少选择一项检测规则' : '请至少选择一条审查规则');
       return;
     }
-    if (selectedExternalRule && !externalConsent) {
+    if (!isThirty && selectedExternalRule && !externalConsent) {
       setRunError('运行 DeepSeek 语义规则前，请先确认论文相关文本允许发送至外部 API');
       return;
     }
@@ -517,7 +517,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     savePendingRequest(requestId, file.name, selectedRuleIds);
     try {
       setUploadPercent(0);
-      const submitted = await runReviewPilotPaperLint(file, selectedRuleIds, externalConsent, requestId, setUploadPercent);
+      const submitted = await runReviewPilotPaperLint(file, selectedRuleIds, isThirty ? selectedExternalRule : externalConsent, requestId, setUploadPercent);
       setUploadPercent(null);
       let nextResponse: PaperLintRunResponse;
       if (isPaperLintJobResponse(submitted)) {
@@ -578,13 +578,11 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     jobStatus={jobStatus}
     jobProgress={jobProgress}
     activeFilename={activeFilename}
-    requiresConsent={selectedExternalRule}
-    consent={externalConsent}
-    onConsentChange={setExternalConsent}
   />
     {running && jobStatus && activeJobId ? <LivePaperLintReport
       file={file || { name: activeFilename || '论文.pdf', url: `/api/normative/paper-lint/jobs/${encodeURIComponent(activeJobId)}/pdf` }}
       rules={visibleRules}
+      selectedRuleIds={selectedRuleIds}
       runs={completedRuns}
     /> : null}
   </div>;
@@ -930,7 +928,8 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
           <PaperLintWorkspace
             file={resultFile}
             layout={isSemantic ? 'semantic' : 'default'}
-            numericReviewRun={response.result.rule_runs.find((run) => run.rule_id === 'abstract_numeric_consistency_check')}
+            selectedRuleIds={response.selected_rule_ids}
+            numericReviewRun={isSemantic ? response.result.rule_runs.find((run) => run.rule_id === 'abstract_numeric_consistency_check') : undefined}
             openPdfUrl={`/api/normative/paper-lint/reports/${encodeURIComponent(response.id)}/pdf`}
             findings={findings}
             rules={catalog?.rules || []}

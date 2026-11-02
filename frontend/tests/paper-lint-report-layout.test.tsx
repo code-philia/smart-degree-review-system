@@ -11,7 +11,7 @@ vi.mock('../src/api/paperLint', async () => ({
 vi.mock('../src/api/feedback', async () => ({
   ...await vi.importActual('../src/api/feedback'), fetchFindingFeedback: vi.fn(async () => null), fetchSuggestionFeedback: vi.fn(async () => null),
 }));
-vi.mock('../src/components/paperLint/Workspace', () => ({ PaperLintWorkspace: () => null }));
+vi.mock('../src/components/paperLint/Workspace', () => ({ PaperLintWorkspace: ({ selectedRuleIds }: { selectedRuleIds: string[] }) => <output aria-label="本次检测规则">{selectedRuleIds?.join(',')}</output> }));
 
 const summary = { rule_count: 3, completed_rule_count: 3, unsupported_rule_count: 0, error_rule_count: 0,
   issue_rule_count: 3, finding_count: 6, error_finding_count: 1, warning_finding_count: 2, info_finding_count: 3, derived_rule_count: 0 };
@@ -100,4 +100,10 @@ it('retains confirmed-only compiler NO_ALERT wording without adding an inconclus
   show();
   expect(await screen.findByText('未触发告警')).toBeInTheDocument();
   expect(screen.queryByText('部分规则无法判定')).not.toBeInTheDocument();
+});
+
+
+it('passes the saved user selection to report categories and rule filtering', async () => {
+  show();
+  expect(await screen.findByLabelText('本次检测规则')).toHaveTextContent('one,two,three');
 });

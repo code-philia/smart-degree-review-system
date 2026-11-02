@@ -4,14 +4,14 @@ import type { PaperLintFindingItem } from './model';
 
 const conditionOrder = ['abstract_numeric', 'contribution_mapping', 'experiment_subsection'];
 const labels: Record<string, string> = {
-  abstract_numeric: '摘要中存在可核验的数值型论点',
-  contribution_mapping: '数值型论点已映射到研究贡献',
-  experiment_subsection: '数值型论点已映射到实验子章节',
+  abstract_numeric: '摘要中存在可核验的论点',
+  contribution_mapping: '论点已映射到研究贡献',
+  experiment_subsection: '论点已映射到实验子章节',
 };
 const fixedSuggestions: Record<string, string> = {
-  abstract_numeric: '请在摘要中补充可与正文实验结果对应的明确数值、指标和条件；如果摘要本身没有数值型论点，则无需进行这项一致性核验。',
-  contribution_mapping: '请将每个数值型研究结论明确关联到摘要中的具体方法或研究贡献，避免只给出孤立的数字。',
-  experiment_subsection: '请在对应研究章节下组织实验设置、评估或结果小节，并确保数值型论点能够映射到真实实验依据。',
+  abstract_numeric: '请在摘要中补充可与正文实验结果对应的明确数值、指标和条件；如果摘要本身没有论点，则无需进行这项一致性核验。',
+  contribution_mapping: '请将每个研究结论明确关联到摘要中的具体方法或研究贡献，避免只给出孤立的数字。',
+  experiment_subsection: '请在对应研究章节下组织实验设置、评估或结果小节，并确保论点能够映射到真实实验依据。',
 };
 type Row = Record<string, unknown>;
 type Filter = 'attention' | 'all' | 'inconsistent' | 'inconclusive' | 'consistent';
@@ -66,7 +66,7 @@ export function NumericReviewDetails({ run, findings = [], onAnchorClick, onPage
 
   return <div className="mt-4 space-y-5 text-sm" data-testid="numeric-review-details">
     <section aria-label="数值核验概览">
-      <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-600">报告概览</p><h3 className="mt-1 text-lg font-bold text-slate-950">摘要数值型论点核验</h3></div><p className="text-xs text-slate-500">共核验 {results.length} 项论点</p></div>
+      <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-600">报告概览</p><h3 className="mt-1 text-lg font-bold text-slate-950">摘要论点核验</h3></div><p className="text-xs text-slate-500">共核验 {results.length} 项论点</p></div>
       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">{([['总数', results.length, 'text-slate-900'], ['一致', counts.consistent, 'text-emerald-700'], ['不一致', counts.inconsistent, 'text-rose-700'], ['论据不明确', counts.inconclusive, 'text-amber-700']] as const).map(([label, value, color]) => <div key={label} className="rounded-xl border border-slate-200 bg-white px-3 py-3"><p className="text-xs text-slate-500">{label}</p><p className={`mt-1 text-2xl font-black ${color}`}>{value}</p></div>)}</div>
     </section>
     {conditions.length ? <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-4" aria-label="前置条件结果">
@@ -74,7 +74,7 @@ export function NumericReviewDetails({ run, findings = [], onAnchorClick, onPage
       <ol className="mt-3 grid gap-2 md:grid-cols-3">{conditionOrder.map((id, i) => { const row = conditions.find(item => String(item.id) === id) || {}; const passed = row.passed === true; const skipped = row.status === 'skipped'; return <li key={id} className={`rounded-lg border bg-white p-3 ${passed ? 'border-emerald-200' : skipped ? 'border-slate-200' : 'border-rose-300'}`}><div className="flex items-start gap-2"><span className={`flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${passed ? 'bg-emerald-100 text-emerald-700' : skipped ? 'bg-slate-100 text-slate-500' : 'bg-rose-100 text-rose-700'}`}>{i + 1}</span><div className="min-w-0"><p className="font-medium text-slate-900">{labels[id]}</p><p className={`mt-1 text-xs font-semibold ${passed ? 'text-emerald-700' : skipped ? 'text-slate-500' : 'text-rose-700'}`}>{passed ? '已通过' : skipped ? '未检查' : '未通过'}</p></div></div><details className="mt-2 text-xs text-slate-600"><summary className="cursor-pointer text-slate-500">查看说明</summary><p className="mt-2 leading-5">{String(row.reason || '')}</p>{!passed ? <p className="mt-2 rounded-md bg-amber-50 p-2 text-amber-800">修改建议：{String(row.suggestion || fixedSuggestions[id])}</p> : null}</details></li>; })}</ol>
       {conditions.some(row => row.passed !== true) ? <p className="mt-3 text-xs text-amber-800">前置校验未全部通过，本次未执行正式数值一致性核验。</p> : null}
     </section> : null}
-    {prerequisitesPassed && results.length ? <section aria-label="数值型论点核验列表">
+    {prerequisitesPassed && results.length ? <section aria-label="论点核验列表">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-bold text-slate-900">逐项论点核验</h3><p className="mt-1 text-xs text-slate-500">默认优先显示需要人工关注的论点。</p></div><div className="flex flex-wrap gap-1 rounded-lg bg-slate-100 p-1">{([['attention', '需关注'], ['all', '全部'], ['inconsistent', '不一致'], ['inconclusive', '论据不明确'], ['consistent', '一致']] as const).map(([value, label]) => <button type="button" key={value} className={`rounded-md px-2 py-1 text-xs ${filter === value ? 'bg-white font-semibold text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`} onClick={() => setFilter(value)}>{label}</button>)}</div></div>
       <div className="mt-3 space-y-3">{visibleResults.length ? visibleResults.map((row, i) => {
         const status = statusOf(row);
@@ -95,7 +95,7 @@ export function NumericReviewDetails({ run, findings = [], onAnchorClick, onPage
           <div className="mt-4 border-t border-slate-100 pt-3"><p className="text-xs font-semibold text-slate-500">判断依据</p><p className="mt-1 leading-6 text-slate-700">{String(row.reason || '未提供')}</p>{row.suggestion ? <p className="mt-2 rounded-lg bg-blue-50 p-3 text-sm leading-6 text-blue-900"><strong>修改建议：</strong>{String(row.suggestion)}</p> : null}</div>
         </article>;
       }) : <p className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">当前筛选下没有论点。</p>}</div>
-    </section> : <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">当前没有可核验的数值型论点。</div>}
+    </section> : <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">当前没有可核验的论点。</div>}
     {!prerequisitesPassed ? <p className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">前置条件未全部通过，未执行逐项数值核验。</p> : null}
     {trace?.run_id ? <p className="text-xs text-slate-400">检测记录：{String(trace.run_id)}</p> : null}
   </div>;

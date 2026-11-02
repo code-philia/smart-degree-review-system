@@ -22,3 +22,32 @@ it('retains handled marks in the actual findings pane across numeric tab switche
   expect(screen.getByText('已标记为本次已处理')).toBeVisible();
   expect(screen.getByRole('button', { name: '取消已处理标记' })).toBeVisible();
 });
+
+
+it.each([
+  [['sjtu_rule_24'], ['规范检测问题']],
+  [['abstract_numeric_consistency_check'], ['论文逻辑审查']],
+  [['sjtu_rule_24', 'abstract_numeric_consistency_check'], ['规范检测问题', '论文逻辑审查']],
+])('shows categories from the saved selection even when there are no alarms (%s)', (ids, names) => {
+  const allRules = [
+    { rule_id: 'sjtu_rule_24', title: '参考文献引用' },
+    { rule_id: 'typo_detection_check', title: '未选择的错别字规则' },
+    { rule_id: 'abstract_numeric_consistency_check', title: '论点论据一致性检测' },
+  ];
+  render(<PaperLintWorkspace file={{ name: 'regular.pdf' } as File} findings={[]} rules={allRules as never} selectedRuleIds={ids}
+    numericReviewRun={ids.includes('abstract_numeric_consistency_check') ? {
+      rule_id: 'abstract_numeric_consistency_check', rule_run_id: 'passed', severity: 'warning',
+      execution_status: 'completed', outcome: 'passed', findings: [],
+    } : undefined} />);
+  expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual(names);
+  if (names.includes('规范检测问题')) {
+    fireEvent.click(screen.getByRole('tab', { name: '规范检测问题' }));
+    const options = Array.from(screen.getByRole('combobox', { name: '按检查项筛选' }).querySelectorAll('option'));
+    expect(options.map(option => option.value)).toEqual(expect.arrayContaining(['all', ...ids]));
+    expect(options.map(option => option.value)).not.toContain('typo_detection_check');
+  }
+  if (names.includes('论文逻辑审查')) {
+    fireEvent.click(screen.getByRole('tab', { name: '论文逻辑审查' }));
+    expect(screen.getByText('数值核验依据')).toBeVisible();
+  }
+});

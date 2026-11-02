@@ -8,9 +8,10 @@ type Props = {
   file: File | { name: string; url: string };
   rules: PaperLintRule[];
   runs: PaperLintRuleRun[];
+  selectedRuleIds?: string[];
 };
 
-export function LivePaperLintReport({ file, rules, runs }: Props) {
+export function LivePaperLintReport({ file, rules, runs, selectedRuleIds }: Props) {
   const findings = useMemo(() => flattenPaperLintFindings({ rule_runs: runs }), [runs]);
   const numericRun = runs.find(run => run.rule_id === 'abstract_numeric_consistency_check');
   const failed = runs.filter(run => run.execution_status === 'error');
@@ -42,7 +43,7 @@ export function LivePaperLintReport({ file, rules, runs }: Props) {
             : '检测进行中，新发现的问题将自动更新到报告中。完成后自动保存至历史报告。'}
         </p>
       </div>
-      <PaperLintWorkspace file={file} findings={findings} rules={rules} numericReviewRun={numericRun} running />
+      <PaperLintWorkspace file={file} findings={findings} rules={rules} selectedRuleIds={selectedRuleIds} numericReviewRun={numericRun} running />
     </section>
   );
 }

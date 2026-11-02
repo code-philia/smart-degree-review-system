@@ -201,3 +201,23 @@ describe('repair suggestion card', () => {
     expect(screen.getByText(/暂不应仅依据该告警修改论文/)).toBeInTheDocument();
   });
 });
+
+
+it.each([true, false])('lists every selected rule without alarms and excludes unselected catalog rules (hasFinding=%s)', (hasFinding) => {
+  const rules = [
+    { rule_id: 'sjtu_rule_24', title: '参考文献引用' },
+    { rule_id: 'typo_detection_check', title: '正文错别字检测' },
+    { rule_id: 'abstract_numeric_consistency_check', title: '论点论据一致性检测' },
+    { rule_id: 'not_selected', title: '未选择的规则' },
+  ];
+  render(<FindingsPane findings={hasFinding ? [item] : []} rules={rules as never} selectedRuleIds={rules.slice(0,3).map(rule => rule.rule_id)}
+    activeFindingKey={null} activeAnchorId={null} onFindingClick={vi.fn()} onAnchorClick={vi.fn()} />);
+  const select = screen.getByRole('combobox', { name: '按检查项筛选' });
+  expect(Array.from(select.querySelectorAll('option')).map(option => option.textContent)).toEqual(
+    expect.arrayContaining(['全部检查项', '参考文献引用', '正文错别字检测', '论点论据一致性检测']),
+  );
+  expect(Array.from(select.querySelectorAll('option')).map(option => option.value)).not.toContain('not_selected');
+  fireEvent.change(select, { target: { value: 'typo_detection_check' } });
+  expect(screen.getByText(hasFinding ? '当前筛选下未检测出问题' : '未检测出问题')).toBeInTheDocument();
+  expect(screen.queryByText(item.finding.message)).not.toBeInTheDocument();
+});

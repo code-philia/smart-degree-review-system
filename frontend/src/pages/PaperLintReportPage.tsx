@@ -217,6 +217,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
       <div className="mx-auto w-full max-w-7xl">
         <PaperLintWorkspace
         layout={isSemanticReport ? 'semantic' : 'default'}
+        selectedRuleIds={report.selected_rule_ids}
         numericReviewRun={numericReviewRun}
         file={{ name: report.source_filename, url: pdfUrl }}
         openPdfUrl={pdfUrl}
