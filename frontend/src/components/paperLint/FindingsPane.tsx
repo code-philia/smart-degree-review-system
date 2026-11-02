@@ -142,7 +142,37 @@ export function FindingsPane({
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
         {filter === 'execution' ? <>
           <p className="rounded-lg bg-slate-50 p-3 text-sm leading-6 text-slate-600">如需使用以下规则，请按建议内容调整；如无需使用，请忽略以下内容</p>
-          {executionWarnings.map((warning, index) => <article key={index} className="rounded-lg border border-rose-200 p-3"><h3 className="text-sm font-bold text-rose-700">{warning.title}</h3><p className="mt-2 text-sm leading-6 text-slate-700">{warning.reason}</p><p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm leading-6"><strong>调整建议：</strong>{warning.suggestion}</p></article>)}
+          {executionWarnings.map((warning, index) => (
+            <article key={index} className="rounded-lg border border-rose-200 p-3">
+              <h3 className="text-sm font-bold text-rose-700">{warning.title}</h3>
+              {warning.preconditionId ? (
+                <>
+                  <p className="mt-2 text-sm leading-6 text-slate-700">
+                    <strong>检测说明：</strong>本规则目前仅支持核验<strong>摘要中的含有数值的论点与正文实验结果是否一致</strong>。
+                  </p>
+                  <h4 className="mt-4 text-base font-bold leading-7 text-slate-900">
+                    {warning.preconditionId === 'abstract_numeric'
+                      ? <>摘要中不存在可核验的<strong>含有数值的</strong>论点</>
+                      : warning.issueTitle}
+                  </h4>
+                  <div className="mt-3 rounded-lg bg-slate-50 p-3 text-sm leading-6 text-slate-700">
+                    <p><strong>符合要求的示例：</strong></p>
+                    <p className="mt-1 whitespace-pre-line">{warning.example}</p>
+                    <p className="mt-3"><strong>说明：</strong>{warning.explanation}</p>
+                  </div>
+                  <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm leading-6 text-slate-700">
+                    <strong>调整建议：</strong>{warning.suggestion}
+                  </p>
+                  {warning.note ? <p className="mt-3 text-sm leading-6 text-slate-600">{warning.note}</p> : null}
+                </>
+              ) : (
+                <>
+                  <p className="mt-2 text-sm leading-6 text-slate-700">{warning.reason}</p>
+                  <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm leading-6"><strong>调整建议：</strong>{warning.suggestion}</p>
+                </>
+              )}
+            </article>
+          ))}
         </> : filtered.length === 0 ? (
           <div className="flex h-full min-h-60 flex-col items-center justify-center text-center">
             {running ? <LoaderCircle className="size-8 animate-spin text-brand-600 motion-reduce:animate-none" /> : <CheckCircle2 className="size-8 text-success-600" />}

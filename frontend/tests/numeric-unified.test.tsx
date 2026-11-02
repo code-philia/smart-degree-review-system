@@ -35,7 +35,7 @@ describe('numeric results in the unified report', () => {
     expect(flattenPaperLintFindings({ rule_runs: [value] })).toHaveLength(0);
     render(<FindingsPane findings={[]} rules={[]} executionWarnings={warnings} activeFindingKey={null} activeAnchorId={null} onFindingClick={() => {}} onAnchorClick={() => {}} />);
     fireEvent.click(screen.getByRole('button', { name: /规则未实现警告/ }));
-    expect(screen.getByText('没有对应实验章节')).toBeTruthy();
+    expect(screen.getByText('研究贡献下不存在明确的实验章节')).toBeTruthy();
     expect(screen.getByText(/请稍后重试/)).toBeTruthy();
   });
 });
