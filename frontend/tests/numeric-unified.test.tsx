@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import type { PaperLintRuleRun } from '../src/api/paperLint';
+import type { PaperLintRule, PaperLintRuleRun } from '../src/api/paperLint';
 import { flattenPaperLintFindings, numericExecutionWarnings } from '../src/components/paperLint/model';
 import { FindingsPane } from '../src/components/paperLint/FindingsPane';
 
@@ -16,6 +16,37 @@ function run(): PaperLintRuleRun {
   } };
 }
 describe('numeric results in the unified report', () => {
+  it('shows full prerequisite details in all levels and keeps them scoped to the selected rule', async () => {
+    const numeric: PaperLintRuleRun = { ...run(), outcome: 'not_applicable', findings: [], params: {
+      preconditions: [{ id: 'abstract_numeric', passed: false, status: 'failed' }],
+    } };
+    const formula: PaperLintRuleRun = { ...numeric, rule_id: 'sjtu_rule_18', rule_run_id: 'formula', outcome: 'issues_found', params: {},
+      findings: [{ finding_id: 'f1', rule_id: 'sjtu_rule_18', message: '公式引用问题', location: null }] };
+    render(<FindingsPane findings={flattenPaperLintFindings({ rule_runs: [numeric, formula] })}
+      rules={[{ rule_id: numeric.rule_id, title: '论点论据一致性检测' }, { rule_id: formula.rule_id, title: '公式引用' }] as PaperLintRule[]}
+      selectedRuleIds={[numeric.rule_id, formula.rule_id]} ruleRuns={[numeric, formula]}
+      executionWarnings={numericExecutionWarnings(numeric)} activeFindingKey={null} activeAnchorId={null}
+      onFindingClick={() => {}} onAnchorClick={() => {}} />);
+    expect(screen.getByRole('heading', { name: '摘要中不存在可核验的含有数值的论点' })).toBeInTheDocument();
+    expect(screen.getByText('公式引用问题')).toBeInTheDocument();
+    expect(screen.getByText('1 项问题')).toBeInTheDocument();
+    const select = async (title: string) => {
+      fireEvent.keyDown(screen.getByRole('combobox'), { key: 'ArrowDown' });
+      const option = await screen.findByRole('option', { name: new RegExp(`^${title}，`) });
+      option.focus(); fireEvent.keyDown(option, { key: 'Enter' });
+    };
+    await select('公式引用');
+    expect(screen.queryByRole('heading', { name: '摘要中不存在可核验的含有数值的论点' })).not.toBeInTheDocument();
+    await select('论点论据一致性检测');
+    expect(screen.getByRole('heading', { name: '摘要中不存在可核验的含有数值的论点' })).toBeInTheDocument();
+    expect(screen.getByText('符合要求的示例：')).toBeInTheDocument();
+    expect(screen.queryByText('公式引用问题')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('rule-empty-icon')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '警告 1', exact: true }));
+    expect(screen.queryByText('符合要求的示例：')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /规则未实现警告/ }));
+    expect(screen.getByText('符合要求的示例：')).toBeInTheDocument();
+  });
   it('shows warning and info findings, hides consistent and failed checks, and uses inline suggestions', () => {
     const findings = flattenPaperLintFindings({ rule_runs: [run()] });
     expect(findings.map(f => f.ruleRun.severity)).toEqual(['warning', 'info']);

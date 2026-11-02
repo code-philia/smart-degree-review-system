@@ -154,6 +154,10 @@ export function FindingsPane({
       (filter === 'all' || item.ruleRun.severity === filter) &&
       (effectiveRuleFilter === 'all' || item.ruleRun.rule_id === effectiveRuleFilter),
   );
+  const visibleWarnings = filter === 'all' || filter === 'execution'
+    ? executionWarnings.filter(warning => effectiveRuleFilter === 'all'
+      || (warning.ruleId || 'abstract_numeric_consistency_check') === effectiveRuleFilter)
+    : [];
 
   return (
     <section className="@container/report flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
@@ -185,9 +189,9 @@ export function FindingsPane({
       </div>
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
         {filter !== 'execution' && filtered.length > 0 && incomplete && selectedRun?.rule_id === 'sjtu_rule_32' ? <p role="status" className="rounded-xl bg-amber-50 p-3 text-xs leading-6 text-amber-800">{referenceReviewMessage(selectedRun)}</p> : null}
-        {filter === 'execution' ? <>
+        {visibleWarnings.length ? <>
           <p className="rounded-lg bg-slate-50 p-3 text-sm leading-6 text-slate-600">如需使用以下规则，请按建议内容调整；如无需使用，请忽略以下内容</p>
-          {executionWarnings.map((warning, index) => (
+          {visibleWarnings.map((warning, index) => (
             <article key={index} className="rounded-lg border border-rose-200 p-3">
               <h3 className="text-sm font-bold text-rose-700">{warning.title}</h3>
               {warning.preconditionId ? (
@@ -218,7 +222,9 @@ export function FindingsPane({
               )}
             </article>
           ))}
-        </> : filtered.length === 0 ? (
+        </> : null}
+        {filter === 'execution' && !visibleWarnings.length ? <p className="p-3 text-sm text-slate-500">当前检查项没有规则未实现警告</p> : null}
+        {filter === 'execution' || (filtered.length === 0 && visibleWarnings.length > 0) ? null : filtered.length === 0 ? (
           <div className="flex h-full min-h-60 flex-col items-center justify-center text-center">
             <EmptyIcon data-testid={!pending && !incomplete && !severityEmpty ? 'rule-empty-icon' : undefined} className={`size-8 ${pending ? 'animate-spin text-brand-600 motion-reduce:animate-none' : severityEmpty ? 'text-slate-400' : incomplete ? 'text-amber-600' : 'text-success-600'}`} />
             <p className="mt-3 text-sm font-bold text-slate-900">{emptyTitle}</p>

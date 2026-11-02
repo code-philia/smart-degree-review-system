@@ -11,7 +11,7 @@ from .citations import attach_citations
 from .contracts import SCHEMA_VERSION, MODEL_VERSION, validate_ir
 from .llm import ModelError
 
-FRONTEND_VERSION='pdf-source-frontend/1.6'
+FRONTEND_VERSION='pdf-source-frontend/1.7'
 BIB_HEADING=re.compile(r'^(?:参考文献|參考文獻|References|Bibliography)\s*$',re.I)
 ENTRY=re.compile(r'^\s*(?:[\[［](\d{1,4})[\]］]|(\d{1,4})[.、．])\s*')
 NUMBERED_HEADING=re.compile(r'^(?:(第[一二三四五六七八九十百\d]+章)\s*|((?:\d+\.)*\d+)\s+)(\S.{0,65})$')
@@ -93,6 +93,26 @@ def _bibliography_heading_parts(pages):
     return headings
 
 
+def _corroborated_bibliography_heading(pages,candidates,heading_parts):
+    """Recover only one prominent source heading with a numbered work list."""
+    confirmed=[]
+    for candidate in candidates:
+        if candidate['page_index'] < len(pages)//2:continue
+        page=pages[candidate['page_index']]
+        start=next(i for i,line in enumerate(page['lines']) if line['id']==candidate['id'])
+        following=page['lines'][start+len(heading_parts[candidate['id']]):start+24]
+        # A small running header may precede the actual title on the same page.
+        if any(line['id'] in heading_parts for line in following):continue
+        markers=[ENTRY.match(line['text'].strip()) for line in following]
+        keys=[int(marker.group(1) or marker.group(2)) for marker in markers if marker]
+        if keys[:3]!=[1,2,3]:continue
+        content=[line for line in following if line['text'].strip()]
+        if not content or candidate['font_size'] < statistics.median(line['font_size'] for line in content)*1.2:continue
+        if sum(bool(re.search(r'\b(?:18|19|20)\d{2}\b',line['text'])) for line in content)<2:continue
+        confirmed.append(candidate['id'])
+    return confirmed[0] if len(confirmed)==1 else None
+
+
 def _bibliography_heading(pages,client,*,observations=None,heading_parts=None):
     flat=[(page,line) for page in pages for line in page['lines']];candidates=[]
     heading_parts=_bibliography_heading_parts(pages) if heading_parts is None else heading_parts
@@ -110,11 +130,13 @@ def _bibliography_heading(pages,client,*,observations=None,heading_parts=None):
                 'Identify the start heading of the MAIN actual bibliography from the supplied source candidates. Exclude table-of-contents labels, diagram labels, prompt examples and running headers. Use following bibliographic entries and page position. Return heading_id (one exact supplied ID, or null if unclear) and reason. Do not invent source IDs.',
                 {'page_count':len(pages),'candidates':candidates},1200)
         except ModelError as error:
+            recovered=_corroborated_bibliography_heading(pages,candidates,heading_parts)
             if observations is not None:
                 observations.append({'task':'bibliography-boundary/1.0','status':'unavailable',
                     'error_type':type(error).__name__,'error_message':str(error),
                     'candidate_line_ids':[candidate['id'] for candidate in candidates],
-                    'decision':'unlocated; no candidate inferred after optional model failure'})
+                    'decision':'source-corroborated candidate selected; coverage remains partial' if recovered else 'unlocated; no corroborated source candidate after optional model failure'})
+            if recovered:return recovered,'source_corroborated_after_model_error'
             return None,'model_error_unlocated'
         if answer.get('heading_id') in {c['id'] for c in candidates}:return answer['heading_id'],'model_selected_source_heading'
         if answer.get('heading_id') is not None:raise ValueError('bibliography selector returned an unknown source line')
@@ -334,6 +356,7 @@ def build_paper(pdf: Path, *, client=None, layout_cache=None, include_citations=
     if bibliography_end is not None:ir['metadata']['bibliography_end']=bibliography_end
     if bibliography_observations:
         ir['metadata']['bibliography_observations']=bibliography_observations
+    if bibliography_method=='model_error_unlocated':
         ir['coverage']['bibliography']={'status':'partial','reason':'main bibliography unlocated after optional model error; no candidate selected'}
         ir['coverage']['reference_uses']={'status':'partial','reason':'bibliography unlocated; citation binding and semantic coverage remain unverified'}
     if include_citations:attach_citations(ir)
