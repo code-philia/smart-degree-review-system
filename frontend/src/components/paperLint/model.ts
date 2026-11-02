@@ -45,7 +45,7 @@ export function numericDisplayFindings(run: PaperLintRuleRun): PaperLintFinding[
       );
       let fallbackEvidenceIndex = evidenceLabels.size + 1;
       const readableReason = String(row.reason || '')
-        .replace(/\b[dD]\d+\s*:\s*[eE]\d+\b/g, id => {
+        .replace(/\b[dD]\d+\s*:\s*[A-Za-z]\d+\b/g, id => {
         const existing = evidenceLabels.get(id.replace(/\s/g, ''));
         if (existing) return existing;
         const label = `实验结果证据${fallbackEvidenceIndex++}`;
