@@ -343,7 +343,7 @@ export function ThesisUploadPanel(props: Props) {
                       <div className="flex min-h-16 items-center justify-between gap-2 border-b border-slate-100 px-3 py-3">
                         <div className="flex min-w-0 items-center gap-1">
                           <h3 className="whitespace-nowrap text-sm font-semibold leading-5 text-slate-800">{group}</h3>
-                          {group === '论文逻辑审查' ? <span className="inline-flex h-[18px] shrink-0 items-center whitespace-nowrap rounded-md bg-amber-50 px-1 text-[9px] font-medium leading-none text-amber-800">实验型功能</span> : null}
+                          {group === '论文逻辑审查' ? <span className="inline-flex h-[18px] shrink-0 items-center whitespace-nowrap rounded-md bg-violet-50 px-1 text-[9px] font-medium leading-none text-violet-700">实验型功能</span> : null}
                         </div>
                         <div className="flex shrink-0 items-center rounded-lg bg-white/80 p-0.5 ring-1 ring-slate-200/70">
                           <button
@@ -388,7 +388,7 @@ export function ThesisUploadPanel(props: Props) {
                               />
                               <span className="min-w-0">
                                 <span className="flex min-h-5 flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-medium leading-5 text-slate-800"><span>{rule.rule_id === NUMERIC_RULE ? '论点论据一致性检测' : rule.title}</span>
-                                  {rule.rule_id === NUMERIC_RULE ? <span className="inline-flex h-5 items-center gap-1 rounded-md bg-amber-50 px-1.5 text-[10px] font-medium leading-none text-amber-800"><FlaskConical aria-hidden="true" className="size-3" />实验性</span> : null}
+                                  {rule.rule_id === NUMERIC_RULE ? <span className="inline-flex h-5 items-center gap-1 rounded-md bg-violet-50 px-1.5 text-[10px] font-medium leading-none text-violet-700"><FlaskConical aria-hidden="true" className="size-3" />实验性</span> : null}
                                 </span>
                                 <span className="mt-1 block text-[11px] leading-5 text-slate-500">
                                   {rule.description}

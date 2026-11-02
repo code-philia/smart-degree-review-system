@@ -28,7 +28,7 @@ const levelLabels = { error: '严重', warning: '警告', info: '提示' };
 
 function ExperimentalBadge({ ruleId }: { ruleId: string }) {
   return ruleId === 'abstract_numeric_consistency_check'
-    ? <span role="img" aria-label="实验性规则" title="实验性规则" className="inline-flex h-5 shrink-0 items-center gap-1 rounded-md bg-amber-50 px-1.5 text-[10px] font-medium leading-none text-amber-800"><FlaskConical aria-hidden="true" className="size-3" />实验性</span>
+    ? <span role="img" aria-label="实验性规则" title="实验性规则" className="inline-flex h-5 shrink-0 items-center gap-1 rounded-md bg-violet-50 px-1.5 text-[10px] font-medium leading-none text-violet-700"><FlaskConical aria-hidden="true" className="size-3" />实验性</span>
     : null;
 }
 
