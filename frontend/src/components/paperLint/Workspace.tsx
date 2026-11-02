@@ -37,6 +37,7 @@ type Props = {
   findings: PaperLintFindingItem[];
   rules: PaperLintRule[];
   selectedRuleIds?: string[];
+  ruleRuns?: PaperLintRuleRun[];
   openPdfUrl?: string;
   numericReviewRun?: PaperLintRuleRun;
   running?: boolean;
@@ -64,6 +65,7 @@ export function PaperLintWorkspace({
   findings,
   rules,
   selectedRuleIds,
+  ruleRuns,
   openPdfUrl,
   numericReviewRun,
   running = false,
@@ -128,6 +130,7 @@ export function PaperLintWorkspace({
         pageLabels={pageLabels}
         findings={findings}
         selectedRuleIds={selectedRuleIds}
+        ruleRuns={ruleRuns}
         running={running}
         rules={rules}
         activeFindingKey={activeFindingKey}

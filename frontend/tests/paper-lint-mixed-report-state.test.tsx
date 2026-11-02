@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
 import { PaperLintWorkspace } from '../src/components/paperLint/Workspace';
 import type { PaperLintFindingItem } from '../src/components/paperLint/model';
@@ -25,7 +25,7 @@ it.each([
   [['sjtu_rule_24'], ['规范检测问题']],
   [['abstract_numeric_consistency_check'], ['论文逻辑审查']],
   [['sjtu_rule_24', 'abstract_numeric_consistency_check'], ['规范检测问题', '论文逻辑审查']],
-])('shows categories from the saved selection even when there are no alarms (%s)', (ids, names) => {
+])('shows categories from the saved selection even when there are no alarms (%s)', async (ids, names) => {
   const allRules = [
     { rule_id: 'sjtu_rule_24', title: '参考文献引用' },
     { rule_id: 'typo_detection_check', title: '未选择的错别字规则' },
@@ -37,7 +37,9 @@ it.each([
       execution_status: 'completed', outcome: 'passed', findings: [],
     } : undefined} />);
   expect(screen.queryAllByRole('tab')).toHaveLength(0);
-  const options = Array.from(screen.getByRole('combobox', { name: '按检查项筛选' }).querySelectorAll('option'));
-  expect(options.map(option => option.value)).toEqual(expect.arrayContaining(['all', ...ids]));
-  expect(options.map(option => option.value)).not.toContain('typo_detection_check');
+  fireEvent.keyDown(screen.getByRole('combobox', { name: '按检查项筛选' }), { key: 'ArrowDown' });
+  const list = await screen.findByRole('listbox');
+  expect(within(list).getAllByRole('option')).toHaveLength(ids.length + 1);
+  for (const id of ids) expect(within(list).getByRole('option', { name: new RegExp(`^${allRules.find(rule => rule.rule_id === id)!.title}，`) })).toBeInTheDocument();
+  expect(within(list).queryByText('未选择的错别字规则')).not.toBeInTheDocument();
 });

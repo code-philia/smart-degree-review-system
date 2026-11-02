@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { FindingsPane } from '../src/components/paperLint/FindingsPane';
 import type { PaperLintFindingItem } from '../src/components/paperLint/model';
@@ -45,7 +45,7 @@ describe('PDF issue card', () => {
   });
 });
 describe('PDF rule filter order', () => {
-  it('lists numbered checks numerically despite out-of-order input', () => {
+  it('lists numbered checks numerically despite out-of-order input', async () => {
     const entries = [15, 11, 2].map((number) => ({
       ...item,
       key: 'finding-' + number,
@@ -63,11 +63,11 @@ describe('PDF rule filter order', () => {
         onAnchorClick={vi.fn()}
       />,
     );
-    expect(
-      Array.from(screen.getByRole('combobox', { name: '按检查项筛选' }).querySelectorAll('option')).map(
-        (option) => option.textContent,
-      ),
-    ).toEqual(['全部检查项', '规则 2', '规则 11', '规则 15']);
+    fireEvent.keyDown(screen.getByRole('combobox', { name: '按检查项筛选' }), { key: 'ArrowDown' });
+    const list = await screen.findByRole('listbox');
+    expect(within(list).getAllByRole('option').map(option => option.textContent?.split('，')[0])).toEqual([
+      '全部检查项', '规则 2', '规则 11', '规则 15',
+    ]);
   });
 });
 
@@ -203,7 +203,7 @@ describe('repair suggestion card', () => {
 });
 
 
-it.each([true, false])('lists every selected rule without alarms and excludes unselected catalog rules (hasFinding=%s)', (hasFinding) => {
+it.each([true, false])('lists every selected rule without alarms and excludes unselected catalog rules (hasFinding=%s)', async (hasFinding) => {
   const rules = [
     { rule_id: 'sjtu_rule_24', title: '参考文献引用' },
     { rule_id: 'typo_detection_check', title: '正文错别字检测' },
@@ -213,11 +213,14 @@ it.each([true, false])('lists every selected rule without alarms and excludes un
   render(<FindingsPane findings={hasFinding ? [item] : []} rules={rules as never} selectedRuleIds={rules.slice(0,3).map(rule => rule.rule_id)}
     activeFindingKey={null} activeAnchorId={null} onFindingClick={vi.fn()} onAnchorClick={vi.fn()} />);
   const select = screen.getByRole('combobox', { name: '按检查项筛选' });
-  expect(Array.from(select.querySelectorAll('option')).map(option => option.textContent)).toEqual(
+  fireEvent.keyDown(select, { key: 'ArrowDown' });
+  const list = await screen.findByRole('listbox');
+  expect(within(list).getAllByRole('option').map(option => option.textContent?.split('，')[0])).toEqual(
     expect.arrayContaining(['全部检查项', '参考文献引用', '正文错别字检测', '论点论据一致性检测']),
   );
-  expect(Array.from(select.querySelectorAll('option')).map(option => option.value)).not.toContain('not_selected');
-  fireEvent.change(select, { target: { value: 'typo_detection_check' } });
-  expect(screen.getByText(hasFinding ? '当前筛选下未检测出问题' : '未检测出问题')).toBeInTheDocument();
+  expect(within(list).queryByText('未选择的规则')).not.toBeInTheDocument();
+  const option = within(list).getByRole('option', { name: /^正文错别字检测，/ });
+  option.focus(); fireEvent.keyDown(option, { key: 'Enter' });
+  expect(screen.getByText('本规则未检测出问题')).toBeInTheDocument();
   expect(screen.queryByText(item.finding.message)).not.toBeInTheDocument();
 });

@@ -43,7 +43,7 @@ export function LivePaperLintReport({ file, rules, runs, selectedRuleIds }: Prop
             : '检测进行中，新发现的问题将自动更新到报告中。完成后自动保存至历史报告。'}
         </p>
       </div>
-      <PaperLintWorkspace file={file} findings={findings} rules={rules} selectedRuleIds={selectedRuleIds} numericReviewRun={numericRun} running />
+      <PaperLintWorkspace file={file} findings={findings} rules={rules} selectedRuleIds={selectedRuleIds} ruleRuns={runs} numericReviewRun={numericRun} running />
     </section>
   );
 }

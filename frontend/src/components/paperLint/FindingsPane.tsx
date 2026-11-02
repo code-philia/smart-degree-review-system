@@ -1,6 +1,6 @@
-import { Bot, Check, CheckCircle2, LoaderCircle, MapPin } from 'lucide-react';
+import { Bot, Check, CheckCircle2, CircleAlert, CircleHelp, ListFilter, LoaderCircle, MapPin } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import type { PaperLintRule } from '../../api/paperLint';
+import type { PaperLintRule, PaperLintRuleRun } from '../../api/paperLint';
 import type { RepairSuggestion } from '../../api/repairSuggestions';
 import type { FindingFeedback, SuggestionFeedback } from '../../api/feedback';
 import { Button, StatusBadge } from '../ui';
@@ -8,6 +8,7 @@ import { comparePaperLintRuleIds, findingPageLabel, type PaperLintFindingItem } 
 import { FeedbackControls } from './FeedbackControls';
 import { displayFindingPages, type PdfPageLabels } from './pageLabels';
 import type { RuleExecutionWarning } from './model';
+import { RuleFilter, type RuleFilterOption, type RuleSeverityCounts } from './RuleFilter';
 
 type Props = {
   executionWarnings?: RuleExecutionWarning[];
@@ -15,6 +16,7 @@ type Props = {
   running?: boolean;
   rules: PaperLintRule[];
   selectedRuleIds?: string[];
+  ruleRuns?: PaperLintRuleRun[];
   activeFindingKey: string | null;
   activeAnchorId: string | null;
   onFindingClick: (key: string) => void;
@@ -72,6 +74,7 @@ export function FindingsPane({
   running = false,
   rules,
   selectedRuleIds,
+  ruleRuns,
   activeFindingKey,
   activeAnchorId,
   onFindingClick,
@@ -98,47 +101,79 @@ export function FindingsPane({
   const [handledKeys, setHandledKeys] = useState<string[]>([]);
   const ruleNames = useMemo(() => new Map(rules.map((rule) => [rule.rule_id, rule.title])), [rules]);
   const ruleIds = Array.from(new Set(selectedRuleIds ?? [...rules.map(rule => rule.rule_id), ...findings.map(item => item.ruleRun.rule_id)])).sort(comparePaperLintRuleIds);
+  const runById = new Map([...findings.map(item => item.ruleRun), ...(ruleRuns || [])].map(run => [run.rule_id, run]));
+  const counts = new Map<string, RuleSeverityCounts>();
+  const severityTotals: RuleSeverityCounts = { error: 0, warning: 0, info: 0 };
+  findings.forEach(item => {
+    const entry = counts.get(item.ruleRun.rule_id) || { error: 0, warning: 0, info: 0 };
+    entry[item.ruleRun.severity]++;
+    severityTotals[item.ruleRun.severity]++;
+    counts.set(item.ruleRun.rule_id, entry);
+  });
+  const ruleOptions: RuleFilterOption[] = ruleIds.map(id => {
+    const run = runById.get(id);
+    const status = !run ? (running ? 'running' : ruleRuns ? 'needs_review' : 'completed')
+      : run.execution_status === 'error' ? 'error'
+      : run.execution_status === 'unsupported' || run.outcome === 'inconclusive' ? 'needs_review'
+      : run.outcome === 'not_applicable' ? 'not_applicable' : 'completed';
+    const ruleCounts = counts.get(id) || { error: 0, warning: 0, info: 0 };
+    return { id, title: ruleNames.get(id) || id, count: ruleCounts.error + ruleCounts.warning + ruleCounts.info, counts: ruleCounts, status };
+  });
+  // A completed rule outside the chosen level must not remain as a hidden selection.
+  const chosenOption = ruleOptions.find(option => option.id === ruleFilter);
+  const effectiveRuleFilter = chosenOption && filter !== 'all' && filter !== 'execution' && !chosenOption.counts[filter]
+    && !['running', 'error', 'needs_review'].includes(chosenOption.status) ? 'all' : ruleFilter;
+  const selectedOption = ruleOptions.find(option => option.id === effectiveRuleFilter);
+  const selectedRun = runById.get(effectiveRuleFilter);
+  const selectedTotal = selectedOption?.count ?? findings.length;
+  const pending = selectedOption ? selectedOption.status === 'running' : running && ruleOptions.some(option => option.status === 'running');
+  const incomplete = selectedOption ? ['error', 'needs_review', 'not_applicable'].includes(selectedOption.status)
+    : executionWarnings.length > 0 || ruleOptions.some(option => option.status !== 'completed');
+  const severityEmpty = !pending && selectedTotal > 0 && filter !== 'all' && filter !== 'execution';
+  const emptyTitle = pending ? '正在检测相关问题'
+    : severityEmpty ? `当前筛选未发现${severityLabels[filter as keyof typeof severityLabels]}级别的问题`
+    : selectedOption?.status === 'error' ? '本规则检测失败'
+    : selectedOption?.status === 'needs_review' ? '本规则暂无法判定'
+    : selectedOption?.status === 'not_applicable' ? '本规则不适用'
+    : incomplete ? '部分规则未完成有效检测'
+    : selectedOption ? '本规则未检测出问题' : '未检测出问题';
+  const emptyDescription = pending ? '检测完成后自动更新，您可以先查看其他已完成规则的结果。'
+    : severityEmpty ? `${selectedOption ? '该规则' : '当前报告'}共发现 ${selectedTotal} 处问题，分布在其他级别。`
+    : incomplete ? selectedRun?.message || '请在规则下拉框查看检测状态；证据不足或检测失败不代表没有问题。'
+    : '基于当前规范性检测规则，证据不足的内容仍可能无法判定，检测结果仅供参考';
+  const EmptyIcon = pending ? LoaderCircle : severityEmpty ? ListFilter : selectedOption?.status === 'error' ? CircleAlert : incomplete ? CircleHelp : CheckCircle2;
   const filtered = findings.filter(
     (item) =>
       (filter === 'all' || item.ruleRun.severity === filter) &&
-      (ruleFilter === 'all' || item.ruleRun.rule_id === ruleFilter),
+      (effectiveRuleFilter === 'all' || item.ruleRun.rule_id === effectiveRuleFilter),
   );
 
   return (
-    <section className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
-      <div className="border-b border-slate-200 p-3">
+    <section className="@container/report flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div className="border-b border-slate-200 p-4">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-sm font-bold text-slate-900">检测错误总数</h2>
-          <StatusBadge>{findings.length} 项</StatusBadge>
+          <h2 className="text-sm font-bold text-slate-900">检测结果</h2>
+          <span className="text-sm font-medium text-slate-700 tabular-nums">{findings.length} 项问题</span>
         </div>
         <div className="mt-2 flex flex-wrap gap-1">
           {(['all', 'error', 'warning', 'info'] as const).map((value) => (
-            <Button
+            <button
               key={value}
-              size="sm"
-              variant={filter === value ? 'secondary' : 'ghost'}
+              type="button"
+              className={`inline-flex min-h-8 items-center gap-1 rounded-full border px-3 py-1.5 text-xs transition-colors ${filter === value ? 'border-slate-300 bg-white font-semibold text-slate-900 shadow-xs' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
               aria-pressed={filter === value}
-              onClick={() => setFilter(value)}
+              onClick={() => {
+                setFilter(value);
+                if (value !== 'all' && chosenOption && !chosenOption.counts[value] && !['running', 'error', 'needs_review'].includes(chosenOption.status)) setRuleFilter('all');
+              }}
             >
-              {value === 'all' ? '全部' : severityLabels[value]}
-            </Button>
+              {value === 'all' ? '全部' : <>{severityLabels[value]} <span className="tabular-nums">{severityTotals[value]}</span></>}
+            </button>
           ))}
           {executionWarnings.length ? <Button size="sm" variant={filter === 'execution' ? 'secondary' : 'ghost'} aria-pressed={filter === 'execution'} onClick={() => setFilter('execution')}>规则未实现警告（{executionWarnings.length}）</Button> : null}
         </div>
         {ruleIds.length > 0 ? (
-          <select
-            aria-label="按检查项筛选"
-            className="mt-2 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700"
-            value={ruleFilter}
-            onChange={(event) => setRuleFilter(event.target.value)}
-          >
-            <option value="all">全部检查项</option>
-            {ruleIds.map((ruleId) => (
-              <option key={ruleId} value={ruleId}>
-                {ruleNames.get(ruleId) || ruleId}
-              </option>
-            ))}
-          </select>
+          <RuleFilter options={ruleOptions} value={effectiveRuleFilter} onValueChange={setRuleFilter} totalCount={findings.length} severity={filter === 'execution' ? 'all' : filter} />
         ) : null}
       </div>
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
@@ -177,9 +212,10 @@ export function FindingsPane({
           ))}
         </> : filtered.length === 0 ? (
           <div className="flex h-full min-h-60 flex-col items-center justify-center text-center">
-            {running ? <LoaderCircle className="size-8 animate-spin text-brand-600 motion-reduce:animate-none" /> : <CheckCircle2 className="size-8 text-success-600" />}
-            <p className="mt-3 text-sm font-bold text-slate-900">{findings.length ? '当前筛选下未检测出问题' : running ? '正在检测，等待新的问题' : executionWarnings.length ? '部分规则未完成检测，请查看“规则未实现警告”' : '未检测出问题'}</p>
-            <p className="mt-1 max-w-sm text-xs leading-6 text-slate-500">{running ? '规则报警后会自动显示在这里，可随时点击问题定位论文原文。' : '基于当前规范性检测规则，证据不足的内容仍可能无法判定，检测结果仅供参考'}</p>
+            <EmptyIcon data-testid={!pending && !incomplete && !severityEmpty ? 'rule-empty-icon' : undefined} className={`size-8 ${pending ? 'animate-spin text-brand-600 motion-reduce:animate-none' : severityEmpty ? 'text-slate-400' : incomplete ? 'text-amber-600' : 'text-success-600'}`} />
+            <p className="mt-3 text-sm font-bold text-slate-900">{emptyTitle}</p>
+            <p className="mt-1 max-w-sm text-xs leading-6 text-slate-500">{emptyDescription}</p>
+            {severityEmpty ? <Button className="mt-3" size="sm" variant="secondary" onClick={() => setFilter('all')}>查看全部级别</Button> : null}
           </div>
         ) : (
           filtered.map((item) => {

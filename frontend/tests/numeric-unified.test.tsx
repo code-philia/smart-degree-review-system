@@ -22,7 +22,7 @@ describe('numeric results in the unified report', () => {
     render(<FindingsPane findings={findings} rules={[]} activeFindingKey={null} activeAnchorId={null} onFindingClick={() => {}} onAnchorClick={() => {}} onGenerateRepairSuggestion={() => { throw new Error('unexpected generation'); }} />);
     expect(screen.getByText('请核对实验数值')).toBeTruthy();
     expect(screen.queryByText('获取修复建议')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: '提示', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: '提示 1', exact: true }));
     expect(screen.getByText('论据不明确：统计范围不明确')).toBeTruthy();
     expect(screen.queryByText('论点与论据不一致：同一指标数值矛盾')).toBeNull();
   });

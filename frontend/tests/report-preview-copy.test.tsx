@@ -39,7 +39,7 @@ it('shows only the rule name and printed page while retaining the original findi
       pageLabels={{ 42: '33' }}
     />,
   );
-  expect(screen.getByRole('heading', { name: '检测错误总数' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: '检测结果' })).toBeInTheDocument();
   expect(screen.getByRole('heading', { name: '公式引用', exact: true })).toBeInTheDocument();
   expect(screen.queryByRole('heading', { name: /^规则\s*\d/ })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: '跳到第 33 页' }));

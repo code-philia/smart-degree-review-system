@@ -226,7 +226,7 @@ it('updates real report progress while keeping report completion controlled by t
   expect(progress.compareDocumentPosition(liveReport) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(within(liveReport).queryByRole('progressbar')).not.toBeInTheDocument();
   expect(screen.getByRole('region', { name: '论文上传与检测设置' })).toBeInTheDocument();
-  expect(screen.getByText('正在检测，等待新的问题')).toBeInTheDocument();
+  expect(screen.getByText('正在检测相关问题')).toBeInTheDocument();
   expect(screen.queryByText('未检测出问题')).not.toBeInTheDocument();
   await waitFor(() => expect(nextPoll).toBeTypeOf('function'));
   await act(async () => nextPoll({ ...pendingJob, status: 'running', progress: {
@@ -367,8 +367,15 @@ it.each([false, true])('updates the actual live report and preserves the selecte
   expect(ring).toHaveAttribute('aria-valuenow', '50');
   expect(ring.compareDocumentPosition(region) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(within(region).getByText('先完成的错别字结果')).toBeInTheDocument();
-  expect(Array.from(within(region).getByRole('combobox', { name: '按检查项筛选' }).querySelectorAll('option')).map(option => option.value).sort())
-    .toEqual(['all', ...(restored ? ids : rules.slice(0, 3).map(rule => rule.rule_id))].sort());
+  fireEvent.keyDown(within(region).getByRole('combobox', { name: '按检查项筛选' }), { key: 'ArrowDown' });
+  const list = await screen.findByRole('listbox');
+  const expectedIds = restored ? ids : rules.slice(0, 3).map(rule => rule.rule_id);
+  expect(within(list).getAllByRole('option')).toHaveLength(expectedIds.length + 1);
+  for (const ruleId of expectedIds) {
+    const title = rules.find(rule => rule.rule_id === ruleId)!.title;
+    expect(within(list).getByRole('option', { name: new RegExp(`^${title}，`) })).toBeInTheDocument();
+  }
+  fireEvent.keyDown(list, { key: 'Escape' });
   expect(within(region).getByRole('heading', { name: '正文错别字检测', exact: true })).toBeInTheDocument();
   expect(within(region).queryByRole('heading', { name: /^规则\s*\d/ })).not.toBeInTheDocument();
   expect(within(region).queryByText('后完成的公式结果')).not.toBeInTheDocument();
