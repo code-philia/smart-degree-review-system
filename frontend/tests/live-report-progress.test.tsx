@@ -29,12 +29,12 @@ it('does not add an experimental statistic when the rule was not selected', () =
   expect(screen.queryByText('规则未实现警告数')).not.toBeInTheDocument();
 });
 
-it.each(['严重 0', '警告 1', '提示 0'])('keeps every pending rule available alongside matching findings in a live filter (%s)', async level => {
+it.each(['全部', '严重 0', '警告 1', '提示 0'])('keeps every pending rule available alongside matching findings in a live filter (%s)', async level => {
   render(<FindingsPane {...callbacks} rules={rules} selectedRuleIds={rules.map(rule => rule.rule_id)} running
     findings={flattenPaperLintFindings({ rule_runs: [finished] })} ruleRuns={[finished]} />);
   fireEvent.click(screen.getByRole('button', { name: level, exact: true }));
   expect(screen.getByRole('combobox')).toHaveTextContent('正在检测 2');
-  if (level !== '警告 1') {
+  if (['严重 0', '提示 0'].includes(level)) {
     expect(screen.getByText('正在检测相关问题')).toBeInTheDocument();
     expect(screen.queryByText(/当前筛选未发现/)).not.toBeInTheDocument();
   }
@@ -43,9 +43,10 @@ it.each(['严重 0', '警告 1', '提示 0'])('keeps every pending rule availabl
   for (const name of ['章标题另起一页', '论点论据一致性检测']) {
     expect(within(menu).getByRole('option', { name: `${name}，正在检测` })).toBeInTheDocument();
   }
-  expect(within(menu).queryByRole('option', { name: /^公式引用，/ }) !== null).toBe(level === '警告 1');
+  expect(within(menu).queryByRole('option', { name: /^公式引用，/ }) !== null).toBe(level === '全部' || level === '警告 1');
   const pending = within(menu).getByRole('option', { name: '章标题另起一页，正在检测' });
   pending.focus(); fireEvent.keyDown(pending, { key: 'Enter' });
+  expect(screen.getByRole('combobox')).toHaveTextContent('正在检测 2');
   expect(screen.getByText('正在检测相关问题')).toBeInTheDocument();
 });
 

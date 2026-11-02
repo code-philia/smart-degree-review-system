@@ -85,7 +85,7 @@ export function RuleFilter({ options, value, onValueChange, totalCount, severity
     <Select.Trigger aria-label="按检查项筛选" className="group mt-3 flex min-h-13 w-full items-center gap-2.5 rounded-2xl border border-slate-200 bg-white px-3 py-3 text-left text-sm text-slate-800 outline-none transition-colors hover:border-slate-300 focus-visible:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-100 data-[state=open]:border-slate-300 motion-reduce:transition-none">
       <Funnel className="size-4 shrink-0 text-slate-500" aria-hidden="true" />
       <span className="flex min-w-0 flex-1 items-center gap-1.5 font-medium"><span className="min-w-0 truncate" title={selected.title}><Select.Value>{selected.title}</Select.Value></span><ExperimentalBadge ruleId={selected.id} /></span>
-      <span aria-hidden="true" className="shrink-0"><RuleBadges option={selected} severity={severity} runningCount={selected.id === 'all' ? visible.filter(option => option.status === 'running').length : 1} /></span>
+      <span aria-hidden="true" className="shrink-0"><RuleBadges option={selected} severity={severity} runningCount={visible.filter(option => option.status === 'running').length} /></span>
       <Select.Icon asChild><ChevronDown className="size-4 shrink-0 text-slate-400 transition-transform group-data-[state=open]:rotate-180 motion-reduce:transition-none" /></Select.Icon>
     </Select.Trigger>
     <Select.Portal>
