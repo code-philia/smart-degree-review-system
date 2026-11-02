@@ -9,6 +9,35 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 import numeric_consistency as n
 
 
+def test_numeric_candidate_classification_excludes_non_result_numbers():
+    text = '2020年以来，1975年图灵奖得主提出理论。第3章见[12]。（1）方法介绍。GPT-4和QwQ-32B在Pass@1/3/5/10上评估，其中Pass@1提升88.4%。定位平均误差3.57m，耗时120ms。'
+    candidates, excluded = n.numeric_candidates(text)
+    values = {r['value'] for r in candidates}
+    assert {'88.4', '3.57', '120'} <= values
+    assert not values & {'2020', '1975', '3', '12', '1', '4', '32', '5', '10'}
+    assert excluded
+
+
+def test_complete_section_catalog_survives_prose_budget():
+    ir, facts, _ = fixture()
+    model = n.source_model(ir)
+    context = n.structure_context(facts, model)
+    public = n.structure_input(context)
+    assert len(public['sections']) == len(model['sections'])
+    assert all('parent_id' in row and 'main_chapter_id' in row for row in public['sections'])
+    assert public['structure_coverage']['catalog_truncated'] is False
+
+
+def test_missing_experiment_structure_is_technical_failure():
+    ir, facts, structure = fixture()
+    model = n.source_model(ir)
+    context = n.structure_context(facts, model)
+    context['structure_coverage']['unresolved_experiment_toc_titles'] = ['3.4 实验评估']
+    next(c for c in structure['preconditions'] if c['id'] == 'experiment_subsection')['passed'] = False
+    with pytest.raises(n.ContractError, match='结构未完整恢复'):
+        n.validate_structure(structure, context, model)
+
+
 def test_inconclusive_is_a_traceable_info_finding_not_an_execution_error():
     ir, facts, structure = fixture()
     calls = []

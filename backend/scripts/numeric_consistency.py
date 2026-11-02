@@ -448,6 +448,34 @@ def numeric_values(text):
     return {format(Decimal(value).normalize(), 'f') for value in re.findall(r'(?<![A-Za-z0-9])\d+(?:\.\d+)?', text)}
 
 
+def numeric_candidates(text):
+    """Classify source tokens before asking the locator to construct claims."""
+    candidates, excluded = [], []
+    metric = re.compile(r'准确率|精度|误差|提升|降低|减少|增加|时延|延迟|耗时|吞吐|性能|距离|次数|加速|召回|得分|分数|比例|Pass@|accuracy|latency|speedup|error|score', re.I)
+    for span in abstract_spans(text):
+        source = span['text']
+        for match in re.finditer(r'\d+(?:\.\d+)?', source):
+            before, after = source[:match.start()], source[match.end():]
+            reason = None
+            if re.match(r'\s*年', after):
+                reason = 'year'
+            elif re.search(r'第\s*$', before) and re.match(r'\s*[章节部分项]', after):
+                reason = 'section_or_ordinal'
+            elif re.search(r'[\[【（(]\s*$', before) and re.match(r'\s*[\]】）)、.]', after):
+                reason = 'citation_or_list_index'
+            elif re.search(r'[A-Za-z@/_-]$', before) or re.match(r'\s*/\s*\d', after):
+                reason = 'identifier_or_metric_index'
+            elif not (re.match(r'\s*(?:[%％]|毫秒|秒|分钟|小时|厘米|毫米|米|次|倍|ms\b|s\b|cm\b|mm\b|m\b)', after, re.I) or metric.search(source)):
+                reason = 'no_measurable_result_context'
+            row = {'abstract_span_id': span['id'], 'value': format(Decimal(match.group()).normalize(), 'f'),
+                   'start': span['start'] + match.start(), 'end': span['start'] + match.end()}
+            if reason:
+                excluded.append({**row, 'reason': reason})
+            else:
+                candidates.append(row)
+    return candidates, excluded
+
+
 def abstract_spans(text):
     spans = []
     for match in re.finditer(r'[^。！？]+[。！？]?|[。！？]', text):
@@ -593,7 +621,10 @@ def structure_context(facts, model):
     for group in groups:
         group.sort(key=lambda b: b['source_node_id'] != model['sections'][b['section_id']].get('heading_node_id'))
     ordered = [g[i] for i in range(max([len(g) for g in groups] or [0])) for g in groups if i < len(g)]
-    blocks, coverage = pack_blocks(ordered, 45000)
+    # Retain short, source-backed headings for every section before sampling prose.
+    headings = [b for b in ordered if b['block_type'] == 'Heading']
+    prose = [b for b in ordered if b['block_type'] != 'Heading']
+    blocks, coverage = pack_blocks(headings + prose, 45000)
     coverage['dropped'].extend(b['block_id'] for b in numbering)
     toc = model.get('toc') or []
     if not toc:
@@ -605,7 +636,19 @@ def structure_context(facts, model):
                'main_chapter_ids': [s['section_id'] for s in catalog if s['parent_id'] is None], 'blocks': blocks,
                'coverage': coverage, 'limitations': model['limitations'], 'navigation': model.get('navigation')}
     context['abstract_percentage_inventory'] = sorted(percentage_values(abstract))
-    context['abstract_numeric_inventory'] = sorted(numeric_values(abstract))
+    candidates, excluded = numeric_candidates(abstract)
+    context['abstract_numeric_inventory'] = sorted({c['value'] for c in candidates})
+    context['numeric_candidates'] = candidates
+    context['excluded_numeric_tokens'] = excluded
+    experiment_pattern = re.compile(r'实验|评估|评测|experiment|evaluation', re.I)
+    missing_experiment_titles = [t.get('text', '') for t in toc
+        if experiment_pattern.search(t.get('text', '')) and not any(
+            re.sub(r'\s+', '', s.get('title') or '') in re.sub(r'\s+', '', t.get('text', ''))
+            for s in catalog if experiment_pattern.search(s.get('title') or ''))]
+    context['structure_coverage'] = {'catalog_section_count': len(catalog),
+        'source_section_count': len(model['sections']), 'catalog_truncated': False,
+        'prose_sampled': bool(coverage['dropped']),
+        'unresolved_experiment_toc_titles': missing_experiment_titles}
     context['abstract_spans'] = abstract_spans(abstract)
     context['section_aliases'] = {'S' + str(i+1): s['section_id'] for i, s in enumerate(catalog)}
     require(len(json.dumps(structure_input(context), ensure_ascii=False)) <= 100000, 'structure context exceeds budget')
@@ -643,7 +686,7 @@ def structure_prompt(context):
             'preconditions:[{id,passed,reason,suggestion}]，id恰为abstract_numeric、contribution_mapping、experiment_subsection，passed为布尔值；'
             'mappings:[{declaration_id,chapter_id,experiment_section_ids}]。'
             '贡献与声明通过abstract_span_id选择真实摘要原文片段。不要生成text、quote、page或evidence；原文及实验标题证据由程序回填，不要复述改写。每项独立数值指标单独一条声明，即使位于同一摘要片段，也应分别选择该片段并填写各自number和metric。同一指标区间可用number字符串保留上下界。'
-            '逐项核对abstract_numeric_inventory，摘要中的每个明确数值都应在声明中覆盖，不能漏掉非百分比的绝对数值、距离、次数、时延或误差。百分比仍需单独覆盖；一个声明可保留同一指标区间的两个界限；含“同时”等连接词的不同指标数值必须拆为独立声明。若存在无法映射的数值声明，前置条件不得全部通过。'
+            'abstract_numeric_inventory和numeric_candidates是程序筛选的可核验指标候选，不是所有数字。仅为实际实验结果构建论点；年份、章节号、引用编号、普通序号、模型名称和Pass@后的指标索引不得作为数值论点。excluded_numeric_tokens仅用于审计，不要求覆盖。候选仍需根据语义确认；不能仅因候选中有非实验数字就判第一项失败。不能漏掉非百分比的绝对数值、距离、次数、时延或误差；一个声明可保留同一指标区间的两个界限；不同指标须拆分。'
             'declarations还可提供dataset、method、baseline字符串，便于本地检索。只使用给定真实section_id和source_node_id。每项声明必须关联贡献、正文主要研究章节和其下级实验子章节；'
             'chapter_id必须从main_chapter_ids选择，即parent_id为null的章；禁止用3.3、4.3等设计与实现小节作为chapter_id。各小节main_chapter_id给出了所属章。experiment_section_ids必须选该章下真正的实验小节，可包含实验设置和实验结果两个并列小节，避免只选设置而遗漏结果。'
             '按每条数值声明的具体方法定位研究章，而不是只按贡献的大主题；同一贡献可能涉及多个研究章。命名方法必须在所选章正文中实际出现，不能把防御方法的效果映射到只研究缺陷形成机理的前一章。'
@@ -651,7 +694,7 @@ def structure_prompt(context):
             '方法介绍、模型结构、方法实现或章节小结不等同于实验。必须在真实正文子章节标题或其正文中找到实验、评估、验证等性质的依据；'
             '只有目录中出现实验条目而正文没有对应实验子章节，仍不满足要求。找不到实验子章节时experiment_subsection必须为false；不得用方法实现章节凑映射。'
             '存在无法可信映射的声明则相应条件为false，不强行匹配。缺少摘要或目录时对应条件不得通过。'
-            '章节样本文本可能不完整，不能凭空补足。'
+            'sections是完整章节目录，parent_id和main_chapter_id保留真实层级；blocks仅为正文抽样，不包含某节正文不代表论文没有该节。优先检查完整sections和toc，不得因blocks缺失实验段落就断言无实验子章节。structure_coverage记录结构缺失；目录有实验条目但章节节点缺失属于提取限制，不是论文违反前置条件。'
             'preconditions必须是包含三个对象的JSON数组，禁止改为以条件ID为键的对象。'
             '所有文本字段必须为字符串；没有比较关系或无调整建议时填空字符串""，禁止null。'
             '以下模板仅约束输出形状，其中示例数值和占位符不是论文事实，必须替换为输入中的真实信息；'
@@ -670,6 +713,9 @@ def validate_structure(data, context, model):
     # A failed prerequisite is a complete, user-visible result. Do not reject
     # it because downstream mappings are intentionally absent or incomplete.
     if not all(c['passed'] for c in conditions.values()):
+        if (not conditions['experiment_subsection']['passed'] and
+                context.get('structure_coverage', {}).get('unresolved_experiment_toc_titles')):
+            raise ContractError('目录含实验条目但章节结构未完整恢复，不能判定论文缺少实验子章节；请重试或检查结构提取')
         return False
     contributions = unique(rows(data, 'contributions'))
     declarations = unique(rows(data, 'declarations'))
@@ -723,7 +769,11 @@ def validate_structure(data, context, model):
                 covered.update(percentage_values(d['text']) & represented)
             else:
                 covered.update(percentage_values(d['text']))
-        missing = percentage_values(context['abstract']) - covered
+        # Only source-classified result percentages belong to the coverage contract.
+        candidate_percentages = {c['value'] for c in context.get('numeric_candidates', [])
+            if re.match(r'\s*[%％]', context['abstract'][c['end']:])}
+        missing = (candidate_percentages if 'numeric_candidates' in context
+                   else percentage_values(context['abstract'])) - covered
         require(not missing, 'missing abstract percentage declarations: ' + ', '.join(sorted(missing)))
     return passed
 
