@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 RULE = 'abstract_numeric_consistency_check'
-CONTEXT_VERSION = 'numeric-context/4.1'
+CONTEXT_VERSION = 'numeric-context/4.2'
 CONTRACT_VERSION = 'numeric-contract/3.0'
 RETRIEVAL_VERSION = 'numeric-lexical/1.4'
 TABLE_RECOVERY_VERSION = 'pymupdf-find-tables/1.0'
@@ -425,7 +425,7 @@ def structure_input(context):
     reverse = {native: alias for alias, native in aliases.items()}
     public.pop('section_aliases', None)
     public['sections'] = [{k: (reverse.get(v, v) if k in {'section_id', 'parent_id', 'main_chapter_id'} else v)
-                           for k, v in s.items() if k != 'heading_node_id'} for s in context['sections']]
+                           for k, v in s.items() if k != 'heading_node_id' and not (k == 'page' and v is None)} for s in context['sections']]
     public['main_chapter_ids'] = [reverse.get(s, s) for s in context.get('main_chapter_ids', [])]
     public['blocks'] = [{'section_id': reverse.get(b['section_id'], b['section_id']),
                          **{k: b[k] for k in ('page', 'block_type', 'text')}} for b in context['blocks']]
@@ -607,7 +607,7 @@ def structure_context(facts, model):
         abstract = abstract.get('text') or ''
     require(isinstance(abstract, str), 'invalid abstract text')
     require(len(abstract) <= 18000, 'abstract exceeds context budget; no silent truncation')
-    require(len(model['sections']) <= 400, 'section catalog exceeds context budget')
+    # Bound the serialized context below; section count alone is not its size.
     catalog = [{k: s.get(k) for k in ('section_id', 'parent_id', 'level', 'title', 'heading_node_id', 'page')}
                for s in model['sections'].values()]
     for entry in catalog:
@@ -652,7 +652,7 @@ def structure_context(facts, model):
         'unresolved_experiment_toc_titles': missing_experiment_titles}
     context['abstract_spans'] = abstract_spans(abstract)
     context['section_aliases'] = {'S' + str(i+1): s['section_id'] for i, s in enumerate(catalog)}
-    require(len(json.dumps(structure_input(context), ensure_ascii=False)) <= 100000, 'structure context exceeds budget')
+    require(len(json.dumps(structure_input(context), ensure_ascii=False, separators=(',', ':'))) <= 100000, 'structure context exceeds budget')
     return context
 
 
@@ -700,7 +700,7 @@ def structure_prompt(context):
             '所有文本字段必须为字符串；没有比较关系或无调整建议时填空字符串""，禁止null。'
             '以下模板仅约束输出形状，其中示例数值和占位符不是论文事实，必须替换为输入中的真实信息；'
             '未找到贡献、声明或可信映射时相应数组为空并给出前置条件失败原因。\n输出模板：\n' +
-            json.dumps(template, ensure_ascii=False) + '\n输入：\n' + json.dumps(structure_input(context), ensure_ascii=False))
+            json.dumps(template, ensure_ascii=False) + '\n输入：\n' + json.dumps(structure_input(context), ensure_ascii=False, separators=(',', ':')))
 
 
 def validate_structure(data, context, model):

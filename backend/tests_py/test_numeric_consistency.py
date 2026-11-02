@@ -28,6 +28,48 @@ def test_complete_section_catalog_survives_prose_budget():
     assert public['structure_coverage']['catalog_truncated'] is False
 
 
+def test_large_section_catalog_fits_actual_prompt_budget_without_losing_sections():
+    ir, facts, _ = fixture()
+    model = n.source_model(ir)
+    for index in range(605 - len(model['sections'])):
+        sid = f'extra-section-{index}'
+        heading = f'extra-heading-{index}'
+        title = f'补充章节候选 {index}'
+        model['sections'][sid] = {'section_id': sid, 'parent_id': None, 'level': 1,
+            'title': title, 'heading_node_id': heading, 'block_ids': []}
+        model['blocks'].append({'block_id': heading + ':p1', 'source_node_id': heading,
+            'section_id': sid, 'page': 1, 'block_type': 'Heading', 'text': title})
+    context = n.structure_context(facts, model)
+    public = n.structure_input(context)
+    encoded = n.structure_prompt(context).split('\n输入：\n', 1)[1]
+    assert len(public['sections']) == 605
+    assert len(context['section_aliases']) == 605
+    assert all('parent_id' in row and 'main_chapter_id' in row for row in public['sections'])
+    assert context['structure_coverage']['catalog_truncated'] is False
+    assert json.loads(encoded) == public
+    assert len(encoded) <= 100000
+
+
+def test_large_catalog_still_rejects_actual_context_overflow():
+    ir, facts, _ = fixture()
+    model = n.source_model(ir)
+    for index in range(605):
+        sid = f'long-section-{index}'
+        model['sections'][sid] = {'section_id': sid, 'parent_id': None, 'level': 1,
+            'title': '真实章节标题' * 100, 'heading_node_id': None, 'block_ids': []}
+    with pytest.raises(n.ContractError, match='structure context exceeds budget'):
+        n.structure_context(facts, model)
+
+
+def test_section_prompt_preserves_known_pages_and_omits_unknown_pages():
+    ir, facts, _ = fixture()
+    model = n.source_model(ir)
+    model['sections']['ch']['page'] = 5
+    public = n.structure_input(n.structure_context(facts, model))
+    assert next(row for row in public['sections'] if row['section_id'] == 'S1')['page'] == 5
+    assert all('page' not in row for row in public['sections'] if row['section_id'] != 'S1')
+
+
 def test_missing_experiment_structure_is_technical_failure():
     ir, facts, structure = fixture()
     model = n.source_model(ir)
