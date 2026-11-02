@@ -150,7 +150,7 @@ export function FindingsPane({
               {warning.preconditionId ? (
                 <>
                   <p className="mt-2 text-sm leading-6 text-slate-700">
-                    <strong>检测说明：</strong>本规则目前仅支持核验<strong>摘要中的含有数值的论点与正文实验结果是否一致</strong>。
+                    <strong>检测说明：</strong>本规则目前仅支持核验摘要中与<strong>实验数据</strong>相关的论点论据
                   </p>
                   <h4 className="mt-4 text-base font-bold leading-7 text-slate-900">
                     {warning.preconditionId === 'abstract_numeric'
