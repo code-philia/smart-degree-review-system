@@ -34,10 +34,44 @@ export function numericDisplayFindings(run: PaperLintRuleRun): PaperLintFinding[
     && !/^结果校验未通过|.*核验执行失败/.test(String(row.reason || '')))
     .map(row => {
       const old = run.findings?.find(f => f.finding_id === `${numericRule}_${row.declaration_id}`);
-      const anchors = [...(row.abstract_anchors || []), ...(row.evidence_anchors || [])];
+      const evidence = Array.isArray(row.evidence)
+        ? row.evidence.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object'))
+        : [];
+      const evidenceLabels = new Map(
+        evidence
+          .map(item => String(item.candidate_id || item.id || ''))
+          .filter(Boolean)
+          .map((id, index) => [id, `实验结果证据${index + 1}`]),
+      );
+      let fallbackEvidenceIndex = evidenceLabels.size + 1;
+      const readableReason = String(row.reason || '')
+        .replace(/\b[dD]\d+\s*:\s*[eE]\d+\b/g, id => {
+        const existing = evidenceLabels.get(id.replace(/\s/g, ''));
+        if (existing) return existing;
+        const label = `实验结果证据${fallbackEvidenceIndex++}`;
+        evidenceLabels.set(id.replace(/\s/g, ''), label);
+        return label;
+        })
+        // Page navigation is rendered separately and uses the verified anchor
+        // locations; do not expose model-supplied page claims in the explanation.
+        .replace(/第\s*\d+(?:\s*[、,]\s*\d+)*\s*页/g, '')
+        .replace(/页码\s*[:：]?\s*\d+(?:\s*[、,]\s*\d+)*/g, '')
+        .replace(/[ \t]{2,}/g, ' ')
+        .replace(/\s+([，。；：、])/g, '$1')
+        .trim();
+      const abstractAnchors = Array.isArray(row.abstract_anchors)
+        ? row.abstract_anchors.map(anchor => ({ ...anchor, label: '摘要数值论点' }))
+        : [];
+      const evidenceAnchors = Array.isArray(row.evidence_anchors)
+        ? row.evidence_anchors.map((anchor, index) => ({
+            ...anchor,
+            label: evidenceLabels.get(String(anchor.anchor_id || '')) || `实验结果证据${index + 1}`,
+          }))
+        : [];
+      const anchors = [...abstractAnchors, ...evidenceAnchors];
       return { ...old, finding_id: `${numericRule}_${row.declaration_id}`, rule_id: numericRule,
         severity: row.status === 'inconsistent' ? 'warning' : 'info',
-        message: `${row.status === 'inconsistent' ? '论点与论据不一致' : '论据不明确'}：${row.reason || ''}`,
+        message: `${row.status === 'inconsistent' ? '论点与论据不一致' : '论据不明确'}：${readableReason}`,
         suggestion: row.suggestion || '', anchors: anchors.length ? anchors : old?.anchors,
         location: anchors[0]?.location || old?.location } as PaperLintFinding;
     });

@@ -242,7 +242,7 @@ export function FindingsPane({
                 ) : null}
                 {active && item.finding.source_kind === 'synthetic' ? <p className="mt-2 text-xs text-slate-600">该处来自变异内容，未标记为原始 PDF 中的文本。</p> : null}
                 {(numeric || active) && item.finding.suggestion && (!repairEnabled || (!onLoadRepairSuggestion && !onGenerateRepairSuggestion)) ? (
-                  <div className="mt-3 rounded-lg bg-white p-3 text-xs leading-5 text-slate-600">
+                  <div className={`mt-3 rounded-lg bg-white p-3 text-slate-600 ${numeric ? 'text-sm leading-6' : 'text-xs leading-5'}`}>
                     <strong className="text-slate-800">修改建议：</strong>
                     {item.finding.suggestion}
                   </div>
