@@ -16,6 +16,10 @@ const labels = { running: '正在检测', error: '检测失败', needs_review: '
 const levels = ['error', 'warning', 'info'] as const;
 const levelLabels = { error: '严重', warning: '警告', info: '提示' };
 
+function resultOrder(option: RuleFilterOption) {
+  return option.count > 0 ? 0 : ['needs_review', 'error'].includes(option.status) ? 1 : option.status === 'running' ? 2 : 3;
+}
+
 function statusLabel(option: RuleFilterOption, severity: 'all' | RuleSeverity) {
   if (option.status === 'completed') return `问题总数 ${option.count} 处${levels.filter(level => (severity === 'all' || severity === level) && option.counts[level]).map(level => `，${levelLabels[level]} ${option.counts[level]} 处`).join('')}`;
   return `${option.count ? `已发现 ${option.count} 处问题，` : ''}${labels[option.status]}`;
@@ -54,7 +58,7 @@ export function RuleFilter({ options, value, onValueChange, totalCount, severity
   severity?: 'all' | RuleSeverity;
 }) {
   const visible = options.filter(option => severity === 'all' || option.counts[severity] > 0 || ['running', 'error', 'needs_review'].includes(option.status))
-    .sort((a, b) => Number(b.count > 0) - Number(a.count > 0));
+    .sort((a, b) => resultOrder(a) - resultOrder(b));
   const counts = options.reduce((result, option) => ({ error: result.error + option.counts.error, warning: result.warning + option.counts.warning, info: result.info + option.counts.info }), { error: 0, warning: 0, info: 0 });
   const overallStatus = visible.some(o => o.status === 'running') ? 'running' : visible.some(o => o.status === 'error') ? 'error' : visible.some(o => o.status === 'needs_review') ? 'needs_review' : 'completed';
   const all: RuleFilterOption = { id: 'all', title: '全部检查项', count: totalCount, counts, status: overallStatus };
@@ -75,7 +79,7 @@ export function RuleFilter({ options, value, onValueChange, totalCount, severity
             className={`relative flex min-h-13 cursor-default select-none items-center gap-3 rounded-xl py-3 pr-3 pl-8 text-xs outline-none data-[highlighted]:bg-slate-50 data-[state=checked]:font-semibold ${option.id === 'all' ? 'mb-1 border-b border-slate-100 text-sm font-semibold' : ''}`}>
             <Select.ItemIndicator className="absolute left-2.5 text-brand-600"><Check className="size-3.5" /></Select.ItemIndicator>
             <span className="min-w-0 flex-1 whitespace-normal leading-5"><Select.ItemText>{option.title}<span className="sr-only">，{statusLabel(option, severity)}</span></Select.ItemText></span>
-            <span aria-hidden="true">{option.id === 'all' ? <span className="whitespace-nowrap text-[11px] font-normal text-slate-400">{visible.length} 类规则</span> : <RuleBadges option={option} severity={severity} />}</span>
+            <span aria-hidden="true">{option.id === 'all' ? <span className="whitespace-nowrap text-[11px] font-normal text-slate-400">{visible.length} 条规则</span> : <RuleBadges option={option} severity={severity} />}</span>
           </Select.Item>)}
         </Select.Viewport>
         <Select.ScrollDownButton className="flex h-5 shrink-0 items-center justify-center text-slate-400"><ChevronDown className="size-3.5" /></Select.ScrollDownButton>

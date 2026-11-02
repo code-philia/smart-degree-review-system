@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { PaperLintRule, PaperLintRuleRun } from '../src/api/paperLint';
 import { FindingsPane } from '../src/components/paperLint/FindingsPane';
 import { flattenPaperLintFindings } from '../src/components/paperLint/model';
+import { RuleFilter, type RuleFilterOption } from '../src/components/paperLint/RuleFilter';
 
 const rules = [
   { rule_id: 'sjtu_rule_18', title: '正文公式引用目标缺失' },
@@ -125,5 +126,31 @@ describe('clear report rule selector', () => {
     const option = within(list).getByRole('option', { name: /^正文公式引用目标缺失，问题总数 2 处，严重 1 处，提示 1 处/ });
     expect(option.querySelector('[data-severity="error"]')).toHaveTextContent('1');
     expect(option.querySelector('[data-severity="info"]')).toHaveTextContent('1');
+  });
+
+  it('orders live findings, review states, running checks and clean results, then reorders new findings', async () => {
+    const option = (id: string, status: RuleFilterOption['status'], count = 0): RuleFilterOption => ({
+      id, title: id, status, count, counts: { error: 0, warning: count, info: 0 },
+    });
+    const options = [option('clean', 'completed'), option('pending', 'running'), option('review', 'needs_review'), option('failed', 'error'), option('issues', 'completed', 1)];
+    const { rerender } = render(<RuleFilter options={options} value="review" onValueChange={vi.fn()} totalCount={1} />);
+    let list = await openMenu();
+    expect(within(list).getAllByRole('option').map(row => row.textContent?.split('，')[0])).toEqual(['全部检查项', 'issues', 'review', 'failed', 'pending', 'clean']);
+    expect(within(list).getByText('5 条规则')).toBeInTheDocument();
+    fireEvent.keyDown(list, { key: 'Escape' });
+    rerender(<RuleFilter options={options.map(row => row.id === 'pending' ? option('pending', 'completed', 2) : row)} value="review" onValueChange={vi.fn()} totalCount={3} />);
+    list = await openMenu();
+    expect(within(list).getAllByRole('option').map(row => row.textContent?.split('，')[0])).toEqual(['全部检查项', 'pending', 'issues', 'review', 'failed', 'clean']);
+    expect(within(list).getByRole('option', { name: 'review，待核查' })).toHaveAttribute('data-state', 'checked');
+  });
+
+  it('keeps review states above clean rules in saved reports', async () => {
+    const options: RuleFilterOption[] = [
+      { id: 'clean', title: '无问题规则', count: 0, counts: { error: 0, warning: 0, info: 0 }, status: 'completed' },
+      { id: 'review', title: '待核查规则', count: 0, counts: { error: 0, warning: 0, info: 0 }, status: 'needs_review' },
+    ];
+    render(<RuleFilter options={options} value="all" onValueChange={vi.fn()} totalCount={0} />);
+    const list = await openMenu();
+    expect(within(list).getAllByRole('option').map(row => row.textContent?.split('，')[0])).toEqual(['全部检查项', '待核查规则', '无问题规则']);
   });
 });
