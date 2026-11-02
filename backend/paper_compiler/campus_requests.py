@@ -40,8 +40,9 @@ class CampusRequestCoordinator:
         os.chmod(self.path, 0o600)
 
     @contextmanager
-    def _connection(self):
-        db = sqlite3.connect(self.path, timeout=1, isolation_level=None)
+    def _connection(self, timeout=30):
+        # Initialization and lease cleanup must tolerate brief concurrent writes.
+        db = sqlite3.connect(self.path, timeout=timeout, isolation_level=None)
         try:
             yield db
         finally:
@@ -74,7 +75,7 @@ class CampusRequestCoordinator:
                 raise TimeoutError('campus API request timed out waiting for a shared slot')
             wait = .05
             try:
-                with self._connection() as db:
+                with self._connection(timeout=min(1, remaining)) as db:
                     db.execute('BEGIN IMMEDIATE')
                     now = time.time()
                     self._reap(db, now)

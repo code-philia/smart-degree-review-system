@@ -601,7 +601,16 @@ def run(pdf: Path, rule_ids: list[str], run_id=None, on_rule_complete=None) -> d
                    for index, rule in enumerate(rule_ids)}
         runs = [None] * len(rule_ids)
         for future in as_completed(futures):
-            completed = future.result()
+            try:
+                completed = future.result()
+            except Exception as error:
+                rule_id = rule_ids[futures[future]]
+                completed = {
+                    'rule_id': rule_id, 'rule_run_id': f'run_{rule_id}', 'severity': 'warning',
+                    'execution_status': 'error', 'evidence_mode': 'unsupported',
+                    'outcome': 'inconclusive', 'findings': [],
+                    'message': f'本规则执行失败，可增量补跑：{str(error)[:300]}',
+                }
             runs[futures[future]] = completed
             if on_rule_complete:
                 on_rule_complete(completed)

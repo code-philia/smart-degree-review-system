@@ -1,4 +1,4 @@
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from contextlib import ExitStack
 import hashlib
 import importlib
@@ -187,3 +187,40 @@ def test_rate_limit_retries_keep_one_deadline_and_do_not_retry_auth_failures(tmp
     with pytest.raises(HTTPError):
         api.campus_request('https://models.sjtu.edu.cn/api/v1/chat/completions', {}, 10, denied)
     assert len(calls) == 1
+
+
+def test_short_database_write_lock_does_not_fail_coordinator_initialization(tmp_path):
+    path = tmp_path / 'contended.sqlite'
+    api = coordinator()
+    api.CampusRequestCoordinator(path)
+    with sqlite3.connect(path, isolation_level=None) as db, ThreadPoolExecutor(max_workers=1) as pool:
+        db.execute('BEGIN EXCLUSIVE')
+        future = pool.submit(api.CampusRequestCoordinator, path)
+        try:
+            time.sleep(1.3)
+        finally:
+            db.rollback()
+        assert future.result(timeout=5).path == path
+
+
+def test_short_database_write_lock_does_not_fail_slot_cleanup(tmp_path):
+    from threading import Event
+    path = tmp_path / 'cleanup.sqlite'
+    gate = coordinator().CampusRequestCoordinator(path)
+    entered, finish = Event(), Event()
+    def request():
+        with gate.slot('account', timeout=10):
+            entered.set()
+            assert finish.wait(5)
+        return True
+    with ThreadPoolExecutor(max_workers=1) as pool, sqlite3.connect(path, isolation_level=None) as db:
+        future = pool.submit(request)
+        assert entered.wait(3)
+        db.execute('BEGIN EXCLUSIVE')
+        finish.set()
+        try:
+            time.sleep(1.3)
+        finally:
+            db.rollback()
+        assert future.result(timeout=5)
+        assert db.execute('SELECT count(*) FROM leases').fetchone()[0] == 0

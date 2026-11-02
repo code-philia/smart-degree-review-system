@@ -397,7 +397,22 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
             : ENGINE_TIMEOUT_MS;
           tasks.push(runBilingualSemanticRules(pdfPath, bilingualRuleIds, bilingualTimeout, controller.signal, runId,
             run => reportProgress([run.rule_id], { rule_runs: [run] }))
-            .then(async (part) => { parts.push(part); await reportProgress(bilingualRuleIds, part); }));
+            .then(async (part) => { parts.push(part); await reportProgress(bilingualRuleIds, part); })
+            .catch(async (error) => {
+              if (controller.signal.aborted) throw error;
+              const runs = completedRuns.filter(run => bilingualRuleIds.includes(run.rule_id));
+              const missing = bilingualRuleIds.filter(id => !runs.some(run => run.rule_id === id));
+              const ruleRuns = [...runs, ...missing.map(rule_id => ({
+                rule_id, rule_run_id: `failed_${rule_id}`, severity: 'warning',
+                execution_status: 'error', evidence_mode: 'unsupported', outcome: 'inconclusive',
+                findings: [], message: `${String(error?.message || '语义规则执行失败').slice(0, 500)}；可在历史报告中增量补跑。`,
+              }))];
+              const part = { type: 'paper_lint', paper_title: '上传论文',
+                ruleset: { id: 'repo-paper-model-bilingual', name: '仓库 Paper Model 双语语义规则', version_number: 1, version_label: 'repo paper_compiler' },
+                rule_runs: ruleRuns, summary: summarizeRuleRuns(ruleRuns) };
+              parts.push(part);
+              await reportProgress(bilingualRuleIds, part);
+            }));
         }
         if (otherRuleIds.length) {
           tasks.push(runPaperLintRuleGroups({

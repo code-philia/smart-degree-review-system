@@ -37,3 +37,22 @@ def test_fast_rule_is_published_while_slow_rule_is_still_running():
         assert observed == [fast, slow]
         assert [run['rule_id'] for run in result['rule_runs']] == [slow, fast]
         build.assert_called_once()
+
+
+def test_one_failed_semantic_rule_does_not_discard_completed_siblings():
+    import sqlite3
+    ids = [semantic.TYPO_RULE, semantic.NUMERIC_RULE]
+    published = []
+    def detect(ir, facts, rule, run_id):
+        if rule == semantic.TYPO_RULE:
+            raise sqlite3.OperationalError('database is locked')
+        return {'rule_id': rule, 'execution_status': 'completed', 'outcome': 'passed', 'findings': []}
+    with patch.object(semantic, 'build_paper', return_value={}), patch.object(semantic, '_run_semantic_rule', side_effect=detect):
+        result = semantic.run(Path('input.pdf'), ids, on_rule_complete=published.append)
+    assert [run['rule_id'] for run in result['rule_runs']] == ids
+    assert result['rule_runs'][0]['execution_status'] == 'error'
+    assert result['rule_runs'][0]['outcome'] == 'inconclusive'
+    assert result['rule_runs'][0]['findings'] == []
+    assert result['rule_runs'][1]['execution_status'] == 'completed'
+    assert result['summary']['error_rule_count'] == 1
+    assert len(published) == 2

@@ -54,3 +54,61 @@ const timer=setInterval(()=>{
     await fs.rm(directory, { recursive: true, force: true });
   }
 });
+
+
+it.skipIf(process.platform === 'win32')('keeps published results and reports only unfinished rules as errors when a semantic worker exits', async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'lint-partial-failure-'));
+  const worker = path.join(directory, 'worker');
+  const ids = ['typo_detection_check', 'bilingual_keywords_correspondence_check', 'bilingual_abstract_consistency_check'];
+  const completed = { rule_id: ids[0], rule_run_id: 'finished', execution_status: 'completed',
+    severity: 'warning', outcome: 'issues_found', findings: [{ finding_id: 'kept', rule_id: ids[0], message: '保留已完成的问题' }] };
+  await fs.writeFile(worker, `#!${process.execPath}
+console.log(JSON.stringify({type:'paper_lint_rule_complete',rule_run:${JSON.stringify(completed)}}));
+console.log(JSON.stringify({error:'simulated semantic worker failure'}));
+process.exitCode=1;
+`, { mode: 0o700 });
+  const keys = ['PAPER_MODEL_PYTHON','SJTU_API_KEY','SJTU_API_BASE_URL','SJTU_API_MODEL'];
+  const previous = Object.fromEntries(keys.map(key => [key, process.env[key]]));
+  Object.assign(process.env, { PAPER_MODEL_PYTHON: worker, SJTU_API_KEY: 'unit-test-no-network',
+    SJTU_API_BASE_URL: 'https://invalid.test', SJTU_API_MODEL: 'test' });
+  try {
+    const snapshots = [];
+    const checked = await runPaperLint({ pdfBuffer: Buffer.from('%PDF-test'), selectedRuleIds: ids,
+      externalProcessingConsent: true, background: true, onProgress: async progress => snapshots.push(progress) });
+    expect(checked.result.rule_runs.map(run => run.rule_id)).toEqual(ids);
+    expect(checked.result.rule_runs[0]).toEqual(completed);
+    expect(checked.result.rule_runs.slice(1).map(run => run.execution_status)).toEqual(['error','error']);
+    expect(checked.result.summary.finding_count).toBe(1);
+    expect(checked.result.summary.error_rule_count).toBe(2);
+    expect(snapshots.at(-1).completed_rule_ids).toHaveLength(3);
+  } finally {
+    for (const [key,value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key]=value; }
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
+
+it.skipIf(process.platform === 'win32')('still propagates user cancellation instead of saving a partial success', async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'lint-cancel-'));
+  const worker = path.join(directory, 'worker');
+  const id = 'typo_detection_check';
+  await fs.writeFile(worker, `#!${process.execPath}
+console.log(JSON.stringify({type:'paper_lint_rule_complete',rule_run:{rule_id:'${id}',execution_status:'completed',outcome:'passed',findings:[]}}));
+setInterval(()=>{},1000);
+`, { mode: 0o700 });
+  const keys = ['PAPER_MODEL_PYTHON','SJTU_API_KEY','SJTU_API_BASE_URL','SJTU_API_MODEL'];
+  const previous = Object.fromEntries(keys.map(key => [key, process.env[key]]));
+  Object.assign(process.env, { PAPER_MODEL_PYTHON: worker, SJTU_API_KEY: 'unit-test-no-network',
+    SJTU_API_BASE_URL: 'https://invalid.test', SJTU_API_MODEL: 'test' });
+  const controller = new AbortController();
+  try {
+    await expect(runPaperLint({ pdfBuffer: Buffer.from('%PDF-test'), selectedRuleIds: [id],
+      externalProcessingConsent: true, background: true, signal: controller.signal,
+      onProgress: async () => controller.abort(),
+    })).rejects.toMatchObject({ code: 'PAPER_LINT_CANCELLED' });
+  } finally {
+    controller.abort();
+    for (const [key,value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key]=value; }
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
