@@ -6,6 +6,9 @@ import type {
 } from '../../api/paperLint';
 import type { RepairSuggestion } from '../../api/repairSuggestions';
 import {
+  documentCheckId,
+  documentCheckTitle,
+  isDocumentBlocked,
   compilerPublicationLabel,
   compilerPublicationSummary,
   flattenPaperLintFindings,
@@ -19,6 +22,7 @@ export const EXPORT_NOTICE = '检测结果仅供参考，请结合论文原文�
 export type DetectionScopeItem = { id: string; title: string; description: string };
 
 export function buildDetectionScope(report: PaperLintRunResponse, rules: PaperLintRule[]): DetectionScopeItem[] {
+  if (isDocumentBlocked(report.result.rule_runs)) return [];
   const ids = report.selected_rule_ids?.length
     ? report.selected_rule_ids
     : report.result.rule_runs.map((run) => run.rule_id);
@@ -81,11 +85,11 @@ export function buildExportReport(
 ): ExportReport {
   const result = paperLintPresentation(report.result),
     summary = result.summary;
-  const title = (id: string) => rules.find((r) => r.rule_id === id)?.title || id;
+  const title = (id: string) => id === documentCheckId ? documentCheckTitle : rules.find((r) => r.rule_id === id)?.title || id;
   const inconclusive =
     summary.unsupported_rule_count > 0 ||
     result.rule_runs.some((r) => r.outcome === 'inconclusive' && !(r.rule_id === 'sjtu_rule_32' && r.execution_status === 'completed') && compilerPublicationLabel(r) !== '未触发告警');
-  const conclusion = summary.finding_count
+  const conclusion = isDocumentBlocked(result.rule_runs) ? 'Paper Model 编译失败。所有论文规则均未检测，请查看严重级别的具体原因。' : summary.finding_count
     ? `发现 ${summary.finding_count} 项问题，请逐项核对。`
     : summary.error_rule_count
       ? '部分规则执行失败，请核对未完成的检测项。'

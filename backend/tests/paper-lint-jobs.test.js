@@ -215,6 +215,27 @@ describe('durable MinerU paper-lint jobs', () => {
     expect(saved.result.rule_runs.map(run => run.rule_id)).toEqual(['sjtu_rule_18', 'sjtu_rule_22']);
   });
 
+  it('discards old passing rules when document admission rejects an incremental rerun', async () => {
+    const kept = { rule_id: 'sjtu_rule_18', rule_run_id: 'old-pass', severity: 'warning', execution_status: 'completed', outcome: 'passed', findings: [] };
+    const id = await jobRepository.createJob({ userId: 'student01', sourceFilename: 'form.pdf', pdfBuffer: pdf,
+      selectedRuleIds: ['sjtu_rule_18', 'sjtu_rule_22'], externalProcessingConsent: true,
+      reuse: { source_report_id: 'legacy-form', result: { ...result, rule_runs: [kept] } } });
+    const rejection = require('../src/normative/paperDocumentAdmission').documentRejectionResult(
+      { status: 'rejected', reason_code: 'non_paper_identity', reason: '推荐表' }, ['sjtu_rule_22']);
+    service.runPaperLint.mockImplementationOnce(async ({ onProgress }) => {
+      await onProgress({ completed_rule_ids: [], rule_runs: rejection.rule_runs, document_validation: rejection.document_validation });
+      return { result: rejection, selectedRuleIds: ['sjtu_rule_22'] };
+    });
+    const restarted = createPaperLintJobService(service);
+    await restarted.resumeJobs(); await restarted.waitForIdle();
+    const saved = await require('../src/normative/paperLintReportRepository').findPaperLintReportByIdForUser(id, 'student01');
+    expect(saved.result.rule_runs.map(run => run.rule_id)).toEqual(['document_type_check']);
+    expect(saved.summary.error_finding_count).toBe(1);
+    expect(saved.result.document_validation.skipped_rule_ids).toEqual(['sjtu_rule_18', 'sjtu_rule_22']);
+    expect(saved.result.incremental.reused_rule_ids).toEqual([]);
+    expect((await restarted.getForUser(id, 'student01')).progress.rule_runs.map(run => run.rule_id)).toEqual(['document_type_check']);
+  });
+
   it('rejects a redundant rerun and a missing original PDF without submitting model work', async () => {
     const reports = require('../src/normative/paperLintReportRepository');
     const kept = { rule_id: 'sjtu_rule_18', rule_run_id: 'kept', severity: 'warning', execution_status: 'completed', outcome: 'passed', findings: [] };

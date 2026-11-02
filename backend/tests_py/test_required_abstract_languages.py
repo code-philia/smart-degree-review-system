@@ -67,6 +67,8 @@ def test_real_draft_reports_missing_english_abstract():
     pdf = Path('/data/results/false-positive-20261029/90b6e38f-00b4-4a28-9c1a-2c7a26432f33.pdf')
     if not pdf.exists():
         pytest.skip('optional original PDF regression fixture')
-    ir = build_paper(pdf, include_citations=False)
-    assert '英文摘要' in tokens(ir)
-    assert '摘要' not in tokens(ir)
+    from paper_compiler.document_admission import DocumentStructureError
+    with pytest.raises(DocumentStructureError) as failure:
+        build_paper(pdf, include_citations=False)
+    assert '英文摘要' in failure.value.assessment['missing_sections']
+    assert '摘要' not in failure.value.assessment['missing_sections']

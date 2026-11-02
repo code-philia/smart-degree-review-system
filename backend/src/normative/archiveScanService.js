@@ -6,12 +6,18 @@ const { LOCAL_RULES, isLocalRuleId, runLocalFiveRules } = require('./localFiveRu
 const { getSixRules, isSixRuleId, runSixRules } = require('./sixRulePaperLintService');
 const { getCompilerRules, isCompilerRuleId, runCompilerRules } = require('./paperCompilerService');
 const { mergePaperLintResults } = require('./reviewPilotPaperLintService');
+const { assessPaperDocument, documentRejectionResult } = require('./paperDocumentAdmission');
 
 const DEFAULT_ROOT = '/opt/sjtu-archive-479';
 function getArchiveRules() {
   return [...LOCAL_RULES, ...getSixRules(), ...getCompilerRules()].sort((a, b) => a.number - b.number);
 }
 async function runArchiveRules(pdfPath, ruleIds) {
+  const pdfBuffer = await fs.readFile(pdfPath);
+  const admission = await assessPaperDocument(pdfPath, pdfBuffer, {
+    python: process.env.PAPER_MODEL_PYTHON || process.env.FIVE_RULE_PYTHON || process.env.SIX_RULE_PYTHON || 'python3',
+  });
+  if (admission.status !== 'accepted') return documentRejectionResult(admission, ruleIds);
   const localIds = ruleIds.filter(isLocalRuleId);
   const sixIds = ruleIds.filter(isSixRuleId);
   const localResult = localIds.length ? await runLocalFiveRules(pdfPath, localIds) : null;

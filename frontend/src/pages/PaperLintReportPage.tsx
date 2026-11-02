@@ -11,7 +11,7 @@ import {
   type PaperLintRunResponse,
 } from '../api/paperLint';
 import { PaperLintWorkspace } from '../components/paperLint/Workspace';
-import { compilerPublicationLabel, compilerPublicationSummary, flattenPaperLintFindings, paperLintPresentation } from '../components/paperLint/model';
+import { isDocumentBlocked, compilerPublicationLabel, compilerPublicationSummary, flattenPaperLintFindings, paperLintPresentation } from '../components/paperLint/model';
 import { usePaperLintRepairSuggestions } from '../hooks/usePaperLintRepairSuggestions';
 import {
   deleteFindingFeedback,
@@ -49,7 +49,9 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
     setMetricsLoading(true);
     void fetchPaperLintReport(reportId)
       .then((nextReport) => {
-        if (!cancelled) setReport({ ...nextReport, result: paperLintPresentation(nextReport.result) });
+        if (!cancelled) setReport({ ...nextReport,
+          selected_rule_ids: nextReport.selected_rule_ids ?? nextReport.result.rule_runs.map(run => run.rule_id),
+          result: paperLintPresentation(nextReport.result) });
       })
       .catch((loadError) => !cancelled && setError(loadError instanceof Error ? loadError.message : '报告加载失败'));
     void fetchPaperLintDocumentMetrics(reportId)
@@ -148,7 +150,8 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
   const metricsPlaceholder = metricsLoading ? '统计中…' : '未统计';
   const pdfUrl = `/api/normative/paper-lint/reports/${encodeURIComponent(reportId!)}/pdf`;
   const numericReviewRun = report.result.rule_runs.find(run => run.rule_id === 'abstract_numeric_consistency_check');
-  const numericSelected = (report.selected_rule_ids ?? report.result.rule_runs.map(run => run.rule_id)).includes('abstract_numeric_consistency_check');
+  const documentBlocked = isDocumentBlocked(report.result.rule_runs);
+  const numericSelected = !documentBlocked && (report.selected_rule_ids ?? report.result.rule_runs.map(run => run.rule_id)).includes('abstract_numeric_consistency_check');
   const isSemanticReport = Boolean(numericReviewRun && report.result.rule_runs.length === 1);
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-5">
@@ -167,7 +170,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
             </div>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-3">
-            <IncrementalRerunDialog key={report.id} report={report} rules={rules} initiallyOpen={searchParams.get('rerun') === '1'} />
+            {!documentBlocked && <IncrementalRerunDialog key={report.id} report={report} rules={rules} initiallyOpen={searchParams.get('rerun') === '1'} />}
             <ReportExportDialog report={report} rules={rules} metrics={metrics} repairs={repairSuggestions.repairSuggestionByFindingKey} />
 
           </div>

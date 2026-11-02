@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import type { PaperLintRule, PaperLintRuleRun } from '../../api/paperLint';
 import { StatusBadge } from '../ui';
-import { flattenPaperLintFindings, numericExecutionWarnings, referencePresentationRun } from './model';
+import { documentCheckId, isDocumentBlocked, flattenPaperLintFindings, numericExecutionWarnings, referencePresentationRun } from './model';
 import { PaperLintWorkspace } from './Workspace';
 
 type Props = {
@@ -15,7 +15,8 @@ export function LivePaperLintReport({ file, rules, runs, selectedRuleIds }: Prop
   const reportRuns = useMemo(() => runs.map(referencePresentationRun), [runs]);
   const findings = useMemo(() => flattenPaperLintFindings({ rule_runs: reportRuns }), [reportRuns]);
   const numericRun = runs.find(run => run.rule_id === 'abstract_numeric_consistency_check');
-  const numericSelected = (selectedRuleIds ?? runs.map(run => run.rule_id)).includes('abstract_numeric_consistency_check');
+  const documentBlocked = isDocumentBlocked(reportRuns);
+  const numericSelected = !documentBlocked && (selectedRuleIds ?? runs.map(run => run.rule_id)).includes('abstract_numeric_consistency_check');
   const executionWarningCount = numericExecutionWarnings(numericRun).length;
   const issueTotal = findings.length + executionWarningCount;
   const failed = reportRuns.filter(run => run.execution_status === 'error');
@@ -45,12 +46,12 @@ export function LivePaperLintReport({ file, rules, runs, selectedRuleIds }: Prop
           </div>)}
         </dl>
         <p role="status" className="mt-3 h-12 overflow-y-auto text-xs leading-6 text-slate-500">
-          {failed.length || undecided.length
+          {documentBlocked ? '论文编译校验未通过，所有论文规则均未检测。请查看严重级别的具体原因。' : failed.length || undecided.length
             ? `${failed.length ? `${failed.length} 项规则执行失败。` : ''}${undecided.length ? `${undecided.length} 项规则暂无法判定。` : ''}${[...new Set([...failed, ...undecided].map(run => run.message).filter(Boolean))].join('；')}`
             : '检测进行中，新发现的问题将自动更新到报告中。完成后自动保存至历史报告。'}
         </p>
       </div>
-      <PaperLintWorkspace file={file} findings={findings} rules={rules} selectedRuleIds={selectedRuleIds} ruleRuns={reportRuns} numericReviewRun={numericRun} running />
+      <PaperLintWorkspace file={file} findings={findings} rules={rules} selectedRuleIds={documentBlocked ? [documentCheckId] : selectedRuleIds} ruleRuns={reportRuns} numericReviewRun={numericRun} running={!documentBlocked} />
     </section>
   );
 }

@@ -5,6 +5,15 @@ import path from 'node:path';
 import { expect, it } from 'vitest';
 const require = createRequire(import.meta.url);
 const { runPaperLint } = require('../src/normative/reviewPilotPaperLintService');
+const admissionStub = `
+if (process.argv[2]?.endsWith('check_paper_document.py')) {
+  const fs=require('fs'),crypto=require('crypto');
+  console.log(JSON.stringify({version:'paper-admission/2.0',status:'accepted',reason_code:'paper_structure_confirmed',reason:'test paper',compiled:true,stage:'complete',structure:{status:'accepted',profile:'research-article',required_sections:['摘要','引言','主体','结论','参考文献'],observed_sections:{'摘要':true,'引言':true,'主体':true,'结论':true,'参考文献':true},missing_sections:[]},
+    sha256:crypto.createHash('sha256').update(fs.readFileSync(process.argv[3])).digest('hex')}));
+  process.exit(0);
+}
+`;
+
 
 it.skipIf(process.platform === 'win32')('delivers a semantic completion before the worker exits, without waiting for the slower rule', async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'lint-stream-test-'));
@@ -14,6 +23,7 @@ it.skipIf(process.platform === 'win32')('delivers a semantic completion before t
   const runs = ids.map(rule_id => ({ rule_id, rule_run_id: rule_id, execution_status: 'completed',
     severity: 'warning', outcome: 'passed', findings: [] }));
   await fs.writeFile(worker, `#!${process.execPath}
+${admissionStub}
 const fs = require('fs');
 const runs = ${JSON.stringify(runs)};
 console.log(JSON.stringify({type:'paper_lint_rule_complete',rule_run:runs[1]}));
@@ -63,6 +73,7 @@ it.skipIf(process.platform === 'win32')('keeps published results and reports onl
   const completed = { rule_id: ids[0], rule_run_id: 'finished', execution_status: 'completed',
     severity: 'warning', outcome: 'issues_found', findings: [{ finding_id: 'kept', rule_id: ids[0], message: '保留已完成的问题' }] };
   await fs.writeFile(worker, `#!${process.execPath}
+${admissionStub}
 console.log(JSON.stringify({type:'paper_lint_rule_complete',rule_run:${JSON.stringify(completed)}}));
 console.log(JSON.stringify({error:'simulated semantic worker failure'}));
 process.exitCode=1;
@@ -93,6 +104,7 @@ it.skipIf(process.platform === 'win32')('still propagates user cancellation inst
   const worker = path.join(directory, 'worker');
   const id = 'typo_detection_check';
   await fs.writeFile(worker, `#!${process.execPath}
+${admissionStub}
 console.log(JSON.stringify({type:'paper_lint_rule_complete',rule_run:{rule_id:'${id}',execution_status:'completed',outcome:'passed',findings:[]}}));
 setInterval(()=>{},1000);
 `, { mode: 0o700 });

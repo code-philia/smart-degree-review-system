@@ -10,6 +10,7 @@ const { getCompilerRules, isCompilerRuleId, runCompilerRules } = require('./pape
 const { runPaperLintRuleGroups, settleRuleTasks } = require('./paperLintRuleRunner');
 const { createRuleProgressStream } = require('./paperLintRuleProgress');
 const { listRuleDefinitions } = require('../../rules/registry');
+const { assessPaperDocument, documentRejectionResult } = require('./paperDocumentAdmission');
 
 const RETIRED_RULE_IDS = new Set([
   'claim_evidence_inconsistency_check',
@@ -332,6 +333,7 @@ async function normalizeSelectedRuleIds(selectedRuleIds, externalProcessingConse
 }
 
 function mergePaperLintResults(existingResult, localResult, selectedRuleIds) {
+  if (localResult.document_validation?.status === 'rejected') return localResult;
   const runsById = new Map([...existingResult.rule_runs, ...localResult.rule_runs].map((run) => [run.rule_id, run]));
   const ruleRuns = selectedRuleIds.map((ruleId) => {
     const run = runsById.get(ruleId);
@@ -375,6 +377,16 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
       try {
         if (controller.signal.aborted) throw createHttpError(504, RUN_TIMEOUT_MESSAGE);
         await fs.promises.writeFile(pdfPath, pdfBuffer, { flag: 'wx', mode: 0o600 });
+        const admission = await assessPaperDocument(pdfPath, pdfBuffer, {
+          python: resolvePaperModelPython(), signal: controller.signal,
+        });
+        if (controller.signal.aborted) throw createHttpError(504, RUN_TIMEOUT_MESSAGE);
+        if (admission.status !== 'accepted') {
+          const result = documentRejectionResult(admission, normalizedRuleIds);
+          await onProgress?.({ completed_rule_ids: [], total_rule_ids: normalizedRuleIds,
+            rule_runs: result.rule_runs, document_validation: result.document_validation });
+          return { result, selectedRuleIds: normalizedRuleIds };
+        }
         const bilingualRuleIds = normalizedRuleIds.filter((ruleId) => BILINGUAL_RULE_IDS.has(ruleId));
         const otherRuleIds = normalizedRuleIds.filter((ruleId) => !BILINGUAL_RULE_IDS.has(ruleId));
         const completedRuleIds = [];

@@ -7,7 +7,7 @@ from pathlib import Path
 import pymupdf
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from paper_compiler.frontend import build_paper
+from paper_compiler.frontend import _build_source_tree as build_paper  # Structural fragment fixture; admission is tested separately.
 from paper_compiler.local_checks import detect_ir
 
 

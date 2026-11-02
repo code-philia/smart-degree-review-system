@@ -331,7 +331,7 @@ def test_multiple_experiments_and_dataset_ranking():
 
 def test_real_pdf_frontend_supplies_paragraphs_and_table_text(tmp_path):
     import fitz
-    from paper_compiler.frontend import build_paper
+    from paper_compiler.frontend import _build_source_tree as build_paper  # Structural fragment fixture; admission is tested separately.
     pdf = tmp_path / 'source.pdf'
     document = fitz.open()
     page = document.new_page()

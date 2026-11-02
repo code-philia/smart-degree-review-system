@@ -1,0 +1,38 @@
+# Paper identity and structural compilation validation
+
+## Incident and cause
+
+The two-page CCF dissertation recommendation form was accepted by the old PDF frontend. Its native text was placed under a `Paper` root, and IR contract validation checked node types, references and coordinates without establishing paper identity or required core sections. Partial scan handling then suppressed missing-section findings; zero findings were displayed as a pass. A valid serialized IR was incorrectly treated as a valid paper.
+
+## Compilation contract
+
+The public builder now checks document identity and source-level core structure before creating typed paper nodes. The shared service preflight calls this public builder and accepts only a complete compilation proof bound to the PDF SHA-256, contract version and exact profile requirements. Uploads, incremental runs and archive scans use the same admission gate. Invalid, stale, incomplete or unavailable proofs fail closed; rejected inputs execute zero paper rules and produce one severe document finding. Incremental reuse cannot restore old passes after rejection.
+
+Chinese theses require both abstracts, keywords, contents, introduction, body, conclusion and references. English theses require their abstract, keywords, contents, introduction, body, conclusion and references. Research articles require abstract, introduction, body, conclusion and references. Cover pages, originality statements and authorization pages remain ordinary formatting checks, as explicitly confirmed by the user. Document identity rejection is distinguished from a recognized paper with incomplete core structure and from an unreadable/unconfirmed input.
+
+Source checks exclude contents entries and numbered introductory prose from actual chapter evidence. They account for split chapter labels, heading hierarchy, mixed fonts, Chinese heading spacing and IEEE Roman section numbers. Native-text extraction is required; this change does not add OCR or claim universal semantic identification of arbitrary PDFs.
+
+## Verification on 2026-11-03
+
+- 203 Python tests and 13 subtests passed, including identity, structure, public builder, bibliography boundaries and existing local rules.
+- 44 backend integration tests passed, including dispatcher rejection, incremental reuse, archive scans, cancellation and invalid proof handling.
+- 7 queue/deadline tests passed under Node 22.
+- 84 frontend tests passed, including live and saved blocked reports, rule filtering, scopes and exports.
+- Production frontend build and `git diff --check` passed.
+
+The supplied recommendation form and four independently sourced non-paper PDFs were rejected by the actual dispatcher with one severe finding and zero executed rules. Sources:
+
+| Type | Source |
+| --- | --- |
+| Tax form | https://www.irs.gov/pub/irs-pdf/fw9.pdf |
+| Software manual | https://www.gnu.org/software/bash/manual/bash.pdf |
+| Declaration | https://www.un.org/sites/un2.un.org/files/2021/03/udhr.pdf |
+| Thesis writing guide | https://sph.csu.edu.cn/fujian08zhongnandaxueyanjiushengxueweilunwenzhuanxieguifan.pdf |
+
+All six supplied genuine theses (Du Xueying, Li Jia, Lin Bo, Ran Dezhi, Sun Zaisheng and Zhao Yingquan) and three published research articles compiled successfully. Their generated Paper models were identical to the baseline parser output after excluding the new admission metadata. The article controls included a paper about invoices, protecting against rejection based on topic words alone:
+
+- https://arxiv.org/pdf/1706.03762
+- https://mural.maynoothuniversity.ie/id/eprint/11620/1/KD-Linear-2017.pdf
+- https://arxiv.org/pdf/2208.04011
+
+Independent review found no remaining important or critical findings in the reviewed admission and compilation cases. Detailed local evidence is retained separately under `output/non-paper-gate-20261103/`; source PDFs and business report data are not committed.

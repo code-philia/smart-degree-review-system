@@ -10,6 +10,7 @@ import pymupdf
 from .citations import attach_citations
 from .contracts import SCHEMA_VERSION, MODEL_VERSION, validate_ir
 from .llm import ModelError
+from .document_admission import assert_paper_pages
 
 FRONTEND_VERSION='pdf-source-frontend/1.7'
 BIB_HEADING=re.compile(r'^(?:参考文献|參考文獻|References|Bibliography)\s*$',re.I)
@@ -193,9 +194,19 @@ def _back_matter_page_headers(pages, headings, normal):
 
 
 def build_paper(pdf: Path, *, client=None, layout_cache=None, include_citations=True) -> dict:
+    pages = _observe(Path(pdf).resolve())
+    admission = assert_paper_pages(pages)
+    ir = _build_source_tree(pdf, client=client, layout_cache=layout_cache,
+                            include_citations=include_citations, pages=pages)
+    ir['metadata']['document_admission'] = admission
+    return ir
+
+
+def _build_source_tree(pdf: Path, *, client=None, layout_cache=None, include_citations=True, pages=None) -> dict:
+    """Internal structural parser; isolated fragment tests do not assert paper identity."""
     pdf=Path(pdf).resolve()
     digest=hashlib.sha256(pdf.read_bytes()).hexdigest()
-    pages=_observe(pdf)
+    if pages is None:pages=_observe(pdf)
     bibliography_observations=[]
     bibliography_parts=_bibliography_heading_parts(pages)
     bibliography_heading,bibliography_method=_bibliography_heading(pages,client,observations=bibliography_observations,heading_parts=bibliography_parts)

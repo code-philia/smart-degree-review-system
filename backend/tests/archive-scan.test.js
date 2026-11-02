@@ -43,6 +43,32 @@ afterEach(async () => {
 });
 
 describe('archive scan jobs', () => {
+  it.skipIf(process.platform === 'win32')('blocks non-papers in the archive before any detector is dispatched', async () => {
+    const worker = path.join(archive, 'admission-worker');
+    const detectorMarker = path.join(archive, 'detector-was-called');
+    fs.writeFileSync(worker, `#!${process.execPath}
+const fs=require('fs'),crypto=require('crypto');
+if(process.argv[2].endsWith('check_paper_document.py')) {
+ console.log(JSON.stringify({version:'paper-admission/2.0',status:'rejected',reason_code:'non_paper_identity',reason:'Form',
+ sha256:crypto.createHash('sha256').update(fs.readFileSync(process.argv[3])).digest('hex')}));
+} else {fs.writeFileSync(${JSON.stringify(detectorMarker)},'called');process.exitCode=1;}
+`, { mode: 0o700 });
+    const previous = process.env.FIVE_RULE_PYTHON;
+    process.env.FIVE_RULE_PYTHON = worker;
+    try {
+      const service = createArchiveScanService({ archiveRoot: archive });
+      const job = await service.startJob({ userId: 'admin', ruleIds: ['sjtu_rule_18'] });
+      await service.waitForIdle();
+      const rows = await service.listDocuments(job.id);
+      expect(fs.existsSync(detectorMarker)).toBe(false);
+      for (const row of rows.items) {
+        const saved = await service.getDocument(job.id, row.id);
+        expect(saved.result.rule_runs.map(run => run.rule_id)).toEqual(['document_type_check']);
+        expect(saved.result.summary.error_finding_count).toBe(1);
+      }
+    } finally { if (previous === undefined) delete process.env.FIVE_RULE_PYTHON; else process.env.FIVE_RULE_PYTHON = previous; }
+  });
+
   it('persists every paper and selected-rule findings without storing PDF bytes', async () => {
     const service = createArchiveScanService({ archiveRoot: archive, detector: async (_path, ids) => result(ids) });
     const job = await service.startJob({ userId: 'admin', ruleIds: ['sjtu_rule_18', 'sjtu_rule_22'] });

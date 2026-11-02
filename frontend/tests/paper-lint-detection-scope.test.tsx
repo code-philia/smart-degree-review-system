@@ -65,6 +65,21 @@ it('keeps scope visible using recorded IDs when the existing catalog read fails'
   expect(within(details).getAllByText('规则说明暂不可用（目录中未提供）。')).toHaveLength(2);
 });
 
+it('shows document rejection without experimental statistics, claimed checks or incremental rerun', async () => {
+  vi.mocked(fetchPaperLintReport).mockResolvedValue({ ...fixture,
+    selected_rule_ids: ['sjtu_rule_15', 'abstract_numeric_consistency_check'],
+    result: { ...fixture.result, rule_runs: [{ rule_id: 'document_type_check', rule_run_id: 'admission',
+      severity: 'error', execution_status: 'completed', outcome: 'issues_found',
+      findings: [{ finding_id: 'not-paper', rule_id: 'document_type_check', message: '不是论文' }] }],
+      summary: { ...fixture.result.summary, rule_count: 0, finding_count: 1, error_finding_count: 1,
+        warning_finding_count: 0, info_finding_count: 0 } } });
+  show();
+  expect(await screen.findByText('论文编译校验未通过，所选 2 条论文规则全部未执行。')).toBeInTheDocument();
+  expect(screen.queryByText('规则未实现警告数')).not.toBeInTheDocument();
+  expect(screen.queryByText('本次检测范围')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: '增量补跑' })).not.toBeInTheDocument();
+});
+
 it.each([{ name: 'empty', ids: [] }, { name: 'absent', ids: undefined }])(
   'opens a legacy report with $name selections and shows its executed scope',
   async ({ ids }) => {

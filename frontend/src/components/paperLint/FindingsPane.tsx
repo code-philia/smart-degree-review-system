@@ -4,7 +4,7 @@ import type { PaperLintRule, PaperLintRuleRun } from '../../api/paperLint';
 import type { RepairSuggestion } from '../../api/repairSuggestions';
 import type { FindingFeedback, SuggestionFeedback } from '../../api/feedback';
 import { Button, StatusBadge } from '../ui';
-import { comparePaperLintRuleIds, findingPageLabel, referenceReviewMessage, type PaperLintFindingItem } from './model';
+import { documentCheckId, documentCheckTitle, isDocumentBlocked, comparePaperLintRuleIds, findingPageLabel, referenceReviewMessage, type PaperLintFindingItem } from './model';
 import { FeedbackControls } from './FeedbackControls';
 import { displayFindingPages, type PdfPageLabels } from './pageLabels';
 import type { RuleExecutionWarning } from './model';
@@ -100,8 +100,9 @@ export function FindingsPane({
   const [ruleFilter, setRuleFilter] = useState('all');
   const [handledKeys, setHandledKeys] = useState<string[]>([]);
   const issueTotal = findings.length + executionWarnings.length;
-  const ruleNames = useMemo(() => new Map(rules.map((rule) => [rule.rule_id, rule.title])), [rules]);
-  const ruleIds = Array.from(new Set(selectedRuleIds ?? [...rules.map(rule => rule.rule_id), ...findings.map(item => item.ruleRun.rule_id)])).sort(comparePaperLintRuleIds);
+  const ruleNames = useMemo(() => new Map([...rules.map((rule) => [rule.rule_id, rule.title] as const), [documentCheckId, documentCheckTitle]]), [rules]);
+  const documentBlocked = isDocumentBlocked(ruleRuns || findings.map(item => item.ruleRun));
+  const ruleIds = documentBlocked ? [documentCheckId] : Array.from(new Set(selectedRuleIds ?? [...rules.map(rule => rule.rule_id), ...findings.map(item => item.ruleRun.rule_id)])).sort(comparePaperLintRuleIds);
   const runById = new Map([...findings.map(item => item.ruleRun), ...(ruleRuns || [])].map(run => [run.rule_id, run]));
   const counts = new Map<string, RuleSeverityCounts>();
   const severityTotals: RuleSeverityCounts = { error: 0, warning: 0, info: 0 };
@@ -128,7 +129,7 @@ export function FindingsPane({
   });
   // Keep the selected rule and status summary within the active result category.
   const chosenOption = ruleOptions.find(option => option.id === ruleFilter);
-  const effectiveRuleFilter = chosenOption && !isRuleVisible(chosenOption, filter) ? 'all' : ruleFilter;
+  const effectiveRuleFilter = ruleFilter !== 'all' && (!chosenOption || !isRuleVisible(chosenOption, filter)) ? 'all' : ruleFilter;
   const visibleRuleOptions = ruleOptions.filter(option => isRuleVisible(option, filter));
   const changeFilter = (next: RuleFilterLevel) => {
     setFilter(next);
@@ -246,7 +247,7 @@ export function FindingsPane({
             const numeric = item.ruleRun.rule_id === 'abstract_numeric_consistency_check';
             const reference = item.ruleRun.rule_id === 'sjtu_rule_32';
             const referenceExcerpt = reference ? item.finding.evidence?.filter(e => e.kind === 'source_span' && e.quote).at(-1)?.quote || item.finding.location?.text_excerpt : null;
-            const repairEnabled = !numeric && !reference && supportsRepairSuggestion(item);
+            const repairEnabled = !documentBlocked && !numeric && !reference && supportsRepairSuggestion(item);
             const findingFeedback = findingFeedbackByKey[item.key];
             const suggestionFeedback = suggestionFeedbackByFindingKey[item.key];
             const showRepairSuggestion = Boolean(onGenerateRepairSuggestion || repair || generating || repairError);

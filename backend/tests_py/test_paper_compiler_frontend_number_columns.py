@@ -1,6 +1,6 @@
 import pymupdf
 import pytest
-from paper_compiler.frontend import build_paper
+from paper_compiler.frontend import _build_source_tree as build_paper  # Structural fragment fixture; admission is tested separately.
 
 def make(tmp_path, rows):
     doc=pymupdf.open();p=doc.new_page(width=600,height=800)

@@ -19,6 +19,11 @@ export type RuleExecutionWarning = {
   note?: string;
 };
 const numericRule = 'abstract_numeric_consistency_check';
+export const documentCheckId = 'document_type_check';
+export const documentCheckTitle = '论文编译校验';
+export function isDocumentBlocked(runs: PaperLintRuleRun[]): boolean {
+  return runs.some(run => run.rule_id === documentCheckId);
+}
 export function referenceReviewMessage(run?: PaperLintRuleRun): string | null {
   if (run?.rule_id !== 'sjtu_rule_32') return null;
   if (run.message && run.message !== '未触发告警') return run.message;

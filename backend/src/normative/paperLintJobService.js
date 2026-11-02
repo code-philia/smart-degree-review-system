@@ -41,11 +41,13 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
         const pendingRuleIds = selectedRuleIds.filter(id => !reusedIds.includes(id));
         const publishProgress = progress => repository.updateProgress(id, {
           ...progress,
-          completed_rule_ids: [...new Set([...reusedIds, ...(progress.completed_rule_ids || [])])],
+          ...(progress.document_validation?.status === 'rejected' ? {
+            document_validation: { ...progress.document_validation, skipped_rule_ids: selectedRuleIds },
+          } : {}),
+          completed_rule_ids: progress.document_validation?.status === 'rejected' ? [] : [...new Set([...reusedIds, ...(progress.completed_rule_ids || [])])],
           total_rule_ids: selectedRuleIds,
-          rule_runs: [...reusedRuns, ...(progress.rule_runs || [])],
+          rule_runs: progress.document_validation?.status === 'rejected' ? progress.rule_runs : [...reusedRuns, ...(progress.rule_runs || [])],
         });
-        if (reuse) await publishProgress({ completed_rule_ids: [], rule_runs: [] });
         const checked = await paperLintService.runPaperLint({
           pdfBuffer, selectedRuleIds: pendingRuleIds, externalProcessingConsent: Boolean(job.external_consent),
           background: true,
@@ -54,7 +56,12 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
           onProgress: publishProgress,
         });
         if (controller.signal.aborted) return;
-        const result = reuse ? {
+        const result = checked.result.document_validation?.status === 'rejected' ? {
+          ...checked.result,
+          document_validation: { ...checked.result.document_validation, skipped_rule_ids: selectedRuleIds },
+          ...(reuse ? { incremental: { source_report_id: reuse.source_report_id,
+            reused_rule_ids: [], rerun_rule_ids: [], skipped_rule_ids: selectedRuleIds } } : {}),
+        } : reuse ? {
           ...defaultPaperLintService.mergePaperLintResults(reuse.result, checked.result, selectedRuleIds),
           incremental: { source_report_id: reuse.source_report_id, reused_rule_ids: reusedIds, rerun_rule_ids: pendingRuleIds },
         } : checked.result;

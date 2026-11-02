@@ -3,7 +3,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from scripts.paper_model_bilingual_rules import extract_bilingual_facts
-from paper_compiler.frontend import build_paper
+from paper_compiler.frontend import _build_source_tree as build_paper  # Structural fragment fixture; admission is tested separately.
 
 
 def _page(index, rows):

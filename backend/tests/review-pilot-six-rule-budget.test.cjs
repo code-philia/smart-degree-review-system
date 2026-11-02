@@ -1,5 +1,6 @@
 // The real parent queue/timer/temp-file code runs; only the PDF engines are
-// replaced with controlled promises. No PDF is decoded and no cloud request runs.
+// replaced with controlled promises. Catalog availability and document admission
+// are isolated from host configuration. No PDF is decoded and no cloud request runs.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -8,6 +9,9 @@ const ROOT = '/data/results/six-rule-fix-analysis-20261013/service-execution-rel
 const parentPath = require.resolve('../src/normative/reviewPilotPaperLintService');
 const sixPath = require.resolve('../src/normative/sixRulePaperLintService');
 const localPath = require.resolve('../src/normative/localFiveRulePaperLintService');
+const admissionPath = require.resolve('../src/normative/paperDocumentAdmission');
+const realAdmission = require(admissionPath);
+const admissionModule = require.cache[admissionPath];
 const realSix = require(sixPath);
 const realLocal = require(localPath);
 const sixModule = require.cache[sixPath];
@@ -44,8 +48,12 @@ function setup(t, { limit = '2' } = {}) {
       calls.push(call);
     });
   }
-  require.cache[sixPath] = { ...sixModule, exports: { ...realSix, runSixRules: engine } };
-  require.cache[localPath] = { ...localModule, exports: { ...realLocal, runLocalFiveRules: engine } };
+  require.cache[sixPath] = { ...sixModule, exports: { ...realSix, runSixRules: engine,
+    getSixRules: () => realSix.getSixRules().map(rule => ({ ...rule, available: true })) } };
+  require.cache[localPath] = { ...localModule, exports: { ...realLocal, runLocalFiveRules: engine,
+    getLocalRuleAvailability: async () => true } };
+  require.cache[admissionPath] = { ...admissionModule, exports: { ...realAdmission,
+    assessPaperDocument: async () => ({ status: 'accepted' }) } };
   delete require.cache[parentPath];
   const parent = require(parentPath);
   t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
@@ -61,6 +69,7 @@ function setup(t, { limit = '2' } = {}) {
     t.mock.timers.reset();
     require.cache[sixPath] = sixModule;
     require.cache[localPath] = localModule;
+    require.cache[admissionPath] = admissionModule;
     delete require.cache[parentPath];
     for (const key of keys) {
       if (previous[key] === undefined) delete process.env[key]; else process.env[key] = previous[key];

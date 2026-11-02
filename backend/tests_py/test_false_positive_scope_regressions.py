@@ -8,7 +8,7 @@ from pathlib import Path
 import pymupdf
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from paper_compiler.frontend import build_paper
+from paper_compiler.frontend import build_paper, _build_source_tree
 from paper_compiler.local_checks import detect_ir, _abstract_nodes, _node_page_index
 
 
@@ -52,7 +52,7 @@ class SourceScopeRegressions(unittest.TestCase):
                       (60, 150, '[1] 2024 年中国软件大会软件自动修复竞赛，特等奖。', 12, 0),
                       (60, 210, '[2] 某项专利的作者和名称。专利号：ZL 2022 1 0374492.5', 12, 0)])
             doc.save(path)
-        return build_paper(path, include_citations=False)
+        return _build_source_tree(path, include_citations=False)
 
     def findings(self, ir, rule):
         return detect_ir(ir, [rule])[str(rule)]['findings']
@@ -78,7 +78,7 @@ class SourceScopeRegressions(unittest.TestCase):
                     page.insert_text((60, 100), 'Chapter 1 Introduction', fontsize=18)
                     page.insert_text((60, 150), 'This section describes our method.', fontsize=12)
                     doc.save(path)
-                ir = build_paper(path, include_citations=False)
+                ir = _build_source_tree(path, include_citations=False)
                 found = self.findings(ir, 37)
                 self.assertEqual([f['token'] for f in found], ['Figure 3.1'])
                 self.assertEqual(found[0]['location']['page_number'], 1)

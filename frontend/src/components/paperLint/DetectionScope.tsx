@@ -1,8 +1,10 @@
 import { ChevronDown, ListChecks } from 'lucide-react';
 import type { PaperLintRule, PaperLintRunResponse } from '../../api/paperLint';
 import { buildDetectionScope } from '../../utils/reportExport/model';
+import { isDocumentBlocked } from './model';
 
 export function DetectionScope({ report, rules }: { report: PaperLintRunResponse; rules: PaperLintRule[] }) {
+  if (isDocumentBlocked(report.result.rule_runs)) return <p role="status" className="rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-800">论文编译校验未通过，所选 {report.selected_rule_ids?.length ?? 0} 条论文规则全部未执行。</p>;
   const scope = buildDetectionScope(report, rules);
   return (
     <details className="group overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
