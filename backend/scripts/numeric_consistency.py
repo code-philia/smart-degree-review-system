@@ -463,7 +463,8 @@ def numeric_candidates(text):
                 reason = 'section_or_ordinal'
             elif re.search(r'[\[【（(]\s*$', before) and re.match(r'\s*[\]】）)、.]', after):
                 reason = 'citation_or_list_index'
-            elif re.search(r'[A-Za-z@/_-]$', before) or re.match(r'\s*/\s*\d', after):
+            elif (re.search(r'[A-Za-z@/_-]$', before) or re.match(r'\s*/\s*\d', after)
+                  or (re.search(r'[A-Za-z]\s+$', before) and re.match(r'\s*-\s*\d+[A-Za-z]', after))):
                 reason = 'identifier_or_metric_index'
             elif not (re.match(r'\s*(?:[%％]|毫秒|秒|分钟|小时|厘米|毫米|米|次|倍|ms\b|s\b|cm\b|mm\b|m\b)', after, re.I) or metric.search(source)):
                 reason = 'no_measurable_result_context'
