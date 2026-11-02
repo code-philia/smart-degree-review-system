@@ -1,5 +1,5 @@
 import { Select } from 'radix-ui';
-import { Check, CheckCircle2, ChevronDown, ChevronUp, CircleAlert, CircleHelp, CircleX, Funnel, Info, LoaderCircle, TriangleAlert } from 'lucide-react';
+import { Check, CheckCircle2, ChevronDown, ChevronUp, CircleAlert, CircleHelp, CircleX, FlaskConical, Funnel, Info, LoaderCircle, TriangleAlert } from 'lucide-react';
 
 export type RuleSeverity = 'error' | 'warning' | 'info';
 export type RuleSeverityCounts = Record<RuleSeverity, number>;
@@ -15,6 +15,12 @@ export type RuleFilterOption = {
 const labels = { running: '正在检测', error: '检测失败', needs_review: '待核查', not_applicable: '不适用', execution_warning: '规则未实现警告' };
 const levels = ['error', 'warning', 'info'] as const;
 const levelLabels = { error: '严重', warning: '警告', info: '提示' };
+
+function ExperimentalBadge({ ruleId }: { ruleId: string }) {
+  return ruleId === 'abstract_numeric_consistency_check'
+    ? <span role="img" aria-label="实验性规则" title="实验性规则" className="inline-flex h-5 shrink-0 items-center gap-1 rounded-md bg-amber-50 px-1.5 text-[10px] font-medium leading-none text-amber-800"><FlaskConical aria-hidden="true" className="size-3" />实验性</span>
+    : null;
+}
 
 function resultOrder(option: RuleFilterOption) {
   return option.count > 0 ? 0 : option.status === 'completed' ? 3 : option.status === 'running' ? 2 : 1;
@@ -66,7 +72,7 @@ export function RuleFilter({ options, value, onValueChange, totalCount, severity
   return <Select.Root value={value} onValueChange={onValueChange}>
     <Select.Trigger aria-label="按检查项筛选" className="group mt-3 flex min-h-13 w-full items-center gap-2.5 rounded-2xl border border-slate-200 bg-white px-3 py-3 text-left text-sm text-slate-800 outline-none transition-colors hover:border-slate-300 focus-visible:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-100 data-[state=open]:border-slate-300 motion-reduce:transition-none">
       <Funnel className="size-4 shrink-0 text-slate-500" aria-hidden="true" />
-      <span className="min-w-0 flex-1 truncate font-medium" title={selected.title}><Select.Value>{selected.title}</Select.Value></span>
+      <span className="flex min-w-0 flex-1 items-center gap-1.5 font-medium"><span className="min-w-0 truncate" title={selected.title}><Select.Value>{selected.title}</Select.Value></span><ExperimentalBadge ruleId={selected.id} /></span>
       <span aria-hidden="true" className="shrink-0"><RuleBadges option={selected} severity={severity} runningCount={selected.id === 'all' ? visible.filter(option => option.status === 'running').length : 1} /></span>
       <Select.Icon asChild><ChevronDown className="size-4 shrink-0 text-slate-400 transition-transform group-data-[state=open]:rotate-180 motion-reduce:transition-none" /></Select.Icon>
     </Select.Trigger>
@@ -78,7 +84,7 @@ export function RuleFilter({ options, value, onValueChange, totalCount, severity
           {[all, ...visible].map(option => <Select.Item key={option.id} value={option.id} textValue={option.title}
             className={`relative flex min-h-13 cursor-default select-none items-center gap-3 rounded-xl py-3 pr-3 pl-8 text-xs outline-none data-[highlighted]:bg-slate-50 data-[state=checked]:font-semibold ${option.id === 'all' ? 'mb-1 border-b border-slate-100 text-sm font-semibold' : ''}`}>
             <Select.ItemIndicator className="absolute left-2.5 text-brand-600"><Check className="size-3.5" /></Select.ItemIndicator>
-            <span className="min-w-0 flex-1 whitespace-normal leading-5"><Select.ItemText>{option.title}<span className="sr-only">，{statusLabel(option, severity)}</span></Select.ItemText></span>
+            <span className="flex min-w-0 flex-1 items-center gap-1.5 leading-5"><Select.ItemText className="min-w-0 whitespace-normal">{option.title}<span className="sr-only">，{statusLabel(option, severity)}</span></Select.ItemText><ExperimentalBadge ruleId={option.id} /></span>
             <span aria-hidden="true">{option.id === 'all' ? <span className="whitespace-nowrap text-[11px] font-normal text-slate-400">{visible.length} 条规则</span> : <RuleBadges option={option} severity={severity} />}</span>
           </Select.Item>)}
         </Select.Viewport>
