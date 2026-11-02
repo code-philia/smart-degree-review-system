@@ -60,7 +60,7 @@ describe('durable MinerU paper-lint jobs', () => {
     const submitted = await request(app).post('/api/normative/paper-lint/run?filename=test.pdf')
       .set('Cookie', cookies.student01)
       .set('Content-Type', 'application/pdf')
-      .set('X-Paper-Lint-Rule-Ids', 'sjtu_rule_13')
+      .set('X-Paper-Lint-Rule-Ids', 'sjtu_rule_18')
       .send(pdf).expect(202);
     expect(submitted.body.job_id).toBeTruthy();
     expect(submitted.body.status).toMatch(/pending|running|completed/);
@@ -99,10 +99,11 @@ describe('durable MinerU paper-lint jobs', () => {
   });
 
   it('resumes a persisted running job once and keeps failure visible', async () => {
+    const callsBefore = service.runPaperLint.mock.calls.length;
     service.runPaperLint.mockRejectedValueOnce(new Error('parse failed'));
     const submitted = await request(app).post('/api/normative/paper-lint/run')
       .set('Cookie', cookies.student01).set('Content-Type', 'application/pdf')
-      .set('X-Paper-Lint-Rule-Ids', 'sjtu_rule_14').send(pdf).expect(202);
+      .set('X-Paper-Lint-Rule-Ids', 'sjtu_rule_22').send(pdf).expect(202);
     const id = submitted.body.job_id;
     await jobs.waitForIdle();
     const state = await request(app).get('/api/normative/paper-lint/jobs/' + id)
@@ -113,7 +114,7 @@ describe('durable MinerU paper-lint jobs', () => {
     expect(fs.existsSync(path.join(directory, 'jobs', id + '.pdf'))).toBe(false);
     const resumedId = await jobRepository.createJob({
       userId: 'student01', sourceFilename: 'resumed.pdf', pdfBuffer: pdf,
-      selectedRuleIds: ['sjtu_rule_14'], externalProcessingConsent: false,
+      selectedRuleIds: ['sjtu_rule_22'], externalProcessingConsent: false,
     });
     await run('UPDATE paper_lint_jobs SET status = ? WHERE id = ?', ['running', resumedId]);
     const restarted = createPaperLintJobService(service);
@@ -125,10 +126,10 @@ describe('durable MinerU paper-lint jobs', () => {
     expect(resumed.body.report_id).toBe(resumedId);
     await restarted.resumeJobs();
     await restarted.waitForIdle();
-    expect(service.runPaperLint).toHaveBeenCalledTimes(3);
+    expect(service.runPaperLint).toHaveBeenCalledTimes(callsBefore + 2);
   });
-  it.each(['sjtu_rule_11', 'sjtu_rule_15', 'sjtu_rule_16', 'sjtu_rule_29'])(
-    'runs %s in a durable background job because scanned pages can need OCR', async (ruleId) => {
+  it.each(['sjtu_rule_18', 'sjtu_rule_22', 'sjtu_rule_24', 'sjtu_rule_28'])(
+    'runs %s in a durable background job without holding the upload request open', async (ruleId) => {
       const submitted = await request(app).post('/api/normative/paper-lint/run')
         .set('Cookie', cookies.student01).set('Content-Type', 'application/pdf')
         .set('X-Paper-Lint-Rule-Ids', ruleId).send(pdf).expect(202);
@@ -140,5 +141,93 @@ describe('durable MinerU paper-lint jobs', () => {
         .set('Cookie', cookies.student01).expect(200);
       expect(report.body.selected_rule_ids).toEqual([ruleId]);
     });
+
+  it('shows queue position and removes cancelled waiting jobs from the count', async () => {
+    let release;
+    const waiting = new Promise(resolve => { release = resolve; });
+    service.runPaperLint.mockImplementationOnce(async ({ selectedRuleIds }) => {
+      await waiting; return { result, selectedRuleIds };
+    });
+    const submit = () => request(app).post('/api/normative/paper-lint/run')
+      .set('Cookie', cookies.student01).set('Content-Type', 'application/pdf')
+      .set('X-Paper-Lint-Rule-Ids', 'sjtu_rule_18').send(pdf).expect(202);
+    try {
+      const first = await submit();
+      const second = await submit();
+      const third = await submit();
+      const position = await request(app).get('/api/normative/paper-lint/jobs/' + third.body.job_id)
+        .set('Cookie', cookies.student01).expect(200);
+      expect(position.body.status).toBe('pending');
+      expect(position.body.queue_position).toBe(3);
+      await request(app).post('/api/normative/paper-lint/jobs/' + second.body.job_id + '/cancel')
+        .set('Cookie', cookies.student01).expect(200);
+      const after = await request(app).get('/api/normative/paper-lint/jobs/' + third.body.job_id)
+        .set('Cookie', cookies.student01).expect(200);
+      expect(after.body.queue_position).toBe(2);
+    } finally { release(); await jobs.waitForIdle(); }
+  });
+
+  it('reuses successful findings, retries failures and missing rules, and never uploads a new PDF', async () => {
+    const reports = require('../src/normative/paperLintReportRepository');
+    const kept = { rule_id: 'sjtu_rule_18', rule_run_id: 'kept', severity: 'warning',
+      execution_status: 'completed', outcome: 'issues_found', findings: [{ finding_id: 'old', message: '保留的问题' }] };
+    const failed = { ...kept, rule_id: 'sjtu_rule_22', execution_status: 'error', outcome: 'inconclusive', findings: [] };
+    const uncertain = { ...failed, rule_id: 'sjtu_rule_24', execution_status: 'completed' };
+    const source = await reports.createPaperLintReport({ userId: 'student01', sourceFilename: 'original.pdf', pdfBuffer: pdf,
+      selectedRuleIds: ['sjtu_rule_18','sjtu_rule_22','sjtu_rule_24'], result: { ...result, rule_runs: [kept,failed,uncertain] } });
+    await request(app).post(`/api/normative/paper-lint/reports/${source.id}/rerun`)
+      .set('Cookie', cookies.supervisor01).send({ selected_rule_ids: ['sjtu_rule_28'] }).expect(404);
+    service.runPaperLint.mockImplementationOnce(async ({ selectedRuleIds, pdfBuffer, onProgress }) => {
+      expect(selectedRuleIds).toEqual(['sjtu_rule_22','sjtu_rule_24','sjtu_rule_28']);
+      expect(pdfBuffer.equals(pdf)).toBe(true);
+      const runs = selectedRuleIds.map(id => ({ ...kept, rule_id: id, findings: [], outcome: 'passed' }));
+      await onProgress({ completed_rule_ids: selectedRuleIds, total_rule_ids: selectedRuleIds, rule_runs: runs });
+      return { selectedRuleIds, result: { ...result, rule_runs: runs } };
+    });
+    const rerun = await request(app).post(`/api/normative/paper-lint/reports/${source.id}/rerun`)
+      .set('Cookie', cookies.student01).set('X-Paper-Lint-Request-Id', 'rerun-one')
+      .send({ selected_rule_ids: ['sjtu_rule_28'] }).expect(202);
+    await jobs.waitForIdle();
+    const saved = await reports.findPaperLintReportByIdForUser(rerun.body.job_id, 'student01');
+    expect(saved.selected_rule_ids).toEqual(['sjtu_rule_18','sjtu_rule_22','sjtu_rule_24','sjtu_rule_28']);
+    expect(saved.result.rule_runs[0]).toEqual(kept);
+    expect(saved.summary.finding_count).toBe(1);
+    expect(saved.result.incremental.reused_rule_ids).toEqual(['sjtu_rule_18']);
+    expect((await reports.findPaperLintReportByIdForUser(source.id, 'student01')).result.rule_runs).toHaveLength(3);
+    const state = await jobs.getForUser(rerun.body.job_id, 'student01');
+    expect(state.progress.completed_rule_ids).toHaveLength(4);
+  });
+
+  it('persists reusable results across a restart without depending on the old report', async () => {
+    const kept = { rule_id: 'sjtu_rule_18', rule_run_id: 'old', severity: 'warning', execution_status: 'completed', outcome: 'passed', findings: [] };
+    const id = await jobRepository.createJob({ userId: 'student01', sourceFilename: 'durable.pdf', pdfBuffer: pdf,
+      selectedRuleIds: ['sjtu_rule_18', 'sjtu_rule_22'], externalProcessingConsent: true,
+      reuse: { source_report_id: 'deleted-source', result: { ...result, rule_runs: [kept] } } });
+    await run("UPDATE paper_lint_jobs SET status='running' WHERE id=?", [id]);
+    service.runPaperLint.mockImplementationOnce(async ({ selectedRuleIds }) => {
+      expect(selectedRuleIds).toEqual(['sjtu_rule_22']);
+      return { selectedRuleIds, result: { ...result, rule_runs: [{ ...kept, rule_id: 'sjtu_rule_22' }] } };
+    });
+    const restarted = createPaperLintJobService(service);
+    await restarted.resumeJobs(); await restarted.waitForIdle();
+    expect((await restarted.getForUser(id, 'student01')).status).toBe('completed');
+    const saved = await require('../src/normative/paperLintReportRepository').findPaperLintReportByIdForUser(id, 'student01');
+    expect(saved.result.rule_runs.map(run => run.rule_id)).toEqual(['sjtu_rule_18', 'sjtu_rule_22']);
+  });
+
+  it('rejects a redundant rerun and a missing original PDF without submitting model work', async () => {
+    const reports = require('../src/normative/paperLintReportRepository');
+    const kept = { rule_id: 'sjtu_rule_18', rule_run_id: 'kept', severity: 'warning', execution_status: 'completed', outcome: 'passed', findings: [] };
+    const source = await reports.createPaperLintReport({ userId: 'student01', sourceFilename: 'missing.pdf', pdfBuffer: pdf,
+      selectedRuleIds: ['sjtu_rule_18'], result: { ...result, rule_runs: [kept] } });
+    const before = service.runPaperLint.mock.calls.length;
+    await request(app).post(`/api/normative/paper-lint/reports/${source.id}/rerun`)
+      .set('Cookie', cookies.student01).send({ selected_rule_ids: [] }).expect(400);
+    const file = await reports.getPaperLintReportPdfFile(source.id, 'student01');
+    fs.unlinkSync(file.path);
+    await request(app).post(`/api/normative/paper-lint/reports/${source.id}/rerun`)
+      .set('Cookie', cookies.student01).send({ selected_rule_ids: ['sjtu_rule_22'] }).expect(410);
+    expect(service.runPaperLint).toHaveBeenCalledTimes(before);
+  });
 
 });

@@ -113,6 +113,21 @@ function createReviewPilotPaperLintRouter(service = defaultService, exampleServi
     } catch (error) { return sendError(error, res, next); }
   });
 
+  router.post('/reports/:reportId/rerun', requireAuth({ allowedRoles }), express.json({ limit: '16kb' }), async (req, res, next) => {
+    try {
+      const ids = req.body?.selected_rule_ids;
+      if (!Array.isArray(ids) || ids.length > MVP_RULE_IDS.size || ids.some(id => typeof id !== 'string' || !MVP_RULE_IDS.has(id))) {
+        return res.status(400).json({ code: 400, message: '请选择有效的检测规则' });
+      }
+      const job = await jobService.enqueueIncremental({
+        userId: req.user.id, reportId: req.params.reportId, selectedRuleIds: ids,
+        externalProcessingConsent: true,
+        requestId: typeof req.get('x-paper-lint-request-id') === 'string' ? req.get('x-paper-lint-request-id') : null,
+      });
+      return res.status(202).json(job);
+    } catch (error) { sendError(error, res, next); }
+  });
+
   router.get('/reports/:reportId/document-metrics', requireAuth({ allowedRoles }), async (req, res, next) => {
     try {
       const pdf = await paperLintReportRepository.getPaperLintReportPdfFile(req.params.reportId, req.user.id);

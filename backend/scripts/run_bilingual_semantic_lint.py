@@ -16,7 +16,7 @@ from typing import Any
 
 from paper_model_bilingual_rules import extract_bilingual_facts, _json_object, _bounded_text
 from paper_compiler.frontend import build_paper
-from paper_compiler.campus_requests import campus_request_slot
+from paper_compiler.campus_requests import campus_request
 from paper_compiler.semantic_cache import SemanticResponseCache
 
 
@@ -103,25 +103,24 @@ def request_json(messages: list[dict[str, str]], *, observer=None) -> tuple[dict
         )
     except (TypeError, ValueError):
         request_timeout = 300.0
-    for attempt in range(4):
+    attempts = 0
+    def send(remaining):
+        nonlocal attempts
+        attempts += 1
         if observer:
-            observer('request_attempt', {'attempt': attempt + 1})
+            observer('request_attempt', {'attempt': attempts})
         try:
-            with campus_request_slot(request.full_url, dict(request.header_items()), request_timeout) as remaining:
-                with opener.open(request, timeout=remaining) as response:
-                    raw = response.read(8 * 1024 * 1024 + 1)
-            break
+            with opener.open(request, timeout=remaining) as response:
+                return response.read(8 * 1024 * 1024 + 1)
         except urllib.error.HTTPError as error:
-            detail = error.read(2000).decode("utf-8", "replace")
             if observer:
-                observer('http_error', {'attempt': attempt + 1, 'status': error.code})
-            if error.code == 429 and attempt < 3:
-                retry_after = error.headers.get("Retry-After") if error.headers else None
-                try: delay = min(30.0, max(1.0, float(retry_after)))
-                except (TypeError, ValueError): delay = float(2 ** attempt)
-                time.sleep(delay)
-                continue
-            raise RuntimeError(f"校内 DeepSeek 请求失败（HTTP {error.code}）：{detail[:500]}") from error
+                observer('http_error', {'attempt': attempts, 'status': error.code})
+            raise
+    try:
+        raw = campus_request(request.full_url, dict(request.header_items()), request_timeout, send)
+    except urllib.error.HTTPError as error:
+        detail = error.read(2000).decode("utf-8", "replace")
+        raise RuntimeError(f"校内 DeepSeek 请求失败（HTTP {error.code}）：{detail[:500]}") from error
     if observer:
         observer('raw_response', {'body': raw.decode('utf-8', 'replace')})
     data = json.loads(raw)

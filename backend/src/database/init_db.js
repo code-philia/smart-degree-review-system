@@ -314,6 +314,9 @@ async function initializeDatabase(options = {}) {
     if (!paperLintJobColumns.some((column) => column.name === 'progress_json')) {
       await runStatement(database, 'ALTER TABLE paper_lint_jobs ADD COLUMN progress_json TEXT;');
     }
+    if (!paperLintJobColumns.some((column) => column.name === 'reuse_json')) {
+      await runStatement(database, 'ALTER TABLE paper_lint_jobs ADD COLUMN reuse_json TEXT;');
+    }
     if (!paperLintJobColumns.some((column) => column.name === 'request_id')) {
       await runStatement(database, 'ALTER TABLE paper_lint_jobs ADD COLUMN request_id TEXT;');
     }

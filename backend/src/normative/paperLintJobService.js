@@ -35,17 +35,32 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
       } else {
         const pdfBuffer = await fs.promises.readFile(job.source_pdf_path);
         const selectedRuleIds = JSON.parse(job.selected_rule_ids_json);
+        const reuse = job.reuse_json ? JSON.parse(job.reuse_json) : null;
+        const reusedRuns = reuse?.result?.rule_runs || [];
+        const reusedIds = reusedRuns.map(run => run.rule_id);
+        const pendingRuleIds = selectedRuleIds.filter(id => !reusedIds.includes(id));
+        const publishProgress = progress => repository.updateProgress(id, {
+          ...progress,
+          completed_rule_ids: [...new Set([...reusedIds, ...(progress.completed_rule_ids || [])])],
+          total_rule_ids: selectedRuleIds,
+          rule_runs: [...reusedRuns, ...(progress.rule_runs || [])],
+        });
+        if (reuse) await publishProgress({ completed_rule_ids: [], rule_runs: [] });
         const checked = await paperLintService.runPaperLint({
-          pdfBuffer, selectedRuleIds, externalProcessingConsent: Boolean(job.external_consent),
+          pdfBuffer, selectedRuleIds: pendingRuleIds, externalProcessingConsent: Boolean(job.external_consent),
           background: true,
           runId: id,
           signal: controller.signal,
-          onProgress: (progress) => repository.updateProgress(id, progress),
+          onProgress: publishProgress,
         });
         if (controller.signal.aborted) return;
+        const result = reuse ? {
+          ...defaultPaperLintService.mergePaperLintResults(reuse.result, checked.result, selectedRuleIds),
+          incremental: { source_report_id: reuse.source_report_id, reused_rule_ids: reusedIds, rerun_rule_ids: pendingRuleIds },
+        } : checked.result;
         await reportRepository.createPaperLintReport({
           userId: job.user_id, sourceFilename: job.source_filename, pdfBuffer,
-          selectedRuleIds: checked.selectedRuleIds, result: checked.result, reportId: id,
+          selectedRuleIds, result, reportId: id,
         });
         if (!(await repository.completeJob(id, id))) {
           await reportRepository.deletePaperLintReportForUser(id, job.user_id);
@@ -104,12 +119,36 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
   }
 
   async function enqueue({ userId, sourceFilename, pdfBuffer, selectedRuleIds,
-                           externalProcessingConsent, requestId }) {
+                           externalProcessingConsent, requestId, reuse = null }) {
     const id = await repository.createJob({
-      userId, sourceFilename, pdfBuffer, selectedRuleIds, externalProcessingConsent, requestId,
+      userId, sourceFilename, pdfBuffer, selectedRuleIds, externalProcessingConsent, requestId, reuse,
     });
     add(id);
     return repository.getJobForUser(id, userId);
+  }
+
+  async function enqueueIncremental({ userId, reportId, selectedRuleIds = [], externalProcessingConsent, requestId }) {
+    const source = await reportRepository.findPaperLintReportByIdForUser(reportId, userId);
+    if (!source) throw Object.assign(new Error('未找到该审查报告'), { status: 404 });
+    const allIds = [...new Set([...source.selected_rule_ids, ...selectedRuleIds])];
+    const reusedRuns = source.result.rule_runs.filter(run => allIds.includes(run.rule_id)
+      && run.execution_status === 'completed' && run.outcome !== 'inconclusive');
+    const toRun = allIds.filter(id => !reusedRuns.some(run => run.rule_id === id));
+    if (!toRun.length) throw Object.assign(new Error('所选规则均已完成，请选择新增规则后再补跑'), { status: 400 });
+    await paperLintService.normalizeSelectedRuleIds(toRun, externalProcessingConsent);
+    const pdf = await reportRepository.getPaperLintReportPdfFile(reportId, userId);
+    if (!pdf?.path) throw Object.assign(new Error('原 PDF 已不可用，无法增量补跑，请重新上传'), { status: 410 });
+    let pdfBuffer;
+    try { pdfBuffer = await fs.promises.readFile(pdf.path); }
+    catch (error) {
+      if (error.code === 'ENOENT') throw Object.assign(new Error('原 PDF 已不可用，请重新上传'), { status: 410 });
+      throw error;
+    }
+    paperLintService.validatePdf(pdfBuffer);
+    return enqueue({ userId, sourceFilename: source.source_filename, pdfBuffer,
+      selectedRuleIds: allIds, externalProcessingConsent, requestId,
+      reuse: { source_report_id: reportId, result: { ...source.result, rule_runs: reusedRuns } },
+    });
   }
 
   async function resumeJobs() {
@@ -137,7 +176,7 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
     }
   }
 
-  return { enqueue, getForUser: repository.getJobForUser, getPdfForUser, cancelForUser, resumeJobs, waitForIdle };
+  return { enqueue, enqueueIncremental, getForUser: repository.getJobForUser, getPdfForUser, cancelForUser, resumeJobs, waitForIdle };
 }
 
 const defaultJobService = createPaperLintJobService();

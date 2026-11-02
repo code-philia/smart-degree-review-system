@@ -147,6 +147,10 @@ export type PaperLintRunResponse = {
 
 export type PaperLintJobResponse = {
   job_id: string;
+  user_id?: string;
+  source_filename?: string;
+  selected_rule_ids?: string[];
+  queue_position?: number;
   status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
   report_id: string | null;
   error_message: string | null;
@@ -302,5 +306,15 @@ export async function fetchPaperLintBuiltInCasePdf(caseId: string): Promise<Blob
   const response = await apiClient.get<Blob>(`/normative/paper-lint/examples/${caseId}/pdf`, {
     responseType: 'blob',
   });
+  return response.data;
+}
+
+
+export async function rerunPaperLintReport(reportId: string, selectedRuleIds: string[], requestId: string): Promise<PaperLintJobResponse> {
+  const response = await apiClient.post<PaperLintJobResponse>(
+    `/normative/paper-lint/reports/${encodeURIComponent(reportId)}/rerun`,
+    { selected_rule_ids: selectedRuleIds },
+    { headers: { 'X-Paper-Lint-Request-Id': requestId }, timeout: 60_000 },
+  );
   return response.data;
 }

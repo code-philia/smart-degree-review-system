@@ -13,11 +13,14 @@ function publicJob(row) {
     job_id: row.id, status: row.cancelled_at ? 'cancelled' : row.status, report_id: row.report_id || null,
     error_message: row.error_message || null, created_at: row.created_at,
     updated_at: row.updated_at,
+    user_id: row.user_id, source_filename: row.source_filename,
+    selected_rule_ids: JSON.parse(row.selected_rule_ids_json || '[]'),
+    queue_position: row.status === 'pending' && !row.cancelled_at ? Number(row.queue_position || 1) : 0,
     progress: row.progress_json ? (() => { try { return JSON.parse(row.progress_json); } catch { return null; } })() : null,
   };
 }
 
-async function createJob({ userId, sourceFilename, pdfBuffer, selectedRuleIds, externalProcessingConsent, requestId = null }) {
+async function createJob({ userId, sourceFilename, pdfBuffer, selectedRuleIds, externalProcessingConsent, requestId = null, reuse = null }) {
   if (requestId) {
     const existing = await get('SELECT id FROM paper_lint_jobs WHERE user_id = ? AND request_id = ?', [userId, requestId]);
     if (existing) return existing.id;
@@ -28,9 +31,9 @@ async function createJob({ userId, sourceFilename, pdfBuffer, selectedRuleIds, e
   await fs.promises.mkdir(directory, { recursive: true, mode: 0o700 });
   await fs.promises.writeFile(pdfPath, pdfBuffer, { flag: 'wx', mode: 0o600 });
   try {
-    await run('INSERT INTO paper_lint_jobs (id,user_id,source_filename,source_pdf_path,selected_rule_ids_json,external_consent,request_id,status,attempts,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+    await run('INSERT INTO paper_lint_jobs (id,user_id,source_filename,source_pdf_path,selected_rule_ids_json,external_consent,request_id,status,attempts,created_at,updated_at,reuse_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
       [id, userId, sourceFilename, pdfPath, JSON.stringify(selectedRuleIds),
-        externalProcessingConsent ? 1 : 0, requestId, 'pending', 0, new Date().toISOString(), new Date().toISOString()]);
+        externalProcessingConsent ? 1 : 0, requestId, 'pending', 0, new Date().toISOString(), new Date().toISOString(), reuse ? JSON.stringify(reuse) : null]);
   } catch (error) {
     await fs.promises.rm(pdfPath, { force: true });
     if (requestId && String(error?.message || '').includes('UNIQUE')) {
@@ -47,13 +50,16 @@ async function getJob(id) {
 }
 
 async function getJobForUser(id, userId) {
-  return publicJob(await get('SELECT * FROM paper_lint_jobs WHERE id = ? AND user_id = ?', [id, userId]));
+  return publicJob(await get(`SELECT job.*, 1 + (SELECT count(*) FROM paper_lint_jobs other
+    WHERE other.id != job.id AND other.cancelled_at IS NULL
+      AND (other.status = 'running' OR (other.status = 'pending' AND other.rowid < job.rowid))) AS queue_position
+    FROM paper_lint_jobs job WHERE job.id = ? AND job.user_id = ?`, [id, userId]));
 }
 
 async function recoverJobs() {
   await run("UPDATE paper_lint_jobs SET status = 'pending', updated_at = ? WHERE status = 'running'",
     [new Date().toISOString()]);
-  return all("SELECT id FROM paper_lint_jobs WHERE status = 'pending' ORDER BY created_at");
+  return all("SELECT id FROM paper_lint_jobs WHERE status = 'pending' ORDER BY rowid");
 }
 
 async function claimJob(id) {

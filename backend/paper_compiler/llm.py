@@ -90,9 +90,8 @@ def load_config(path):
 
 
 def _http(url, headers, payload, timeout):
-    from .campus_requests import campus_request_slot
-    with campus_request_slot(url, headers, timeout) as remaining:
-        return _http_request(url, headers, payload, remaining)
+    from .campus_requests import campus_request
+    return campus_request(url, headers, timeout, lambda remaining: _http_request(url, headers, payload, remaining))
 
 
 def _http_request(url, headers, payload, timeout):

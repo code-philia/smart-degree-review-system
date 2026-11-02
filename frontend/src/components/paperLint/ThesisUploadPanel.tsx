@@ -25,6 +25,7 @@ type Props = {
   jobStatus: 'pending' | 'running' | null;
   jobProgress: { completed: number; total: number } | null;
   activeFilename: string | null;
+  queuePosition?: number | null;
 };
 
 const NUMERIC_RULE = 'abstract_numeric_consistency_check';
@@ -43,10 +44,11 @@ function DetectionProgress({
   jobStatus,
   jobProgress,
   activeFilename,
-}: Pick<Props, 'uploadPercent' | 'jobStatus' | 'jobProgress' | 'activeFilename'>) {
+  queuePosition,
+}: Pick<Props, 'uploadPercent' | 'jobStatus' | 'jobProgress' | 'activeFilename' | 'queuePosition'>) {
   const uploading = uploadPercent !== null;
   const phase = uploading ? 0 : jobStatus === 'running' ? 2 : 1;
-  const stages = ['正在上传', '开始解析', '开始检测', '检测完成'];
+  const stages = ['正在上传', '排队等待', '开始检测', '检测完成'];
   const rulePercent = jobStatus === 'running' && jobProgress && jobProgress.total > 0
     ? Math.round(Math.max(0, Math.min(1, jobProgress.completed / jobProgress.total)) * 100)
     : null;
@@ -109,7 +111,9 @@ function DetectionProgress({
             {phase === 0
               ? '正在传输论文文件，上传后将提交后台处理。'
               : phase === 1
-                ? '论文已上传，正在等待后台解析和检测。'
+                ? queuePosition && queuePosition > 1
+                  ? `已加入检测队列，前方还有 ${queuePosition - 1} 个任务，轮到后将自动开始。`
+                  : '已加入检测队列，轮到后将自动开始，无需重复提交。'
                 : jobProgress?.total
                   ? jobProgress.completed >= jobProgress.total
                     ? `已完成 ${jobProgress.completed} / ${jobProgress.total} 项规则，正在保存报告。`

@@ -1,6 +1,6 @@
 import { useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowUpRight, Check, ListChecks, MoreHorizontal, Search, Trash2, X } from 'lucide-react';
+import { ArrowUpRight, RotateCw, Check, ListChecks, MoreHorizontal, Search, Trash2, X } from 'lucide-react';
 import type { PaperLintReportListItem } from '../../api/paperLint';
 import { formatChinaDateTime } from '../../utils/dateTime';
 import { Button } from '../ui';
@@ -195,6 +195,7 @@ export function ReportHistoryTable({
                         <Button size="sm" variant="ghost" className="size-8 shrink-0 rounded-lg p-0 text-slate-400" disabled={deleting} aria-label={`更多操作：${record.source_filename}`} title="更多操作"><MoreHorizontal className="size-4" /></Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className={actionMenuClassName}>
+                        <DropdownMenuItem asChild className="cursor-pointer gap-2 rounded-lg px-3 py-2.5"><Link to={`${detailPath}?rerun=1`}><RotateCw />增量补跑</Link></DropdownMenuItem>
                         <DropdownMenuItem disabled={deleting} onSelect={() => onDelete([record.id])} className="cursor-pointer gap-2 rounded-lg px-3 py-2.5 text-danger-600 focus:bg-red-50 focus:text-danger-600"><Trash2 />删除报告</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>

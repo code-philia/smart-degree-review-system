@@ -1,7 +1,7 @@
 import { REVIEW_ROUTES } from '../nav/reviewRoutes';
 import { ArrowLeft, FileText } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   fetchPaperLintReport,
   fetchPaperLintDocumentMetrics,
@@ -26,12 +26,14 @@ import {
 import { Card, ErrorState, LoadingState, StatusBadge } from '../components/ui';
 import { formatChinaDateTime } from '../utils/dateTime';
 import { ReportExportDialog } from '../components/paperLint/ReportExportDialog';
+import { IncrementalRerunDialog } from '../components/paperLint/IncrementalRerunDialog';
 import { DetectionScope } from '../components/paperLint/DetectionScope';
 
 function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) {
   const isThirty = mode === 'thirty';
   const historyPath = isThirty ? REVIEW_ROUTES.history : '/normative-reports';
   const { reportId } = useParams();
+  const [searchParams] = useSearchParams();
   const [report, setReport] = useState<PaperLintRunResponse | null>(null);
   const [rules, setRules] = useState<PaperLintRule[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -164,6 +166,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
             </div>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-3">
+            <IncrementalRerunDialog key={report.id} report={report} rules={rules} initiallyOpen={searchParams.get('rerun') === '1'} />
             <ReportExportDialog report={report} rules={rules} metrics={metrics} repairs={repairSuggestions.repairSuggestionByFindingKey} />
 
           </div>

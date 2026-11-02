@@ -168,7 +168,7 @@ it('uses upload events and backend pending/running states for progress, with no 
   await act(async () => uploadProgress(37));
   expect(screen.getByRole('progressbar', { name: '检测进度' })).toHaveAttribute('aria-valuetext', '正在上传，37%');
   await act(async () => finishUpload(pendingJob));
-  expect(screen.getByRole('progressbar', { name: '检测进度' })).toHaveAttribute('aria-valuetext', '开始解析');
+  expect(screen.getByRole('progressbar', { name: '检测进度' })).toHaveAttribute('aria-valuetext', '排队等待');
   expect(screen.queryByText(/通过邮件/)).not.toBeInTheDocument();
   expect(screen.queryByRole('heading', { name: /报告详情/ })).not.toBeInTheDocument();
 });
@@ -405,4 +405,14 @@ it('keeps the original content group order and puts external references last', a
     expect.stringContaining('bilingual_keywords_correspondence_check'),
     expect.stringContaining('sjtu_rule_32'),
   ]);
+});
+
+
+it('shows the real queue position without suggesting another upload', async () => {
+  vi.mocked(fetchPaperLintJob).mockResolvedValueOnce({ ...pendingJob, queue_position: 3 });
+  showUpload(); await choosePdf();
+  fireEvent.click(screen.getByRole('button', { name: '开始检测', exact: true }));
+  expect(await screen.findByText('已加入检测队列，前方还有 2 个任务，轮到后将自动开始。')).toBeInTheDocument();
+  expect(screen.getByRole('progressbar', { name: '检测进度' })).toHaveAttribute('aria-valuetext', '排队等待');
+  expect(runReviewPilotPaperLint).toHaveBeenCalledTimes(1);
 });

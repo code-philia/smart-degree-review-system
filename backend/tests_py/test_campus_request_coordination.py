@@ -154,3 +154,36 @@ def test_expired_or_abandoned_slots_do_not_block_new_requests(tmp_path, monkeypa
     with sqlite3.connect(path) as db:
         db.execute('INSERT INTO leases VALUES (?,?,?,?)', ('expired', 'same', 1, clock.now - 1))
     with gate.slot('same', timeout=1): pass
+
+
+def test_campus_rate_limit_waits_and_retries_until_success(tmp_path, monkeypatch):
+    api, clock = fake_clock(monkeypatch)
+    monkeypatch.setenv('SJTU_API_COORDINATOR_DB', str(tmp_path / 'retry.sqlite'))
+    attempts = []
+    def send(timeout):
+        attempts.append((clock.now, timeout))
+        if len(attempts) < 6:
+            raise HTTPError('https://models.sjtu.edu.cn/api/v1', 429, 'busy', {'Retry-After': '2'}, None)
+        return {'ok': True}
+    value = api.campus_request('https://models.sjtu.edu.cn/api/v1/chat/completions', {}, 30, send)
+    assert value == {'ok': True}
+    assert len(attempts) == 6
+    assert all(b[0] - a[0] >= 2 for a, b in zip(attempts, attempts[1:]))
+    assert attempts[-1][1] < attempts[0][1]
+
+
+def test_rate_limit_retries_keep_one_deadline_and_do_not_retry_auth_failures(tmp_path, monkeypatch):
+    api, clock = fake_clock(monkeypatch)
+    monkeypatch.setenv('SJTU_API_COORDINATOR_DB', str(tmp_path / 'deadline.sqlite'))
+    def busy(timeout):
+        raise HTTPError('https://models.sjtu.edu.cn/api/v1', 429, 'busy', {'Retry-After': '2'}, None)
+    with pytest.raises(TimeoutError):
+        api.campus_request('https://models.sjtu.edu.cn/api/v1/chat/completions', {}, 3, busy)
+    assert clock.now < 1003.1
+    calls = []
+    def denied(timeout):
+        calls.append(timeout)
+        raise HTTPError('https://models.sjtu.edu.cn/api/v1', 401, 'denied', {}, None)
+    with pytest.raises(HTTPError):
+        api.campus_request('https://models.sjtu.edu.cn/api/v1/chat/completions', {}, 10, denied)
+    assert len(calls) == 1

@@ -142,6 +142,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   const [runError, setRunError] = useState<string | null>(null);
   const requestIdRef = useRef<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const [activeFilename, setActiveFilename] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<'pending' | 'running' | null>(null);
   const [jobProgress, setJobProgress] = useState<{ completed: number; total: number } | null>(null);
@@ -312,13 +313,15 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   }
 
   async function pollJob(jobId: string, filename: string, sourceFile?: File, generation = runGenerationRef.current) {
-    const deadline = Date.now() + 25 * 60 * 1000;
+    let deadline = Date.now() + 25 * 60 * 1000;
     let disconnected = false;
     while (generation === runGenerationRef.current && Date.now() <= deadline) {
       try {
         const job = await fetchPaperLintJob(jobId);
         if (generation !== runGenerationRef.current) return;
         if (job.status === 'pending' || job.status === 'running') setJobStatus(job.status);
+        setQueuePosition(job.queue_position ?? null);
+        if (job.status === 'pending') deadline = Date.now() + 25 * 60 * 1000;
         if (disconnected) {
           disconnected = false;
           setRunError(null);
@@ -341,7 +344,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
           }
         }
         if (job.status === 'pending' || job.status === 'running') {
-          await new Promise((resolve) => setTimeout(resolve, 300));
+          await new Promise((resolve) => setTimeout(resolve, job.status === 'pending' ? 1500 : 500));
           continue;
         }
         if (job.status === 'cancelled') {
@@ -507,6 +510,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     setStopped(false);
     setJobProgress(null);
     setJobStatus(null);
+    setQueuePosition(null);
     setActiveFilename(file.name);
     setSemanticStage(0);
     setRunError(null);
@@ -578,6 +582,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     jobStatus={jobStatus}
     jobProgress={jobProgress}
     activeFilename={activeFilename}
+    queuePosition={queuePosition}
   />
     {running && jobStatus && activeJobId ? <LivePaperLintReport
       file={file || { name: activeFilename || '论文.pdf', url: `/api/normative/paper-lint/jobs/${encodeURIComponent(activeJobId)}/pdf` }}

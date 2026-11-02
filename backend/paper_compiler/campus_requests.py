@@ -134,3 +134,23 @@ def campus_request_slot(url, headers, timeout):
                         _setting('SJTU_API_REQUESTS_PER_MINUTE', 90, 100))
     with gate.slot(account, timeout=timeout) as remaining:
         yield remaining
+
+
+def campus_request(url, headers, timeout, send):
+    """Wait for campus capacity and retry 429s within one overall deadline."""
+    target = urlsplit(url)
+    if target.scheme != 'https' or target.hostname != 'models.sjtu.edu.cn':
+        return send(timeout)
+    deadline = time.monotonic() + float(timeout)
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError('campus API request timed out waiting for capacity')
+        try:
+            with campus_request_slot(url, headers, remaining) as available:
+                return send(available)
+        except Exception as error:
+            if getattr(error, 'code', getattr(error, 'status', None)) != 429:
+                raise
+            # slot() records the shared Retry-After cooldown before releasing.
+            # The next attempt queues there; a 429 never becomes a rule verdict.
