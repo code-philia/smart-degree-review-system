@@ -148,6 +148,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
   const metricsPlaceholder = metricsLoading ? '统计中…' : '未统计';
   const pdfUrl = `/api/normative/paper-lint/reports/${encodeURIComponent(reportId!)}/pdf`;
   const numericReviewRun = report.result.rule_runs.find(run => run.rule_id === 'abstract_numeric_consistency_check');
+  const numericSelected = (report.selected_rule_ids ?? report.result.rule_runs.map(run => run.rule_id)).includes('abstract_numeric_consistency_check');
   const isSemanticReport = Boolean(numericReviewRun && report.result.rule_runs.length === 1);
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-5">
@@ -195,7 +196,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
                   : '基础检查通过')}
           </StatusBadge>
         </div>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <div className={`grid grid-cols-2 gap-3 md:grid-cols-3 ${numericSelected ? 'xl:grid-cols-4 2xl:grid-cols-7' : 'xl:grid-cols-6'}`}>
           {[
             ['论文总页数', metrics?.page_count?.toLocaleString('en-US') ?? metricsPlaceholder],
             ['论文总字数', metrics?.text_available && metrics.word_count != null ? metrics.word_count.toLocaleString('en-US') : metricsPlaceholder],
@@ -203,10 +204,11 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
             ['严重错误数', summary.error_finding_count],
             ['警告错误数', summary.warning_finding_count],
             ['提示错误数', summary.info_finding_count],
+            ...(numericSelected ? [['规则未实现警告数', summary.execution_warning_count ?? 0]] : []),
           ].map(([label, value]) => (
-            <div key={String(label)} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-              <p className="text-xs text-slate-500">{label}</p>
-              <p className="mt-1 text-2xl font-black text-slate-900">{value}</p>
+            <div key={String(label)} className={`rounded-lg border p-3 ${label === '规则未实现警告数' ? 'border-violet-100 bg-violet-50/50' : 'border-slate-200 bg-slate-50'}`}>
+              <p className={`text-xs ${label === '规则未实现警告数' ? 'text-violet-700' : 'text-slate-500'}`}>{label}</p>
+              <p className={`mt-1 text-2xl font-black ${label === '规则未实现警告数' ? 'text-violet-700' : 'text-slate-900'}`}>{value}</p>
             </div>
           ))}
         </div>

@@ -17,6 +17,7 @@ export type RuleFilterOption = {
 export function isRuleVisible(option: RuleFilterOption, level: RuleFilterLevel) {
   if (level === 'all') return true;
   if (level === 'execution') return option.status === 'execution_warning' || option.hasExecutionWarning === true;
+  if (option.status === 'running') return true;
   if (option.counts[level] > 0) return true;
   return level === 'info' && !option.hasExecutionWarning
     && ['error', 'needs_review', 'not_applicable'].includes(option.status);

@@ -196,15 +196,18 @@ export function flattenPaperLintFindings(result: Pick<PaperLintResult, 'rule_run
       });
     }
   }
-  return items
-    .sort(
+  const ordered = items.sort(
       (left, right) =>
         comparePaperLintRuleIds(left.ruleRun.rule_id, right.ruleRun.rule_id) ||
         pageNumber(left) - pageNumber(right) ||
         topPosition(left) - topPosition(right) ||
         left.index - right.index,
-    )
-    .map((item, index) => ({ ...item, index }));
+    );
+  const severityOrder = { error: 0, warning: 1, info: 2 };
+  const numericFindings = ordered.filter(item => item.ruleRun.rule_id === numericRule)
+    .sort((left, right) => severityOrder[left.ruleRun.severity] - severityOrder[right.ruleRun.severity]);
+  let numericIndex = 0;
+  return ordered.map((item, index) => ({ ...(item.ruleRun.rule_id === numericRule ? numericFindings[numericIndex++] : item), index }));
 }
 
 export function findingPageLabel(item: PaperLintFindingItem): string | null {

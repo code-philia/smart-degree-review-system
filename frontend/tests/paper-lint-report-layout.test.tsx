@@ -107,3 +107,17 @@ it('passes the saved user selection to report categories and rule filtering', as
   show();
   expect(await screen.findByLabelText('本次检测规则')).toHaveTextContent('one,two,three');
 });
+
+it.each([false, true])('adds the execution-warning statistic only for a selected experimental rule (selected=%s)', async selected => {
+  const id = 'abstract_numeric_consistency_check';
+  vi.mocked(fetchPaperLintReport).mockResolvedValue({ ...report, selected_rule_ids: [...report.selected_rule_ids!, ...(selected ? [id] : [])],
+    result: { ...report.result, rule_runs: [...report.result.rule_runs, ...(selected ? [{ rule_id: id, rule_run_id: 'numeric', severity: 'warning' as const,
+      execution_status: 'completed' as const, outcome: 'not_applicable' as const, findings: [],
+      params: { preconditions: [{ id: 'abstract_numeric', passed: false, status: 'failed' }] } }] : [])] } });
+  show();
+  await screen.findByRole('heading', { name: '实际上传文件.pdf' });
+  if (selected) {
+    expect(screen.getByText('规则未实现警告数').closest('div')).toHaveTextContent('1');
+    expect(screen.getByText('错误总数').closest('div')).toHaveTextContent('7');
+  } else expect(screen.queryByText('规则未实现警告数')).not.toBeInTheDocument();
+});

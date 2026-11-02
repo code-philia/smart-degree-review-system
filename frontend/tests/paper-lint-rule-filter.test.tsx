@@ -151,14 +151,14 @@ describe('clear report rule selector', () => {
     expect(within(list).getByRole('option', { name: '正文公式引用目标缺失，已发现 2 处问题，待核查' })).toBeInTheDocument();
   });
 
-  it('filters by confirmed severity and keeps pending rules available in all levels', async () => {
+  it('filters completed results by severity while retaining pending live rules', async () => {
     const errorRun = { ...issues, severity: 'error' as const };
     render(<FindingsPane {...props} running findings={flattenPaperLintFindings({ rule_runs: [errorRun, zero] })} ruleRuns={[errorRun, zero]} />);
     fireEvent.click(screen.getByRole('button', { name: '警告 0', exact: true }));
     let list = await openMenu();
     expect(within(list).queryByRole('option', { name: /^正文公式引用目标缺失，/ })).not.toBeInTheDocument();
     expect(within(list).queryByRole('option', { name: /^章标题另起一页，/ })).not.toBeInTheDocument();
-    expect(within(list).getAllByRole('option')).toHaveLength(1);
+    expect(within(list).getAllByRole('option')).toHaveLength(2);
     fireEvent.keyDown(list, { key: 'Escape' });
     fireEvent.click(screen.getByRole('button', { name: '全部', exact: true }));
     list = await openMenu();
