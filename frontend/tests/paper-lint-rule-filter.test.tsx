@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { describe, expect, it, vi } from 'vitest';
 import type { PaperLintRule, PaperLintRuleRun } from '../src/api/paperLint';
 import { FindingsPane } from '../src/components/paperLint/FindingsPane';
-import { flattenPaperLintFindings } from '../src/components/paperLint/model';
+import { flattenPaperLintFindings, numericExecutionWarnings } from '../src/components/paperLint/model';
 import { RuleFilter, type RuleFilterOption } from '../src/components/paperLint/RuleFilter';
 
 const rules = [
@@ -29,6 +29,38 @@ async function selectRule(title: string) {
 }
 
 describe('clear report rule selector', () => {
+  it.each([false, true])('keeps review and prerequisite rules in their own categories and resets excluded selections (live=%s)', async running => {
+    const numeric = { ...zero, rule_id: 'abstract_numeric_consistency_check', rule_run_id: 'numeric', outcome: 'not_applicable' as const,
+      params: { preconditions: [{ id: 'abstract_numeric', passed: false, status: 'failed' }] } };
+    const review = { ...zero, rule_id: 'sjtu_rule_32', rule_run_id: 'references', outcome: 'inconclusive' as const, message: '等待核查引用身份' };
+    const fullRules = [...rules, { rule_id: numeric.rule_id, title: '论点论据一致性检测' }, { rule_id: review.rule_id, title: '引用的外部文献不存在' }] as PaperLintRule[];
+    render(<FindingsPane {...props} rules={fullRules} selectedRuleIds={[issues.rule_id, zero.rule_id, numeric.rule_id, review.rule_id]}
+      running={running} findings={flattenPaperLintFindings({ rule_runs: [issues, zero, numeric, review] })}
+      ruleRuns={[issues, zero, numeric, review]} executionWarnings={numericExecutionWarnings(numeric)} />);
+    await selectRule('论点论据一致性检测');
+    fireEvent.click(screen.getByRole('button', { name: '严重 0', exact: true }));
+    expect(screen.getByRole('combobox')).toHaveTextContent('全部检查项');
+    let list = await openMenu();
+    expect(within(list).getAllByRole('option')).toHaveLength(1);
+    fireEvent.keyDown(list, { key: 'Escape' });
+    fireEvent.click(screen.getByRole('button', { name: '警告 2', exact: true }));
+    list = await openMenu();
+    expect(within(list).getAllByRole('option').map(row => row.textContent?.split('，')[0])).toEqual(['全部检查项', '正文公式引用目标缺失']);
+    fireEvent.keyDown(list, { key: 'Escape' });
+    fireEvent.click(screen.getByRole('button', { name: '提示 0', exact: true }));
+    list = await openMenu();
+    expect(within(list).getAllByRole('option').map(row => row.textContent?.split('，')[0])).toEqual(['全部检查项', '引用的外部文献不存在']);
+    const reviewOption = within(list).getByRole('option', { name: '引用的外部文献不存在，待核查' });
+    reviewOption.focus(); fireEvent.keyDown(reviewOption, { key: 'Enter' });
+    expect(screen.getByText('等待核查引用身份')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '规则未实现警告 1', exact: true }));
+    expect(screen.getByRole('combobox')).toHaveTextContent('全部检查项');
+    list = await openMenu();
+    expect(within(list).getAllByRole('option').map(row => row.textContent?.split('，')[0])).toEqual(['全部检查项', '论点论据一致性检测']);
+    fireEvent.keyDown(list, { key: 'Escape' });
+    expect(screen.getByText('符合要求的示例：')).toBeInTheDocument();
+    expect(screen.getByText('2 项问题')).toBeInTheDocument();
+  });
   it('shows severity totals and puts rules with findings first in the all-level menu', async () => {
     render(<FindingsPane {...props} running findings={flattenPaperLintFindings({ rule_runs: [issues, zero] })} ruleRuns={[issues, zero]} />);
     expect(screen.getByRole('heading', { name: '检测结果' })).toBeInTheDocument();
@@ -107,13 +139,17 @@ describe('clear report rule selector', () => {
     expect(within(list).getByRole('option', { name: '正文公式引用目标缺失，已发现 2 处问题，待核查' })).toBeInTheDocument();
   });
 
-  it('filters completed rules by severity while keeping pending rules available', async () => {
+  it('filters by confirmed severity and keeps pending rules available in all levels', async () => {
     const errorRun = { ...issues, severity: 'error' as const };
     render(<FindingsPane {...props} running findings={flattenPaperLintFindings({ rule_runs: [errorRun, zero] })} ruleRuns={[errorRun, zero]} />);
     fireEvent.click(screen.getByRole('button', { name: '警告 0', exact: true }));
-    const list = await openMenu();
+    let list = await openMenu();
     expect(within(list).queryByRole('option', { name: /^正文公式引用目标缺失，/ })).not.toBeInTheDocument();
     expect(within(list).queryByRole('option', { name: /^章标题另起一页，/ })).not.toBeInTheDocument();
+    expect(within(list).getAllByRole('option')).toHaveLength(1);
+    fireEvent.keyDown(list, { key: 'Escape' });
+    fireEvent.click(screen.getByRole('button', { name: '全部', exact: true }));
+    list = await openMenu();
     const pendingOption = within(list).getByRole('option', { name: '正文错别字检测，正在检测' });
     pendingOption.focus(); fireEvent.keyDown(pendingOption, { key: 'Enter' });
     expect(screen.getByText('正在检测相关问题')).toBeInTheDocument();
@@ -161,8 +197,8 @@ describe('clear report rule selector', () => {
     expect(screen.getByText(numeric.message)).toBeInTheDocument();
     expect(screen.queryByTestId('rule-empty-icon')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '严重 0', exact: true }));
-    expect(screen.getByRole('combobox')).toHaveTextContent('论点论据一致性检测');
-    expect(screen.getByRole('combobox')).toHaveTextContent('规则未实现警告');
+    expect(screen.getByRole('combobox')).toHaveTextContent('全部检查项');
+    expect(screen.getByRole('combobox')).not.toHaveTextContent('论点论据一致性检测');
   });
 
   it('keeps non-applicable rules above clean rules and pending checks', async () => {

@@ -8,7 +8,7 @@ import { comparePaperLintRuleIds, findingPageLabel, referenceReviewMessage, type
 import { FeedbackControls } from './FeedbackControls';
 import { displayFindingPages, type PdfPageLabels } from './pageLabels';
 import type { RuleExecutionWarning } from './model';
-import { RuleFilter, type RuleFilterOption, type RuleSeverityCounts } from './RuleFilter';
+import { isRuleVisible, RuleFilter, type RuleFilterLevel, type RuleFilterOption, type RuleSeverityCounts } from './RuleFilter';
 
 type Props = {
   executionWarnings?: RuleExecutionWarning[];
@@ -96,7 +96,7 @@ export function FindingsPane({
   onSuggestionFeedbackReason,
   onSuggestionFeedbackCancel,
 }: Props) {
-  const [filter, setFilter] = useState<'all' | 'error' | 'warning' | 'info' | 'execution'>('all');
+  const [filter, setFilter] = useState<RuleFilterLevel>('all');
   const [ruleFilter, setRuleFilter] = useState('all');
   const [handledKeys, setHandledKeys] = useState<string[]>([]);
   const ruleNames = useMemo(() => new Map(rules.map((rule) => [rule.rule_id, rule.title])), [rules]);
@@ -123,19 +123,24 @@ export function FindingsPane({
       : run.execution_status === 'unsupported' || run.outcome === 'inconclusive' ? 'needs_review'
       : run.outcome === 'not_applicable' ? 'not_applicable' : 'completed';
     const ruleCounts = counts.get(id) || { error: 0, warning: 0, info: 0 };
-    return { id, title: ruleNames.get(id) || id, count: ruleCounts.error + ruleCounts.warning + ruleCounts.info, counts: ruleCounts, status };
+    const hasExecutionWarning = executionWarnings.some(warning => (warning.ruleId || 'abstract_numeric_consistency_check') === id);
+    return { id, title: ruleNames.get(id) || id, count: ruleCounts.error + ruleCounts.warning + ruleCounts.info, counts: ruleCounts, status, hasExecutionWarning };
   });
-  // A completed rule outside the chosen level must not remain as a hidden selection.
+  // Keep the selected rule and status summary within the active result category.
   const chosenOption = ruleOptions.find(option => option.id === ruleFilter);
-  const effectiveRuleFilter = chosenOption && filter !== 'all' && filter !== 'execution' && !chosenOption.counts[filter]
-    && !['running', 'error', 'needs_review', 'execution_warning'].includes(chosenOption.status) ? 'all' : ruleFilter;
+  const effectiveRuleFilter = chosenOption && !isRuleVisible(chosenOption, filter) ? 'all' : ruleFilter;
+  const visibleRuleOptions = ruleOptions.filter(option => isRuleVisible(option, filter));
+  const changeFilter = (next: RuleFilterLevel) => {
+    setFilter(next);
+    if (chosenOption && !isRuleVisible(chosenOption, next)) setRuleFilter('all');
+  };
   const selectedOption = ruleOptions.find(option => option.id === effectiveRuleFilter);
   const selectedRun = runById.get(effectiveRuleFilter);
   const selectedTotal = selectedOption?.count ?? findings.length;
-  const pending = selectedOption ? selectedOption.status === 'running' : running && ruleOptions.some(option => option.status === 'running');
+  const pending = selectedOption ? selectedOption.status === 'running' : running && visibleRuleOptions.some(option => option.status === 'running');
   const incomplete = selectedOption ? ['error', 'needs_review', 'not_applicable', 'execution_warning'].includes(selectedOption.status)
-    : executionWarnings.length > 0 || ruleOptions.some(option => option.status !== 'completed');
-  const severityEmpty = !pending && selectedTotal > 0 && filter !== 'all' && filter !== 'execution';
+    : visibleRuleOptions.some(option => option.status !== 'completed');
+  const severityEmpty = !pending && !incomplete && filter !== 'all' && filter !== 'execution';
   const emptyTitle = pending ? '正在检测相关问题'
     : severityEmpty ? `当前筛选未发现${severityLabels[filter as keyof typeof severityLabels]}级别的问题`
     : selectedOption?.status === 'error' ? '本规则检测失败'
@@ -145,7 +150,7 @@ export function FindingsPane({
     : incomplete ? '部分规则未完成有效检测'
     : selectedOption ? '本规则未检测出问题' : '未检测出问题';
   const emptyDescription = pending ? '检测完成后自动更新，您可以先查看其他已完成规则的结果。'
-    : severityEmpty ? `${selectedOption ? '该规则' : '当前报告'}共发现 ${selectedTotal} 处问题，分布在其他级别。`
+    : severityEmpty ? selectedTotal > 0 ? `${selectedOption ? '该规则' : '当前报告'}共发现 ${selectedTotal} 处问题，分布在其他级别。` : '当前筛选下暂无该级别的问题。'
     : incomplete ? referenceReviewMessage(selectedRun) || selectedRun?.message || '请在规则下拉框查看检测状态；证据不足或检测失败不代表没有问题。'
     : referenceReviewMessage(selectedRun) || '基于当前规范性检测规则，证据不足的内容仍可能无法判定，检测结果仅供参考';
   const EmptyIcon = pending ? LoaderCircle : severityEmpty ? ListFilter : selectedOption?.status === 'error' ? CircleAlert : incomplete ? CircleHelp : CheckCircle2;
@@ -173,18 +178,15 @@ export function FindingsPane({
               type="button"
               className={`inline-flex min-h-8 items-center gap-1 rounded-full border px-3 py-1.5 text-xs transition-colors ${filter === value ? 'border-slate-300 bg-white font-semibold text-slate-900 shadow-xs' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
               aria-pressed={filter === value}
-              onClick={() => {
-                setFilter(value);
-                if (value !== 'all' && chosenOption && !chosenOption.counts[value] && !['running', 'error', 'needs_review', 'execution_warning'].includes(chosenOption.status)) setRuleFilter('all');
-              }}
+              onClick={() => changeFilter(value)}
             >
               {value === 'all' ? '全部' : <>{severityLabels[value]} <span className="tabular-nums">{severityTotals[value]}</span></>}
             </button>
           ))}
-          {executionWarnings.length ? <Button size="sm" variant={filter === 'execution' ? 'secondary' : 'ghost'} aria-pressed={filter === 'execution'} onClick={() => setFilter('execution')}>规则未实现警告（{executionWarnings.length}）</Button> : null}
+          {executionWarnings.length ? <Button size="sm" variant={filter === 'execution' ? 'secondary' : 'ghost'} aria-pressed={filter === 'execution'} onClick={() => changeFilter('execution')}>规则未实现警告 {executionWarnings.length}</Button> : null}
         </div>
         {ruleIds.length > 0 ? (
-          <RuleFilter options={ruleOptions} value={effectiveRuleFilter} onValueChange={setRuleFilter} totalCount={findings.length} severity={filter === 'execution' ? 'all' : filter} />
+          <RuleFilter options={ruleOptions} value={effectiveRuleFilter} onValueChange={setRuleFilter} totalCount={findings.length} severity={filter} />
         ) : null}
       </div>
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
