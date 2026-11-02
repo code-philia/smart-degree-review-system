@@ -567,6 +567,9 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
                 policy['thinking_reference_max_tokens'] = THINKING_REFERENCE_MAX_TOKENS
     if reference_requests or set(capabilities) & {'external_work', 'citation_relevance'}:
         policy['identity_resolution'] = IDENTITY_POLICY
+    if '32' in rule_ids:
+        from .evidence import REFERENCE_LOOKUP_VERSION
+        policy['reference_lookup'] = REFERENCE_LOOKUP_VERSION
     if reference_requests or any(name.startswith('bibliography_') or name in {'external_work', 'citation_binding', 'citation_order'} for name in capabilities):
         policy['bibliography_extraction'] = bibliography_execution_policy()['extraction_policy']
     if batch_size > 1:
@@ -587,7 +590,9 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
         except (ValueError, TypeError, KeyError):
             pass
         else:
-            return cached
+            retry_references=('32' in rule_ids and gateway and not getattr(gateway,'snapshot_id',None)
+                and any(row.get('exists',{}).get('value') is not True for row in cached['results'].get('external_work',{}).values()))
+            if not retry_references:return cached
     known = set(capabilities) & REGISTRY['capabilities'].keys()
     # New programs obtain citation semantics only from their generated requests.
     known.discard('citation_relevance')

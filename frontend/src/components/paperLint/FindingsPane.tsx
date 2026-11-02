@@ -4,7 +4,7 @@ import type { PaperLintRule, PaperLintRuleRun } from '../../api/paperLint';
 import type { RepairSuggestion } from '../../api/repairSuggestions';
 import type { FindingFeedback, SuggestionFeedback } from '../../api/feedback';
 import { Button, StatusBadge } from '../ui';
-import { comparePaperLintRuleIds, findingPageLabel, type PaperLintFindingItem } from './model';
+import { comparePaperLintRuleIds, findingPageLabel, referenceReviewMessage, type PaperLintFindingItem } from './model';
 import { FeedbackControls } from './FeedbackControls';
 import { displayFindingPages, type PdfPageLabels } from './pageLabels';
 import type { RuleExecutionWarning } from './model';
@@ -118,6 +118,8 @@ export function FindingsPane({
     const status = !run ? (running ? 'running' : ruleRuns ? 'needs_review' : 'completed')
       : run.execution_status === 'error' ? 'error'
       : prerequisiteWarning ? 'execution_warning'
+      : id === 'sjtu_rule_32' && ((Number((run.params?.reference_verification as { unresolved?: number } | undefined)?.unresolved) > 0)
+        || run.compiler_diagnostics?.some(row => ['UNKNOWN', 'ERROR'].includes(row.status))) ? 'needs_review'
       : run.execution_status === 'unsupported' || run.outcome === 'inconclusive' ? 'needs_review'
       : run.outcome === 'not_applicable' ? 'not_applicable' : 'completed';
     const ruleCounts = counts.get(id) || { error: 0, warning: 0, info: 0 };
@@ -144,8 +146,8 @@ export function FindingsPane({
     : selectedOption ? '本规则未检测出问题' : '未检测出问题';
   const emptyDescription = pending ? '检测完成后自动更新，您可以先查看其他已完成规则的结果。'
     : severityEmpty ? `${selectedOption ? '该规则' : '当前报告'}共发现 ${selectedTotal} 处问题，分布在其他级别。`
-    : incomplete ? selectedRun?.message || '请在规则下拉框查看检测状态；证据不足或检测失败不代表没有问题。'
-    : '基于当前规范性检测规则，证据不足的内容仍可能无法判定，检测结果仅供参考';
+    : incomplete ? referenceReviewMessage(selectedRun) || selectedRun?.message || '请在规则下拉框查看检测状态；证据不足或检测失败不代表没有问题。'
+    : referenceReviewMessage(selectedRun) || '基于当前规范性检测规则，证据不足的内容仍可能无法判定，检测结果仅供参考';
   const EmptyIcon = pending ? LoaderCircle : severityEmpty ? ListFilter : selectedOption?.status === 'error' ? CircleAlert : incomplete ? CircleHelp : CheckCircle2;
   const filtered = findings.filter(
     (item) =>
@@ -182,6 +184,7 @@ export function FindingsPane({
         ) : null}
       </div>
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
+        {filter !== 'execution' && filtered.length > 0 && incomplete && selectedRun?.rule_id === 'sjtu_rule_32' ? <p role="status" className="rounded-xl bg-amber-50 p-3 text-xs leading-6 text-amber-800">{referenceReviewMessage(selectedRun)}</p> : null}
         {filter === 'execution' ? <>
           <p className="rounded-lg bg-slate-50 p-3 text-sm leading-6 text-slate-600">如需使用以下规则，请按建议内容调整；如无需使用，请忽略以下内容</p>
           {executionWarnings.map((warning, index) => (

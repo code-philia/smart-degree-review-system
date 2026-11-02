@@ -7,7 +7,7 @@ repair loop, label file, case identity or task-specific source title is used.
 from copy import deepcopy
 from .programs import build_program
 
-RULE_TEXT = "参考文献应指向真实存在的文献；规则32使用SerpAPI Google Scholar按标题、标题+作者姓氏、DOI进行有界检索，全部成功检索且无匹配结果时判定引用不存在；接口失败不作不存在结论。"
+RULE_TEXT = "参考文献应指向真实存在的文献；通过OpenAlex、Crossref、DataCite及arXiv公开元数据核对题名、作者、年份和标识符。公开检索未匹配、接口失败或证据不足均保留待核查，不据此认定文献不存在。"
 DEFAULT_BASIS = [{"id": "r32-existing-reference", "text": RULE_TEXT}]
 
 CODE = """def detect(payload):

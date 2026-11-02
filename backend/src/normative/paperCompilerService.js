@@ -15,32 +15,17 @@ function packageRoot() {
     || path.resolve(__dirname, '../../paper_compiler/packages');
 }
 function packagePath(number) { return path.join(packageRoot(), String(number)); }
-function serpApiReferenceLibrary() {
-  return process.env.PAPER_COMPILER_REFERENCE_LIBRARY
-    || path.join(process.env.PAPER_COMPILER_CACHE_ROOT || '/data/runtime/paper-compiler', 'reference-library');
-}
-function serpApiQuotaExhausted() {
-  try {
-    const status = JSON.parse(fs.readFileSync(path.join(serpApiReferenceLibrary(), 'serpapi-status.json'), 'utf8'));
-    return status?.schema_version === 'serpapi-quota-status/1.0' && status.status === 'exhausted';
-  } catch {
-    return false;
-  }
-}
 function getCompilerRules() {
   const baseAvailable = process.env.PAPER_COMPILER_ENABLED === '1' &&
     Boolean(process.env.PAPER_COMPILER_PACKAGE_ROOT);
-  const quotaExhausted = serpApiQuotaExhausted();
   return DEFINITIONS.map((rule) => {
     const packageAvailable = baseAvailable &&
       fs.existsSync(path.join(packagePath(rule.number), 'manifest.json'));
-    const unavailableReason = rule.number === 32 && quotaExhausted
-      ? 'SerpAPI 余额已达到限额，暂时不可使用。'
-      : (!packageAvailable ? '规则包尚未配置。' : null);
+    const unavailableReason = !packageAvailable ? '规则包尚未配置。' : null;
     return {
       ...rule,
       repair_supported: rule.repair_surfaces.includes('paper_lint'),
-      available: packageAvailable && !(rule.number === 32 && quotaExhausted),
+      available: packageAvailable,
       ...(unavailableReason ? { availability_reason: unavailableReason } : {}),
       source: 'sjtu-paper-compiler',
     };
@@ -165,15 +150,29 @@ function toCompilerResult(output,selectedRuleIds) {
     const unknown=raw.counts?.UNKNOWN || 0;
     const serpApiNotFoundCount=serpApiNotFoundDiagnostics.length;
     const reason=raw.status==='ERROR' ? executionReason(raw.execution_error) : null;
+    const reference = ruleId === 'sjtu_rule_32' ? {
+      total: raw.results.length,
+      verified: raw.results.filter(row => row.status === 'PASS').length,
+      unresolved: raw.results.filter(row => ['UNKNOWN', 'ERROR'].includes(row.status)).length,
+      unavailable: raw.results.filter(row => ['UNKNOWN', 'ERROR'].includes(row.status) && (row.reasons || []).some(value => /reference_lookup_unavailable|QUOTA_EXHAUSTED|API_KEY.*configured|HTTP_[45]\d\d|TimeoutError/.test(String(value)))).length,
+      coverage_complete: Array.isArray(raw.coverage?.incomplete_scopes) && raw.coverage.incomplete_scopes.length === 0,
+    } : null;
+    const referencePassed = reference && raw.status === 'PASS' && reference.total > 0
+      && reference.verified === reference.total && reference.coverage_complete;
+    const referenceMessage = reference ? [
+      reference.total ? `已核验存在 ${reference.verified}/${reference.total} 条参考文献。` : '尚无完整的参考文献核验记录。',
+      reference.unresolved ? `${reference.unresolved} 条待核查；其中 ${reference.unavailable} 条因检索服务不可用或额度不足未完成，其余未获得充分的身份匹配证据。` : null,
+      !reference.coverage_complete ? '参考文献列表提取不完整，未覆盖内容保留待核查。' : null,
+    ].filter(Boolean).join(' ') : null;
     const runMessage = serpApiNotFoundCount
       ? `${serpApiNotFoundCount} 条参考文献未在 SerpAPI 中查到；仅作提示，不计入规则警告。`
       : [raw.status==='UNKNOWN' || unknown || raw.coverage?.incomplete_scopes?.length ? `${unknown} 项证据不足；未覆盖的内容保留无法判定。` : null,
         reason ? `规则执行异常：${reason}` : null, refinementMessage, baselineMessage].filter(Boolean).join(' ') || null;
-    return {rule_run_id:`run_${ruleId}`,rule_id:ruleId,severity:ruleId === 'sjtu_rule_32' && serpApiNotFoundCount ? 'info' : 'warning',params:null,
+    return {rule_run_id:`run_${ruleId}`,rule_id:ruleId,severity:ruleId === 'sjtu_rule_32' && serpApiNotFoundCount ? 'info' : 'warning',params:reference ? {reference_verification:reference} : null,
       execution_status:raw.status==='ERROR'?'error':'completed',evidence_mode:findings.some(f=>f.source_kind==='synthetic')?'derived':'native',
-      outcome:findings.length?'issues_found':publication?'inconclusive':raw.status==='PASS'?'passed':raw.status==='NOT_APPLICABLE'?'not_applicable':'inconclusive',
+      outcome:findings.length?'issues_found':reference ? (referencePassed?'passed':raw.status==='NOT_APPLICABLE'?'not_applicable':'inconclusive') : publication?'inconclusive':raw.status==='PASS'?'passed':raw.status==='NOT_APPLICABLE'?'not_applicable':'inconclusive',
       ...(publication ? {publication_status:ruleId === 'sjtu_rule_32' && serpApiNotFoundCount ? 'NO_ALERT' : findings.length ? 'ALERT' : 'NO_ALERT'} : {}),
-      message:publication && !(ruleId === 'sjtu_rule_32' && serpApiNotFoundCount) ? (raw.status==='ERROR' ? `规则执行失败${reason ? '：'+reason : ''}` : findings.length ? '发现经复核确认的告警' : '未触发告警') : runMessage,
+      message:raw.status==='ERROR' && publication ? `规则执行失败${reason ? '：'+reason : ''}` : reference ? [referenceMessage,serpApiNotFoundCount ? runMessage : null].filter(Boolean).join(' ') : publication ? (findings.length ? '发现经复核确认的告警' : '未触发告警') : runMessage,
       compiler_runtime_status:typeof output.runtime?.status==='string' ? output.runtime.status : null,
       findings,compiler_diagnostics:diagnostics,...(publication ? {} : {coverage:raw.coverage,compiler_counts:raw.counts}),package_sha256:raw.package_sha256,
       runtime_version:runtimeVersion,pipeline_version:pipelineVersion,runtime_snapshot:runtimeSnapshot};

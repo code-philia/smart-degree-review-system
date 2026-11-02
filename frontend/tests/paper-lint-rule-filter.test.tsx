@@ -185,4 +185,18 @@ describe('clear report rule selector', () => {
     const list = await openMenu();
     expect(within(list).getAllByRole('option').map(row => row.textContent?.split('，')[0])).toEqual(['全部检查项', '待核查规则', '无问题规则']);
   });
+
+  it.each([
+    ['SerpAPI Scholar retrieval failed: SERPAPI_QUOTA_EXHAUSTED', '额度不足'],
+    ['SerpAPI Scholar retrieval failed: SERPAPI_API_KEY is not configured', '未配置'],
+    ['public retrieval does not establish or exclude this work', '未匹配'],
+  ])('explains historical unresolved reference diagnostics: %s', async (reason, expected) => {
+    const run = { ...zero, rule_id: 'sjtu_rule_32', outcome: 'inconclusive' as const, message: '未触发告警',
+      compiler_diagnostics: [{ check_id: 'existence', status: 'UNKNOWN' as const, reasons: [reason], evidence: [] }] };
+    render(<FindingsPane {...props} rules={[{ rule_id: run.rule_id, title: '引用的外部文献不存在' } as PaperLintRule]}
+      selectedRuleIds={[run.rule_id]} findings={[]} ruleRuns={[run]} />);
+    await selectRule('引用的外部文献不存在');
+    expect(screen.getByText(new RegExp(expected), { selector: 'p' })).toBeInTheDocument();
+    expect(screen.queryByText('未触发告警')).not.toBeInTheDocument();
+  });
 });

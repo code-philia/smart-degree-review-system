@@ -18,6 +18,24 @@ export type RuleExecutionWarning = {
   note?: string;
 };
 const numericRule = 'abstract_numeric_consistency_check';
+export function referenceReviewMessage(run?: PaperLintRuleRun): string | null {
+  if (run?.rule_id !== 'sjtu_rule_32') return null;
+  if (run.message && run.message !== '未触发告警') return run.message;
+  const diagnostics = run.compiler_diagnostics || [];
+  if (!diagnostics.length) return '历史报告未记录完整核验详情，请增量补跑后查看。';
+  const quota = diagnostics.filter(row => row.reasons.some(reason => /QUOTA_EXHAUSTED/.test(reason))).length;
+  const missing = diagnostics.filter(row => row.reasons.some(reason => /API_KEY.*not configured/.test(reason))).length;
+  const unavailable = diagnostics.filter(row => row.reasons.some(reason => /reference_lookup_unavailable|HTTP_[45]\d\d|TimeoutError/.test(reason))).length;
+  const unmatched = Math.max(0, diagnostics.length - quota - missing - unavailable);
+  return [
+    `${diagnostics.length} 条参考文献尚未完成核验。`,
+    quota ? `${quota} 条因检索额度不足未完成。` : null,
+    missing ? `${missing} 条因检索密钥未配置未完成。` : null,
+    unavailable ? `${unavailable} 条因检索服务暂不可用未完成。` : null,
+    unmatched ? `${unmatched} 条未匹配到充分的文献身份依据，需人工核查。` : null,
+  ].filter(Boolean).join(' ');
+}
+
 export function numericExecutionWarnings(run?: PaperLintRuleRun): RuleExecutionWarning[] {
   if (!run) return [];
   const params = run.params || {};

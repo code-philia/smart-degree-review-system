@@ -18,10 +18,11 @@ from .identity import normalize_doi, _arxiv_identifier
 VERSION='public-evidence/1.2'
 CONTENT_VERSION='public-content/1.1-arxiv'
 DISCOVERY_VERSION='openalex-discovery/1.0'
+REFERENCE_LOOKUP_VERSION='reference-multisource/1.1'
 MAX_BYTES=4*1024*1024
 HOSTS={'api.crossref.org','api.datacite.org','api.openalex.org','www.ebi.ac.uk','export.arxiv.org'}
 _GROUPS={'crossref':'doi-registration','datacite':'doi-registration','openalex':'aggregated-metadata','europepmc':'pubmed-metadata'}
-_locks={name:threading.Lock() for name in _GROUPS}
+_locks={name:threading.Lock() for name in [*_GROUPS,'arxiv']}
 _openalex_inflight=threading.BoundedSemaphore(4)
 
 class EvidenceError(ValueError):pass
@@ -53,9 +54,9 @@ def validate_url(url):
 class _NoRedirect(HTTPRedirectHandler):
     def redirect_request(self,*args,**kwargs):return None
 
-def _openalex_key():
+def _openalex_keys():
     """Load a private credential; no key is added to URLs or evidence artifacts."""
-    value=os.environ.get('OPENALEX_API_KEY')
+    value=os.environ.get('OPENALEX_API_KEY',os.environ.get('OPENALEX_API_KEYS'))
     if value is None:
         path=Path(os.environ.get('PAPER_COMPILER_EVIDENCE_CONFIG',
             '/data/apps/smart-degree-review/config/paper-model-evidence.env'))
@@ -64,32 +65,44 @@ def _openalex_key():
             info=path.stat()
             if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077:
                 raise EvidenceError('OpenAlex configuration must have private permissions')
+            settings={}
             for line in path.read_text(encoding='utf-8').splitlines():
                 name,separator,setting=line.partition('=')
-                if separator and name.strip()=='OPENALEX_API_KEY':
-                    value=setting.strip()
-                    if len(value)>=2 and value[0] in "\"'" and value[-1]==value[0]:value=value[1:-1]
-        except FileNotFoundError:return None
+                if separator:settings[name.strip()]=setting.strip().strip("\"'")
+            value=settings.get('OPENALEX_API_KEYS') or settings.get('OPENALEX_API_KEY')
+        except FileNotFoundError:return []
         except OSError:raise EvidenceError('OpenAlex credential configuration is unreadable') from None
-    if value is None or value=='':return None
-    if not re.fullmatch(r'[A-Za-z0-9._~-]{1,512}',value):
+    if value is None or value=='':return []
+    keys=list(dict.fromkeys(part.strip() for part in value.split(',') if part.strip()))
+    if not keys or len(keys)>8 or any(not re.fullmatch(r'[A-Za-z0-9._~-]{1,512}',key) for key in keys):
         raise EvidenceError('Invalid OpenAlex credential format')
-    return value
+    return keys
+
+
+def _openalex_key(url=None):
+    keys=_openalex_keys()
+    if not keys:return None
+    index=int(hashlib.sha256(url.encode()).hexdigest(),16)%len(keys) if url else 0
+    return keys[index]
 
 
 def _http(url,proxy=None):
     validate_url(url)
-    key=_openalex_key() if urlsplit(url).hostname=='api.openalex.org' else None
+    key=_openalex_key(url) if urlsplit(url).hostname=='api.openalex.org' else None
     headers={'User-Agent':'SJTU-PaperCompiler/1.0 (scholarly citation validation)','Accept':'application/json, application/xml'}
     if key:headers['Authorization']='Bearer '+key
+    private_keys=_openalex_keys() if key else []
+    def redact(value):
+        for private_key in private_keys:value=value.replace(private_key,'[REDACTED]')
+        return value
     def public_headers(values):
-        return {str(k):str(v).replace(key,'[REDACTED]') if key else str(v) for k,v in values.items()}
+        return {str(k):redact(str(v)) for k,v in values.items()}
     opener=build_opener(_NoRedirect(),*([ProxyHandler({'https':proxy})] if proxy else []))
     try:
         with opener.open(Request(url,headers=headers),timeout=20) as response:
             data=response.read(MAX_BYTES+1)
             if len(data)>MAX_BYTES:raise EvidenceError('response too large')
-            if key:data=data.replace(key.encode(),b'[REDACTED]')
+            for private_key in private_keys:data=data.replace(private_key.encode(),b'[REDACTED]')
             return HTTPResponse(response.status,data,public_headers(response.headers))
     except HTTPError as error:
         return HTTPResponse(error.code,b'',public_headers(error.headers))
@@ -114,7 +127,7 @@ def _identity_works(provider,data):
                 'year':_year(d.get('publicationYear')),'doi':d.get('doi','').lower(),'abstract':_clean(' '.join(x.get('description','') for x in d.get('descriptions',[]) if x.get('descriptionType')=='Abstract')),
                 'url':d.get('url',''),'type':d.get('types',{}).get('resourceTypeGeneral','')}
     elif provider=='openalex':
-        for d in data.get('results',[]):
+        for d in data.get('results',[data] if data.get('id') else []):
             canonical=normalize_doi(d.get('doi'))
             aliases=sorted({normalize_doi(location.get('doi')) for location in d.get('locations',[])
                 if isinstance(location,dict) and re.fullmatch(r'10\.\d{4,9}/[^\s]{1,250}',normalize_doi(location.get('doi')))}-{canonical})
@@ -135,7 +148,7 @@ def _works(provider,data):
     elif provider=='datacite':
         raw=data.get('data',[]);raw=raw if isinstance(raw,list) else [raw]
         raw=[x.get('attributes',{}) for x in raw]
-    elif provider=='openalex':raw=data.get('results',[])
+    elif provider=='openalex':raw=data.get('results',[data] if data.get('id') else [])
     else:raw=data.get('resultList',{}).get('result',[])
     for work,item in zip(_identity_works(provider,data),raw):
         if provider=='crossref':
@@ -209,7 +222,10 @@ class EvidenceGateway:
         if any(p not in _GROUPS for p in self.providers):raise EvidenceError('unknown provider')
         self.live_providers=live_evidence_providers(self.providers,live_providers)
         self.transport=transport or (lambda url:_http(url,proxy));self.clock=clock;self.rate_limit=transport is None
-        key=_openalex_key() if self.rate_limit and 'openalex' in self.live_providers else None
+        self._uses_private_credentials=transport is None
+        self.openalex_config_error=False
+        try:key=_openalex_key() if self.rate_limit and 'openalex' in self.live_providers else None
+        except EvidenceError:key=None;self.openalex_config_error=True
         self.openalex_rate_scope='-authenticated-'+hashlib.sha256(key.encode()).hexdigest()[:16] if key else ''
     def _cache_result(self,path,value):
         if self.snapshot_id:
@@ -221,7 +237,8 @@ class EvidenceGateway:
         """Authenticated only: bounded local I/O, shared five-starts/second admission."""
         import fcntl
         from email.utils import parsedate_to_datetime
-        rate_name='openalex'+self.openalex_rate_scope
+        key=_openalex_key(url) if self._uses_private_credentials else None
+        rate_name='openalex'+('-authenticated-'+hashlib.sha256(key.encode()).hexdigest()[:16] if key else self.openalex_rate_scope)
         state_path=self.rate_dir/(rate_name+'-rate-state.json')
         lock_path=self.rate_dir/(rate_name+'-rate.lock')
         with _openalex_inflight:
@@ -268,7 +285,7 @@ class EvidenceGateway:
                 state=json.loads(state_path.read_text()) if state_path.exists() else {}
                 now=time.time();until=state.get('cooldown_until',0)
                 if until>now:return HTTPResponse(429,b'',{'retry-after':str(until-now)},request_sent=False)
-                time.sleep(max(0,1-(now-state.get('last_started',0))))
+                time.sleep(max(0,(3 if provider=='arxiv' else 1)-(now-state.get('last_started',0))))
                 state['last_started']=time.time()
                 # Persist admission before I/O, including failed or interrupted requests.
                 write_json_atomic(state_path,state)
@@ -287,13 +304,17 @@ class EvidenceGateway:
                 write_json_atomic(state_path,state)
                 return response
 
-    def _retrieve(self,provider,url,*,source_arxiv=False):
+    def _retrieve(self,provider,url,*,source_arxiv=False,failure_ttl=600):
         validate_url(url);key=hashlib.sha256((VERSION+'\n'+url).encode()).hexdigest();path=self.cache_dir/(key+'.json')
         if path.exists():
             cached=json.loads(path.read_text())
-            ttl=86400 if cached['status'] in {'ok','empty'} else 600
+            ttl=86400 if cached['status']=='ok' else 300 if cached['status']=='empty' else failure_ttl
             if self.snapshot_id or 0<=self.clock()-cached['retrieved_at']<ttl:return cached
         base={'provider':provider,'url':url,'retrieved_at':self.clock(),'source_group':_GROUPS[provider],'coverage':'partial_index','version':VERSION}
+        if provider=='openalex' and self.openalex_config_error:
+            base.update(status='unavailable',request_sent=False,error='OPENALEX_CONFIG_UNREADABLE',works=[])
+            base['id']='retrieval-'+hashlib.sha256(json_bytes(base)).hexdigest()[:24]
+            return base
         exact_arxiv = (source_arxiv is True and provider == 'datacite' and re.fullmatch(
             r'https://api\.datacite\.org/dois/10\.48550%2Farxiv\.\d{2}(?:0[1-9]|1[0-2])\.\d{4,5}(?:v\d+)?', url) is not None)
         if provider not in self.live_providers and not exact_arxiv:
@@ -369,11 +390,62 @@ class EvidenceGateway:
             return [item for records in pool.map(retrieve_provider,self.providers) for item in records]
 
     def lookup_rule32(self, query):
-        """Rule 32 uses SerpAPI Scholar with bounded fallback query plans."""
-        from .serpapi_scholar import SerpApiScholar
-        library = os.environ.get('PAPER_COMPILER_REFERENCE_LIBRARY') or str(self.rate_dir / 'reference-library')
-        records, _meta = SerpApiScholar(library, clock=self.clock).lookup_many(query)
-        return records
+        """Free sources, strict identity validation and recoverable shared evidence."""
+        from .identity import resolve_reference_identity
+        policy={'query':query} if self.snapshot_id else {'version':REFERENCE_LOOKUP_VERSION,'providers':self.providers,'live':self.live_providers,'query':query}
+        key=hashlib.sha256(json_bytes(policy)).hexdigest()
+        path=self.cache_dir/('reference-'+key+'.json')
+        if path.exists():
+            saved=json.loads(path.read_text())
+            if self.snapshot_id or 0<=self.clock()-saved['retrieved_at']<saved['ttl']:return saved['records']
+        records=[]
+        def matched():return resolve_reference_identity(query,records).get('value') is True
+        identifier=_arxiv_identifier(query.get('url')) or _arxiv_identifier(query.get('doi'))
+        if identifier:
+            records.extend(self.lookup_arxiv_metadata(identifier))
+        for provider in ['openalex','crossref','datacite','europepmc']:
+            if matched():break
+            if provider not in self.providers:continue
+            normalized={**query,'year':None,'doi':normalize_doi(query.get('doi'))}
+            urls=list(_urls(provider,normalized))
+            if provider=='openalex' and re.fullmatch(r'10\.\d{4,9}/[^\s]{1,250}',normalized['doi']):
+                urls=['https://api.openalex.org/works/https://doi.org/'+quote(normalized['doi'],safe='/')]+[url for url in urls if 'filter=' not in url]
+            for url in urls:
+                result=self._retrieve(provider,url,failure_ttl=60)
+                if not result['works']:records.append({k:v for k,v in result.items() if k!='works'})
+                for index,work in enumerate(result['works']):
+                    records.append({**{k:v for k,v in result.items() if k!='works'},'id':result['id']+'-'+str(index),'work':work})
+                if matched():break
+                if result['status']=='unavailable' and result.get('http_status') not in {400,404,410,422}:break
+        ttl=7*86400 if matched() else 60 if records and all(r['status']=='unavailable' for r in records) else 300
+        saved=self._cache_result(path,{'retrieved_at':self.clock(),'ttl':ttl,'records':records})
+        return saved['records']
+
+    def lookup_arxiv_metadata(self,identifier):
+        """Exact public arXiv metadata; a failed fetch never asserts nonexistence."""
+        url='https://export.arxiv.org/api/query?'+urlencode({'id_list':identifier})
+        path=self.cache_dir/('arxiv-identity-'+hashlib.sha256(url.encode()).hexdigest()+'.json')
+        if path.exists():
+            saved=json.loads(path.read_text())
+            if self.snapshot_id or 0<=self.clock()-saved['retrieved_at']<(86400 if saved['status']=='ok' else 60):return [saved]
+        record={'provider':'arxiv','source_group':'preprint-repository','coverage':'partial_index','url':url,'retrieved_at':self.clock()}
+        try:
+            status,body=self._fetch('arxiv',url)
+            record.update(http_status=status,response_sha256=hashlib.sha256(body).hexdigest())
+            if status!=200:raise EvidenceError('HTTP_'+str(status))
+            ns={'a':'http://www.w3.org/2005/Atom'}
+            entries=ET.fromstring(body).findall('a:entry',ns)
+            if len(entries)!=1:raise EvidenceError('arxiv_identity_not_found')
+            entry=entries[0];source_id=_arxiv_identifier(entry.findtext('a:id',default='',namespaces=ns))
+            if not source_id or (source_id!=identifier if re.search(r'v\d+$',identifier) else re.sub(r'v\d+$','',source_id)!=identifier):raise EvidenceError('arxiv_identity_mismatch')
+            record.update(status='ok',work={'title':_clean(entry.findtext('a:title',default='',namespaces=ns)),
+                'authors':[_clean(node.text) for node in entry.findall('a:author/a:name',ns)],
+                'year':_year(entry.findtext('a:published',default='',namespaces=ns)),
+                'doi':'10.48550/arxiv.'+identifier,'url':'https://arxiv.org/abs/'+identifier,'type':'preprint'})
+        except (OSError,ValueError,ET.ParseError) as error:
+            record.update(status='unavailable',error=str(error) if isinstance(error,EvidenceError) else type(error).__name__)
+        record['id']='arxiv-identity-'+hashlib.sha256(json_bytes(record)).hexdigest()[:24]
+        return [self._cache_result(path,record)]
     def content(self,work):
         if not self.snapshot_id:return self._content(work)
         key=hashlib.sha256(json_bytes({'version':CONTENT_VERSION,'work':work})).hexdigest();path=self.cache_dir/('content-map-'+key+'.json')

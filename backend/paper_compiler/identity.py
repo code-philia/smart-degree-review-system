@@ -86,7 +86,19 @@ def _explicit_subtitle_supported(entry, work):
         remaining.pop(matching)
     return entry.get('year') is not None and str(entry['year']) == str(work.get('year'))
 
-def resolve_identity(entry:dict,records:list[dict],client=None)->dict:
+def resolve_reference_identity(entry:dict,records:list[dict],client=None)->dict:
+    """Existence verification also preserves explicit arXiv version evidence."""
+    identifiers={identifier for value in [entry.get('url'),entry.get('doi')] if (identifier:=_arxiv_identifier(value))}
+    for identifier in identifiers:
+        if re.search(r'v\d+$',identifier) and not any(
+                record.get('provider')=='arxiv' and record.get('status')=='ok'
+                and identifier in _work_arxiv_identifiers(record.get('work',{})) for record in records):
+            return {'state':'unknown','reason':'explicit arXiv version has not been verified',
+                    'evidence_ids':[record['id'] for record in records]}
+    return resolve_identity(entry,records,client=client,allow_short_doi_title=True)
+
+
+def resolve_identity(entry:dict,records:list[dict],client=None,*,allow_short_doi_title=False)->dict:
     candidates=[];title=_norm(entry.get('title',''))
     for r in records:
         if r.get('status')!='ok' or not isinstance(r.get('work'),dict):continue
@@ -97,7 +109,8 @@ def resolve_identity(entry:dict,records:list[dict],client=None)->dict:
         similarity=SequenceMatcher(None,title,other).ratio() if title and other else 0
         author_conflict=bool(entry.get('authors')) and bool(work.get('authors')) and not author
         year_conflict=entry.get('year') is not None and work.get('year') is not None and not year
-        decisive=len(title)>=12 and similarity>=.96 and not author_conflict and not year_conflict and ((author and year) or doi)
+        sufficient_title=len(title)>=12 or (allow_short_doi_title and doi and len(title)>=4 and title==other)
+        decisive=sufficient_title and similarity>=.96 and not author_conflict and not year_conflict and ((author and year) or doi)
         candidates.append((r,author,year,doi,similarity,decisive))
     matches=[c for c in candidates if c[-1]]
     if not matches and client:

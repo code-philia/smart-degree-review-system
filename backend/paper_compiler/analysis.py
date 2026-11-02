@@ -11,7 +11,7 @@ from pathlib import Path
 from .contracts import ir_hash,validate_analysis
 from .storage import json_bytes,write_json_atomic
 from .registry import REGISTRY,FIELD_TYPES
-from .identity import resolve_identity, IDENTITY_POLICY
+from .identity import resolve_identity, resolve_reference_identity, IDENTITY_POLICY
 from .citations import citation_context
 
 VERSION='shared-analysis/1.5'
@@ -444,35 +444,55 @@ def enrich(ir,rule_packages,*,client,gateway,cache_dir:Path,snapshot_id=None):
         field_names = IDENTITY_FIELD_NAMES
         policy['bibliography']['field_names'] = list(field_names)
     if has_r32:
-        from .serpapi_scholar import QUERY_PLAN_VERSION
-        policy['serpapi_query_plan'] = QUERY_PLAN_VERSION
+        from .evidence import REFERENCE_LOOKUP_VERSION
+        policy['reference_lookup'] = REFERENCE_LOOKUP_VERSION
     fingerprint=hashlib.sha256(json_bytes({'ir':ir_hash(ir),'version':VERSION,'capabilities':plan,'required':sorted(required),'policy':policy})).hexdigest()
     path=Path(cache_dir)/(fingerprint+'.json')
+    retry_cached=None
     if path.exists():
-        cached=json.loads(path.read_text());validate_analysis(ir,cached);return cached
-    a=base_analysis(ir);a['policy']=policy
+        cached=json.loads(path.read_text());validate_analysis(ir,cached)
+        unresolved=any(row.get('exists',{}).get('value') is not True for row in cached['results'].get('external_work',{}).values())
+        if not (has_r32 and gateway and not getattr(gateway,'snapshot_id',None) and unresolved):return cached
+        retry_cached=cached
+    a=retry_cached or base_analysis(ir);a['policy']=policy
     a['capability_versions'].update({name:cap['version'] for name,cap in plan.items()})
-    if required & {'bibliography_fields','bibliography_shape','external_work','citation_relevance'}:parse_entries(ir,a,client,field_names=field_names)
-    bind_references(ir,a);citation_syntax(ir,a);ordering_facts(ir,a)
+    if not retry_cached:
+        if required & {'bibliography_fields','bibliography_shape','external_work','citation_relevance'}:parse_entries(ir,a,client,field_names=field_names)
+        bind_references(ir,a);citation_syntax(ir,a);ordering_facts(ir,a)
     if required & {'external_work','citation_relevance'}:
         external=a['results'].setdefault('external_work',{})
+        prefetched={}
+        if has_r32 and callable(getattr(gateway,'lookup_rule32',None)):
+            pending=[n for n in ir['nodes'] if n['kind']=='BibliographyEntry' and external.get(n['id'],{}).get('exists',{}).get('value') is not True]
+            def retrieve(node):
+                fields=a['results']['bibliography_fields'][node['id']]
+                query={name:_value(fields,name) for name in ['title','authors','year','doi','url']}
+                query['authors']=query.get('authors') or []
+                try:return node['id'],gateway.lookup_rule32(query) if query.get('title') or query.get('doi') or query.get('url') else [],None
+                except Exception as error:return node['id'],[],type(error).__name__
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                for node_id,records,error in pool.map(retrieve,pending):prefetched[node_id]=(records,error)
         for node in ir['nodes']:
             if node['kind']!='BibliographyEntry':continue
+            if retry_cached and external.get(node['id'],{}).get('exists',{}).get('value') is True:continue
             fields=a['results']['bibliography_fields'][node['id']]
             query={name:_value(fields,name) for name in ['title','authors','year','doi']}
             query['authors']=query.get('authors') or []
+            if has_r32:query['url']=_value(fields,'url')
             retrieval_error = None
             try:
                 if has_r32:
                     lookup = getattr(gateway, 'lookup_rule32', None) if gateway else None
-                    if callable(lookup):
+                    if node['id'] in prefetched:
+                        records,retrieval_error=prefetched[node['id']]
+                    elif callable(lookup):
                         records = lookup(query) if any(query.get(name) for name in ('title', 'doi')) else []
                     elif gateway and callable(getattr(gateway, 'lookup', None)):
                         # Test/frozen gateways may expose only the legacy lookup contract;
                         # the production EvidenceGateway always provides lookup_rule32.
                         records = gateway.lookup(query) if any(query.get(name) for name in ('title', 'doi')) else []
                     else:
-                        raise RuntimeError('rule 32 requires the SerpAPI Scholar gateway')
+                        raise RuntimeError('reference lookup gateway unavailable')
                 else:
                     records = gateway.lookup(query) if gateway and query.get('title') else []
             except Exception as error:
@@ -483,14 +503,18 @@ def enrich(ir,rule_packages,*,client,gateway,cache_dir:Path,snapshot_id=None):
             source_url = _value(fields, 'url')
             if isinstance(source_url, str) and source_url.strip():
                 identity_entry['url'] = source_url
-            identity=resolve_identity(identity_entry,records,client=client)
+            identity=(resolve_reference_identity if has_r32 else resolve_identity)(identity_entry,records,client=client)
             if retrieval_error:
-                identity = {'state': 'unknown', 'reason': 'SerpAPI Scholar retrieval failed: ' + retrieval_error,
+                identity = {'state': 'unknown', 'reason': 'reference_lookup_unavailable: ' + retrieval_error,
                             'evidence_ids': [record['id'] for record in records if isinstance(record, dict) and record.get('id')]}
-            elif records and all(record.get('status') == 'empty' for record in records if isinstance(record, dict)):
+            elif records and all(record.get('provider')=='serpapi' and record.get('status') == 'empty' for record in records if isinstance(record, dict)):
                 identity = {'state': 'observed', 'value': False, 'reason': 'SerpAPI Google Scholar returned no matching result',
                             'search_scope': 'serpapi:google_scholar',
                             'evidence_ids': [record['id'] for record in records if record.get('id')]}
+            elif has_r32 and identity.get('value') is not True:
+                unavailable=records and all(record.get('status')=='unavailable' for record in records)
+                details='; '.join(sorted({str(record.get('provider','source'))+'='+str(record.get('error','unavailable')) for record in records if record.get('status')=='unavailable'}))
+                identity['reason']=('reference_lookup_unavailable: '+details) if unavailable else 'reference_not_matched: '+str(identity.get('reason','insufficient identity metadata'))
             # A source-backed arXiv URL is an exact discovery key, never a fact
             # about existence. Failed/absent metadata keeps the original UNKNOWN.
             exact_lookup = getattr(gateway,'lookup_arxiv_url',None)

@@ -138,7 +138,8 @@ it('does not display old automatic-loop metadata in confirmed-only fixed reports
   const output={...report,runtime:{status:'candidate_rejected'}};
   const result=service.toCompilerResult(output,['sjtu_rule_32']);
   expect(result.rule_runs[0].outcome).toBe('inconclusive');
-  expect(result.rule_runs[0].message).toBe('未触发告警');
+  expect(result.rule_runs[0].params.reference_verification).toMatchObject({total:0,verified:0});
+  expect(result.rule_runs[0].message).not.toBe('未触发告警');
   expect(result.rule_runs[0].message).not.toMatch(/自动|迭代|修复/);
 });
 
