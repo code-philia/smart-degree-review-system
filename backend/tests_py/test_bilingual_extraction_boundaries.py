@@ -187,3 +187,100 @@ def test_native_numbered_section_title_ends_abstract_without_keywords(tmp_path):
         document.save(pdf)
     facts = extract_bilingual_facts(build_paper(pdf, include_citations=False))
     assert facts["english_abstract"] == "The abstract has a conclusion."
+
+
+def test_english_abstract_with_chinese_heading_reaches_semantic_rule(monkeypatch):
+    monkeypatch.syspath_prepend(str(Path(__file__).resolve().parents[1] / 'scripts'))
+    from scripts import run_bilingual_semantic_lint as runner
+    chinese = '本文提出知识增强漏洞检测方法，并通过实验验证方法的有效性。'
+    english = 'We propose a knowledge enhanced vulnerability detection method and evaluate its effectiveness experimentally.'
+    facts = _facts(
+        _page(0, [('摘要', [250, 120, 350, 144]),
+                  (chinese, [80, 180, 500, 192]),
+                  ('关键词：软件漏洞；知识增强', [80, 240, 500, 252])]),
+        _page(1, [('摘', [250, 120, 275, 144]), ('要', [320, 120, 345, 144]),
+                  (english, [80, 180, 500, 192]),
+                  ('Keywords: Software Vulnerability; Knowledge Enhancement', [80, 240, 500, 252])]))
+    assert facts['chinese_abstract'] == chinese
+    assert facts['english_abstract'] == english
+    assert facts['locations']['english_abstract']['page_number'] == 2
+    def model(messages):
+        assert chinese in messages[0]['content'] and english in messages[0]['content']
+        return {'outcome': 'consistent'}, {'input_tokens': 1, 'output_tokens': 1}
+    monkeypatch.setattr(runner, 'request_json', model)
+    result = runner._run_semantic_rule({}, facts, 'bilingual_abstract_consistency_check')
+    assert result['outcome'] == 'passed'
+    assert result['model_usage']['input_tokens'] == 1
+
+
+def test_chinese_abstract_with_english_keyword_label_is_not_an_english_abstract():
+    facts = _facts(_page(0, [
+        ('摘要', [250, 120, 350, 144]),
+        ('本文提出知识增强漏洞检测方法，并通过实验验证方法的有效性。', [80, 180, 500, 192]),
+        ('Keywords: Software Vulnerability; Knowledge Enhancement', [80, 240, 500, 252])]))
+    assert facts['english_abstract'] is None
+
+
+def test_wrapped_english_keywords_continue_across_page_headers_and_footer():
+    facts = _facts(
+        _page(0, [('大学学位论文', [200, 60, 400, 72]),
+                  ('摘要', [250, 80, 350, 92]),
+                  ('摘要', [250, 120, 350, 144]),
+                  ('Keywords: Large Language Models; Text Provenance Detection; Ternary Classifica-', [80, 730, 550, 742]),
+                  ('II', [290, 780, 310, 792])]),
+        _page(1, [('大学学位论文', [200, 60, 400, 72]),
+                  ('摘要', [250, 80, 350, 92]),
+                  ('tion; Explainability; Model Collaboration; Reinforcement Learning', [80, 150, 550, 162]),
+                  ('III', [290, 780, 310, 792])]))
+    assert facts['english_keywords']['match_values'] == [
+        'Large Language Models', 'Text Provenance Detection', 'Ternary Classification',
+        'Explainability', 'Model Collaboration', 'Reinforcement Learning']
+    assert facts['locations']['english_keywords']['page_number'] == 1
+
+
+def test_wrapped_keyword_does_not_consume_a_new_abstract_on_next_page():
+    facts = _facts(
+        _page(0, [('Keywords: Classifica-', [80, 730, 550, 742]), ('II', [290, 780, 310, 792])]),
+        _page(1, [('Abstract', [250, 120, 350, 144]),
+                  ('tion is part of an unrelated abstract.', [80, 180, 500, 192]),
+                  ('Keywords: Other Research', [80, 240, 500, 252])]))
+    assert facts['english_keywords']['match_values'] == ['Classifica-']
+
+
+def test_same_abstract_titles_do_not_merge_when_chinese_keywords_are_missing():
+    chinese = '本文提出知识增强漏洞检测方法，并通过实验验证方法的有效性。'
+    english = 'We propose a knowledge enhanced detection method and evaluate its effectiveness experimentally. ' * 10
+    facts = _facts(
+        _page(0, [('摘要', [250, 120, 350, 144]), (chinese, [80, 180, 500, 192])]),
+        _page(1, [('摘要', [250, 120, 350, 144]), (english.strip(), [80, 180, 500, 192]),
+                  ('Keywords: Detection; Knowledge', [80, 240, 500, 252])]))
+    assert facts['chinese_abstract'] == chinese
+    assert facts['english_abstract'] == english.strip()
+    assert facts['locations']['chinese_abstract']['page_number'] == 1
+    assert facts['locations']['english_abstract']['page_number'] == 2
+
+
+def test_wrapped_keyword_preserves_a_small_actual_next_abstract_title():
+    facts = _facts(
+        _page(0, [('Abstract', [250, 80, 350, 92]),
+                  ('Keywords: Classifica-', [80, 730, 550, 742]), ('II', [290, 780, 310, 792])]),
+        _page(1, [('Abstract', [250, 80, 350, 92]),
+                  ('tion is part of a separate abstract and not a keyword.', [80, 180, 500, 192]),
+                  ('Keywords: Other Research', [80, 240, 500, 252])]))
+    assert facts['english_keywords']['match_values'] == ['Classifica-']
+
+
+def test_one_small_continuation_header_does_not_truncate_abstract():
+    facts = _facts(
+        _page(0, [('摘要', [250, 120, 350, 144]),
+                  ('中文摘要的第一部分。', [80, 180, 500, 192])]),
+        _page(1, [('摘要', [80, 40, 110, 51]),
+                  ('中文摘要的第二部分。', [80, 120, 500, 132]),
+                  ('关键词：检测；知识', [80, 200, 500, 212])]),
+        _page(2, [('Abstract', [250, 250, 350, 261.4]),
+                  ('The English abstract begins here.', [80, 280, 500, 292])]),
+        _page(3, [('Abstract', [80, 40, 130, 50.5]),
+                  ('The English abstract concludes here.', [80, 120, 500, 132]),
+                  ('Keywords: Detection; Knowledge', [80, 200, 500, 212])]))
+    assert facts['chinese_abstract'] == '中文摘要的第一部分。\n中文摘要的第二部分。'
+    assert facts['english_abstract'] == 'The English abstract begins here.\nThe English abstract concludes here.'

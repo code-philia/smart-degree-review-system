@@ -185,6 +185,11 @@ def test_english_abstract_with_chinese_title_still_compiles(tmp_path):
     ir = build_paper(path, include_citations=False)
     from paper_compiler.local_checks import core_parts
     assert core_parts(ir)['英文摘要'] is True
+    from scripts.paper_model_bilingual_rules import extract_bilingual_facts
+    facts = extract_bilingual_facts(ir)
+    assert 'We propose a collaborative software analysis method' in facts['english_abstract']
+    assert facts['locations']['english_abstract']['page_number'] == 3
+    assert facts['english_keywords']['values'] == ['software', 'analysis', 'detection']
     from scripts.check_paper_document import check_document
     assert check_document(path)['compiled'] is True
 

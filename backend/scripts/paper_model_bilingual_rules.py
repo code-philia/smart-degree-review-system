@@ -153,6 +153,51 @@ def extract_bilingual_facts(ir):
         return {"page_number": int(page.get("page_index", 0)) + 1,
                 "text_excerpt": text_at(index)[:500]}
 
+    ignored_ids = {source.get("line_id") for node in nodes
+                   if node.get("attrs", {}).get("role") in {"running_header", "running_footer", "page_number"}
+                   for source in node.get("provenance", [])}
+    top_rows = {}
+    top_sizes = {}
+    for page, line in flat:
+        box = line.get("bbox")
+        if box and box[1] < float(page.get("height") or 840) * .13:
+            value = compact(str(line.get("text", "")))
+            top_rows.setdefault(value, set()).add(page.get("page_index"))
+            top_sizes.setdefault(value, []).append(float(line.get("font_size") or box[3] - box[1]))
+
+    def noise(index):
+        page, line = flat[index]
+        if line.get("id") in ignored_ids or locator(text_at(index)):
+            return True
+        box = line.get("bbox")
+        return bool(box and box[1] < float(page.get("height") or 840) * .13
+                    and len(top_rows.get(compact(text_at(index)), set())) > 1)
+
+    def line_size(line):
+        box = line.get("bbox")
+        return float(line.get("font_size") or (box[3] - box[1] if box else 0))
+
+    def keyword_continuation_header(index, keyword_index):
+        """Corroborate a small repeated header against the keyword source page.
+
+        An equally sized new abstract title is a boundary, even when repeated
+        near the top of two pages. Require both a matching small header in the
+        same position and a larger independent title on the original page.
+        """
+        _page, line = flat[index]
+        box = line.get("bbox")
+        if not box:
+            return False
+        size = line_size(line)
+        original_page = flat[keyword_index][0].get("page_index")
+        earlier = [other for page, other in flat[:keyword_index]
+                   if page.get("page_index") == original_page
+                   and compact(str(other.get("text", ""))) == compact(text_at(index))]
+        return (any(line_size(other) > size * 1.15 for other in earlier)
+                and any(other.get("bbox") and abs(other["bbox"][0] - box[0]) <= 3
+                        and abs(other["bbox"][1] - box[1]) <= 3
+                        and abs(line_size(other) - size) <= 1 for other in earlier))
+
     keywords = []
     keyword_locations = {}
     for index, (page, line) in enumerate(flat):
@@ -161,17 +206,33 @@ def extract_bilingual_facts(ir):
             continue
         parts = [match.group(2)]
         previous = line
-        for following_page, following_line in flat[index + 1:]:
+        previous_page = page.get("page_index")
+        for following_index in range(index + 1, len(flat)):
+            following_page, following_line = flat[following_index]
             following = str(following_line.get("text", "")).strip()
-            if following_page.get("page_index") != page.get("page_index"):
+            wrapped = bool(re.search(r"[A-Za-z]-$", parts[-1].rstrip()))
+            next_page = following_page.get("page_index")
+            crossing_page = next_page != previous_page
+            if crossing_page and not (wrapped and previous_page == page.get("page_index")
+                                      and next_page == previous_page + 1):
                 break
+            # A split word may continue on the adjacent page. Ignore only
+            # corroborated small headers/footers, never a new full-size title.
+            if wrapped and noise(following_index):
+                boundary = section_boundary(following) or compact(following) in {"摘", "要", "中文摘要", "英文摘要"}
+                furniture = (keyword_continuation_header(following_index, index) if boundary
+                             else line_size(following_line) <= line_size(previous) * 1.15)
+                if locator(following) or following_line.get("id") in ignored_ids or furniture:
+                    continue
             if _overlapping_keyword_fragment(previous.get("bbox"), following_line.get("bbox"),
-                                             str(previous.get("text", "")), following):
+                                             str(previous.get("text", "")), following) and not crossing_page:
                 continue
             if locator(following) or _KEYWORDS.match(following) or section_boundary(following):
                 break
+            if crossing_page and not re.match(r"^[a-z]", following):
+                break
             previous_box, box = previous.get("bbox"), following_line.get("bbox")
-            if previous_box and box:
+            if previous_box and box and not crossing_page:
                 line_height = max(previous_box[3] - previous_box[1], box[3] - box[1], 1)
                 # A continuation is the next physical text row, not arbitrary
                 # subsequent text elsewhere on the page.
@@ -180,6 +241,7 @@ def extract_bilingual_facts(ir):
                     break
             parts.append(following)
             previous = following_line
+            previous_page = next_page
         combined = _join_wrapped_keyword_lines(parts)
         match_combined = _join_wrapped_keyword_lines(parts, remove_wrap_hyphen=True)
         values = [item.strip() for item in _SEPARATOR.split(combined) if item.strip()]
@@ -200,26 +262,6 @@ def extract_bilingual_facts(ir):
                     if values:
                         keywords.append({"label": match.group(1), "values": values,
                                          "match_values": _keyword_match_values(values), "text": part})
-
-    ignored_ids = {source.get("line_id") for node in nodes
-                   if node.get("attrs", {}).get("role") in {"running_header", "running_footer", "page_number"}
-                   for source in node.get("provenance", [])}
-    top_rows = {}
-    top_sizes = {}
-    for page, line in flat:
-        box = line.get("bbox")
-        if box and box[1] < float(page.get("height") or 840) * .13:
-            value = compact(str(line.get("text", "")))
-            top_rows.setdefault(value, set()).add(page.get("page_index"))
-            top_sizes.setdefault(value, []).append(float(line.get("font_size") or box[3] - box[1]))
-
-    def noise(index):
-        page, line = flat[index]
-        if line.get("id") in ignored_ids or locator(text_at(index)):
-            return True
-        box = line.get("bbox")
-        return bool(box and box[1] < float(page.get("height") or 840) * .13
-                    and len(top_rows.get(compact(text_at(index)), set())) > 1)
 
     def heading_end(index, label):
         value = compact(text_at(index))
@@ -249,7 +291,11 @@ def extract_bilingual_facts(ir):
     def section(label):
         candidates = []
         for start in range(len(flat)):
-            end = heading_end(start, label)
+            source_label = label
+            end = heading_end(start, source_label)
+            if end is None:
+                source_label = "摘要" if label == "abstract" else "abstract"
+                end = heading_end(start, source_label)
             if end is None:
                 continue
             if noise(start):
@@ -258,7 +304,11 @@ def extract_bilingual_facts(ir):
                 size = float(line.get("font_size") or (box[3] - box[1] if box else 0))
                 # A real title can share its text and top-margin position with
                 # smaller continuation headers. Retain its source typography.
-                if size <= min(top_sizes.get(compact(text_at(start)), [size])):
+                next_body = next((flat[index][1] for index in range(end + 1, min(end + 7, len(flat)))
+                                  if flat[index][0].get("page_index") == flat[start][0].get("page_index")
+                                  and not noise(index)), None)
+                prominent = next_body is not None and size > line_size(next_body) * 1.2
+                if size <= min(top_sizes.get(compact(text_at(start)), [size])) and not prominent:
                     continue
             body = []
             first_body = None
@@ -271,10 +321,16 @@ def extract_bilingual_facts(ir):
                 if keyword:
                     matched_keywords = bool(_CJK.search(keyword.group(1))) == (label == "摘要")
                     break
-                repeated_heading = heading_end(cursor, label)
+                repeated_heading = heading_end(cursor, source_label)
                 if repeated_heading is not None:
-                    cursor = repeated_heading + 1
-                    continue
+                    page, line = flat[cursor]
+                    box = line.get("bbox")
+                    small_top_heading = (box and box[1] < float(page.get("height") or 840) * .13
+                                         and line_size(line) < line_size(flat[start][1]) * .98)
+                    if line.get("id") in ignored_ids or small_top_heading:
+                        cursor = repeated_heading + 1
+                        continue
+                    break
                 if section_boundary(text, cursor, previous_body):
                     break
                 if not noise(cursor):
@@ -283,7 +339,14 @@ def extract_bilingual_facts(ir):
                     previous_body = cursor
                 cursor += 1
             if body:
-                candidates.append((matched_keywords, "\n".join(body), first_body))
+                text = "\n".join(body)
+                if source_label != label:
+                    han = len(_CJK.findall(text))
+                    words = len(re.findall(r"\b[A-Za-z]{2,}\b", text))
+                    language_matches = (words >= 6 and words > han * 2) if label == "abstract" else (han >= 8 and han > words * 2)
+                    if not matched_keywords or not language_matches:
+                        continue
+                candidates.append((matched_keywords, text, first_body))
         if candidates:
             # A matching keyword terminator corroborates the actual abstract,
             # rather than a title mentioned elsewhere in the front matter.
