@@ -40,15 +40,50 @@ def _rows(page):
                     text += ' ' + other
                     break
         if text:
-            values.append(text)
+            values.append((index, text))
     # PDFs sometimes split 摘/要 or 目/录 into separate positioned source lines.
-    tiny = [line for line in lines if 0 < len(re.sub(r'\s+', '', line['text'])) <= 2 and line.get('bbox')]
-    for index, left in enumerate(tiny):
-        for right in tiny[index + 1:]:
+    tiny = [(index, line) for index, line in enumerate(lines) if 0 < len(re.sub(r'\s+', '', line['text'])) <= 2 and line.get('bbox')]
+    for index, (left_index, left) in enumerate(tiny):
+        for _, right in tiny[index + 1:]:
             a, b = left['bbox'], right['bbox']
             if abs(a[1] - b[1]) <= 3 and 0 <= b[0] - a[2] <= 50:
-                values.append(left['text'] + right['text'])
-    return [unicodedata.normalize('NFKC', text).strip() for text in values]
+                values.append((left_index, left['text'] + right['text']))
+    return [unicodedata.normalize('NFKC', text).strip() for _, text in sorted(values, key=lambda value: value[0])]
+
+
+def has_bilingual_abstract_bodies(pages):
+    """Recover paired abstracts whose titles do not identify their language.
+
+    Require separate front-matter pages with substantial language-specific prose
+    and matching keyword lines. Covers, contents and body quotations cannot
+    provide the missing abstract merely by containing English text.
+    """
+    found = {'zh': set(), 'en': set()}
+    for index, page in enumerate(pages):
+        texts = _rows(page)
+        compact = {re.sub(r'\s+', '', text).lower() for text in texts}
+        if compact & {'目录', '目次', 'contents', 'tableofcontents'} or sum(bool(_LEADER.search(text)) for text in texts) >= 4:
+            break
+        if any(_INTRO.fullmatch(_NUMBER.sub('', text).strip()) for text in texts):
+            break
+        if not compact & {'摘要', '中文摘要', '英文摘要', 'abstract'}:
+            continue
+        markers = [order for order, text in enumerate(texts)
+                   if re.sub(r'\s+', '', text).lower() in {'摘要', '中文摘要', '英文摘要', 'abstract'}]
+        for keyword, label in enumerate(texts):
+            if not re.match(r'^(?:关键词|关键字|key\s*words?|index\s+terms)\s*[:：—–-]', label, re.I):
+                continue
+            start = max((marker for marker in markers if marker < keyword), default=-1)
+            if start < 0:
+                continue
+            prose = '\n'.join(texts[start + 1:keyword])
+            han = len(re.findall(r'[\u3400-\u9fff]', prose))
+            words = len(re.findall(r'\b[A-Za-z]{2,}\b', prose))
+            if han >= 80 and han >= words * 2 and re.match(r'^(?:关键词|关键字)', label):
+                found['zh'].add(index)
+            if words >= 60 and words >= han * 2 and re.match(r'^(?:key\s*words?|index\s+terms)', label, re.I):
+                found['en'].add(index)
+    return any(chinese != english for chinese in found['zh'] for english in found['en'])
 
 
 def assess_structure(pages, identity):
@@ -76,6 +111,8 @@ def assess_structure(pages, identity):
     abstracts = {compact(text) for _, _, text in source_rows}
     chinese_abstract = any(re.match(r'^(?:中文)?摘要(?:[:：\s]|$)', text) for _, _, text in source_rows) or bool(abstracts & {'摘要', '中文摘要'})
     english_abstract = any(re.match(r'^(?:英文摘要|abstract)(?:[:：—–\s-]|$)', text, re.I) for _, _, text in source_rows) or bool(abstracts & {'abstract', '英文摘要'})
+    if has_bilingual_abstract_bodies(pages):
+        chinese_abstract = english_abstract = True
     keywords = any(re.match(r'^(?:关键词|关键字|key\s*words?|index\s+terms)(?:\s*[:：—–-]\s*|\s+)\S', text, re.I)
                    or re.match(r'^(?:关键词|关键字)[:：]\S', compact(text)) for _, _, text in source_rows)
     intro = [(order, text) for order, _, text, heading in headings if _INTRO.fullmatch(heading)]

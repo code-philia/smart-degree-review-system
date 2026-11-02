@@ -160,3 +160,75 @@ def test_missing_core_section_never_constructs_a_typed_paper(tmp_path, monkeypat
     with pytest.raises(ValueError, match='编译'):
         frontend.build_paper(thesis(tmp_path, missing='第四章 结论'))
     assert called == []
+
+
+def mislabeled_abstract_thesis(tmp_path):
+    # The reported PDF has two separate abstract pages both titled 摘要.
+    # Chapter existence depends on its bounded prose, not the title language.
+    path = tmp_path / 'mislabeled-english-abstract.pdf'
+    with pymupdf.open(thesis(tmp_path)) as doc:
+        doc.delete_page(2)
+        page = doc.new_page(pno=2)
+        page.insert_text((50, 70), '摘 要', fontname='china-s', fontsize=16)
+        page.insert_textbox((50, 110, 550, 600),
+                            'We propose a collaborative software analysis method and evaluate its effectiveness. ' * 12,
+                            fontsize=11)
+        page.insert_text((50, 650), 'Keywords: software; analysis; detection', fontsize=11)
+        doc[1].insert_text((50, 650), '关键词：软件；分析；检测', fontname='china-s', fontsize=11)
+        doc.save(path)
+    return path
+
+
+def test_english_abstract_with_chinese_title_still_compiles(tmp_path):
+    path = mislabeled_abstract_thesis(tmp_path)
+    assert assess_pdf(path)['status'] == 'accepted'
+    ir = build_paper(path, include_citations=False)
+    from paper_compiler.local_checks import core_parts
+    assert core_parts(ir)['英文摘要'] is True
+    from scripts.check_paper_document import check_document
+    assert check_document(path)['compiled'] is True
+
+
+def test_deleted_english_abstract_is_not_restored_from_original_layout(tmp_path):
+    from paper_compiler.local_checks import core_parts, detect_ir
+    ir = build_paper(mislabeled_abstract_thesis(tmp_path), include_citations=False)
+    removed = {node['id'] for node in ir['nodes']
+               if any(span.get('page_index') == 2 for span in node['provenance'])}
+    ir['nodes'] = [node for node in ir['nodes'] if node['id'] not in removed]
+    for node in ir['nodes']:
+        node['children'] = [child for child in node['children'] if child not in removed]
+    assert core_parts(ir)['英文摘要'] is False
+    assert '英文摘要' in [finding['token'] for finding in detect_ir(ir, [34])['34']['findings']]
+
+
+@pytest.mark.parametrize('marker_y', [620, 700])
+def test_preface_prose_before_abstract_marker_is_not_an_abstract(tmp_path, marker_y):
+    path = tmp_path / 'preface-is-not-abstract.pdf'
+    with pymupdf.open(thesis(tmp_path)) as doc:
+        doc.delete_page(2)
+        page = doc.new_page(pno=2)
+        page.insert_text((50, 70), 'Dedication', fontsize=16)
+        page.insert_textbox((50, 110, 550, 550),
+                            'We thank our colleagues for their collaboration and helpful discussions about this project. ' * 10,
+                            fontsize=11)
+        page.insert_text((50, marker_y), '摘要', fontname='china-s', fontsize=16)
+        page.insert_text((50, 650), 'Keywords: software; project', fontsize=11)
+        doc[1].insert_text((50, 650), '关键词：软件；分析', fontname='china-s')
+        doc.save(path)
+    assert '英文摘要' in assess_pdf(path)['missing_sections']
+
+
+@pytest.mark.parametrize('placement', ['body', 'contents', 'cover'])
+def test_english_text_outside_abstract_cannot_supply_missing_english_abstract(tmp_path, placement):
+    path = tmp_path / 'english-outside-abstract.pdf'
+    with pymupdf.open(thesis(tmp_path, missing='Abstract')) as doc:
+        page = doc[{'body': 4, 'contents': 3, 'cover': 0}[placement]]
+        if placement != 'cover':
+            page.insert_text((50, 500), '摘 要', fontname='china-s')
+        page.insert_textbox((50, 520, 550, 700),
+                            'We propose and evaluate a software analysis method using experimental data. ' * 8,
+                            fontsize=9)
+        page.insert_text((50, 730), 'Keywords: software; analysis', fontsize=9)
+        doc[1].insert_text((50, 650), '关键词：软件；分析；检测', fontname='china-s')
+        doc.save(path)
+    assert '英文摘要' in assess_pdf(path)['missing_sections']

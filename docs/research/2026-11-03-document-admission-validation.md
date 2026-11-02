@@ -36,3 +36,13 @@ All six supplied genuine theses (Du Xueying, Li Jia, Lin Bo, Ran Dezhi, Sun Zais
 - https://arxiv.org/pdf/2208.04011
 
 Independent review found no remaining important or critical findings in the reviewed admission and compilation cases. Detailed local evidence is retained separately under `output/non-paper-gate-20261103/`; source PDFs and business report data are not committed.
+
+## Follow-up: abstract title language false positive
+
+Report `bc19c18a-a347-4bf0-970f-5feeddc5e108` was incorrectly rejected for a missing English abstract. Visual inspection of the original PDF confirmed that page 5 contains a substantial English abstract and an English Keywords line, while its heading is the Chinese word for abstract. Requiring an English-language heading confused title conventions with section existence.
+
+Source grammar and the core-section rule now share a conservative recovery path: separate front-matter abstract sections must contain substantial Chinese/English prose in the corresponding language and a matching keyword line. Only prose after the abstract marker and before keywords counts; contents and body text cannot supply an abstract. Joined source glyph headings retain their source order. IR rule checks use current visible node text and provenance so deletion or editing cannot resurrect a section from immutable layout observations.
+
+Regression cases cover the mislabeled title through the public builder and completed CLI proof, missing actual abstracts, unrelated English text on the cover/contents/body, unrelated preface prose before or after an abstract marker, and deletion of the English abstract from the IR. The original failing case is retained privately as a real-PDF control alongside the six theses, three articles and five non-paper controls.
+
+Follow-up verification passed 261 relevant Python tests and 13 subtests. All ten paper controls compiled with unchanged model content after excluding admission metadata; all five non-paper controls remained rejected. Independent review confirmed both ordering and IR-deletion regressions are covered with no remaining important or critical findings.

@@ -1,5 +1,6 @@
 """Six native-text checks over the shared Paper Model / Paper IR. No network."""
 import re
+from .structure import has_bilingual_abstract_bodies
 
 RULES = (31, 34, 35, 36, 37, 38)  # execution keys only; public titles have no rule numbers
 _CHAPTER = re.compile(r'^(?:第[一二三四五六七八九十百0-9]+[章篇]|chapter\d+|\d+(?:[.．]\d+)*[.．、]?)(?:[:：]|[-–—])?', re.I)
@@ -141,6 +142,12 @@ def title_page_evidence(ir, visual_rows):
 
 def core_parts(ir):
     visual_rows = rows(ir)
+    # Use current IR text so deleted/edited nodes cannot be restored from the
+    # immutable original PDF observations retained in layout.
+    visible_pages = {page['page_index']: {'lines': []} for page in ir['layout']['pages']}
+    for page, box, text, _ in visual_rows:
+        visible_pages[page]['lines'].append({'text': text, 'bbox': box})
+    bilingual_bodies = has_bilingual_abstract_bodies([visible_pages[index] for index in sorted(visible_pages)])
     texts = [compact(text) for _, _, text, _ in visual_rows]
     intro_pages = [page for page, _, text, _ in visual_rows if _INTRO.fullmatch(_CHAPTER.sub('', compact(text)))]
     toc_pages = [page for page, _, text, _ in visual_rows if re.search(r'(?:\.\s*){3,}\s*\d+\s*$', text)]
@@ -154,8 +161,8 @@ def core_parts(ir):
         '题名页': title_page_evidence(ir, visual_rows),
         '原创性声明': bool(re.search(r'原创性声明|独创性声明|原创声明|学术诚信声明', all_text)),
         '使用授权说明': bool(re.search(r'(?:使用|版权)授权(?:书|说明|声明)?|授权使用|版权使用(?:说明|声明|书)', all_text)),
-        '摘要': any(t in {'摘要', '中文摘要'} for t in texts),
-        '英文摘要': any(t in {'abstract', '英文摘要'} for t in texts),
+        '摘要': bilingual_bodies or any(t in {'摘要', '中文摘要'} for t in texts),
+        '英文摘要': bilingual_bodies or any(t in {'abstract', '英文摘要'} for t in texts),
         '关键词': any(re.match(r'^(?:关键词|关键字|keywords?)(?:[:：]|$)', text) for text in texts),
         '目录': 'ToC' in kinds or any(t in {'目录', '目次', 'contents', 'tableofcontents'} for t in texts),
         '引言': any(_INTRO.fullmatch(text) for text in headings),
