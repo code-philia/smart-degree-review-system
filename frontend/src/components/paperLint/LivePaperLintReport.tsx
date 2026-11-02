@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import type { PaperLintRule, PaperLintRuleRun } from '../../api/paperLint';
 import { StatusBadge } from '../ui';
-import { flattenPaperLintFindings } from './model';
+import { flattenPaperLintFindings, referencePresentationRun } from './model';
 import { PaperLintWorkspace } from './Workspace';
 
 type Props = {
@@ -12,10 +12,13 @@ type Props = {
 };
 
 export function LivePaperLintReport({ file, rules, runs, selectedRuleIds }: Props) {
-  const findings = useMemo(() => flattenPaperLintFindings({ rule_runs: runs }), [runs]);
+  const reportRuns = useMemo(() => runs.map(referencePresentationRun), [runs]);
+  const findings = useMemo(() => flattenPaperLintFindings({ rule_runs: reportRuns }), [reportRuns]);
   const numericRun = runs.find(run => run.rule_id === 'abstract_numeric_consistency_check');
-  const failed = runs.filter(run => run.execution_status === 'error');
-  const undecided = runs.filter(run => run.execution_status === 'unsupported' || run.outcome === 'inconclusive');
+  const failed = reportRuns.filter(run => run.execution_status === 'error');
+  const undecided = reportRuns.filter(run => run.execution_status !== 'error'
+    && !(run.rule_id === 'sjtu_rule_32' && run.execution_status === 'completed')
+    && (run.execution_status === 'unsupported' || run.outcome === 'inconclusive'));
   return (
     <section aria-label="实时检测报告" className="mx-auto w-full max-w-[1600px] space-y-5">
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
@@ -43,7 +46,7 @@ export function LivePaperLintReport({ file, rules, runs, selectedRuleIds }: Prop
             : '检测进行中，新发现的问题将自动更新到报告中。完成后自动保存至历史报告。'}
         </p>
       </div>
-      <PaperLintWorkspace file={file} findings={findings} rules={rules} selectedRuleIds={selectedRuleIds} ruleRuns={runs} numericReviewRun={numericRun} running />
+      <PaperLintWorkspace file={file} findings={findings} rules={rules} selectedRuleIds={selectedRuleIds} ruleRuns={reportRuns} numericReviewRun={numericRun} running />
     </section>
   );
 }

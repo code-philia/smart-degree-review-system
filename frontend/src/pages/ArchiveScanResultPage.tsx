@@ -15,7 +15,7 @@ import { useFindingRepairSuggestions } from '../hooks/useFindingRepairSuggestion
 import { ARCHIVE_REPAIR_RULE_IDS } from '../api/repairSuggestions';
 import { useAuthSession } from '../auth/AuthSessionProvider';
 import { PaperLintWorkspace } from '../components/paperLint/Workspace';
-import { compilerPublicationLabel, compilerPublicationSummary, flattenPaperLintFindings } from '../components/paperLint/model';
+import { compilerPublicationLabel, compilerPublicationSummary, flattenPaperLintFindings, paperLintPresentation } from '../components/paperLint/model';
 import { ErrorState, LoadingState, PageHeader } from '../components/ui';
 
 const outcomeLabel: Record<string, string> = {
@@ -41,7 +41,7 @@ function ArchiveScanResultDocument() {
     Promise.all([fetchArchiveDocument(jobId, documentId), fetchArchiveCatalog()])
       .then(([data, nextCatalog]) => {
         if (!cancelled) {
-          setDocument(data.document);
+          setDocument({ ...data.document, result: data.document.result ? paperLintPresentation(data.document.result) : data.document.result });
           setCatalog(nextCatalog);
         }
       })
@@ -52,7 +52,8 @@ function ArchiveScanResultDocument() {
       cancelled = true;
     };
   }, [allowed, jobId, documentId]);
-  const inconclusive = document?.result?.rule_runs.some((run) => run.outcome === 'inconclusive') || false;
+  const inconclusive = document?.result?.rule_runs.some((run) => run.outcome === 'inconclusive'
+    && !(run.rule_id === 'sjtu_rule_32' && run.execution_status === 'completed')) || false;
   const findings = useMemo(() => (document?.result ? flattenPaperLintFindings(document.result) : []), [document]);
   const reference = useCallback((item: (typeof findings)[number]) => ({job_id: document?.repair_sources?.[item.ruleRun.rule_id]?.job_id || jobId!, document_id: document?.repair_sources?.[item.ruleRun.rule_id]?.document_id || documentId!, rule_id: item.ruleRun.rule_id, finding_id: item.finding.finding_id}), [jobId, documentId, document?.repair_sources]);
   const fetchSaved = useCallback(async (item: (typeof findings)[number]) => (await fetchArchiveFindingRepairSuggestions(reference(item)))[0] || null, [reference]);

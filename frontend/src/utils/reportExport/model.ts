@@ -9,6 +9,7 @@ import {
   compilerPublicationLabel,
   compilerPublicationSummary,
   flattenPaperLintFindings,
+  paperLintPresentation,
 } from '../../components/paperLint/model';
 import { formatChinaDateTime } from '../dateTime';
 import { numericReportBlocks } from './numericDetails';
@@ -77,12 +78,12 @@ export function buildExportReport(
   metrics: PaperLintDocumentMetrics | null,
   repairs: Record<string, RepairSuggestion | undefined> = {},
 ): ExportReport {
-  const result = report.result,
+  const result = paperLintPresentation(report.result),
     summary = result.summary;
   const title = (id: string) => rules.find((r) => r.rule_id === id)?.title || id;
   const inconclusive =
     summary.unsupported_rule_count > 0 ||
-    result.rule_runs.some((r) => r.outcome === 'inconclusive' && compilerPublicationLabel(r) !== '未触发告警');
+    result.rule_runs.some((r) => r.outcome === 'inconclusive' && !(r.rule_id === 'sjtu_rule_32' && r.execution_status === 'completed') && compilerPublicationLabel(r) !== '未触发告警');
   const conclusion = summary.finding_count
     ? `发现 ${summary.finding_count} 项问题，请逐项核对。`
     : summary.error_rule_count
@@ -142,7 +143,7 @@ export function buildExportReport(
       finding.anchors?.forEach((anchor) => add(anchor.location, anchor.label || anchor.role || '相关位置'));
       const repair = repairs[key],
         suggestions = finding.suggestion ? [finding.suggestion] : [];
-      if (repair) {
+      if (repair && !finding.prompt_only) {
         if (repair.status === 'suggested') suggestions.push(...repair.actions.map((a) => a.instruction));
         else
           suggestions.push(

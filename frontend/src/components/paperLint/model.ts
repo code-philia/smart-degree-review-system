@@ -155,14 +155,41 @@ export function comparePaperLintRuleIds(left: string, right: string): number {
   return leftNumber - rightNumber;
 }
 
+function referenceDisplayFindings(run: PaperLintRuleRun): PaperLintFinding[] {
+  return (run.findings || []).filter(finding => !finding.prompt_only || finding.reference_review === 'supported_suspicion')
+    .map(finding => ({ ...finding, prompt_only: true, reference_review: 'supported_suspicion' as const }));
+}
+
+export function referencePresentationRun(run: PaperLintRuleRun): PaperLintRuleRun {
+  if (run.rule_id !== 'sjtu_rule_32') return run;
+  const findings = referenceDisplayFindings(run);
+  return { ...run, findings, severity: 'info', ...(run.execution_status === 'completed' ? {
+    publication_status: findings.length ? 'ALERT' as const : 'NO_ALERT' as const,
+    message: findings.length ? `发现 ${findings.length} 条疑似不存在的引用，请逐条人工复核。` : '未发现疑似不存在的引用。',
+  } : {}) };
+}
+
+export function paperLintPresentation(result: PaperLintResult): PaperLintResult {
+  if (!result.rule_runs.some(run => run.rule_id === 'sjtu_rule_32')) return result;
+  const rule_runs = result.rule_runs.map(referencePresentationRun);
+  const findings = flattenPaperLintFindings({ rule_runs });
+  return { ...result, rule_runs, summary: { ...result.summary,
+    finding_count: findings.length,
+    error_finding_count: findings.filter(item => item.ruleRun.severity === 'error').length,
+    warning_finding_count: findings.filter(item => item.ruleRun.severity === 'warning').length,
+    info_finding_count: findings.filter(item => item.ruleRun.severity === 'info').length,
+    issue_rule_count: new Set(findings.map(item => item.ruleRun.rule_id)).size,
+  } };
+}
+
 export function flattenPaperLintFindings(result: Pick<PaperLintResult, 'rule_runs'>): PaperLintFindingItem[] {
   const items: PaperLintFindingItem[] = [];
   for (const ruleRun of result.rule_runs || []) {
-    for (const finding of ruleRun.rule_id === numericRule ? numericDisplayFindings(ruleRun) : ruleRun.findings || []) {
+    for (const finding of ruleRun.rule_id === numericRule ? numericDisplayFindings(ruleRun) : ruleRun.rule_id === 'sjtu_rule_32' ? referenceDisplayFindings(ruleRun) : ruleRun.findings || []) {
       items.push({
         key: finding.finding_id || `${ruleRun.rule_id}-${items.length}`,
         finding,
-        ruleRun: { ...ruleRun, severity: (finding as PaperLintFinding & { severity?: PaperLintRuleRun['severity'] }).severity || ruleRun.severity },
+        ruleRun: { ...ruleRun, severity: ruleRun.rule_id === 'sjtu_rule_32' ? 'info' : (finding as PaperLintFinding & { severity?: PaperLintRuleRun['severity'] }).severity || ruleRun.severity },
         index: items.length,
       });
     }
@@ -196,6 +223,7 @@ export function findingPageLabel(item: PaperLintFindingItem): string | null {
 export function compilerPublicationLabel(run: PaperLintRuleRun): string | null {
   if (!['sjtu_rule_31', 'sjtu_rule_32', 'sjtu_rule_33'].includes(run.rule_id) || !run.publication_status) return null;
   if (run.execution_status === 'error') return '执行失败';
+  if (run.rule_id === 'sjtu_rule_32' && referenceDisplayFindings(run).length) return '待人工复核';
   return run.publication_status === 'ALERT' ? '发现问题' : '未触发告警';
 }
 

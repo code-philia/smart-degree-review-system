@@ -118,8 +118,7 @@ export function FindingsPane({
     const status = !run ? (running ? 'running' : ruleRuns ? 'needs_review' : 'completed')
       : run.execution_status === 'error' ? 'error'
       : prerequisiteWarning ? 'execution_warning'
-      : id === 'sjtu_rule_32' && ((Number((run.params?.reference_verification as { unresolved?: number } | undefined)?.unresolved) > 0)
-        || run.compiler_diagnostics?.some(row => ['UNKNOWN', 'ERROR'].includes(row.status))) ? 'needs_review'
+      : id === 'sjtu_rule_32' && run.execution_status === 'completed' ? 'completed'
       : run.execution_status === 'unsupported' || run.outcome === 'inconclusive' ? 'needs_review'
       : run.outcome === 'not_applicable' ? 'not_applicable' : 'completed';
     const ruleCounts = counts.get(id) || { error: 0, warning: 0, info: 0 };
@@ -148,11 +147,13 @@ export function FindingsPane({
     : selectedOption?.status === 'execution_warning' ? '规则未实现警告'
     : selectedOption?.status === 'not_applicable' ? '本规则不适用'
     : incomplete ? '部分规则未完成有效检测'
+    : selectedRun?.rule_id === 'sjtu_rule_32' ? '未发现疑似不存在的引用'
     : selectedOption ? '本规则未检测出问题' : '未检测出问题';
   const emptyDescription = pending ? '检测完成后自动更新，您可以先查看其他已完成规则的结果。'
     : severityEmpty ? selectedTotal > 0 ? `${selectedOption ? '该规则' : '当前报告'}共发现 ${selectedTotal} 处问题，分布在其他级别。` : '当前筛选下暂无该级别的问题。'
     : incomplete ? referenceReviewMessage(selectedRun) || selectedRun?.message || '请在规则下拉框查看检测状态；证据不足或检测失败不代表没有问题。'
-    : referenceReviewMessage(selectedRun) || '基于当前规范性检测规则，证据不足的内容仍可能无法判定，检测结果仅供参考';
+    : selectedRun?.rule_id === 'sjtu_rule_32' ? '检测结果仅供参考。'
+    : '基于当前规范性检测规则，证据不足的内容仍可能无法判定，检测结果仅供参考';
   const EmptyIcon = pending ? LoaderCircle : severityEmpty ? ListFilter : selectedOption?.status === 'error' ? CircleAlert : incomplete ? CircleHelp : CheckCircle2;
   const filtered = findings.filter(
     (item) =>
@@ -242,7 +243,9 @@ export function FindingsPane({
             const repairError = repairSuggestionErrorByFindingKey[item.key];
             const generating = repairSuggestionLoadingByFindingKey[item.key] || repairSuggestionLoadingKey === item.key;
             const numeric = item.ruleRun.rule_id === 'abstract_numeric_consistency_check';
-            const repairEnabled = !numeric && supportsRepairSuggestion(item);
+            const reference = item.ruleRun.rule_id === 'sjtu_rule_32';
+            const referenceExcerpt = reference ? item.finding.evidence?.filter(e => e.kind === 'source_span' && e.quote).at(-1)?.quote || item.finding.location?.text_excerpt : null;
+            const repairEnabled = !numeric && !reference && supportsRepairSuggestion(item);
             const findingFeedback = findingFeedbackByKey[item.key];
             const suggestionFeedback = suggestionFeedbackByFindingKey[item.key];
             const showRepairSuggestion = Boolean(onGenerateRepairSuggestion || repair || generating || repairError);
@@ -302,6 +305,8 @@ export function FindingsPane({
                   </div>
                 </div>
                 <p className="mt-2 text-sm leading-6 text-slate-700">{item.finding.message}</p>
+                {referenceExcerpt ? <blockquote className="mt-3 rounded-lg bg-slate-50 p-3 text-xs leading-6 text-slate-700"><p className="font-semibold">参考文献原文</p><p className="mt-1 whitespace-pre-wrap break-words">{referenceExcerpt}</p></blockquote> : null}
+                {reference ? <p className="mt-2 text-xs leading-6 text-blue-700">{item.finding.suggestion || '请人工复核该条引用及其原始来源。'}</p> : null}
                 {onFindingFeedback ? <FeedbackControls
                   label="这个问题的判断是否准确？"
                   feedback={findingFeedback}
@@ -325,7 +330,7 @@ export function FindingsPane({
                   </Button>
                 ) : null}
                 {active && item.finding.source_kind === 'synthetic' ? <p className="mt-2 text-xs text-slate-600">该处来自变异内容，未标记为原始 PDF 中的文本。</p> : null}
-                {(numeric || active) && item.finding.suggestion && (!repairEnabled || (!onLoadRepairSuggestion && !onGenerateRepairSuggestion)) ? (
+                {!reference && (numeric || active) && item.finding.suggestion && (!repairEnabled || (!onLoadRepairSuggestion && !onGenerateRepairSuggestion)) ? (
                   <div className={`mt-3 rounded-lg bg-white p-3 text-slate-600 ${numeric ? 'text-sm leading-6' : 'text-xs leading-5'}`}>
                     <strong className="text-slate-800">修改建议：</strong>
                     {item.finding.suggestion}

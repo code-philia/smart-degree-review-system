@@ -30,14 +30,51 @@ describe('reference verification coverage', () => {
     const run = toCompilerResult(report(['PASS', 'PASS']), ['sjtu_rule_32']).rule_runs[0];
     expect(run.outcome).toBe('passed');
     expect(run.params.reference_verification).toMatchObject({ total: 2, verified: 2, unresolved: 0 });
-    expect(run.message).toContain('2');
+    expect(run.message).toBe('未发现疑似不存在的引用。');
   });
-  it('explains provider failures and unmatched entries instead of a generic no-alert message', () => {
+  it('keeps insufficient evidence internally without presenting it as a suspected reference', () => {
     const run = toCompilerResult(report(['PASS', 'UNKNOWN', 'UNKNOWN'], [[], ['reference_lookup_unavailable: openalex=HTTP_429'], ['reference_not_matched']]), ['sjtu_rule_32']).rule_runs[0];
     expect(run.outcome).toBe('inconclusive');
     expect(run.params.reference_verification).toMatchObject({ total: 3, verified: 1, unresolved: 2, unavailable: 1 });
-    expect(run.message).toContain('检索服务');
-    expect(run.message).not.toBe('未触发告警');
+    expect(run.message).toBe('未发现疑似不存在的引用。');
+    expect(run.findings).toEqual([]);
+    expect(run.compiler_diagnostics).toHaveLength(2);
+    expect(run.severity).toBe('info');
+  });
+  it('does not promote a legacy SerpAPI search miss into a review prompt', () => {
+    const run = toCompilerResult(report(['UNKNOWN'], [['serpapi_not_found']]), ['sjtu_rule_32']).rule_runs[0];
+    expect(run.findings).toEqual([]);
+    expect(run.compiler_diagnostics).toHaveLength(1);
+    expect(run.message).toBe('未发现疑似不存在的引用。');
+  });
+  it('lists only publication-supported references as individual informational review items', () => {
+    const value = report(['VIOLATION', 'VIOLATION', 'UNKNOWN']);
+    value.rules[0].status = 'VIOLATION';
+    value.publication.public = { status: 'ALERT', findings: [0, 1].map(n => ({ rule_id: '32', node_id: `entry-${n}`,
+      message: `有完整目录证据支持的疑点 ${n + 1}`, evidence: [[{ kind: 'source_span', quote: `[${n + 1}] 原始参考文献 ${n + 1}` }]] })) };
+    const result = toCompilerResult(value, ['sjtu_rule_32']);
+    const run = result.rule_runs[0];
+    expect(run.severity).toBe('info');
+    expect(run.findings).toHaveLength(2);
+    expect(run.findings.every(f => f.prompt_only && f.reference_review === 'supported_suspicion')).toBe(true);
+    expect(run.findings.every(f => f.suggestion.includes('人工复核'))).toBe(true);
+    expect(run.findings.map(f => f.location.page_number)).toEqual([1, 1]);
+    expect(run.findings[0].evidence[0].quote).toBe('[1] 原始参考文献 1');
+    expect(result.summary).toMatchObject({ info_finding_count: 2, warning_finding_count: 0, error_finding_count: 0 });
+  });
+  it('does not publish a proposed exclusion rejected by the publication gate', () => {
+    const run = toCompilerResult(report(['VIOLATION']), ['sjtu_rule_32']).rule_runs[0];
+    expect(run.findings).toEqual([]);
+    expect(run.message).toBe('未发现疑似不存在的引用。');
+  });
+  it('retains the execution failure message without publication metadata', () => {
+    const value = report([]); delete value.publication;
+    value.rules[0].status = 'ERROR';
+    value.rules[0].execution_error = { error_type: 'ProgramError', reason: 'broken detector execution' };
+    const run = toCompilerResult(value, ['sjtu_rule_32']).rule_runs[0];
+    expect(run.execution_status).toBe('error');
+    expect(run.message).toContain('broken detector execution');
+    expect(run.message).not.toContain('未发现');
   });
   it('does not infer pass from NO_ALERT without actual entry verification', () => {
     expect(toCompilerResult(report([]), ['sjtu_rule_32']).rule_runs[0].outcome).toBe('inconclusive');

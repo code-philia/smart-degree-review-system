@@ -32,8 +32,8 @@ describe('clear report rule selector', () => {
   it.each([false, true])('keeps review and prerequisite rules in their own categories and resets excluded selections (live=%s)', async running => {
     const numeric = { ...zero, rule_id: 'abstract_numeric_consistency_check', rule_run_id: 'numeric', outcome: 'not_applicable' as const,
       params: { preconditions: [{ id: 'abstract_numeric', passed: false, status: 'failed' }] } };
-    const review = { ...zero, rule_id: 'sjtu_rule_32', rule_run_id: 'references', outcome: 'inconclusive' as const, message: '等待核查引用身份' };
-    const fullRules = [...rules, { rule_id: numeric.rule_id, title: '论点论据一致性检测' }, { rule_id: review.rule_id, title: '引用的外部文献不存在' }] as PaperLintRule[];
+    const review = { ...zero, rule_id: 'sjtu_rule_33', rule_run_id: 'references', outcome: 'inconclusive' as const, message: '等待核查引用身份' };
+    const fullRules = [...rules, { rule_id: numeric.rule_id, title: '论点论据一致性检测' }, { rule_id: review.rule_id, title: '引用上下文与文献不相关' }] as PaperLintRule[];
     render(<FindingsPane {...props} rules={fullRules} selectedRuleIds={[issues.rule_id, zero.rule_id, numeric.rule_id, review.rule_id]}
       running={running} findings={flattenPaperLintFindings({ rule_runs: [issues, zero, numeric, review] })}
       ruleRuns={[issues, zero, numeric, review]} executionWarnings={numericExecutionWarnings(numeric)} />);
@@ -49,8 +49,8 @@ describe('clear report rule selector', () => {
     fireEvent.keyDown(list, { key: 'Escape' });
     fireEvent.click(screen.getByRole('button', { name: '提示 0', exact: true }));
     list = await openMenu();
-    expect(within(list).getAllByRole('option').map(row => row.textContent?.split('，')[0])).toEqual(['全部检查项', '引用的外部文献不存在']);
-    const reviewOption = within(list).getByRole('option', { name: '引用的外部文献不存在，待核查' });
+    expect(within(list).getAllByRole('option').map(row => row.textContent?.split('，')[0])).toEqual(['全部检查项', '引用上下文与文献不相关']);
+    const reviewOption = within(list).getByRole('option', { name: '引用上下文与文献不相关，待核查' });
     reviewOption.focus(); fireEvent.keyDown(reviewOption, { key: 'Enter' });
     expect(screen.getByText('等待核查引用身份')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '规则未实现警告 1', exact: true }));
@@ -226,13 +226,15 @@ describe('clear report rule selector', () => {
     ['SerpAPI Scholar retrieval failed: SERPAPI_QUOTA_EXHAUSTED', '额度不足'],
     ['SerpAPI Scholar retrieval failed: SERPAPI_API_KEY is not configured', '未配置'],
     ['public retrieval does not establish or exclude this work', '未匹配'],
-  ])('explains historical unresolved reference diagnostics: %s', async (reason, expected) => {
+  ])('shows zero suspected references while retaining historical diagnostics: %s', async (reason) => {
     const run = { ...zero, rule_id: 'sjtu_rule_32', outcome: 'inconclusive' as const, message: '未触发告警',
       compiler_diagnostics: [{ check_id: 'existence', status: 'UNKNOWN' as const, reasons: [reason], evidence: [] }] };
     render(<FindingsPane {...props} rules={[{ rule_id: run.rule_id, title: '引用的外部文献不存在' } as PaperLintRule]}
       selectedRuleIds={[run.rule_id]} findings={[]} ruleRuns={[run]} />);
     await selectRule('引用的外部文献不存在');
-    expect(screen.getByText(new RegExp(expected), { selector: 'p' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox')).not.toHaveTextContent('待核查');
+    expect(screen.getByText('未发现疑似不存在的引用')).toBeInTheDocument();
+    expect(screen.getByTestId('rule-empty-icon')).toHaveClass('text-success-600');
     expect(screen.queryByText('未触发告警')).not.toBeInTheDocument();
   });
 });

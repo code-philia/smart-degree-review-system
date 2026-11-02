@@ -11,7 +11,7 @@ import {
   type PaperLintRunResponse,
 } from '../api/paperLint';
 import { PaperLintWorkspace } from '../components/paperLint/Workspace';
-import { compilerPublicationLabel, compilerPublicationSummary, flattenPaperLintFindings } from '../components/paperLint/model';
+import { compilerPublicationLabel, compilerPublicationSummary, flattenPaperLintFindings, paperLintPresentation } from '../components/paperLint/model';
 import { usePaperLintRepairSuggestions } from '../hooks/usePaperLintRepairSuggestions';
 import {
   deleteFindingFeedback,
@@ -49,7 +49,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
     setMetricsLoading(true);
     void fetchPaperLintReport(reportId)
       .then((nextReport) => {
-        if (!cancelled) setReport(nextReport);
+        if (!cancelled) setReport({ ...nextReport, result: paperLintPresentation(nextReport.result) });
       })
       .catch((loadError) => !cancelled && setError(loadError instanceof Error ? loadError.message : '报告加载失败'));
     void fetchPaperLintDocumentMetrics(reportId)
@@ -140,7 +140,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
   if (!report) return <LoadingState label="正在加载检测报告和原文定位…" />;
   const { summary } = report.result;
   const inconclusiveRuns = report.result.rule_runs.filter((run) =>
-    run.outcome === 'inconclusive' && compilerPublicationLabel(run) !== '未触发告警');
+    run.outcome === 'inconclusive' && !(run.rule_id === 'sjtu_rule_32' && run.execution_status === 'completed') && compilerPublicationLabel(run) !== '未触发告警');
   const hasInconclusiveRules = summary.unsupported_rule_count > 0 || inconclusiveRuns.length > 0;
   const unavailableReasons = [...new Set(report.result.rule_runs
     .filter((run) => run.execution_status === 'unsupported' || run.execution_status === 'error' || inconclusiveRuns.includes(run))
@@ -181,7 +181,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
                   ? 'warning'
                   : hasInconclusiveRules || summary.error_rule_count
                     ? 'neutral'
-                    : 'success'
+                    : summary.info_finding_count ? 'info' : 'success'
             }
           >
             {summary.finding_count

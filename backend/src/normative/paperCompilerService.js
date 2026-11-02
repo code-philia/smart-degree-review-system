@@ -129,26 +129,15 @@ function toCompilerResult(output,selectedRuleIds) {
         Array.isArray(r.reasons) && r.reasons.includes('serpapi_not_found') ? 'serpapi_not_found' : null,
       reasons:r.reasons || [], evidence:r.display_evidence || [], basis_details:basisDetails(r),
     }));
-    const serpApiNotFoundDiagnostics = diagnostics.filter(item => item.kind === 'serpapi_not_found');
-    if (ruleId === 'sjtu_rule_32' && serpApiNotFoundDiagnostics.length) {
-      const promptFindings = serpApiNotFoundDiagnostics.map((item, index) => ({
-        finding_id: `${ruleId}_prompt_${index + 1}`,
-        rule_id: ruleId,
-        node_id: item.node_id,
-        message: item.message || '未在 SerpAPI 中查到该参考文献，请人工复核。',
-        suggestion: null,
-        location: item.location || null,
-        anchors: [],
-        source_kind: item.location ? 'source' : 'unlocated',
-        evidence: item.evidence || [],
-        basis_details: item.basis_details || [],
-        check_id: item.check_id,
-        prompt_only: true,
+    if (ruleId === 'sjtu_rule_32') {
+      // Only the existing confirmed-finding path may produce a review item.
+      // Search misses and ambiguous identities remain diagnostics, not findings.
+      findings = findings.map(finding => ({ ...finding,
+        suggestion: '请人工复核该条引用及其原始来源，确认文献是否真实存在。',
+        prompt_only: true, reference_review: 'supported_suspicion',
       }));
-      findings = [...findings, ...promptFindings];
     }
     const unknown=raw.counts?.UNKNOWN || 0;
-    const serpApiNotFoundCount=serpApiNotFoundDiagnostics.length;
     const reason=raw.status==='ERROR' ? executionReason(raw.execution_error) : null;
     const reference = ruleId === 'sjtu_rule_32' ? {
       total: raw.results.length,
@@ -156,23 +145,20 @@ function toCompilerResult(output,selectedRuleIds) {
       unresolved: raw.results.filter(row => ['UNKNOWN', 'ERROR'].includes(row.status)).length,
       unavailable: raw.results.filter(row => ['UNKNOWN', 'ERROR'].includes(row.status) && (row.reasons || []).some(value => /reference_lookup_unavailable|QUOTA_EXHAUSTED|API_KEY.*configured|HTTP_[45]\d\d|TimeoutError/.test(String(value)))).length,
       coverage_complete: Array.isArray(raw.coverage?.incomplete_scopes) && raw.coverage.incomplete_scopes.length === 0,
+      suspected: findings.length,
     } : null;
     const referencePassed = reference && raw.status === 'PASS' && reference.total > 0
       && reference.verified === reference.total && reference.coverage_complete;
-    const referenceMessage = reference ? [
-      reference.total ? `已核验存在 ${reference.verified}/${reference.total} 条参考文献。` : '尚无完整的参考文献核验记录。',
-      reference.unresolved ? `${reference.unresolved} 条待核查；其中 ${reference.unavailable} 条因检索服务不可用或额度不足未完成，其余未获得充分的身份匹配证据。` : null,
-      !reference.coverage_complete ? '参考文献列表提取不完整，未覆盖内容保留待核查。' : null,
-    ].filter(Boolean).join(' ') : null;
-    const runMessage = serpApiNotFoundCount
-      ? `${serpApiNotFoundCount} 条参考文献未在 SerpAPI 中查到；仅作提示，不计入规则警告。`
-      : [raw.status==='UNKNOWN' || unknown || raw.coverage?.incomplete_scopes?.length ? `${unknown} 项证据不足；未覆盖的内容保留无法判定。` : null,
+    const referenceMessage = reference ? findings.length
+      ? `发现 ${findings.length} 条疑似不存在的引用，请逐条人工复核。`
+      : '未发现疑似不存在的引用。' : null;
+    const runMessage = [raw.status==='UNKNOWN' || unknown || raw.coverage?.incomplete_scopes?.length ? `${unknown} 项证据不足；未覆盖的内容保留无法判定。` : null,
         reason ? `规则执行异常：${reason}` : null, refinementMessage, baselineMessage].filter(Boolean).join(' ') || null;
-    return {rule_run_id:`run_${ruleId}`,rule_id:ruleId,severity:ruleId === 'sjtu_rule_32' && serpApiNotFoundCount ? 'info' : 'warning',params:reference ? {reference_verification:reference} : null,
+    return {rule_run_id:`run_${ruleId}`,rule_id:ruleId,severity:ruleId === 'sjtu_rule_32' ? 'info' : 'warning',params:reference ? {reference_verification:reference} : null,
       execution_status:raw.status==='ERROR'?'error':'completed',evidence_mode:findings.some(f=>f.source_kind==='synthetic')?'derived':'native',
       outcome:findings.length?'issues_found':reference ? (referencePassed?'passed':raw.status==='NOT_APPLICABLE'?'not_applicable':'inconclusive') : publication?'inconclusive':raw.status==='PASS'?'passed':raw.status==='NOT_APPLICABLE'?'not_applicable':'inconclusive',
-      ...(publication ? {publication_status:ruleId === 'sjtu_rule_32' && serpApiNotFoundCount ? 'NO_ALERT' : findings.length ? 'ALERT' : 'NO_ALERT'} : {}),
-      message:raw.status==='ERROR' && publication ? `规则执行失败${reason ? '：'+reason : ''}` : reference ? [referenceMessage,serpApiNotFoundCount ? runMessage : null].filter(Boolean).join(' ') : publication ? (findings.length ? '发现经复核确认的告警' : '未触发告警') : runMessage,
+      ...(publication ? {publication_status:findings.length ? 'ALERT' : 'NO_ALERT'} : {}),
+      message:raw.status==='ERROR' && (publication || reference) ? `规则执行失败${reason ? '：'+reason : ''}` : reference ? referenceMessage : publication ? (findings.length ? '发现经复核确认的告警' : '未触发告警') : runMessage,
       compiler_runtime_status:typeof output.runtime?.status==='string' ? output.runtime.status : null,
       findings,compiler_diagnostics:diagnostics,...(publication ? {} : {coverage:raw.coverage,compiler_counts:raw.counts}),package_sha256:raw.package_sha256,
       runtime_version:runtimeVersion,pipeline_version:pipelineVersion,runtime_snapshot:runtimeSnapshot};
