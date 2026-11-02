@@ -1000,6 +1000,7 @@ def validated_results(payload, declarations, candidates):
             if not problems:
                 row.update(status=entry['status'], reason=entry['reason'], suggestion=entry['suggestion'], evidence=valid)
         if problems:
+            row['status'] = 'execution_error'
             row['reason'] = '结果校验未通过：' + ', '.join(sorted(set(problems)))
             diagnostics.append({'declaration_id': d['id'], 'errors': sorted(set(problems))})
         row['evidence_quote'] = '\n'.join(e['quote'] for e in row['evidence'])
@@ -1026,7 +1027,7 @@ def conservative_evidence_guard(results):
     limitations = []
     for row in results:
         status = row['status']
-        if status == 'inconclusive':
+        if status in ('inconclusive', 'execution_error'):
             continue
         reason, declaration = row['reason'], row['declaration']['text']
         source = '\n'.join(e['quote'] for e in row['evidence'])
@@ -1234,7 +1235,7 @@ def run_numeric(ir, facts, request, trace=None, verification_mode=None):
                 errors.extend(problems)
             except Exception as exc:
                 for d in group:
-                    results.append({'declaration_id': d['id'], 'declaration': d, 'status': 'inconclusive',
+                    results.append({'declaration_id': d['id'], 'declaration': d, 'status': 'execution_error',
                                     'reason': '该声明核验执行失败：' + type(exc).__name__, 'suggestion': '', 'evidence': [],
                                     'evidence_quote': '', 'evidence_page': None})
                     errors.append({'declaration_id': d['id'], 'errors': ['model_call_failed'], 'type': type(exc).__name__, 'message': str(exc)})
@@ -1246,15 +1247,16 @@ def run_numeric(ir, facts, request, trace=None, verification_mode=None):
         for row in results:
             row['abstract_anchors'] = abstract_anchors(ir, row['declaration']['text'], 'abstract-' + row['declaration_id'])
             row['evidence_anchors'] = [{'anchor_id': e['candidate_id'], 'role': 'source_span', 'label': '实验结果证据', 'location': location(e, model)} for e in row['evidence']]
-            if row['status'] == 'inconsistent':
+            if row['status'] in ('inconsistent', 'inconclusive'):
                 anchors = row['evidence_anchors']
                 source_anchors = row['abstract_anchors']
                 evidence = [{'id': e['candidate_id'], 'label': '实验结果证据', 'kind': 'source_span', 'provider': 'repo-paper-model', 'quote': e['quote'], 'page_number': e['page']} for e in row['evidence']]
                 evidence.append({'id': 'abstract-' + row['declaration_id'], 'label': '摘要数值声明', 'kind': 'source_span', 'provider': 'repo-paper-model', 'quote': row['declaration']['text']})
                 result['findings'].append({'finding_id': RULE + '_' + row['declaration_id'], 'rule_id': RULE,
-                    'message': '摘要数值声明与实验结果不一致，请核对指标、数值及实验条件。',
+                    'severity': 'warning' if row['status'] == 'inconsistent' else 'info',
+                    'message': ('论点与论据不一致：' if row['status'] == 'inconsistent' else '论据不明确：') + row['reason'],
                     'suggestion': row['suggestion'], 'reason': row['reason'],
-                    'location': anchors[0]['location'], 'anchors': anchors + source_anchors,
+                    'location': (anchors + source_anchors)[0]['location'] if anchors + source_anchors else None, 'anchors': anchors + source_anchors,
                     'evidence': evidence})
         if errors:
             result['execution_status'] = 'error'
@@ -1264,7 +1266,7 @@ def run_numeric(ir, facts, request, trace=None, verification_mode=None):
         result['execution_status'] = 'error'
         params['failure'] = {'stage': params['stage'], 'error_type': type(exc).__name__, 'message': str(exc)}
         if params['stage'] == 'numeric_verifier' and 'numeric_results' not in params:
-            params['numeric_results'] = [{'declaration_id': d['id'], 'declaration': d, 'status': 'inconclusive',
+            params['numeric_results'] = [{'declaration_id': d['id'], 'declaration': d, 'status': 'execution_error',
                                           'reason': f'核验执行失败：{type(exc).__name__}', 'suggestion': '', 'evidence': []}
                                          for d in params.get('declarations', [])]
             params['coverage'] = {'expected': len(params.get('declarations', [])), 'returned_valid': 0, 'complete': False}

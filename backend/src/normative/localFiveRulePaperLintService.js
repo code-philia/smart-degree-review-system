@@ -44,9 +44,9 @@ function summarizeRuleRuns(ruleRuns) {
     error_rule_count: ruleRuns.filter((run) => run.execution_status === 'error').length,
     issue_rule_count: ruleRuns.filter((run) => run.outcome === 'issues_found').length,
     finding_count: findings.length,
-    error_finding_count: ruleRuns.filter((run) => run.severity === 'error').reduce((n, run) => n + run.findings.length, 0),
-    warning_finding_count: ruleRuns.filter((run) => run.severity === 'warning').reduce((n, run) => n + run.findings.length, 0),
-    info_finding_count: ruleRuns.filter((run) => run.severity === 'info').reduce((n, run) => n + run.findings.length, 0),
+    error_finding_count: ruleRuns.reduce((n, run) => n + (run.findings || []).filter(f => (f.severity || run.severity) === 'error').length, 0),
+    warning_finding_count: ruleRuns.reduce((n, run) => n + (run.findings || []).filter(f => (f.severity || run.severity) === 'warning').length, 0),
+    info_finding_count: ruleRuns.reduce((n, run) => n + (run.findings || []).filter(f => (f.severity || run.severity) === 'info').length, 0),
     derived_rule_count: ruleRuns.filter((run) => run.evidence_mode === 'derived').length,
   };
 }

@@ -9,6 +9,22 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 import numeric_consistency as n
 
 
+def test_inconclusive_is_a_traceable_info_finding_not_an_execution_error():
+    ir, facts, structure = fixture()
+    calls = []
+    def request(messages):
+        calls.append(messages)
+        if len(calls) == 1:
+            return structure, {}
+        return {'results': [{'declaration_id': 'd1', 'status': 'inconclusive',
+                            'reason': '证据未明确统计范围', 'suggestion': '请明确统计范围', 'evidence': []}]}, {}
+    result = n.run_numeric(ir, facts, request)
+    assert result['execution_status'] == 'completed'
+    assert result['findings'][0]['severity'] == 'info'
+    assert result['findings'][0]['suggestion'] == '请明确统计范围'
+    assert '证据未明确统计范围' in result['findings'][0]['message']
+
+
 def fixture():
     nodes = []
     def add(nid, kind, text='', children=None, page=1, attrs=None):
@@ -132,7 +148,7 @@ def test_verifier_contract(change):
     if change == 'candidate': row['evidence'][0]['candidate_id'] = 'fake'
     if change == 'reason': row['reason'] = ''
     results, errors = n.validated_results(payload, data['declarations'], candidates)
-    assert errors and len(results) == 1 and results[0]['status'] == 'inconclusive'
+    assert errors and len(results) == 1 and results[0]['status'] == 'execution_error'
     assert not results[0]['evidence']
 
 
@@ -144,7 +160,7 @@ def test_all_declarations_required_and_valid_evidence_can_locate():
     assert n.location(result[0]['evidence'][0], n.source_model(ir))['type'] == 'pdf_bbox'
     declarations = data['declarations'] + [{**data['declarations'][0], 'id': 'd2'}]
     result, errors = n.validated_results(valid_output(candidates[0]), declarations, candidates)
-    assert len(result) == 2 and result[1]['status'] == 'inconclusive'
+    assert len(result) == 2 and result[1]['status'] == 'execution_error'
 
 
 def test_context_never_cuts_json_or_block():
@@ -283,7 +299,7 @@ def test_execution_errors_never_become_paper_violations(failure):
     assert result['execution_status'] == 'error'
     assert result['outcome'] == 'inconclusive' and not result['findings']
     assert result['params']['declarations'] == structure['declarations']
-    assert result['params']['numeric_results'][0]['status'] == 'inconclusive'
+    assert result['params']['numeric_results'][0]['status'] == 'execution_error'
 
 
 @pytest.mark.parametrize('finish_reason', ['stop', 'length'])
@@ -545,7 +561,7 @@ def test_verifier_isolates_claim_inputs_and_preserves_other_claim_after_timeout(
         return {'results': [{'declaration_id': 'd2', 'reason': '数值可核验', 'suggestion': '', 'status': 'consistent', 'evidence': [task['candidates'][0]['candidate_id']]}]}, {}
     result = n.run_numeric(ir, facts, request)
     assert inputs == ['locator', 'd1', 'd2']
-    assert [r['status'] for r in result['params']['numeric_results']] == ['inconclusive', 'consistent']
+    assert [r['status'] for r in result['params']['numeric_results']] == ['execution_error', 'consistent']
 
 
 @pytest.mark.parametrize('status,claim,reason,source,expected', [

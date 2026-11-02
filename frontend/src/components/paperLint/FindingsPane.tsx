@@ -7,8 +7,10 @@ import { Button, StatusBadge } from '../ui';
 import { comparePaperLintRuleIds, findingPageLabel, type PaperLintFindingItem } from './model';
 import { FeedbackControls } from './FeedbackControls';
 import { displayFindingPages, type PdfPageLabels } from './pageLabels';
+import type { RuleExecutionWarning } from './model';
 
 type Props = {
+  executionWarnings?: RuleExecutionWarning[];
   findings: PaperLintFindingItem[];
   running?: boolean;
   rules: PaperLintRule[];
@@ -64,6 +66,7 @@ function RepairAction({ instruction }: { instruction: string }) {
 
 
 export function FindingsPane({
+  executionWarnings = [],
   findings,
   running = false,
   rules,
@@ -88,7 +91,7 @@ export function FindingsPane({
   onSuggestionFeedbackReason,
   onSuggestionFeedbackCancel,
 }: Props) {
-  const [filter, setFilter] = useState<'all' | 'error' | 'warning' | 'info'>('all');
+  const [filter, setFilter] = useState<'all' | 'error' | 'warning' | 'info' | 'execution'>('all');
   const [ruleFilter, setRuleFilter] = useState('all');
   const [handledKeys, setHandledKeys] = useState<string[]>([]);
   const ruleNames = useMemo(() => new Map(rules.map((rule) => [rule.rule_id, rule.title])), [rules]);
@@ -118,6 +121,7 @@ export function FindingsPane({
               {value === 'all' ? '全部' : severityLabels[value]}
             </Button>
           ))}
+          {executionWarnings.length ? <Button size="sm" variant={filter === 'execution' ? 'secondary' : 'ghost'} aria-pressed={filter === 'execution'} onClick={() => setFilter('execution')}>规则未实现警告（{executionWarnings.length}）</Button> : null}
         </div>
         {ruleIds.length > 1 ? (
           <select
@@ -136,10 +140,13 @@ export function FindingsPane({
         ) : null}
       </div>
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
-        {filtered.length === 0 ? (
+        {filter === 'execution' ? <>
+          <p className="rounded-lg bg-slate-50 p-3 text-sm leading-6 text-slate-600">如需使用以下规则，请按建议内容调整；如无需使用，请忽略以下内容</p>
+          {executionWarnings.map((warning, index) => <article key={index} className="rounded-lg border border-rose-200 p-3"><h3 className="text-sm font-bold text-rose-700">{warning.title}</h3><p className="mt-2 text-sm leading-6 text-slate-700">{warning.reason}</p><p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm leading-6"><strong>调整建议：</strong>{warning.suggestion}</p></article>)}
+        </> : filtered.length === 0 ? (
           <div className="flex h-full min-h-60 flex-col items-center justify-center text-center">
             {running ? <LoaderCircle className="size-8 animate-spin text-brand-600 motion-reduce:animate-none" /> : <CheckCircle2 className="size-8 text-success-600" />}
-            <p className="mt-3 text-sm font-bold text-slate-900">{findings.length ? '当前筛选下未检测出问题' : running ? '正在检测，等待新的问题' : '未检测出问题'}</p>
+            <p className="mt-3 text-sm font-bold text-slate-900">{findings.length ? '当前筛选下未检测出问题' : running ? '正在检测，等待新的问题' : executionWarnings.length ? '部分规则未完成检测，请查看“规则未实现警告”' : '未检测出问题'}</p>
             <p className="mt-1 max-w-sm text-xs leading-6 text-slate-500">{running ? '规则报警后会自动显示在这里，可随时点击问题定位论文原文。' : '基于当前规范性检测规则，证据不足的内容仍可能无法判定，检测结果仅供参考'}</p>
           </div>
         ) : (
@@ -150,7 +157,8 @@ export function FindingsPane({
             const repair = repairSuggestionByFindingKey[item.key];
             const repairError = repairSuggestionErrorByFindingKey[item.key];
             const generating = repairSuggestionLoadingByFindingKey[item.key] || repairSuggestionLoadingKey === item.key;
-            const repairEnabled = supportsRepairSuggestion(item);
+            const numeric = item.ruleRun.rule_id === 'abstract_numeric_consistency_check';
+            const repairEnabled = !numeric && supportsRepairSuggestion(item);
             const findingFeedback = findingFeedbackByKey[item.key];
             const suggestionFeedback = suggestionFeedbackByFindingKey[item.key];
             const showRepairSuggestion = Boolean(onGenerateRepairSuggestion || repair || generating || repairError);
@@ -233,7 +241,7 @@ export function FindingsPane({
                   </Button>
                 ) : null}
                 {active && item.finding.source_kind === 'synthetic' ? <p className="mt-2 text-xs text-slate-600">该处来自变异内容，未标记为原始 PDF 中的文本。</p> : null}
-                {active && item.finding.suggestion && (!repairEnabled || (!onLoadRepairSuggestion && !onGenerateRepairSuggestion)) ? (
+                {(numeric || active) && item.finding.suggestion && (!repairEnabled || (!onLoadRepairSuggestion && !onGenerateRepairSuggestion)) ? (
                   <div className="mt-3 rounded-lg bg-white p-3 text-xs leading-5 text-slate-600">
                     <strong className="text-slate-800">修改建议：</strong>
                     {item.finding.suggestion}

@@ -7,6 +7,42 @@ export type PaperLintFindingItem = {
   index: number;
 };
 
+export type RuleExecutionWarning = { title: string; reason: string; suggestion: string };
+const numericRule = 'abstract_numeric_consistency_check';
+export function numericExecutionWarnings(run?: PaperLintRuleRun): RuleExecutionWarning[] {
+  if (!run) return [];
+  const params = run.params || {};
+  const names: Record<string, string> = { abstract_numeric: '摘要中存在可核验的数值型论点', contribution_mapping: '数值型论点能够对应研究贡献与研究章节', experiment_subsection: '存在可信对应的实验章节或子章节' };
+  const conditions = Array.isArray(params.preconditions) ? params.preconditions : [];
+  const failed = conditions.filter(c => c.passed === false && c.status !== 'skipped');
+  const warnings = failed.map(c => ({ title: `论点论据一致性检测：${names[c.id] || c.id}`, reason: String(c.reason || '未满足该前置条件'), suggestion: String(c.suggestion || '请调整论文中的相应摘要、研究贡献或实验章节组织后重新检测。') }));
+  if (run.execution_status === 'error' || params.failure || (Array.isArray(params.validation_errors) && params.validation_errors.length)) {
+    warnings.push({ title: '论点论据一致性检测未完成', reason: '部分核验因服务请求或结果校验失败而未完成。已完成的有效结果仍予以保留。', suggestion: '请稍后重试；若持续失败，请联系管理员检查运行记录。' });
+  }
+  return warnings;
+}
+
+export function numericDisplayFindings(run: PaperLintRuleRun): PaperLintFinding[] {
+  const params = run.params || {};
+  const conditions = Array.isArray(params.preconditions) ? params.preconditions : [];
+  if (conditions.some(c => c.passed === false)) return [];
+  const rows = Array.isArray(params.numeric_results) ? params.numeric_results : null;
+  if (!rows) return run.findings || [];
+  const errors = Array.isArray(params.validation_errors) ? params.validation_errors : [];
+  return rows.filter(row => ['inconsistent', 'inconclusive'].includes(row.status)
+    && !errors.some(error => error.declaration_id === row.declaration_id)
+    && !/^结果校验未通过|.*核验执行失败/.test(String(row.reason || '')))
+    .map(row => {
+      const old = run.findings?.find(f => f.finding_id === `${numericRule}_${row.declaration_id}`);
+      const anchors = [...(row.abstract_anchors || []), ...(row.evidence_anchors || [])];
+      return { ...old, finding_id: `${numericRule}_${row.declaration_id}`, rule_id: numericRule,
+        severity: row.status === 'inconsistent' ? 'warning' : 'info',
+        message: `${row.status === 'inconsistent' ? '论点与论据不一致' : '论据不明确'}：${row.reason || ''}`,
+        suggestion: row.suggestion || '', anchors: anchors.length ? anchors : old?.anchors,
+        location: anchors[0]?.location || old?.location } as PaperLintFinding;
+    });
+}
+
 function pageNumber(item: PaperLintFindingItem) {
   return (
     item.finding.location?.page_number ?? item.finding.anchors?.[0]?.location.page_number ?? Number.MAX_SAFE_INTEGER
@@ -27,11 +63,11 @@ export function comparePaperLintRuleIds(left: string, right: string): number {
 export function flattenPaperLintFindings(result: Pick<PaperLintResult, 'rule_runs'>): PaperLintFindingItem[] {
   const items: PaperLintFindingItem[] = [];
   for (const ruleRun of result.rule_runs || []) {
-    for (const finding of ruleRun.findings || []) {
+    for (const finding of ruleRun.rule_id === numericRule ? numericDisplayFindings(ruleRun) : ruleRun.findings || []) {
       items.push({
         key: finding.finding_id || `${ruleRun.rule_id}-${items.length}`,
         finding,
-        ruleRun,
+        ruleRun: { ...ruleRun, severity: (finding as PaperLintFinding & { severity?: PaperLintRuleRun['severity'] }).severity || ruleRun.severity },
         index: items.length,
       });
     }

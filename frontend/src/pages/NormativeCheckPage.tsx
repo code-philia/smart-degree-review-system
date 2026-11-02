@@ -930,7 +930,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
           <PaperLintWorkspace
             file={resultFile}
             layout={isSemantic ? 'semantic' : 'default'}
-            numericReviewRun={isSemantic ? response.result.rule_runs.find((run) => run.rule_id === 'abstract_numeric_consistency_check') : undefined}
+            numericReviewRun={response.result.rule_runs.find((run) => run.rule_id === 'abstract_numeric_consistency_check')}
             openPdfUrl={`/api/normative/paper-lint/reports/${encodeURIComponent(response.id)}/pdf`}
             findings={findings}
             rules={catalog?.rules || []}

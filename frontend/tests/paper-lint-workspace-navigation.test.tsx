@@ -27,9 +27,8 @@ describe('finding selection', () => {
     render(<PaperLintWorkspace file={{ name: 'mixed.pdf' } as File} findings={[finding]} rules={[]}
       numericReviewRun={{ ...finding.ruleRun, rule_id: 'abstract_numeric_consistency_check' }} />);
     expect(screen.getByRole('button', { name: '跳到 PDF' })).toBeVisible();
-    fireEvent.click(screen.getByRole('tab', { name: '论文逻辑审查' }));
-    expect(screen.getByText('数值核验依据')).toBeVisible();
-    fireEvent.click(screen.getByRole('tab', { name: '规范检测问题' }));
+    expect(screen.queryByRole('tab', { name: '论文逻辑审查' })).toBeNull();
+    expect(screen.queryByText('数值核验依据')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: '跳到 PDF' }));
     expect(screen.getByTestId('navigation-request').textContent).toBe('1');
   });
