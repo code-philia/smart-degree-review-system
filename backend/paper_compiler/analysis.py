@@ -410,6 +410,27 @@ def generated_passes(ir,a,plan):
             output[node['id']]={field:observed(value,[node['id']]) for field,value in values.items()}
     return a
 
+def _prefetch_rule32(nodes,fields_by_id,gateway):
+    """Deduplicate source queries; only retrieval runs on bounded workers."""
+    queries={};node_keys={}
+    for node in nodes:
+        fields=fields_by_id[node['id']]
+        query={name:_value(fields,name) for name in ['title','authors','year','doi','url']}
+        query['authors']=query.get('authors') or []
+        key=json_bytes(query);queries[key]=query;node_keys[node['id']]=key
+    warm=getattr(gateway,'prefetch_rule32',None)
+    if callable(warm):
+        try:warm(list(queries.values()))
+        except (OSError,ValueError):pass
+    def retrieve(item):
+        key,query=item
+        try:return key,(gateway.lookup_rule32(query) if any(query.get(name) for name in ['title','doi','url']) else [],None)
+        except Exception as error:return key,([],type(error).__name__)
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        results=dict(pool.map(retrieve,queries.items()))
+    return {node_id:results[key] for node_id,key in node_keys.items()}
+
+
 def enrich(ir,rule_packages,*,client,gateway,cache_dir:Path,snapshot_id=None):
     plan=capability_plan(rule_packages);required=set(plan)
     from datetime import datetime,timezone
@@ -464,14 +485,7 @@ def enrich(ir,rule_packages,*,client,gateway,cache_dir:Path,snapshot_id=None):
         prefetched={}
         if has_r32 and callable(getattr(gateway,'lookup_rule32',None)):
             pending=[n for n in ir['nodes'] if n['kind']=='BibliographyEntry' and external.get(n['id'],{}).get('exists',{}).get('value') is not True]
-            def retrieve(node):
-                fields=a['results']['bibliography_fields'][node['id']]
-                query={name:_value(fields,name) for name in ['title','authors','year','doi','url']}
-                query['authors']=query.get('authors') or []
-                try:return node['id'],gateway.lookup_rule32(query) if query.get('title') or query.get('doi') or query.get('url') else [],None
-                except Exception as error:return node['id'],[],type(error).__name__
-            with ThreadPoolExecutor(max_workers=4) as pool:
-                for node_id,records,error in pool.map(retrieve,pending):prefetched[node_id]=(records,error)
+            prefetched=_prefetch_rule32(pending,a['results']['bibliography_fields'],gateway)
         for node in ir['nodes']:
             if node['kind']!='BibliographyEntry':continue
             if retry_cached and external.get(node['id'],{}).get('exists',{}).get('value') is True:continue

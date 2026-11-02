@@ -112,6 +112,17 @@ def _year(value):
     try:return int(str(value)[:4])
     except (ValueError,TypeError):return None
 
+
+def _arxiv_work(entry,identifier):
+    ns={'a':'http://www.w3.org/2005/Atom'}
+    source_id=_arxiv_identifier(entry.findtext('a:id',default='',namespaces=ns))
+    if not source_id or (source_id!=identifier if re.search(r'v\d+$',identifier) else re.sub(r'v\d+$','',source_id)!=identifier):
+        raise EvidenceError('arxiv_identity_mismatch')
+    return {'title':_clean(entry.findtext('a:title',default='',namespaces=ns)),
+        'authors':[_clean(node.text) for node in entry.findall('a:author/a:name',ns)],
+        'year':_year(entry.findtext('a:published',default='',namespaces=ns)),
+        'doi':'10.48550/arxiv.'+identifier,'url':'https://arxiv.org/abs/'+identifier,'type':'preprint'}
+
 def _identity_works(provider,data):
     if provider=='crossref':
         message=data.get('message',{});items=message.get('items',[message] if message.get('DOI') else [])
@@ -389,12 +400,15 @@ class EvidenceGateway:
         with ThreadPoolExecutor(max_workers=min(4,len(self.providers))) as pool:
             return [item for records in pool.map(retrieve_provider,self.providers) for item in records]
 
+    def _rule32_cache_path(self,query):
+        policy={'query':query} if self.snapshot_id else {'version':REFERENCE_LOOKUP_VERSION,'providers':self.providers,'live':self.live_providers,'query':query}
+        key=hashlib.sha256(json_bytes(policy)).hexdigest()
+        return self.cache_dir/('reference-'+key+'.json')
+
     def lookup_rule32(self, query):
         """Free sources, strict identity validation and recoverable shared evidence."""
         from .identity import resolve_reference_identity
-        policy={'query':query} if self.snapshot_id else {'version':REFERENCE_LOOKUP_VERSION,'providers':self.providers,'live':self.live_providers,'query':query}
-        key=hashlib.sha256(json_bytes(policy)).hexdigest()
-        path=self.cache_dir/('reference-'+key+'.json')
+        path=self._rule32_cache_path(query)
         if path.exists():
             saved=json.loads(path.read_text())
             if self.snapshot_id or 0<=self.clock()-saved['retrieved_at']<saved['ttl']:return saved['records']
@@ -421,6 +435,51 @@ class EvidenceGateway:
         saved=self._cache_result(path,{'retrieved_at':self.clock(),'ttl':ttl,'records':records})
         return saved['records']
 
+    def prefetch_rule32(self,queries):
+        """Warm exact arXiv IDs in bounded batches, preserving per-ID evidence."""
+        if self.snapshot_id:return
+        uncached=[]
+        for query in queries:
+            path=self._rule32_cache_path(query)
+            if path.exists():
+                saved=json.loads(path.read_text())
+                if 0<=self.clock()-saved['retrieved_at']<saved['ttl']:continue
+            uncached.append(query)
+        identifiers=list(dict.fromkeys(identifier for query in uncached
+            if (identifier:=_arxiv_identifier(query.get('url')) or _arxiv_identifier(query.get('doi')))))
+        pending=[]
+        for identifier in identifiers:
+            url='https://export.arxiv.org/api/query?'+urlencode({'id_list':identifier})
+            path=self.cache_dir/('arxiv-identity-'+hashlib.sha256(url.encode()).hexdigest()+'.json')
+            if path.exists():
+                saved=json.loads(path.read_text())
+                if 0<=self.clock()-saved['retrieved_at']<(86400 if saved['status']=='ok' else 60):continue
+            pending.append((identifier,path))
+        if len(pending)<2:return
+        for start in range(0,len(pending),20):
+            batch=pending[start:start+20]
+            url='https://export.arxiv.org/api/query?'+urlencode({'id_list':','.join(item[0] for item in batch),'max_results':len(batch)})
+            try:
+                status,body=self._fetch('arxiv',url)
+                if status!=200 or len(body)>MAX_BYTES:return
+                ns={'a':'http://www.w3.org/2005/Atom'}
+                entries=ET.fromstring(body).findall('a:entry',ns)
+                for identifier,path in batch:
+                    matches=[]
+                    for entry in entries:
+                        try:matches.append(_arxiv_work(entry,identifier))
+                        except EvidenceError:continue
+                    if len(matches)!=1:continue
+                    record={'provider':'arxiv','source_group':'preprint-repository','coverage':'partial_index',
+                        'url':url,'retrieved_at':self.clock(),'http_status':200,
+                        'response_sha256':hashlib.sha256(body).hexdigest(),'status':'ok','work':matches[0]}
+                    record['id']='arxiv-identity-'+hashlib.sha256(json_bytes(record)).hexdigest()[:24]
+                    self._cache_result(path,record)
+            except (OSError,ValueError,ET.ParseError):
+                # Batch failure never manufactures a per-reference negative result.
+                # The ordinary lookup/fallback path still handles each query.
+                return
+
     def lookup_arxiv_metadata(self,identifier):
         """Exact public arXiv metadata; a failed fetch never asserts nonexistence."""
         url='https://export.arxiv.org/api/query?'+urlencode({'id_list':identifier})
@@ -436,12 +495,7 @@ class EvidenceGateway:
             ns={'a':'http://www.w3.org/2005/Atom'}
             entries=ET.fromstring(body).findall('a:entry',ns)
             if len(entries)!=1:raise EvidenceError('arxiv_identity_not_found')
-            entry=entries[0];source_id=_arxiv_identifier(entry.findtext('a:id',default='',namespaces=ns))
-            if not source_id or (source_id!=identifier if re.search(r'v\d+$',identifier) else re.sub(r'v\d+$','',source_id)!=identifier):raise EvidenceError('arxiv_identity_mismatch')
-            record.update(status='ok',work={'title':_clean(entry.findtext('a:title',default='',namespaces=ns)),
-                'authors':[_clean(node.text) for node in entry.findall('a:author/a:name',ns)],
-                'year':_year(entry.findtext('a:published',default='',namespaces=ns)),
-                'doi':'10.48550/arxiv.'+identifier,'url':'https://arxiv.org/abs/'+identifier,'type':'preprint'})
+            record.update(status='ok',work=_arxiv_work(entries[0],identifier))
         except (OSError,ValueError,ET.ParseError) as error:
             record.update(status='unavailable',error=str(error) if isinstance(error,EvidenceError) else type(error).__name__)
         record['id']='arxiv-identity-'+hashlib.sha256(json_bytes(record)).hexdigest()[:24]
