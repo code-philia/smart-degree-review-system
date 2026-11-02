@@ -112,8 +112,12 @@ export function FindingsPane({
   });
   const ruleOptions: RuleFilterOption[] = ruleIds.map(id => {
     const run = runById.get(id);
+    const preconditions = run?.params?.preconditions;
+    const prerequisiteWarning = id === 'abstract_numeric_consistency_check' && Array.isArray(preconditions)
+      && preconditions.some(condition => condition?.passed === false && condition.status !== 'skipped');
     const status = !run ? (running ? 'running' : ruleRuns ? 'needs_review' : 'completed')
       : run.execution_status === 'error' ? 'error'
+      : prerequisiteWarning ? 'execution_warning'
       : run.execution_status === 'unsupported' || run.outcome === 'inconclusive' ? 'needs_review'
       : run.outcome === 'not_applicable' ? 'not_applicable' : 'completed';
     const ruleCounts = counts.get(id) || { error: 0, warning: 0, info: 0 };
@@ -122,18 +126,19 @@ export function FindingsPane({
   // A completed rule outside the chosen level must not remain as a hidden selection.
   const chosenOption = ruleOptions.find(option => option.id === ruleFilter);
   const effectiveRuleFilter = chosenOption && filter !== 'all' && filter !== 'execution' && !chosenOption.counts[filter]
-    && !['running', 'error', 'needs_review'].includes(chosenOption.status) ? 'all' : ruleFilter;
+    && !['running', 'error', 'needs_review', 'execution_warning'].includes(chosenOption.status) ? 'all' : ruleFilter;
   const selectedOption = ruleOptions.find(option => option.id === effectiveRuleFilter);
   const selectedRun = runById.get(effectiveRuleFilter);
   const selectedTotal = selectedOption?.count ?? findings.length;
   const pending = selectedOption ? selectedOption.status === 'running' : running && ruleOptions.some(option => option.status === 'running');
-  const incomplete = selectedOption ? ['error', 'needs_review', 'not_applicable'].includes(selectedOption.status)
+  const incomplete = selectedOption ? ['error', 'needs_review', 'not_applicable', 'execution_warning'].includes(selectedOption.status)
     : executionWarnings.length > 0 || ruleOptions.some(option => option.status !== 'completed');
   const severityEmpty = !pending && selectedTotal > 0 && filter !== 'all' && filter !== 'execution';
   const emptyTitle = pending ? '正在检测相关问题'
     : severityEmpty ? `当前筛选未发现${severityLabels[filter as keyof typeof severityLabels]}级别的问题`
     : selectedOption?.status === 'error' ? '本规则检测失败'
     : selectedOption?.status === 'needs_review' ? '本规则暂无法判定'
+    : selectedOption?.status === 'execution_warning' ? '规则未实现警告'
     : selectedOption?.status === 'not_applicable' ? '本规则不适用'
     : incomplete ? '部分规则未完成有效检测'
     : selectedOption ? '本规则未检测出问题' : '未检测出问题';
@@ -164,7 +169,7 @@ export function FindingsPane({
               aria-pressed={filter === value}
               onClick={() => {
                 setFilter(value);
-                if (value !== 'all' && chosenOption && !chosenOption.counts[value] && !['running', 'error', 'needs_review'].includes(chosenOption.status)) setRuleFilter('all');
+                if (value !== 'all' && chosenOption && !chosenOption.counts[value] && !['running', 'error', 'needs_review', 'execution_warning'].includes(chosenOption.status)) setRuleFilter('all');
               }}
             >
               {value === 'all' ? '全部' : <>{severityLabels[value]} <span className="tabular-nums">{severityTotals[value]}</span></>}

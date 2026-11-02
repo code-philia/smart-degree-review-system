@@ -9,15 +9,15 @@ export type RuleFilterOption = {
   title: string;
   count: number;
   counts: RuleSeverityCounts;
-  status: 'running' | 'completed' | 'error' | 'needs_review' | 'not_applicable';
+  status: 'running' | 'completed' | 'error' | 'needs_review' | 'not_applicable' | 'execution_warning';
 };
 
-const labels = { running: '正在检测', error: '检测失败', needs_review: '待核查', not_applicable: '不适用' };
+const labels = { running: '正在检测', error: '检测失败', needs_review: '待核查', not_applicable: '不适用', execution_warning: '规则未实现警告' };
 const levels = ['error', 'warning', 'info'] as const;
 const levelLabels = { error: '严重', warning: '警告', info: '提示' };
 
 function resultOrder(option: RuleFilterOption) {
-  return option.count > 0 ? 0 : ['needs_review', 'error'].includes(option.status) ? 1 : option.status === 'running' ? 2 : 3;
+  return option.count > 0 ? 0 : option.status === 'completed' ? 3 : option.status === 'running' ? 2 : 1;
 }
 
 function statusLabel(option: RuleFilterOption, severity: 'all' | RuleSeverity) {
@@ -30,10 +30,10 @@ function ExecutionStatus({ status, summary, runningCount }: { status: RuleFilter
   const base = 'inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] font-medium';
   const option = { status };
   const Icon = option.status === 'running' ? LoaderCircle : option.status === 'error' ? CircleAlert : CircleHelp;
-  const tone = option.status === 'running' ? 'bg-brand-50 text-brand-700' : option.status === 'error' ? 'bg-rose-50 text-rose-700' : option.status === 'needs_review' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500';
+  const tone = option.status === 'running' ? 'bg-brand-50 text-brand-700' : option.status === 'error' ? 'bg-rose-50 text-rose-700' : ['needs_review', 'execution_warning'].includes(option.status) ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500';
   return <span className={`${base} ${tone}`}>
     <Icon className={`size-3.5 ${option.status === 'running' ? 'animate-spin motion-reduce:animate-none' : ''}`} />
-    {summary && option.status !== 'running' ? '部分' : ''}{labels[option.status]}{option.status === 'running' && runningCount !== undefined ? ` ${runningCount}` : ''}
+    {summary && !['running', 'execution_warning'].includes(option.status) ? '部分' : ''}{labels[option.status]}{option.status === 'running' && runningCount !== undefined ? ` ${runningCount}` : ''}
   </span>;
 }
 
@@ -57,10 +57,10 @@ export function RuleFilter({ options, value, onValueChange, totalCount, severity
   totalCount: number;
   severity?: 'all' | RuleSeverity;
 }) {
-  const visible = options.filter(option => severity === 'all' || option.counts[severity] > 0 || ['running', 'error', 'needs_review'].includes(option.status))
+  const visible = options.filter(option => severity === 'all' || option.counts[severity] > 0 || ['running', 'error', 'needs_review', 'execution_warning'].includes(option.status))
     .sort((a, b) => resultOrder(a) - resultOrder(b));
   const counts = options.reduce((result, option) => ({ error: result.error + option.counts.error, warning: result.warning + option.counts.warning, info: result.info + option.counts.info }), { error: 0, warning: 0, info: 0 });
-  const overallStatus = visible.some(o => o.status === 'running') ? 'running' : visible.some(o => o.status === 'error') ? 'error' : visible.some(o => o.status === 'needs_review') ? 'needs_review' : 'completed';
+  const overallStatus = visible.some(o => o.status === 'running') ? 'running' : visible.some(o => o.status === 'error') ? 'error' : visible.some(o => o.status === 'needs_review') ? 'needs_review' : visible.some(o => o.status === 'execution_warning') ? 'execution_warning' : visible.some(o => o.status === 'not_applicable') ? 'not_applicable' : 'completed';
   const all: RuleFilterOption = { id: 'all', title: '全部检查项', count: totalCount, counts, status: overallStatus };
   const selected = visible.find(option => option.id === value) || all;
   return <Select.Root value={value} onValueChange={onValueChange}>

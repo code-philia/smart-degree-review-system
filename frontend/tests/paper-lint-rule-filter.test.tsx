@@ -144,6 +144,38 @@ describe('clear report rule selector', () => {
     expect(within(list).getByRole('option', { name: 'review，待核查' })).toHaveAttribute('data-state', 'checked');
   });
 
+  it.each([false, true])('labels failed experimental prerequisites and sorts them before clean rules (live=%s)', async running => {
+    const numeric = { ...zero, rule_id: 'abstract_numeric_consistency_check', rule_run_id: 'numeric', outcome: 'not_applicable' as const,
+      message: '摘要中未发现可核验的数值声明，已跳过数值一致性检测。',
+      params: { preconditions: [{ id: 'abstract_numeric', passed: false, status: 'failed' }] } };
+    render(<FindingsPane {...props} rules={[...rules, { rule_id: numeric.rule_id, title: '论点论据一致性检测' } as PaperLintRule]}
+      selectedRuleIds={[issues.rule_id, zero.rule_id, numeric.rule_id]} running={running}
+      findings={flattenPaperLintFindings({ rule_runs: [issues, zero, numeric] })} ruleRuns={[issues, zero, numeric]} />);
+    const list = await openMenu();
+    expect(within(list).getAllByRole('option').map(row => row.textContent?.split('，')[0])).toEqual(['全部检查项', '正文公式引用目标缺失', '论点论据一致性检测', '章标题另起一页']);
+    const option = within(list).getByRole('option', { name: '论点论据一致性检测，规则未实现警告' });
+    expect(option).not.toHaveTextContent('不适用');
+    option.focus(); fireEvent.keyDown(option, { key: 'Enter' });
+    expect(screen.getByRole('combobox')).toHaveTextContent('规则未实现警告');
+    expect(screen.getByText('规则未实现警告', { selector: 'p' })).toBeInTheDocument();
+    expect(screen.getByText(numeric.message)).toBeInTheDocument();
+    expect(screen.queryByTestId('rule-empty-icon')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '严重 0', exact: true }));
+    expect(screen.getByRole('combobox')).toHaveTextContent('论点论据一致性检测');
+    expect(screen.getByRole('combobox')).toHaveTextContent('规则未实现警告');
+  });
+
+  it('keeps non-applicable rules above clean rules and pending checks', async () => {
+    const options: RuleFilterOption[] = [
+      { id: 'clean', title: '无问题规则', count: 0, counts: { error: 0, warning: 0, info: 0 }, status: 'completed' },
+      { id: 'na', title: '不适用规则', count: 0, counts: { error: 0, warning: 0, info: 0 }, status: 'not_applicable' },
+      { id: 'pending', title: '检测中规则', count: 0, counts: { error: 0, warning: 0, info: 0 }, status: 'running' },
+    ];
+    render(<RuleFilter options={options} value="all" onValueChange={vi.fn()} totalCount={0} />);
+    const list = await openMenu();
+    expect(within(list).getAllByRole('option').map(row => row.textContent?.split('，')[0])).toEqual(['全部检查项', '不适用规则', '检测中规则', '无问题规则']);
+  });
+
   it('keeps review states above clean rules in saved reports', async () => {
     const options: RuleFilterOption[] = [
       { id: 'clean', title: '无问题规则', count: 0, counts: { error: 0, warning: 0, info: 0 }, status: 'completed' },
