@@ -35,7 +35,7 @@ function ExecutionStatus({ status, summary, runningCount }: { status: RuleFilter
 
 function RuleBadges({ option, severity, runningCount }: { option: RuleFilterOption; severity: 'all' | RuleSeverity; runningCount?: number }) {
   const visibleLevels = levels.filter(level => (severity === 'all' || severity === level) && option.counts[level] > 0);
-  return <span className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+  return <span className="flex shrink-0 items-center justify-end gap-1.5 whitespace-nowrap">
     {visibleLevels.map(level => {
       const Icon = level === 'error' ? CircleX : level === 'warning' ? TriangleAlert : Info;
       const tone = level === 'error' ? 'bg-rose-50 text-rose-600' : level === 'warning' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600';
@@ -60,11 +60,11 @@ export function RuleFilter({ options, value, onValueChange, totalCount, severity
   const all: RuleFilterOption = { id: 'all', title: '全部检查项', count: totalCount, counts, status: overallStatus };
   const selected = visible.find(option => option.id === value) || all;
   return <Select.Root value={value} onValueChange={onValueChange}>
-    <Select.Trigger aria-label="按检查项筛选" className="group mt-3 grid min-h-13 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-2 rounded-2xl border border-slate-200 bg-white px-3 py-3 text-left text-sm text-slate-800 outline-none transition-colors hover:border-slate-300 focus-visible:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-100 data-[state=open]:border-slate-300 motion-reduce:transition-none @min-[480px]/report:grid-cols-[auto_minmax(0,1fr)_auto_auto]">
+    <Select.Trigger aria-label="按检查项筛选" className="group mt-3 flex min-h-13 w-full items-center gap-2.5 rounded-2xl border border-slate-200 bg-white px-3 py-3 text-left text-sm text-slate-800 outline-none transition-colors hover:border-slate-300 focus-visible:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-100 data-[state=open]:border-slate-300 motion-reduce:transition-none">
       <Funnel className="size-4 shrink-0 text-slate-500" aria-hidden="true" />
       <span className="min-w-0 flex-1 truncate font-medium" title={selected.title}><Select.Value>{selected.title}</Select.Value></span>
-      <Select.Icon asChild><ChevronDown className="col-start-3 row-start-1 size-4 shrink-0 text-slate-400 transition-transform group-data-[state=open]:rotate-180 motion-reduce:transition-none @min-[480px]/report:col-start-4" /></Select.Icon>
-      <span aria-hidden="true" className="col-span-3 justify-self-end @min-[480px]/report:col-span-1 @min-[480px]/report:col-start-3 @min-[480px]/report:row-start-1"><RuleBadges option={selected} severity={severity} runningCount={selected.id === 'all' ? visible.filter(option => option.status === 'running').length : 1} /></span>
+      <span aria-hidden="true" className="shrink-0"><RuleBadges option={selected} severity={severity} runningCount={selected.id === 'all' ? visible.filter(option => option.status === 'running').length : 1} /></span>
+      <Select.Icon asChild><ChevronDown className="size-4 shrink-0 text-slate-400 transition-transform group-data-[state=open]:rotate-180 motion-reduce:transition-none" /></Select.Icon>
     </Select.Trigger>
     <Select.Portal>
       <Select.Content position="popper" align="start" sideOffset={8} collisionPadding={12}
