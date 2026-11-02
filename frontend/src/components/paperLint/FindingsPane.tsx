@@ -12,6 +12,7 @@ type Props = {
   findings: PaperLintFindingItem[];
   running?: boolean;
   rules: PaperLintRule[];
+  selectedRuleIds?: string[];
   activeFindingKey: string | null;
   activeAnchorId: string | null;
   onFindingClick: (key: string) => void;
@@ -67,6 +68,7 @@ export function FindingsPane({
   findings,
   running = false,
   rules,
+  selectedRuleIds,
   activeFindingKey,
   activeAnchorId,
   onFindingClick,
@@ -92,7 +94,7 @@ export function FindingsPane({
   const [ruleFilter, setRuleFilter] = useState('all');
   const [handledKeys, setHandledKeys] = useState<string[]>([]);
   const ruleNames = useMemo(() => new Map(rules.map((rule) => [rule.rule_id, rule.title])), [rules]);
-  const ruleIds = Array.from(new Set(findings.map((item) => item.ruleRun.rule_id))).sort(comparePaperLintRuleIds);
+  const ruleIds = Array.from(new Set(selectedRuleIds ?? [...rules.map(rule => rule.rule_id), ...findings.map(item => item.ruleRun.rule_id)])).sort(comparePaperLintRuleIds);
   const filtered = findings.filter(
     (item) =>
       (filter === 'all' || item.ruleRun.severity === filter) &&
@@ -119,7 +121,7 @@ export function FindingsPane({
             </Button>
           ))}
         </div>
-        {ruleIds.length > 1 ? (
+        {ruleIds.length > 0 ? (
           <select
             aria-label="按检查项筛选"
             className="mt-2 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700"

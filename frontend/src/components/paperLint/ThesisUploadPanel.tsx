@@ -25,9 +25,6 @@ type Props = {
   jobStatus: 'pending' | 'running' | null;
   jobProgress: { completed: number; total: number } | null;
   activeFilename: string | null;
-  requiresConsent: boolean;
-  consent: boolean;
-  onConsentChange: (value: boolean) => void;
 };
 
 const NUMERIC_RULE = 'abstract_numeric_consistency_check';
@@ -164,9 +161,6 @@ export function ThesisUploadPanel(props: Props) {
     onStop,
     onStart,
     error,
-    requiresConsent,
-    consent,
-    onConsentChange,
   } = props;
   const [expanded, setExpanded] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -426,18 +420,6 @@ export function ThesisUploadPanel(props: Props) {
         </section>
 
         <div className="border-t border-slate-100 bg-slate-50/40 px-5 py-4 sm:px-7">
-          {requiresConsent ? (
-            <label className="mb-4 flex items-start gap-2.5 rounded-xl border border-brand-100 bg-white px-3 py-3 text-xs leading-5 text-slate-600">
-              <input
-                type="checkbox"
-                className="mt-0.5 size-4 shrink-0 accent-brand-600"
-                checked={consent}
-                onChange={(event) => onConsentChange(event.target.checked)}
-                disabled={busy}
-              />
-              <span>我确认本次论文相关文本允许发送至校内 DeepSeek API进行语义检测。</span>
-            </label>
-          ) : null}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="flex items-center gap-1.5 text-xs text-slate-500">
               <ShieldCheck className="size-4 text-brand-500" />
@@ -463,8 +445,7 @@ export function ThesisUploadPanel(props: Props) {
                   catalogLoading ||
                   noSelection ||
                   unavailableSelection ||
-                  busy ||
-                  (requiresConsent && !consent)
+                  busy
                 }
                 onClick={onStart}
               >

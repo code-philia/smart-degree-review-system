@@ -36,6 +36,7 @@ type Props = {
   layout?: 'default' | 'semantic';
   findings: PaperLintFindingItem[];
   rules: PaperLintRule[];
+  selectedRuleIds?: string[];
   openPdfUrl?: string;
   numericReviewRun?: PaperLintRuleRun;
   running?: boolean;
@@ -62,6 +63,7 @@ export function PaperLintWorkspace({
   layout = 'default',
   findings,
   rules,
+  selectedRuleIds,
   openPdfUrl,
   numericReviewRun,
   running = false,
@@ -83,9 +85,15 @@ export function PaperLintWorkspace({
   onSuggestionFeedbackCancel,
 }: Props) {
   const [pageLabels, setPageLabels] = useState<PdfPageLabels>({});
-  const [detail, setDetail] = useState('findings');
+  const selectedIds = selectedRuleIds ?? [...new Set([...rules.map(rule => rule.rule_id), ...findings.map(item => item.ruleRun.rule_id), ...(numericReviewRun ? [numericReviewRun.rule_id] : [])])];
+  const categories = [
+    ...(selectedIds.some(id => id !== 'abstract_numeric_consistency_check') ? ['findings'] : []),
+    ...(selectedIds.includes('abstract_numeric_consistency_check') ? ['numeric'] : []),
+  ];
+  const [detail, setDetail] = useState(layout === 'semantic' ? 'numeric' : 'findings');
+  const activeDetail = categories.includes(detail) ? detail : categories[0] || 'findings';
   const detailId = useId();
-  const showNumeric = Boolean(numericReviewRun && (layout === 'semantic' || detail === 'numeric'));
+  const showNumeric = activeDetail === 'numeric';
   const pdfFindings = (() => {
     if (!numericReviewRun) return findings;
     const byKey = new Map(findings.map((item) => [item.key, item]));
@@ -130,37 +138,38 @@ export function PaperLintWorkspace({
         onPageLabels={setPageLabels}
       />
       <div className="flex min-h-0 flex-col gap-3">
-      {layout !== 'semantic' && numericReviewRun ? <div role="tablist" aria-label="报告结果分类" className="flex gap-1 rounded-xl bg-slate-100 p-1">
-        {(['findings', 'numeric'] as const).map(value => <button key={value} type="button" role="tab"
-          id={`${detailId}-${value}`} aria-controls={`${detailId}-${value}-panel`} aria-selected={detail === value}
-          tabIndex={detail === value ? 0 : -1}
-          onKeyDown={event => { if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) { event.preventDefault(); const next = event.key === 'Home' ? 'findings' : event.key === 'End' ? 'numeric' : detail === 'findings' ? 'numeric' : 'findings'; setDetail(next); document.getElementById(`${detailId}-${next}`)?.focus(); } }}
-          onClick={() => setDetail(value)} className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${detail === value ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}>
+      {categories.length ? <div role="tablist" aria-label="报告结果分类" className="flex gap-1 rounded-xl bg-slate-100 p-1">
+        {categories.map(value => <button key={value} type="button" role="tab"
+          id={`${detailId}-${value}`} aria-controls={`${detailId}-${value}-panel`} aria-selected={activeDetail === value}
+          tabIndex={activeDetail === value ? 0 : -1}
+          onKeyDown={event => { if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) { event.preventDefault(); const next = event.key === 'Home' ? categories[0] : event.key === 'End' ? categories[categories.length - 1] : categories[(categories.indexOf(activeDetail) + 1) % categories.length]; setDetail(next); document.getElementById(`${detailId}-${next}`)?.focus(); } }}
+          onClick={() => setDetail(value)} className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${activeDetail === value ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}>
           {value === 'findings' ? '规范检测问题' : '论文逻辑审查'}
         </button>)}
       </div> : null}
-      {numericReviewRun ? (
+      {categories.includes('numeric') ? (
         <section id={`${detailId}-numeric-panel`} hidden={!showNumeric}
-          role={layout !== 'semantic' ? 'tabpanel' : undefined}
-          aria-labelledby={layout !== 'semantic' ? `${detailId}-numeric` : undefined}
+          role="tabpanel"
+          aria-labelledby={`${detailId}-numeric`}
           className={`${showNumeric ? '' : 'hidden'} min-h-0 flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-white p-4`}>
-          <NumericReviewDetails
+          {numericReviewRun ? <NumericReviewDetails
             run={numericReviewRun}
             findings={pdfFindings}
             onAnchorClick={selectAnchor}
             onPageClick={selectPage}
-          />
+          /> : <p role="status" className="text-sm leading-6 text-slate-500">{running ? '正在等待论文逻辑审查结果。' : '本次检测未返回论文逻辑审查结果。'}</p>}
         </section>
       ) : null}
       <div id={`${detailId}-findings-panel`} hidden={showNumeric}
-        role={layout !== 'semantic' && numericReviewRun ? 'tabpanel' : undefined}
-        aria-labelledby={layout !== 'semantic' && numericReviewRun ? `${detailId}-findings` : undefined}
+        role={categories.includes('findings') ? 'tabpanel' : undefined}
+        aria-labelledby={categories.includes('findings') ? `${detailId}-findings` : undefined}
         className={`${showNumeric ? 'hidden' : 'flex'} min-h-0 flex-1 flex-col`}>
       <FindingsPane
         pageLabels={pageLabels}
         findings={findings}
         running={running}
         rules={rules}
+        selectedRuleIds={selectedIds}
         activeFindingKey={activeFindingKey}
         activeAnchorId={activeAnchorId}
         onFindingClick={selectFinding}

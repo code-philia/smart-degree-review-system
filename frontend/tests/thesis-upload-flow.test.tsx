@@ -259,7 +259,7 @@ it('leaves detection disabled when the catalog has no available rules', async ()
   expect(runReviewPilotPaperLint).not.toHaveBeenCalled();
 });
 
-it('keeps existing processing consent visible outside the collapsed rules and enforces it before submit', async () => {
+it('runs campus semantic rules without a separate processing checkbox', async () => {
   vi.mocked(fetchReviewPilotPaperLintRules).mockResolvedValue({
     ...catalog,
     rules: rules.map((rule) => ({ ...rule, uses_external_model: rule.rule_id === 'typo_detection_check' })),
@@ -268,10 +268,7 @@ it('keeps existing processing consent visible outside the collapsed rules and en
   showUpload();
   await choosePdf();
   expect(screen.getByRole('button', { name: '展开选择' })).toHaveAttribute('aria-expanded', 'false');
-  const consent = screen.getByRole('checkbox', { name: /我确认本次论文相关文本允许/ });
-  expect(consent).toBeVisible();
-  expect(screen.getByRole('button', { name: '开始检测', exact: true })).toBeDisabled();
-  await user.click(consent);
+  expect(screen.queryByRole('checkbox', { name: /我确认本次论文相关文本允许/ })).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: '开始检测', exact: true })).toBeEnabled();
   await user.click(screen.getByRole('button', { name: '开始检测', exact: true }));
   await waitFor(() =>
@@ -370,6 +367,8 @@ it.each([false, true])('updates the actual live report and preserves the selecte
   expect(ring).toHaveAttribute('aria-valuenow', '50');
   expect(ring.compareDocumentPosition(region) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(within(region).getByText('先完成的错别字结果')).toBeInTheDocument();
+  expect(Array.from(within(region).getByRole('combobox', { name: '按检查项筛选' }).querySelectorAll('option')).map(option => option.value).sort())
+    .toEqual(['all', ...(restored ? ids : rules.slice(0, 3).map(rule => rule.rule_id))].sort());
   expect(within(region).getByRole('heading', { name: '正文错别字检测', exact: true })).toBeInTheDocument();
   expect(within(region).queryByRole('heading', { name: /^规则\s*\d/ })).not.toBeInTheDocument();
   expect(within(region).queryByText('后完成的公式结果')).not.toBeInTheDocument();
@@ -397,7 +396,8 @@ it('keeps the original content group order and puts external references last', a
   const ids = ['sjtu_rule_32', 'bilingual_keywords_correspondence_check', 'chinese_english_symbol_mix_check', 'bilingual_abstract_consistency_check', 'typo_detection_check'];
   vi.mocked(fetchReviewPilotPaperLintRules).mockResolvedValue({ ...catalog, rules: ids.map(rule_id => ({ ...rules[0], rule_id, title: rule_id })) } as never);
   showUpload();
-  fireEvent.click(await screen.findByRole('button', { name: '展开选择' }));
+  await screen.findByText('已选择全部检测规则');
+  fireEvent.click(screen.getByRole('button', { name: '展开选择' }));
   expect(within(screen.getByRole('region', { name: '内容规范检测规则' })).getAllByRole('checkbox').map(input => input.closest('label')?.textContent)).toEqual([
     expect.stringContaining('typo_detection_check'),
     expect.stringContaining('bilingual_abstract_consistency_check'),
