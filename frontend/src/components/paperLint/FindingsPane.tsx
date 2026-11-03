@@ -155,7 +155,7 @@ export function FindingsPane({
     : severityEmpty ? selectedTotal > 0 ? `${selectedOption ? '该规则' : '当前报告'}共发现 ${selectedTotal} ${!selectedOption && executionWarnings.length ? '项问题，分布在其他级别或规则未实现警告' : '处问题，分布在其他级别'}。` : '当前筛选下暂无该级别的问题。'
     : incomplete ? referenceReviewMessage(selectedRun) || selectedRun?.message || '请在规则下拉框查看检测状态；证据不足或检测失败不代表没有问题。'
     : selectedRun?.rule_id === 'sjtu_rule_32' ? '检测结果仅供参考。'
-    : '基于当前规范性检测规则，证据不足的内容仍可能无法判定，检测结果仅供参考';
+    : <><span className="block">基于当前规范性检测规则，证据不足的内容仍可能无法判定。</span><span className="block">检测结果仅供参考。</span></>;
   const EmptyIcon = pending ? LoaderCircle : severityEmpty ? ListFilter : selectedOption?.status === 'error' ? CircleAlert : incomplete ? CircleHelp : CheckCircle2;
   const filtered = findings.filter(
     (item) =>

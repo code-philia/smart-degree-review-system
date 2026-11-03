@@ -28,8 +28,8 @@ export function LivePaperLintReport({ file, rules, runs, selectedRuleIds }: Prop
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold text-brand-700">实时检测报告</p>
-            <h2 className="mt-2 break-all text-lg font-bold text-slate-900 sm:text-xl">{file.name}</h2>
+            <p className="text-sm font-semibold text-brand-700 sm:text-base">实时检测报告</p>
+            <h2 className="mt-2 break-all text-base font-bold text-slate-900 sm:text-lg">{file.name}</h2>
           </div>
           <StatusBadge tone="info">实时更新</StatusBadge>
         </div>

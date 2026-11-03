@@ -59,6 +59,7 @@ it('uses the requested two-line empty result with an honest reference-only cavea
   );
   expect(screen.getByText('未检测出问题')).toBeInTheDocument();
   expect(
-    screen.getByText('基于当前规范性检测规则，证据不足的内容仍可能无法判定，检测结果仅供参考'),
+    screen.getByText('基于当前规范性检测规则，证据不足的内容仍可能无法判定。'),
   ).toBeInTheDocument();
+  expect(screen.getByText('检测结果仅供参考。')).toBeInTheDocument();
 });
