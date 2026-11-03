@@ -44,6 +44,7 @@ type Props = {
   pdfDocument: PDFDocumentProxy;
   onReady?: () => void;
   onError?: (error: unknown) => void;
+  onPageChange?: (pageNumber: number) => void;
   scale: Scale;
   annotationsByPage: Map<number, PaperLintPdfAnnotation[]>;
   activeFindingKey: string | null;
@@ -173,6 +174,7 @@ export const PdfViewer = memo(
       pdfDocument,
       onReady,
       onError,
+      onPageChange,
       scale,
       annotationsByPage,
       activeFindingKey,
@@ -196,6 +198,11 @@ export const PdfViewer = memo(
     const annotationsRef = useRef(annotationsByPage);
     const scaleRef = useRef(scale);
     const [hosts, setHosts] = useState<OverlayHost[]>([]);
+    const onPageChangeRef = useRef(onPageChange);
+
+    useEffect(() => {
+      onPageChangeRef.current = onPageChange;
+    }, [onPageChange]);
 
     useEffect(() => {
       annotationsRef.current = annotationsByPage;
@@ -270,6 +277,12 @@ export const PdfViewer = memo(
       let disposed = false;
       let cleanup: (() => void) | null = null;
       let painted = false;
+      const onPageChanging = (event: { pageNumber?: number } = {}) => {
+        const page = event.pageNumber;
+        if (!disposed && typeof page === 'number' && Number.isSafeInteger(page) && page > 0 && page <= pdfDocument.numPages) {
+          onPageChangeRef.current?.(page);
+        }
+      };
       const onPageRendered = (event: { error?: unknown } = {}) => {
         if (event.error) { onError?.(event.error); return; }
         if (!painted) { painted = true; onReady?.(); }
@@ -280,6 +293,7 @@ export const PdfViewer = memo(
         pagesReadyRef.current = true;
         const viewer = stateRef.current?.viewer;
         if (!viewer) return;
+        onPageChanging({ pageNumber: viewer.currentPageNumber || 1 });
         // PDF.js can only resolve page-width after its page views exist.
         if (typeof scaleRef.current === 'number') viewer.currentScale = scaleRef.current;
         else viewer.currentScaleValue = scaleRef.current;
@@ -314,6 +328,7 @@ export const PdfViewer = memo(
         eventBus.on('pagesinit', onPagesInit);
         eventBus.on('pagerendered', onPageRendered);
         eventBus.on('scalechanging', onScaleChanging);
+        eventBus.on('pagechanging', onPageChanging);
         linkService.setViewer(viewer);
         linkService.setDocument(pdfDocument);
         viewer.setDocument(pdfDocument);
@@ -324,6 +339,7 @@ export const PdfViewer = memo(
           eventBus.off('pagesinit', onPagesInit);
           eventBus.off('pagerendered', onPageRendered);
           eventBus.off('scalechanging', onScaleChanging);
+          eventBus.off('pagechanging', onPageChanging);
           container.removeEventListener('scroll', syncHosts);
           pagesReadyRef.current = false;
           viewer.cleanup();

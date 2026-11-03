@@ -1,8 +1,8 @@
-import { Eye, EyeOff, Highlighter, Link2, LoaderCircle, RefreshCw, ZoomIn, ZoomOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Eye, EyeOff, Highlighter, Link2, LoaderCircle, RefreshCw, ZoomIn, ZoomOut } from 'lucide-react';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy } from 'pdfjs-dist';
 import { loadPdfJs, pdfResourceOptions } from '../../pdfRuntime';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Button, buttonClassName } from '../ui';
 import type { PaperLintFindingItem } from './model';
 import { buildAnnotations, findingTarget, groupAnnotationsByPage } from './geometry';
@@ -79,6 +79,20 @@ export function PdfPane({
   const [scale, setScale] = useState<Scale>('page-width');
   const [density, setDensity] = useState<HighlightDensity>('focus');
   const viewerRef = useRef<PdfViewerHandle | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageInput, setPageInput] = useState('1');
+  const [pageError, setPageError] = useState<string | null>(null);
+  const editingPageRef = useRef(false);
+  const pageHelpId = useId();
+  const pageErrorId = useId();
+  const pageCount = document && Number.isSafeInteger(document.numPages) && document.numPages > 0 ? document.numPages : 0;
+  const canNavigate = phase === 'ready' && pageCount > 0;
+  const handlePageChange = useCallback((page: number) => {
+    if (!Number.isSafeInteger(page) || page < 1 || page > pageCount) return;
+    setCurrentPage(page);
+    if (!editingPageRef.current) setPageInput(String(page));
+    setPageError(null);
+  }, [pageCount]);
 
   const sourceUrl = 'url' in file ? file.url : null;
   const sourceFile = 'url' in file ? null : file;
@@ -114,6 +128,10 @@ export function PdfPane({
     setError(null);
     setPhase('loading');
     setReceivedBytes(0);
+    setCurrentPage(1);
+    setPageInput('1');
+    setPageError(null);
+    editingPageRef.current = false;
     armDeadline('PDF 加载长时间没有响应，请重新加载或打开完整 PDF。');
     // Download the viewer alongside the document, instead of a second waterfall.
     const viewerReady = preloadPdfViewer();
@@ -168,9 +186,10 @@ export function PdfPane({
   const pageNumber =
     target.type === 'bbox' ? target.annotation.pageNumber : target.type === 'page' ? target.pageNumber : null;
   const fullPdfUrl = openPdfUrl || sourceUrl;
+  const browserPage = phase === 'ready' ? currentPage : requestedPage || pageNumber;
   const browserPdfUrl =
-    fullPdfUrl && pageNumber && Number.isInteger(pageNumber) && pageNumber > 0
-      ? `${fullPdfUrl.split('#')[0]}#page=${pageNumber}`
+    fullPdfUrl && browserPage && Number.isInteger(browserPage) && browserPage > 0
+      ? `${fullPdfUrl.split('#')[0]}#page=${browserPage}`
       : fullPdfUrl;
 
   const lastNavigationRef = useRef<{
@@ -204,13 +223,54 @@ export function PdfPane({
   );
   const zoomOut = () => setScale(Math.max(0.5, Number((currentScale() - 0.1).toFixed(2))));
   const zoomIn = () => setScale(Math.min(2.5, Number((currentScale() + 0.1).toFixed(2))));
+  const goToPage = (page: number) => {
+    if (!canNavigate || !viewerRef.current) return;
+    if (!Number.isSafeInteger(page) || page < 1 || page > pageCount) {
+      setPageError(`请输入 1–${pageCount} 范围内的整数页码。`);
+      return;
+    }
+    editingPageRef.current = false;
+    setPageInput(String(page));
+    setCurrentPage(page);
+    setPageError(null);
+    viewerRef.current.scrollToPage(page);
+  };
+  const submitPage = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const value = pageInput.trim();
+    goToPage(/^\d+$/.test(value) ? Number(value) : NaN);
+  };
 
   return (
     <section data-pdf-status={phase} aria-busy={phase === 'loading' || phase === 'rendering'} className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-2">
-        <div className="min-w-0 flex-1">
+      <div className="space-y-2 border-b border-slate-200 bg-slate-50/60 px-3 py-2.5">
+        <div className="min-w-0">
           <p className="line-clamp-2 text-sm font-bold text-slate-900" title={file.name}>文档名称：{file.name}</p>
         </div>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <form aria-label="PDF 页码跳转" onSubmit={submitPage} className="inline-flex items-center gap-0.5 rounded-xl border border-slate-200 bg-white p-0.5 shadow-xs">
+            <Button type="button" size="sm" variant="ghost" className="px-1.5 text-slate-500" aria-label="PDF 上一页" title="上一页" disabled={!canNavigate || currentPage <= 1} onClick={() => goToPage(currentPage - 1)}>
+              <ChevronLeft className="size-4" />
+            </Button>
+            <span className="ml-1 text-[11px] font-medium text-slate-500">页码</span>
+            <input
+              type="text" inputMode="numeric" enterKeyHint="go"
+              aria-label="PDF 页码" title="输入 PDF 页码，按 Enter 跳转"
+              aria-describedby={pageError ? `${pageHelpId} ${pageErrorId}` : pageHelpId}
+              aria-invalid={pageError ? true : undefined}
+              disabled={!canNavigate} value={pageInput}
+              className="h-7 w-11 rounded-md border border-transparent bg-slate-50 px-1.5 text-center text-xs font-semibold text-slate-900 tabular-nums outline-none transition focus:border-brand-300 focus:bg-white focus:ring-2 focus:ring-brand-100 disabled:text-slate-400"
+              onFocus={event => event.currentTarget.select()}
+              onChange={event => { editingPageRef.current = true; setPageInput(event.target.value); setPageError(null); }}
+              onBlur={() => { editingPageRef.current = false; }}
+            />
+            <span className="px-1 text-xs text-slate-400" aria-hidden="true">/</span>
+            <span title="PDF 总页数" className="mr-1 min-w-4 text-xs font-medium text-slate-500 tabular-nums">{pageCount || '—'}</span>
+            <Button type="submit" size="sm" variant="ghost" className="bg-brand-50 px-2 text-[11px] font-semibold text-brand-700 hover:bg-brand-100" aria-label="跳转到指定 PDF 页" title="跳转到输入页码" disabled={!canNavigate}>跳转</Button>
+            <Button type="button" size="sm" variant="ghost" className="px-1.5 text-slate-500" aria-label="PDF 下一页" title="下一页" disabled={!canNavigate || currentPage >= pageCount} onClick={() => goToPage(currentPage + 1)}>
+              <ChevronRight className="size-4" />
+            </Button>
+          </form>
         <div role="toolbar" aria-label="PDF 工具" className="flex items-center gap-1">
           {(
             [
@@ -251,6 +311,9 @@ export function PdfPane({
             </a>
           ) : null}
         </div>
+        </div>
+        <span id={pageHelpId} className="sr-only">按 PDF 实际页序计数，输入页码后按 Enter 或点击跳转。</span>
+        {pageError ? <p id={pageErrorId} role="alert" className="text-xs leading-5 text-rose-600">{pageError}</p> : null}
       </div>
       <div className="relative min-h-[520px] flex-1 overflow-hidden">
         {phase === 'rendering' ? <div role="status" className="pointer-events-none absolute inset-x-0 top-3 z-20 mx-auto flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-white/95 px-4 py-2 text-xs text-slate-600 shadow-sm"><LoaderCircle className="size-3.5 animate-spin" />正在渲染 PDF…</div> : null}
@@ -268,6 +331,7 @@ export function PdfPane({
             pdfDocument={document}
             onReady={handleReady}
             onError={handleError}
+            onPageChange={handlePageChange}
             scale={scale}
             annotationsByPage={annotationsByPage}
             activeFindingKey={activeFindingKey}
