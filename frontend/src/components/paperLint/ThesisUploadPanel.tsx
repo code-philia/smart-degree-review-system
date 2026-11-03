@@ -196,20 +196,20 @@ export function ThesisUploadPanel(props: Props) {
   const groupRowCount = Math.max(1, ...GROUPS.map(group => rules.filter(rule => ruleGroup(rule.rule_id) === group).length));
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-5">
+    <div className="mx-auto w-full max-w-6xl space-y-5">
       <DetectionPageHeader title="论文上传" description="上传 PDF 论文，选择检测规则并生成报告。" showEyebrow={false} />
 
       <section
         aria-label="论文上传与检测设置"
-        className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-[0_12px_40px_-28px_rgba(15,23,42,.3)]"
+        className="overflow-hidden rounded-[20px] border border-slate-200 bg-white shadow-[0_10px_30px_-22px_rgba(27,53,89,.22)]"
       >
-        <div className="p-5 sm:p-7">
-          <div className="mb-4 flex items-center gap-2.5">
-            <span className="text-xs font-semibold tabular-nums text-brand-600">01</span>
+        <div className="p-[18px] sm:p-6">
+          <div className="mb-3.5 flex items-center gap-2.5">
+            <span className="inline-flex size-6.5 shrink-0 items-center justify-center rounded-lg border border-brand-100 bg-brand-50 text-[11px] font-semibold tabular-nums text-brand-600">01</span>
             <h2 className="text-sm font-semibold text-slate-900">上传论文</h2>
           </div>
           <label
-            className={`flex min-h-56 flex-col items-center justify-center rounded-2xl border border-dashed px-5 py-7 text-center transition sm:min-h-60 ${busy ? 'cursor-not-allowed border-slate-200 bg-slate-50/70' : dragging ? 'cursor-pointer border-brand-500 bg-brand-50' : 'cursor-pointer border-slate-300 bg-slate-50/60 hover:border-brand-400 hover:bg-brand-50/40 focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-100'}`}
+            className={`flex min-h-48 flex-col items-center justify-center rounded-[14px] border border-dashed px-4 py-5 text-center transition sm:min-h-54 sm:px-5 sm:py-6 ${busy ? 'cursor-not-allowed border-slate-200 bg-slate-50/70' : dragging ? 'cursor-pointer border-brand-500 bg-brand-50' : 'cursor-pointer border-[#c9d7ef] bg-linear-to-br from-[#fafcff] to-[#f4f7fc] hover:border-brand-400 hover:from-brand-50 hover:to-brand-50/60 focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-100'}`}
             aria-disabled={busy}
             onDragEnter={(event) => {
               event.preventDefault();
@@ -234,12 +234,12 @@ export function ThesisUploadPanel(props: Props) {
                 event.currentTarget.value = '';
               }}
             />
-            <span className="flex size-14 items-center justify-center rounded-2xl border border-brand-100 bg-white text-brand-600 shadow-sm">
+            <span className="flex size-12 items-center justify-center rounded-[14px] border border-brand-100 bg-white text-brand-600 shadow-sm">
               {filename ? <FileText className="size-7" /> : <Upload className="size-7" />}
             </span>
             {filename ? (
               <>
-                <span className="mt-4 max-w-full break-all text-base font-semibold text-slate-900">{filename}</span>
+                <span className="mt-3 max-w-full break-all text-base font-semibold text-slate-900">{filename}</span>
                 <span className="mt-2 text-xs text-slate-500">
                   {file
                     ? file.size >= 1024 * 1024
@@ -250,7 +250,7 @@ export function ThesisUploadPanel(props: Props) {
               </>
             ) : (
               <>
-                <span className="mt-4 text-base font-semibold text-slate-800">点击或将文件拖拽至此处上传</span>
+                <span className="mt-3 text-base font-semibold text-slate-800">点击或将文件拖拽至此处上传</span>
                 <span className="mt-2 max-w-xl text-xs leading-6 text-slate-500 sm:text-sm">
                   支持 pdf 格式（扫描版 pdf 除外），文件大小不超过 50MB；支持中英文检测
                 </span>
@@ -267,10 +267,10 @@ export function ThesisUploadPanel(props: Props) {
           ) : null}
         </div>
 
-        <section aria-label="检测规则选择" className="border-t border-slate-100 px-5 py-5 sm:px-7">
+        <section aria-label="检测规则选择" className="border-t border-slate-100 p-[18px] sm:px-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <span className="text-xs font-semibold tabular-nums text-brand-600">02</span>
+              <span className="inline-flex size-6.5 shrink-0 items-center justify-center rounded-lg border border-brand-100 bg-brand-50 text-[11px] font-semibold tabular-nums text-brand-600">02</span>
               <div>
                 <h2 className="text-sm font-semibold text-slate-900">检测规则</h2>
                 <p className="mt-1 text-xs text-slate-500" aria-live="polite">
@@ -423,7 +423,7 @@ export function ThesisUploadPanel(props: Props) {
           ) : null}
         </section>
 
-        <div className="border-t border-slate-100 bg-slate-50/40 px-5 py-4 sm:px-7">
+        <div className="border-t border-slate-100 bg-[#fbfcfe] px-[18px] py-4 sm:px-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="flex items-center gap-1.5 text-xs text-slate-500">
               <ShieldCheck className="size-4 text-brand-500" />
@@ -473,7 +473,8 @@ export function ThesisUploadPanel(props: Props) {
           已停止检测，可以重新开始。
         </p>
       ) : null}
-      <aside aria-label="检测说明" className="px-1 pb-3 text-sm leading-7 text-slate-500">
+      <aside aria-label="检测说明" className="rounded-2xl border border-[#e0e8f5] bg-[#edf3fc] px-4 py-3.5 text-sm leading-7 text-[#52647e] sm:px-[22px] sm:py-4">
+        <h2 className="mb-1 text-sm font-semibold leading-6 text-brand-800">检测说明</h2>
         <p>
           聚焦公式引用、文献引用与目录页码等可定位问题。上传论文后，您可自主选择已开放规则，逐项查看检测结果，并联动定位到论文原文位置。受算力资源限制，每位用户累计检测次数不超过
           3 次，请提前确认论文版本、合理勾选检测规则。检测结果仅供参考，系统尚在测试中，欢迎通过“使用反馈”提出建议。
