@@ -51,7 +51,16 @@ afterEach(() => vi.restoreAllMocks());
 async function showHistory() {
   render(<MemoryRouter><NormativeReportPage mode="thirty" /></MemoryRouter>);
   await screen.findByText('论文-01.pdf');
-  fireEvent.change(screen.getByRole('combobox', { name: '每页显示条数' }), { target: { value: '10' } });
+  await choosePageSize(10);
+}
+
+async function choosePageSize(size: number) {
+  fireEvent.keyDown(screen.getByRole('combobox', { name: '每页显示条数' }), { key: 'ArrowDown' });
+  const list = await screen.findByRole('listbox');
+  const option = within(list).getByRole('option', { name: `${size} / 页` });
+  option.focus();
+  fireEvent.keyDown(option, { key: 'Enter' });
+  await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument());
 }
 
 async function manageReports() {
@@ -94,18 +103,56 @@ it('paginates actual rows and resets to the first page after the page size chang
   expect(screen.getByText('论文-11.pdf')).toBeInTheDocument();
   expect(screen.queryByText('论文-01.pdf')).not.toBeInTheDocument();
 
-  const pageSize = screen.getByRole('combobox', { name: '每页显示条数' });
-  expect(within(pageSize).getAllByRole('option').map(option => option.getAttribute('value'))).toEqual(['5', '10', '20', '50', '100']);
-  fireEvent.change(pageSize, { target: { value: '20' } });
+  fireEvent.keyDown(screen.getByRole('combobox', { name: '每页显示条数' }), { key: 'ArrowDown' });
+  const list = await screen.findByRole('listbox');
+  expect(within(list).getAllByRole('option').map(option => option.textContent)).toEqual(['5 / 页', '10 / 页', '20 / 页', '50 / 页', '100 / 页']);
+  fireEvent.keyDown(list, { key: 'Escape' });
+  await choosePageSize(20);
   expect(shownRows()).toHaveLength(20);
   expect(screen.getByText('第 1 / 2 页')).toBeInTheDocument();
   expect(screen.getByText('论文-01.pdf')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: '下一页' }));
   expect(shownRows()).toHaveLength(3);
   expect(screen.getByRole('button', { name: '下一页' })).toBeDisabled();
-  fireEvent.change(pageSize, { target: { value: '50' } });
+  await choosePageSize(50);
   expect(shownRows()).toHaveLength(23);
   expect(screen.getByText('第 1 / 1 页')).toBeInTheDocument();
+});
+
+it('jumps directly to a numbered page and announces the selected page', async () => {
+  render(<MemoryRouter><NormativeReportPage mode="thirty" /></MemoryRouter>);
+  await screen.findByText('论文-01.pdf');
+  const navigation = screen.getByRole('navigation', { name: '报告分页' });
+  expect(within(navigation).getByText('共 23 项')).toBeInTheDocument();
+  expect(within(navigation).getByRole('button', { name: '第 1 页', exact: true })).toHaveAttribute('aria-current', 'page');
+  fireEvent.click(within(navigation).getByRole('button', { name: '第 3 页', exact: true }));
+  expect(screen.getByText('论文-11.pdf')).toBeInTheDocument();
+  expect(screen.queryByText('论文-01.pdf')).not.toBeInTheDocument();
+  expect(within(navigation).getByRole('button', { name: '第 3 页', exact: true })).toHaveAttribute('aria-current', 'page');
+  expect(within(navigation).getByText('第 3 / 5 页')).toBeInTheDocument();
+});
+
+it('bounds long page lists while keeping the first, nearby and final pages reachable', async () => {
+  vi.mocked(fetchPaperLintReports).mockResolvedValue(Array.from({ length: 83 }, (_, index) => ({
+    ...reports[0], id: `many-${index + 1}`, source_filename: `论文-${String(index + 1).padStart(2, '0')}.pdf`,
+  })));
+  await showHistory();
+  const pages = screen.getByRole('group', { name: '报告页码' });
+  expect(within(pages).getAllByRole('button').map(button => button.getAttribute('aria-label'))).toEqual([
+    '上一页', '第 1 页', '第 2 页', '第 3 页', '第 4 页', '第 9 页', '下一页',
+  ]);
+  fireEvent.click(within(pages).getByRole('button', { name: '第 4 页', exact: true }));
+  expect(screen.getByText('论文-31.pdf')).toBeInTheDocument();
+  expect(within(pages).getByRole('button', { name: '第 5 页', exact: true })).toBeInTheDocument();
+  fireEvent.click(within(pages).getByRole('button', { name: '第 5 页', exact: true }));
+  expect(screen.getByText('论文-41.pdf')).toBeInTheDocument();
+  expect(within(pages).getAllByText('…')).toHaveLength(2);
+  fireEvent.click(within(pages).getByRole('button', { name: '第 9 页', exact: true }));
+  expect(shownRows()).toHaveLength(3);
+  expect(screen.getByText('论文-81.pdf')).toBeInTheDocument();
+  expect(within(pages).getByRole('button', { name: '下一页' })).toBeDisabled();
+  fireEvent.click(within(pages).getByRole('button', { name: '第 1 页', exact: true }));
+  expect(screen.getByText('论文-01.pdf')).toBeInTheDocument();
 });
 
 it('preserves selection across pages and selects or clears only the current page', async () => {
