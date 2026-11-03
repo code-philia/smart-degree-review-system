@@ -55,8 +55,7 @@ it('searches every saved filename with a trimmed case-insensitive substring befo
   expect(screen.getByText('13 份')).toBeInTheDocument();
   expect(screen.getByText('匹配 7 份')).toBeInTheDocument();
   const pagination = screen.getByRole('navigation', { name: '报告分页' });
-  expect(within(pagination).getByText('显示第 1–5 条')).toBeInTheDocument();
-  expect(within(pagination).getByText('共 7 项')).toBeInTheDocument();
+  expect(within(pagination).getByText('共 13 条，匹配 7 条，显示第 1–5 条')).toBeInTheDocument();
   fireEvent.click(within(pagination).getByRole('button', { name: '下一页' }));
   expect(rowNames()).toEqual(['thesis-06.pdf', 'Thesis-07.pdf']);
   expect(within(pagination).getByText('第 2 / 2 页')).toBeInTheDocument();
@@ -84,8 +83,7 @@ it('shows a safe zero-result state and lets the user restore all reports', () =>
   fireEvent.change(screen.getByRole('searchbox', { name: '搜索检测报告' }), { target: { value: '不存在' } });
   expect(screen.getByText('未找到匹配的报告')).toBeInTheDocument();
   expect(screen.getByText('匹配 0 份')).toBeInTheDocument();
-  expect(screen.getByText('暂无可显示的报告')).toBeInTheDocument();
-  expect(screen.getByText('共 0 项')).toBeInTheDocument();
+  expect(screen.getByText('共 13 条，匹配 0 条，显示第 0–0 条')).toBeInTheDocument();
   expect(screen.queryByRole('link', { name: '查看详情' })).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: '上一页' })).toBeDisabled();
   expect(screen.getByRole('button', { name: '下一页' })).toBeDisabled();
@@ -117,8 +115,7 @@ it('clears existing selections whenever the search changes so hidden reports can
 it('treats whitespace as an unfiltered query and renders a valid range for an empty saved list', () => {
   show([]);
   fireEvent.change(screen.getByRole('searchbox', { name: '搜索检测报告' }), { target: { value: '   ' } });
-  expect(screen.getByText('暂无可显示的报告')).toBeInTheDocument();
-  expect(screen.getByText('共 0 项')).toBeInTheDocument();
+  expect(screen.getByText('共 0 条，显示第 0–0 条')).toBeInTheDocument();
   expect(screen.queryByText(/匹配 \d+ 份/)).not.toBeInTheDocument();
   expect(screen.getByText('第 1 / 1 页')).toBeInTheDocument();
 });

@@ -5,7 +5,6 @@ import type { PaperLintReportListItem } from '../../api/paperLint';
 import { formatChinaDateTime } from '../../utils/dateTime';
 import { Button } from '../ui';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../shadcn/dropdown-menu';
-import { ReportPagination } from './ReportPagination';
 
 const actionMenuClassName = 'w-40 rounded-xl border border-slate-200 bg-white p-1.5 text-slate-700 shadow-xl ring-0 duration-200 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-top-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 motion-reduce:animate-none!';
 
@@ -220,10 +219,29 @@ export function ReportHistoryTable({
           </tbody>
         </table>
       </div>
-      <nav aria-label="报告分页" className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-white px-4 py-4 text-[13px] leading-5 text-slate-500 sm:px-6">
-        <span className="hidden shrink-0 tabular-nums lg:inline">{filteredReports.length ? `显示第 ${pageStart + 1}–${Math.min(pageStart + pageSize, filteredReports.length)} 条` : '暂无可显示的报告'}</span>
-        <ReportPagination total={filteredReports.length} page={currentPage} pageCount={pageCount} pageSize={pageSize} disabled={deleting}
-          onPageChange={setPage} onPageSizeChange={size => { setPageSize(size); setPage(1); }} />
+      <nav aria-label="报告分页" className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-white px-6 py-4 text-[13px] text-slate-500">
+        <span>共 {reports.length} 条，{filtering ? `匹配 ${filteredReports.length} 条，` : ''}显示第 {filteredReports.length ? pageStart + 1 : 0}–{Math.min(pageStart + pageSize, filteredReports.length)} 条</span>
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2">
+            每页显示
+            <select
+              aria-label="每页显示条数"
+              className="h-8 rounded-md border border-slate-300 bg-white px-2 text-slate-700 focus-visible:outline-2 focus-visible:outline-brand-500"
+              value={pageSize}
+              disabled={deleting}
+              onChange={event => {
+                setPageSize(Number(event.target.value));
+                setPage(1);
+              }}
+            >
+              {[5, 10, 20, 50, 100].map(size => <option key={size} value={size}>{size}</option>)}
+            </select>
+            条
+          </label>
+          <Button size="sm" variant="secondary" disabled={deleting || currentPage === 1} onClick={() => setPage(currentPage - 1)}>上一页</Button>
+          <span aria-live="polite" className="tabular-nums">第 {currentPage} / {pageCount} 页</span>
+          <Button size="sm" variant="secondary" disabled={deleting || currentPage === pageCount} onClick={() => setPage(currentPage + 1)}>下一页</Button>
+        </div>
       </nav>
     </section>
   );
