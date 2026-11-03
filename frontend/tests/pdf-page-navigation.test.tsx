@@ -35,7 +35,7 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 function expandToolbar() {
-  const toggle = screen.queryByRole('button', { name: '展开 PDF 工具栏' });
+  const toggle = screen.queryByRole('button', { name: '展开阅读工具' });
   if (toggle) fireEvent.click(toggle);
 }
 async function loaded() {
@@ -51,14 +51,14 @@ it.each(['saved', 'live'])('starts the %s toolbar collapsed and preserves the PD
     ? <LivePaperLintReport file={props.file} rules={[]} runs={[]} />
     : <PdfPane {...props} />);
   await screen.findByTestId('test-reader');
-  const expand = screen.getByRole('button', { name: '展开 PDF 工具栏' });
+  const expand = screen.getByRole('button', { name: '展开阅读工具' });
   expect(expand).toHaveAttribute('aria-expanded', 'false');
   expect(screen.queryByRole('form', { name: 'PDF 页码跳转' })).not.toBeInTheDocument();
   expect(screen.queryByRole('toolbar', { name: 'PDF 工具' })).not.toBeInTheDocument();
 
   await user.click(expand);
   const input = await loaded();
-  const collapse = screen.getByRole('button', { name: '收起 PDF 工具栏' });
+  const collapse = screen.getByRole('button', { name: '收起阅读工具' });
   expect(collapse).toHaveAttribute('aria-expanded', 'true');
   expect(document.getElementById(collapse.getAttribute('aria-controls')!)).toBeVisible();
   await user.clear(input); await user.type(input, '87{Enter}');
@@ -67,8 +67,8 @@ it.each(['saved', 'live'])('starts the %s toolbar collapsed and preserves the PD
   await user.click(collapse);
   expect(screen.queryByRole('textbox', { name: 'PDF 页码' })).not.toBeInTheDocument();
   expect(screen.getByTestId('test-reader')).toBe(reader);
-  expect(screen.getByRole('button', { name: '展开 PDF 工具栏' })).toHaveFocus();
-  await user.click(screen.getByRole('button', { name: '展开 PDF 工具栏' }));
+  expect(screen.getByRole('button', { name: '展开阅读工具' })).toHaveFocus();
+  await user.click(screen.getByRole('button', { name: '展开阅读工具' }));
   expect(screen.getByRole('textbox', { name: 'PDF 页码' })).toHaveValue('87');
   expect(screen.getByRole('link', { name: '在浏览器打开完整 PDF' })).toHaveAttribute('href', '/paper.pdf#page=87');
   expect(api.getDocument).toHaveBeenCalledTimes(1);

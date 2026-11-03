@@ -28,6 +28,7 @@ import { formatChinaDateTime } from '../utils/dateTime';
 import { ReportExportDialog } from '../components/paperLint/ReportExportDialog';
 import { IncrementalRerunDialog } from '../components/paperLint/IncrementalRerunDialog';
 import { DetectionScope } from '../components/paperLint/DetectionScope';
+import { REPORT_DOCUMENT_TEXT } from '../components/paperLint/documentTypography';
 
 function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) {
   const isThirty = mode === 'thirty';
@@ -163,7 +164,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
           <div className="w-full min-w-0 sm:w-auto sm:flex-1">
             <p className="text-lg font-bold leading-7 tracking-tight text-brand-700 sm:text-xl">规范性检测</p>
             <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h1 className="break-all text-sm font-medium leading-5 text-slate-600">{report.source_filename}</h1>
+              <h1 className={`break-all text-slate-600 ${REPORT_DOCUMENT_TEXT}`}>{report.source_filename}</h1>
               <time dateTime={report.created_at} className="whitespace-nowrap text-xs text-slate-500">
                 {formatChinaDateTime(report.created_at, { includeSeconds: true })}
               </time>

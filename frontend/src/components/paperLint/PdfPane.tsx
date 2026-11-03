@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronLeft, ChevronRight, Eye, EyeOff, Highlighter, Link2, LoaderCircle, RefreshCw, ZoomIn, ZoomOut } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, Eye, EyeOff, Highlighter, Link2, LoaderCircle, RefreshCw, SlidersHorizontal, ZoomIn, ZoomOut } from 'lucide-react';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy } from 'pdfjs-dist';
 import { loadPdfJs, pdfResourceOptions } from '../../pdfRuntime';
 
@@ -10,6 +10,7 @@ import { PdfViewer, preloadPdfViewer, type PdfViewerHandle, type SupplementalPdf
 import type { HighlightDensity } from './PdfOverlay';
 import { findingPageLabel } from './model';
 import { resolvePdfPageLabels, type PdfPageLabels } from './pageLabels';
+import { REPORT_DOCUMENT_TEXT } from './documentTypography';
 
 type Props = {
   file: File | { name: string; url: string };
@@ -254,19 +255,20 @@ export function PdfPane({
     <section data-pdf-status={phase} aria-busy={phase === 'loading' || phase === 'rendering'} className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
       <div className="@container border-b border-slate-200 bg-white">
         <div className="flex h-12 min-w-0 items-center gap-3 px-3">
-          <p className="min-w-0 flex-1 truncate text-sm font-medium text-slate-700" title={file.name}><span className="sr-only">文档名称：</span>{file.name}</p>
-          <Button
-            type="button" size="sm" variant="ghost"
-            className="shrink-0 gap-1.5 px-2 text-slate-500"
+          <p className={`min-w-0 flex-1 truncate text-slate-600 ${REPORT_DOCUMENT_TEXT}`} title={file.name}><span className="sr-only">文档名称：</span>{file.name}</p>
+          <button
+            type="button"
+            className={`inline-flex h-8 shrink-0 cursor-pointer items-center gap-2 rounded-lg border px-2.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/25 focus-visible:ring-offset-2 motion-reduce:transition-none ${REPORT_DOCUMENT_TEXT} ${toolbarExpanded ? 'border-brand-500/25 bg-brand-50 text-brand-700' : 'border-slate-200 bg-white text-slate-600 shadow-xs hover:border-slate-300 hover:bg-slate-50'}`}
             aria-expanded={toolbarExpanded}
             aria-controls={toolbarId}
-            aria-label={toolbarExpanded ? '收起 PDF 工具栏' : '展开 PDF 工具栏'}
-            title={toolbarExpanded ? '收起 PDF 工具栏' : '展开 PDF 工具栏'}
+            aria-label={toolbarExpanded ? '收起阅读工具' : '展开阅读工具'}
+            title={toolbarExpanded ? '收起阅读工具' : '展开阅读工具'}
             onClick={() => setToolbarExpanded(value => !value)}
           >
-            工具栏
-            <ChevronDown aria-hidden="true" className={`size-4 transition-transform motion-reduce:transition-none ${toolbarExpanded ? 'rotate-180' : ''}`} />
-          </Button>
+            <SlidersHorizontal aria-hidden="true" className="size-4 shrink-0" />
+            <span>阅读工具</span>
+            <ChevronDown aria-hidden="true" className={`size-3.5 shrink-0 transition-transform motion-reduce:transition-none ${toolbarExpanded ? 'rotate-180' : ''}`} />
+          </button>
         </div>
         <div id={toolbarId} hidden={!toolbarExpanded}>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-100 bg-slate-50/80 px-3 py-2">
