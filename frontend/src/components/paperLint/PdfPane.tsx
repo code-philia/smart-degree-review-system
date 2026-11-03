@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Eye, EyeOff, Highlighter, Link2, LoaderCircle, RefreshCw, ZoomIn, ZoomOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Eye, EyeOff, FileText, Highlighter, Link2, LoaderCircle, RefreshCw, ZoomIn, ZoomOut } from 'lucide-react';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy } from 'pdfjs-dist';
 import { loadPdfJs, pdfResourceOptions } from '../../pdfRuntime';
 
@@ -243,77 +243,83 @@ export function PdfPane({
 
   return (
     <section data-pdf-status={phase} aria-busy={phase === 'loading' || phase === 'rendering'} className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
-      <div className="space-y-2 border-b border-slate-200 bg-slate-50/60 px-3 py-2.5">
-        <div className="min-w-0">
-          <p className="line-clamp-2 text-sm font-bold text-slate-900" title={file.name}>文档名称：{file.name}</p>
+      <div className="@container border-b border-slate-200 bg-white">
+        <div className="flex min-w-0 items-center gap-2.5 px-4 py-3">
+          <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600"><FileText className="size-4" /></span>
+          <p className="min-w-0 truncate text-sm font-medium text-slate-700" title={file.name}><span className="sr-only">文档名称：</span>{file.name}</p>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <form aria-label="PDF 页码跳转" onSubmit={submitPage} className="inline-flex items-center gap-0.5 rounded-xl border border-slate-200 bg-white p-0.5 shadow-xs">
-            <Button type="button" size="sm" variant="ghost" className="px-1.5 text-slate-500" aria-label="PDF 上一页" title="上一页" disabled={!canNavigate || currentPage <= 1} onClick={() => goToPage(currentPage - 1)}>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-100 bg-slate-50/80 px-3 py-2">
+          <form aria-label="PDF 页码跳转" onSubmit={submitPage} className="flex w-full items-center justify-center gap-1.5 @[32rem]:w-auto @[32rem]:justify-start">
+            <Button type="button" size="sm" variant="ghost" className="w-8 shrink-0 px-0! [&>svg]:shrink-0" aria-label="PDF 上一页" title="上一页" disabled={!canNavigate || currentPage <= 1} onClick={() => goToPage(currentPage - 1)}>
               <ChevronLeft className="size-4" />
             </Button>
-            <span className="ml-1 text-[11px] font-medium text-slate-500">页码</span>
-            <input
-              type="text" inputMode="numeric" enterKeyHint="go"
-              aria-label="PDF 页码" title="输入 PDF 页码，按 Enter 跳转"
-              aria-describedby={pageError ? `${pageHelpId} ${pageErrorId}` : pageHelpId}
-              aria-invalid={pageError ? true : undefined}
-              disabled={!canNavigate} value={pageInput}
-              className="h-7 w-11 rounded-md border border-transparent bg-slate-50 px-1.5 text-center text-xs font-semibold text-slate-900 tabular-nums outline-none transition focus:border-brand-300 focus:bg-white focus:ring-2 focus:ring-brand-100 disabled:text-slate-400"
-              onFocus={event => event.currentTarget.select()}
-              onChange={event => { editingPageRef.current = true; setPageInput(event.target.value); setPageError(null); }}
-              onBlur={() => { editingPageRef.current = false; }}
-            />
-            <span className="px-1 text-xs text-slate-400" aria-hidden="true">/</span>
-            <span title="PDF 总页数" className="mr-1 min-w-4 text-xs font-medium text-slate-500 tabular-nums">{pageCount || '—'}</span>
-            <Button type="submit" size="sm" variant="ghost" className="bg-brand-50 px-2 text-[11px] font-semibold text-brand-700 hover:bg-brand-100" aria-label="跳转到指定 PDF 页" title="跳转到输入页码" disabled={!canNavigate}>跳转</Button>
-            <Button type="button" size="sm" variant="ghost" className="px-1.5 text-slate-500" aria-label="PDF 下一页" title="下一页" disabled={!canNavigate || currentPage >= pageCount} onClick={() => goToPage(currentPage + 1)}>
+            <div className="flex h-8 items-center rounded-lg border border-slate-200 bg-white text-xs tabular-nums transition focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-100">
+              <input
+                type="text" inputMode="numeric" enterKeyHint="go"
+                aria-label="PDF 页码" title="输入 PDF 页码，按 Enter 跳转"
+                aria-describedby={pageError ? `${pageHelpId} ${pageErrorId}` : pageHelpId}
+                aria-invalid={pageError ? true : undefined}
+                disabled={!canNavigate} value={pageInput}
+                className="h-full w-11 min-w-0 rounded-l-lg bg-transparent px-1 text-center text-xs font-semibold text-slate-900 outline-none disabled:text-slate-400"
+                onFocus={event => event.currentTarget.select()}
+                onChange={event => { editingPageRef.current = true; setPageInput(event.target.value); setPageError(null); }}
+                onBlur={() => { editingPageRef.current = false; }}
+              />
+              <span className="text-slate-300" aria-hidden="true">/</span>
+              <span title="PDF 总页数" className="min-w-10 px-2 text-center font-medium text-slate-500">{pageCount || '—'}</span>
+            </div>
+            <Button type="button" size="sm" variant="ghost" className="w-8 shrink-0 px-0! [&>svg]:shrink-0" aria-label="PDF 下一页" title="下一页" disabled={!canNavigate || currentPage >= pageCount} onClick={() => goToPage(currentPage + 1)}>
               <ChevronRight className="size-4" />
             </Button>
+            <Button type="submit" size="sm" variant="ghost" className="ml-1 px-2.5 text-brand-600 hover:bg-brand-50 hover:text-brand-700" aria-label="跳转到指定 PDF 页" title="跳转到输入页码" disabled={!canNavigate}>跳转</Button>
           </form>
-        <div role="toolbar" aria-label="PDF 工具" className="flex items-center gap-1">
-          {(
-            [
-              ['hidden', EyeOff, '隐藏高亮'],
-              ['focus', Eye, '聚焦高亮'],
-              ['all', Highlighter, '显示全部高亮'],
-            ] as const
-          ).map(([value, Icon, label]) => (
-            <Button
-              key={value}
-              size="sm"
-              variant={density === value ? 'secondary' : 'ghost'}
-              className="px-2"
-              aria-label={label}
-              title={label}
-              aria-pressed={density === value}
-              onClick={() => setDensity(value)}
-            >
-              <Icon className="size-4" />
-            </Button>
-          ))}
-          <Button size="sm" variant="ghost" className="px-2" aria-label="缩小 PDF" title="缩小 PDF" onClick={zoomOut}>
-            <ZoomOut className="size-4" />
-          </Button>
-          <Button size="sm" variant="ghost" className="px-2" aria-label="放大 PDF" title="放大 PDF" onClick={zoomIn}>
-            <ZoomIn className="size-4" />
-          </Button>
-          {fullPdfUrl ? (
-            <a
-              href={browserPdfUrl || undefined}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={buttonClassName('ghost', 'sm', 'px-2')}
-              aria-label="在浏览器打开完整 PDF"
-              title="在浏览器打开完整 PDF"
-            >
-              <Link2 className="size-4" />
-            </a>
-          ) : null}
-        </div>
+          <div role="toolbar" aria-label="PDF 工具" className="flex w-full items-center justify-center gap-2 @[32rem]:ml-auto @[32rem]:w-auto">
+            <div role="group" aria-label="高亮显示" className="flex items-center gap-0.5 rounded-lg bg-slate-200/50 p-0.5">
+              {([
+                ['hidden', EyeOff, '隐藏高亮'],
+                ['focus', Eye, '聚焦高亮'],
+                ['all', Highlighter, '显示全部高亮'],
+              ] as const).map(([value, Icon, label]) => (
+                <Button
+                  key={value}
+                  size="sm"
+                  variant="ghost"
+                  className={`w-8 shrink-0 px-0! [&>svg]:shrink-0 ${density === value ? 'bg-white text-brand-600! shadow-sm hover:bg-white! hover:text-brand-700!' : 'text-slate-500'}`}
+                  aria-label={label}
+                  title={label}
+                  aria-pressed={density === value}
+                  onClick={() => setDensity(value)}
+                >
+                  <Icon className="size-4" />
+                </Button>
+              ))}
+            </div>
+            <span aria-hidden="true" className="h-4 w-px bg-slate-200" />
+            <div role="group" aria-label="PDF 缩放" className="flex items-center gap-0.5">
+              <Button size="sm" variant="ghost" className="w-8 shrink-0 px-0! [&>svg]:shrink-0" aria-label="缩小 PDF" title="缩小 PDF" onClick={zoomOut}>
+                <ZoomOut className="size-4" />
+              </Button>
+              <Button size="sm" variant="ghost" className="w-8 shrink-0 px-0! [&>svg]:shrink-0" aria-label="放大 PDF" title="放大 PDF" onClick={zoomIn}>
+                <ZoomIn className="size-4" />
+              </Button>
+            </div>
+            {fullPdfUrl ? <>
+              <span aria-hidden="true" className="h-4 w-px bg-slate-200" />
+              <a
+                href={browserPdfUrl || undefined}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={buttonClassName('ghost', 'sm', 'w-8 shrink-0 px-0! [&>svg]:shrink-0')}
+                aria-label="在浏览器打开完整 PDF"
+                title="在浏览器打开完整 PDF"
+              >
+                <Link2 className="size-4" />
+              </a>
+            </> : null}
+          </div>
         </div>
         <span id={pageHelpId} className="sr-only">按 PDF 实际页序计数，输入页码后按 Enter 或点击跳转。</span>
-        {pageError ? <p id={pageErrorId} role="alert" className="text-xs leading-5 text-rose-600">{pageError}</p> : null}
+        {pageError ? <p id={pageErrorId} role="alert" className="border-t border-slate-100 px-4 py-2 text-xs leading-5 text-rose-600">{pageError}</p> : null}
       </div>
       <div className="relative min-h-[520px] flex-1 overflow-hidden">
         {phase === 'rendering' ? <div role="status" className="pointer-events-none absolute inset-x-0 top-3 z-20 mx-auto flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-white/95 px-4 py-2 text-xs text-slate-600 shadow-sm"><LoaderCircle className="size-3.5 animate-spin" />正在渲染 PDF…</div> : null}
