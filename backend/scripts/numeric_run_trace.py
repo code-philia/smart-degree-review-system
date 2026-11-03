@@ -52,7 +52,7 @@ class NumericRunTrace:
         return value
 
     def write(self, filename, data):
-        raw = json.dumps(self.clean(data), ensure_ascii=False, allow_nan=False, indent=2).encode('utf-8')
+        raw = json.dumps(self.clean(data), ensure_ascii=True, allow_nan=False, indent=2).encode('utf-8')
         target = self.path / filename
         fd = os.open(target, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
         with os.fdopen(fd, 'wb') as stream:

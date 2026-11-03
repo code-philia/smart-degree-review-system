@@ -18,6 +18,7 @@ from paper_model_bilingual_rules import extract_bilingual_facts, _json_object, _
 from paper_compiler.frontend import build_paper
 from paper_compiler.campus_requests import campus_request
 from paper_compiler.semantic_cache import SemanticResponseCache
+from paper_compiler.storage import json_bytes
 
 
 BILINGUAL_RULES = {
@@ -91,7 +92,7 @@ def request_json(messages: list[dict[str, str]], *, observer=None) -> tuple[dict
         observer('request_config', {'provider': _provider, 'host': urlsplit(base_url).hostname, 'parameters': payload})
     request = urllib.request.Request(
         f"{base_url}/chat/completions",
-        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        data=json_bytes(payload),
         headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"},
         method="POST",
     )
@@ -647,15 +648,15 @@ def main() -> None:
         raise RuntimeError(f"未知双语语义规则：{unknown[0]}")
     def publish(completed):
         print(json.dumps({'type': 'paper_lint_rule_complete', 'rule_run': completed},
-                         ensure_ascii=False), flush=True)
+                         ensure_ascii=True), flush=True)
     result = run(args.pdf, args.rule, run_id=args.run_id,
                  on_rule_complete=publish if args.progress_jsonl else None)
-    print(json.dumps(result, ensure_ascii=False), flush=True)
+    print(json.dumps(result, ensure_ascii=True), flush=True)
 
 
 if __name__ == "__main__":
     try:
         main()
     except Exception as exc:
-        print(json.dumps({"error": str(exc)}, ensure_ascii=False))
+        print(json.dumps({"error": str(exc)}, ensure_ascii=True))
         raise SystemExit(1)

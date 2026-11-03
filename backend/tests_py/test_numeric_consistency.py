@@ -123,6 +123,22 @@ def fixture():
     return ir, facts, data
 
 
+def test_numeric_trace_round_trips_pdf_surrogates_and_valid_unicode(tmp_path):
+    from numeric_run_trace import NumericRunTrace, load_replay
+    ir, _, _ = fixture()
+    ir['nodes'][0]['text'] = '中文 α∑𝛼 source \ud8351 and \udc00'
+    original = copy.deepcopy(ir)
+    trace = NumericRunTrace(ir, root=tmp_path)
+    result = {'execution_status': 'completed', 'params': {}}
+    trace.finish(result)
+    manifest, artifacts = load_replay(trace.path)
+    assert manifest['status'] == 'completed'
+    assert artifacts['paper_model'] == [original]
+    assert ir == original
+    for artifact in manifest['artifacts']:
+        (trace.path / artifact['file']).read_bytes().decode('utf-8')
+
+
 def test_section_body_and_table_preserve_provenance():
     ir, facts, data = fixture()
     model = n.source_model(ir)

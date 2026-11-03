@@ -56,3 +56,26 @@ def test_one_failed_semantic_rule_does_not_discard_completed_siblings():
     assert result['rule_runs'][1]['execution_status'] == 'completed'
     assert result['summary']['error_rule_count'] == 1
     assert len(published) == 2
+
+
+def test_cli_progress_and_final_result_are_utf8_safe_without_altering_source(monkeypatch):
+    import contextlib
+    import io
+    import json
+    from types import SimpleNamespace
+    source = '中文 α∑𝛼 source \ud8351 and \udc00'
+    completed = {'rule_id': semantic.NUMERIC_RULE, 'findings': [{'evidence': source}]}
+    def run(pdf, rules, *, run_id, on_rule_complete):
+        on_rule_complete(completed)
+        return {'rule_runs': [completed]}
+    monkeypatch.setattr(semantic, 'parse_args', lambda: SimpleNamespace(
+        pdf=Path('input.pdf'), rule=[semantic.NUMERIC_RULE], run_id=None, progress_jsonl=True))
+    monkeypatch.setattr(semantic, 'run', run)
+    buffer = io.BytesIO()
+    stream = io.TextIOWrapper(buffer, encoding='utf-8', errors='strict')
+    with contextlib.redirect_stdout(stream):
+        semantic.main()
+    stream.flush()
+    progress, final = [json.loads(line) for line in buffer.getvalue().decode('utf-8').splitlines()]
+    assert progress['rule_run'] == completed
+    assert final['rule_runs'] == [completed]
