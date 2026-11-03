@@ -116,13 +116,22 @@ def assess_structure(pages, identity):
     keywords = any(re.match(r'^(?:关键词|关键字|key\s*words?|index\s+terms)(?:\s*[:：—–-]\s*|\s+)\S', text, re.I)
                    or re.match(r'^(?:关键词|关键字)[:：]\S', compact(text)) for _, _, text in source_rows)
     intro = [(order, text) for order, _, text, heading in headings if _INTRO.fullmatch(heading)]
-    conclusion = [(order, text) for order, _, text, heading in headings if _CONCLUSION.fullmatch(heading)]
     references = [(order, text) for order, _, text, heading in headings if compact(heading) in {'参考文献', '參考文獻', 'references', 'bibliography'}]
     first_body = min((order for order, _ in intro), default=-1)
-    body_end = min((order for order, _ in conclusion + references if order > first_body), default=len(rows))
     intro_key = _section_key(intro[0][1]) if intro else None
     intro_source = next(((index, text) for order, index, text in source_rows if order == first_body), None)
     intro_style = styles.get(intro_source, (0, False))
+    def core_conclusion(index, text):
+        size, _ = styles.get((index, text), (0, False))
+        # A conclusion label in an introductory diagram or a summary subsection
+        # is not the paper's final section and cannot close its body scope.
+        if size and intro_style[0] and size < intro_style[0] * .88:
+            return False
+        key = _section_key(text)
+        return not (key and intro_key and (key[0] != intro_key[0] or key[2] != intro_key[2]))
+    conclusion = [(order, text) for order, index, text, heading in headings
+                  if order > first_body and _CONCLUSION.fullmatch(heading) and core_conclusion(index, text)]
+    body_end = min((order for order, _ in conclusion + references if order > first_body), default=len(rows))
     def body_heading(index, text, heading):
         if re.search(r'[。；;]|[.!?]$', heading):
             return False

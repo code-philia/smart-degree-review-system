@@ -237,3 +237,31 @@ def test_english_text_outside_abstract_cannot_supply_missing_english_abstract(tm
         doc[1].insert_text((50, 650), '关键词：软件；分析；检测', fontname='china-s')
         doc.save(path)
     assert '英文摘要' in assess_pdf(path)['missing_sections']
+
+
+def test_intro_diagram_conclusion_label_does_not_end_body_scope(tmp_path):
+    path = tmp_path / 'diagram-label-before-body.pdf'
+    with pymupdf.open(thesis(tmp_path)) as doc:
+        doc[5].insert_text((100, 400), '研究结论', fontname='china-s', fontsize=9)
+        doc.save(path)
+    assert assess_pdf(path)['status'] == 'accepted'
+    assert build_paper(path, include_citations=False)['nodes'][0]['kind'] == 'Paper'
+
+
+def test_intro_diagram_label_cannot_supply_missing_real_conclusion(tmp_path):
+    path = tmp_path / 'diagram-only-conclusion.pdf'
+    with pymupdf.open(thesis(tmp_path, missing='第四章 结论')) as doc:
+        doc[5].insert_text((100, 400), '研究结论', fontname='china-s', fontsize=9)
+        doc.save(path)
+    assessment = assess_pdf(path)
+    assert assessment['status'] == 'rejected'
+    assert '结论' in assessment['missing_sections']
+    assert '主体' not in assessment['missing_sections']
+
+
+def test_intro_summary_subsection_cannot_replace_final_conclusion(tmp_path):
+    path = tmp_path / 'intro-summary-subsection.pdf'
+    with pymupdf.open(thesis(tmp_path, missing='第四章 结论')) as doc:
+        doc[5].insert_text((50, 400), '1.5 总结', fontname='china-s', fontsize=16)
+        doc.save(path)
+    assert '结论' in assess_pdf(path)['missing_sections']
