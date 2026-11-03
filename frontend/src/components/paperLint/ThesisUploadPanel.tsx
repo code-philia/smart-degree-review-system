@@ -197,7 +197,7 @@ export function ThesisUploadPanel(props: Props) {
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-5">
-      <DetectionPageHeader title="论文上传" description="上传 PDF 论文，选择检测规则并生成报告。" />
+      <DetectionPageHeader title="论文上传" description="上传 PDF 论文，选择检测规则并生成报告。" showEyebrow={false} />
 
       <section
         aria-label="论文上传与检测设置"
@@ -473,7 +473,7 @@ export function ThesisUploadPanel(props: Props) {
           已停止检测，可以重新开始。
         </p>
       ) : null}
-      <aside aria-label="检测说明" className="px-1 pb-3 text-xs leading-6 text-slate-500">
+      <aside aria-label="检测说明" className="px-1 pb-3 text-sm leading-7 text-slate-500">
         <p>
           聚焦公式引用、文献引用与目录页码等可定位问题。上传论文后，您可自主选择已开放规则，逐项查看检测结果，并联动定位到论文原文位置。受算力资源限制，每位用户累计检测次数不超过
           3 次，请提前确认论文版本、合理勾选检测规则。检测结果仅供参考，系统尚在测试中，欢迎通过“使用反馈”提出建议。
