@@ -163,7 +163,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
           <div className="w-full min-w-0 sm:w-auto sm:flex-1">
             <p className="text-lg font-bold leading-7 tracking-tight text-brand-700 sm:text-xl">规范性检测</p>
             <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h1 className="break-all text-sm font-medium leading-6 text-slate-600 sm:text-base">{report.source_filename}</h1>
+              <h1 className="break-all text-sm font-medium leading-5 text-slate-600">{report.source_filename}</h1>
               <time dateTime={report.created_at} className="whitespace-nowrap text-xs text-slate-500">
                 {formatChinaDateTime(report.created_at, { includeSeconds: true })}
               </time>
@@ -177,27 +177,17 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
         </div>
         <div className="my-4 flex flex-wrap items-center justify-between gap-2">
           <h2 id="report-conclusion-title" className="font-bold text-slate-900">检测结论</h2>
-          <StatusBadge
-            tone={
-              summary.error_finding_count
-                ? 'danger'
-                : summary.warning_finding_count
-                  ? 'warning'
-                  : hasInconclusiveRules || summary.error_rule_count
-                    ? 'neutral'
-                    : summary.info_finding_count ? 'info' : 'success'
-            }
-          >
-            {summary.finding_count
-              ? `待处理 ${summary.finding_count} 项`
-                : summary.error_rule_count
-                  ? '部分规则执行失败'
-                  : hasInconclusiveRules
-                    ? '部分规则无法判定'
-                : compilerPublicationSummary(report.result) || (isThirty
-                  ? '规则检查通过'
-                  : '基础检查通过')}
-          </StatusBadge>
+          {summary.finding_count === 0 ? (
+            <StatusBadge tone={hasInconclusiveRules || summary.error_rule_count ? 'neutral' : 'success'}>
+              {summary.error_rule_count
+                ? '部分规则执行失败'
+                : hasInconclusiveRules
+                  ? '部分规则无法判定'
+                  : compilerPublicationSummary(report.result) || (isThirty
+                    ? '规则检查通过'
+                    : '基础检查通过')}
+            </StatusBadge>
+          ) : null}
         </div>
         <div className={`grid grid-cols-2 gap-3 md:grid-cols-3 ${numericSelected ? 'xl:grid-cols-4 2xl:grid-cols-7' : 'xl:grid-cols-6'}`}>
           {[
