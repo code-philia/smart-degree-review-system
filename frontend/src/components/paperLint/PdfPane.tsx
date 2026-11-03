@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Eye, EyeOff, FileText, Highlighter, Link2, LoaderCircle, RefreshCw, ZoomIn, ZoomOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Eye, EyeOff, Highlighter, Link2, LoaderCircle, RefreshCw, ZoomIn, ZoomOut } from 'lucide-react';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy } from 'pdfjs-dist';
 import { loadPdfJs, pdfResourceOptions } from '../../pdfRuntime';
 
@@ -251,8 +251,7 @@ export function PdfPane({
   return (
     <section data-pdf-status={phase} aria-busy={phase === 'loading' || phase === 'rendering'} className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
       <div className="@container border-b border-slate-200 bg-white">
-        <div className="flex min-w-0 items-center gap-2.5 px-4 py-3">
-          <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600"><FileText className="size-4" /></span>
+        <div className="flex h-12 min-w-0 items-center px-3">
           <p className="min-w-0 truncate text-sm font-medium text-slate-700" title={file.name}><span className="sr-only">文档名称：</span>{file.name}</p>
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-100 bg-slate-50/80 px-3 py-2">
