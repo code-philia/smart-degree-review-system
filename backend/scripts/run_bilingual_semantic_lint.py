@@ -69,9 +69,15 @@ def request_json(messages: list[dict[str, str]], *, observer=None) -> tuple[dict
         if wait > 0:
             time.sleep(wait)
         _LAST_REQUEST_AT = time.monotonic()
+    # PDF font maps may expose unpaired UTF-16 code units. Keep those units as
+    # literal escapes in model input: campus proxies also require scalar UTF-8
+    # after decoding JSON. The original messages/IR remain untouched.
+    model_messages = [{name: value.encode('utf-8', 'backslashreplace').decode('utf-8')
+                       if isinstance(value, str) else value for name, value in message.items()}
+                      for message in messages]
     payload = {
         "model": model,
-        "messages": messages,
+        "messages": model_messages,
         "temperature": 0,
         "max_tokens": 8192,
         "response_format": {"type": "json_object"},

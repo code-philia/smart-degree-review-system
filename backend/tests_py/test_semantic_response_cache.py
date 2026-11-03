@@ -130,7 +130,7 @@ def test_campus_semantic_requests_explicitly_disable_thinking_but_audited_reques
 
 
 @pytest.mark.parametrize('audited', [False, True])
-def test_semantic_transport_preserves_pdf_surrogates_and_valid_unicode(semantic, audited):
+def test_semantic_transport_escapes_pdf_surrogates_for_unicode_only_provider(semantic, audited):
     import copy
     module, calls, _, _ = semantic
     messages = [{'role': 'user', 'content': '中文 α∑𝛼 source \ud8351 and \udc00'}]
@@ -139,5 +139,7 @@ def test_semantic_transport_preserves_pdf_surrogates_and_valid_unicode(semantic,
     result, usage = module.request_json(messages, **options)
     assert result == {'findings': []}
     assert usage == {'input_tokens': 12, 'output_tokens': 7}
-    assert calls[0]['messages'] == original
+    content = calls[0]['messages'][0]['content']
+    content.encode('utf-8', errors='strict')
+    assert content == '中文 α∑𝛼 source \\ud8351 and \\udc00'
     assert messages == original
