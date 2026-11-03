@@ -1,7 +1,8 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { PdfPane } from '../src/components/paperLint/PdfPane';
+import { LivePaperLintReport } from '../src/components/paperLint/LivePaperLintReport';
 import type { PaperLintFindingItem } from '../src/components/paperLint/model';
 
 const api = vi.hoisted(() => ({
@@ -32,6 +33,7 @@ beforeEach(() => {
   vi.clearAllMocks(); api.pageChanged = undefined;
   api.getDocument.mockImplementation(() => ({ promise: Promise.resolve(pdf), destroy: vi.fn() }));
 });
+afterEach(() => vi.unstubAllGlobals());
 async function loaded() {
   const input = await screen.findByRole('textbox', { name: 'PDF 页码' });
   await waitFor(() => expect(input).toBeEnabled());
@@ -58,7 +60,7 @@ it.each(['', '0', '121', '-1', '1.5', '1e2', 'abc'])('does not navigate invalid 
   render(<PdfPane {...props} />);
   const input = await loaded();
   fireEvent.change(input, { target: { value } });
-  fireEvent.click(screen.getByRole('button', { name: '跳转到指定 PDF 页' }));
+  fireEvent.submit(screen.getByRole('form', { name: 'PDF 页码跳转' }));
   expect(api.scrollToPage).not.toHaveBeenCalled();
   expect(input).toHaveAttribute('aria-invalid', 'true');
   expect(screen.getByRole('alert')).toHaveTextContent(/1.*120.*整数/);
@@ -84,7 +86,7 @@ it('preserves the typed draft during reader updates and normalizes it on submit'
   fireEvent.change(input, { target: { value: ' 0087 ' } });
   act(() => api.pageChanged?.(42));
   expect(input).toHaveValue(' 0087 ');
-  fireEvent.click(screen.getByRole('button', { name: '跳转到指定 PDF 页' }));
+  fireEvent.submit(screen.getByRole('form', { name: 'PDF 页码跳转' }));
   expect(api.scrollToPage).toHaveBeenLastCalledWith(87);
   expect(input).toHaveValue('87');
 });
@@ -93,7 +95,7 @@ it('keeps controls disabled while the PDF is loading', () => {
   api.getDocument.mockReturnValue({ promise: new Promise(() => {}), destroy: vi.fn() });
   render(<PdfPane {...props} />);
   expect(screen.getByRole('textbox', { name: 'PDF 页码' })).toBeDisabled();
-  for (const name of ['PDF 上一页', 'PDF 下一页', '跳转到指定 PDF 页']) {
+  for (const name of ['PDF 上一页', 'PDF 下一页']) {
     expect(screen.getByRole('button', { name })).toBeDisabled();
   }
 });
@@ -103,7 +105,7 @@ it('disables page navigation after a PDF load fails', async () => {
   render(<PdfPane {...props} />);
   await screen.findByRole('alert');
   expect(screen.getByRole('textbox', { name: 'PDF 页码' })).toBeDisabled();
-  expect(screen.getByRole('button', { name: '跳转到指定 PDF 页' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'PDF 下一页' })).toBeDisabled();
   expect(api.scrollToPage).not.toHaveBeenCalled();
 });
 
@@ -111,14 +113,14 @@ it('resets to page one with new bounds when the PDF changes', async () => {
   const { rerender } = render(<PdfPane {...props} />);
   const input = await loaded();
   fireEvent.change(input, { target: { value: '120' } });
-  fireEvent.click(screen.getByRole('button', { name: '跳转到指定 PDF 页' }));
+  fireEvent.submit(screen.getByRole('form', { name: 'PDF 页码跳转' }));
   api.getDocument.mockImplementation(() => ({ promise: Promise.resolve({ ...pdf, numPages: 3 }), destroy: vi.fn() }));
   rerender(<PdfPane {...props} file={{ name: 'replacement.pdf', url: '/replacement.pdf' }} />);
   await waitFor(() => expect(screen.getByTitle('PDF 总页数')).toHaveTextContent('3'));
   expect(await loaded()).toHaveValue('1');
   api.scrollToPage.mockClear();
   fireEvent.change(input, { target: { value: '4' } });
-  fireEvent.click(screen.getByRole('button', { name: '跳转到指定 PDF 页' }));
+  fireEvent.submit(screen.getByRole('form', { name: 'PDF 页码跳转' }));
   expect(api.scrollToPage).not.toHaveBeenCalled();
 });
 
@@ -129,11 +131,44 @@ it('preserves a manual page jump during live finding refresh and still honors fi
   const input = await loaded();
   await waitFor(() => expect(api.scrollToPage).toHaveBeenCalledWith(9));
   fireEvent.change(input, { target: { value: '87' } });
-  fireEvent.click(screen.getByRole('button', { name: '跳转到指定 PDF 页' }));
+  fireEvent.submit(screen.getByRole('form', { name: 'PDF 页码跳转' }));
   api.scrollToPage.mockClear();
   rerender(<PdfPane {...props} findings={[{ ...finding, finding: { ...finding.finding, message: 'Updated issue' } }]} activeFindingKey="f" />);
   expect(api.scrollToPage).not.toHaveBeenCalled();
   expect(input).toHaveValue('87');
   rerender(<PdfPane {...props} findings={[finding]} activeFindingKey="f" navigationRequest={1} />);
   await waitFor(() => expect(api.scrollToPage).toHaveBeenLastCalledWith(9));
+});
+
+it('opens an uploaded PDF from the live report and keeps its URL valid across finding updates', async () => {
+  const create = vi.fn().mockReturnValueOnce('blob:live-first').mockReturnValueOnce('blob:live-next');
+  const revoke = vi.fn();
+  vi.stubGlobal('URL', class extends URL {
+    static createObjectURL = create;
+    static revokeObjectURL = revoke;
+  });
+  const upload = (name: string) => Object.assign(new File(['pdf'], name, { type: 'application/pdf' }), {
+    arrayBuffer: async () => new ArrayBuffer(3),
+  });
+  const first = upload('first.pdf');
+  const { rerender, unmount } = render(<LivePaperLintReport file={first} rules={[]} runs={[]} />);
+  await loaded();
+  const link = await screen.findByRole('link', { name: '在浏览器打开完整 PDF' });
+  expect(link).toHaveAttribute('href', 'blob:live-first#page=1');
+  expect(link).toHaveAttribute('target', '_blank');
+  expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+  const input = screen.getByRole('textbox', { name: 'PDF 页码' });
+  fireEvent.change(input, { target: { value: '87' } });
+  fireEvent.submit(screen.getByRole('form', { name: 'PDF 页码跳转' }));
+  rerender(<LivePaperLintReport file={first} rules={[]} runs={[]} />);
+  expect(link).toHaveAttribute('href', 'blob:live-first#page=87');
+  expect(create).toHaveBeenCalledTimes(1);
+  expect(revoke).not.toHaveBeenCalled();
+
+  rerender(<LivePaperLintReport file={upload('replacement.pdf')} rules={[]} runs={[]} />);
+  await waitFor(() => expect(screen.getByRole('link', { name: '在浏览器打开完整 PDF' })).toHaveAttribute('href', 'blob:live-next#page=1'));
+  expect(revoke).toHaveBeenCalledWith('blob:live-first');
+  expect(revoke).not.toHaveBeenCalledWith('blob:live-next');
+  unmount();
+  expect(revoke).toHaveBeenCalledWith('blob:live-next');
 });

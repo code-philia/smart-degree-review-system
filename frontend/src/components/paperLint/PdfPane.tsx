@@ -96,6 +96,13 @@ export function PdfPane({
 
   const sourceUrl = 'url' in file ? file.url : null;
   const sourceFile = 'url' in file ? null : file;
+  const [uploadedPdf, setUploadedPdf] = useState<{ file: File; url: string } | null>(null);
+  useEffect(() => {
+    if (!sourceFile || openPdfUrl || !(sourceFile instanceof Blob) || typeof URL.createObjectURL !== 'function') return;
+    const url = URL.createObjectURL(sourceFile);
+    setUploadedPdf({ file: sourceFile, url });
+    return () => URL.revokeObjectURL(url);
+  }, [sourceFile, openPdfUrl]);
   useEffect(() => {
     let disposed = false, failed = false, painted = false;
     let task: PDFDocumentLoadingTask | null = null;
@@ -185,7 +192,7 @@ export function PdfPane({
   const target = useMemo(() => findingTarget(activeItem, activeAnchorId), [activeAnchorId, activeItem]);
   const pageNumber =
     target.type === 'bbox' ? target.annotation.pageNumber : target.type === 'page' ? target.pageNumber : null;
-  const fullPdfUrl = openPdfUrl || sourceUrl;
+  const fullPdfUrl = openPdfUrl || sourceUrl || (uploadedPdf?.file === sourceFile ? uploadedPdf?.url : null);
   const browserPage = phase === 'ready' ? currentPage : requestedPage || pageNumber;
   const browserPdfUrl =
     fullPdfUrl && browserPage && Number.isInteger(browserPage) && browserPage > 0
@@ -253,25 +260,24 @@ export function PdfPane({
             <Button type="button" size="sm" variant="ghost" className="w-8 shrink-0 px-0! [&>svg]:shrink-0" aria-label="PDF 上一页" title="上一页" disabled={!canNavigate || currentPage <= 1} onClick={() => goToPage(currentPage - 1)}>
               <ChevronLeft className="size-4" />
             </Button>
-            <div className="flex h-8 items-center rounded-lg border border-slate-200 bg-white text-xs tabular-nums transition focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-100">
+            <div className="flex h-8 items-center rounded-lg border border-slate-200 bg-white [font-family:var(--font-app)] text-xs leading-5 tabular-nums transition focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-100">
               <input
                 type="text" inputMode="numeric" enterKeyHint="go"
                 aria-label="PDF 页码" title="输入 PDF 页码，按 Enter 跳转"
                 aria-describedby={pageError ? `${pageHelpId} ${pageErrorId}` : pageHelpId}
                 aria-invalid={pageError ? true : undefined}
                 disabled={!canNavigate} value={pageInput}
-                className="h-full w-11 min-w-0 rounded-l-lg bg-transparent px-1 text-center text-xs font-semibold text-slate-900 outline-none disabled:text-slate-400"
+                className="h-5 w-11 min-w-0 rounded-l-lg bg-transparent px-1 text-center [font-family:inherit] text-xs font-medium leading-5 text-slate-900 outline-none disabled:text-slate-400"
                 onFocus={event => event.currentTarget.select()}
                 onChange={event => { editingPageRef.current = true; setPageInput(event.target.value); setPageError(null); }}
                 onBlur={() => { editingPageRef.current = false; }}
               />
-              <span className="text-slate-300" aria-hidden="true">/</span>
-              <span title="PDF 总页数" className="min-w-10 px-2 text-center font-medium text-slate-500">{pageCount || '—'}</span>
+              <span className="flex h-5 items-center text-slate-300" aria-hidden="true">/</span>
+              <span title="PDF 总页数" className="flex h-5 min-w-10 items-center justify-center px-2 text-center [font-family:inherit] text-xs font-medium leading-5 text-slate-500">{pageCount || '—'}</span>
             </div>
             <Button type="button" size="sm" variant="ghost" className="w-8 shrink-0 px-0! [&>svg]:shrink-0" aria-label="PDF 下一页" title="下一页" disabled={!canNavigate || currentPage >= pageCount} onClick={() => goToPage(currentPage + 1)}>
               <ChevronRight className="size-4" />
             </Button>
-            <Button type="submit" size="sm" variant="ghost" className="ml-1 px-2.5 text-brand-600 hover:bg-brand-50 hover:text-brand-700" aria-label="跳转到指定 PDF 页" title="跳转到输入页码" disabled={!canNavigate}>跳转</Button>
           </form>
           <div role="toolbar" aria-label="PDF 工具" className="flex w-full items-center justify-center gap-2 @[32rem]:ml-auto @[32rem]:w-auto">
             <div role="group" aria-label="高亮显示" className="flex items-center gap-0.5 rounded-lg bg-slate-200/50 p-0.5">
@@ -318,7 +324,7 @@ export function PdfPane({
             </> : null}
           </div>
         </div>
-        <span id={pageHelpId} className="sr-only">按 PDF 实际页序计数，输入页码后按 Enter 或点击跳转。</span>
+        <span id={pageHelpId} className="sr-only">按 PDF 实际页序计数，输入页码后按 Enter 跳转。</span>
         {pageError ? <p id={pageErrorId} role="alert" className="border-t border-slate-100 px-4 py-2 text-xs leading-5 text-rose-600">{pageError}</p> : null}
       </div>
       <div className="relative min-h-[520px] flex-1 overflow-hidden">
