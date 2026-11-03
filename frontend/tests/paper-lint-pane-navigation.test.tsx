@@ -148,6 +148,7 @@ describe('PDF pane navigation', () => {
         onAnchorClick={vi.fn()}
       />,
     );
+    fireEvent.click(screen.getByRole('button', { name: '展开 PDF 工具栏' }));
     for (const name of ['隐藏高亮', '聚焦高亮', '显示全部高亮', '缩小 PDF', '放大 PDF']) {
       expect(screen.getByRole('button', { name }).getAttribute('title')).toBe(name);
     }
@@ -155,6 +156,7 @@ describe('PDF pane navigation', () => {
 
   it('passes the complete PDF URL through the report workspace', () => {
     render(<PaperLintWorkspace file={file} findings={[]} rules={[]} openPdfUrl="/api/full-paper.pdf" />);
+    fireEvent.click(screen.getByRole('button', { name: '展开 PDF 工具栏' }));
     const toolbar = screen.getByRole('toolbar', { name: 'PDF 工具' });
     expect(within(toolbar).getByRole('link', { name: '在浏览器打开完整 PDF' })).toHaveAttribute(
       'href',
@@ -190,6 +192,7 @@ describe('PDF pane navigation', () => {
         openPdfUrl="/api/full-paper.pdf?download=false"
       />,
     );
+    fireEvent.click(screen.getByRole('button', { name: '展开 PDF 工具栏' }));
     const link = within(screen.getByRole('toolbar', { name: 'PDF 工具' })).getByRole('link', {
       name: '在浏览器打开完整 PDF',
     });
@@ -214,6 +217,7 @@ describe('PDF pane navigation', () => {
         onAnchorClick={vi.fn()}
       />,
     );
+    fireEvent.click(screen.getByRole('button', { name: '展开 PDF 工具栏' }));
     const toolbar = screen.getByRole('toolbar', { name: 'PDF 工具' });
     const link = within(toolbar).getByRole('link', { name: '在浏览器打开完整 PDF' });
     expect(link).toHaveAttribute('href', '/api/full-paper.pdf');

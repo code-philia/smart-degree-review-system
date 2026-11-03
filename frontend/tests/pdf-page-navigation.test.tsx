@@ -34,11 +34,45 @@ beforeEach(() => {
   api.getDocument.mockImplementation(() => ({ promise: Promise.resolve(pdf), destroy: vi.fn() }));
 });
 afterEach(() => vi.unstubAllGlobals());
+function expandToolbar() {
+  const toggle = screen.queryByRole('button', { name: '展开 PDF 工具栏' });
+  if (toggle) fireEvent.click(toggle);
+}
 async function loaded() {
+  expandToolbar();
   const input = await screen.findByRole('textbox', { name: 'PDF 页码' });
   await waitFor(() => expect(input).toBeEnabled());
   return input;
 }
+
+it.each(['saved', 'live'])('starts the %s toolbar collapsed and preserves the PDF and page when toggled', async kind => {
+  const user = userEvent.setup();
+  render(kind === 'live'
+    ? <LivePaperLintReport file={props.file} rules={[]} runs={[]} />
+    : <PdfPane {...props} />);
+  await screen.findByTestId('test-reader');
+  const expand = screen.getByRole('button', { name: '展开 PDF 工具栏' });
+  expect(expand).toHaveAttribute('aria-expanded', 'false');
+  expect(screen.queryByRole('form', { name: 'PDF 页码跳转' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('toolbar', { name: 'PDF 工具' })).not.toBeInTheDocument();
+
+  await user.click(expand);
+  const input = await loaded();
+  const collapse = screen.getByRole('button', { name: '收起 PDF 工具栏' });
+  expect(collapse).toHaveAttribute('aria-expanded', 'true');
+  expect(document.getElementById(collapse.getAttribute('aria-controls')!)).toBeVisible();
+  await user.clear(input); await user.type(input, '87{Enter}');
+  expect(input).toHaveValue('87');
+  const reader = screen.getByTestId('test-reader');
+  await user.click(collapse);
+  expect(screen.queryByRole('textbox', { name: 'PDF 页码' })).not.toBeInTheDocument();
+  expect(screen.getByTestId('test-reader')).toBe(reader);
+  expect(screen.getByRole('button', { name: '展开 PDF 工具栏' })).toHaveFocus();
+  await user.click(screen.getByRole('button', { name: '展开 PDF 工具栏' }));
+  expect(screen.getByRole('textbox', { name: 'PDF 页码' })).toHaveValue('87');
+  expect(screen.getByRole('link', { name: '在浏览器打开完整 PDF' })).toHaveAttribute('href', '/paper.pdf#page=87');
+  expect(api.getDocument).toHaveBeenCalledTimes(1);
+});
 
 it('jumps by Enter without any findings and displays the loaded page count', async () => {
   const user = userEvent.setup();
@@ -94,6 +128,7 @@ it('preserves the typed draft during reader updates and normalizes it on submit'
 it('keeps controls disabled while the PDF is loading', () => {
   api.getDocument.mockReturnValue({ promise: new Promise(() => {}), destroy: vi.fn() });
   render(<PdfPane {...props} />);
+  expandToolbar();
   expect(screen.getByRole('textbox', { name: 'PDF 页码' })).toBeDisabled();
   for (const name of ['PDF 上一页', 'PDF 下一页']) {
     expect(screen.getByRole('button', { name })).toBeDisabled();
@@ -104,6 +139,7 @@ it('disables page navigation after a PDF load fails', async () => {
   api.getDocument.mockReturnValue({ promise: Promise.reject(new Error('Invalid PDF')), destroy: vi.fn() });
   render(<PdfPane {...props} />);
   await screen.findByRole('alert');
+  expandToolbar();
   expect(screen.getByRole('textbox', { name: 'PDF 页码' })).toBeDisabled();
   expect(screen.getByRole('button', { name: 'PDF 下一页' })).toBeDisabled();
   expect(api.scrollToPage).not.toHaveBeenCalled();

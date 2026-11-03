@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Eye, EyeOff, Highlighter, Link2, LoaderCircle, RefreshCw, ZoomIn, ZoomOut } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, Eye, EyeOff, Highlighter, Link2, LoaderCircle, RefreshCw, ZoomIn, ZoomOut } from 'lucide-react';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy } from 'pdfjs-dist';
 import { loadPdfJs, pdfResourceOptions } from '../../pdfRuntime';
 
@@ -85,6 +85,8 @@ export function PdfPane({
   const editingPageRef = useRef(false);
   const pageHelpId = useId();
   const pageErrorId = useId();
+  const toolbarId = useId();
+  const [toolbarExpanded, setToolbarExpanded] = useState(false);
   const pageCount = document && Number.isSafeInteger(document.numPages) && document.numPages > 0 ? document.numPages : 0;
   const canNavigate = phase === 'ready' && pageCount > 0;
   const handlePageChange = useCallback((page: number) => {
@@ -251,9 +253,22 @@ export function PdfPane({
   return (
     <section data-pdf-status={phase} aria-busy={phase === 'loading' || phase === 'rendering'} className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
       <div className="@container border-b border-slate-200 bg-white">
-        <div className="flex h-12 min-w-0 items-center px-3">
-          <p className="min-w-0 truncate text-sm font-medium text-slate-700" title={file.name}><span className="sr-only">文档名称：</span>{file.name}</p>
+        <div className="flex h-12 min-w-0 items-center gap-3 px-3">
+          <p className="min-w-0 flex-1 truncate text-sm font-medium text-slate-700" title={file.name}><span className="sr-only">文档名称：</span>{file.name}</p>
+          <Button
+            type="button" size="sm" variant="ghost"
+            className="shrink-0 gap-1.5 px-2 text-slate-500"
+            aria-expanded={toolbarExpanded}
+            aria-controls={toolbarId}
+            aria-label={toolbarExpanded ? '收起 PDF 工具栏' : '展开 PDF 工具栏'}
+            title={toolbarExpanded ? '收起 PDF 工具栏' : '展开 PDF 工具栏'}
+            onClick={() => setToolbarExpanded(value => !value)}
+          >
+            工具栏
+            <ChevronDown aria-hidden="true" className={`size-4 transition-transform motion-reduce:transition-none ${toolbarExpanded ? 'rotate-180' : ''}`} />
+          </Button>
         </div>
+        <div id={toolbarId} hidden={!toolbarExpanded}>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-100 bg-slate-50/80 px-3 py-2">
           <form aria-label="PDF 页码跳转" onSubmit={submitPage} className="flex w-full items-center justify-center gap-1.5 @[32rem]:w-auto @[32rem]:justify-start">
             <Button type="button" size="sm" variant="ghost" className="w-8 shrink-0 px-0! [&>svg]:shrink-0" aria-label="PDF 上一页" title="上一页" disabled={!canNavigate || currentPage <= 1} onClick={() => goToPage(currentPage - 1)}>
@@ -325,6 +340,7 @@ export function PdfPane({
         </div>
         <span id={pageHelpId} className="sr-only">按 PDF 实际页序计数，输入页码后按 Enter 跳转。</span>
         {pageError ? <p id={pageErrorId} role="alert" className="border-t border-slate-100 px-4 py-2 text-xs leading-5 text-rose-600">{pageError}</p> : null}
+        </div>
       </div>
       <div className="relative min-h-[520px] flex-1 overflow-hidden">
         {phase === 'rendering' ? <div role="status" className="pointer-events-none absolute inset-x-0 top-3 z-20 mx-auto flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-white/95 px-4 py-2 text-xs text-slate-600 shadow-sm"><LoaderCircle className="size-3.5 animate-spin" />正在渲染 PDF…</div> : null}
