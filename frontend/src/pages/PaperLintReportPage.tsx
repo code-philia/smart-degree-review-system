@@ -161,9 +161,9 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
       <Card aria-labelledby="report-conclusion-title">
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-4">
           <div className="w-full min-w-0 sm:w-auto sm:flex-1">
-            <p className="text-sm font-semibold text-brand-700 sm:text-base">规范性检测</p>
+            <p className="text-lg font-bold leading-7 tracking-tight text-brand-700 sm:text-xl">规范性检测</p>
             <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h1 className="break-all text-base font-bold text-slate-900 sm:text-lg">{report.source_filename}</h1>
+              <h1 className="break-all text-sm font-medium leading-6 text-slate-600 sm:text-base">{report.source_filename}</h1>
               <time dateTime={report.created_at} className="whitespace-nowrap text-xs text-slate-500">
                 {formatChinaDateTime(report.created_at, { includeSeconds: true })}
               </time>
