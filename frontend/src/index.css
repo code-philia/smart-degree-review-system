@@ -7,6 +7,13 @@ html {
   scrollbar-gutter: stable;
 }
 
+@supports (scrollbar-gutter: stable) {
+  /* The root already reserves this space; Radix's scroll lock must not add it again. */
+  html body[data-scroll-locked] {
+    margin-right: 0 !important;
+  }
+}
+
 @supports not (scrollbar-gutter: stable) {
   html { overflow-y: scroll; }
 }
