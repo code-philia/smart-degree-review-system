@@ -36,6 +36,16 @@ def test_missing_core_section_is_a_compilation_failure_not_a_non_paper(tmp_path,
         build_paper(path)
 
 
+def test_missing_core_section_can_build_only_with_explicit_partial_opt_in(tmp_path):
+    path = thesis(tmp_path, missing='参考文献')
+    ir = build_paper(path, include_citations=False, allow_incomplete_structure=True)
+    admission = ir['metadata']['document_admission']
+    assert admission['status'] == 'accepted'
+    assert admission['stage'] == 'partial'
+    assert admission['reason_code'] == 'paper_structure_incomplete'
+    assert admission['structure']['missing_sections'] == ['参考文献']
+
+
 def test_full_core_without_declarations_authorization_or_standard_cover_compiles(tmp_path):
     path = thesis(tmp_path, missing='博士学位论文')
     assert assess_pdf(path)['status'] == 'accepted'

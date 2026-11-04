@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
-const { toPaperLintResult } = require('../src/normative/localFiveRulePaperLintService');
+const { toPaperLintResult, dedupeFindings } = require('../src/normative/localFiveRulePaperLintService');
 
 const rect = (page, y) => ({ x1: 80, y1: y, x2: 300, y2: y + 14, width: 595, height: 842, page_number: page });
 const finding = (rule, page, y, token) => ({
@@ -12,6 +12,13 @@ const finding = (rule, page, y, token) => ({
 });
 
 describe('local four-rule report adapter', () => {
+  it('reports the same issue at one PDF position once but keeps distinct positions', () => {
+    const repeated = { rule_id: 'sjtu_rule_35', message: '中英文标点混用', suggestion: '请统一标点。',
+      location: { type: 'pdf_bbox', page_number: 3, bounding_rect: rect(3, 200) } };
+    const distinct = { ...repeated, location: { type: 'pdf_bbox', page_number: 3, bounding_rect: rect(3, 240) } };
+    expect(dedupeFindings([repeated, { ...repeated }, distinct])).toEqual([repeated, distinct]);
+  });
+
   it('keeps every finding and its PDF bbox while exposing unsupported separately', () => {
     const result = toPaperLintResult({ pages: 8, rules: {
       22: { status: 'completed', findings: [finding(22, 2, 120, '99'), finding(22, 5, 310, '98')] },

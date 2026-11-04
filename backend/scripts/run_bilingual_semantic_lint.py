@@ -35,6 +35,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rule", action="append", required=True)
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--progress-jsonl", action="store_true")
+    parser.add_argument("--allow-incomplete-structure", action="store_true")
     return parser.parse_args()
 
 
@@ -155,9 +156,11 @@ def prompt_for(rule_id: str, facts: dict[str, Any]) -> str | None:
         if not left or not right:
             return None
         return (
-            "比较同一学位论文的中文摘要和英文摘要，判断研究对象、方法、数据、主要结果和结论是否对应。"
-            "不要求逐字翻译。请用简体中文填写 summary 和 mismatches。仅返回 JSON，键为："
-            "outcome (consistent|inconsistent|inconclusive), summary, mismatches (array)。\n"
+            "比较同一学位论文的中文摘要和英文摘要，逐项核对研究对象、方法、数据/实验条件、主要结果和结论是否对应。"
+            "必须双向覆盖：任一摘要包含另一摘要没有的核心研究信息，属于信息缺失型不一致，即使两者没有直接矛盾。"
+            "不要求逐字翻译，也不要把纯语言润色、背景或同义改写判为不一致。请用简体中文填写 summary 和 mismatches。"
+            "仅返回 JSON，键为：outcome (consistent|inconsistent|inconclusive), summary, mismatches (array of objects; "
+            "each object has category, chinese_claim, english_claim, mismatch_type (missing_in_chinese|missing_in_english|conflict), reason)。\n"
             "中文摘要：\n" + _bounded_text(left) +
             "\n\n英文摘要：\n" + _bounded_text(right)
         )
@@ -676,8 +679,10 @@ def _run_semantic_rule(ir, facts, rule_id, run_id=None):
     }
 
 
-def run(pdf: Path, rule_ids: list[str], run_id=None, on_rule_complete=None) -> dict[str, Any]:
-    ir = build_paper(pdf, include_citations=False)
+def run(pdf: Path, rule_ids: list[str], run_id=None, on_rule_complete=None,
+        allow_incomplete_structure=False) -> dict[str, Any]:
+    ir = build_paper(pdf, include_citations=False,
+                     allow_incomplete_structure=allow_incomplete_structure)
     facts = extract_bilingual_facts(ir) if any(rule in BILINGUAL_RULES for rule in rule_ids) else {}
     with ThreadPoolExecutor(max_workers=4) as pool:
         futures = {pool.submit(_run_semantic_rule, ir, facts, rule, run_id): index
@@ -732,7 +737,8 @@ def main() -> None:
         print(json.dumps({'type': 'paper_lint_rule_complete', 'rule_run': completed},
                          ensure_ascii=True), flush=True)
     result = run(args.pdf, args.rule, run_id=args.run_id,
-                 on_rule_complete=publish if args.progress_jsonl else None)
+                 on_rule_complete=publish if args.progress_jsonl else None,
+                 allow_incomplete_structure=args.allow_incomplete_structure)
     print(json.dumps(result, ensure_ascii=True), flush=True)
 
 

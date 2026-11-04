@@ -115,9 +115,14 @@ def assess_pdf(pdf):
     return {**assessment, 'sha256': digest}
 
 
-def assert_paper_pages(pages):
+def assert_paper_pages(pages, *, allow_incomplete_structure=False):
     assessment = assess_document_pages(pages)
     if assessment['status'] != 'accepted':
+        # A structurally incomplete thesis is still a thesis.  Callers that can
+        # safely run rules which do not depend on the missing section may opt in
+        # to a partial Paper Model; the default remains fail-closed.
+        if allow_incomplete_structure and assessment.get('stage') == 'structure':
+            return {**assessment, 'status': 'accepted', 'stage': 'partial'}
         error = DocumentStructureError if assessment.get('stage') == 'structure' else DocumentAdmissionError
         raise error(assessment)
     return assessment
@@ -132,5 +137,6 @@ def assess_document_pages(pages):
         return {**assessment, 'status': 'rejected', 'stage': 'structure',
                 'reason_code': 'paper_structure_incomplete',
                 'reason': '缺少或无法识别必需章节：' + '、'.join(structure['missing_sections']) + '。',
+                'structure': structure,
                 **{key: value for key, value in structure.items() if key != 'status'}}
     return {**assessment, 'stage': 'complete', 'structure': structure}
