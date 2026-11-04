@@ -90,6 +90,42 @@ def test_multi_character_chinese_typo_inside_prose_is_not_lost(monkeypatch):
     assert [item['message'] for item in mod.run_typo_rule_from_ir(ir)['findings']] == ['疑似错别字：布署']
 
 
+def test_phrase_rewrite_and_valid_lower_to_are_not_typo_findings(monkeypatch):
+    ir = {'nodes': [
+        {'id':'body','kind':'Body','children':['section']},
+        {'id':'section','kind':'Section','children':['p']},
+        {'id':'p','kind':'Paragraph','text':'开销降低至原来的一半，并计片外传输量。',
+         'provenance':[{'page_index':0,'bbox':[10,20,100,40]}]},
+    ]}
+    monkeypatch.setattr(mod, 'request_json', lambda _messages: ({'findings': [
+        {'text':'降低至','suggestion':'降低到','reason':'错误改写','confidence':0.99,
+         'common_confusion': True, 'semantic_validity': True,
+         'stable_usage': True, 'context_proof': True},
+        {'text':'计片外传输量','suggestion':'累计片外传输量','reason':'扩写短语','confidence':0.99,
+         'common_confusion': True, 'semantic_validity': True,
+         'stable_usage': True, 'context_proof': True},
+    ]}, {'input_tokens': 1, 'output_tokens': 1}))
+    assert mod.run_typo_rule_from_ir(ir)['findings'] == []
+
+
+def test_high_confidence_cjk_confusions_cover_mutations_without_model(monkeypatch):
+    ir = {'nodes': [
+        {'id':'body','kind':'Body','children':['section']},
+        {'id':'section','kind':'Section','children':['p']},
+        {'id':'p','kind':'Paragraph',
+         'text':'进一不优化；一次布署完成。结果共同表名，自动分祈与模形训练有效。',
+         'provenance':[{'page_index':0,'bbox':[10,20,300,40]}]},
+    ]}
+    monkeypatch.setattr(mod, 'request_json', lambda _messages: ({'findings': []},
+                                                                  {'input_tokens': 1, 'output_tokens': 1}))
+    findings = mod.run_typo_rule_from_ir(ir)['findings']
+    assert [(item['message'], item['suggestion']) for item in findings] == [
+        ('疑似错别字：进一不', '进一步'), ('疑似错别字：布署', '部署'),
+        ('疑似错别字：表名', '表明'), ('疑似错别字：分祈', '分析'),
+        ('疑似错别字：模形', '模型'),
+    ]
+
+
 def test_cjk_line_break_is_joined_for_model_without_losing_segment_offsets():
     text = '介绍了室内定位技术、基于指\n纹技术室内定位。'
     ir = {'layout': {'pages': [{'page_index': 0, 'width': 595, 'height': 842}]},

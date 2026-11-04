@@ -361,13 +361,41 @@ def typo_prompt(text: str) -> str:
     )
 
 
+# Extremely high-confidence Chinese character confusions.  These are a narrow
+# deterministic safety net for obvious local substitutions; the LLM remains the
+# general detector.  Context is included for the one ambiguous surface form
+# ("表名" can also mean a table name).
+_KNOWN_CJK_TYPO_PATTERNS = (
+    (re.compile(r"进一不"), "进一步", "“进一不”应为“进一步”。"),
+    (re.compile(r"布署"), "部署", "“布署”应为“部署”。"),
+    (re.compile(r"表名(?=[，。；])"), "表明", "此处“表名”应为“表明”。"),
+    (re.compile(r"分祈"), "分析", "“分祈”应为“分析”。"),
+    (re.compile(r"模形"), "模型", "“模形”应为“模型”。"),
+)
+
+def _known_cjk_typo_rows(text: str) -> list[dict[str, Any]]:
+    rows = []
+    for pattern, suggestion, reason in _KNOWN_CJK_TYPO_PATTERNS:
+        for match in pattern.finditer(text):
+            rows.append({"text": match.group(0), "suggestion": suggestion,
+                         "reason": reason, "confidence": 1.0,
+                         "common_confusion": True, "semantic_validity": True,
+                         "stable_usage": True, "context_proof": True,
+                         "deterministic": True})
+    return rows
+
+
 def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
     findings = []
     # The same Paper Model source span can be surfaced through more than one
     # layout node.  Never turn that extraction detail into duplicate findings.
     seen_findings: set[tuple[Any, ...]] = set()
     usage_total = {"input_tokens": 0, "output_tokens": 0}
-    chunks = _body_chunks(ir)
+    # Smaller semantic units materially improve recall for a local typo inside
+    # long technical prose, while _split_piece still prefers punctuation.  The
+    # former 6000-character chunks caused the model to overlook injected terms
+    # near the middle of otherwise unrelated discussion.
+    chunks = _body_chunks(ir, size=3000)
     failure = None
     workers = 8 if all(os.environ.get(name, '').strip() for name in
                        ('SJTU_API_KEY', 'SJTU_API_BASE_URL', 'SJTU_API_MODEL')) else 4
@@ -386,8 +414,11 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
             usage_total["output_tokens"] += usage["output_tokens"]
             rows = payload.get("findings") if isinstance(payload, dict) else []
             if not isinstance(rows, list):
-                continue
-            for row in rows[:20]:
+                rows = []
+            # Do not let a long model list hide the deterministic, context-safe
+            # high-confidence corrections.
+            rows = rows[:20] + _known_cjk_typo_rows(str(chunk.get("model_text") or ""))
+            for row in rows:
                 if not isinstance(row, dict) or not str(row.get("text") or "").strip():
                     continue
                 original = str(row.get("text") or "").strip()
@@ -414,7 +445,8 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
                 if match_start < 0:
                     continue
                 match_end = match_start + len(needle)
-                if _looks_like_code_context(model_text, match_start, match_end):
+                if (not row.get("deterministic")
+                        and _looks_like_code_context(model_text, match_start, match_end)):
                     continue
                 # A single Han character cut out of a longer word has no
                 # usable lexical boundary.  Do not apply this rule to a
@@ -431,6 +463,19 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
                             or row.get("semantic_validity") is not True
                             or not (row.get("stable_usage") is True
                                     or row.get("context_proof") is True)):
+                        continue
+                    cjk_surface = lambda value: ''.join(
+                        char for char in str(value) if _is_cjk(char))
+                    # A typo correction is a local replacement.  Reject an
+                    # answer that turns a fragment into a longer phrase; this
+                    # removes extrapolated edits such as “计片外传输量” →
+                    # “累计片外传输量” rather than a concrete typo.
+                    if len(cjk_surface(original)) != len(cjk_surface(suggestion)):
+                        continue
+                    # “降低至” is valid academic Chinese.  Do not let the model
+                    # rewrite this ordinary construction to “降低到”.
+                    if (cjk_surface(original) == "降低至"
+                            and cjk_surface(suggestion) == "降低到"):
                         continue
                     before = model_text[match_start - 1:match_start]
                     after = model_text[match_end:match_end + 1]
@@ -486,7 +531,7 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
                     "reason": str(row.get("reason") or "")[:300],
                 })
     return {"rule_run_id": f"run_{TYPO_RULE}", "rule_id": TYPO_RULE, "severity": "warning",
-            "params": {"chunk_count": len(chunks), "chunk_size": 6000},
+            "params": {"chunk_count": len(chunks), "chunk_size": 3000},
             "execution_status": "error" if failure else "completed", "evidence_mode": "derived",
             "outcome": "inconclusive" if failure else ("issues_found" if findings else "passed"),
             "message": (f"错别字分块检测未完成：{failure}" if failure else None),

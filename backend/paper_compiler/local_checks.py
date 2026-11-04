@@ -291,6 +291,12 @@ def _body_start_page(ir):
     visual_rows = rows(ir)
     intro_pages = [page for page, _, text, _ in visual_rows if _INTRO.fullmatch(_CHAPTER.sub('', compact(text)))]
     toc_pages = [page for page, _, text, _ in visual_rows if re.search(r'(?:\.\s*){3,}\s*\d+\s*$', text)]
+    # Dotted leaders also occur in figure/table captions and body diagrams.
+    # Once the first body introduction is visible, such lines must not push the
+    # body boundary forward (R09 consequently skipped whole early chapters).
+    if intro_pages:
+        first_intro = min(intro_pages)
+        toc_pages = [page for page in toc_pages if page < first_intro]
     body_start = max(max(toc_pages, default=-1) + 1, min(intro_pages, default=0))
     if body_start:
         return body_start
