@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "dataset": "测试用例v0.9",
+  "archive_sha256": "dae591e78c0e955878d4eb6c233506a8645f9da493ac15533f58f383619919f0",
+  "asset_root_env": "RULE_REGRESSION_PDF_ROOT",
+  "cases": [
+    {
+      "id": "R09_v1",
+      "file": "R09_章标题未另起页_v1.pdf",
+      "sha256": "548a56971be2bf67cff4715eace030f0a21c3920c1c0001e8abbbcd8f6723cc6",
+      "engine": "fast_local",
+      "rule": 38,
+      "must_find": ["第2章背景知识与相关工作"],
+      "min_findings": 1,
+      "review": "章标题前插入正文行，必须识别为未另起页。"
+    },
+    {
+      "id": "R09_v2",
+      "file": "R09_章标题未另起页_v2.pdf",
+      "sha256": "a20032eff243675d1a6af3eece9c817a71e97338880cefe32bfc5a2cbc72240b",
+      "engine": "fast_local",
+      "rule": 38,
+      "must_find": ["第4章面向数据访问一致性的任务级数据流优化方法"],
+      "min_findings": 1,
+      "review": "不得将正文图表点线误作目录而跳过第4章。"
+    },
+    {
+      "id": "R09_v3",
+      "file": "R09_章标题未另起页_v3.pdf",
+      "sha256": "95e3ee8588b9333d9ad1d7f15bcfadb4d623689b25db3b2d0d6d93641da9b745",
+      "engine": "fast_local",
+      "rule": 38,
+      "must_find": ["第5章基于分块调度的计算与通信协同优化方法"],
+      "min_findings": 1,
+      "review": "页眉与章标题之间的12pt正文行必须保留为违规证据。"
+    },
+    {
+      "id": "R10_v1",
+      "file": "R10_正文错别字_v1.pdf",
+      "sha256": "63fffe6b47134994130b9266b4c58e94b2c79acc6c4dba40f9dab717e0a18089",
+      "engine": "typo",
+      "must_find": [{"text": "进一不", "suggestion": "进一步"}],
+      "must_not_find": ["降低至", "较代表性框架", "始执行"],
+      "no_duplicate_locations": true
+    },
+    {
+      "id": "R10_v2",
+      "file": "R10_正文错别字_v2.pdf",
+      "sha256": "c2cd22c9f9fb9f0720e660ea637ac37a74aef95d5bfe489b3e4f40596e75a0f1",
+      "engine": "typo",
+      "must_find": [{"text": "布署", "suggestion": "部署"}, {"text": "表名", "suggestion": "表明"}],
+      "must_not_find": ["降低至", "较代表性框架", "始执行"],
+      "no_duplicate_locations": true
+    },
+    {
+      "id": "R10_v3",
+      "file": "R10_正文错别字_v3.pdf",
+      "sha256": "56e41f43ada0e6be470871bc290613b8e3a31da34625fc6fd421885b5c33fa8e",
+      "engine": "typo",
+      "must_find": [{"text": "分祈", "suggestion": "分析"}, {"text": "模形", "suggestion": "模型"}],
+      "must_not_find": ["降低至", "较代表性框架", "始执行"],
+      "no_duplicate_locations": true
+    }
+  ]
+}
