@@ -39,6 +39,11 @@ _LEADER_LINE = re.compile(r'\.{3,}|…')
 # Page furniture above the top margin (running headers, page numbers) is not prior
 # chapter content; rows() drops small ones, but 12.6 pt headers survive its 12.5 cut.
 _TOP_MARGIN = 0.12
+# Running headers live in the very top strip.  Keep this deliberately smaller
+# than _TOP_MARGIN: the wider margin is useful when deciding whether a chapter
+# heading itself is genuinely in the page body, but using it for *prior prose*
+# hid a real 12pt carry-over line placed between the header and the chapter.
+_RUNNING_HEADER_MARGIN = 0.09
 # A chapter heading is typeset larger than body text. Body-size rows that start with
 # 第x章 are 论文组织结构 prose or figure cells, never a chapter opening.
 _HEADING_SCALE = 1.25
@@ -62,7 +67,7 @@ def _node_page_index(node):
     return min(pages, default=10**9)
 
 
-def rows(ir):
+def rows(ir, *, retain_top_body=False):
     """Join horizontally split glyphs by their PDF baseline, never by semantics."""
     pieces = []
     pages = {page['page_index']:page for page in ir['layout']['pages']}
@@ -76,7 +81,11 @@ def rows(ir):
             page = pages[source['page_index']]
             box = source['bbox']
             if box[3]-box[1] <= 12.5 and (box[1] < page['height']*.12 or box[3] > page['height']*.94):
-                continue
+                # Rule 38 needs to distinguish a real carry-over body line
+                # just below a running header from the header itself.  Other
+                # rules retain the previous conservative header/footer filter.
+                if not (retain_top_body and page['height'] * _RUNNING_HEADER_MARGIN <= box[1] < page['height'] * _TOP_MARGIN):
+                    continue
             if span.get('kind') == 'synthetic' or len(node['provenance']) == 1:
                 text = node['text']
             else:
@@ -304,7 +313,7 @@ def chapter_labels(ir):
     """
     body_start = _body_start_page(ir)
     page_height = {page['page_index']: page.get('height', 0) for page in ir['layout']['pages']}
-    visual = list(rows(ir))
+    visual = list(rows(ir, retain_top_body=True))
     directions = {line['id']: line.get('direction', [1, 0])
                   for page in ir['layout']['pages'] for line in page.get('lines', [])}
 
@@ -341,7 +350,9 @@ def chapter_labels(ir):
         for box, text, node in labels:
             # Same-baseline heading fragments end at this row's own baseline; only
             # text whose bottom stays above the label is prior content.
-            prior = [row for row in items if row[0][3] <= box[1] + 2 and row[0][3] > margin]
+            header_margin = page_height.get(page, 0) * _RUNNING_HEADER_MARGIN
+            prior = [row for row in items
+                     if row[0][3] <= box[1] + 2 and row[0][1] >= header_margin]
             found.append((page, box, text, node, prior))
     return found
 

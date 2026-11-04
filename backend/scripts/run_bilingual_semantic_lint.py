@@ -363,6 +363,9 @@ def typo_prompt(text: str) -> str:
 
 def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
     findings = []
+    # The same Paper Model source span can be surfaced through more than one
+    # layout node.  Never turn that extraction detail into duplicate findings.
+    seen_findings: set[tuple[Any, ...]] = set()
     usage_total = {"input_tokens": 0, "output_tokens": 0}
     chunks = _body_chunks(ir)
     failure = None
@@ -374,10 +377,11 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
             try:
                 payload, usage = futures[index].result()
             except Exception as exc:
-                failure = str(exc)[:300] or type(exc).__name__
-                for pending in futures:
-                    pending.cancel()
-                break
+                # A transient API/cache failure must not discard findings from
+                # other completed chunks.  Continue collecting them, but retain
+                # the failed chunk in the run status for a retryable result.
+                failure = failure or (str(exc)[:300] or type(exc).__name__)
+                continue
             usage_total["input_tokens"] += usage["input_tokens"]
             usage_total["output_tokens"] += usage["output_tokens"]
             rows = payload.get("findings") if isinstance(payload, dict) else []
@@ -412,11 +416,26 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
                 match_end = match_start + len(needle)
                 if _looks_like_code_context(model_text, match_start, match_end):
                     continue
-                # Do not accept a substring cut out of a longer CJK word.
+                # A single Han character cut out of a longer word has no
+                # usable lexical boundary.  Do not apply this rule to a
+                # multi-character candidate: Chinese prose normally has no
+                # spaces, and the previous implementation consequently
+                # suppressed real errors such as “布署” and “进一不”.
                 if _has_cjk(original):
+                    # The prompt asks the model to provide these independent
+                    # safeguards.  Treat them as a contract, rather than
+                    # allowing a high confidence number alone to create a
+                    # Chinese typo finding (the source of several false alarms
+                    # in ordinary thesis prose).
+                    if (row.get("common_confusion") is not True
+                            or row.get("semantic_validity") is not True
+                            or not (row.get("stable_usage") is True
+                                    or row.get("context_proof") is True)):
+                        continue
                     before = model_text[match_start - 1:match_start]
                     after = model_text[match_end:match_end + 1]
-                    if (_is_cjk(original[:1]) and _is_cjk(before)) or (_is_cjk(original[-1:]) and _is_cjk(after)):
+                    if len(original) == 1 and ((_is_cjk(original[:1]) and _is_cjk(before))
+                                               or (_is_cjk(original[-1:]) and _is_cjk(after))):
                         continue
                 matched_segments = [item for item in chunk.get("segments", [])
                                     if item.get("end", 0) > match_start and item.get("start", 0) < match_end]
@@ -441,6 +460,18 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
                     location = {"type": "pdf_bbox", "page_number": pages[0], "bounding_rect": bounding, "rects": rects, "text_excerpt": original[:120]}
                 elif pages:
                     location = {"type": "pdf_page", "page_number": pages[0], "text_excerpt": original[:120]}
+                # Use the concrete source rectangles where available.  A text
+                # key alone is insufficient: the same legitimate correction
+                # may occur at distinct places in a paper.
+                rect_key = tuple((rect["page_number"], round(rect["x1"], 1),
+                                  round(rect["y1"], 1), round(rect["x2"], 1),
+                                  round(rect["y2"], 1)) for rect in rects)
+                finding_key = (surface_normalize(original),
+                               surface_normalize(suggestion), rect_key or
+                               (pages[0] if pages else None, match_start))
+                if finding_key in seen_findings:
+                    continue
+                seen_findings.add(finding_key)
                 findings.append({
                     "finding_id": f"{TYPO_RULE}_{len(findings) + 1}", "rule_id": TYPO_RULE,
                     "message": f"疑似错别字：{original[:120]}",

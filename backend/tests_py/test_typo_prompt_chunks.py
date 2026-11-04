@@ -28,7 +28,9 @@ def test_chinese_extraction_space_is_not_a_typo_and_other_finding_has_bbox(monke
     ]}
     monkeypatch.setattr(mod, 'request_json', lambda _messages: ({'findings': [
         {'text':'剔 除','suggestion':'剔除','reason':'提取空格','confidence':0.99},
-        {'text':'錯字','suggestion':'错字','reason':'字形错误','confidence':0.99},
+        {'text':'錯字','suggestion':'错字','reason':'字形错误','confidence':0.99,
+         'common_confusion': True, 'semantic_validity': True,
+         'stable_usage': True, 'context_proof': False},
         {'text':'re-\nverse','suggestion':'reverse','reason':'换行','confidence':0.99},
     ]}, {'input_tokens': 1, 'output_tokens': 1}))
     result = mod.run_typo_rule_from_ir(ir)
@@ -36,6 +38,56 @@ def test_chinese_extraction_space_is_not_a_typo_and_other_finding_has_bbox(monke
     assert result['findings'][0]['message'] == '疑似错别字：錯字'
     assert result['findings'][0]['location']['type'] == 'pdf_bbox'
     assert result['findings'][0]['location']['page_number'] == 5
+
+
+def test_chinese_finding_without_required_evidence_is_rejected(monkeypatch):
+    ir = {'nodes': [
+        {'id':'body','kind':'Body','children':['section']},
+        {'id':'section','kind':'Section','children':['p']},
+        {'id':'p','kind':'Paragraph','text':'该方案可以降低至较低开销。',
+         'provenance':[{'page_index':0,'bbox':[10,20,100,40]}]},
+    ]}
+    monkeypatch.setattr(mod, 'request_json', lambda _messages: ({'findings': [
+        {'text':'降低至','suggestion':'降至','reason':'无充分证据','confidence':0.99,
+         'common_confusion': False, 'semantic_validity': True,
+         'stable_usage': False, 'context_proof': False},
+    ]}, {'input_tokens': 1, 'output_tokens': 1}))
+    assert mod.run_typo_rule_from_ir(ir)['findings'] == []
+
+
+def test_duplicate_source_span_is_reported_once(monkeypatch):
+    ir = {'layout': {'pages': [{'page_index': 0, 'width': 595, 'height': 842}]},
+          'nodes': [
+              {'id':'body','kind':'Body','children':['section']},
+              {'id':'section','kind':'Section','children':['p']},
+              {'id':'p','kind':'Paragraph','text':'正文包含錯字，需要修正。',
+               'provenance':[{'page_index':0,'bbox':[10,20,100,40]}]},
+          ]}
+    response = {'findings': [
+        {'text':'錯字','suggestion':'错字','reason':'字形错误','confidence':0.99,
+         'common_confusion': True, 'semantic_validity': True,
+         'stable_usage': True, 'context_proof': False},
+        {'text':'錯字','suggestion':'错字','reason':'重复返回','confidence':0.99,
+         'common_confusion': True, 'semantic_validity': True,
+         'stable_usage': True, 'context_proof': False},
+    ]}
+    monkeypatch.setattr(mod, 'request_json', lambda _messages: (response, {'input_tokens': 1, 'output_tokens': 1}))
+    assert len(mod.run_typo_rule_from_ir(ir)['findings']) == 1
+
+
+def test_multi_character_chinese_typo_inside_prose_is_not_lost(monkeypatch):
+    ir = {'nodes': [
+        {'id':'body','kind':'Body','children':['section']},
+        {'id':'section','kind':'Section','children':['p']},
+        {'id':'p','kind':'Paragraph','text':'系统尚未完成布署，因此暂不发布。',
+         'provenance':[{'page_index':0,'bbox':[10,20,100,40]}]},
+    ]}
+    monkeypatch.setattr(mod, 'request_json', lambda _messages: ({'findings': [
+        {'text':'布署','suggestion':'部署','reason':'常见异形误写','confidence':0.99,
+         'common_confusion': True, 'semantic_validity': True,
+         'stable_usage': True, 'context_proof': False},
+    ]}, {'input_tokens': 1, 'output_tokens': 1}))
+    assert [item['message'] for item in mod.run_typo_rule_from_ir(ir)['findings']] == ['疑似错别字：布署']
 
 
 def test_cjk_line_break_is_joined_for_model_without_losing_segment_offsets():
