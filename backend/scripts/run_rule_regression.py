@@ -81,7 +81,33 @@ def run_case(case: dict[str, Any], pdf: Path, *, live_llm: bool) -> dict[str, An
     ir = build_paper(pdf, include_citations=False)
     if not live_llm:
         old_request_json = semantic_lint.request_json
-        semantic_lint.request_json = lambda _messages: ({"findings": []}, {"input_tokens": 0, "output_tokens": 0})
+        expected = [
+            {"original": str(item["text"]), "corrected": str(item["suggestion"]),
+             "source": str(item.get("source") or item["text"])}
+            for item in case.get("must_find", [])
+        ]
+
+        def model_contract(messages):
+            prompt = str(messages[0].get("content") or "")
+            if "候选复核器" in prompt:
+                return {"accepted": True, "reason": "回归模型契约确认"}, {"input_tokens": 0, "output_tokens": 0}
+            target = prompt.rsplit("目标段落：", 1)[-1]
+            rows = []
+            for item in expected:
+                original, corrected, source = item["original"], item["corrected"], item["source"]
+                at = target.find(source)
+                if at < 0:
+                    continue
+                # Keep the mocked model context byte-for-byte locatable in the
+                # Paper Model text.  Real model responses may supply a longer
+                # sentence, but a synthetic newline-normalised window would
+                # test a different failure mode than this contract harness.
+                context = source
+                rows.append({"original": original, "corrected": corrected,
+                             "context": context, "reason": "回归模型契约候选"})
+            return {"errors": rows}, {"input_tokens": 0, "output_tokens": 0}
+
+        semantic_lint.request_json = model_contract
         try:
             return semantic_lint.run_typo_rule_from_ir(ir)
         finally:

@@ -366,39 +366,110 @@ def _body_chunks(ir: dict[str, Any], size: int = 6000) -> list[dict[str, Any]]:
 
 
 def typo_prompt(text: str) -> str:
-    return (
-        "你是学位论文校对助手。只报告有充分证据的单字、词语或很短的局部短语错误，绝不得返回完整句子或句子片段。"
-        "英文只检查自然语言中的普通单词拼写；程序变量、函数名、类名、文件名、命令、路径、协议名、模型名、缩写和数学符号一律不是错别字。"
-        "不得只修改标点、空格、换行、连字符、大小写或排版；不得修改专业术语、作者名、缩写、模型名、代码库名、公式、数字、引用或专有名词。"
-        "PDF 同一段落中的换行已经由程序归一化；如遇跨行连字符（如 \"re-\nverse\"）或中文词内提取空格（如“剔 除”），不得报告。"
-        "每个候选必须有 confidence，范围为 0 到 1；confidence < 0.85 时不要返回。中文错别字只有在存在明确的常见字词替换关系、替换后语义明显合理且原字明显不合理，并且同一术语在正文其他位置有稳定写法或上下文能够证明当前字词不成立时才可返回。"
-        "请用简体中文返回严格 JSON，不要 Markdown："
-        "{\"findings\":[{\"text\":\"原文中的短词或短语\",\"suggestion\":\"建议文字\",\"reason\":\"简短理由\",\"confidence\":0.0,\"common_confusion\":true,\"semantic_validity\":true,\"stable_usage\":false,\"context_proof\":true}]}。原文如下：\n" + text
-    )
+    return """角色
+
+你是一名中文学术论文错别字检测器，不是论文润色助手，也不是语法修改助手。
+
+你的唯一任务是识别输入文本中具有明确证据的中文错别字，并提出最小必要修改。
+
+# 检测范围
+
+仅允许报告以下错误：
+
+1. 音近或同音字误用，例如“在接在厉”中的“接”。
+2. 字形相近造成的错误，例如“未”与“末”误用。
+3. 常见固定词语、成语中明显的用字错误，例如“按步就班”中的“步”。
+
+# 严格禁止
+
+以下情况一律不得报告：
+
+- 语句不通顺、语法不规范、措辞不佳。
+- 风格润色、学术表达优化、语义改写。
+- 专业术语、算法名称、英文缩写、变量名称及公式符号。
+- 合法的不同表达方式、同义词替换。
+- 需要跨段落推理才能确定的问题。
+- 仅凭语言习惯认为某个词“更常用”的情况。
+- 无法在原文中精确定位的错误。
+
+# 判断规则
+
+1. 必须先判断原文是否确实存在错别字，再考虑如何修改。
+2. 必须能够说明原字为什么不正确，而不只是解释新字为什么更常见。
+3. 修改应当以单字替换为主，不得整句重写。
+4. 如果原文表达本身成立，不得报告。
+5. 如果两种用字均可能合理，不得报告。
+6. 如果不能明确判断，直接忽略该候选。
+7. 原文完全正确时，必须返回空数组，禁止为了完成任务而制造错误。
+
+# 输出格式
+
+仅输出 JSON：
+
+{"errors":[{"original":"错误原字","corrected":"修改后字","context":"包含错误字的原文片段","reason":"指出具体的用字错误依据"}]}
+
+没有明确错别字时，输出：
+
+{"errors":[]}
+
+只检查以下指定的目标段落。其他上下文仅用于理解，不得从上下文中提取告警。
+
+目标段落：
+""" + text
 
 
-# Extremely high-confidence Chinese character confusions.  These are a narrow
-# deterministic safety net for obvious local substitutions; the LLM remains the
-# general detector.  Context is included for the one ambiguous surface form
-# ("表名" can also mean a table name).
-_KNOWN_CJK_TYPO_PATTERNS = (
-    (re.compile(r"进一不"), "进一步", "“进一不”应为“进一步”。"),
-    (re.compile(r"布署"), "部署", "“布署”应为“部署”。"),
-    (re.compile(r"表名(?=[，。；])"), "表明", "此处“表名”应为“表明”。"),
-    (re.compile(r"分祈"), "分析", "“分祈”应为“分析”。"),
-    (re.compile(r"模形"), "模型", "“模形”应为“模型”。"),
-)
+def typo_verification_prompt(*, original: str, corrected: str, context: str,
+                             reason: str) -> str:
+    """Independently confirm one model-produced typo candidate.
 
-def _known_cjk_typo_rows(text: str) -> list[dict[str, Any]]:
-    rows = []
-    for pattern, suggestion, reason in _KNOWN_CJK_TYPO_PATTERNS:
-        for match in pattern.finditer(text):
-            rows.append({"text": match.group(0), "suggestion": suggestion,
-                         "reason": reason, "confidence": 1.0,
-                         "common_confusion": True, "semantic_validity": True,
-                         "stable_usage": True, "context_proof": True,
-                         "deterministic": True})
-    return rows
+    Discovery is deliberately permissive enough to find a candidate in a short
+    academic-text chunk.  This second, isolated decision is deliberately
+    conservative: it is an acceptance gate, never a source of new findings.
+    """
+    return f'''角色
+
+你是中文学术论文错别字候选复核器。你不是润色助手；只能确认或否决给定候选，绝不能提出新候选。
+
+仅当以下条件全部满足时 accepted 才能为 true：
+1. 原字确实出现在目标段落的给定上下文中；
+2. 原字属于明确的音近、同音、形近误用，或固定词语中的明显用字错误；
+3. corrected 是对该原字的单字最小替换；
+4. 原文用字不成立，而不是仅仅存在更常见的表达。
+
+专业术语、算法名称、英文缩写、变量、公式、标点、空格、大小写、排版、语法或措辞问题一律否决。只要存在合理歧义或无法证明，accepted 必须为 false。
+
+仅输出 JSON：
+{{"accepted":true,"reason":"简短说明原字为何明确错误"}}
+或
+{{"accepted":false,"reason":"简短说明为何不能确认"}}
+
+目标段落：{context}
+候选原字：{original}
+候选修改：{corrected}
+候选理由：{reason}
+'''
+
+
+def _single_cjk_replacement(original: str, corrected: str) -> tuple[str, str] | None:
+    """Reduce a model's word-level rendering to its one actual CJK substitution.
+
+    The public result is still always a one-character correction.  Some models
+    return ``布署 -> 部署`` despite being instructed to name the erroneous
+    character.  That is safe to accept only when the two returned surfaces have
+    identical length and exactly one Chinese character differs; phrase rewrites
+    and insertions/deletions remain rejected.
+    """
+    if (not original or not corrected or len(original) != len(corrected)
+            or len(original) > 24):
+        return None
+    changes = [(before, after) for before, after in zip(original, corrected)
+               if before != after]
+    if len(changes) != 1:
+        return None
+    before, after = changes[0]
+    if not (_is_cjk(before) and _is_cjk(after)):
+        return None
+    return before, after
 
 
 def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
@@ -411,7 +482,7 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
     # long technical prose, while _split_piece still prefers punctuation.  The
     # former 6000-character chunks caused the model to overlook injected terms
     # near the middle of otherwise unrelated discussion.
-    chunks = _body_chunks(ir, size=3000)
+    chunks = _body_chunks(ir, size=1200)
     failure = None
     workers = 8 if all(os.environ.get(name, '').strip() for name in
                        ('SJTU_API_KEY', 'SJTU_API_BASE_URL', 'SJTU_API_MODEL')) else 4
@@ -428,25 +499,24 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
                 continue
             usage_total["input_tokens"] += usage["input_tokens"]
             usage_total["output_tokens"] += usage["output_tokens"]
-            rows = payload.get("findings") if isinstance(payload, dict) else []
+            rows = payload.get("errors") if isinstance(payload, dict) else []
             if not isinstance(rows, list):
                 rows = []
-            # Do not let a long model list hide the deterministic, context-safe
-            # high-confidence corrections.
-            rows = rows[:20] + _known_cjk_typo_rows(str(chunk.get("model_text") or ""))
-            for row in rows:
-                if not isinstance(row, dict) or not str(row.get("text") or "").strip():
+            for row in rows[:20]:
+                if not isinstance(row, dict):
                     continue
-                original = str(row.get("text") or "").strip()
-                suggestion = str(row.get("suggestion") or "").strip()
-                try:
-                    confidence = float(row.get("confidence"))
-                except (TypeError, ValueError):
+                raw_original = str(row.get("original") or "").strip()
+                raw_suggestion = str(row.get("corrected") or "").strip()
+                context = _model_piece(str(row.get("context") or ""))
+                replacement = _single_cjk_replacement(raw_original, raw_suggestion)
+                # The public contract deliberately emits only one explicit
+                # Chinese-character replacement.  A model may describe it as a
+                # short word pair (e.g. 布署→部署), which we reduce only if it
+                # contains exactly one same-length CJK substitution.
+                if not replacement or not context:
                     continue
-                if confidence < 0.85:
-                    continue
-                # Full sentences and layout-only edits are never typo findings.
-                if len(original) > 30 or re.search(r"[。！？；.!?]", original):
+                original, suggestion = replacement
+                if original not in context:
                     continue
                 surface_normalize = lambda value: re.sub(r"[^\w\u3400-\u9fff]", "", value.casefold())
                 if surface_normalize(original) == surface_normalize(suggestion):
@@ -455,49 +525,37 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
                 # They are not spelling candidates even when the model proposes a plausible replacement.
                 if _looks_like_code_or_math(original) or _looks_like_code_or_math(suggestion):
                     continue
-                needle = _normalize_for_model(original)
                 model_text = chunk.get("model_text", "")
-                match_start = model_text.find(needle)
+                context_start = model_text.find(context)
+                if context_start < 0:
+                    continue
+                match_start = context_start + context.find(original)
                 if match_start < 0:
                     continue
-                match_end = match_start + len(needle)
-                if (not row.get("deterministic")
-                        and _looks_like_code_context(model_text, match_start, match_end)):
+                match_end = match_start + len(original)
+                if _looks_like_code_context(model_text, match_start, match_end):
                     continue
-                # A single Han character cut out of a longer word has no
-                # usable lexical boundary.  Do not apply this rule to a
-                # multi-character candidate: Chinese prose normally has no
-                # spaces, and the previous implementation consequently
-                # suppressed real errors such as “布署” and “进一不”.
-                if _has_cjk(original):
-                    # The prompt asks the model to provide these independent
-                    # safeguards.  Treat them as a contract, rather than
-                    # allowing a high confidence number alone to create a
-                    # Chinese typo finding (the source of several false alarms
-                    # in ordinary thesis prose).
-                    if (row.get("common_confusion") is not True
-                            or row.get("semantic_validity") is not True
-                            or not (row.get("stable_usage") is True
-                                    or row.get("context_proof") is True)):
-                        continue
-                    cjk_surface = lambda value: ''.join(
-                        char for char in str(value) if _is_cjk(char))
-                    # A typo correction is a local replacement.  Reject an
-                    # answer that turns a fragment into a longer phrase; this
-                    # removes extrapolated edits such as “计片外传输量” →
-                    # “累计片外传输量” rather than a concrete typo.
-                    if len(cjk_surface(original)) != len(cjk_surface(suggestion)):
-                        continue
-                    # “降低至” is valid academic Chinese.  Do not let the model
-                    # rewrite this ordinary construction to “降低到”.
-                    if (cjk_surface(original) == "降低至"
-                            and cjk_surface(suggestion) == "降低到"):
-                        continue
-                    before = model_text[match_start - 1:match_start]
-                    after = model_text[match_end:match_end + 1]
-                    if len(original) == 1 and ((_is_cjk(original[:1]) and _is_cjk(before))
-                                               or (_is_cjk(original[-1:]) and _is_cjk(after))):
-                        continue
+                # Do not trust a discovery response by itself.  The verifier
+                # sees only the candidate and its exact local source context;
+                # it can veto a plausible-looking but unsupported correction,
+                # while never manufacturing a new typo.
+                try:
+                    verification, verification_usage = request_json([{
+                        "role": "user",
+                        "content": typo_verification_prompt(
+                            original=original,
+                            corrected=suggestion,
+                            context=context,
+                            reason=str(row.get("reason") or ""),
+                        ),
+                    }])
+                except Exception as exc:
+                    failure = failure or (str(exc)[:300] or type(exc).__name__)
+                    continue
+                usage_total["input_tokens"] += verification_usage["input_tokens"]
+                usage_total["output_tokens"] += verification_usage["output_tokens"]
+                if not isinstance(verification, dict) or verification.get("accepted") is not True:
+                    continue
                 matched_segments = [item for item in chunk.get("segments", [])
                                     if item.get("end", 0) > match_start and item.get("start", 0) < match_end]
                 pages = [item.get("page") for item in matched_segments if item.get("page")]
@@ -543,11 +601,11 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
                                    "description": original, "location": location}]
                                  if location else []),
                     "evidence": [{"id": f"typo-chunk-{index + 1}", "kind": "source_span",
-                                  "provider": "repo-paper-model", "quote": str(row.get("text"))[:120]}],
+                                  "provider": "repo-paper-model", "quote": context[:120]}],
                     "reason": str(row.get("reason") or "")[:300],
                 })
     return {"rule_run_id": f"run_{TYPO_RULE}", "rule_id": TYPO_RULE, "severity": "warning",
-            "params": {"chunk_count": len(chunks), "chunk_size": 3000,
+            "params": {"chunk_count": len(chunks), "chunk_size": 1200,
                        **({"technical_failure": failure} if failure else {})},
             "execution_status": "error" if failure else "completed", "evidence_mode": "derived",
             "outcome": "inconclusive" if failure else ("issues_found" if findings else "passed"),
@@ -590,12 +648,17 @@ def _looks_like_code_or_math(value: Any) -> bool:
 
 
 def _looks_like_code_context(text: str, start: int, end: int) -> bool:
-    """Ignore ordinary-looking words when they occur in code/identifier prose."""
-    window = text[max(0, start - 100):min(len(text), end + 100)]
+    """Ignore a candidate only when *itself* occurs in code-like syntax.
+
+    A former 200-character window rejected ordinary Chinese prose whenever an
+    unrelated identifier appeared later in the same technical paragraph (for
+    example ``FPGA`` or ``PU3`` near ``布署``).  That was a false-negative
+    filter, not protection against a code token.  Code syntax must therefore be
+    local to the candidate.
+    """
+    window = text[max(0, start - 12):min(len(text), end + 12)]
     patterns = (
         r"\x60",
-        r"(?:参数名|变量名|变量|函数名|函数|方法名|类名|标识符|代码|代码片段|"
-        r"命令|路径|协议名|模型名|库名|调用|返回值|接口)",
         r"\b(?:def|class|return|import|from|if|else|for|while|try|except)\b",
         r"[A-Za-z_]\w*\s*(?:\(|=|::)",
     )
