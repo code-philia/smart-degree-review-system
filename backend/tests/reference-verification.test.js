@@ -36,7 +36,8 @@ describe('reference verification coverage', () => {
     const run = toCompilerResult(report(['PASS', 'UNKNOWN', 'UNKNOWN'], [[], ['reference_lookup_unavailable: openalex=HTTP_429'], ['reference_not_matched']]), ['sjtu_rule_32']).rule_runs[0];
     expect(run.outcome).toBe('inconclusive');
     expect(run.params.reference_verification).toMatchObject({ total: 3, verified: 1, unresolved: 2, unavailable: 1 });
-    expect(run.message).toBe('未发现疑似不存在的引用。');
+    expect(run.message).toContain('检索资源暂不可用');
+    expect(run.message).toContain('不表示引用存在问题');
     expect(run.findings).toEqual([]);
     expect(run.compiler_diagnostics).toHaveLength(2);
     expect(run.severity).toBe('info');
@@ -75,6 +76,16 @@ describe('reference verification coverage', () => {
     expect(run.execution_status).toBe('error');
     expect(run.message).toContain('broken detector execution');
     expect(run.message).not.toContain('未发现');
+  });
+  it('turns a SerpAPI quota execution failure into a retryable resource notice', () => {
+    const value = report([]); delete value.publication;
+    value.rules[0].status = 'ERROR';
+    value.rules[0].execution_error = { error_type: 'SerpApiError', reason: 'SERPAPI_QUOTA_EXHAUSTED' };
+    const run = toCompilerResult(value, ['sjtu_rule_32']).rule_runs[0];
+    expect(run.execution_status).toBe('completed');
+    expect(run.outcome).toBe('inconclusive');
+    expect(run.message).toContain('检索资源暂不可用');
+    expect(run.message).not.toContain('规则执行失败');
   });
   it('does not infer pass from NO_ALERT without actual entry verification', () => {
     expect(toCompilerResult(report([]), ['sjtu_rule_32']).rule_runs[0].outcome).toBe('inconclusive');

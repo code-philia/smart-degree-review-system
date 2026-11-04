@@ -149,16 +149,25 @@ function toCompilerResult(output,selectedRuleIds) {
     } : null;
     const referencePassed = reference && raw.status === 'PASS' && reference.total > 0
       && reference.verified === reference.total && reference.coverage_complete;
+    // SerpAPI availability is a service/resource state, never evidence that a
+    // citation is wrong.  Make that distinction before the result reaches the
+    // generic "rule failed" UI.
+    const resourceError = [reason, raw.execution_error?.reason, raw.execution_error?.message,
+      ...(raw.results || []).flatMap(row => row.reasons || [])].filter(Boolean).join(' ');
+    const referenceResourcesUnavailable = Boolean(reference && (reference.unavailable > 0
+      || /SERPAPI_(?:QUOTA_EXHAUSTED|API_KEY)|reference_lookup_unavailable|HTTP_429|TimeoutError/i.test(resourceError)));
     const referenceMessage = reference ? findings.length
       ? `发现 ${findings.length} 条疑似不存在的引用，请逐条人工复核。`
-      : '未发现疑似不存在的引用。' : null;
+      : referenceResourcesUnavailable
+        ? `检索资源暂不可用：${reference.unavailable || reference.unresolved || '部分'} 条参考文献未完成核验。可能是 SerpAPI 额度已用尽、服务繁忙或访问受限；请稍后重试。这不表示引用存在问题。`
+        : '未发现疑似不存在的引用。' : null;
     const runMessage = [raw.status==='UNKNOWN' || unknown || raw.coverage?.incomplete_scopes?.length ? `${unknown} 项证据不足；未覆盖的内容保留无法判定。` : null,
         reason ? `规则执行异常：${reason}` : null, refinementMessage, baselineMessage].filter(Boolean).join(' ') || null;
     return {rule_run_id:`run_${ruleId}`,rule_id:ruleId,severity:ruleId === 'sjtu_rule_32' ? 'info' : 'warning',params:reference ? {reference_verification:reference} : null,
-      execution_status:raw.status==='ERROR'?'error':'completed',evidence_mode:findings.some(f=>f.source_kind==='synthetic')?'derived':'native',
+      execution_status:raw.status==='ERROR' && !referenceResourcesUnavailable?'error':'completed',evidence_mode:findings.some(f=>f.source_kind==='synthetic')?'derived':'native',
       outcome:findings.length?'issues_found':reference ? (referencePassed?'passed':raw.status==='NOT_APPLICABLE'?'not_applicable':'inconclusive') : publication?'inconclusive':raw.status==='PASS'?'passed':raw.status==='NOT_APPLICABLE'?'not_applicable':'inconclusive',
       ...(publication ? {publication_status:findings.length ? 'ALERT' : 'NO_ALERT'} : {}),
-      message:raw.status==='ERROR' && (publication || reference) ? `规则执行失败${reason ? '：'+reason : ''}` : reference ? referenceMessage : publication ? (findings.length ? '发现经复核确认的告警' : '未触发告警') : runMessage,
+      message:raw.status==='ERROR' && (publication || reference) && !referenceResourcesUnavailable ? `规则执行失败${reason ? '：'+reason : ''}` : reference ? referenceMessage : publication ? (findings.length ? '发现经复核确认的告警' : '未触发告警') : runMessage,
       compiler_runtime_status:typeof output.runtime?.status==='string' ? output.runtime.status : null,
       findings,compiler_diagnostics:diagnostics,...(publication ? {} : {coverage:raw.coverage,compiler_counts:raw.counts}),package_sha256:raw.package_sha256,
       runtime_version:runtimeVersion,pipeline_version:pipelineVersion,runtime_snapshot:runtimeSnapshot};

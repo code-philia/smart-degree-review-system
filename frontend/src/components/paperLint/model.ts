@@ -170,7 +170,10 @@ export function referencePresentationRun(run: PaperLintRuleRun): PaperLintRuleRu
   const findings = referenceDisplayFindings(run);
   return { ...run, findings, severity: 'info', ...(run.execution_status === 'completed' ? {
     publication_status: findings.length ? 'ALERT' as const : 'NO_ALERT' as const,
-    message: findings.length ? `发现 ${findings.length} 条疑似不存在的引用，请逐条人工复核。` : '未发现疑似不存在的引用。',
+    // Keep a backend resource-status explanation (quota, rate limit, or
+    // temporary service outage) instead of replacing it with a false success.
+    message: findings.length ? `发现 ${findings.length} 条疑似不存在的引用，请逐条人工复核。`
+      : run.message || '未发现疑似不存在的引用。',
   } : {}) };
 }
 
