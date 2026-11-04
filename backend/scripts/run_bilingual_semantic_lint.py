@@ -27,6 +27,19 @@ BILINGUAL_RULES = {
 }
 TYPO_RULE = "typo_detection_check"
 NUMERIC_RULE = "abstract_numeric_consistency_check"
+API_CAPACITY_MESSAGE = "当前系统使用人数较多，API 调用暂时繁忙，请稍后重试。"
+RULE_RETRY_MESSAGE = "当前规则暂时无法完成，请稍后重试。"
+
+
+def public_failure_message(error: object) -> str:
+    """Keep transport, SQLite and provider internals out of user reports."""
+    detail = str(error or "").lower()
+    capacity_markers = (
+        "database is locked", "locked", "timeout", "timed out", "http 429",
+        "http_429", "rate limit", "too many requests", "api request", "connection",
+        "deepseek", "campus api", "shared slot", "service unavailable",
+    )
+    return API_CAPACITY_MESSAGE if any(marker in detail for marker in capacity_markers) else RULE_RETRY_MESSAGE
 
 
 def parse_args() -> argparse.Namespace:
@@ -534,10 +547,11 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
                     "reason": str(row.get("reason") or "")[:300],
                 })
     return {"rule_run_id": f"run_{TYPO_RULE}", "rule_id": TYPO_RULE, "severity": "warning",
-            "params": {"chunk_count": len(chunks), "chunk_size": 3000},
+            "params": {"chunk_count": len(chunks), "chunk_size": 3000,
+                       **({"technical_failure": failure} if failure else {})},
             "execution_status": "error" if failure else "completed", "evidence_mode": "derived",
             "outcome": "inconclusive" if failure else ("issues_found" if findings else "passed"),
-            "message": (f"错别字分块检测未完成：{failure}" if failure else None),
+            "message": (f"错别字分块检测未完成：{public_failure_message(failure)}" if failure else None),
             "findings": findings, "model_usage": usage_total}
 
 def run_numeric_consistency_rule(ir: dict[str, Any], run_id=None) -> dict[str, Any]:
@@ -697,7 +711,8 @@ def run(pdf: Path, rule_ids: list[str], run_id=None, on_rule_complete=None,
                     'rule_id': rule_id, 'rule_run_id': f'run_{rule_id}', 'severity': 'warning',
                     'execution_status': 'error', 'evidence_mode': 'unsupported',
                     'outcome': 'inconclusive', 'findings': [],
-                    'message': f'本规则执行失败，可增量补跑：{str(error)[:300]}',
+                    'params': {'technical_failure': str(error)[:300]},
+                    'message': public_failure_message(error),
                 }
             runs[futures[future]] = completed
             if on_rule_complete:

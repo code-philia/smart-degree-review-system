@@ -83,7 +83,7 @@ export function numericExecutionWarnings(run?: PaperLintRuleRun): RuleExecutionW
     };
   });
   if (run.execution_status === 'error' || params.failure || (Array.isArray(params.validation_errors) && params.validation_errors.length)) {
-    warnings.push({ title: '论点论据一致性检测未完成', reason: '部分核验因服务请求或结果校验失败而未完成。已完成的有效结果仍予以保留。', suggestion: '请稍后重试；若持续失败，请联系管理员检查运行记录。' });
+    warnings.push({ title: '论点论据一致性检测未完成', reason: '当前系统使用人数较多，API 调用暂时繁忙，部分核验未完成。已完成的有效结果仍予以保留。', suggestion: '请稍后重试；若持续失败，请联系管理员检查运行记录。' });
   }
   return warnings.map(warning => ({ ...warning, ruleId: numericRule }));
 }

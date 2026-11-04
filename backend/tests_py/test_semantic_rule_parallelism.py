@@ -66,6 +66,29 @@ def test_eight_typo_chunks_can_run_together(monkeypatch):
     assert result['model_usage'] == {'input_tokens': 24, 'output_tokens': 16}
 
 
+def test_typo_capacity_failure_hides_sqlite_detail_but_keeps_it_for_diagnostics(monkeypatch):
+    lint = module()
+    monkeypatch.setattr(lint, '_body_chunks', lambda *_, **__: [{'model_text': '正文内容。'}])
+    monkeypatch.setattr(lint, 'request_json', lambda _: (_ for _ in ()).throw(RuntimeError('database is locked')))
+    result = lint.run_typo_rule_from_ir({})
+    assert result['execution_status'] == 'error'
+    assert '当前系统使用人数较多' in result['message']
+    assert 'database is locked' not in result['message']
+    assert result['params']['technical_failure'] == 'database is locked'
+
+
+def test_non_typo_semantic_failure_uses_retry_copy(monkeypatch):
+    lint = module()
+    monkeypatch.setattr(lint, 'build_paper', lambda *_, **__: {'nodes': []})
+    monkeypatch.setattr(lint, 'extract_bilingual_facts', lambda _: {})
+    monkeypatch.setattr(lint, '_run_semantic_rule', lambda *_: (_ for _ in ()).throw(RuntimeError('HTTP 429')))
+    result = lint.run(Path('unused.pdf'), ['bilingual_abstract_consistency_check'])
+    run = result['rule_runs'][0]
+    assert run['execution_status'] == 'error'
+    assert run['message'] == lint.API_CAPACITY_MESSAGE
+    assert run['params']['technical_failure'] == 'HTTP 429'
+
+
 def test_abstract_prompt_requires_bidirectional_coverage_for_omitted_information():
     lint = module()
     prompt = lint.prompt_for('bilingual_abstract_consistency_check', {
