@@ -5,7 +5,7 @@ from pathlib import Path
 import unittest
 
 source = Path(os.environ.get('LOCAL_CHECKS_PATH', str(Path(__file__).resolve().parents[1] / 'paper_compiler/local_checks.py')))
-spec = importlib.util.spec_from_file_location('punctuation_under_test', source)
+spec = importlib.util.spec_from_file_location('paper_compiler.punctuation_under_test', source)
 checks = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(checks)
 
@@ -39,7 +39,7 @@ class PunctuationScopeTests(unittest.TestCase):
         self.assertEqual(self.findings('实验结果可靠，因此可以完成检测。'), [])
 
     def test_chinese_prose_with_an_english_period_still_checks_commas(self):
-        self.assertEqual(len(self.findings('实验结果可靠,因此可以完成检测.')), 1)
+        self.assertEqual([f['token'] for f in self.findings('实验结果可靠,因此可以完成检测.')], [',', '.'])
 
     def test_front_matter_labels_and_split_declarations_remain_checked(self):
         for text in ['姓    名:张三', '导师:李四教授', '学科/专业名称:计算机技术',

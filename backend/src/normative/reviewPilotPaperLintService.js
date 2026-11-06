@@ -10,7 +10,7 @@ const { getCompilerRules, isCompilerRuleId, runCompilerRules } = require('./pape
 const { runPaperLintRuleGroups, settleRuleTasks } = require('./paperLintRuleRunner');
 const { createRuleProgressStream } = require('./paperLintRuleProgress');
 const { listRuleDefinitions } = require('../../rules/registry');
-const { assessPaperDocument, documentRejectionResult } = require('./paperDocumentAdmission');
+const { assessPaperDocument, documentRejectionResult, unavailableReferenceRuleIds } = require('./paperDocumentAdmission');
 
 const RETIRED_RULE_IDS = new Set([
   'claim_evidence_inconsistency_check',
@@ -395,9 +395,7 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
         // not turn into a blanket failure: run rules whose evidence does not
         // require that section and make the dependency explicit for the rest.
         const partialStructure = admission.stage === 'partial';
-        const referenceDependentRuleIds = new Set(['sjtu_rule_24', 'sjtu_rule_31', 'sjtu_rule_32', 'sjtu_rule_33']);
-        const unavailableRuleIds = partialStructure
-          ? normalizedRuleIds.filter((ruleId) => referenceDependentRuleIds.has(ruleId)) : [];
+        const unavailableRuleIds = unavailableReferenceRuleIds(admission, normalizedRuleIds);
         const runnableRuleIds = normalizedRuleIds.filter((ruleId) => !unavailableRuleIds.includes(ruleId));
         const bilingualRuleIds = runnableRuleIds.filter((ruleId) => BILINGUAL_RULE_IDS.has(ruleId));
         const otherRuleIds = runnableRuleIds.filter((ruleId) => !BILINGUAL_RULE_IDS.has(ruleId));
@@ -461,7 +459,8 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
               local_pdf: (file, ruleIds, options) => runLocalFiveRules(file, ruleIds,
                 { ...options, allowIncompleteStructure: partialStructure }),
               six_pdf: (file, ruleIds, options) => runSixRules(file, ruleIds, options),
-              compiler: (file, ruleIds, options) => runCompilerRules(file, ruleIds, options),
+              compiler: (file, ruleIds, options) => runCompilerRules(file, ruleIds,
+                { ...options, allowIncompleteStructure: partialStructure }),
               legacy_bridge: (_file, ruleIds, { signal }) => runBridge([
                 '--pdf', pdfPath, ...ruleIds.flatMap((ruleId) => ['--rule', ruleId]),
               ], ENGINE_TIMEOUT_MS, signal),

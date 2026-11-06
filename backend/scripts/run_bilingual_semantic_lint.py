@@ -712,9 +712,16 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
                 context_start = model_text.find(context)
                 if context_start < 0:
                     continue
-                match_start = context_start + context.find(original)
-                if match_start < 0:
+                # Keep the model's full word and its one differing-character
+                # offset; searching the reduced character can hit an earlier,
+                # correct word (发布 before 布署). Ambiguous locations are not
+                # publishable evidence.
+                surface = raw_original if repaired_reason is None else original
+                if context.count(surface) != 1:
                     continue
+                difference = next((i for i, pair in enumerate(zip(raw_original, raw_suggestion))
+                                   if pair[0] != pair[1]), 0) if repaired_reason is None else 0
+                match_start = context_start + context.find(surface) + difference
                 match_end = match_start + len(original)
                 if _looks_like_code_context(model_text, match_start, match_end):
                     continue

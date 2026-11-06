@@ -11,7 +11,7 @@ import unicodedata
 from pathlib import Path
 
 import pymupdf
-from .structure import assess_structure
+from .structure import assess_structure, section_display_name
 
 VERSION = 'paper-admission/2.0'
 _SPACE = re.compile(r'\s+')
@@ -107,7 +107,7 @@ def assess_pdf(pdf):
                           'is_bold': any(span.get('flags', 0) & 16 for span in line.get('spans', []))}
                          for block in data['blocks'] if block.get('type') == 0
                          for line in block.get('lines', [])]
-                pages.append({'page_index': index, 'lines': lines})
+                pages.append({'page_index': index, 'height': page.rect.height, 'lines': lines})
         assessment = assess_document_pages(pages)
     except Exception:
         assessment = {'version': VERSION, 'status': 'rejected', 'reason_code': 'pdf_unreadable',
@@ -118,9 +118,8 @@ def assess_pdf(pdf):
 def assert_paper_pages(pages, *, allow_incomplete_structure=False):
     assessment = assess_document_pages(pages)
     if assessment['status'] != 'accepted':
-        # A structurally incomplete thesis is still a thesis.  Callers that can
-        # safely run rules which do not depend on the missing section may opt in
-        # to a partial Paper Model; the default remains fail-closed.
+        # Identity has already been established before the structure stage.
+        # Partial compilation may relax chapter grammar, never that identity gate.
         if allow_incomplete_structure and assessment.get('stage') == 'structure':
             return {**assessment, 'status': 'accepted', 'stage': 'partial'}
         error = DocumentStructureError if assessment.get('stage') == 'structure' else DocumentAdmissionError
@@ -134,9 +133,15 @@ def assess_document_pages(pages):
         return {**assessment, 'stage': 'identity'}
     structure = assess_structure(pages, assessment)
     if structure['status'] != 'accepted':
+        reasons = []
+        for name in structure['missing_sections']:
+            reasons.append('缺少' + section_display_name(name, structure['profile']) + '：未在论文正文中识别到该章节。')
+        for name in structure['incomplete_sections']:
+            reasons.append(section_display_name(name, structure['profile']) + '不完整：'
+                           + '；'.join(structure['abstract_sections'][name]['issues']) + '。')
         return {**assessment, 'status': 'rejected', 'stage': 'structure',
                 'reason_code': 'paper_structure_incomplete',
-                'reason': '缺少或无法识别必需章节：' + '、'.join(structure['missing_sections']) + '。',
+                'reason': ''.join(reasons),
                 'structure': structure,
                 **{key: value for key, value in structure.items() if key != 'status'}}
     return {**assessment, 'stage': 'complete', 'structure': structure}

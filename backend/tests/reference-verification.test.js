@@ -13,6 +13,15 @@ function report(statuses, reasons = []) {
       counts: Object.fromEntries([...new Set(statuses)].map(s => [s, statuses.filter(v => v === s).length])), coverage: { incomplete_scopes: [] } }] };
 }
 describe('reference verification coverage', () => {
+  it('preserves a resource notice alongside a confirmed reference finding', () => {
+    const value = report(['VIOLATION', 'UNKNOWN'], [[], ['reference_lookup_unavailable: HTTP_429']]);
+    value.publication.public = { status: 'ALERT', findings: [{ rule_id: '32', node_id: 'entry-0',
+      check_id: 'work_existence', status: 'VIOLATION', message: '已有证据的引用疑点' }] };
+    const run = toCompilerResult(value, ['sjtu_rule_32']).rule_runs[0];
+    expect(run.findings).toHaveLength(1);
+    expect(run.message).toContain('检索资源暂不可用');
+    expect(run.params.reference_resources_unavailable).toBe(true);
+  });
   it('keeps the multisource rule available after SerpAPI quota exhaustion', () => {
     const old = Object.fromEntries(['PAPER_COMPILER_ENABLED','PAPER_COMPILER_PACKAGE_ROOT','PAPER_COMPILER_REFERENCE_LIBRARY'].map(k => [k,process.env[k]]));
     const dir = fs.mkdtempSync(path.join(os.tmpdir(),'reference-availability-'));

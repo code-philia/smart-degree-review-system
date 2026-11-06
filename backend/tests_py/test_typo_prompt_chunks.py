@@ -64,6 +64,31 @@ def test_one_changed_character_in_a_model_word_pair_is_reduced(monkeypatch):
     assert [(item['message'], item['suggestion']) for item in result['findings']] == [('疑似错别字：布', '部')]
 
 
+def test_word_pair_keeps_the_changed_character_location_not_an_earlier_same_character(monkeypatch):
+    ir = ir_for('发布研究结果。')
+    ir['nodes'][0]['children'].append('p2')
+    ir['nodes'].append({'id': 'p2', 'kind': 'Paragraph', 'text': '系统尚未完成布署。',
+        'provenance': [{'page_index': 0, 'bbox': [10, 50, 300, 70]}]})
+    def request(messages):
+        if '候选复核器' in messages[0]['content']:
+            return {'accepted': True}, {'input_tokens': 0, 'output_tokens': 0}
+        return {'errors': [{'original': '布署', 'corrected': '部署',
+            'context': '发布研究结果。\n\n系统尚未完成布署。', 'reason': '固定词语误用'}]}, {'input_tokens': 0, 'output_tokens': 0}
+    monkeypatch.setattr(mod, 'request_json', request)
+    finding = mod.run_typo_rule_from_ir(ir)['findings'][0]
+    assert finding['location']['bounding_rect']['y1'] == 50
+
+
+def test_ambiguous_single_character_context_cannot_highlight_a_correct_occurrence(monkeypatch):
+    def request(messages):
+        if '候选复核器' in messages[0]['content']:
+            return {'accepted': True}, {'input_tokens': 0, 'output_tokens': 0}
+        return {'errors': [{'original': '布', 'corrected': '部',
+            'context': '发布结果后再布署系统。', 'reason': '候选字误用'}]}, {'input_tokens': 0, 'output_tokens': 0}
+    monkeypatch.setattr(mod, 'request_json', request)
+    assert mod.run_typo_rule_from_ir(ir_for('发布结果后再布署系统。'))['findings'] == []
+
+
 def test_field_reviewer_can_repair_a_malformed_discovery_pair(monkeypatch):
     def fake_request(messages):
         prompt = messages[0]['content']

@@ -266,11 +266,11 @@ function AppShell() {
                 <img
                   src="/brand-mark.jpg"
                   alt=""
-                  className="size-8 rounded-full object-cover ring-1 ring-sidebar-border"
+                  className="size-8 rounded-full bg-white object-cover ring-1 ring-white/20"
                 />
                 <span className="min-w-0 leading-tight">
-                  <span className="block whitespace-normal text-[13px] font-semibold leading-5 text-slate-800">{PRODUCT_NAME}</span>
-                  <span className="mt-0.5 block text-xs font-normal text-slate-600">{PRODUCT_TAGLINE}</span>
+                  <span className="block whitespace-normal text-[13px] font-semibold leading-5 text-sidebar-accent-foreground">{PRODUCT_NAME}</span>
+                  <span className="mt-0.5 block text-xs font-normal text-[var(--sidebar-muted)]">{PRODUCT_TAGLINE}</span>
                 </span>
               </SidebarMenuButton>
             </SidebarMenuItem>

@@ -10,7 +10,7 @@ from paper_compiler.frontend import build_paper
 
 
 def check_document(pdf):
-    """Only a fully built and contract-validated Paper earns a compiled proof."""
+    """Only a built, contract-validated Paper earns a complete or partial proof."""
     digest = hashlib.sha256(Path(pdf).read_bytes()).hexdigest()
     try:
         # Admission is deliberately able to compile a partial IR: callers can

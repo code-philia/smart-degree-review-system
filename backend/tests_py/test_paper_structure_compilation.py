@@ -17,6 +17,9 @@ def thesis(tmp_path, missing=None, appendix=None):
             page = doc.new_page()
             page.insert_text((50, 70), heading, fontname='china-s', fontsize=16)
             page.insert_textbox((50, 110, 550, 750), PROSE, fontname='china-s', fontsize=11)
+            if missing != '关键词：软件；分析；检测' and heading in {'摘要', 'Abstract'}:
+                page.insert_text((50, 780), '关键词：软件；分析' if heading == '摘要' else 'Keywords: software; analysis',
+                                 fontname='china-s', fontsize=11)
         if appendix:
             page = doc.new_page()
             page.insert_text((50, 70), appendix, fontname='china-s')

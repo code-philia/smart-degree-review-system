@@ -120,7 +120,7 @@ export function FindingsPane({
     const status = !run ? (running ? 'running' : ruleRuns ? 'needs_review' : 'completed')
       : run.execution_status === 'error' ? 'error'
       : prerequisiteWarning ? 'execution_warning'
-      : id === 'sjtu_rule_32' && run.execution_status === 'completed' ? 'completed'
+      : id === 'sjtu_rule_32' && run.execution_status === 'completed' && !executionWarnings.some(warning => warning.ruleId === id) ? 'completed'
       : run.execution_status === 'unsupported' || run.outcome === 'inconclusive' ? 'needs_review'
       : run.outcome === 'not_applicable' ? 'not_applicable' : 'completed';
     const ruleCounts = counts.get(id) || { error: 0, warning: 0, info: 0 };

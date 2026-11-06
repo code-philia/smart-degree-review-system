@@ -16,6 +16,7 @@ def parser():
         s.add_argument('--phase',default='pilot');s.add_argument('--phase-budget',default='5');s.add_argument('--cache',default='/data/runtime/paper-compiler')
         s.add_argument('--evidence-snapshot');s.add_argument('--freeze-evidence',action='store_true');s.add_argument('--model-fingerprint');s.add_argument('--offline',action='store_true');s.add_argument('--out',type=Path);s.add_argument('--package',action='append',default=[])
         if name=='build':s.add_argument('--pdf',required=True,type=Path)
+        if name in ['build','check']:s.add_argument('--allow-incomplete-structure',action='store_true')
         if name in ['plan','plan-batch']:
             s.add_argument('--basis',required=name=='plan',type=Path);s.add_argument('--rule-id',required=name=='plan');s.add_argument('--rule-text',required=name=='plan',type=Path);s.add_argument('--rules',required=name=='plan-batch',type=Path);s.add_argument('--evidence-environments',type=Path);s.add_argument('--allow-constructed',action='store_true');s.add_argument('--paper-model',type=Path)
         if name=='compile':
@@ -95,7 +96,8 @@ def execute(args):
             max_rounds=args.max_rounds,allow_model_refinement=not args.fixed_model)
         return {**result,'budget':ledger.summary()}
 
-    def build(path):return build_paper(path,client=client)
+    def build(path):return build_paper(path,client=client,
+        allow_incomplete_structure=getattr(args,'allow_incomplete_structure',False))
     def run(path):
         if not packages:raise ValueError('at least one verified --package is required')
         ir=build(path) if path.suffix.lower()=='.pdf' else json.loads(path.read_text());validate_ir(ir)

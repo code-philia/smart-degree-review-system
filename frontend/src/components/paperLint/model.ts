@@ -96,16 +96,31 @@ const executionRuleTitles: Record<string, string> = {
   sjtu_rule_31: '引用格式错误',
   sjtu_rule_32: '引用的外部文献不存在',
   sjtu_rule_33: '引用文献完整性检查',
+  typo_detection_check: '正文错别字检测',
+  bilingual_abstract_consistency_check: '中英文摘要内容一致性',
+  bilingual_keywords_correspondence_check: '中英文关键词语义对应',
+  required_section_completeness_check: '核心章节完整性',
+  chinese_english_symbol_mix_check: '中英文标点符号是否混用',
+  keyword_count_check: '关键词数量',
+  abstract_object_number_check: '摘要图表公式文献编号',
+  chapter_new_page_check: '章标题另起一页',
 };
+
+export function referenceResourcesUnavailable(run: PaperLintRuleRun): boolean {
+  const reference = run.params?.reference_verification as { unavailable?: number } | undefined;
+  return run.rule_id === 'sjtu_rule_32' && (run.params?.reference_resources_unavailable === true
+    || Number(reference?.unavailable) > 0 || /检索资源暂不可用/.test(run.message || ''));
+}
 
 /** Converts backend unsupported/error/inconclusive runs into visible UI warnings. */
 export function genericExecutionWarnings(runs: PaperLintRuleRun[] = []): RuleExecutionWarning[] {
   return runs
-    .filter(run => run.rule_id !== numericRule && (
+    .filter(run => run.rule_id !== numericRule
+      && !(run.rule_id === 'sjtu_rule_32' && run.execution_status === 'completed' && !referenceResourcesUnavailable(run)) && (
       run.execution_status === 'unsupported' ||
       run.execution_status === 'error' ||
-      run.outcome === 'inconclusive'
-    ))
+      run.outcome === 'inconclusive' || referenceResourcesUnavailable(run)
+    ) && !(run.execution_status === 'completed' && compilerPublicationLabel(run) === '未触发告警'))
     .map(run => {
       const title = executionRuleTitles[run.rule_id] || run.rule_id;
       const reason = String(run.message || '本规则因缺少必要的论文结构，暂无法可靠判定。');
@@ -205,8 +220,9 @@ export function referencePresentationRun(run: PaperLintRuleRun): PaperLintRuleRu
     publication_status: findings.length ? 'ALERT' as const : 'NO_ALERT' as const,
     // Keep a backend resource-status explanation (quota, rate limit, or
     // temporary service outage) instead of replacing it with a false success.
-    message: findings.length ? `发现 ${findings.length} 条疑似不存在的引用，请逐条人工复核。`
-      : run.message || '未发现疑似不存在的引用。',
+    message: referenceResourcesUnavailable(run)
+      ? run.message || '检索资源暂不可用：部分参考文献未完成核验，请稍后重试。'
+      : findings.length ? `发现 ${findings.length} 条疑似不存在的引用，请逐条人工复核。` : '未发现疑似不存在的引用。',
   } : {}) };
 }
 
@@ -270,6 +286,7 @@ export function findingPageLabel(item: PaperLintFindingItem): string | null {
 }
 
 export function compilerPublicationLabel(run: PaperLintRuleRun): string | null {
+  if (referenceResourcesUnavailable(run)) return referenceDisplayFindings(run).length ? '发现问题（部分未检测）' : '未能检测';
   if (!['sjtu_rule_31', 'sjtu_rule_32', 'sjtu_rule_33'].includes(run.rule_id) || !run.publication_status) return null;
   if (run.execution_status === 'error') return '执行失败';
   if (run.rule_id === 'sjtu_rule_32' && referenceDisplayFindings(run).length) return '待人工复核';

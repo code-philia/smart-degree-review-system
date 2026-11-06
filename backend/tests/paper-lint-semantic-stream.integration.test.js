@@ -8,7 +8,7 @@ const { runPaperLint } = require('../src/normative/reviewPilotPaperLintService')
 const admissionStub = `
 if (process.argv[2]?.endsWith('check_paper_document.py')) {
   const fs=require('fs'),crypto=require('crypto');
-  console.log(JSON.stringify({version:'paper-admission/2.0',status:'accepted',reason_code:'paper_structure_confirmed',reason:'test paper',compiled:true,stage:'complete',structure:{status:'accepted',profile:'research-article',required_sections:['摘要','引言','主体','结论','参考文献'],observed_sections:{'摘要':true,'引言':true,'主体':true,'结论':true,'参考文献':true},missing_sections:[]},
+  console.log(JSON.stringify({version:'paper-admission/2.0',status:'accepted',reason_code:'paper_structure_confirmed',reason:'test paper',compiled:true,stage:'complete',structure:{status:'accepted',profile:'research-article',required_sections:['摘要','引言','主体','结论','参考文献'],observed_sections:{'摘要':true,'引言':true,'主体':true,'结论':true,'参考文献':true},missing_sections:[],incomplete_sections:[]},
     sha256:crypto.createHash('sha256').update(fs.readFileSync(process.argv[3])).digest('hex')}));
   process.exit(0);
 }
