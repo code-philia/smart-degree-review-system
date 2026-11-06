@@ -180,16 +180,16 @@ function AccountMenu({ onLogout }: { onLogout: () => Promise<void> }) {
               <ChevronDown className="ml-auto" aria-hidden="true" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
-          <DropdownMenuContent side="right" align="end" sideOffset={8} className="w-64">
-            <DropdownMenuLabel className="space-y-1 px-2 py-2">
+          <DropdownMenuContent side="right" align="end" sideOffset={8} className="account-menu-surface w-64 ring-0">
+            <DropdownMenuLabel className="space-y-1 px-2.5 py-2.5">
               <span className="block truncate text-sm font-semibold text-popover-foreground">{displayName}</span>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
+            <DropdownMenuSeparator className="mx-1" />
             <DropdownMenuItem
               variant="destructive"
               disabled={isLoggingOut}
               onSelect={() => void handleLogout()}
-              className="py-2"
+              className="account-menu-logout gap-2.5 rounded-lg px-2.5 py-2.5"
             >
               <LogOut aria-hidden="true" />
               {isLoggingOut ? '正在退出…' : '退出登录'}
