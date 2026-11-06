@@ -12,6 +12,32 @@ const REQUIRED_SECTIONS = {
   'research-article': ['摘要', '引言', '主体', '结论', '参考文献'],
 };
 
+function hasCompiledStructureProof(result) {
+  const structure = result.structure;
+  const required = REQUIRED_SECTIONS[structure?.profile];
+  if (result.compiled !== true || !required
+    || !Array.isArray(structure.required_sections)
+    || structure.required_sections.length !== required.length
+    || !required.every(name => structure.required_sections.includes(name))) return false;
+  const missing = structure.missing_sections;
+  const incomplete = structure.incomplete_sections;
+  if (!Array.isArray(missing) || !Array.isArray(incomplete)
+    || new Set(missing).size !== missing.length || new Set(incomplete).size !== incomplete.length
+    || ![...missing, ...incomplete].every(name => required.includes(name))
+    || incomplete.some(name => missing.includes(name))
+    || !required.every(name => structure.observed_sections?.[name] === !missing.includes(name))) return false;
+  const partial = missing.length + incomplete.length > 0;
+  return result.stage === (partial ? 'partial' : 'complete')
+    && result.reason_code === (partial ? 'paper_structure_incomplete' : 'paper_structure_confirmed')
+    && structure.status === (partial ? 'rejected' : 'accepted');
+}
+
+function unavailableReferenceRuleIds(assessment, selectedRuleIds) {
+  if (assessment.stage !== 'partial' || !assessment.structure?.missing_sections?.includes('参考文献')) return [];
+  const dependent = new Set(['sjtu_rule_24', 'sjtu_rule_31', 'sjtu_rule_32', 'sjtu_rule_33']);
+  return selectedRuleIds.filter(id => dependent.has(id));
+}
+
 async function assessPaperDocument(pdfPath, pdfBuffer, { python, signal } = {}) {
   try {
     const { stdout } = await runPaperLintProcess(python, [SCRIPT, pdfPath], {
@@ -20,20 +46,10 @@ async function assessPaperDocument(pdfPath, pdfBuffer, { python, signal } = {}) 
     });
     const result = JSON.parse(stdout);
     const digest = crypto.createHash('sha256').update(pdfBuffer).digest('hex');
-    const required = REQUIRED_SECTIONS[result?.structure?.profile];
     if (!result || result.version !== VERSION || result.sha256 !== digest
       || !['accepted', 'rejected'].includes(result.status)
       || typeof result.reason !== 'string' || !result.reason.trim()
-      || (result.status === 'accepted' && (result.reason_code !== 'paper_structure_confirmed'
-        || result.compiled !== true
-        || result.stage !== 'complete' || result.structure?.status !== 'accepted'
-        || !['chinese-thesis', 'english-thesis', 'research-article'].includes(result.structure?.profile)
-        || !required || !Array.isArray(result.structure?.required_sections)
-        || result.structure.required_sections.length !== required.length
-        || !required.every(name => result.structure.required_sections.includes(name))
-        || !Array.isArray(result.structure?.missing_sections) || result.structure.missing_sections.length
-        || !Array.isArray(result.structure?.incomplete_sections) || result.structure.incomplete_sections.length
-        || !result.structure.required_sections.every(name => result.structure.observed_sections?.[name] === true)))) {
+      || (result.status === 'accepted' && !hasCompiledStructureProof(result))) {
       throw new Error('Invalid document admission proof');
     }
     return result;
@@ -75,4 +91,4 @@ function documentRejectionResult(assessment, selectedRuleIds) {
       issue_rule_count: 0, derived_rule_count: 0 } };
 }
 
-module.exports = { assessPaperDocument, documentRejectionResult, DOCUMENT_CHECK_ID };
+module.exports = { assessPaperDocument, documentRejectionResult, DOCUMENT_CHECK_ID, unavailableReferenceRuleIds };

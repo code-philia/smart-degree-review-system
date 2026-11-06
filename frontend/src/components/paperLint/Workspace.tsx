@@ -3,7 +3,7 @@ import type { PaperLintFinding, PaperLintRule, PaperLintRuleRun } from '../../ap
 import type { RepairSuggestion } from '../../api/repairSuggestions';
 import type { FindingFeedback, SuggestionFeedback } from '../../api/feedback';
 import { FindingsPane } from './FindingsPane';
-import { numericExecutionWarnings } from './model';
+import { genericExecutionWarnings, numericExecutionWarnings } from './model';
 import type { PaperLintFindingItem } from './model';
 import { PdfPane } from './PdfPane';
 import type { PdfPageLabels } from './pageLabels';
@@ -126,7 +126,10 @@ export function PaperLintWorkspace({
       />
       <div className="flex min-h-0 flex-col gap-3">
       <FindingsPane
-        executionWarnings={numericExecutionWarnings(numericReviewRun)}
+        executionWarnings={[
+          ...numericExecutionWarnings(numericReviewRun),
+          ...genericExecutionWarnings(ruleRuns || []),
+        ]}
         pageLabels={pageLabels}
         findings={findings}
         selectedRuleIds={selectedRuleIds}

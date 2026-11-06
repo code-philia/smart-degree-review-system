@@ -115,9 +115,13 @@ def assess_pdf(pdf):
     return {**assessment, 'sha256': digest}
 
 
-def assert_paper_pages(pages):
+def assert_paper_pages(pages, *, allow_incomplete_structure=False):
     assessment = assess_document_pages(pages)
     if assessment['status'] != 'accepted':
+        # Identity has already been established before the structure stage.
+        # Partial compilation may relax chapter grammar, never that identity gate.
+        if allow_incomplete_structure and assessment.get('stage') == 'structure':
+            return {**assessment, 'status': 'accepted', 'stage': 'partial'}
         error = DocumentStructureError if assessment.get('stage') == 'structure' else DocumentAdmissionError
         raise error(assessment)
     return assessment
@@ -138,5 +142,6 @@ def assess_document_pages(pages):
         return {**assessment, 'status': 'rejected', 'stage': 'structure',
                 'reason_code': 'paper_structure_incomplete',
                 'reason': ''.join(reasons),
+                'structure': structure,
                 **{key: value for key, value in structure.items() if key != 'status'}}
     return {**assessment, 'stage': 'complete', 'structure': structure}

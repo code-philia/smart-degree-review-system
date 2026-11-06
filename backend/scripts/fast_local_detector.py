@@ -32,17 +32,18 @@ def native_coverage(ir):
     return ir
 
 
-def load_ir(pdf):
-    return native_coverage(build_paper(pdf, include_citations=False))
+def load_ir(pdf, *, allow_incomplete_structure=False):
+    return native_coverage(build_paper(pdf, include_citations=False,
+                                      allow_incomplete_structure=allow_incomplete_structure))
 
 
-def run(pdf, selected):
+def run(pdf, selected, *, allow_incomplete_structure=False):
     started = time.perf_counter()
     old = [r for r in selected if r in OLD_RULES]
     new = [r for r in selected if r in RULES]
     result = detect_pdf(pdf, old) if old else {'pdf': str(pdf), 'rules': {}}
     if new:
-        ir = load_ir(pdf)
+        ir = load_ir(pdf, allow_incomplete_structure=allow_incomplete_structure)
         result['rules'].update(detect_ir(ir, new))
         result['pages'] = len(ir['layout']['pages'])
         result['paper_model_version'] = ir['model_version']
@@ -55,8 +56,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--pdf', type=Path, required=True)
     parser.add_argument('--rule', type=int, action='append', choices=(*OLD_RULES, *RULES))
+    parser.add_argument('--allow-incomplete-structure', action='store_true')
     args = parser.parse_args()
     import pymupdf
     pymupdf.TOOLS.mupdf_display_errors(False)
     pymupdf.TOOLS.mupdf_display_warnings(False)
-    print(json.dumps(run(args.pdf, args.rule or [18, 22, 24, 28, 31, 34, 35, 36, 37, 38]), ensure_ascii=True))
+    print(json.dumps(run(args.pdf, args.rule or [18, 22, 24, 28, 31, 34, 35, 36, 37, 38],
+                         allow_incomplete_structure=args.allow_incomplete_structure), ensure_ascii=True))

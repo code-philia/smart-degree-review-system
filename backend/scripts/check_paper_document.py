@@ -10,10 +10,13 @@ from paper_compiler.frontend import build_paper
 
 
 def check_document(pdf):
-    """Only a fully built and contract-validated Paper earns a compiled proof."""
+    """Only a built, contract-validated Paper earns a complete or partial proof."""
     digest = hashlib.sha256(Path(pdf).read_bytes()).hexdigest()
     try:
-        ir = build_paper(Path(pdf), include_citations=False)
+        # Admission is deliberately able to compile a partial IR: callers can
+        # then run independent rules and mark bibliography-dependent ones as
+        # unavailable instead of skipping the entire review.
+        ir = build_paper(Path(pdf), include_citations=False, allow_incomplete_structure=True)
         return {**ir['metadata']['document_admission'], 'sha256': digest, 'compiled': True}
     except DocumentAdmissionError as error:
         return {**error.assessment, 'sha256': digest, 'compiled': False}

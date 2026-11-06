@@ -10,7 +10,7 @@ const { getCompilerRules, isCompilerRuleId, runCompilerRules } = require('./pape
 const { runPaperLintRuleGroups, settleRuleTasks } = require('./paperLintRuleRunner');
 const { createRuleProgressStream } = require('./paperLintRuleProgress');
 const { listRuleDefinitions } = require('../../rules/registry');
-const { assessPaperDocument, documentRejectionResult } = require('./paperDocumentAdmission');
+const { assessPaperDocument, documentRejectionResult, unavailableReferenceRuleIds } = require('./paperDocumentAdmission');
 
 const RETIRED_RULE_IDS = new Set([
   'claim_evidence_inconsistency_check',
@@ -203,10 +203,12 @@ function runBridge(args, timeoutMs = ENGINE_TIMEOUT_MS, signal) {
   );
 }
 
-function runBilingualSemanticRules(pdfPath, ruleIds, timeoutMs = ENGINE_TIMEOUT_MS, signal, runId, onRuleComplete) {
+function runBilingualSemanticRules(pdfPath, ruleIds, timeoutMs = ENGINE_TIMEOUT_MS, signal, runId, onRuleComplete,
+  { allowIncompleteStructure = false } = {}) {
   return runJsonScript(
     bilingualScript,
-    ['--pdf', pdfPath, '--progress-jsonl', ...ruleIds.flatMap((ruleId) => ['--rule', ruleId]), ...(runId ? ['--run-id', runId] : [])],
+    ['--pdf', pdfPath, '--progress-jsonl', ...ruleIds.flatMap((ruleId) => ['--rule', ruleId]),
+      ...(runId ? ['--run-id', runId] : []), ...(allowIncompleteStructure ? ['--allow-incomplete-structure'] : [])],
     {
       python: resolvePaperModelPython(),
       cwd: path.resolve(__dirname, '../..'),
@@ -338,7 +340,9 @@ function mergePaperLintResults(existingResult, localResult, selectedRuleIds) {
   const ruleRuns = selectedRuleIds.map((ruleId) => {
     const run = runsById.get(ruleId);
     if (!run) throw createHttpError(502, `规则 ${ruleId} 没有返回检测结果`);
-    return run;
+    const findings = require('./localFiveRulePaperLintService').dedupeFindings(run.findings);
+    return { ...run, findings, outcome: findings.length ? 'issues_found'
+      : (run.outcome === 'issues_found' ? 'passed' : run.outcome) };
   });
   const compilerVersions = [...new Set(ruleRuns.filter(run => isCompilerRuleId(run.rule_id))
     .map(run => run.runtime_version || run.pipeline_version).filter(Boolean))];
@@ -387,8 +391,14 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
             rule_runs: result.rule_runs, document_validation: result.document_validation });
           return { result, selectedRuleIds: normalizedRuleIds };
         }
-        const bilingualRuleIds = normalizedRuleIds.filter((ruleId) => BILINGUAL_RULE_IDS.has(ruleId));
-        const otherRuleIds = normalizedRuleIds.filter((ruleId) => !BILINGUAL_RULE_IDS.has(ruleId));
+        // A missing core section is recorded as a partial Paper Model.  It must
+        // not turn into a blanket failure: run rules whose evidence does not
+        // require that section and make the dependency explicit for the rest.
+        const partialStructure = admission.stage === 'partial';
+        const unavailableRuleIds = unavailableReferenceRuleIds(admission, normalizedRuleIds);
+        const runnableRuleIds = normalizedRuleIds.filter((ruleId) => !unavailableRuleIds.includes(ruleId));
+        const bilingualRuleIds = runnableRuleIds.filter((ruleId) => BILINGUAL_RULE_IDS.has(ruleId));
+        const otherRuleIds = runnableRuleIds.filter((ruleId) => !BILINGUAL_RULE_IDS.has(ruleId));
         const completedRuleIds = [];
         const completedRuns = [];
         const parts = [];
@@ -403,12 +413,24 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
           progressWrites = progressWrites.then(() => onProgress?.(snapshot));
           return progressWrites;
         };
+        if (unavailableRuleIds.length) {
+          const ruleRuns = unavailableRuleIds.map((rule_id) => ({
+            rule_id, rule_run_id: `unavailable_${rule_id}`, severity: 'info',
+            execution_status: 'unsupported', evidence_mode: 'unsupported', outcome: 'inconclusive', findings: [],
+            message: `未检测：${admission.reason}该规则依赖参考文献内容，无法在参考文献缺失时给出可靠结论。`,
+          }));
+          const part = { type: 'paper_lint', paper_title: '上传论文',
+            ruleset: { id: 'partial-paper-model', name: '部分 Paper Model', version_number: 1, version_label: '结构不完整降级执行' },
+            rule_runs: ruleRuns, summary: summarizeRuleRuns(ruleRuns) };
+          parts.push(part);
+          await reportProgress(unavailableRuleIds, part);
+        }
         if (bilingualRuleIds.length) {
           const bilingualTimeout = bilingualRuleIds.some(id => ['typo_detection_check', 'abstract_numeric_consistency_check'].includes(id))
             ? SIX_RULE_TIMEOUT_MS
             : ENGINE_TIMEOUT_MS;
           tasks.push(runBilingualSemanticRules(pdfPath, bilingualRuleIds, bilingualTimeout, controller.signal, runId,
-            run => reportProgress([run.rule_id], { rule_runs: [run] }))
+            run => reportProgress([run.rule_id], { rule_runs: [run] }), { allowIncompleteStructure: partialStructure })
             .then(async (part) => { parts.push(part); await reportProgress(bilingualRuleIds, part); })
             .catch(async (error) => {
               if (controller.signal.aborted) throw error;
@@ -417,7 +439,8 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
               const ruleRuns = [...runs, ...missing.map(rule_id => ({
                 rule_id, rule_run_id: `failed_${rule_id}`, severity: 'warning',
                 execution_status: 'error', evidence_mode: 'unsupported', outcome: 'inconclusive',
-                findings: [], message: `${String(error?.message || '语义规则执行失败').slice(0, 500)}；可在历史报告中增量补跑。`,
+                findings: [], params: { technical_failure: String(error?.message || '语义规则执行失败').slice(0, 500) },
+                message: '当前系统使用人数较多，API 调用暂时繁忙，请稍后重试；可在历史报告中增量补跑。',
               }))];
               const part = { type: 'paper_lint', paper_title: '上传论文',
                 ruleset: { id: 'repo-paper-model-bilingual', name: '仓库 Paper Model 双语语义规则', version_number: 1, version_label: 'repo paper_compiler' },
@@ -433,9 +456,11 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
             signal: controller.signal,
             onGroupComplete: async ({ ruleIds, result }) => reportProgress(ruleIds, result),
             runners: {
-              local_pdf: (file, ruleIds, options) => runLocalFiveRules(file, ruleIds, options),
+              local_pdf: (file, ruleIds, options) => runLocalFiveRules(file, ruleIds,
+                { ...options, allowIncompleteStructure: partialStructure }),
               six_pdf: (file, ruleIds, options) => runSixRules(file, ruleIds, options),
-              compiler: (file, ruleIds, options) => runCompilerRules(file, ruleIds, options),
+              compiler: (file, ruleIds, options) => runCompilerRules(file, ruleIds,
+                { ...options, allowIncompleteStructure: partialStructure }),
               legacy_bridge: (_file, ruleIds, { signal }) => runBridge([
                 '--pdf', pdfPath, ...ruleIds.flatMap((ruleId) => ['--rule', ruleId]),
               ], ENGINE_TIMEOUT_MS, signal),
@@ -446,7 +471,11 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
         if (controller.signal.aborted) throw createHttpError(504, RUN_TIMEOUT_MESSAGE);
         const result = parts.length > 1
           ? mergePaperLintResults(parts[0], { rule_runs: parts.slice(1).flatMap((part) => part.rule_runs) }, normalizedRuleIds)
-          : parts[0];
+          : parts[0] || { type: 'paper_lint', paper_title: '上传论文', rule_runs: [], summary: summarizeRuleRuns([]) };
+        // Preserve the admission proof in successful reports too.  In partial
+        // mode the UI needs this to explain why a reference-dependent rule was
+        // unavailable, rather than presenting it as a silent detector failure.
+        result.document_validation = admission;
         return { result, selectedRuleIds: normalizedRuleIds };
       } finally {
         await fs.promises.rm(tempDir, { recursive: true, force: true });
