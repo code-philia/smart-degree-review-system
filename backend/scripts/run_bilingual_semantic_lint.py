@@ -478,11 +478,12 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
     # layout node.  Never turn that extraction detail into duplicate findings.
     seen_findings: set[tuple[Any, ...]] = set()
     usage_total = {"input_tokens": 0, "output_tokens": 0}
-    # Smaller semantic units materially improve recall for a local typo inside
-    # long technical prose, while _split_piece still prefers punctuation.  The
-    # former 6000-character chunks caused the model to overlook injected terms
-    # near the middle of otherwise unrelated discussion.
-    chunks = _body_chunks(ir, size=1200)
+    # A typo is decided from its sentence-level lexical context.  A 1200-char
+    # technical aggregate diluted clear candidates (for example “分祈”) during
+    # a full-paper run even though the same paragraph was detected in isolation.
+    # _body_chunks still prefers punctuation, so this is not a blind character
+    # split across a sentence.
+    chunks = _body_chunks(ir, size=600)
     failure = None
     workers = 8 if all(os.environ.get(name, '').strip() for name in
                        ('SJTU_API_KEY', 'SJTU_API_BASE_URL', 'SJTU_API_MODEL')) else 4
@@ -605,7 +606,7 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
                     "reason": str(row.get("reason") or "")[:300],
                 })
     return {"rule_run_id": f"run_{TYPO_RULE}", "rule_id": TYPO_RULE, "severity": "warning",
-            "params": {"chunk_count": len(chunks), "chunk_size": 1200,
+            "params": {"chunk_count": len(chunks), "chunk_size": 600,
                        **({"technical_failure": failure} if failure else {})},
             "execution_status": "error" if failure else "completed", "evidence_mode": "derived",
             "outcome": "inconclusive" if failure else ("issues_found" if findings else "passed"),
