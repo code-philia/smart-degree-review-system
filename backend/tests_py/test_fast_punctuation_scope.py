@@ -39,7 +39,7 @@ class PunctuationScopeTests(unittest.TestCase):
         self.assertEqual(self.findings('实验结果可靠，因此可以完成检测。'), [])
 
     def test_chinese_prose_with_an_english_period_still_checks_commas(self):
-        self.assertEqual(len(self.findings('实验结果可靠,因此可以完成检测.')), 1)
+        self.assertEqual([f['token'] for f in self.findings('实验结果可靠,因此可以完成检测.')], [',', '.'])
 
     def test_front_matter_labels_and_split_declarations_remain_checked(self):
         for text in ['姓    名:张三', '导师:李四教授', '学科/专业名称:计算机技术',

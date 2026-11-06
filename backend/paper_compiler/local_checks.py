@@ -11,6 +11,7 @@ _CODES = set('M J N C D R S P EB A CM DS PP G GI CP DB Z'.split())
 _MEDIA = {'MT', 'DK', 'CD', 'OL', 'MM'}
 _YEAR = re.compile(r'(?<!\d)(?:1[5-9]|20)\d{2}(?!\d)')
 _PUNCT = re.compile(r'(?<=[\u4e00-\u9fff])\s*([,;:!?])\s*(?=[\u4e00-\u9fff])')
+_ZH_PERIOD = re.compile(r'(?<=[\u4e00-\u9fff])\s*(\.)(?!\s*\.)(?=[\u4e00-\u9fff\s”’"）)]|$)')
 _KEYWORD_LABEL = re.compile(r'(?:关键词|关键字)\s*[:：]\s*(.*)', re.I | re.S)
 _TERM_SPLIT = re.compile(r'[；;，,、]')
 _FRONT_TEXT = {'摘要', '中文摘要', 'abstract', '目录', '目次', 'contents', 'tableofcontents'}
@@ -207,11 +208,12 @@ def punctuation_prose(node, pages):
     text = node['text']
     front_label = re.match(r'^(?:姓名|名|导师|师|学院|院系|系|学科(?:/专业)?(?:名称)?|学位类型|申请学位)[:：]', compact(text))
     declaration = re.match(r'^本人(?:郑重声明|同意学校)', compact(text))
-    if not (front_label or declaration or re.search(r'[。！？]|[\u4e00-\u9fff]\.(?:\s|$)', text) or english_prose(text)):
+    if not (front_label or declaration or re.search(r'[。！？]', text) or _ZH_PERIOD.search(text) or english_prose(text)):
         return False
-    if re.search(r'https?://|www\.|[`=<>{}|←→⊲▹]|//|(?m:^\s*(?:#|\d+\s*[:：]))|'
+    if re.search(r'https?://|www\.|[`<>{}|⊲▹]|//|(?m:^\s*(?:#|\d+\s*[:：]))|'
                  r'(?m:^\s*[\[［]\d+[\]］])|[A-Za-z_]\w*\s*:\s*(?:true|false|null|None)\b|'
-                 r'\b(?:Input|Output|Require|Ensure|return|foreach|end\s+for)\b|'
+                 r'(?m:^\s*(?:Input|Output|Require|Ensure)\s*[:：])|'
+                 r'(?m:^\s*(?:foreach|end\s+for)\b)|'
                  r'(?:输入|输出|参数|初始化|扩展|相关性)\s*[:：]|'
                  r'(?:系统指令|初始问题|角色设定|角色目标)\s*[:：]|\bCase\s*\d+|'
                  r'(?:原告|被告).{0,12}诉称|本院认为|书记员|'
@@ -238,6 +240,10 @@ def punctuation_literals(text):
     """Quoted data and bracketed technical notation retain their separators."""
     ranges = [(m.start(), m.end()) for m in re.finditer(r'"[^\"]*"|[“”][^“”]*[“”]|‘[^’]*’|错误[!！]\s*未定义书签[。.]?', text)]
     ranges.extend((m.start(), m.end()) for m in re.finditer(r'“[^”\n]*”', text))
+    ranges.extend((m.start(), m.end()) for m in re.finditer(r'(?m:^\s*[一二三四五六七八九十]+\.)', text))
+    # Inline mathematics does not make later sentences in a merged paragraph code.
+    # Keep the existing operator exclusion within its Chinese sentence instead.
+    ranges.extend(m.span() for m in re.finditer(r'[^。！？]*[=←→][^。！？]*(?:[。！？]|$)', text))
     pairs = dict(zip('([（［⟨〈', ')]）］⟩〉'))
     stack = []
     for index, char in enumerate(text):
@@ -448,6 +454,7 @@ def detect_ir(ir, selected_rules=RULES):
             text = node['text']
             literals = punctuation_literals(text)
             matches = [(match, False) for match in _PUNCT.finditer(text)]
+            matches.extend((match, False) for match in _ZH_PERIOD.finditer(text))
             if english_prose(text):
                 matches.extend((match, True) for match in _EN_PUNCT.finditer(text))
             for match, english in matches:
@@ -459,7 +466,7 @@ def detect_ir(ir, selected_rules=RULES):
                 if any(start <= match.start(1) < end for start, end in literals):
                     continue
                 mark = match.group(1)
-                replacements = dict(zip('，；：！？。', ',;:!?.')) if english else dict(zip(',;:!?', '，；：！？'))
+                replacements = dict(zip('，；：！？。', ',;:!?.')) if english else dict(zip(',;:!?.', '，；：！？。'))
                 replacement = replacements[mark]
                 name = dict(zip(',;:!?.', ['逗号', '分号', '冒号', '感叹号', '问号', '句号']))[replacement if english else mark]
                 source_language, target_language = ('中文', '英文') if english else ('英文', '中文')
