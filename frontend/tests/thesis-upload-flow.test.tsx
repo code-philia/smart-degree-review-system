@@ -222,7 +222,7 @@ it('updates real report progress while keeping report completion controlled by t
   const progress = screen.getByRole('region', { name: '检测任务状态' });
   const liveReport = screen.getByRole('region', { name: '实时检测报告' });
   const instructions = screen.getByRole('complementary', { name: '检测说明' });
-  expect(progress.compareDocumentPosition(instructions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(instructions.compareDocumentPosition(progress) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(progress.compareDocumentPosition(liveReport) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(within(liveReport).queryByRole('progressbar')).not.toBeInTheDocument();
   expect(screen.getByRole('region', { name: '论文上传与检测设置' })).toBeInTheDocument();

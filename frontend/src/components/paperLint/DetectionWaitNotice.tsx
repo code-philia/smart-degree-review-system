@@ -24,7 +24,6 @@ export function DetectionWaitNotice({eta,notification}:{eta?:PaperLintEta|null;n
       <p>无需停留在此页面，后台检测将继续进行。</p>
       {canEmail?<p className="mt-1 break-all text-xs leading-5 text-slate-500">接收邮箱：<span>{notification.email}</span></p>
         :notification&&!notification.delivery_available?<span className="mt-1 inline-block rounded-md bg-slate-100 px-2 text-xs leading-6 text-slate-500">邮件通知暂未开通</span>:null}
-      {eta?.status==='available'?<p className="mt-1 text-xs leading-5 text-slate-500">时间根据历史任务及当前排队情况估算，实际用时可能变化。</p>:null}
     </div>
   </div>;
 }

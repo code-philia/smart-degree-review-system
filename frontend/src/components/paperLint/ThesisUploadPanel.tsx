@@ -4,15 +4,12 @@ import { DetectionPageHeader } from './DetectionPageHeader';
 import type { PaperLintRule } from '../../api/paperLint';
 import { Button } from '../ui';
 import {DetectionWaitNotice} from './DetectionWaitNotice';
-import {CompletionEmailSettings} from './CompletionEmailSettings';
 import type {PaperLintEta} from '../../api/paperLint';
 import type {CompletionNotification} from '../../api/reportNotifications';
 
 type Props = {
   eta?:PaperLintEta|null;
   notification?:CompletionNotification|null;
-  userId?:string;
-  onNotificationChange?:(value:CompletionNotification)=>void;
   rules: PaperLintRule[];
   selectedRuleIds: string[];
   onSelectionChange: (ids: string[]) => void;
@@ -68,7 +65,7 @@ function DetectionProgress({
     : stages[phase];
   const circumference = 2 * Math.PI * 42;
   return (
-    <section aria-label="检测任务状态" className="mt-5 rounded-2xl border border-[#d7e3f5] bg-white p-5 shadow-[0_10px_30px_-22px_rgba(27,53,89,.22)] sm:p-6">
+    <section aria-label="检测任务状态" className="rounded-2xl border border-[#d7e3f5] bg-white p-5 shadow-[0_10px_30px_-22px_rgba(27,53,89,.22)] sm:p-6">
       {!uploading?<DetectionWaitNotice eta={eta} notification={notification}/>:null}
       <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-center">
         <div
@@ -204,7 +201,6 @@ export function ThesisUploadPanel(props: Props) {
   return (
     <div className="mx-auto w-full max-w-6xl space-y-5">
       <DetectionPageHeader title="论文上传" description="上传 PDF 论文，选择检测规则并生成报告。" showEyebrow={false} />
-      {running ? <div ref={progressRef}><DetectionProgress {...props}/></div> : null}
 
       <section
         aria-label="论文上传与检测设置"
@@ -430,7 +426,6 @@ export function ThesisUploadPanel(props: Props) {
           ) : null}
         </section>
 
-        {props.userId&&props.onNotificationChange?<CompletionEmailSettings userId={props.userId} busy={busy} onChange={props.onNotificationChange}/>:null}
         <div className="border-t border-slate-100 bg-[#fbfcfe] px-[18px] py-4 sm:px-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="flex items-center gap-1.5 text-xs text-slate-500">
@@ -488,6 +483,7 @@ export function ThesisUploadPanel(props: Props) {
           3 次，请提前确认论文版本、合理勾选检测规则。检测结果仅供参考，系统尚在测试中，欢迎通过“使用反馈”提出建议。
         </p>
       </aside>
+      {running ? <div ref={progressRef}><DetectionProgress {...props}/></div> : null}
     </div>
   );
 }
