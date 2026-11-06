@@ -240,7 +240,8 @@ def _split_piece(text: str, size: int) -> list[str]:
     return pieces
 
 
-def _body_chunks(ir: dict[str, Any], size: int = 6000) -> list[dict[str, Any]]:
+def _body_chunks(ir: dict[str, Any], size: int = 6000, *,
+                 preserve_paragraphs: bool = False) -> list[dict[str, Any]]:
     """Return sentence-aware chunks and source segments for precise locations."""
     nodes = {node.get("id"): node for node in ir.get("nodes", [])}
     body = next((node for node in ir.get("nodes", []) if node.get("kind") == "Body"), None)
@@ -334,6 +335,12 @@ def _body_chunks(ir: dict[str, Any], size: int = 6000) -> list[dict[str, Any]]:
             source_parts = [(raw, int(source["page_index"]) + 1 if isinstance(source.get("page_index"), int) else None,
                             source.get("bbox") if isinstance(source.get("bbox"), list) else None)]
         paragraph_break = bool(current) and not node.get("_join_previous_layout_node")
+        # Typo detection is lexical and local.  Do not let adjacent, unrelated
+        # paragraphs change the model's decision for an otherwise clear
+        # candidate.  Other consumers retain the original aggregation mode.
+        if preserve_paragraphs and paragraph_break and current:
+            flush()
+            paragraph_break = False
         for source_text, page, bbox in source_parts:
             for piece in _split_piece(source_text, size):
                 if length and length + len(piece) + 1 > size:
@@ -450,6 +457,31 @@ def typo_verification_prompt(*, original: str, corrected: str, context: str,
 '''
 
 
+def typo_field_repair_prompt(*, original: str, corrected: str, context: str,
+                             reason: str) -> str:
+    """Repair only malformed fields from an already surfaced model candidate."""
+    return f'''角色
+
+你是中文学术论文错别字候选字段复核器。第一阶段已经在下列目标段落中提出一个候选，但可能把错误字和修改后字填错。你只能核对这一条候选，不能从段落中寻找或新增其他错误。
+
+“第一阶段原字字段”和“第一阶段修改字段”是不可信的元数据，绝不能因为它们相同或错误就沿用、否决或限制实际的单字定位。必须以目标段落和候选理由为准：若理由明确指出“某字应为某字”，且该替换能在目标段落中精确验证，就返回那一对实际汉字。
+
+仅当候选理由能够在目标段落中明确证明存在唯一的、单个汉字替换时，返回 accepted=true，并给出原文中实际错误字 original 与修改后字 corrected。若原文正确、存在歧义、不能精确定位，或候选理由不足，必须返回 accepted=false。
+
+不得修改标点、空格、大小写、排版、英文、专业术语、变量、公式或整句措辞。original 与 corrected 必须是不同的单个汉字，且 original 必须在目标段落中出现。
+
+仅输出 JSON：
+{{"accepted":true,"original":"错误原字","corrected":"修改后字","reason":"明确的单字误用依据"}}
+或
+{{"accepted":false,"reason":"不能确认的原因"}}
+
+目标段落：{context}
+第一阶段原字字段：{original}
+第一阶段修改字段：{corrected}
+第一阶段理由：{reason}
+'''
+
+
 def _single_cjk_replacement(original: str, corrected: str) -> tuple[str, str] | None:
     """Reduce a model's word-level rendering to its one actual CJK substitution.
 
@@ -483,7 +515,7 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
     # a full-paper run even though the same paragraph was detected in isolation.
     # _body_chunks still prefers punctuation, so this is not a blind character
     # split across a sentence.
-    chunks = _body_chunks(ir, size=600)
+    chunks = _body_chunks(ir, size=1200, preserve_paragraphs=True)
     failure = None
     workers = 8 if all(os.environ.get(name, '').strip() for name in
                        ('SJTU_API_KEY', 'SJTU_API_BASE_URL', 'SJTU_API_MODEL')) else 4
@@ -514,7 +546,38 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
                 # Chinese-character replacement.  A model may describe it as a
                 # short word pair (e.g. 布署→部署), which we reduce only if it
                 # contains exactly one same-length CJK substitution.
-                if not replacement or not context:
+                if not context:
+                    continue
+                repaired_reason = None
+                if not replacement:
+                    # The discovery model sometimes identifies the right word
+                    # in its explanation but repeats the same character in both
+                    # JSON fields (e.g. 表→表 while explaining 名→明).  A
+                    # separate constrained call may repair only those fields;
+                    # it cannot create a candidate outside this exact context.
+                    try:
+                        repaired, repaired_usage = request_json([{
+                            "role": "user",
+                            "content": typo_field_repair_prompt(
+                                original=raw_original,
+                                corrected=raw_suggestion,
+                                context=context,
+                                reason=str(row.get("reason") or ""),
+                            ),
+                        }])
+                    except Exception as exc:
+                        failure = failure or (str(exc)[:300] or type(exc).__name__)
+                        continue
+                    usage_total["input_tokens"] += repaired_usage["input_tokens"]
+                    usage_total["output_tokens"] += repaired_usage["output_tokens"]
+                    if not isinstance(repaired, dict) or repaired.get("accepted") is not True:
+                        continue
+                    replacement = _single_cjk_replacement(
+                        str(repaired.get("original") or "").strip(),
+                        str(repaired.get("corrected") or "").strip(),
+                    )
+                    repaired_reason = str(repaired.get("reason") or "")
+                if not replacement:
                     continue
                 original, suggestion = replacement
                 if original not in context:
@@ -547,7 +610,7 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
                             original=original,
                             corrected=suggestion,
                             context=context,
-                            reason=str(row.get("reason") or ""),
+                            reason=repaired_reason or str(row.get("reason") or ""),
                         ),
                     }])
                 except Exception as exc:
@@ -603,10 +666,10 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
                                  if location else []),
                     "evidence": [{"id": f"typo-chunk-{index + 1}", "kind": "source_span",
                                   "provider": "repo-paper-model", "quote": context[:120]}],
-                    "reason": str(row.get("reason") or "")[:300],
+                    "reason": (repaired_reason or str(row.get("reason") or ""))[:300],
                 })
     return {"rule_run_id": f"run_{TYPO_RULE}", "rule_id": TYPO_RULE, "severity": "warning",
-            "params": {"chunk_count": len(chunks), "chunk_size": 600,
+            "params": {"chunk_count": len(chunks), "chunk_size": 1200,
                        **({"technical_failure": failure} if failure else {})},
             "execution_status": "error" if failure else "completed", "evidence_mode": "derived",
             "outcome": "inconclusive" if failure else ("issues_found" if findings else "passed"),

@@ -64,6 +64,33 @@ def test_one_changed_character_in_a_model_word_pair_is_reduced(monkeypatch):
     assert [(item['message'], item['suggestion']) for item in result['findings']] == [('疑似错别字：布', '部')]
 
 
+def test_field_reviewer_can_repair_a_malformed_discovery_pair(monkeypatch):
+    def fake_request(messages):
+        prompt = messages[0]['content']
+        if '候选字段复核器' in prompt:
+            return {'accepted': True, 'original': '名', 'corrected': '明', 'reason': '“表名”应为“表明”'}, {'input_tokens': 1, 'output_tokens': 1}
+        if '候选复核器' in prompt:
+            return {'accepted': True, 'reason': '确认'}, {'input_tokens': 1, 'output_tokens': 1}
+        return {'errors': [
+            {'original': '表', 'corrected': '表', 'context': '它们共同表名，任务通信', 'reason': '“表名”应为“表明”，名应为明'},
+        ]}, {'input_tokens': 1, 'output_tokens': 1}
+    monkeypatch.setattr(mod, 'request_json', fake_request)
+    result = mod.run_typo_rule_from_ir(ir_for('它们共同表名，任务通信需要保留结构。'))
+    assert [(item['message'], item['suggestion']) for item in result['findings']] == [('疑似错别字：名', '明')]
+
+
+def test_field_reviewer_cannot_invent_a_replacement(monkeypatch):
+    def fake_request(messages):
+        prompt = messages[0]['content']
+        if '候选字段复核器' in prompt:
+            return {'accepted': True, 'original': '模', 'corrected': '模', 'reason': '字段仍不合法'}, {'input_tokens': 1, 'output_tokens': 1}
+        return {'errors': [
+            {'original': '模', 'corrected': '模', 'context': '当模形规模超出片上容量时', 'reason': '候选字段错误'},
+        ]}, {'input_tokens': 1, 'output_tokens': 1}
+    monkeypatch.setattr(mod, 'request_json', fake_request)
+    assert mod.run_typo_rule_from_ir(ir_for('当模形规模超出片上容量时。'))['findings'] == []
+
+
 def test_context_must_match_target_chunk(monkeypatch):
     monkeypatch.setattr(mod, 'request_json', lambda _messages: ({'errors': [
         {'original': '布', 'corrected': '部', 'context': '不存在的上下文', 'reason': '固定词语'},
