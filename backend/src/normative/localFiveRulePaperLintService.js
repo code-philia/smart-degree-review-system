@@ -12,7 +12,7 @@ const LOCAL_RULES = listRuleDefinitions({ family: 'local_pdf' })
   .filter((rule) => rule.exposed_to_legacy_catalog !== false)
   .map((rule) => ({
     ...rule,
-    default_severity: 'warning',
+    default_severity: rule.default_severity || 'warning',
     source: 'sjtu-local',
     repair_supported: rule.repair_surfaces.includes('paper_lint'),
     available: true,

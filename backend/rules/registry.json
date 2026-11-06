@@ -241,6 +241,7 @@
       "rule_id": "required_section_completeness_check",
       "number": 34,
       "title": "核心章节完整性",
+      "default_severity": "error",
       "description": "按国标检查论文必备组成部分，兼容空格与拆字标题。",
       "family": "local_pdf",
       "runner": "fast_local_detector",

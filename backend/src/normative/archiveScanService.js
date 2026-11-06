@@ -37,7 +37,7 @@ async function runArchiveRules(pdfPath, ruleIds) {
   const parts = [unavailableResult, localResult, sixResult, compilerResult].filter(Boolean);
   const result = parts.length > 1 ? mergePaperLintResults(parts[0], {rule_runs:parts.slice(1).flatMap(p=>p.rule_runs)}, ruleIds)
     : parts[0] || { type: 'paper_lint', paper_title: '归档论文', rule_runs: [], summary: summarizeRuleRuns([]) };
-  return attachCoreStructure(result, admission);
+  return attachCoreStructure(result, admission, ruleIds);
 }
 function problem(status, message) {
   const error = new Error(message);

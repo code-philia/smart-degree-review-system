@@ -251,13 +251,14 @@ describe('durable MinerU paper-lint jobs', () => {
     expect(service.runPaperLint).toHaveBeenCalledTimes(before);
   });
 
-  it.each([false, true])('keeps core findings live and saved when incrementally retrying a dependent rule (explicit core selection: %s)', async (explicitCore) => {
+  it.each([false, true])('deduplicates core findings live and saved unless explicitly selected (%s)', async (explicitCore) => {
     const reports = require('../src/normative/paperLintReportRepository');
     const core = { rule_id: 'required_section_completeness_check', rule_run_id: 'background-core', severity: 'warning',
       execution_status: 'completed', outcome: 'issues_found', params: { automatic_core_check: true },
-      findings: [{ finding_id: 'missing-cn', rule_id: 'required_section_completeness_check', message: '缺少中文摘要' }] };
+      findings: [{ finding_id: 'missing-cn', rule_id: 'required_section_completeness_check', core_section: '摘要', message: '缺少中文摘要' }] };
     const keyword = { rule_id: 'keyword_count_check', rule_run_id: 'no-keywords', severity: 'info',
-      execution_status: 'unsupported', outcome: 'inconclusive', findings: [], message: '缺少中文摘要，无法检查关键词数量' };
+      execution_status: 'unsupported', outcome: 'inconclusive', params: { core_structure_sections: ['摘要'] },
+      findings: [], message: '缺少中文摘要，无法检查关键词数量' };
     const kept = { rule_id: 'sjtu_rule_31', rule_run_id: 'kept-reference-format', severity: 'warning',
       execution_status: 'completed', outcome: 'passed', findings: [] };
     const selectedIds = ['keyword_count_check', 'sjtu_rule_31', ...(explicitCore ? [core.rule_id] : [])];
@@ -274,10 +275,17 @@ describe('durable MinerU paper-lint jobs', () => {
     await jobs.waitForIdle();
     const saved = await reports.findPaperLintReportByIdForUser(job.job_id, 'student01');
     expect(saved.selected_rule_ids).toEqual(selectedIds);
-    expect(saved.result.rule_runs.find(run => run.rule_id === core.rule_id)).toMatchObject({
-      params: { automatic_core_check: true }, findings: expect.arrayContaining([expect.objectContaining({ message: '缺少中文摘要' })]) });
     expect(saved.result.rule_runs).toContainEqual(kept);
     const state = await jobs.getForUser(job.job_id, 'student01');
+    if (!explicitCore) {
+      expect(saved.result.rule_runs.some(run=>run.rule_id===core.rule_id)).toBe(false);
+      expect(state.progress.rule_runs.some(run=>run.rule_id===core.rule_id)).toBe(false);
+      expect(state.progress.total_rule_ids).not.toContain(core.rule_id);
+      return;
+    }
+    expect(saved.result.rule_runs.find(run => run.rule_id === core.rule_id)).toMatchObject({
+      severity: 'error', params: { automatic_core_check: true },
+      findings: expect.arrayContaining([expect.objectContaining({ message: '缺少中文摘要' })]) });
     expect(state.progress.total_rule_ids).toContain(core.rule_id);
     expect(state.progress.rule_runs.filter(run => run.rule_id === core.rule_id)).toHaveLength(1);
     const liveMessages = state.progress.rule_runs.find(run => run.rule_id === core.rule_id).findings.map(f => f.message);
@@ -286,4 +294,28 @@ describe('durable MinerU paper-lint jobs', () => {
   });
 
 
+  it('reruns an automatic-only core result when core is newly selected during incremental checking', async () => {
+    const reports = require('../src/normative/paperLintReportRepository');
+    const coreId = 'required_section_completeness_check';
+    const conclusion = { finding_id: 'mandatory_core_结论', core_section: '结论', message: '缺少结论' };
+    const abstract = { finding_id: 'native-cn', core_section: '摘要', message: '缺少中文摘要' };
+    const automatic = { rule_id: coreId, severity: 'error', execution_status: 'completed',
+      outcome: 'issues_found', params: { automatic_core_check: true }, findings: [conclusion] };
+    const keyword = { rule_id: 'keyword_count_check', severity: 'info', execution_status: 'unsupported',
+      outcome: 'inconclusive', params: { core_structure_sections: ['摘要'] }, findings: [] };
+    const source = await reports.createPaperLintReport({ userId: 'student01', sourceFilename: 'partial-add-core.pdf', pdfBuffer: pdf,
+      selectedRuleIds: [keyword.rule_id], result: { ...result, rule_runs: [keyword, automatic] } });
+    service.runPaperLint.mockImplementationOnce(async ({ selectedRuleIds, onProgress }) => {
+      const runs = [keyword, selectedRuleIds.includes(coreId)
+        ? { ...automatic, params: null, findings: [abstract, conclusion] } : automatic];
+      await onProgress({ completed_rule_ids: runs.map(r=>r.rule_id), total_rule_ids: selectedRuleIds, rule_runs: runs });
+      return { selectedRuleIds, result: { ...result, rule_runs: runs } };
+    });
+    const job = await jobs.enqueueIncremental({ userId: 'student01', reportId: source.id,
+      selectedRuleIds: [coreId], requestId: 'newly-selected-core' });
+    await jobs.waitForIdle();
+    const saved = await reports.findPaperLintReportByIdForUser(job.job_id, 'student01');
+    expect(saved.result.rule_runs.find(r=>r.rule_id===coreId).findings.map(f=>f.message))
+      .toEqual(['缺少中文摘要', '缺少结论']);
+  });
 });

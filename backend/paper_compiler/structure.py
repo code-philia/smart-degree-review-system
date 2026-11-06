@@ -75,6 +75,48 @@ def _rows(page, *, with_source=False):
     return normalized if with_source else [line['text'] for line in normalized]
 
 
+def _contents_page(page):
+    """Require a contents title or several title/leader/page-number entries.
+
+    Repeated ellipses in code and diagrams are not contents entries. PDF text
+    extraction may split a real entry's title, leaders and page number, so also
+    examine fragments sharing a physical baseline.
+    """
+    rows = _rows(page, with_source=True)
+    if any(re.sub(r'\s+', '', row['text']).lower() in
+           {'目录', '目次', 'contents', 'tableofcontents'} for row in rows):
+        return True
+    if not any(_LEADER.search(row['text']) for row in rows):
+        return False
+    candidates = [row['text'] for row in rows]
+    groups = []
+    for row in sorted((row for row in rows if row.get('bbox')),
+                      key=lambda row: (row['bbox'][1], row['bbox'][0])):
+        box = row['bbox']
+        group = next((items for items in reversed(groups)
+                      if abs(items[0]['bbox'][1] - box[1]) <= 3
+                      or abs(items[0]['bbox'][3] - box[3]) <= 3), None)
+        if group is None:
+            groups.append([row])
+        else:
+            group.append(row)
+    candidates.extend(' '.join(row['text'] for row in sorted(group, key=lambda row: row['bbox'][0]))
+                      for group in groups if len(group) > 1)
+    entries = set()
+    for text in candidates:
+        start = 0
+        for leader in _LEADER.finditer(text):
+            title = text[start:leader.start()].strip()
+            number = re.match(r'\s*(\d{1,4}|[ivxlcdm]{1,8})(?=\s|$)', text[leader.end():], re.I)
+            start = leader.end() + (number.end() if number else 0)
+            if (not number or len(re.findall(r'[\u3400-\u9fffA-Za-z]', title)) < 2
+                    or re.search(r'[=<>%{}\[\];]', title)
+                    or re.match(r'^(?:for|while|if|return)\b', title, re.I)):
+                continue
+            entries.add(re.sub(r'\s+', '', title + number[1]))
+    return len(entries) >= 4
+
+
 def has_bilingual_abstract_bodies(pages):
     """Recover paired abstracts whose titles do not identify their language.
 
@@ -86,7 +128,7 @@ def has_bilingual_abstract_bodies(pages):
     for index, page in enumerate(pages):
         texts = _rows(page)
         compact = {re.sub(r'\s+', '', text).lower() for text in texts}
-        if compact & {'目录', '目次', 'contents', 'tableofcontents'} or sum(bool(_LEADER.search(text)) for text in texts) >= 4:
+        if _contents_page(page):
             break
         if any(_INTRO.fullmatch(_NUMBER.sub('', text).strip()) for text in texts):
             break
@@ -126,7 +168,7 @@ def abstract_sections(pages, profile):
                 texts[-1]['text'] += ' ' + source['text']
             else:
                 texts.append(source)
-        if sum(bool(_LEADER.search(row['text'])) for row in texts) >= 4:
+        if _contents_page(page):
             break
         sizes = [row['font_size'] for row in texts if row.get('font_size', 0) > 0]
         normal_size = median(sizes) if sizes else 0
@@ -244,10 +286,7 @@ def assess_structure(pages, identity):
             if prefix:
                 styles[index, text] = styles.get((index, prefix), (0, False))
     compact = lambda text: re.sub(r'\s+', '', text).lower()
-    contents_pages = {index for index, text in rows if compact(text) in {'目录', '目次', 'contents', 'tableofcontents'}}
-    for index, page in enumerate(pages):
-        if sum(bool(_LEADER.search(text)) for text in _rows(page)) >= 4:
-            contents_pages.add(index)
+    contents_pages = {index for index, page in enumerate(pages) if _contents_page(page)}
     def heading_text(text):
         value = _NUMBER.sub('', text).strip()
         return re.sub(r'\s+', '', value) if re.search(r'[\u3400-\u9fff]', value) else value

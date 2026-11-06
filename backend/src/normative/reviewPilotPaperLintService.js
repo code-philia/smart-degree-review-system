@@ -11,7 +11,7 @@ const { runPaperLintRuleGroups, settleRuleTasks } = require('./paperLintRuleRunn
 const { createRuleProgressStream } = require('./paperLintRuleProgress');
 const { listRuleDefinitions } = require('../../rules/registry');
 const { assessPaperDocument, documentRejectionResult } = require('./paperDocumentAdmission');
-const { CORE_RULE_ID, coreStructureRun, mergeCoreRuns, attachCoreStructure, unavailableRuleRuns } = require('./paperStructureChecks');
+const { CORE_RULE_ID, coreStructureRun, mergeCoreRuns, attachCoreStructure, unavailableRuleRuns, dedupeCorePrerequisites } = require('./paperStructureChecks');
 
 const RETIRED_RULE_IDS = new Set([
   'claim_evidence_inconsistency_check',
@@ -343,6 +343,9 @@ function mergePaperLintResults(existingResult, localResult, selectedRuleIds) {
     runsById.set(run.rule_id, run.rule_id === CORE_RULE_ID && previous
       && (previous.params?.automatic_core_check || run.params?.automatic_core_check) ? mergeCoreRuns(previous, run) : run);
   }
+  const visible = dedupeCorePrerequisites([...runsById.values()], selectedRuleIds);
+  runsById.clear();
+  for (const run of visible) runsById.set(run.rule_id, run);
   const ids = [...selectedRuleIds];
   if (runsById.get(CORE_RULE_ID)?.params?.automatic_core_check && !ids.includes(CORE_RULE_ID)) ids.push(CORE_RULE_ID);
   const ruleRuns = ids.map((ruleId) => {
@@ -403,9 +406,9 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
         // not turn into a blanket failure: run rules whose evidence does not
         // require that section and make the dependency explicit for the rest.
         const partialStructure = admission.stage === 'partial';
-        const automaticCore = normalizedRuleIds.includes(CORE_RULE_ID) ? null : coreStructureRun(admission);
-        const effectiveRuleIds = [...normalizedRuleIds, ...(automaticCore ? [CORE_RULE_ID] : [])];
         const unavailableRuns = unavailableRuleRuns(admission, normalizedRuleIds);
+        const automaticCore = normalizedRuleIds.includes(CORE_RULE_ID) ? null : coreStructureRun(admission, unavailableRuns);
+        const effectiveRuleIds = [...normalizedRuleIds, ...(automaticCore ? [CORE_RULE_ID] : [])];
         const unavailableRuleIds = unavailableRuns.map(run => run.rule_id);
         const runnableRuleIds = normalizedRuleIds.filter((ruleId) => !unavailableRuleIds.includes(ruleId));
         const bilingualRuleIds = runnableRuleIds.filter((ruleId) => BILINGUAL_RULE_IDS.has(ruleId));
@@ -417,7 +420,8 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
         let progressWrites = Promise.resolve();
         const reportProgress = (ruleIds, result) => {
           const fresh = (result?.rule_runs || []).filter(run => ruleIds.includes(run.rule_id) && !completedRuleIds.includes(run.rule_id))
-            .map(run => run.rule_id === CORE_RULE_ID ? mergeCoreRuns(run, coreStructureRun(admission)) : run);
+            .map(run => run.rule_id === CORE_RULE_ID && normalizedRuleIds.includes(CORE_RULE_ID)
+              ? mergeCoreRuns(run, coreStructureRun(admission)) : run);
           if (!fresh.length) return progressWrites;
           completedRuleIds.push(...fresh.map(run => run.rule_id));
           completedRuns.push(...fresh);
@@ -489,7 +493,7 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
         // Preserve the admission proof in successful reports too.  In partial
         // mode the UI needs this to explain why a reference-dependent rule was
         // unavailable, rather than presenting it as a silent detector failure.
-        return { result: attachCoreStructure(result, admission), selectedRuleIds: normalizedRuleIds };
+        return { result: attachCoreStructure(result, admission, normalizedRuleIds), selectedRuleIds: normalizedRuleIds };
       } finally {
         await fs.promises.rm(tempDir, { recursive: true, force: true });
       }

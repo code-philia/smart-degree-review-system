@@ -278,3 +278,41 @@ def test_intro_summary_subsection_cannot_replace_final_conclusion(tmp_path):
         doc[5].insert_text((50, 400), '1.5 总结', fontname='china-s', fontsize=16)
         doc.save(path)
     assert '结论' in assess_pdf(path)['missing_sections']
+
+
+@pytest.mark.parametrize('code_lines', [
+    ['...', '...', '...', '...', '...'],
+    ['for ci=0...3', 'for h=0...34', 'for w=0...34', 'for co=0...64'],
+    ['for i ...', 'for k ...', 'for j ...', 'S4: ...'],
+])
+def test_body_code_ellipses_cannot_supply_a_missing_contents_section(tmp_path, code_lines):
+    path = tmp_path / 'missing-contents-with-code.pdf'
+    with pymupdf.open(thesis(tmp_path, missing='目录')) as doc:
+        for index, text in enumerate(code_lines):
+            doc[5].insert_text((50, 400 + index * 20), text, fontsize=10)
+        doc.save(path)
+    assessment = assess_pdf(path)
+    assert assessment['status'] == 'rejected'
+    assert '目录' in assessment['missing_sections']
+    ir = build_paper(path, include_citations=False, allow_incomplete_structure=True)
+    assert ir['metadata']['document_admission']['stage'] == 'partial'
+
+
+@pytest.mark.parametrize('positioned,columns', [(False, 1), (True, 1), (True, 2)])
+def test_real_contents_leaders_without_title_remain_recognizable(tmp_path, positioned, columns):
+    path = tmp_path / 'untitled-contents.pdf'
+    with pymupdf.open(thesis(tmp_path, missing='目录')) as doc:
+        page = doc.new_page(pno=4)
+        for index, title in enumerate(['第一章 绪论', '第二章 方法研究', '第三章 实验评估', '第四章 结论']):
+            y=100+index*35
+            if positioned:
+                for column in range(columns):
+                    x=35+column*280
+                    page.insert_text((x,y),title,fontname='china-s',fontsize=9)
+                    page.insert_text((x+105,y),'....................',fontsize=9)
+                    page.insert_text((x+215,y),str(1+index*10+column*40),fontsize=9)
+            else:
+                page.insert_text((50,y),title+' .............. '+str(1+index*10),fontname='china-s')
+        doc.save(path)
+    assert assess_pdf(path)['status'] == 'accepted'
+    assert build_paper(path,include_citations=False)['metadata']['document_admission']['stage']=='complete'
