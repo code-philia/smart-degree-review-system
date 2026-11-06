@@ -131,10 +131,10 @@ function DetectionProgress({
           <li
             key={label}
             aria-current={index === phase ? 'step' : undefined}
-            className={`flex items-center gap-2 text-xs ${index === phase ? 'font-semibold text-brand-700' : index < phase ? 'text-slate-500' : 'text-slate-400'}`}
+            className={`flex items-center justify-center gap-2 text-xs ${index === phase ? 'font-semibold text-brand-700' : index < phase ? 'text-emerald-700' : 'text-slate-400'}`}
           >
             <span
-              className={`flex size-5 shrink-0 items-center justify-center rounded-full border ${index === phase ? 'border-brand-200 bg-brand-50 text-brand-700' : index < phase ? 'border-slate-200 bg-slate-50 text-slate-500' : 'border-slate-200 bg-white'}`}
+              className={`flex size-5 shrink-0 items-center justify-center rounded-full border ${index === phase ? 'border-brand-200 bg-brand-50 text-brand-700' : index < phase ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white'}`}
             >
               {index < phase ? <Check className="size-3" /> : index + 1}
             </span>
