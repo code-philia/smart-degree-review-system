@@ -150,7 +150,7 @@ it('submits default rules without expanding and redirects completed jobs to the 
   expect(localStorage.getItem('paper-lint-active-job:upload-student')).toBeNull();
 });
 
-it('uses upload events and backend pending/running states for progress, with no invented completion or email promise', async () => {
+it('keeps one task card through upload and queueing, with progress controlled by server state', async () => {
   let finishUpload!: (value: typeof pendingJob) => void;
   let uploadProgress!: (value: number) => void;
   vi.mocked(runReviewPilotPaperLint).mockImplementation((_file, _ids, _consent, _request, onUpload) => {
@@ -166,10 +166,15 @@ it('uses upload events and backend pending/running states for progress, with no 
   await choosePdf();
   fireEvent.click(screen.getByRole('button', { name: '开始检测', exact: true }));
   await act(async () => uploadProgress(37));
+  const taskCard=screen.getByRole('region',{name:'检测任务状态'});
+  const progressRing=screen.getByRole('progressbar',{name:'检测进度'});
+  expect(within(taskCard).getByText('系统正在检测中，检测完成后将通过邮件通知您')).toBeVisible();
   expect(screen.getByRole('progressbar', { name: '检测进度' })).toHaveAttribute('aria-valuetext', '正在上传，37%');
   await act(async () => finishUpload(pendingJob));
   expect(screen.getByRole('progressbar', { name: '检测进度' })).toHaveAttribute('aria-valuetext', '排队等待');
-  expect(screen.queryByText(/通过邮件/)).not.toBeInTheDocument();
+  expect(screen.getByRole('region',{name:'检测任务状态'})).toBe(taskCard);
+  expect(screen.getByRole('progressbar',{name:'检测进度'})).toBe(progressRing);
+  expect(screen.getAllByRole('region',{name:'检测任务状态'})).toHaveLength(1);
   expect(screen.queryByRole('heading', { name: /报告详情/ })).not.toBeInTheDocument();
 });
 

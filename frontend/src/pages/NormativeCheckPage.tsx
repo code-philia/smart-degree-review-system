@@ -16,7 +16,6 @@ import {
   type PaperLintRule,
   type PaperLintEta,
 } from '../api/paperLint';
-import {fetchCompletionNotification,type CompletionNotification} from '../api/reportNotifications';
 import { PaperLintWorkspace } from '../components/paperLint/Workspace';
 import { ThesisUploadPanel } from '../components/paperLint/ThesisUploadPanel';
 import { LivePaperLintReport } from '../components/paperLint/LivePaperLintReport';
@@ -149,14 +148,6 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   const [activeFilename, setActiveFilename] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<'pending' | 'running' | null>(null);
   const [eta,setEta]=useState<PaperLintEta|null>(null);
-  const [notification,setNotification]=useState<CompletionNotification|null>(null);
-  useEffect(()=>{
-    setNotification(null);
-    if(!isThirty||!user?.id)return;
-    let active=true;
-    void fetchCompletionNotification().then(value=>{if(active)setNotification(value);}).catch(()=>{});
-    return()=>{active=false;};
-  },[user?.id,isThirty]);
   const [jobProgress, setJobProgress] = useState<{ completed: number; total: number } | null>(null);
   const [semanticStage, setSemanticStage] = useState<0 | 1 | 2>(0);
   const [externalConsent, setExternalConsent] = useState(false);
@@ -576,7 +567,6 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   }
 
   if (isThirty) return <div className="space-y-6"><ThesisUploadPanel
-    notification={notification}
     eta={eta}
     rules={visibleRules}
     selectedRuleIds={selectedRuleIds}

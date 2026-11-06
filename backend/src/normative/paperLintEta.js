@@ -20,24 +20,46 @@ async function estimateJobEta(job, now=Date.now()) {
     return {min:Math.floor(durations[Math.floor((durations.length-1)*.25)]*.8),
       max:Math.ceil(durations[Math.ceil(durations.length*.75)-1]*1.25),samples:durations.length,durations};
   }
-  const own=range(job);
-  if(!own)return {status:'estimating',sample_count:0};
-  const elapsed=job.status==='running'&&job.started_at?Math.max(0,(now-Date.parse(job.started_at))/1000):0;
   function point(estimate,spent){
     const remaining=estimate.durations.filter(duration=>duration>spent);
     return Math.max(0,remaining.length?remaining[Math.floor(remaining.length/2)]-spent:estimate.max-spent);
   }
-  let min=Math.max(0,own.min-elapsed),max=Math.max(0,own.max-elapsed),remaining=point(own,elapsed);
-  if(job.status==='running'&&max===0)return {status:'overdue',sample_count:own.samples};
+  function timing(row){
+    const estimate=range(row);
+    const started=Date.parse(row.started_at||row.created_at);
+    const elapsed=row.status==='running'&&Number.isFinite(started)?Math.max(0,(now-started)/1000):0;
+    const selected=ids(row);
+    let completed=[];
+    try {completed=[...new Set(JSON.parse(row.progress_json)?.completed_rule_ids||[])].filter(id=>selected.includes(id));}catch{}
+    if(row.status!=='running')completed=[];
+    const updated=Date.parse(row.updated_at);
+    const idle=completed.length&&Number.isFinite(updated)?Math.max(0,(now-Math.max(Number.isFinite(started)?started:updated,updated))/1000):elapsed;
+    const pending=selected.filter(id=>!completed.includes(id));
+    const residual=completed.length&&pending.length?range({selected_rule_ids_json:JSON.stringify(pending)}):null;
+    const samples=Math.max(estimate?.samples||0,residual?.samples||0);
+    if(!estimate&&!completed.length)return null;
+    const historical=estimate?point(estimate,elapsed):0;
+    const measured=completed.length&&pending.length?elapsed*pending.length/completed.length:0;
+    const remainder=residual?point(residual,idle):measured;
+    // Extend the estimate from current work rate and time since progress when
+    // execution outlasts history, rather than freezing or stopping the ETA.
+    const tail=Math.max(30,(estimate?.durations[Math.floor(estimate.durations.length/2)]||0)*.25,idle*.5);
+    const saving=selected.length>0&&completed.length===selected.length;
+    const remaining=saving?Math.max(15,idle*.5):historical>0
+      ? completed.length&&remainder>0?(historical+remainder)/2:historical
+      :Math.max(remainder,measured,tail);
+    return {remaining:Math.max(1,remaining),min:Math.min(Math.max(0,(estimate?.min||0)-elapsed),remaining*.8),
+      max:Math.max(0,(estimate?.max||0)-elapsed,remaining*1.25),samples};
+  }
+  const own=timing(job);
+  if(!own)return {status:'estimating',sample_count:0};
+  let {min,max,remaining}=own;
   if(job.status==='pending'){
-    const ahead=await all(`SELECT selected_rule_ids_json,status,started_at FROM paper_lint_jobs
+    const ahead=await all(`SELECT selected_rule_ids_json,status,started_at,created_at,updated_at,progress_json FROM paper_lint_jobs
       WHERE id!=? AND cancelled_at IS NULL AND (status='running' OR (status='pending' AND rowid<(SELECT rowid FROM paper_lint_jobs WHERE id=?)))`,[job.id,job.id]);
     for(const queued of ahead){
-      const wait=range(queued);if(!wait)return {status:'estimating',sample_count:own.samples};
-      const spent=queued.status==='running'&&queued.started_at?Math.max(0,(now-Date.parse(queued.started_at))/1000):0;
-      // An already-overdue task ahead cannot provide a defensible queue ETA.
-      if(spent>=wait.max)return {status:'estimating',sample_count:own.samples};
-      min+=Math.max(0,wait.min-spent);max+=Math.max(0,wait.max-spent);remaining+=point(wait,spent);
+      const wait=timing(queued);if(!wait)return {status:'estimating',sample_count:own.samples};
+      min+=wait.min;max+=wait.max;remaining+=wait.remaining;
     }
   }
   return {status:'available',remaining_seconds:Math.ceil(remaining),min_seconds:Math.floor(min),max_seconds:Math.ceil(max),sample_count:own.samples};

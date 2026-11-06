@@ -66,7 +66,7 @@ async function recoverJobs() {
 
 async function claimJob(id) {
   const now=new Date().toISOString();
-  const changed = await run("UPDATE paper_lint_jobs SET status = 'running', attempts = attempts + 1, updated_at = ?, started_at = ? WHERE id = ? AND status = 'pending'",
+  const changed = await run("UPDATE paper_lint_jobs SET status = 'running', attempts = attempts + 1, updated_at = ?, started_at = ?, progress_json = NULL WHERE id = ? AND status = 'pending'",
     [now,now,id]);
   return changed.changes > 0;
 }

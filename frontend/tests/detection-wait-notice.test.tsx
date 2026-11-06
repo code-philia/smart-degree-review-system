@@ -1,23 +1,24 @@
 import {render,screen} from '@testing-library/react';
 import {expect,it} from 'vitest';
 import {DetectionWaitNotice} from '../src/components/paperLint/DetectionWaitNotice';
-it('makes the remaining-time estimate and completion email explicit',()=>{
-  render(<DetectionWaitNotice eta={{status:'available',min_seconds:180,max_seconds:420,remaining_seconds:360,sample_count:5}} notification={{email:'123090058@link.cuhk.edu.cn',fixed:true,delivery_available:true}}/>);
+it('shows the requested completion message and one numeric ETA',()=>{
+  render(<DetectionWaitNotice eta={{status:'available',min_seconds:180,max_seconds:420,remaining_seconds:360,sample_count:5}}/>);
   expect(screen.getByRole('status')).toHaveTextContent('系统正在检测中');
   expect(screen.getByText('预计还需约 6 分钟')).toBeVisible();
-  expect(screen.getByText('检测完成后将通过邮件通知您')).toBeVisible();
-  expect(screen.getByText('123090058@link.cuhk.edu.cn')).toBeVisible();
+  expect(screen.getByText('系统正在检测中，检测完成后将通过邮件通知您')).toBeVisible();
+  expect(screen.queryByText(/123090058/)).not.toBeInTheDocument();
 });
-it('does not promise email delivery before sending has been configured',()=>{
-  render(<DetectionWaitNotice eta={{status:'available',min_seconds:10,max_seconds:40,sample_count:4}} notification={{email:'123090058@link.cuhk.edu.cn',fixed:true,delivery_available:false}}/>);
+it('keeps the card free of mailbox settings and service configuration badges',()=>{
+  render(<DetectionWaitNotice eta={{status:'available',min_seconds:10,max_seconds:40,sample_count:4}}/>);
   expect(screen.getByText('预计 1 分钟内完成')).toBeVisible();
-  expect(screen.queryByText('检测完成后将通过邮件通知您')).not.toBeInTheDocument();
-  expect(screen.getByText(/邮件通知暂未开通/)).toBeVisible();
-  expect(screen.getByText(/无需停留在此页面/)).toBeVisible();
+  expect(screen.queryByText(/邮件通知暂未开通/)).not.toBeInTheDocument();
 });
-it('shows estimation and overtime states without a fabricated countdown',()=>{
+it('updates the minute value when the server revises its estimate',()=>{
   const {rerender}=render(<DetectionWaitNotice eta={{status:'estimating',sample_count:0}}/>);
   expect(screen.getByText('正在估算剩余时间')).toBeVisible();
-  rerender(<DetectionWaitNotice eta={{status:'overdue',sample_count:4}}/>);
-  expect(screen.getByText('用时比预计稍长，请耐心等待')).toBeVisible();
+  rerender(<DetectionWaitNotice eta={{status:'available',remaining_seconds:120,sample_count:4}}/>);
+  expect(screen.getByText('预计还需约 2 分钟')).toBeVisible();
+  rerender(<DetectionWaitNotice eta={{status:'available',remaining_seconds:240,sample_count:4}}/>);
+  expect(screen.getByText('预计还需约 4 分钟')).toBeVisible();
+  expect(screen.queryByText(/用时比预计稍长/)).not.toBeInTheDocument();
 });
