@@ -614,8 +614,25 @@ html {
 }
 
 /* Shared workspace styling intentionally leaves the PDF canvas and report geometry alone. */
+.academic-shell [data-slot='sidebar-inner'],
+[data-slot='sidebar'][data-mobile='true'] {
+  --sidebar: #122039;
+  --sidebar-foreground: #d2ddef;
+  --sidebar-primary: #5479df;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #213654;
+  --sidebar-accent-foreground: #f8faff;
+  --sidebar-border: #2b3c56;
+  --sidebar-ring: #9bbcff;
+  --sidebar-muted: #a4b5ce;
+  background: linear-gradient(180deg, #172a45 0%, var(--sidebar) 45%, #101c30 100%);
+  color: var(--sidebar-foreground);
+}
 .academic-shell [data-slot='sidebar-inner'] {
-  border-right: 1px solid #e6ebf3;
+  border-right: 1px solid var(--sidebar-border);
+}
+.academic-shell [data-slot='sidebar-container'] {
+  border-color: #2b3c56;
 }
 .academic-shell [data-slot='sidebar-menu-button'],
 [data-mobile='true'] [data-slot='sidebar-menu-button'] {
@@ -630,11 +647,24 @@ html {
 [data-mobile='true'] [data-slot='sidebar-group-label'] {
   font-size: 13px;
   letter-spacing: 0.02em;
-  color: #52627a;
+  color: var(--sidebar-muted);
 }
 .academic-shell [data-slot='sidebar-menu-button'][data-active='true'],
 [data-mobile='true'] [data-slot='sidebar-menu-button'][data-active='true'] {
-  box-shadow: inset 3px 0 0 #3561cc;
+  background-color: #24446d;
+  color: var(--sidebar-accent-foreground);
+  box-shadow: inset 3px 0 0 #8db5ff, inset 0 0 0 1px rgb(155 188 255 / 12%);
+}
+.academic-shell [data-slot='sidebar-menu-button'][data-active='true'] > svg,
+[data-mobile='true'] [data-slot='sidebar-menu-button'][data-active='true'] > svg {
+  color: #b5ceff;
+}
+.academic-shell [data-slot='sidebar-menu-button']:focus-visible,
+.academic-shell [data-slot='sidebar-group-label']:focus-visible,
+[data-mobile='true'] [data-slot='sidebar-menu-button']:focus-visible,
+[data-mobile='true'] [data-slot='sidebar-group-label']:focus-visible {
+  outline: 2px solid var(--sidebar-ring);
+  outline-offset: 2px;
 }
 .academic-shell .app-topbar {
   background: #ffffffdb;
