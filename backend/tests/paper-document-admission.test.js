@@ -26,6 +26,23 @@ it('does not prescribe thesis-only keywords to a research article', () => {
   expect(result.rule_runs[0].findings[0].suggestion).not.toContain('关键词');
 });
 
+it.each([
+  { missing_sections: ['摘要'], incomplete_sections: [], reason: '缺少中文摘要。', label: '缺少中文摘要' },
+  { missing_sections: ['英文摘要'], incomplete_sections: [], reason: '缺少英文摘要（Abstract）。', label: '缺少英文摘要（Abstract）' },
+  { missing_sections: [], incomplete_sections: ['摘要'], reason: '中文摘要不完整：未识别到本摘要的非空关键词收尾。', label: '中文摘要不完整' },
+  { missing_sections: [], incomplete_sections: ['英文摘要'], reason: '英文摘要（Abstract）不完整：未识别到本摘要的非空关键词收尾。', label: '英文摘要（Abstract）不完整' },
+])('keeps the specific cause in the report and progress summary: $label', assessment => {
+  const result = documentRejectionResult({ ...assessment, profile: 'chinese-thesis',
+    status: 'rejected', reason_code: 'paper_structure_incomplete' }, ['required_section_completeness_check', 'keyword_count_check']);
+  const run = result.rule_runs[0];
+  expect(run.message).toContain(assessment.label);
+  expect(run.findings[0].message).toContain(assessment.label);
+  expect(run.message).toContain('所有论文规则均未检测');
+  expect(run.findings[0].suggestion).toContain(assessment.label.replace(/^缺少/, '').replace(/不完整$/, ''));
+  expect(result.rule_runs).toHaveLength(1);
+  expect(result.summary).toMatchObject({ error_finding_count: 1, completed_rule_count: 0, rule_count: 0 });
+});
+
 it('keeps a malformed rejection payload from bypassing the severe blocked report', () => {
   const result = documentRejectionResult({ status: 'rejected', reason_code: 'paper_structure_incomplete',
     missing_sections: {}, incomplete_sections: null, reason: '结构校验失败。' }, ['sjtu_rule_18']);
@@ -76,7 +93,10 @@ else { console.error('DETECTOR MUST NOT RUN');process.exit(9); }
     expect(checked.result.rule_runs[0]).toMatchObject({ rule_id: 'document_type_check', severity: 'error',
       outcome: 'issues_found', execution_status: 'completed', findings: [expect.objectContaining({ severity: 'error' })] });
     expect(checked.result.summary).toMatchObject({ finding_count: 1, error_finding_count: 1, rule_count: 0, completed_rule_count: 0 });
-    if (mode === 'structure') expect(checked.result.rule_runs[0].findings[0].message).toContain('论文核心章节不完整，Paper Model 编译失败');
+    if (mode === 'structure') {
+      expect(checked.result.rule_runs[0].findings[0].message).toContain('缺少必需章节：结论。');
+      expect(checked.result.rule_runs[0].findings[0].message).toContain('Paper Model 编译失败');
+    }
     if (mode === 'rejected') expect(checked.result.document_validation.reason_code).toBe('non_paper_identity');
     expect(snapshots.at(-1).rule_runs.map(run => run.rule_id)).toEqual(['document_type_check']);
     const invoked = (await fs.readFile(calls, 'utf8')).trim().split('\n').map(row => JSON.parse(row));

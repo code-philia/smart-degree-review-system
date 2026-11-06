@@ -19,5 +19,13 @@ R6 checking an edited IR must use current nodes, not restore removed text from
 the original layout. User messages name missing versus incomplete sections and
 explain the observed evidence without calling a confirmed thesis a non-paper.
 
+For a Chinese thesis, report “缺少中文摘要” or “缺少英文摘要（Abstract）”
+when the respective abstract is absent. Name partial sections separately as
+“中文摘要不完整” / “英文摘要（Abstract）不完整” with the observed structural
+cause. English theses and research articles retain their own section profiles.
+Keep these specifics in both the run summary and severe finding. Show one
+overall explanation that compilation failed and all thesis rules were skipped;
+the user explicitly does not want an individual reason for each skipped rule.
+
 Work on fix/issue-8-abstract-completeness; test offline, review, merge to main,
 push and deploy externally. Campus deployment waits for VPN access.

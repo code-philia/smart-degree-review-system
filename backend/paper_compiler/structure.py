@@ -11,6 +11,15 @@ _LEADER = re.compile(r'(?:\.\s*){3,}|…|·{3,}')
 _BARE_CHAPTER = re.compile(r'^(?:第\s*[一二三四五六七八九十百\d\s]+章|chapter\s*\d+)$', re.I)
 
 
+def section_display_name(name, profile):
+    """Keep internal grammar keys stable while naming abstract languages clearly."""
+    if name == '英文摘要' or (name == '摘要' and profile == 'english-thesis'):
+        return '英文摘要（Abstract）'
+    if name == '摘要' and profile == 'chinese-thesis':
+        return '中文摘要'
+    return name
+
+
 def _section_key(text):
     chapter = re.match(r'^(第\s*[一二三四五六七八九十百\d\s]+章|chapter\s*\d+)', text, re.I)
     if chapter:

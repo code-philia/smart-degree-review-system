@@ -23,22 +23,32 @@ def paper(zh=None, en=None, article=False):
             page('第三章 结论', ZH), page('参考文献')]
 
 
-@pytest.mark.parametrize('part,kw', [('摘要', 'zh'), ('英文摘要', 'en')])
-def test_partial_abstract_is_incomplete_not_missing(part, kw):
+@pytest.mark.parametrize('part,kw,label', [('摘要', 'zh', '中文摘要'), ('英文摘要', 'en', '英文摘要（Abstract）')])
+def test_partial_abstract_is_incomplete_not_missing(part, kw, label):
     result = assess_document_pages(paper(**{kw: [page('摘要' if kw == 'zh' else 'Abstract', ZH if kw == 'zh' else EN)]}))
     assert result['status'] == 'rejected'
     assert part in result['incomplete_sections']
     assert part not in result['missing_sections']
-    assert '不完整' in result['reason']
+    assert label + '不完整' in result['reason']
+    assert '缺少' + label not in result['reason']
     assert '关键词' in result['reason']
 
 
-@pytest.mark.parametrize('part,kw', [('摘要', 'zh'), ('英文摘要', 'en')])
-def test_absent_abstract_is_missing_not_incomplete(part, kw):
+@pytest.mark.parametrize('part,kw,label', [('摘要', 'zh', '中文摘要'), ('英文摘要', 'en', '英文摘要（Abstract）')])
+def test_absent_abstract_is_missing_not_incomplete(part, kw, label):
     result = assess_document_pages(paper(**{kw: []}))
     assert part in result['missing_sections']
     assert part not in result.get('incomplete_sections', [])
-    assert '缺失' in result['reason']
+    assert '缺少' + label in result['reason']
+    assert label + '不完整' not in result['reason']
+
+
+def test_missing_conclusion_has_a_specific_failure_reason():
+    pages = [item for item in paper() if item['lines'][0]['text'] != '第三章 结论']
+    result = assess_document_pages(pages)
+    assert result['status'] == 'rejected'
+    assert result['missing_sections'] == ['结论']
+    assert '缺少结论' in result['reason']
 
 
 @pytest.mark.parametrize('texts', [('摘要',), ('摘要', '关键词：软件'), ('摘要', ZH, '关键词：')])
@@ -208,5 +218,5 @@ def test_r6_checks_current_ir_and_distinguishes_incomplete_from_missing(tmp_path
     for node in ir['nodes']:
         node['children'] = [child for child in node['children'] if child not in removed]
     finding = next(item for item in detect_ir(ir, [34])['34']['findings'] if item['token'] == '英文摘要')
-    assert '不完整' in finding['message']
+    assert '英文摘要（Abstract）不完整' in finding['message']
     assert '关键词' in finding['message']

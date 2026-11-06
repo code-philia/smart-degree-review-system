@@ -11,7 +11,7 @@ import unicodedata
 from pathlib import Path
 
 import pymupdf
-from .structure import assess_structure
+from .structure import assess_structure, section_display_name
 
 VERSION = 'paper-admission/2.0'
 _SPACE = re.compile(r'\s+')
@@ -130,10 +130,11 @@ def assess_document_pages(pages):
     structure = assess_structure(pages, assessment)
     if structure['status'] != 'accepted':
         reasons = []
-        if structure['missing_sections']:
-            reasons.append('核心章节缺失或无法识别：' + '、'.join(structure['missing_sections']) + '。')
+        for name in structure['missing_sections']:
+            reasons.append('缺少' + section_display_name(name, structure['profile']) + '：未在论文正文中识别到该章节。')
         for name in structure['incomplete_sections']:
-            reasons.append(name + '不完整：' + '；'.join(structure['abstract_sections'][name]['issues']) + '。')
+            reasons.append(section_display_name(name, structure['profile']) + '不完整：'
+                           + '；'.join(structure['abstract_sections'][name]['issues']) + '。')
         return {**assessment, 'status': 'rejected', 'stage': 'structure',
                 'reason_code': 'paper_structure_incomplete',
                 'reason': ''.join(reasons),

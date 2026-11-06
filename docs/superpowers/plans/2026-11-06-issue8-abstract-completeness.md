@@ -50,7 +50,7 @@ backend/tests/paper-document-admission.test.js.
 - [x] Run targeted Vitest and related native regression suites. Expected: green;
   no detectors invoked after any structural rejection.
 - [x] Obtain a fresh whole-branch review; address important findings with tests.
-- [ ] Commit, merge main, push, external deployment and static/service verification (recorded in the deployment log).
+- [x] Commit, merge main, push, external deployment and static/service verification (7714a60; recorded in the deployment log).
 
 
 ## Verification before integration
@@ -73,3 +73,42 @@ backend/tests/paper-document-admission.test.js.
   that retains valid structure cannot be established without semantic comparison.
 - External service uses the existing immutable deployment/backup/rollback CLI.
   Campus deployment remains deferred by the user's VPN constraint.
+
+## Follow-up acceptance: explicit user-facing diagnoses
+
+The first deployment did not make the two abstract names explicit enough.
+The user withdrew the request to show a separate reason for each skipped rule:
+retain one severe compilation finding with the specific section failure and
+one overall statement that all selected rules were not executed.
+
+- [x] Verify failing tests for “缺少中文摘要”, “缺少英文摘要（Abstract）” and
+  separate “中文摘要不完整” / “英文摘要（Abstract）不完整” diagnostics.
+- [x] Share profile-aware display names between admission and R6 while keeping
+  internal section keys stable. Put the precise cause in the report/run message.
+- [x] Verify real v2/v3/v4/M04 and whole-abstract deletion fixtures through the
+  complete dispatcher, with detector/network calls blocked; complete original
+  papers must still compile. Check the production Python selection.
+- [x] Verify backend-produced messages in both report modes; no per-rule list.
+- [ ] Review, merge/push the follow-up and deploy externally.
+
+Follow-up evidence: seven native regression assertions and four report-summary
+assertions failed before the change, then passed. Focused Python regressions:
+196 passed, 45 subtests passed, the same legacy English fragment test excluded.
+Linux admission/stream/archive checks: 33 passed. Frontend backend-to-report
+rendering: 12 passed. The Windows archive symlink case cannot create a symlink
+(EPERM); the same archive suite passes on Linux. No production frontend layout
+or right-card components changed.
+
+The actual runPaperLint entry point was exercised offline with all 15 MVP rules
+selected: whole Chinese/English abstract deletion, R06_v4/v3, M04 and R06_v2 all
+returned exactly one severe compilation finding, zero completed thesis rules,
+the explicit diagnosis in both live progress and final output, and all selected
+rule IDs recorded as skipped. A subprocess allowlist rejected any detector
+launch; Node and Python network guards recorded no API/network calls. The
+original 157-page PDF still earned a compiled admission proof. Production
+runtime resolution was checked against the running service: SIX_RULE_PYTHON
+resolves to /data/envs/six-rule-dev/bin/python with PyMuPDF 1.28.2 installed.
+
+Focused independent review found no Critical or Important findings. Follow-up
+fixture evidence and CLI logs are retained under output/issue8-online-probe-20261106
+and output/external-deploy-20261106 outside Git; deployment remains the final step.

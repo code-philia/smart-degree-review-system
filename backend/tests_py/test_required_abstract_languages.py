@@ -44,6 +44,9 @@ def test_english_abstract_does_not_replace_chinese_abstract():
 def test_both_abstracts_are_required_when_both_missing():
     ir = without_heading(sample_ir(), {'摘要', '中文摘要', 'abstract', '英文摘要'})
     assert tokens(ir) == ['摘要', '英文摘要']
+    messages = [finding['message'] for finding in detect_ir(ir, [34])['34']['findings']]
+    assert any('缺少中文摘要' in message for message in messages)
+    assert any('缺少英文摘要（Abstract）' in message for message in messages)
 
 
 def test_contents_entry_does_not_supply_missing_english_abstract():

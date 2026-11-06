@@ -1,6 +1,6 @@
 """Six native-text checks over the shared Paper Model / Paper IR. No network."""
 import re
-from .structure import abstract_sections
+from .structure import abstract_sections, section_display_name
 
 RULES = (31, 34, 35, 36, 37, 38)  # execution keys only; public titles have no rule numbers
 _CHAPTER = re.compile(r'^(?:第[一二三四五六七八九十百0-9]+[章篇]|chapter\d+|\d+(?:[.．]\d+)*[.．、]?)(?:[:：]|[-–—])?', re.I)
@@ -430,13 +430,15 @@ def detect_ir(ir, selected_rules=RULES):
         core_complete = coverage.get('core_sections_status') == 'complete'
         abstracts = current_abstract_sections(ir)
         parts = core_parts(ir, abstracts=abstracts)
+        profile = ir.get('metadata', {}).get('document_admission', {}).get('structure', {}).get('profile', 'chinese-thesis')
         checked = [part for part, present in parts.items() if present is True or complete
                    or (core_complete and part not in {'原创性声明', '使用授权说明'})]
         results['34']['checked_parts'] = checked
         results['34']['findings'] = [_finding(ir, 34, anchor,
-            f'“{part}”不完整：' + '；'.join(abstracts[part]['issues']) + '。'
-            if abstracts.get(part, {}).get('status') == 'incomplete' else f'“{part}”缺失或无法识别。', part,
-            f'请补齐或核对{part}；依据 GB/T 7713.1—2025 附录 A、表 A.1。')
+            f'{section_display_name(part, profile)}不完整：' + '；'.join(abstracts[part]['issues']) + '。'
+            if abstracts.get(part, {}).get('status') == 'incomplete'
+            else f'缺少{section_display_name(part, profile)}：未在论文正文中识别到该章节。', part,
+            f'请补齐或核对{section_display_name(part, profile)}；依据 GB/T 7713.1—2025 附录 A、表 A.1。')
             for part, present in parts.items() if present is False and part in checked]
     if 35 in selected_rules:
         pages = {page['page_index']: page for page in ir['layout']['pages']}

@@ -51,9 +51,11 @@ function documentRejectionResult(assessment, selectedRuleIds) {
   const compilationError = ['paper_model_compile_failed', 'validation_unavailable'].includes(assessment.reason_code);
   const affectedSections = [...new Set([assessment.missing_sections, assessment.incomplete_sections]
     .flatMap(sections => Array.isArray(sections) ? sections : [])
-    .filter(section => typeof section === 'string' && section.trim()))];
+    .filter(section => typeof section === 'string' && section.trim()))]
+    .map(section => section === '英文摘要' || (section === '摘要' && assessment.profile === 'english-thesis')
+      ? '英文摘要（Abstract）' : section === '摘要' && assessment.profile === 'chinese-thesis' ? '中文摘要' : section);
   const message = structureError
-    ? '论文核心章节不完整，Paper Model 编译失败。所有论文规则均未检测。'
+    ? `${assessment.reason} Paper Model 编译失败，所有论文规则均未检测。`
     : compilationError ? 'Paper Model 编译校验未完成，所有论文规则均未检测。'
     : confirmed
     ? '上传的 PDF 不是论文，不能被 Paper Model 解析编译。所有论文规则均未检测。'
@@ -61,7 +63,7 @@ function documentRejectionResult(assessment, selectedRuleIds) {
   const run = { rule_id: DOCUMENT_CHECK_ID, rule_run_id: 'document_admission', severity: 'error',
     execution_status: 'completed', evidence_mode: 'native', outcome: 'issues_found',
     message, findings: [{ finding_id: 'document_not_paper', rule_id: DOCUMENT_CHECK_ID,
-      severity: 'error', message: message + ' ' + assessment.reason,
+      severity: 'error', message: structureError ? message : message + ' ' + assessment.reason,
       suggestion: structureError
         ? `请核对并补齐${affectedSections.length ? affectedSections.join('、') : '缺失或不完整的核心章节'}，上传完整、文字可读取的论文 PDF 后重试。`
         : compilationError ? '请确认论文 PDF 完整且文字可读取，然后重试；若仍失败，请联系管理员核查编译过程。'
