@@ -11,6 +11,21 @@ const blocked: PaperLintRuleRun = { rule_run_id: 'document_admission', rule_id: 
   execution_status: 'completed', outcome: 'issues_found', findings: [{ finding_id: 'document_not_paper',
     rule_id: 'document_type_check', message: '上传的 PDF 不是论文，不能被 Paper Model 解析编译。所有论文规则均未检测。' }] };
 
+it.each([
+  [false, '摘要缺失，Paper Model 编译失败。所有论文规则均未检测。'],
+  [true, '摘要缺失，Paper Model 编译失败。所有论文规则均未检测。'],
+  [false, '英文摘要不完整：未识别到本摘要的关键词收尾。所有论文规则均未检测。'],
+  [true, '英文摘要不完整：未识别到本摘要的关键词收尾。所有论文规则均未检测。'],
+])('preserves the precise structural failure in formal/live results (%s)', (running, message) => {
+  const run = { ...blocked, findings: [{ ...blocked.findings[0], message }] };
+  render(<FindingsPane rules={rules} selectedRuleIds={rules.map(rule => rule.rule_id)} ruleRuns={[run]}
+    findings={flattenPaperLintFindings({ rule_runs: [run] })} running={running as boolean}
+    activeFindingKey={null} activeAnchorId={null} onFindingClick={vi.fn()} onAnchorClick={vi.fn()} />);
+  expect(screen.getByText(message as string)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '严重 1', exact: true })).toBeInTheDocument();
+  expect(screen.queryByText('未检测出问题')).not.toBeInTheDocument();
+});
+
 it.each([false, true])('shows only the severe document failure with no passing or running thesis rules (live=%s)', async running => {
   render(<FindingsPane rules={rules} selectedRuleIds={rules.map(rule => rule.rule_id)} ruleRuns={[blocked]}
     findings={flattenPaperLintFindings({ rule_runs: [blocked] })} running={running}

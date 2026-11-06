@@ -5,8 +5,35 @@ import path from 'node:path';
 import { expect, it } from 'vitest';
 const require = createRequire(import.meta.url);
 const service = require('../src/normative/reviewPilotPaperLintService');
+const { documentRejectionResult } = require('../src/normative/paperDocumentAdmission');
 
-it.skipIf(process.platform === 'win32').each(['rejected', 'broken', 'crashed', 'stale', 'identity-only', 'truncated-proof', 'structure'])('blocks all detectors and records one severe document finding when admission is %s', async mode => {
+it.each([
+  { missing_sections: ['摘要'], incomplete_sections: [], reason: '核心章节缺失：摘要。', expected: '缺失' },
+  { missing_sections: [], incomplete_sections: ['英文摘要'], reason: '英文摘要不完整：未识别到本摘要的关键词收尾。', expected: '不完整' },
+])('shows a structural failure with an appropriate correction: $expected', assessment => {
+  const result = documentRejectionResult({ ...assessment, status: 'rejected', reason_code: 'paper_structure_incomplete' }, ['required_section_completeness_check']);
+  const finding = result.rule_runs[0].findings[0];
+  expect(finding.message).toContain(assessment.expected);
+  expect(finding.suggestion).toContain('摘要');
+  expect(finding.suggestion).not.toContain('推荐表');
+  expect(result.summary).toMatchObject({ error_finding_count: 1, rule_count: 0 });
+  expect(result.document_validation.skipped_rule_ids).toEqual(['required_section_completeness_check']);
+});
+
+it('does not prescribe thesis-only keywords to a research article', () => {
+  const result = documentRejectionResult({ status: 'rejected', reason_code: 'paper_structure_incomplete',
+    profile: 'research-article', missing_sections: ['摘要'], incomplete_sections: [], reason: '摘要缺失。' }, []);
+  expect(result.rule_runs[0].findings[0].suggestion).not.toContain('关键词');
+});
+
+it('keeps a malformed rejection payload from bypassing the severe blocked report', () => {
+  const result = documentRejectionResult({ status: 'rejected', reason_code: 'paper_structure_incomplete',
+    missing_sections: {}, incomplete_sections: null, reason: '结构校验失败。' }, ['sjtu_rule_18']);
+  expect(result.summary).toMatchObject({ error_finding_count: 1, rule_count: 0 });
+  expect(result.rule_runs[0].findings[0].suggestion).toContain('核心章节');
+});
+
+it.skipIf(process.platform === 'win32').each(['rejected', 'broken', 'crashed', 'stale', 'identity-only', 'truncated-proof', 'incomplete-proof', 'structure'])('blocks all detectors and records one severe document finding when admission is %s', async mode => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'paper-admission-test-'));
   const worker = path.join(directory, 'worker');
   const calls = path.join(directory, 'calls');
@@ -21,6 +48,12 @@ if(args[0].endsWith('check_paper_document.py')) {
   console.log(JSON.stringify({version:'paper-admission/2.0',status:'accepted',reason_code:'paper_structure_confirmed',reason:'paper',compiled:true,stage:'complete',
    sha256:crypto.createHash('sha256').update(fs.readFileSync(args[1])).digest('hex'),
    structure:{status:'accepted',profile:'chinese-thesis',required_sections:['摘要'],observed_sections:{摘要:true},missing_sections:[]}}));process.exit(0);
+ }
+ if(${JSON.stringify(mode)}==='incomplete-proof') {
+  const required=['摘要','英文摘要','关键词','目录','引言','主体','结论','参考文献'];
+  console.log(JSON.stringify({version:'paper-admission/2.0',status:'accepted',reason_code:'paper_structure_confirmed',reason:'paper',compiled:true,stage:'complete',
+   sha256:crypto.createHash('sha256').update(fs.readFileSync(args[1])).digest('hex'),
+   structure:{status:'accepted',profile:'chinese-thesis',required_sections:required,observed_sections:Object.fromEntries(required.map(name=>[name,true])),missing_sections:[],incomplete_sections:['英文摘要']}}));process.exit(0);
  }
  console.log(JSON.stringify({version:'paper-admission/2.0',status:${JSON.stringify(mode)}==='identity-only'?'accepted':'rejected',
  reason_code:${JSON.stringify(mode)}==='structure'?'paper_structure_incomplete':${JSON.stringify(mode)}==='identity-only'?'paper_structure_confirmed':'non_paper_identity',

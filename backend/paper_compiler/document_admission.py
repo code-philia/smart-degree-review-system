@@ -107,7 +107,7 @@ def assess_pdf(pdf):
                           'is_bold': any(span.get('flags', 0) & 16 for span in line.get('spans', []))}
                          for block in data['blocks'] if block.get('type') == 0
                          for line in block.get('lines', [])]
-                pages.append({'page_index': index, 'lines': lines})
+                pages.append({'page_index': index, 'height': page.rect.height, 'lines': lines})
         assessment = assess_document_pages(pages)
     except Exception:
         assessment = {'version': VERSION, 'status': 'rejected', 'reason_code': 'pdf_unreadable',
@@ -129,8 +129,13 @@ def assess_document_pages(pages):
         return {**assessment, 'stage': 'identity'}
     structure = assess_structure(pages, assessment)
     if structure['status'] != 'accepted':
+        reasons = []
+        if structure['missing_sections']:
+            reasons.append('核心章节缺失或无法识别：' + '、'.join(structure['missing_sections']) + '。')
+        for name in structure['incomplete_sections']:
+            reasons.append(name + '不完整：' + '；'.join(structure['abstract_sections'][name]['issues']) + '。')
         return {**assessment, 'status': 'rejected', 'stage': 'structure',
                 'reason_code': 'paper_structure_incomplete',
-                'reason': '缺少或无法识别必需章节：' + '、'.join(structure['missing_sections']) + '。',
+                'reason': ''.join(reasons),
                 **{key: value for key, value in structure.items() if key != 'status'}}
     return {**assessment, 'stage': 'complete', 'structure': structure}

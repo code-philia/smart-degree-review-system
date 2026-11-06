@@ -32,6 +32,7 @@ async function assessPaperDocument(pdfPath, pdfBuffer, { python, signal } = {}) 
         || result.structure.required_sections.length !== required.length
         || !required.every(name => result.structure.required_sections.includes(name))
         || !Array.isArray(result.structure?.missing_sections) || result.structure.missing_sections.length
+        || !Array.isArray(result.structure?.incomplete_sections) || result.structure.incomplete_sections.length
         || !result.structure.required_sections.every(name => result.structure.observed_sections?.[name] === true)))) {
       throw new Error('Invalid document admission proof');
     }
@@ -48,6 +49,9 @@ function documentRejectionResult(assessment, selectedRuleIds) {
   const confirmed = assessment.reason_code === 'non_paper_identity';
   const structureError = assessment.reason_code === 'paper_structure_incomplete';
   const compilationError = ['paper_model_compile_failed', 'validation_unavailable'].includes(assessment.reason_code);
+  const affectedSections = [...new Set([assessment.missing_sections, assessment.incomplete_sections]
+    .flatMap(sections => Array.isArray(sections) ? sections : [])
+    .filter(section => typeof section === 'string' && section.trim()))];
   const message = structureError
     ? '论文核心章节不完整，Paper Model 编译失败。所有论文规则均未检测。'
     : compilationError ? 'Paper Model 编译校验未完成，所有论文规则均未检测。'
@@ -58,7 +62,10 @@ function documentRejectionResult(assessment, selectedRuleIds) {
     execution_status: 'completed', evidence_mode: 'native', outcome: 'issues_found',
     message, findings: [{ finding_id: 'document_not_paper', rule_id: DOCUMENT_CHECK_ID,
       severity: 'error', message: message + ' ' + assessment.reason,
-      suggestion: '请上传论文正文 PDF；推荐表、申请材料、说明文档等不能作为论文检测。' }] };
+      suggestion: structureError
+        ? `请核对并补齐${affectedSections.length ? affectedSections.join('、') : '缺失或不完整的核心章节'}，上传完整、文字可读取的论文 PDF 后重试。`
+        : compilationError ? '请确认论文 PDF 完整且文字可读取，然后重试；若仍失败，请联系管理员核查编译过程。'
+        : '请上传论文正文 PDF；推荐表、申请材料、说明文档等不能作为论文检测。' }] };
   return { type: 'paper_lint', paper_title: '上传文档的 Paper Model 编译失败',
     ruleset: { id: 'paper-document-admission', name: '论文编译校验', version_number: 2, version_label: VERSION },
     document_validation: { ...assessment, skipped_rule_ids: [...selectedRuleIds] },

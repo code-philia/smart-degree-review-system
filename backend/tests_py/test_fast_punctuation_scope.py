@@ -5,7 +5,7 @@ from pathlib import Path
 import unittest
 
 source = Path(os.environ.get('LOCAL_CHECKS_PATH', str(Path(__file__).resolve().parents[1] / 'paper_compiler/local_checks.py')))
-spec = importlib.util.spec_from_file_location('punctuation_under_test', source)
+spec = importlib.util.spec_from_file_location('paper_compiler.punctuation_under_test', source)
 checks = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(checks)
 
