@@ -144,8 +144,9 @@ def current_abstract_sections(ir, visual_rows=None):
     # Use current IR text so deleted/edited nodes cannot be restored from the
     # immutable original PDF observations retained in layout.
     visible_pages = {page['page_index']: {'height': page['height'], 'lines': []} for page in ir['layout']['pages']}
-    for page, box, text, _ in (visual_rows if visual_rows is not None else rows(ir)):
-        visible_pages[page]['lines'].append({'text': text, 'bbox': box, 'font_size': box[3] - box[1]})
+    for page, box, text, node in (visual_rows if visual_rows is not None else rows(ir)):
+        visible_pages[page]['lines'].append({'text': text, 'bbox': box, 'font_size': box[3] - box[1],
+                                            'is_heading': node['kind'] == 'Heading'})
     profile = ir.get('metadata', {}).get('document_admission', {}).get('structure', {}).get('profile', 'chinese-thesis')
     return abstract_sections([visible_pages[index] for index in sorted(visible_pages)], profile)
 

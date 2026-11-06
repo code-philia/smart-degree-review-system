@@ -1,6 +1,7 @@
 """Source-level structural grammar; this runs before any typed Paper is built."""
 import re
 import unicodedata
+from statistics import median
 
 _NUMBER = re.compile(r'^(?:第\s*[一二三四五六七八九十百\d\s]+[章篇节]|chapter\s*\d+|[ivxlcdm]+\.\s*|\d+(?:[.．]\d+)*[.．、]?)[\s:：-]*', re.I)
 _INTRO = re.compile(r'^(?:绪论|绪言|引言|引论|简介|introduction(?:\s+and\s+contextualization)?)$', re.I)
@@ -118,13 +119,18 @@ def abstract_sections(pages, profile):
                 texts.append(source)
         if sum(bool(_LEADER.search(row['text'])) for row in texts) >= 4:
             break
+        sizes = [row['font_size'] for row in texts if row.get('font_size', 0) > 0]
+        normal_size = median(sizes) if sizes else 0
         for source in texts:
             text = source['text']
             compact = re.sub(r'\s+', '', text).lower()
             size, box = source.get('font_size', 0), source.get('bbox', [])
             heading = _NUMBER.sub('', text).strip()
             chapter = re.match(r'^(?:第\s*[一二三四五六七八九十百\d\s]+章|chapter\s*\d+\b)(?:\s|[:：]|$)', text, re.I)
-            chapter_heading = chapter and len(text) <= 100 and not re.search(r'[，。；;!?！？]', text)
+            chapter_heading = (chapter and len(text) <= 100 and not re.search(r'[，。；;!?！？]', text)
+                               and (_BODY.fullmatch(heading) or _CONCLUSION.fullmatch(heading)
+                                    or source.get('is_heading') or source.get('is_bold')
+                                    or (normal_size and size > normal_size * 1.15)))
             if (compact in {'目录', '目次', 'contents', 'tableofcontents', '参考文献',
                             'references', 'bibliography', '致谢', 'acknowledgements'}
                     or _INTRO.fullmatch(heading)

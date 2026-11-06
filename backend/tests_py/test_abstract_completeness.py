@@ -143,6 +143,15 @@ def test_chapter_organization_prose_inside_abstract_is_not_a_boundary():
     assert assess_document_pages(paper(zh=[zh]))['status'] == 'accepted'
 
 
+@pytest.mark.parametrize('text', ['Chapter 2 describes the proposed research method', '第二章 介绍本文提出的方法'])
+def test_unpunctuated_chapter_description_remains_abstract_prose(text):
+    en = page('Abstract', EN, text, 'Keywords: software; analysis')
+    en['lines'][0]['font_size'] = 16
+    for line in en['lines'][1:]:
+        line['font_size'] = 11
+    assert assess_document_pages(paper(en=[en]))['status'] == 'accepted'
+
+
 def test_partially_split_keyword_label_joins_its_native_baseline():
     zh = page('摘要', ZH)
     for text, box in [('关', [50, 300, 62, 312]), ('键', [62, 300, 74, 312]),

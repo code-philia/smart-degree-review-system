@@ -55,7 +55,7 @@ backend/tests/paper-document-admission.test.js.
 
 ## Verification before integration
 
-- Native admission/R6/abstract/punctuation regressions: 193 passed, 45 subtests passed.
+- Native admission/R6/abstract/punctuation regressions: 195 passed, 45 subtests passed.
 - Dispatch and archive boundary: 29 passed; formal/live report presentation: 8 passed.
 - Original 157-page PDF compiles; R06 v4, R06 v3 and M04 reject incomplete abstracts.
   Fully removed CN/EN abstract fixtures reject as missing. Four other real CN/EN
@@ -73,3 +73,4 @@ backend/tests/paper-document-admission.test.js.
   that retains valid structure cannot be established without semantic comparison.
 - External service uses the existing immutable deployment/backup/rollback CLI.
   Campus deployment remains deferred by the user's VPN constraint.
+
