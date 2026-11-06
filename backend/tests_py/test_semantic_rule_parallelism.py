@@ -100,7 +100,7 @@ def test_abstract_prompt_requires_bidirectional_coverage_for_omitted_information
     assert 'missing_in_english' in prompt
 
 
-def test_abstract_omission_returned_by_model_becomes_a_finding(monkeypatch):
+def test_abstract_model_omission_is_preserved_in_final_mismatches(monkeypatch):
     lint = module()
     facts = {'chinese_abstract': '中文有额外结论。', 'english_abstract': 'English omits it.'}
     monkeypatch.setattr(lint, 'request_json', lambda _: ({
@@ -110,4 +110,39 @@ def test_abstract_omission_returned_by_model_becomes_a_finding(monkeypatch):
     monkeypatch.setattr(lint, '_anchors_and_evidence', lambda *_: ([], []))
     result = lint._run_semantic_rule({}, facts, 'bilingual_abstract_consistency_check')
     assert result['outcome'] == 'issues_found'
-    assert len(result['findings']) == 1
+    assert result['params']['mismatches'][0]['mismatch_type'] == 'missing_in_english'
+
+
+def test_directional_abstract_audits_promote_exact_source_backed_omissions(monkeypatch):
+    lint = module()
+    facts = {
+        'chinese_abstract': '本文说明循环依赖会约束迭代顺序并限制并行执行。',
+        'english_abstract': 'This work improves compilation performance.',
+    }
+    replies = iter([
+        ({'outcome': 'consistent', 'summary': '两者一致。', 'mismatches': []},
+         {'input_tokens': 1, 'output_tokens': 1}),
+        ({'alignments': [{
+            'source_id': 1,
+            'status': 'missing',
+            'source_sentence': '本文说明循环依赖会约束迭代顺序并限制并行执行。',
+            'target_ids': [],
+            'target_sentence': '',
+            'reason': '英文摘要未表达该约束。',
+        }]}, {'input_tokens': 1, 'output_tokens': 1}),
+        ({'alignments': []}, {'input_tokens': 1, 'output_tokens': 1}),
+    ])
+    monkeypatch.setattr(lint, 'request_json', lambda _: next(replies))
+    monkeypatch.setattr(lint, '_anchors_and_evidence', lambda *_: ([], []))
+    result = lint._run_semantic_rule({}, facts, 'bilingual_abstract_consistency_check')
+    assert result['outcome'] == 'issues_found'
+    assert result['params']['comparison_mode'] == 'sentence_alignment_v3'
+    assert result['params']['mismatches'][-1]['mismatch_type'] == 'missing_in_english'
+    assert '英文摘要缺少中文摘要中的核心信息' in result['findings'][0]['message']
+
+
+def test_abstract_atomic_claims_keep_a_missing_causal_conclusion():
+    lint = module()
+    claims = lint._abstract_atomic_claims(
+        '循环携带依赖使不同迭代之间存在执行约束，可能增大流水线启动间隔并限制算子并行度。')
+    assert '可能增大流水线启动间隔并限制算子并行度。' in claims

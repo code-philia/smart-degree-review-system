@@ -190,6 +190,132 @@ def prompt_for(rule_id: str, facts: dict[str, Any]) -> str | None:
     )
 
 
+def _abstract_sentences(text: str) -> list[str]:
+    normalized = _model_piece(text)
+    sentences = re.split(r"(?<=[。！？；.!?])\s*", normalized)
+    return [sentence.strip() for sentence in sentences
+            if 20 <= len(_compact_claim(sentence)) <= 500]
+
+
+def _abstract_atomic_claims(text: str) -> list[str]:
+    """Split compound abstract sentences into independently checkable facts."""
+    claims = []
+    for sentence in _abstract_sentences(text):
+        parts = re.split(r"[，；;,]", sentence)
+        usable = [part.strip() for part in parts if len(_compact_claim(part)) >= 16]
+        claims.extend(usable if len(usable) > 1 else [sentence])
+    return list(dict.fromkeys(claims))
+
+
+def abstract_sentence_coverage_prompt(source_language: str, claims: list[str],
+                                      target_language: str, target_text: str) -> str:
+    """Align complete source sentences to complete target sentences."""
+    mismatch_type = "missing_in_english" if source_language == "中文" else "missing_in_chinese"
+    target_sentences = _abstract_sentences(target_text)
+    return (
+        f"你正在进行中英文摘要的句子级语义对齐。逐句判断每个{source_language}摘要句子是否能在"
+        f"{target_language}摘要中找到语义对应句或对应句组。必须考虑一对多、多对一、拆句、合句和"
+        "自然翻译，不要求逐字对应。只有当源句中的核心研究对象、方法、条件、结果或结论在目标摘要"
+        "中确实缺失，才标记 missing；若核心含义相反才标记 conflict。对包含逗号、分号或 and/while"
+        "连接多个分句的句子，必须分别检查每个因果、条件、限制和结果分句；目标句只保留前半句或"
+        "只保留同一主题的笼统表述时，不能算作完整对应。不要因为缩写未展开、措辞更"
+        "具体、背景细节或语序不同而报告问题。\n"
+        "仅返回需要关注的 missing/conflict 项，不要返回 aligned/uncertain 项。\n"
+        "仅返回 JSON：{\"alignments\":[{\"source_id\":1,\"status\":\"missing|conflict\","
+        "\"source_sentence\":\"逐字复制源句\",\"target_ids\":[1],"
+        "\"target_sentence\":\"目标对应句；没有则为空\",\"reason\":\"简短依据\"}]}。\n"
+        f"若 status 为 missing，则 mismatch_type 为 {mismatch_type}。\n"
+        f"{source_language}摘要句子：\n" + json.dumps(
+            [{"id": index + 1, "text": claim} for index, claim in enumerate(claims)],
+            ensure_ascii=False) + "\n\n" +
+        f"{target_language}摘要句子：\n" + json.dumps(
+            [{"id": index + 1, "text": sentence} for index, sentence in enumerate(target_sentences)],
+            ensure_ascii=False)
+    )
+
+
+def _compact_claim(value: Any) -> str:
+    return re.sub(r"\s+", "", str(value or "")).replace("-", "").lower()
+
+
+def _sentence_coverage_mismatches(payload: Any, *, claims: list[str],
+                                  mismatch_type: str) -> list[dict[str, Any]]:
+    """Keep only exact, source-backed sentence-level mismatches."""
+    rows = payload.get("alignments") if isinstance(payload, dict) else []
+    if not isinstance(rows, list):
+        return []
+    source_field = "chinese_claim" if mismatch_type == "missing_in_english" else "english_claim"
+    target_field = "english_claim" if mismatch_type == "missing_in_english" else "chinese_claim"
+    accepted = []
+    seen = set()
+    for row in rows:
+        if not isinstance(row, dict) or str(row.get("status") or "").lower() not in {"missing", "conflict"}:
+            continue
+        claim_id = row.get("source_id")
+        if not isinstance(claim_id, int) or not 1 <= claim_id <= len(claims):
+            continue
+        expected = claims[claim_id - 1]
+        claim = str(row.get("source_sentence") or "").strip()
+        compact = _compact_claim(claim)
+        if len(compact) < 8 or compact not in _compact_claim(expected):
+            continue
+        # Some model responses have historically used status=missing while their
+        # own explanation explicitly says the two formulations are equivalent.
+        # Never turn that internally contradictory output into a user warning.
+        reason = str(row.get("reason") or "")
+        if any(marker in reason for marker in (
+                "语义等价", "语义相当", "语义一致", "已表达", "已包含", "已涵盖", "对应表述")):
+            continue
+        if "不构成缺失" in reason:
+            continue
+        # A bilingual abstract may legitimately compress an expansion, acronym,
+        # scope qualifier or implementation detail.  Those are not the
+        # information-omission failures this rule reports.  Keep only an explicit
+        # absence of a material proposition; the model's own explanation is the
+        # conservative signal used for this distinction.
+        key = (mismatch_type, compact)
+        if key in seen:
+            continue
+        seen.add(key)
+        accepted.append({
+            "category": str(row.get("category") or "other"),
+            source_field: claim,
+            target_field: "",
+            "mismatch_type": "conflict" if str(row.get("status") or "").lower() == "conflict" else mismatch_type,
+            "reason": reason or "目标摘要缺少该核心信息。",
+        })
+    return accepted
+
+
+def _abstract_directional_coverage(source_language: str, source_text: str,
+                                   target_language: str, target_text: str,
+                                   mismatch_type: str) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    claims = _abstract_sentences(source_text)
+    findings: list[dict[str, Any]] = []
+    usage_total = {"input_tokens": 0, "output_tokens": 0}
+    if not claims:
+        return findings, usage_total
+    audit, usage = request_json([{"role": "user", "content": abstract_sentence_coverage_prompt(
+        source_language, claims, target_language, target_text)}])
+    usage_total["input_tokens"] += usage["input_tokens"]
+    usage_total["output_tokens"] += usage["output_tokens"]
+    findings.extend(_sentence_coverage_mismatches(
+        audit, claims=claims, mismatch_type=mismatch_type))
+    return findings, usage_total
+
+
+def _abstract_mismatch_summary(payload: dict[str, Any], omissions: list[dict[str, Any]]) -> str:
+    base = _chinese_summary(payload.get("summary"), True)
+    directions = []
+    if any(row.get("mismatch_type") == "missing_in_english" for row in omissions):
+        directions.append("英文摘要缺少中文摘要中的核心信息")
+    if any(row.get("mismatch_type") == "missing_in_chinese" for row in omissions):
+        directions.append("中文摘要缺少英文摘要中的核心信息")
+    if not directions:
+        return base
+    return base.rstrip("。") + "。另经双向覆盖核验发现：" + "；".join(directions) + "。"
+
+
 
 
 def _normalize_for_model(text: str) -> str:
@@ -785,6 +911,50 @@ def _run_semantic_rule(ir, facts, rule_id, run_id=None):
             "findings": [],
         }
     payload, usage = request_json([{"role": "user", "content": prompt}])
+    params = None
+    if rule_id == "bilingual_abstract_consistency_check":
+        chinese = str(facts.get("chinese_abstract") or "")
+        english = str(facts.get("english_abstract") or "")
+        directional = []
+        if chinese and english:
+            for source_language, source, target_language, target, mismatch_type in (
+                ("中文", chinese, "英文", english, "missing_in_english"),
+                ("英文", english, "中文", chinese, "missing_in_chinese"),
+            ):
+                audited, audit_usage = _abstract_directional_coverage(
+                    source_language, source, target_language, target, mismatch_type)
+                usage["input_tokens"] += audit_usage["input_tokens"]
+                usage["output_tokens"] += audit_usage["output_tokens"]
+                directional.extend(audited)
+        primary = payload.get("mismatches") if isinstance(payload.get("mismatches"), list) else []
+        # Preserve model-reported mismatches, then supplement them with the
+        # sentence-alignment pass.  The previous implementation discarded all
+        # model omission rows, which made the final result depend on the audit
+        # helper rather than the declared output schema.
+        primary = [row for row in primary if isinstance(row, dict)
+                   and str(row.get("mismatch_type") or "") in {
+                       "missing_in_chinese", "missing_in_english", "conflict"}]
+        primary = [row for row in primary
+                   if not any(marker in str(row.get("reason") or "")
+                              for marker in ("不构成缺失", "语义等价", "语义一致"))]
+        merged = []
+        seen = set()
+        for row in [*primary, *directional]:
+            key = (str(row.get("mismatch_type") or ""),
+                   _compact_claim(row.get("chinese_claim") or row.get("english_claim") or
+                                  row.get("source_sentence") or row.get("source_claim")))
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(row)
+        params = {"comparison_mode": "sentence_alignment_v3",
+                  "mismatches": merged}
+        if merged:
+            payload = {**payload, "outcome": "inconsistent",
+                       "summary": _abstract_mismatch_summary(payload, merged)}
+        elif str(payload.get("outcome") or "").lower() == "inconsistent":
+            payload = {**payload, "outcome": "consistent",
+                       "summary": "未发现具有可追溯原文证据的摘要核心信息差异。"}
     outcome = str(payload.get("outcome", "inconclusive")).lower()
     findings = []
     if outcome == "inconsistent":
@@ -808,7 +978,7 @@ def _run_semantic_rule(ir, facts, rule_id, run_id=None):
         "rule_run_id": f"run_{rule_id}",
         "rule_id": rule_id,
         "severity": "warning",
-        "params": None,
+        "params": params,
         "execution_status": "completed",
         "evidence_mode": "derived",
         "outcome": "issues_found" if findings else (
