@@ -73,4 +73,3 @@ backend/tests/paper-document-admission.test.js.
   that retains valid structure cannot be established without semantic comparison.
 - External service uses the existing immutable deployment/backup/rollback CLI.
   Campus deployment remains deferred by the user's VPN constraint.
-
