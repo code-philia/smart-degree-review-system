@@ -88,6 +88,39 @@ export function numericExecutionWarnings(run?: PaperLintRuleRun): RuleExecutionW
   return warnings.map(warning => ({ ...warning, ruleId: numericRule }));
 }
 
+const executionRuleTitles: Record<string, string> = {
+  sjtu_rule_18: '正文公式引用目标缺失',
+  sjtu_rule_22: '正文引文引用编号缺失',
+  sjtu_rule_24: '参考文献列表中存在未被正文引用的条目',
+  sjtu_rule_28: '目录中的核心内容页码系统性错位',
+  sjtu_rule_31: '引用格式错误',
+  sjtu_rule_32: '引用的外部文献不存在',
+  sjtu_rule_33: '引用文献完整性检查',
+};
+
+/** Converts backend unsupported/error/inconclusive runs into visible UI warnings. */
+export function genericExecutionWarnings(runs: PaperLintRuleRun[] = []): RuleExecutionWarning[] {
+  return runs
+    .filter(run => run.rule_id !== numericRule && (
+      run.execution_status === 'unsupported' ||
+      run.execution_status === 'error' ||
+      run.outcome === 'inconclusive'
+    ))
+    .map(run => {
+      const title = executionRuleTitles[run.rule_id] || run.rule_id;
+      const reason = String(run.message || '本规则因缺少必要的论文结构，暂无法可靠判定。');
+      const referenceStructureMissing = /参考文献|编号参考文献/.test(reason);
+      return {
+        ruleId: run.rule_id,
+        title: `规则未完成检测：${title}`,
+        reason,
+        suggestion: referenceStructureMissing
+          ? '请补充或确认参考文献章节后重新检测。'
+          : '请稍后重试；如问题持续，请检查运行记录。',
+      };
+    });
+}
+
 export function numericDisplayFindings(run: PaperLintRuleRun): PaperLintFinding[] {
   const params = run.params || {};
   const conditions = Array.isArray(params.preconditions) ? params.preconditions : [];
@@ -178,7 +211,10 @@ export function referencePresentationRun(run: PaperLintRuleRun): PaperLintRuleRu
 }
 
 export function paperLintPresentation(result: PaperLintResult): PaperLintResult {
-  const executionWarnings = result.rule_runs.flatMap(numericExecutionWarnings);
+  const executionWarnings = [
+    ...result.rule_runs.flatMap(numericExecutionWarnings),
+    ...genericExecutionWarnings(result.rule_runs),
+  ];
   if (!executionWarnings.length && !result.rule_runs.some(run => run.rule_id === 'sjtu_rule_32')) return result;
   const rule_runs = result.rule_runs.map(referencePresentationRun);
   const findings = flattenPaperLintFindings({ rule_runs });
