@@ -37,7 +37,9 @@ it('persists an all-unavailable reference selection as inconclusive instead of a
     const docs = await service.listDocuments(job.id, {});
     const result = (await service.getDocument(job.id, docs.items[0].id)).result;
     expect(result.ruleset.name).toBeTruthy();
-    expect(result.summary).toMatchObject({ rule_count: 1, unsupported_rule_count: 1, finding_count: 0 });
+    expect(result.summary).toMatchObject({ rule_count: 2, unsupported_rule_count: 1, finding_count: 1 });
     expect(result.rule_runs[0]).toMatchObject({ execution_status: 'unsupported', outcome: 'inconclusive' });
+    expect(result.rule_runs[1]).toMatchObject({ rule_id: 'required_section_completeness_check',
+      params: { automatic_core_check: true }, findings: [expect.objectContaining({ message: expect.stringContaining('缺少参考文献') })] });
   } finally { await harness.cleanup(); await fs.rm(root, { recursive: true, force: true }); }
 });

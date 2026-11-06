@@ -25,17 +25,19 @@ export type DetectionScopeItem = { id: string; title: string; description: strin
 
 export function buildDetectionScope(report: PaperLintRunResponse, rules: PaperLintRule[]): DetectionScopeItem[] {
   if (isDocumentBlocked(report.result.rule_runs)) return [];
-  const ids = report.selected_rule_ids?.length
+  const selectedIds = report.selected_rule_ids?.length
     ? report.selected_rule_ids
     : report.result.rule_runs.map((run) => run.rule_id);
+  const automaticIds = report.result.rule_runs.filter(run => run.params?.automatic_core_check === true).map(run => run.rule_id);
+  const ids = [...selectedIds, ...automaticIds];
   const catalog = new Map(rules.map((rule) => [rule.rule_id, rule]));
   return [...new Set(ids)].map((id) => {
     const rule = catalog.get(id);
-    const description = rule?.description?.trim().replace(/\s+/g, ' ');
+    const description = (automaticIds.includes(id) ? '系统自动执行核心章节结构检查，不受前端勾选影响。' : rule?.description?.trim().replace(/\s+/g, ' '));
     const characters = Array.from(description || '规则说明暂不可用（目录中未提供）。');
     return {
       id,
-      title: rule?.title?.trim() || id,
+      title: rule?.title?.trim() || (id === 'required_section_completeness_check' ? '核心章节完整性' : id),
       description: characters.length > 120 ? characters.slice(0, 120).join('') + '…' : characters.join(''),
     };
   });

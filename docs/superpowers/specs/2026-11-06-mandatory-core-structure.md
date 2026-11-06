@@ -1,0 +1,9 @@
+# Mandatory background core structure checks
+
+The frontend core-completeness checkbox remains selectable. Backend paper admission already assesses core structure on every run. Use that assessment as a mandatory background check: missing/incomplete core sections must appear in reports even when the user selects only a different rule. Preserve Chinese/English abstract and missing/incomplete distinctions. Complete papers retain their existing selected-rule behavior; non-paper PDFs remain blocked before any Paper or detector execution.
+
+Keep user-selected rule IDs unchanged. When a genuine partial paper has structural defects, insert/merge a `required_section_completeness_check` run marked `params.automatic_core_check=true`. The implicit check covers the document profile's required core sections, excluding optional cover/declaration/authorization requirements. Explicitly selecting the existing rule retains its additional normative checks. No duplicate core findings. Preserve the background findings through live progress, saved reports, incremental reuse, archive scans and exports; expose the automatic run in result filtering without changing checkboxes.
+
+Use section-specific prerequisites for selected checks. A rule lacking its needed abstract, keywords, bibliography, contents or main body is unsupported/inconclusive with a specific reason, never passed. Independent checks continue. Do not disable reference checks merely because an unrelated abstract is missing. Do not require Chinese abstracts for English-thesis/article profiles. Add a local keyword detector fallback so an unrecognized/missing keyword block cannot yield a pass.
+
+No OCR or live model/API verification. Use native PDF samples and controlled service boundaries. Preserve existing UI geometry. Branch, regression-test, independently review, merge/push main and deploy via the existing guarded external release workflow. Preserve external users/database and do not deploy intranet.

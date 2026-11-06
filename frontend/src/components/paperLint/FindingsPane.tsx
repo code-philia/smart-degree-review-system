@@ -100,9 +100,10 @@ export function FindingsPane({
   const [ruleFilter, setRuleFilter] = useState('all');
   const [handledKeys, setHandledKeys] = useState<string[]>([]);
   const issueTotal = findings.length + executionWarnings.length;
-  const ruleNames = useMemo(() => new Map([...rules.map((rule) => [rule.rule_id, rule.title] as const), [documentCheckId, documentCheckTitle]]), [rules]);
+  const ruleNames = useMemo(() => new Map([...rules.map((rule) => [rule.rule_id, rule.title] as const), [documentCheckId, documentCheckTitle], ['required_section_completeness_check', '核心章节完整性']]), [rules]);
   const documentBlocked = isDocumentBlocked(ruleRuns || findings.map(item => item.ruleRun));
-  const ruleIds = documentBlocked ? [documentCheckId] : Array.from(new Set(selectedRuleIds ?? [...rules.map(rule => rule.rule_id), ...findings.map(item => item.ruleRun.rule_id)])).sort(comparePaperLintRuleIds);
+  const automaticIds = (ruleRuns || []).filter(run => run.params?.automatic_core_check === true).map(run => run.rule_id);
+  const ruleIds = documentBlocked ? [documentCheckId] : Array.from(new Set([...(selectedRuleIds ?? [...rules.map(rule => rule.rule_id), ...findings.map(item => item.ruleRun.rule_id)]), ...automaticIds])).sort(comparePaperLintRuleIds);
   const runById = new Map([...findings.map(item => item.ruleRun), ...(ruleRuns || [])].map(run => [run.rule_id, run]));
   const counts = new Map<string, RuleSeverityCounts>();
   const severityTotals: RuleSeverityCounts = { error: 0, warning: 0, info: 0 };

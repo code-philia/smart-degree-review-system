@@ -3,6 +3,7 @@ const repository = require('./paperLintJobRepository');
 const reportRepository = require('./paperLintReportRepository');
 const defaultPaperLintService = require('./reviewPilotPaperLintService');
 const { removeBrowserPdf } = require('./browserPdf');
+const { CORE_RULE_ID, mergeCoreRuns } = require('./paperStructureChecks');
 
 function createPaperLintJobService(paperLintService = defaultPaperLintService) {
   const queue = [];
@@ -45,8 +46,15 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
             document_validation: { ...progress.document_validation, skipped_rule_ids: selectedRuleIds },
           } : {}),
           completed_rule_ids: progress.document_validation?.status === 'rejected' ? [] : [...new Set([...reusedIds, ...(progress.completed_rule_ids || [])])],
-          total_rule_ids: selectedRuleIds,
-          rule_runs: progress.document_validation?.status === 'rejected' ? progress.rule_runs : [...reusedRuns, ...(progress.rule_runs || [])],
+          total_rule_ids: [...new Set([...selectedRuleIds, ...(progress.total_rule_ids || [])])],
+          rule_runs: progress.document_validation?.status === 'rejected' ? progress.rule_runs
+            : [...[...reusedRuns, ...(progress.rule_runs || [])].reduce((runs, run) => {
+              const previous = runs.get(run.rule_id);
+              runs.set(run.rule_id, run.rule_id === CORE_RULE_ID && previous
+                && (previous.params?.automatic_core_check || run.params?.automatic_core_check)
+                ? mergeCoreRuns(previous, run) : run);
+              return runs;
+            }, new Map()).values()],
         });
         const checked = await paperLintService.runPaperLint({
           pdfBuffer, selectedRuleIds: pendingRuleIds, externalProcessingConsent: Boolean(job.external_consent),

@@ -10,7 +10,8 @@ const { getCompilerRules, isCompilerRuleId, runCompilerRules } = require('./pape
 const { runPaperLintRuleGroups, settleRuleTasks } = require('./paperLintRuleRunner');
 const { createRuleProgressStream } = require('./paperLintRuleProgress');
 const { listRuleDefinitions } = require('../../rules/registry');
-const { assessPaperDocument, documentRejectionResult, unavailableReferenceRuleIds } = require('./paperDocumentAdmission');
+const { assessPaperDocument, documentRejectionResult } = require('./paperDocumentAdmission');
+const { CORE_RULE_ID, coreStructureRun, mergeCoreRuns, attachCoreStructure, unavailableRuleRuns } = require('./paperStructureChecks');
 
 const RETIRED_RULE_IDS = new Set([
   'claim_evidence_inconsistency_check',
@@ -336,8 +337,15 @@ async function normalizeSelectedRuleIds(selectedRuleIds, externalProcessingConse
 
 function mergePaperLintResults(existingResult, localResult, selectedRuleIds) {
   if (localResult.document_validation?.status === 'rejected') return localResult;
-  const runsById = new Map([...existingResult.rule_runs, ...localResult.rule_runs].map((run) => [run.rule_id, run]));
-  const ruleRuns = selectedRuleIds.map((ruleId) => {
+  const runsById = new Map();
+  for (const run of [...existingResult.rule_runs, ...localResult.rule_runs]) {
+    const previous = runsById.get(run.rule_id);
+    runsById.set(run.rule_id, run.rule_id === CORE_RULE_ID && previous
+      && (previous.params?.automatic_core_check || run.params?.automatic_core_check) ? mergeCoreRuns(previous, run) : run);
+  }
+  const ids = [...selectedRuleIds];
+  if (runsById.get(CORE_RULE_ID)?.params?.automatic_core_check && !ids.includes(CORE_RULE_ID)) ids.push(CORE_RULE_ID);
+  const ruleRuns = ids.map((ruleId) => {
     const run = runsById.get(ruleId);
     if (!run) throw createHttpError(502, `规则 ${ruleId} 没有返回检测结果`);
     const findings = require('./localFiveRulePaperLintService').dedupeFindings(run.findings);
@@ -395,7 +403,10 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
         // not turn into a blanket failure: run rules whose evidence does not
         // require that section and make the dependency explicit for the rest.
         const partialStructure = admission.stage === 'partial';
-        const unavailableRuleIds = unavailableReferenceRuleIds(admission, normalizedRuleIds);
+        const automaticCore = normalizedRuleIds.includes(CORE_RULE_ID) ? null : coreStructureRun(admission);
+        const effectiveRuleIds = [...normalizedRuleIds, ...(automaticCore ? [CORE_RULE_ID] : [])];
+        const unavailableRuns = unavailableRuleRuns(admission, normalizedRuleIds);
+        const unavailableRuleIds = unavailableRuns.map(run => run.rule_id);
         const runnableRuleIds = normalizedRuleIds.filter((ruleId) => !unavailableRuleIds.includes(ruleId));
         const bilingualRuleIds = runnableRuleIds.filter((ruleId) => BILINGUAL_RULE_IDS.has(ruleId));
         const otherRuleIds = runnableRuleIds.filter((ruleId) => !BILINGUAL_RULE_IDS.has(ruleId));
@@ -405,20 +416,23 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
         const tasks = [];
         let progressWrites = Promise.resolve();
         const reportProgress = (ruleIds, result) => {
-          const fresh = (result?.rule_runs || []).filter(run => ruleIds.includes(run.rule_id) && !completedRuleIds.includes(run.rule_id));
+          const fresh = (result?.rule_runs || []).filter(run => ruleIds.includes(run.rule_id) && !completedRuleIds.includes(run.rule_id))
+            .map(run => run.rule_id === CORE_RULE_ID ? mergeCoreRuns(run, coreStructureRun(admission)) : run);
           if (!fresh.length) return progressWrites;
           completedRuleIds.push(...fresh.map(run => run.rule_id));
           completedRuns.push(...fresh);
-          const snapshot = { completed_rule_ids: [...completedRuleIds], total_rule_ids: normalizedRuleIds, rule_runs: [...completedRuns] };
+          const snapshot = { completed_rule_ids: [...completedRuleIds], total_rule_ids: effectiveRuleIds, rule_runs: [...completedRuns], document_validation: admission };
           progressWrites = progressWrites.then(() => onProgress?.(snapshot));
           return progressWrites;
         };
+        if (automaticCore) {
+          const part = { type: 'paper_lint', paper_title: '上传论文', rule_runs: [automaticCore],
+            ruleset: { id: 'mandatory-core-structure', name: '核心章节后台检查', version_number: 1 }, summary: summarizeRuleRuns([automaticCore]) };
+          parts.push(part);
+          await reportProgress([CORE_RULE_ID], part);
+        }
         if (unavailableRuleIds.length) {
-          const ruleRuns = unavailableRuleIds.map((rule_id) => ({
-            rule_id, rule_run_id: `unavailable_${rule_id}`, severity: 'info',
-            execution_status: 'unsupported', evidence_mode: 'unsupported', outcome: 'inconclusive', findings: [],
-            message: `未检测：${admission.reason}该规则依赖参考文献内容，无法在参考文献缺失时给出可靠结论。`,
-          }));
+          const ruleRuns = unavailableRuns;
           const part = { type: 'paper_lint', paper_title: '上传论文',
             ruleset: { id: 'partial-paper-model', name: '部分 Paper Model', version_number: 1, version_label: '结构不完整降级执行' },
             rule_runs: ruleRuns, summary: summarizeRuleRuns(ruleRuns) };
@@ -470,13 +484,12 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
         await settleRuleTasks(tasks);
         if (controller.signal.aborted) throw createHttpError(504, RUN_TIMEOUT_MESSAGE);
         const result = parts.length > 1
-          ? mergePaperLintResults(parts[0], { rule_runs: parts.slice(1).flatMap((part) => part.rule_runs) }, normalizedRuleIds)
+          ? mergePaperLintResults(parts[0], { rule_runs: parts.slice(1).flatMap((part) => part.rule_runs) }, effectiveRuleIds)
           : parts[0] || { type: 'paper_lint', paper_title: '上传论文', rule_runs: [], summary: summarizeRuleRuns([]) };
         // Preserve the admission proof in successful reports too.  In partial
         // mode the UI needs this to explain why a reference-dependent rule was
         // unavailable, rather than presenting it as a silent detector failure.
-        result.document_validation = admission;
-        return { result, selectedRuleIds: normalizedRuleIds };
+        return { result: attachCoreStructure(result, admission), selectedRuleIds: normalizedRuleIds };
       } finally {
         await fs.promises.rm(tempDir, { recursive: true, force: true });
       }

@@ -6,7 +6,8 @@ const { LOCAL_RULES, isLocalRuleId, runLocalFiveRules, summarizeRuleRuns } = req
 const { getSixRules, isSixRuleId, runSixRules } = require('./sixRulePaperLintService');
 const { getCompilerRules, isCompilerRuleId, runCompilerRules } = require('./paperCompilerService');
 const { mergePaperLintResults } = require('./reviewPilotPaperLintService');
-const { assessPaperDocument, documentRejectionResult, unavailableReferenceRuleIds } = require('./paperDocumentAdmission');
+const { assessPaperDocument, documentRejectionResult } = require('./paperDocumentAdmission');
+const { attachCoreStructure, unavailableRuleRuns } = require('./paperStructureChecks');
 
 const DEFAULT_ROOT = '/opt/sjtu-archive-479';
 function getArchiveRules() {
@@ -19,7 +20,8 @@ async function runArchiveRules(pdfPath, ruleIds) {
   });
   if (admission.status !== 'accepted') return documentRejectionResult(admission, ruleIds);
   const partialStructure = admission.stage === 'partial';
-  const unavailableIds = unavailableReferenceRuleIds(admission, ruleIds);
+  const unavailableRuns = unavailableRuleRuns(admission, ruleIds);
+  const unavailableIds = unavailableRuns.map(run => run.rule_id);
   const runnableIds = ruleIds.filter(id => !unavailableIds.includes(id));
   const localIds = runnableIds.filter(isLocalRuleId);
   const sixIds = runnableIds.filter(isSixRuleId);
@@ -29,19 +31,13 @@ async function runArchiveRules(pdfPath, ruleIds) {
   const compilerIds = runnableIds.filter(isCompilerRuleId);
   const compilerResult = compilerIds.length ? await runCompilerRules(pdfPath, compilerIds,
     { allowIncompleteStructure: partialStructure }) : null;
-  const unavailableRuns = unavailableIds.map(rule_id => ({
-    rule_id, rule_run_id: `unavailable_${rule_id}`, severity: 'info', execution_status: 'unsupported',
-    evidence_mode: 'unsupported', outcome: 'inconclusive', findings: [],
-    message: `未检测：${admission.reason}该规则依赖参考文献内容，无法给出可靠结论。`,
-  }));
   const unavailableResult = unavailableRuns.length ? { type: 'paper_lint', paper_title: '归档论文',
     ruleset: { id: 'partial-paper-model', name: '部分 Paper Model', version_number: 1, version_label: '结构不完整降级执行' },
     rule_runs: unavailableRuns, summary: summarizeRuleRuns(unavailableRuns) } : null;
   const parts = [unavailableResult, localResult, sixResult, compilerResult].filter(Boolean);
   const result = parts.length > 1 ? mergePaperLintResults(parts[0], {rule_runs:parts.slice(1).flatMap(p=>p.rule_runs)}, ruleIds)
     : parts[0] || { type: 'paper_lint', paper_title: '归档论文', rule_runs: [], summary: summarizeRuleRuns([]) };
-  result.document_validation = admission;
-  return result;
+  return attachCoreStructure(result, admission);
 }
 function problem(status, message) {
   const error = new Error(message);
