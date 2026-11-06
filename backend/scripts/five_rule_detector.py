@@ -21,6 +21,17 @@ TITLES = {6: '摘要连续内容重复', 18: '公式引用目标不存在', 22: 
           24: '参考文献未被全文引用', 28: '目录页码与正文不一致'}
 _BRACKET_TRANSLATION = str.maketrans('［］', '[]')
 _CITATION = re.compile(r'[\[［](\d+(?:(?:\s*[-–—－,，、;；]\s*|\s+)\d+)*)[\]］]')
+_ARRAY_DECLARATOR = r'[*&\s]*[A-Za-z_]\w*(?:\s*\[\s*\d+\s*\])+'
+_ARRAY_DECLARATION = re.compile(
+    r'\b(?:(?:const|volatile|static|signed|unsigned)\s+)*'
+    r'(?:char|short|int|long|float|double|byte|bool|size_t|u?int(?:8|16|32|64)_t)\s+'
+    + _ARRAY_DECLARATOR + r'(?:\s*,\s*' + _ARRAY_DECLARATOR + r')*(?=\s*(?:[,;)=]|$))')
+_TENSOR_SHAPE = re.compile(
+    r'(?:张量|矩阵|向量|数组|权重|偏置|\b(?:tensors?|matri(?:x|ces)|vectors?|arrays?|weights?|bias(?:es)?))'
+    r'\s*(?:为|是|记为|表示为)?\s*[A-Za-z\u0370-\u03ff\U0001d400-\U0001d7cb](?:_?\d{1,3})?'
+    r'(?:\s*\[\s*\d+\s*\])+', re.I)
+_DIMENSION_ROW = re.compile(r'^\s*\[\s*\d+(?:\s*[,，]\s*\d+)*\s*\]\s*$')
+_STORED_VARIABLE = re.compile(r'^[A-Za-z_]\w{0,12}\s*[(（](?:HBM|DRAM|SRAM|BRAM|DDR\d?|memory)[)）]$', re.I)
 # A bare 式 can introduce an equation, but 方式/模式/形式/范式： often introduce numbered lists.
 _FORMULA_REFERENCE = re.compile(r'(?:公式[\s:：]*|(?<![公方模形范样类])式\s*|equation[\s:：]*|eq\.?[\s:：]*)[（(]\s*(\d+(?:\s*[.．–—－−-]\s*\d+)*[a-z]?)\s*[)）]', re.I)
 # Bare English references require chapter numbering; EQ1 and equation 4x are also code/data.
@@ -426,11 +437,38 @@ def _references(lines: list[Line], ref_start: int | None) -> list[tuple[int, Lin
 def _is_array_index(text: str, match: re.Match[str]) -> bool:
     if not match.group(1).isdigit():
         return False
+    # C declarations also occur as comma-separated parameters, not just `a[n];`.
+    # Match only declaration spans so a later prose citation on the row survives.
+    if any(item.start() <= match.start() and match.end() <= item.end()
+           for item in _ARRAY_DECLARATION.finditer(text.translate(_BRACKET_TRANSLATION))):
+        return True
     before = text[max(0, match.start() - 32):match.start()]
     after = text[match.end():match.end() + 8]
     if re.search(r'=\s*$', before) or re.match(r'\s*=', after):
         return True
     return bool(re.search(r'=\s*\w+\s*$', before))
+
+
+def _inline_tensor_dimension(text: str, match: re.Match[str], marker_ratio: float | None) -> bool:
+    if marker_ratio is not None and marker_ratio < .82:
+        return False
+    for shape in _TENSOR_SHAPE.finditer(text):
+        if not shape.start() <= match.start() < match.end() <= shape.end():
+            continue
+        # A noun and symbol alone can be an ordinary citation ("matrix A[188]
+        # was introduced by Smith"). Require positive computational context,
+        # using the suffix after the WHOLE shape, not after its first dimension.
+        after = text[shape.end():]
+        if re.match(r'^\s*(?:[×*⊙=]|(?:用于|用来|并(?:进行)?|进行)?'
+                    r'(?:计算|相乘|乘以|逐元素|激活|存储|传输|读写|初始化)|'
+                    r'(?:is\s+)?(?:multiplied|loaded|stored)\b)', after, re.I):
+            return True
+        memory_operation = re.search(
+            r'(?:读取|读入|加载|存储|传输|分配|初始化|\b(?:read|load|store|allocate)\w*)'
+            r'[^，。；:：.!?;]{0,30}$', text[max(0, shape.start() - 45):shape.start()], re.I)
+        if memory_operation and re.match(r'^\s*(?:[，。；,.!?;]|$)', after):
+            return True
+    return False
 
 
 def _numeric_bracket_is_data(text: str, match: re.Match[str], numbers: list[int], max_ref: int,
@@ -452,6 +490,8 @@ def _numeric_bracket_is_data(text: str, match: re.Match[str], numbers: list[int]
                 text)):
         return True
     if not numbers:
+        return True
+    if len(numbers) == 1 and _inline_tensor_dimension(text, match, marker_ratio):
         return True
     if len(numbers) == 1 and numbers[0] > max_ref and len(match.group(1)) >= 6:
         funding_before = re.search(
@@ -640,16 +680,56 @@ def _continued_citations(body: list[Line], max_ref: int,
                 break
 
 
+def _diagram_dimension_lines(body: list[Line]) -> set[Line]:
+    """Recognize split tensor labels using bounded same-column native geometry.
+
+    A bare [n] alone is ambiguous. Require a close variable/storage label above
+    it and another labelled multidimensional shape in the same local column.
+    """
+    by_page = defaultdict(list)
+    for line in body:
+        by_page[line.page].append(line)
+    result = set()
+    for page_lines in by_page.values():
+        labels = [line for line in page_lines if _STORED_VARIABLE.fullmatch(line.text.strip())]
+        pairs = []
+        for line in page_lines:
+            if not _DIMENSION_ROW.fullmatch(line.text.translate(_BRACKET_TRANSLATION)):
+                continue
+            center = (line.bbox[0] + line.bbox[2]) / 2
+            for label in labels:
+                gap = line.bbox[1] - label.bbox[3]
+                label_width = label.bbox[2] - label.bbox[0]
+                if (not -2 <= gap <= max(6, (label.bbox[3] - label.bbox[1]) * .7)
+                        or abs(center - (label.bbox[0] + label.bbox[2]) / 2) > max(8, label_width * .25)):
+                    continue
+                marker_sizes = [size for _, _, size in line.span_sizes]
+                label_sizes = [size for _, _, size in label.span_sizes]
+                if marker_sizes and label_sizes and median(marker_sizes) < median(label_sizes) * .82:
+                    continue  # smaller citation markers must remain eligible
+                pairs.append((line, center, len(re.findall(r'\d+', line.text))))
+                break
+        for line, center, dimensions in pairs:
+            if dimensions > 1 or any(
+                    count > 1 and abs(other.bbox[1] - line.bbox[1]) <= 120
+                    and abs(center - other_center) <= max(8, (other.bbox[2] - other.bbox[0]) * .35)
+                    for other, other_center, count in pairs):
+                result.add(line)
+    return result
+
+
 def _rules_22_24(body: list[Line], entries: list[tuple[int, Line]]) -> tuple[dict, dict]:
     if len(entries) < 2:
         reason = '未可靠识别编号参考文献表'
         return _result(reason=reason), _result(reason=reason)
     labels = {number for number, _ in entries}
     citation_style = _body_citation_style(body, labels)
+    dimension_lines = _diagram_dimension_lines(body)
     citations = set()
     missing_targets = []
     occurrences = ((line, number, marker, span, ())
                    for line in body
+                   if line not in dimension_lines
                    for number, marker, span in _citation_numbers(line, max(labels), citation_style))
     for line, number, marker, text_range, parts in list(occurrences) + list(_continued_citations(body, max(labels), citation_style)):
         citations.add(number)
