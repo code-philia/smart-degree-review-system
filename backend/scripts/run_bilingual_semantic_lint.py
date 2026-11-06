@@ -240,8 +240,7 @@ def _split_piece(text: str, size: int) -> list[str]:
     return pieces
 
 
-def _body_chunks(ir: dict[str, Any], size: int = 6000, *,
-                 preserve_paragraphs: bool = False) -> list[dict[str, Any]]:
+def _body_chunks(ir: dict[str, Any], size: int = 6000) -> list[dict[str, Any]]:
     """Return sentence-aware chunks and source segments for precise locations."""
     nodes = {node.get("id"): node for node in ir.get("nodes", [])}
     body = next((node for node in ir.get("nodes", []) if node.get("kind") == "Body"), None)
@@ -335,12 +334,6 @@ def _body_chunks(ir: dict[str, Any], size: int = 6000, *,
             source_parts = [(raw, int(source["page_index"]) + 1 if isinstance(source.get("page_index"), int) else None,
                             source.get("bbox") if isinstance(source.get("bbox"), list) else None)]
         paragraph_break = bool(current) and not node.get("_join_previous_layout_node")
-        # Typo detection is lexical and local.  Do not let adjacent, unrelated
-        # paragraphs change the model's decision for an otherwise clear
-        # candidate.  Other consumers retain the original aggregation mode.
-        if preserve_paragraphs and paragraph_break and current:
-            flush()
-            paragraph_break = False
         for source_text, page, bbox in source_parts:
             for piece in _split_piece(source_text, size):
                 if length and length + len(piece) + 1 > size:
@@ -515,7 +508,7 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
     # a full-paper run even though the same paragraph was detected in isolation.
     # _body_chunks still prefers punctuation, so this is not a blind character
     # split across a sentence.
-    chunks = _body_chunks(ir, size=1200, preserve_paragraphs=True)
+    chunks = _body_chunks(ir, size=1200)
     failure = None
     workers = 8 if all(os.environ.get(name, '').strip() for name in
                        ('SJTU_API_KEY', 'SJTU_API_BASE_URL', 'SJTU_API_MODEL')) else 4
