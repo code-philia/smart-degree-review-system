@@ -147,7 +147,9 @@ export type PaperLintRunResponse = {
   created_at: string;
 };
 
+export type PaperLintEta = {status:'available'|'estimating'|'overdue';remaining_seconds?:number;min_seconds?:number;max_seconds?:number;sample_count:number};
 export type PaperLintJobResponse = {
+  eta?: PaperLintEta|null;
   job_id: string;
   user_id?: string;
   source_filename?: string;

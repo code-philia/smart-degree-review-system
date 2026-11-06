@@ -15,6 +15,7 @@ function serializeUser(row) {
     id: row.userId || row.id,
     username: row.username,
     ...(row.displayName ? { displayName: row.displayName } : {}),
+    ...(row.email ? { email: row.email } : {}),
     role: row.role,
     collegeId: row.collegeId || null,
     supervisorId: row.supervisorId || null,

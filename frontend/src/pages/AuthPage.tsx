@@ -2,8 +2,9 @@ import { ArrowUpRight, BookOpenCheck, ScanLine, PenLine } from 'lucide-react';
 import AuthCampusScene from './authCampus/AuthCampusScene';
 import TrialAccountEntry from '../auth/TrialAccountEntry';
 import './auth-campus.css';
+import {canonicalReviewUrl} from '../nav/reviewRoutes';
 
-function JaccountEntry() {
+function JaccountEntry({returnTo}:{returnTo?:string|null}) {
   const error = new URLSearchParams(window.location.search).get('jaccount_error');
   const errors: Record<string, string> = {
     state: 'jAccount 登录已过期，请重新登录。',
@@ -14,7 +15,7 @@ function JaccountEntry() {
   };
   return (
     <section aria-label="校内账号登录">
-      <a href="/api/auth/jaccount" className="jaccount-entry">
+      <a href={returnTo?`/api/auth/jaccount?return_to=${encodeURIComponent(returnTo)}`:'/api/auth/jaccount'} className="jaccount-entry">
         使用 jAccount 登录
         <ArrowUpRight size={18} aria-hidden="true" />
       </a>
@@ -28,7 +29,7 @@ function JaccountEntry() {
   );
 }
 
-export default function AuthPage() {
+export default function AuthPage({returnTo}:{returnTo?:string|null}={}) {
   return (
     <main className="campus-signin">
       <AuthCampusScene />
@@ -52,7 +53,7 @@ export default function AuthPage() {
             <h1>统一身份认证</h1>
             <p>登录，开启论文智能审阅</p>
           </div>
-          <JaccountEntry />
+          <JaccountEntry returnTo={canonicalReviewUrl(returnTo)} />
           <section className="campus-services" aria-label="系统检测能力">
             <p>学位论文规范性检测</p>
             <div className="campus-capabilities">

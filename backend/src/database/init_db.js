@@ -89,11 +89,16 @@ async function initializeDatabase(options = {}) {
     if (!authUserColumns.some((column) => column.name === 'display_name')) {
       await runStatement(database, 'ALTER TABLE auth_users ADD COLUMN display_name TEXT;');
     }
+    if (!authUserColumns.some((column) => column.name === 'email')) {
+      await runStatement(database, 'ALTER TABLE auth_users ADD COLUMN email TEXT;');
+    }
 
     await runStatement(database, `CREATE TABLE IF NOT EXISTS auth_jaccount_states (
       state_hash TEXT PRIMARY KEY,
       expires_at TEXT NOT NULL
     );`);
+    const campusStateColumns=await new Promise((resolve,reject)=>database.all('PRAGMA table_info(auth_jaccount_states)',(error,rows)=>error?reject(error):resolve(rows)));
+    if(!campusStateColumns.some(column=>column.name==='return_path'))await runStatement(database,'ALTER TABLE auth_jaccount_states ADD COLUMN return_path TEXT;');
 
     await runStatement(
       database,
@@ -320,6 +325,26 @@ async function initializeDatabase(options = {}) {
     if (!paperLintJobColumns.some((column) => column.name === 'request_id')) {
       await runStatement(database, 'ALTER TABLE paper_lint_jobs ADD COLUMN request_id TEXT;');
     }
+    // Existing jobs remain opted out: never send a backlog of old reports.
+    if (!paperLintJobColumns.some((column) => column.name === 'notify_completion')) {
+      await runStatement(database, 'ALTER TABLE paper_lint_jobs ADD COLUMN notify_completion INTEGER NOT NULL DEFAULT 0;');
+    }
+    if (!paperLintJobColumns.some((column) => column.name === 'started_at')) {
+      await runStatement(database, 'ALTER TABLE paper_lint_jobs ADD COLUMN started_at TEXT;');
+    }
+    await runStatement(database, `CREATE TABLE IF NOT EXISTS report_email_outbox (
+      job_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, report_id TEXT NOT NULL,
+      recipient TEXT, status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending','sending','sent','blocked','failed','cancelled')),
+      attempts INTEGER NOT NULL DEFAULT 0, next_attempt_at TEXT NOT NULL,
+      lease_until TEXT, claim_token TEXT, error_code TEXT, sent_at TEXT,
+      created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+      FOREIGN KEY (job_id) REFERENCES paper_lint_jobs(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE,
+      FOREIGN KEY (report_id) REFERENCES paper_lint_reports(id) ON DELETE CASCADE
+    );`);
+    await runStatement(database, `CREATE INDEX IF NOT EXISTS idx_report_email_pending
+      ON report_email_outbox (status, next_attempt_at);`);
     await runStatement(database, `CREATE UNIQUE INDEX IF NOT EXISTS idx_paper_lint_jobs_request
       ON paper_lint_jobs (user_id, request_id) WHERE request_id IS NOT NULL;`);
     await runStatement(database, `CREATE INDEX IF NOT EXISTS idx_paper_lint_jobs_status

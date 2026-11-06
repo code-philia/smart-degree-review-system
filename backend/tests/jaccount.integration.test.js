@@ -104,6 +104,41 @@ describe('campus authorization-code sign-in', () => {
     expect(await get("SELECT id FROM auth_users WHERE id='jaccount:never-created'")).toBeNull();
   });
 
+  it('stores the authenticated campus mailbox for completion notifications', async () => {
+    provider({ id: 'mail-profile', account: 'mail.profile', email: 'actual@sjtu.edu.cn' });
+    const response = await finish(await start()).expect(302);
+    const me = await request(app).get('/api/auth/me').set('Cookie', cookie(response, 'arc_session')).expect(200);
+    expect(me.body.user.email).toBe('actual@sjtu.edu.cn');
+  });
+
+  it('returns to the requested report after campus sign-in',async()=>{
+    provider({id:'return-report',account:'return.report'});
+    const response=await request(app).get('/api/auth/jaccount').query({return_to:'/reports/pdf/123e4567-e89b-12d3-a456-426614174000'}).expect(302);
+    const login={state:new URL(response.headers.location).searchParams.get('state'),browserCookie:cookie(response,'arc_jaccount_state')};
+    await finish(login).expect(302).expect('Location','/reports/pdf/123e4567-e89b-12d3-a456-426614174000');
+  });
+  it.each(['https://evil.example','//evil.example','/\\evil.example','/reports/pdf/../../admin'])('does not use an unsafe return path %s',async returnTo=>{
+    provider({id:'unsafe-'+returnTo,account:'unsafe'+Buffer.from(returnTo).toString('hex').slice(0,60)});
+    const response=await request(app).get('/api/auth/jaccount').query({return_to:returnTo}).expect(302);
+    const login={state:new URL(response.headers.location).searchParams.get('state'),browserCookie:cookie(response,'arc_jaccount_state')};
+    await finish(login).expect(302).expect('Location','/paper-upload');
+  });
+
+  it('uses the institutional mailbox when essential profile omits email', async () => {
+    provider({ id: 'mail-essential', account: 'mail.essential' });
+    const response = await finish(await start()).expect(302);
+    const me = await request(app).get('/api/auth/me').set('Cookie', cookie(response, 'arc_session')).expect(200);
+    expect(me.body.user.email).toBe('mail.essential@sjtu.edu.cn');
+  });
+  it('reactivates a missing-recipient notification after a successful campus login',async()=>{
+    provider({id:'mail-recovery',account:'mail.recovery'});await finish(await start()).expect(302);
+    await run("INSERT INTO paper_lint_reports(id,user_id,source_filename,source_pdf_path,selected_rule_ids_json,result_json,created_at) VALUES ('mail-recovery-report','jaccount:mail-recovery','paper.pdf','unused','[]','{}','2026-11-07')");
+    await run("INSERT INTO paper_lint_jobs(id,user_id,source_filename,source_pdf_path,selected_rule_ids_json,status,report_id,created_at,updated_at) VALUES ('mail-recovery-job','jaccount:mail-recovery','paper.pdf','unused','[]','completed','mail-recovery-report','2026-11-07','2026-11-07')");
+    await run("INSERT INTO report_email_outbox(job_id,user_id,report_id,status,error_code,next_attempt_at,created_at,updated_at) VALUES ('mail-recovery-job','jaccount:mail-recovery','mail-recovery-report','blocked','missing_recipient','2026-11-07','2026-11-07','2026-11-07')");
+    provider({id:'mail-recovery',account:'mail.recovery',email:'recovered@sjtu.edu.cn'});await finish(await start()).expect(302);
+    expect((await get("SELECT status FROM report_email_outbox WHERE job_id='mail-recovery-job'")).status).toBe('pending');
+  });
+
   it('consumes state once so a captured callback cannot create another session', async () => {
     const fetch = provider({ id: 'person-replay', account: 'replay' });
     const login = await start();
