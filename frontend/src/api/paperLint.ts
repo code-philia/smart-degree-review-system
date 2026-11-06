@@ -171,6 +171,7 @@ export type PaperLintReportSummary = {
   error_finding_count: number;
   warning_finding_count: number;
   info_finding_count: number;
+  execution_warning_count?: number;
   rule_count: number;
   unsupported_rule_count: number;
   error_rule_count: number;

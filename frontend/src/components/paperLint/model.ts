@@ -1,4 +1,6 @@
 import type { PaperLintFinding, PaperLintResult, PaperLintRuleRun } from '../../api/paperLint';
+import { displayedReportSummary, isGenericExecutionWarning, chapterPrerequisiteSuggestion, referenceResourcesUnavailable } from '../../../../shared/paper-lint-presentation.mjs';
+export { referenceResourcesUnavailable } from '../../../../shared/paper-lint-presentation.mjs';
 
 export type PaperLintFindingItem = {
   key: string;
@@ -106,32 +108,18 @@ const executionRuleTitles: Record<string, string> = {
   chapter_new_page_check: '章标题另起一页',
 };
 
-export function referenceResourcesUnavailable(run: PaperLintRuleRun): boolean {
-  const reference = run.params?.reference_verification as { unavailable?: number } | undefined;
-  return run.rule_id === 'sjtu_rule_32' && (run.params?.reference_resources_unavailable === true
-    || Number(reference?.unavailable) > 0 || /检索资源暂不可用/.test(run.message || ''));
-}
-
 /** Converts backend unsupported/error/inconclusive runs into visible UI warnings. */
 export function genericExecutionWarnings(runs: PaperLintRuleRun[] = []): RuleExecutionWarning[] {
   return runs
-    .filter(run => run.rule_id !== numericRule
-      && !(run.rule_id === 'sjtu_rule_32' && run.execution_status === 'completed' && !referenceResourcesUnavailable(run)) && (
-      run.execution_status === 'unsupported' ||
-      run.execution_status === 'error' ||
-      run.outcome === 'inconclusive' || referenceResourcesUnavailable(run)
-    ) && !(run.execution_status === 'completed' && compilerPublicationLabel(run) === '未触发告警'))
+    .filter(isGenericExecutionWarning)
     .map(run => {
       const title = executionRuleTitles[run.rule_id] || run.rule_id;
       const reason = String(run.message || '本规则因缺少必要的论文结构，暂无法可靠判定。');
-      const referenceStructureMissing = /参考文献|编号参考文献/.test(reason);
       return {
         ruleId: run.rule_id,
         title: `规则未完成检测：${title}`,
         reason,
-        suggestion: referenceStructureMissing
-          ? '请补充或确认参考文献章节后重新检测。'
-          : '请稍后重试；如问题持续，请检查运行记录。',
+        suggestion: chapterPrerequisiteSuggestion(run) || '请稍后重试；如问题持续，请检查运行记录。',
       };
     });
 }
@@ -227,21 +215,8 @@ export function referencePresentationRun(run: PaperLintRuleRun): PaperLintRuleRu
 }
 
 export function paperLintPresentation(result: PaperLintResult): PaperLintResult {
-  const executionWarnings = [
-    ...result.rule_runs.flatMap(numericExecutionWarnings),
-    ...genericExecutionWarnings(result.rule_runs),
-  ];
-  if (!executionWarnings.length && !result.rule_runs.some(run => run.rule_id === 'sjtu_rule_32')) return result;
   const rule_runs = result.rule_runs.map(referencePresentationRun);
-  const findings = flattenPaperLintFindings({ rule_runs });
-  return { ...result, rule_runs, summary: { ...result.summary,
-    finding_count: findings.length + executionWarnings.length,
-    execution_warning_count: executionWarnings.length,
-    error_finding_count: findings.filter(item => item.ruleRun.severity === 'error').length,
-    warning_finding_count: findings.filter(item => item.ruleRun.severity === 'warning').length,
-    info_finding_count: findings.filter(item => item.ruleRun.severity === 'info').length,
-    issue_rule_count: new Set([...findings.map(item => item.ruleRun.rule_id), ...executionWarnings.map(warning => warning.ruleId || numericRule)]).size,
-  } };
+  return { ...result, rule_runs, summary: displayedReportSummary({ ...result, rule_runs }) };
 }
 
 export function flattenPaperLintFindings(result: Pick<PaperLintResult, 'rule_runs'>): PaperLintFindingItem[] {
