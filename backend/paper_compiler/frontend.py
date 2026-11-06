@@ -193,9 +193,10 @@ def _back_matter_page_headers(pages, headings, normal):
     return headers
 
 
-def build_paper(pdf: Path, *, client=None, layout_cache=None, include_citations=True) -> dict:
+def build_paper(pdf: Path, *, client=None, layout_cache=None, include_citations=True,
+                allow_incomplete_structure=False) -> dict:
     pages = _observe(Path(pdf).resolve())
-    admission = assert_paper_pages(pages)
+    admission = assert_paper_pages(pages, allow_incomplete_structure=allow_incomplete_structure)
     ir = _build_source_tree(pdf, client=client, layout_cache=layout_cache,
                             include_citations=include_citations, pages=pages)
     ir['metadata']['document_admission'] = admission

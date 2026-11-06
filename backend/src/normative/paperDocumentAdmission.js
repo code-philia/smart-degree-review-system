@@ -21,18 +21,25 @@ async function assessPaperDocument(pdfPath, pdfBuffer, { python, signal } = {}) 
     const result = JSON.parse(stdout);
     const digest = crypto.createHash('sha256').update(pdfBuffer).digest('hex');
     const required = REQUIRED_SECTIONS[result?.structure?.profile];
+    const completeProof = result?.status === 'accepted'
+      && result.reason_code === 'paper_structure_confirmed' && result.compiled === true
+      && result.stage === 'complete' && result.structure?.status === 'accepted'
+      && Array.isArray(result.structure?.missing_sections) && result.structure.missing_sections.length === 0;
+    const partialProof = result?.status === 'accepted'
+      && result.reason_code === 'paper_structure_incomplete' && result.compiled === true
+      && result.stage === 'partial' && result.structure?.status === 'rejected'
+      && Array.isArray(result.structure?.missing_sections) && result.structure.missing_sections.length > 0;
     if (!result || result.version !== VERSION || result.sha256 !== digest
       || !['accepted', 'rejected'].includes(result.status)
       || typeof result.reason !== 'string' || !result.reason.trim()
-      || (result.status === 'accepted' && (result.reason_code !== 'paper_structure_confirmed'
-        || result.compiled !== true
-        || result.stage !== 'complete' || result.structure?.status !== 'accepted'
+      || (result.status === 'accepted' && (!completeProof && !partialProof
+        || !['accepted', 'rejected'].includes(result.structure?.status)
         || !['chinese-thesis', 'english-thesis', 'research-article'].includes(result.structure?.profile)
         || !required || !Array.isArray(result.structure?.required_sections)
         || result.structure.required_sections.length !== required.length
         || !required.every(name => result.structure.required_sections.includes(name))
-        || !Array.isArray(result.structure?.missing_sections) || result.structure.missing_sections.length
-        || !result.structure.required_sections.every(name => result.structure.observed_sections?.[name] === true)))) {
+        || !Array.isArray(result.structure?.missing_sections)
+        || (completeProof && !result.structure.required_sections.every(name => result.structure.observed_sections?.[name] === true))))) {
       throw new Error('Invalid document admission proof');
     }
     return result;

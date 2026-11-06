@@ -35,19 +35,48 @@ function isLocalRuleId(ruleId) {
   return RULES_BY_ID.has(ruleId);
 }
 
+function findingFingerprint(finding) {
+  const location = finding?.location || {};
+  const sourceRect = location.bounding_rect;
+  const rect = Array.isArray(sourceRect)
+    ? sourceRect.map((value) => Number(value).toFixed(2)).join(',')
+    : sourceRect && typeof sourceRect === 'object'
+      ? ['x1', 'y1', 'x2', 'y2'].map((key) => Number(sourceRect[key]).toFixed(2)).join(',') : '';
+  return [finding?.rule_id || '', location.page_number || '', rect,
+    String(finding?.message || '').replace(/\s+/g, ' ').trim(),
+    String(finding?.suggestion || '').replace(/\s+/g, ' ').trim()].join('|');
+}
+
+function dedupeFindings(findings) {
+  const seen = new Set();
+  return (findings || []).filter((finding) => {
+    const key = findingFingerprint(finding);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function normalizeRunFindings(run) {
+  const findings = dedupeFindings(run?.findings);
+  return { ...run, findings, outcome: findings.length ? 'issues_found'
+    : (run?.outcome === 'issues_found' ? 'passed' : run?.outcome) };
+}
+
 function summarizeRuleRuns(ruleRuns) {
-  const findings = ruleRuns.flatMap((run) => run.findings || []);
+  const normalizedRuns = ruleRuns.map(normalizeRunFindings);
+  const findings = normalizedRuns.flatMap((run) => run.findings || []);
   return {
-    rule_count: ruleRuns.length,
-    completed_rule_count: ruleRuns.filter((run) => run.execution_status === 'completed').length,
-    unsupported_rule_count: ruleRuns.filter((run) => run.execution_status === 'unsupported').length,
-    error_rule_count: ruleRuns.filter((run) => run.execution_status === 'error').length,
-    issue_rule_count: ruleRuns.filter((run) => run.outcome === 'issues_found').length,
+    rule_count: normalizedRuns.length,
+    completed_rule_count: normalizedRuns.filter((run) => run.execution_status === 'completed').length,
+    unsupported_rule_count: normalizedRuns.filter((run) => run.execution_status === 'unsupported').length,
+    error_rule_count: normalizedRuns.filter((run) => run.execution_status === 'error').length,
+    issue_rule_count: normalizedRuns.filter((run) => run.outcome === 'issues_found').length,
     finding_count: findings.length,
-    error_finding_count: ruleRuns.reduce((n, run) => n + (run.findings || []).filter(f => (f.severity || run.severity) === 'error').length, 0),
-    warning_finding_count: ruleRuns.reduce((n, run) => n + (run.findings || []).filter(f => (f.severity || run.severity) === 'warning').length, 0),
-    info_finding_count: ruleRuns.reduce((n, run) => n + (run.findings || []).filter(f => (f.severity || run.severity) === 'info').length, 0),
-    derived_rule_count: ruleRuns.filter((run) => run.evidence_mode === 'derived').length,
+    error_finding_count: normalizedRuns.reduce((n, run) => n + (run.findings || []).filter(f => (f.severity || run.severity) === 'error').length, 0),
+    warning_finding_count: normalizedRuns.reduce((n, run) => n + (run.findings || []).filter(f => (f.severity || run.severity) === 'warning').length, 0),
+    info_finding_count: normalizedRuns.reduce((n, run) => n + (run.findings || []).filter(f => (f.severity || run.severity) === 'info').length, 0),
+    derived_rule_count: normalizedRuns.filter((run) => run.evidence_mode === 'derived').length,
   };
 }
 
@@ -80,7 +109,7 @@ function toPaperLintResult(detectorOutput, selectedRuleIds) {
         anchors: [],
       };
     });
-    return {
+    return normalizeRunFindings({
       rule_run_id: `run_${ruleId}`,
       rule_id: ruleId,
       severity: rule.default_severity,
@@ -90,7 +119,7 @@ function toPaperLintResult(detectorOutput, selectedRuleIds) {
       outcome: raw.status === 'unsupported' ? 'inconclusive' : findings.length ? 'issues_found' : 'passed',
       message: raw.reason || null,
       findings,
-    };
+    });
   });
   return {
     type: 'paper_lint',
@@ -101,7 +130,7 @@ function toPaperLintResult(detectorOutput, selectedRuleIds) {
   };
 }
 
-async function runLocalFiveRules(pdfPath, selectedRuleIds, { signal } = {}) {
+async function runLocalFiveRules(pdfPath, selectedRuleIds, { signal, allowIncompleteStructure = false } = {}) {
   const numbers = selectedRuleIds.map((ruleId) => {
     const rule = RULES_BY_ID.get(ruleId);
     if (!rule) throw new Error(`未知本地规则：${ruleId}`);
@@ -111,8 +140,10 @@ async function runLocalFiveRules(pdfPath, selectedRuleIds, { signal } = {}) {
     (process.platform === 'win32' ? 'python' : 'python3');
   let stdout;
   try {
-    ({ stdout } = await runPaperLintProcess(python, [numbers.some(number => [31, 34, 35, 36, 37, 38].includes(number)) ? FAST_DETECTOR_SCRIPT : DETECTOR_SCRIPT, '--pdf', pdfPath,
-      ...numbers.flatMap((number) => ['--rule', String(number)])], {
+    const usesFastDetector = numbers.some(number => [31, 34, 35, 36, 37, 38].includes(number));
+    ({ stdout } = await runPaperLintProcess(python, [usesFastDetector ? FAST_DETECTOR_SCRIPT : DETECTOR_SCRIPT, '--pdf', pdfPath,
+      ...numbers.flatMap((number) => ['--rule', String(number)]),
+      ...(usesFastDetector && allowIncompleteStructure ? ['--allow-incomplete-structure'] : [])], {
       timeoutMs: 300000, maxBytes: 30 * 1024 * 1024,
       env: { ...process.env, PYTHONIOENCODING: 'utf-8' }, signal,
     }));
@@ -139,4 +170,4 @@ async function runLocalFiveRules(pdfPath, selectedRuleIds, { signal } = {}) {
   return toPaperLintResult(output, selectedRuleIds);
 }
 
-module.exports = { LOCAL_RULES, getLocalRuleAvailability, isLocalRuleId, runLocalFiveRules, summarizeRuleRuns, toPaperLintResult };
+module.exports = { LOCAL_RULES, getLocalRuleAvailability, isLocalRuleId, runLocalFiveRules, summarizeRuleRuns, toPaperLintResult, dedupeFindings, normalizeRunFindings };

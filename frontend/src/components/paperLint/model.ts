@@ -83,9 +83,42 @@ export function numericExecutionWarnings(run?: PaperLintRuleRun): RuleExecutionW
     };
   });
   if (run.execution_status === 'error' || params.failure || (Array.isArray(params.validation_errors) && params.validation_errors.length)) {
-    warnings.push({ title: '论点论据一致性检测未完成', reason: '部分核验因服务请求或结果校验失败而未完成。已完成的有效结果仍予以保留。', suggestion: '请稍后重试；若持续失败，请联系管理员检查运行记录。' });
+    warnings.push({ title: '论点论据一致性检测未完成', reason: '当前系统使用人数较多，API 调用暂时繁忙，部分核验未完成。已完成的有效结果仍予以保留。', suggestion: '请稍后重试；若持续失败，请联系管理员检查运行记录。' });
   }
   return warnings.map(warning => ({ ...warning, ruleId: numericRule }));
+}
+
+const executionRuleTitles: Record<string, string> = {
+  sjtu_rule_18: '正文公式引用目标缺失',
+  sjtu_rule_22: '正文引文引用编号缺失',
+  sjtu_rule_24: '参考文献列表中存在未被正文引用的条目',
+  sjtu_rule_28: '目录中的核心内容页码系统性错位',
+  sjtu_rule_31: '引用格式错误',
+  sjtu_rule_32: '引用的外部文献不存在',
+  sjtu_rule_33: '引用文献完整性检查',
+};
+
+/** Converts backend unsupported/error/inconclusive runs into visible UI warnings. */
+export function genericExecutionWarnings(runs: PaperLintRuleRun[] = []): RuleExecutionWarning[] {
+  return runs
+    .filter(run => run.rule_id !== numericRule && (
+      run.execution_status === 'unsupported' ||
+      run.execution_status === 'error' ||
+      run.outcome === 'inconclusive'
+    ))
+    .map(run => {
+      const title = executionRuleTitles[run.rule_id] || run.rule_id;
+      const reason = String(run.message || '本规则因缺少必要的论文结构，暂无法可靠判定。');
+      const referenceStructureMissing = /参考文献|编号参考文献/.test(reason);
+      return {
+        ruleId: run.rule_id,
+        title: `规则未完成检测：${title}`,
+        reason,
+        suggestion: referenceStructureMissing
+          ? '请补充或确认参考文献章节后重新检测。'
+          : '请稍后重试；如问题持续，请检查运行记录。',
+      };
+    });
 }
 
 export function numericDisplayFindings(run: PaperLintRuleRun): PaperLintFinding[] {
@@ -170,12 +203,18 @@ export function referencePresentationRun(run: PaperLintRuleRun): PaperLintRuleRu
   const findings = referenceDisplayFindings(run);
   return { ...run, findings, severity: 'info', ...(run.execution_status === 'completed' ? {
     publication_status: findings.length ? 'ALERT' as const : 'NO_ALERT' as const,
-    message: findings.length ? `发现 ${findings.length} 条疑似不存在的引用，请逐条人工复核。` : '未发现疑似不存在的引用。',
+    // Keep a backend resource-status explanation (quota, rate limit, or
+    // temporary service outage) instead of replacing it with a false success.
+    message: findings.length ? `发现 ${findings.length} 条疑似不存在的引用，请逐条人工复核。`
+      : run.message || '未发现疑似不存在的引用。',
   } : {}) };
 }
 
 export function paperLintPresentation(result: PaperLintResult): PaperLintResult {
-  const executionWarnings = result.rule_runs.flatMap(numericExecutionWarnings);
+  const executionWarnings = [
+    ...result.rule_runs.flatMap(numericExecutionWarnings),
+    ...genericExecutionWarnings(result.rule_runs),
+  ];
   if (!executionWarnings.length && !result.rule_runs.some(run => run.rule_id === 'sjtu_rule_32')) return result;
   const rule_runs = result.rule_runs.map(referencePresentationRun);
   const findings = flattenPaperLintFindings({ rule_runs });
