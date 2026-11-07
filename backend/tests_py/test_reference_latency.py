@@ -67,11 +67,11 @@ def test_successful_reference_cache_skips_bulk_refresh_even_after_metadata_ttl(t
     queries=[{'title':'Verified scholarly title '+value+'v1','authors':['John Smith'],'year':2020,
               'doi':'10.48550/arxiv.'+value,'url':'https://arxiv.org/abs/'+value}
              for value in ['2001.00001','2001.00002']]
-    for query in queries:gateway.lookup_rule32(query)
+    for query in queries:gateway.lookup_public_reference(query)
     assert len(calls)==2
     now[0]+=2*86400
     gateway.prefetch_rule32(queries)
-    for query in queries:gateway.lookup_rule32(query)
+    for query in queries:gateway.lookup_public_reference(query)
     assert len(calls)==2
 
 

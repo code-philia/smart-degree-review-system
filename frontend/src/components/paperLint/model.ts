@@ -264,7 +264,7 @@ export function findingPageLabel(item: PaperLintFindingItem): string | null {
 }
 
 export function compilerPublicationLabel(run: PaperLintRuleRun): string | null {
-  if (referenceResourcesUnavailable(run)) return referenceDisplayFindings(run).length ? '发现问题（部分未检测）' : '未能检测';
+  if (referenceResourcesUnavailable(run)) return referenceDisplayFindings(run).some(f => f.reference_review !== 'insufficient_evidence') ? '发现问题（部分未检测）' : '未能检测';
   if (!['sjtu_rule_31', 'sjtu_rule_32', 'sjtu_rule_33'].includes(run.rule_id) || !run.publication_status) return null;
   if (run.execution_status === 'error') return '执行失败';
   if (run.rule_id === 'sjtu_rule_32' && referenceDisplayFindings(run).length) return '待人工复核';

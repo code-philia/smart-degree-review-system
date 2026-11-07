@@ -406,6 +406,13 @@ class EvidenceGateway:
         return self.cache_dir/('reference-'+key+'.json')
 
     def lookup_rule32(self, query):
+        """R32 uses Scholar only; API failures never become missing-work evidence."""
+        from .serpapi_scholar import SerpApiScholar
+        library = os.environ.get('PAPER_COMPILER_REFERENCE_LIBRARY') or str(self.rate_dir / 'reference-library')
+        records, _meta = SerpApiScholar(library, clock=self.clock).lookup_many(query)
+        return records
+
+    def lookup_public_reference(self, query):
         """Free sources, strict identity validation and recoverable shared evidence."""
         from .identity import resolve_reference_identity
         path=self._rule32_cache_path(query)

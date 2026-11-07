@@ -418,14 +418,15 @@ def _prefetch_rule32(nodes,fields_by_id,gateway):
         query={name:_value(fields,name) for name in ['title','authors','year','doi','url']}
         query['authors']=query.get('authors') or []
         key=json_bytes(query);queries[key]=query;node_keys[node['id']]=key
-    warm=getattr(gateway,'prefetch_rule32',None)
-    if callable(warm):
-        try:warm(list(queries.values()))
-        except (OSError,ValueError):pass
     def retrieve(item):
         key,query=item
         try:return key,(gateway.lookup_rule32(query) if any(query.get(name) for name in ['title','doi','url']) else [],None)
-        except Exception as error:return key,([],type(error).__name__)
+        except Exception as error:
+            from .serpapi_scholar import SerpApiError
+            # Preserve only known safe provider codes, never request URLs or keys.
+            code = str(error) if isinstance(error, SerpApiError) else ''
+            safe = code if re.fullmatch(r'SERPAPI_QUOTA_EXHAUSTED|SERPAPI_API_KEY is not configured|HTTP_\d{3}|invalid_json', code) else ''
+            return key,([],type(error).__name__ + (': ' + safe if safe else ''))
     with ThreadPoolExecutor(max_workers=8) as pool:
         results=dict(pool.map(retrieve,queries.items()))
     return {node_id:results[key] for node_id,key in node_keys.items()}
@@ -465,8 +466,9 @@ def enrich(ir,rule_packages,*,client,gateway,cache_dir:Path,snapshot_id=None):
         field_names = IDENTITY_FIELD_NAMES
         policy['bibliography']['field_names'] = list(field_names)
     if has_r32:
-        from .evidence import REFERENCE_LOOKUP_VERSION
-        policy['reference_lookup'] = REFERENCE_LOOKUP_VERSION
+        from .serpapi_scholar import QUERY_PLAN_VERSION
+        # Do not reuse public-source analysis as if Scholar had been queried.
+        policy['reference_lookup'] = 'serpapi-scholar/' + QUERY_PLAN_VERSION
     fingerprint=hashlib.sha256(json_bytes({'ir':ir_hash(ir),'version':VERSION,'capabilities':plan,'required':sorted(required),'policy':policy})).hexdigest()
     path=Path(cache_dir)/(fingerprint+'.json')
     retry_cached=None

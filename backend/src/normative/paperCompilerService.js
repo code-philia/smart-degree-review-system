@@ -156,8 +156,10 @@ function toCompilerResult(output,selectedRuleIds) {
       ...(raw.results || []).flatMap(row => row.reasons || [])].filter(Boolean).join(' ');
     const referenceResourcesUnavailable = Boolean(reference && (reference.unavailable > 0
       || /SERPAPI_(?:QUOTA_EXHAUSTED|API_KEY)|reference_lookup_unavailable|HTTP_429|TimeoutError/i.test(resourceError)));
+    const resourceCause = /SERPAPI_QUOTA_EXHAUSTED/.test(resourceError) ? 'SerpAPI 额度已用尽'
+      : /SERPAPI_API_KEY/.test(resourceError) ? 'SerpAPI 密钥未配置' : '检索服务繁忙或访问受限';
     const resourceMessage = referenceResourcesUnavailable
-      ? `检索资源暂不可用：${reference.unavailable || reference.unresolved || '部分'} 条参考文献未完成核验。可能是 SerpAPI 额度已用尽、服务繁忙或访问受限；请稍后重试。这不表示引用存在问题。` : null;
+      ? `检索资源暂不可用：${resourceCause}，${reference.unavailable || reference.unresolved || '部分'} 条参考文献未完成核验。请稍后重试。这不表示引用存在问题。` : null;
     const referenceMessage = reference ? [findings.length
       ? `发现 ${findings.length} 条疑似不存在的引用，请逐条人工复核。` : null,
       resourceMessage || (reference.unresolved ? `${reference.unresolved} 条引用核验证据不足，请人工核查（提示）。` : findings.length ? null : '未发现疑似不存在的引用。')].filter(Boolean).join(' ') : null;

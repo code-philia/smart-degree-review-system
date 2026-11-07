@@ -48,3 +48,23 @@ it('retains the resource warning when a reference run also has valid findings', 
   expect(screen.getByText('错误总数').closest('div')).toHaveTextContent('2');
   expect(screen.getAllByText(/检索资源暂不可用/).length).toBeGreaterThan(0);
 });
+
+it('shows exhausted Scholar quota and unresolved entries consistently in live, saved and export views', () => {
+  const run: PaperLintRuleRun = { ...unavailable, execution_status: 'completed', evidence_mode: 'native',
+    params: { reference_resources_unavailable: true, reference_verification: { total: 1, verified: 0, unresolved: 1, unavailable: 1 } },
+    message: '检索资源暂不可用：SerpAPI 额度已用尽，1 条参考文献未完成核验。请稍后重试。这不表示引用存在问题。',
+    compiler_diagnostics: [{ node_id: 'ref-1', check_id: 'work_existence', status: 'UNKNOWN',
+      reasons: ['reference_lookup_unavailable: SerpApiError: SERPAPI_QUOTA_EXHAUSTED'], evidence: [] }] };
+  const result = paperLintPresentation({ ...fixture.result, rule_runs: [run] });
+  expect(result.rule_runs[0].outcome).toBe('inconclusive');
+  expect(result.summary).toMatchObject({ info_finding_count: 1, warning_finding_count: 0 });
+  expect(paperLintPresentation(result)).toEqual(result);
+  render(<LivePaperLintReport file={{ name: 'synthetic.pdf', url: '/synthetic.pdf' }} rules={[]} runs={[run]} selectedRuleIds={[id]} />);
+  expect(screen.getAllByText(/SerpAPI 额度已用尽/).length).toBeGreaterThan(0);
+  expect(screen.getByRole('button', { name: '提示 1', exact: true })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '警告 0', exact: true })).toBeInTheDocument();
+  const exported = buildExportReport({ ...fixture, result }, [], null);
+  expect(exported.summary.info_finding_count).toBe(1);
+  expect(exported.rules[0].message).toContain('SerpAPI 额度已用尽');
+  expect(exported.rules[0].status).toBe('未能检测');
+});

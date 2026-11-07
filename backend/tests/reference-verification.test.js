@@ -13,6 +13,17 @@ function report(statuses, reasons = []) {
       counts: Object.fromEntries([...new Set(statuses)].map(s => [s, statuses.filter(v => v === s).length])), coverage: { incomplete_scopes: [] } }] };
 }
 describe('reference verification coverage', () => {
+  it('maps Scholar quota errors to explicit resource text and informational findings', () => {
+    const run = toCompilerResult(report(['UNKNOWN'], [['reference_lookup_unavailable: SerpApiError: SERPAPI_QUOTA_EXHAUSTED']]), ['sjtu_rule_32']).rule_runs[0];
+    expect(run.execution_status).toBe('completed');
+    expect(run.outcome).toBe('inconclusive');
+    expect(run.publication_status).toBe('NO_ALERT');
+    expect(run.message).toContain('SerpAPI 额度已用尽');
+    expect(run.params.reference_resources_unavailable).toBe(true);
+    expect(run.params.reference_verification).toMatchObject({ unresolved: 1, unavailable: 1, suspected: 0 });
+    expect(run.findings).toHaveLength(1);
+    expect(run.findings[0]).toMatchObject({ severity: 'info', reference_review: 'insufficient_evidence' });
+  });
   it('preserves a resource notice alongside a confirmed reference finding', () => {
     const value = report(['VIOLATION', 'UNKNOWN'], [[], ['reference_lookup_unavailable: HTTP_429']]);
     value.publication.public = { status: 'ALERT', findings: [{ rule_id: '32', node_id: 'entry-0',

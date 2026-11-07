@@ -568,8 +568,8 @@ def analyze_programs(ir, packages, *, client, gateway, cache_dir: Path, snapshot
     if reference_requests or set(capabilities) & {'external_work', 'citation_relevance'}:
         policy['identity_resolution'] = IDENTITY_POLICY
     if '32' in rule_ids:
-        from .evidence import REFERENCE_LOOKUP_VERSION
-        policy['reference_lookup'] = REFERENCE_LOOKUP_VERSION
+        from .serpapi_scholar import QUERY_PLAN_VERSION
+        policy['reference_lookup'] = 'serpapi-scholar/' + QUERY_PLAN_VERSION
     if reference_requests or any(name.startswith('bibliography_') or name in {'external_work', 'citation_binding', 'citation_order'} for name in capabilities):
         policy['bibliography_extraction'] = bibliography_execution_policy()['extraction_policy']
     if batch_size > 1:

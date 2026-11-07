@@ -21,7 +21,7 @@ def test_openalex_exact_identity_avoids_unnecessary_search_and_serpapi(tmp_path,
         calls.append(url)
         return 200, json.dumps(body('openalex')).encode()
     gateway = EvidenceGateway(tmp_path, providers=['openalex', 'crossref'], transport=transport)
-    records = gateway.lookup_rule32(QUERY)
+    records = gateway.lookup_public_reference(QUERY)
     assert resolve_identity(QUERY, records)['value'] is True
     assert len(calls) == 1 and urlsplit(calls[0]).path.startswith('/works/https:')
 
@@ -32,20 +32,20 @@ def test_openalex_failure_falls_back_to_crossref_and_reuses_positive_cache(tmp_p
         if urlsplit(url).hostname == 'api.openalex.org': return 429, b'{}'
         return 200, json.dumps(body('crossref')).encode()
     gateway = EvidenceGateway(tmp_path, providers=['openalex', 'crossref'], transport=transport)
-    records = gateway.lookup_rule32(QUERY)
+    records = gateway.lookup_public_reference(QUERY)
     assert resolve_identity(QUERY, records)['value'] is True
     count = len(calls)
-    assert gateway.lookup_rule32(QUERY) == records and len(calls) == count
+    assert gateway.lookup_public_reference(QUERY) == records and len(calls) == count
 
 @pytest.mark.parametrize('status', [200, 429, 503])
 def test_empty_or_failed_sources_never_prove_nonexistence(tmp_path, status):
     gateway = EvidenceGateway(tmp_path, providers=['crossref'], transport=lambda url: (status, b'{"message":{"items":[]}}'))
-    result = resolve_identity(QUERY, gateway.lookup_rule32(QUERY))
+    result = resolve_identity(QUERY, gateway.lookup_public_reference(QUERY))
     assert result['state'] == 'unknown' and result.get('value') is not False
 
 def test_existing_doi_for_a_different_work_is_not_a_success(tmp_path):
     gateway = EvidenceGateway(tmp_path, providers=['openalex'], transport=lambda url: (200, json.dumps(body('openalex', title='A Different Article', author='Jane Jones')).encode()))
-    assert resolve_identity(QUERY, gateway.lookup_rule32(QUERY))['state'] == 'unknown'
+    assert resolve_identity(QUERY, gateway.lookup_public_reference(QUERY))['state'] == 'unknown'
 
 def test_unregistered_doi_still_allows_title_author_year_verification(tmp_path):
     calls=[]
@@ -54,14 +54,14 @@ def test_unregistered_doi_still_allows_title_author_year_verification(tmp_path):
         if urlsplit(url).query:return 200,json.dumps(body('crossref')).encode()
         return 404,b'{}'
     gateway=EvidenceGateway(tmp_path,providers=['crossref'],transport=transport)
-    assert resolve_identity(QUERY,gateway.lookup_rule32(QUERY))['value'] is True
+    assert resolve_identity(QUERY,gateway.lookup_public_reference(QUERY))['value'] is True
     assert len(calls)==2
 
 def test_chinese_identity_requires_author_and_year_support(tmp_path):
     query = {**QUERY, 'title': '中文参考文献身份核验研究', 'authors': ['张三']}
     value = body('openalex', title=query['title'], author='张三')
     gateway = EvidenceGateway(tmp_path, providers=['openalex'], transport=lambda url: (200, json.dumps(value).encode()))
-    assert resolve_identity(query, gateway.lookup_rule32(query))['value'] is True
+    assert resolve_identity(query, gateway.lookup_public_reference(query))['value'] is True
 
 def test_reference_cache_retries_service_failure_after_short_ttl(tmp_path):
     now = [1000.0]; calls = []
@@ -69,24 +69,24 @@ def test_reference_cache_retries_service_failure_after_short_ttl(tmp_path):
         calls.append(url)
         return (503, b'{}') if now[0] == 1000 else (200, json.dumps(body('openalex')).encode())
     gateway = EvidenceGateway(tmp_path, providers=['openalex'], transport=transport, clock=lambda: now[0])
-    assert resolve_identity(QUERY, gateway.lookup_rule32(QUERY))['state'] == 'unknown'
+    assert resolve_identity(QUERY, gateway.lookup_public_reference(QUERY))['state'] == 'unknown'
     now[0] += 601
-    assert resolve_identity(QUERY, gateway.lookup_rule32(QUERY))['value'] is True
+    assert resolve_identity(QUERY, gateway.lookup_public_reference(QUERY))['value'] is True
 
 def test_frozen_reference_failure_remains_reproducible(tmp_path):
     now = [1000.0]
     gateway = EvidenceGateway(tmp_path, providers=['crossref'], snapshot_id='frozen',
         transport=lambda url: (503, b'{}'), clock=lambda: now[0])
-    old = gateway.lookup_rule32(QUERY)
+    old = gateway.lookup_public_reference(QUERY)
     now[0] += 601
     gateway.transport = lambda url: pytest.fail('frozen evidence must not refresh')
-    assert gateway.lookup_rule32(QUERY) == old
+    assert gateway.lookup_public_reference(QUERY) == old
 
 def test_frozen_reference_failure_does_not_change_when_sources_are_enabled(tmp_path):
     old=EvidenceGateway(tmp_path,providers=['openalex','crossref'],live_providers=['crossref'],
-        snapshot_id='frozen',transport=lambda url:(503,b'{}')).lookup_rule32(QUERY)
+        snapshot_id='frozen',transport=lambda url:(503,b'{}')).lookup_public_reference(QUERY)
     new=EvidenceGateway(tmp_path,providers=['openalex','crossref'],snapshot_id='frozen',
-        transport=lambda url:pytest.fail('a frozen query cannot gain new sources')).lookup_rule32(QUERY)
+        transport=lambda url:pytest.fail('a frozen query cannot gain new sources')).lookup_public_reference(QUERY)
     assert new==old
 
 def test_a_different_arxiv_version_cannot_verify_an_explicit_cited_version():
@@ -111,7 +111,7 @@ def test_unreadable_openalex_config_cannot_abort_other_sources(tmp_path,monkeypa
     gateway=EvidenceGateway(tmp_path,providers=['openalex','crossref'])
     gateway.transport=lambda url:(200,json.dumps(body('crossref')).encode())
     gateway.rate_limit=False
-    assert resolve_identity(QUERY,gateway.lookup_rule32(QUERY))['value'] is True
+    assert resolve_identity(QUERY,gateway.lookup_public_reference(QUERY))['value'] is True
 
 def test_multiple_private_keys_are_host_scoped_and_never_serialized(tmp_path, monkeypatch):
     from paper_compiler import evidence
