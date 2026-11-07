@@ -16,6 +16,24 @@ const base: PaperLintRuleRun = { rule_id: id, rule_run_id: 'refs', severity: 'wa
   params: { reference_verification: { total: 161, verified: 109, unresolved: 52 } }, findings: [] };
 const callbacks = { onFindingClick: vi.fn(), onAnchorClick: vi.fn(), activeFindingKey: null, activeAnchorId: null };
 
+it('shows historical unresolved references as Info and keeps export and API summary counts aligned', () => {
+  const run = { ...base, compiler_diagnostics: [1, 2].map(n => ({ node_id: `ref-${n}`, check_id: 'existence',
+    status: 'UNKNOWN' as const, reasons: ['reference_not_matched'], evidence: [],
+    location: { type: 'pdf_page' as const, page_number: 20 + n } })) };
+  const result = { ...fixture.result, rule_runs: [run] };
+  const view = paperLintPresentation(result);
+  expect(view.summary).toMatchObject({ info_finding_count: 2, warning_finding_count: 0 });
+  expect(view.rule_runs[0].outcome).toBe('inconclusive');
+  expect(view.rule_runs[0].publication_status).toBe('NO_ALERT');
+  expect(paperLintPresentation(view)).toEqual(view);
+  const findings = flattenPaperLintFindings(result);
+  render(<FindingsPane {...callbacks} rules={rules} selectedRuleIds={[id]} ruleRuns={[view.rule_runs[0]]} findings={findings} />);
+  fireEvent.click(screen.getByRole('button', { name: '提示 2', exact: true }));
+  expect(screen.getAllByText('引用核验证据不足，请人工核查。')).toHaveLength(2);
+  expect(screen.getByRole('button', { name: '警告 0', exact: true })).toBeInTheDocument();
+  expect(buildExportReport({ ...fixture, result }, rules, null).summary.info_finding_count).toBe(2);
+});
+
 it.each([false, true])('shows a green zero for completed insufficient evidence in saved/live reports (live=%s)', async running => {
   render(<FindingsPane {...callbacks} running={running} rules={rules} selectedRuleIds={[id]} ruleRuns={[base]} findings={[]} />);
   fireEvent.keyDown(screen.getByRole('combobox'), { key: 'ArrowDown' });
@@ -71,7 +89,7 @@ it.each([false, true])('keeps historical export totals and conclusions consisten
   const model = buildExportReport(report, rules, null);
   expect(model.summary).toMatchObject({ finding_count: supported ? 1 : 0, warning_finding_count: 0, info_finding_count: supported ? 1 : 0 });
   expect(model.rules[0].finding_count).toBe(supported ? 1 : 0);
-  expect(reportText(model)).not.toMatch(/52 条待核查|提取不完整|无法判定/);
+  if (!supported) expect(reportText(model)).toContain('52 条待核查');
   expect(JSON.stringify(report)).toBe(original);
   const view = paperLintPresentation(report.result);
   expect(paperLintPresentation(view)).toEqual(view);

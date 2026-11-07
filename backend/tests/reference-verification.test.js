@@ -18,7 +18,7 @@ describe('reference verification coverage', () => {
     value.publication.public = { status: 'ALERT', findings: [{ rule_id: '32', node_id: 'entry-0',
       check_id: 'work_existence', status: 'VIOLATION', message: '已有证据的引用疑点' }] };
     const run = toCompilerResult(value, ['sjtu_rule_32']).rule_runs[0];
-    expect(run.findings).toHaveLength(1);
+    expect(run.findings).toHaveLength(2);
     expect(run.message).toContain('检索资源暂不可用');
     expect(run.params.reference_resources_unavailable).toBe(true);
   });
@@ -47,15 +47,16 @@ describe('reference verification coverage', () => {
     expect(run.params.reference_verification).toMatchObject({ total: 3, verified: 1, unresolved: 2, unavailable: 1 });
     expect(run.message).toContain('检索资源暂不可用');
     expect(run.message).toContain('不表示引用存在问题');
-    expect(run.findings).toEqual([]);
+    expect(run.findings).toHaveLength(2);
+    expect(run.findings.every(f => f.severity === 'info' && f.reference_review === 'insufficient_evidence')).toBe(true);
     expect(run.compiler_diagnostics).toHaveLength(2);
     expect(run.severity).toBe('info');
   });
   it('does not promote a legacy SerpAPI search miss into a review prompt', () => {
     const run = toCompilerResult(report(['UNKNOWN'], [['serpapi_not_found']]), ['sjtu_rule_32']).rule_runs[0];
-    expect(run.findings).toEqual([]);
+    expect(run.findings).toHaveLength(1);
     expect(run.compiler_diagnostics).toHaveLength(1);
-    expect(run.message).toBe('未发现疑似不存在的引用。');
+    expect(run.message).toContain('证据不足');
   });
   it('lists only publication-supported references as individual informational review items', () => {
     const value = report(['VIOLATION', 'VIOLATION', 'UNKNOWN']);
@@ -65,12 +66,12 @@ describe('reference verification coverage', () => {
     const result = toCompilerResult(value, ['sjtu_rule_32']);
     const run = result.rule_runs[0];
     expect(run.severity).toBe('info');
-    expect(run.findings).toHaveLength(2);
-    expect(run.findings.every(f => f.prompt_only && f.reference_review === 'supported_suspicion')).toBe(true);
-    expect(run.findings.every(f => f.suggestion.includes('人工复核'))).toBe(true);
-    expect(run.findings.map(f => f.location.page_number)).toEqual([1, 1]);
+    expect(run.findings).toHaveLength(3);
+    expect(run.findings.slice(0, 2).every(f => f.prompt_only && f.reference_review === 'supported_suspicion')).toBe(true);
+    expect(run.findings.slice(0, 2).every(f => f.suggestion.includes('人工复核'))).toBe(true);
+    expect(run.findings.map(f => f.location.page_number)).toEqual([1, 1, 1]);
     expect(run.findings[0].evidence[0].quote).toBe('[1] 原始参考文献 1');
-    expect(result.summary).toMatchObject({ info_finding_count: 2, warning_finding_count: 0, error_finding_count: 0 });
+    expect(result.summary).toMatchObject({ info_finding_count: 3, warning_finding_count: 0, error_finding_count: 0 });
   });
   it('does not publish a proposed exclusion rejected by the publication gate', () => {
     const run = toCompilerResult(report(['VIOLATION']), ['sjtu_rule_32']).rule_runs[0];

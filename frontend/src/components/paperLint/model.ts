@@ -1,5 +1,5 @@
 import type { PaperLintFinding, PaperLintResult, PaperLintRuleRun } from '../../api/paperLint';
-import { displayedReportSummary, isGenericExecutionWarning, chapterPrerequisiteSuggestion, referenceResourcesUnavailable } from '../../../../shared/paper-lint-presentation.mjs';
+import { displayedReportSummary, isGenericExecutionWarning, chapterPrerequisiteSuggestion, referenceResourcesUnavailable, referenceInfoFindings } from '../../../../shared/paper-lint-presentation.mjs';
 export { referenceResourcesUnavailable } from '../../../../shared/paper-lint-presentation.mjs';
 
 export type PaperLintFindingItem = {
@@ -197,20 +197,23 @@ export function comparePaperLintRuleIds(left: string, right: string): number {
 }
 
 function referenceDisplayFindings(run: PaperLintRuleRun): PaperLintFinding[] {
-  return (run.findings || []).filter(finding => !finding.prompt_only || finding.reference_review === 'supported_suspicion')
-    .map(finding => ({ ...finding, prompt_only: true, reference_review: 'supported_suspicion' as const }));
+  return referenceInfoFindings(run).map(finding => ({ ...finding, prompt_only: true }));
 }
 
 export function referencePresentationRun(run: PaperLintRuleRun): PaperLintRuleRun {
   if (run.rule_id !== 'sjtu_rule_32') return run;
   const findings = referenceDisplayFindings(run);
+  const unresolved = findings.filter(f => f.reference_review === 'insufficient_evidence').length;
+  const suspected = findings.length - unresolved;
   return { ...run, findings, severity: 'info', ...(run.execution_status === 'completed' ? {
-    publication_status: findings.length ? 'ALERT' as const : 'NO_ALERT' as const,
+    publication_status: suspected ? 'ALERT' as const : 'NO_ALERT' as const,
     // Keep a backend resource-status explanation (quota, rate limit, or
     // temporary service outage) instead of replacing it with a false success.
     message: referenceResourcesUnavailable(run)
       ? run.message || '检索资源暂不可用：部分参考文献未完成核验，请稍后重试。'
-      : findings.length ? `发现 ${findings.length} 条疑似不存在的引用，请逐条人工复核。` : '未发现疑似不存在的引用。',
+      : [suspected ? `发现 ${suspected} 条疑似不存在的引用，请逐条人工复核。` : null,
+        unresolved ? `${unresolved} 条引用核验证据不足，请人工核查（提示）。` : null,
+      ].filter(Boolean).join(' ') || run.message || '未发现疑似不存在的引用。',
   } : {}) };
 }
 

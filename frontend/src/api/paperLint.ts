@@ -77,7 +77,7 @@ export type PaperLintFinding = {
   node_id?: string;
   check_id?: string;
   prompt_only?: boolean;
-  reference_review?: 'supported_suspicion';
+  reference_review?: 'supported_suspicion' | 'insufficient_evidence';
 };
 
 export type PaperLintRuntimeSnapshot = { freeze: boolean; generation: number; active_version: string | null };

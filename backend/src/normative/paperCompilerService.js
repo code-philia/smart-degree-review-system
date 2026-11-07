@@ -160,13 +160,21 @@ function toCompilerResult(output,selectedRuleIds) {
       ? `检索资源暂不可用：${reference.unavailable || reference.unresolved || '部分'} 条参考文献未完成核验。可能是 SerpAPI 额度已用尽、服务繁忙或访问受限；请稍后重试。这不表示引用存在问题。` : null;
     const referenceMessage = reference ? [findings.length
       ? `发现 ${findings.length} 条疑似不存在的引用，请逐条人工复核。` : null,
-      resourceMessage || (findings.length ? null : '未发现疑似不存在的引用。')].filter(Boolean).join(' ') : null;
+      resourceMessage || (reference.unresolved ? `${reference.unresolved} 条引用核验证据不足，请人工核查（提示）。` : findings.length ? null : '未发现疑似不存在的引用。')].filter(Boolean).join(' ') : null;
+    const hasSuspicions = findings.length > 0;
+    if (reference) findings.push(...diagnostics.filter(d => d.status === 'UNKNOWN').map((d, index) => ({
+      finding_id: `reference-info-${d.node_id || 'entry'}-${d.check_id}-${index}`,
+      rule_id: ruleId, severity: 'info', prompt_only: true, reference_review: 'insufficient_evidence',
+      message: '引用核验证据不足，请人工核查。',
+      suggestion: '请核对参考文献的题名、作者、年份和 DOI；未检索到充分证据不表示文献不存在。',
+      location: d.location || null, evidence: d.evidence || [], basis_details: d.basis_details,
+    })));
     const runMessage = [raw.status==='UNKNOWN' || unknown || raw.coverage?.incomplete_scopes?.length ? `${unknown} 项证据不足；未覆盖的内容保留无法判定。` : null,
         reason ? `规则执行异常：${reason}` : null, refinementMessage, baselineMessage].filter(Boolean).join(' ') || null;
     return {rule_run_id:`run_${ruleId}`,rule_id:ruleId,severity:ruleId === 'sjtu_rule_32' ? 'info' : 'warning',params:reference ? {reference_verification:reference,reference_resources_unavailable:referenceResourcesUnavailable} : null,
       execution_status:raw.status==='ERROR' && !referenceResourcesUnavailable?'error':'completed',evidence_mode:findings.some(f=>f.source_kind==='synthetic')?'derived':'native',
-      outcome:findings.length?'issues_found':reference ? (referencePassed?'passed':raw.status==='NOT_APPLICABLE'?'not_applicable':'inconclusive') : publication?'inconclusive':raw.status==='PASS'?'passed':raw.status==='NOT_APPLICABLE'?'not_applicable':'inconclusive',
-      ...(publication ? {publication_status:findings.length ? 'ALERT' : 'NO_ALERT'} : {}),
+      outcome:hasSuspicions?'issues_found':reference ? (referencePassed?'passed':raw.status==='NOT_APPLICABLE'?'not_applicable':'inconclusive') : publication?'inconclusive':raw.status==='PASS'?'passed':raw.status==='NOT_APPLICABLE'?'not_applicable':'inconclusive',
+      ...(publication ? {publication_status:hasSuspicions ? 'ALERT' : 'NO_ALERT'} : {}),
       message:raw.status==='ERROR' && (publication || reference) && !referenceResourcesUnavailable ? `规则执行失败${reason ? '：'+reason : ''}` : reference ? referenceMessage : publication ? (findings.length ? '发现经复核确认的告警' : '未触发告警') : runMessage,
       compiler_runtime_status:typeof output.runtime?.status==='string' ? output.runtime.status : null,
       findings,compiler_diagnostics:diagnostics,...(publication ? {} : {coverage:raw.coverage,compiler_counts:raw.counts}),package_sha256:raw.package_sha256,
