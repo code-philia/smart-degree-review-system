@@ -18,6 +18,7 @@ from fast_local_detector import run as run_fast_local
 import run_bilingual_semantic_lint as semantic_lint
 
 DEFAULT_MANIFEST = ROOT / "tests_py" / "fixtures" / "rule_regression_20261104" / "manifest.json"
+ABSTRACT_RULE = "bilingual_abstract_consistency_check"
 
 
 def sha256(path: Path) -> str:
@@ -48,6 +49,23 @@ def _location_key(finding: dict[str, Any]) -> tuple[Any, ...]:
 def evaluate_case(case: dict[str, Any], result: dict[str, Any]) -> list[str]:
     """Return all contract failures, so one CI run reports every regression."""
     failures: list[str] = []
+    if case["engine"] == "bilingual_abstract":
+        if result.get("execution_status") != "completed" or result.get("outcome") != "issues_found":
+            return [f"expected completed abstract finding, got {result.get('outcome')}"]
+        rows = (result.get("params") or {}).get("mismatches") or []
+        finding = (result.get("findings") or [{}])[0]
+        message = finding.get("message") or ""
+        for expected in case["must_find"]:
+            if not any(row.get("mismatch_type") == expected["mismatch_type"] and all(
+                semantic_lint._compact_claim(value) in semantic_lint._compact_claim(row.get(field))
+                for field, value in expected["evidence"].items()
+            ) for row in rows):
+                failures.append(f"missing required mismatch: {expected['mismatch_type']} {expected['evidence']}")
+            if not any(term in message for term in expected["message_any"]):
+                failures.append("report message omits the expected substantive difference")
+        if not message:
+            failures.append("missing report message")
+        return failures
     if case["engine"] == "fast_local":
         findings = ((result.get("rules") or {}).get(str(case["rule"])) or {}).get("findings") or []
         observed = [str(item.get("token") or "") for item in findings]
@@ -78,6 +96,33 @@ def evaluate_case(case: dict[str, Any], result: dict[str, Any]) -> list[str]:
 def run_case(case: dict[str, Any], pdf: Path, *, live_llm: bool) -> dict[str, Any]:
     if case["engine"] == "fast_local":
         return run_fast_local(pdf, [int(case["rule"])])
+    if case["engine"] == "bilingual_abstract":
+        if live_llm:
+            return semantic_lint.run(pdf, [ABSTRACT_RULE], allow_incomplete_structure=True)["rule_runs"][0]
+        ir = build_paper(pdf, include_citations=False, allow_incomplete_structure=True)
+        facts = semantic_lint.extract_bilingual_facts(ir)
+        rows = []
+        for expected in case["must_find"]:
+            evidence = expected["evidence"]
+            present = all(semantic_lint._compact_claim(value) in semantic_lint._compact_claim(
+                facts.get(field.replace("_claim", "_abstract"))
+            ) for field, value in evidence.items())
+            absent = all(semantic_lint._compact_claim(value) not in semantic_lint._compact_claim(facts.get(field))
+                         for field, value in expected.get("absent", {}).items())
+            if present and absent:
+                rows.append({"mismatch_type": expected["mismatch_type"], "reason": expected["reason"], **evidence})
+
+        def model_contract(messages):
+            prompt = messages[0]["content"]
+            if prompt.startswith("检查同一论文的中英文摘要片段"):
+                payload = {"from_chinese": [], "from_english": []}
+            else:
+                payload = {"outcome": "consistent", "mismatches": rows}
+            return payload, {"input_tokens": 0, "output_tokens": 0}
+
+        from unittest.mock import patch
+        with patch.object(semantic_lint, "request_json", model_contract):
+            return semantic_lint._run_semantic_rule(ir, facts, ABSTRACT_RULE)
     ir = build_paper(pdf, include_citations=False)
     if not live_llm:
         old_request_json = semantic_lint.request_json
@@ -120,13 +165,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--pdf-root", type=Path, default=os.environ.get("RULE_REGRESSION_PDF_ROOT"))
     parser.add_argument("--live-llm", action="store_true")
+    parser.add_argument("--case", action="append", help="Run only this case ID (repeatable)")
     args = parser.parse_args(argv)
     if not args.pdf_root:
         parser.error("provide --pdf-root or RULE_REGRESSION_PDF_ROOT")
     pdf_root = Path(args.pdf_root)
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
     failures: list[str] = []
-    for case in manifest["cases"]:
+    cases = [case for case in manifest["cases"] if not args.case or case["id"] in args.case]
+    unknown = set(args.case or []) - {case["id"] for case in cases}
+    if unknown:
+        parser.error(f"unknown case ID(s): {', '.join(sorted(unknown))}")
+    for case in cases:
         pdf = pdf_root / case["file"]
         if not pdf.is_file():
             failures.append(f"{case['id']}: fixture missing: {pdf}")
@@ -136,13 +186,14 @@ def main(argv: list[str] | None = None) -> int:
             failures.append(f"{case['id']}: SHA-256 mismatch ({actual})")
             continue
         result = run_case(case, pdf, live_llm=args.live_llm)
-        for failure in evaluate_case(case, result):
+        case_failures = evaluate_case(case, result)
+        for failure in case_failures:
             failures.append(f"{case['id']}: {failure}")
-        print(f"PASS {case['id']}" if not evaluate_case(case, result) else f"FAIL {case['id']}")
+        print(f"PASS {case['id']}" if not case_failures else f"FAIL {case['id']}")
     if failures:
         print("\n".join(failures), file=sys.stderr)
         return 1
-    print(f"PASS {len(manifest['cases'])} rule regression case(s)")
+    print(f"PASS {len(cases)} rule regression case(s)")
     return 0
 
 

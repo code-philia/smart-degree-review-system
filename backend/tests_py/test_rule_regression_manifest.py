@@ -22,3 +22,20 @@ def test_fast_local_contract_uses_rule_token():
     case = {"engine": "fast_local", "rule": 38, "must_find": ["第2章方法"], "min_findings": 1}
     result = {"rules": {"38": {"findings": [{"token": "第2章方法"}]}}}
     assert mod.evaluate_case(case, result) == []
+
+
+def test_abstract_contract_requires_the_expected_issue_in_the_report():
+    case = {"engine": "bilingual_abstract", "must_find": [{
+        "mismatch_type": "missing_in_english",
+        "evidence": {"chinese_claim": "流水线启动间隔"},
+        "message_any": ["启动间隔"],
+    }]}
+    result = {
+        "execution_status": "completed", "outcome": "issues_found",
+        "params": {"mismatches": [{"mismatch_type": "missing_in_english",
+                                  "chinese_claim": "可能增大流水线启动间隔"}]},
+        "findings": [{"message": "英文遗漏流水线启动间隔的变化。"}],
+    }
+    assert mod.evaluate_case(case, result) == []
+    result["findings"][0]["message"] = "中英文摘要有差异。"
+    assert mod.evaluate_case(case, result) == ["report message omits the expected substantive difference"]

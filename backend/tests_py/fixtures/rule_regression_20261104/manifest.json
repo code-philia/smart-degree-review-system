@@ -60,6 +60,44 @@
       "must_find": [{"text": "祈", "suggestion": "析", "source": "分祈"}, {"text": "形", "suggestion": "型", "source": "模形"}],
       "must_not_find": ["降低至", "较代表性框架", "始执行"],
       "no_duplicate_locations": true
+    },
+    {
+      "id": "R11_v1",
+      "file": "R11_中英摘要不一致_v1.pdf",
+      "sha256": "1d1451016c7243a5304308495353fb69a7eabe356e65f1bbbf3c99bc29ce6094",
+      "engine": "bilingual_abstract",
+      "must_find": [{
+        "mismatch_type": "missing_in_english",
+        "evidence": {"chinese_claim": "流水线启动间隔"},
+        "absent": {"english_abstract": "Loop-carried dependencies impose ordering between iterations"},
+        "message_any": ["启动间隔", "迭代顺序", "迭代之间"],
+        "reason": "英文未说明循环携带依赖约束迭代顺序并可能增大流水线启动间隔。"
+      }]
+    },
+    {
+      "id": "R11_v2",
+      "file": "R11_中英摘要不一致_v2.pdf",
+      "sha256": "74b7b5fb83fa0058dc8ec0c7d94b9da4a660dda6b8a40d4f55c7f3cd7335c83f",
+      "engine": "bilingual_abstract",
+      "must_find": [{
+        "mismatch_type": "conflict",
+        "evidence": {"chinese_claim": "循环变换", "english_claim": "branch prediction"},
+        "message_any": ["分支预测", "branch prediction"],
+        "reason": "英文将中文的循环变换写成了分支预测。"
+      }]
+    },
+    {
+      "id": "R11_v3",
+      "file": "R11_中英摘要不一致_v3.pdf",
+      "sha256": "651987175faf07dcc2caa769bf41ac0428e09d9d0885f7b9644cc77001f1bb6d",
+      "engine": "bilingual_abstract",
+      "must_find": [{
+        "mismatch_type": "missing_in_chinese",
+        "evidence": {"english_claim": "reusable compilation framework"},
+        "absent": {"chinese_abstract": "可复用的编译框架"},
+        "message_any": ["可复用", "复用", "协同设计"],
+        "reason": "中文遗漏了可复用编译框架及其对其他平台软硬件协同设计的参考价值。"
+      }]
     }
   ]
 }

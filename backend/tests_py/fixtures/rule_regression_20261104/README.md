@@ -1,4 +1,4 @@
-# R09 / R10 规则回归资产
+# R09 / R10 / R11 规则回归资产
 
 本目录只保存可审查的预期（manifest），不提交约 355 MB 的 PDF 归档。完整数据集由
 `RULE_REGRESSION_PDF_ROOT` 指向；该目录应直接包含 manifest 中的 PDF 文件。
@@ -19,4 +19,12 @@ PYTHONPATH=backend:backend/scripts .venv/bin/python \
 backend/scripts/run_rule_regression.py --live-llm
 ```
 
-离线模式不会调用模型，而是按 manifest 提供符合当前 JSON 协议的模拟“发现候选”和“候选复核”响应；它核验 Paper Model、文本定位、单字归一化、二次复核接入、去重和 manifest 契约。它不证明模型本身的召回率。`--live-llm` 用于定时或人工观察真实模型效果，可能受模型版本、配额和服务波动影响。
+离线模式在真实 PDF 上运行 Paper Model，并使用固定响应验证规则处理和报告契约。
+R11 核对保留侧证据、删除侧文本及最终差异类型和短文案。GitHub Actions 每次运行无数据依赖的规则契约测试。
+PDF 资产由有权访问论文的自托管 runner 挂载，运行前按 manifest 校验 SHA-256。
+在该 runner 上解包 PDF，添加 `paper-rule-fixtures` 标签，并把仓库 Actions 变量
+`RULE_REGRESSION_PDF_ROOT` 指到解包目录。随后从 `main` 手动运行 Rule regressions，
+即可执行九份 PDF 的离线回归。
+
+如需单独复跑 R11，可以追加 `--case R11_v1 --case R11_v2 --case R11_v3`。
+离线模式验证程序链路。`--live-llm` 用于人工或定时评估真实模型的召回与误报，受配额和服务波动影响。

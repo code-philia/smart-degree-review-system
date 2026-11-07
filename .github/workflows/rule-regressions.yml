@@ -18,17 +18,29 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r backend/requirements-paper-compiler.txt pytest
-      - name: Run deterministic R09/R10 regression contracts
+      - name: Run deterministic R09/R10/R11 regression contracts
         env:
           PYTHONPATH: backend:backend/scripts
         run: |
           pytest -q \
             backend/tests_py/test_rule_regression_manifest.py \
+            backend/tests_py/test_semantic_rule_parallelism.py \
+            backend/tests_py/test_paper_model_bilingual_rules.py \
             backend/tests_py/test_typo_prompt_chunks.py \
             backend/tests_py/test_fast_local_checks.py
 
-      # The full six-PDF suite is intentionally not run on GitHub-hosted
-      # runners: its source archive is 355 MB and is not stored in Git.
-      # A self-hosted scheduled job can mount the approved data release and run:
-      # RULE_REGRESSION_PDF_ROOT=/mounted/rule-fixtures \
-      #   python backend/scripts/run_rule_regression.py
+  pdf-fixtures:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && vars.RULE_REGRESSION_PDF_ROOT != ''
+    runs-on: [self-hosted, paper-rule-fixtures]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Paper Model dependencies
+        run: python -m pip install -r backend/requirements-paper-compiler.txt
+      - name: Run offline regressions on mounted PDFs
+        env:
+          RULE_REGRESSION_PDF_ROOT: ${{ vars.RULE_REGRESSION_PDF_ROOT }}
+        run: python backend/scripts/run_rule_regression.py

@@ -105,7 +105,7 @@ def test_abstract_model_omission_is_preserved_in_final_mismatches(monkeypatch):
     facts = {'chinese_abstract': '中文有额外结论。', 'english_abstract': 'English omits it.'}
     monkeypatch.setattr(lint, 'request_json', lambda _: ({
         'outcome': 'inconsistent', 'summary': '英文摘要遗漏中文摘要中的可复用框架结论。',
-        'mismatches': [{'mismatch_type': 'missing_in_english'}],
+        'mismatches': [{'mismatch_type': 'missing_in_english', 'chinese_claim': '中文有额外结论'}],
     }, {'input_tokens': 1, 'output_tokens': 1}))
     monkeypatch.setattr(lint, '_anchors_and_evidence', lambda *_: ([], []))
     result = lint._run_semantic_rule({}, facts, 'bilingual_abstract_consistency_check')
@@ -120,9 +120,7 @@ def test_directional_abstract_audits_promote_exact_source_backed_omissions(monke
         'english_abstract': 'This work improves compilation performance.',
     }
     replies = iter([
-        ({'outcome': 'consistent', 'summary': '两者一致。', 'mismatches': []},
-         {'input_tokens': 1, 'output_tokens': 1}),
-        ({'alignments': [{
+        ({'from_chinese': [{
             'source_id': 1,
             'status': 'missing',
             'source_sentence': '本文说明循环依赖会约束迭代顺序并限制并行执行。',
@@ -130,19 +128,127 @@ def test_directional_abstract_audits_promote_exact_source_backed_omissions(monke
             'target_sentence': '',
             'reason': '英文摘要未表达该约束。',
         }]}, {'input_tokens': 1, 'output_tokens': 1}),
-        ({'alignments': []}, {'input_tokens': 1, 'output_tokens': 1}),
+        ({'from_english': []}, {'input_tokens': 1, 'output_tokens': 1}),
+        ({'outcome': 'consistent', 'mismatches': [{
+            'mismatch_type': 'missing_in_english',
+            'chinese_claim': '循环依赖会约束迭代顺序并限制并行执行',
+            'reason': '英文摘要未表达该约束。',
+        }]}, {'input_tokens': 1, 'output_tokens': 1}),
     ])
-    monkeypatch.setattr(lint, 'request_json', lambda _: next(replies))
+    prompts = []
+    def request(messages):
+        prompts.append(messages[0]['content'])
+        return next(replies)
+    monkeypatch.setattr(lint, 'request_json', request)
     monkeypatch.setattr(lint, '_anchors_and_evidence', lambda *_: ([], []))
     result = lint._run_semantic_rule({}, facts, 'bilingual_abstract_consistency_check')
     assert result['outcome'] == 'issues_found'
-    assert result['params']['comparison_mode'] == 'sentence_alignment_v3'
+    assert result['params']['comparison_mode'] == 'sentence_alignment_v4'
+    assert len(prompts) == 3
+    assert '英文摘要片段' in prompts[1]
+    assert '以下为句级初查候选' in prompts[-1]
     assert result['params']['mismatches'][-1]['mismatch_type'] == 'missing_in_english'
-    assert '英文摘要缺少中文摘要中的核心信息' in result['findings'][0]['message']
+    assert '英文摘要缺失' in result['findings'][0]['message']
 
 
-def test_abstract_atomic_claims_keep_a_missing_causal_conclusion():
+def test_abstract_sentences_keep_the_whole_causal_sentence():
     lint = module()
-    claims = lint._abstract_atomic_claims(
-        '循环携带依赖使不同迭代之间存在执行约束，可能增大流水线启动间隔并限制算子并行度。')
-    assert '可能增大流水线启动间隔并限制算子并行度。' in claims
+    sentence = '循环携带依赖使不同迭代之间存在执行约束，可能增大流水线启动间隔并限制算子并行度。'
+    assert lint._abstract_sentences(sentence + '结论成立。') == [sentence, '结论成立。']
+    assert lint._causal_result_ids([sentence, '结论成立。']) == [1]
+    assert lint._abstract_sentences('At 1.5 GHz, it works. It is reusable.') == [
+        'At 1.5 GHz, it works.', 'It is reusable.',
+    ]
+
+
+def test_abstract_summary_is_bounded_and_uses_verified_differences():
+    lint = module()
+    summary = lint._abstract_mismatch_summary([
+        {'mismatch_type': 'missing_in_english', 'reason': '缺少流水线启动间隔。' + '详情' * 100},
+        {'mismatch_type': 'conflict', 'reason': '方法不同。'},
+    ])
+    assert '流水线启动间隔' in summary
+    assert '方法不同' in summary
+    assert len(summary) < 110
+
+
+def test_abstract_does_not_report_rejected_or_invented_evidence(monkeypatch):
+    lint = module()
+    facts = {'chinese_abstract': '我们提出一种编译方法。', 'english_abstract': 'We propose a compilation method.'}
+    responses = iter([
+        {'from_chinese': [{'source_id': 1, 'status': 'missing'}]},
+        {'from_english': []},
+        {'outcome': 'consistent', 'mismatches': [
+            {'mismatch_type': 'missing_in_english', 'chinese_claim': '不存在的摘录'},
+            {'mismatch_type': 'missing_in_english', 'chinese_id': 1,
+             'reason': '属于详略差异，不保留。'},
+        ]},
+    ])
+    monkeypatch.setattr(lint, 'request_json', lambda _: (
+        next(responses), {'input_tokens': 1, 'output_tokens': 1},
+    ))
+    result = lint._run_semantic_rule({}, facts, 'bilingual_abstract_consistency_check')
+    assert result['outcome'] == 'passed'
+    assert result['params']['mismatches'] == []
+
+
+def test_abstract_requires_final_review_to_accept_initial_candidate(monkeypatch):
+    lint = module()
+    facts = {'chinese_abstract': '本方法采用决策树。', 'english_abstract': 'Our method uses a neural network.'}
+    responses = iter([
+        {'from_chinese': [{'source_id': 1, 'target_ids': [1], 'status': 'conflict',
+                           'reason': '英文将决策树改为神经网络。'}]},
+        {'from_english': []},
+        {'outcome': 'consistent', 'mismatches': []},
+    ])
+    monkeypatch.setattr(lint, 'request_json', lambda _: (
+        next(responses), {'input_tokens': 1, 'output_tokens': 1},
+    ))
+    result = lint._run_semantic_rule({}, facts, 'bilingual_abstract_consistency_check')
+    assert result['outcome'] == 'passed'
+    assert result['findings'] == []
+
+
+def test_abstract_report_limits_three_independent_findings(monkeypatch):
+    lint = module()
+    claims = ['研究对象不同', '实验条件不同', '性能指标不同', '结论适用范围不同']
+    facts = {'chinese_abstract': '。'.join(claims) + '。', 'english_abstract': 'English abstract.'}
+    responses = iter([
+        {'from_chinese': []},
+        {'from_english': []},
+        {'outcome': 'inconsistent', 'mismatches': [
+            {'mismatch_type': 'missing_in_english', 'chinese_claim': claim, 'reason': claim}
+            for claim in claims
+        ]},
+    ])
+    monkeypatch.setattr(lint, 'request_json', lambda _: (
+        next(responses), {'input_tokens': 1, 'output_tokens': 1},
+    ))
+    result = lint._run_semantic_rule({}, facts, 'bilingual_abstract_consistency_check')
+    assert len(result['params']['mismatches']) == 3
+    assert len(result['findings']) == 3
+    assert len({row['finding_id'] for row in result['findings']}) == 3
+    for finding, claim in zip(result['findings'], claims[:3]):
+        assert claim in finding['message']
+
+
+def test_abstract_issue_highlights_only_its_source_sentence(tmp_path):
+    import fitz
+    lint = module()
+    path = tmp_path / 'abstract.pdf'
+    doc = fitz.open()
+    page = doc.new_page()
+    page.insert_text((72, 72), 'Our method uses a neural network.')
+    page.insert_text((72, 150), 'Another unrelated sentence.')
+    doc.save(path)
+    doc.close()
+    quote = 'Our method uses a neural network.'
+    anchors, evidence = lint._abstract_issue_anchors(
+        {'source_artifacts': [{'kind': 'pdf', 'path': str(path)}]},
+        {'english_abstract': quote + ' Another unrelated sentence.',
+         'locations': {'english_abstract': {'page_number': 1}}},
+        {'english_claim': quote})
+    assert len(anchors) == 1
+    assert anchors[0]['location']['type'] == 'pdf_bbox'
+    assert anchors[0]['location']['bounding_rect']['y2'] < 100
+    assert evidence[0]['quote'] == quote
