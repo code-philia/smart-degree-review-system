@@ -147,7 +147,9 @@ export type PaperLintRunResponse = {
   created_at: string;
 };
 
+export type PaperLintEta = {status:'available'|'estimating';remaining_seconds?:number;min_seconds?:number;max_seconds?:number;sample_count:number};
 export type PaperLintJobResponse = {
+  eta?: PaperLintEta|null;
   job_id: string;
   user_id?: string;
   source_filename?: string;
@@ -171,6 +173,7 @@ export type PaperLintReportSummary = {
   error_finding_count: number;
   warning_finding_count: number;
   info_finding_count: number;
+  execution_warning_count?: number;
   rule_count: number;
   unsupported_rule_count: number;
   error_rule_count: number;

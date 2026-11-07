@@ -3,6 +3,7 @@ const repository = require('./paperLintJobRepository');
 const reportRepository = require('./paperLintReportRepository');
 const defaultPaperLintService = require('./reviewPilotPaperLintService');
 const { removeBrowserPdf } = require('./browserPdf');
+const { CORE_RULE_ID, mergeCoreRuns, dedupeCorePrerequisites } = require('./paperStructureChecks');
 
 function createPaperLintJobService(paperLintService = defaultPaperLintService) {
   const queue = [];
@@ -39,15 +40,27 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
         const reusedRuns = reuse?.result?.rule_runs || [];
         const reusedIds = reusedRuns.map(run => run.rule_id);
         const pendingRuleIds = selectedRuleIds.filter(id => !reusedIds.includes(id));
-        const publishProgress = progress => repository.updateProgress(id, {
-          ...progress,
-          ...(progress.document_validation?.status === 'rejected' ? {
-            document_validation: { ...progress.document_validation, skipped_rule_ids: selectedRuleIds },
-          } : {}),
-          completed_rule_ids: progress.document_validation?.status === 'rejected' ? [] : [...new Set([...reusedIds, ...(progress.completed_rule_ids || [])])],
-          total_rule_ids: selectedRuleIds,
-          rule_runs: progress.document_validation?.status === 'rejected' ? progress.rule_runs : [...reusedRuns, ...(progress.rule_runs || [])],
-        });
+        const publishProgress = progress => {
+          const mergedRuns = [...[...reusedRuns, ...(progress.rule_runs || [])].reduce((runs, run) => {
+            const previous = runs.get(run.rule_id);
+            runs.set(run.rule_id, run.rule_id === CORE_RULE_ID && previous
+              && (previous.params?.automatic_core_check || run.params?.automatic_core_check)
+              ? mergeCoreRuns(previous, run) : run);
+            return runs;
+          }, new Map()).values()];
+          const visibleRuns = dedupeCorePrerequisites(mergedRuns, selectedRuleIds);
+          const visibleId = ruleId => ruleId !== CORE_RULE_ID || selectedRuleIds.includes(CORE_RULE_ID)
+            || visibleRuns.some(run => run.rule_id === CORE_RULE_ID);
+          return repository.updateProgress(id, {
+            ...progress,
+            ...(progress.document_validation?.status === 'rejected' ? {
+              document_validation: { ...progress.document_validation, skipped_rule_ids: selectedRuleIds },
+            } : {}),
+            completed_rule_ids: progress.document_validation?.status === 'rejected' ? [] : [...new Set([...reusedIds, ...(progress.completed_rule_ids || [])])].filter(visibleId),
+            total_rule_ids: [...new Set([...selectedRuleIds, ...(progress.total_rule_ids || [])])].filter(visibleId),
+            rule_runs: progress.document_validation?.status === 'rejected' ? progress.rule_runs : visibleRuns,
+          });
+        };
         const checked = await paperLintService.runPaperLint({
           pdfBuffer, selectedRuleIds: pendingRuleIds, externalProcessingConsent: Boolean(job.external_consent),
           background: true,
@@ -139,6 +152,7 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
     if (!source) throw Object.assign(new Error('未找到该审查报告'), { status: 404 });
     const allIds = [...new Set([...source.selected_rule_ids, ...selectedRuleIds])];
     const reusedRuns = source.result.rule_runs.filter(run => allIds.includes(run.rule_id)
+      && (run.rule_id !== CORE_RULE_ID || source.selected_rule_ids.includes(CORE_RULE_ID))
       && run.execution_status === 'completed' && run.outcome !== 'inconclusive');
     const toRun = allIds.filter(id => !reusedRuns.some(run => run.rule_id === id));
     if (!toRun.length) throw Object.assign(new Error('所选规则均已完成，请选择新增规则后再补跑'), { status: 400 });

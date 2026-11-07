@@ -901,3 +901,34 @@ html {
 [data-mobile='true'] [data-slot='sidebar-menu-button'][data-active='false']:hover {
   background-color: var(--sidebar-accent);
 }
+
+/* A light account surface separates the portal menu from the navy navigation. */
+[data-slot='dropdown-menu-content'].account-menu-surface {
+  --popover: #fffefd;
+  --popover-foreground: #24344c;
+  --muted-foreground: #6b7b91;
+  --border: #e7ebf1;
+  --accent: #f2f5fa;
+  --accent-foreground: #24344c;
+  --destructive: #b53e4c;
+  --ring: #9cb5da;
+  border: 1px solid #dfe6ef;
+  border-radius: 14px;
+  box-shadow: 0 12px 32px -12px rgb(15 23 42 / 22%), 0 2px 8px rgb(15 23 42 / 5%);
+}
+
+.account-menu-surface .account-menu-logout {
+  color: var(--destructive);
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.account-menu-surface .account-menu-logout:hover,
+.account-menu-surface .account-menu-logout[data-highlighted] {
+  background-color: #fff0f1;
+  color: #a33240;
+}
+
+.account-menu-surface .account-menu-logout:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}

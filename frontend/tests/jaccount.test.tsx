@@ -5,6 +5,14 @@ import AuthPage from '../src/pages/AuthPage';
 afterEach(() => window.history.replaceState({}, '', '/'));
 
 describe('campus sign-in entry', () => {
+  it('preserves the requested report destination through campus sign-in',()=>{
+    render(<AuthPage returnTo="/reports/pdf/123e4567-e89b-12d3-a456-426614174000"/>);
+    expect(screen.getByRole('link',{name:'使用 jAccount 登录'})).toHaveAttribute('href','/api/auth/jaccount?return_to=%2Freports%2Fpdf%2F123e4567-e89b-12d3-a456-426614174000');
+  });
+  it('ignores an external return URL',()=>{
+    render(<AuthPage returnTo="https://evil.example"/>);
+    expect(screen.getByRole('link',{name:'使用 jAccount 登录'})).toHaveAttribute('href','/api/auth/jaccount');
+  });
   it('keeps authentication, detection capabilities and system information in one panel', () => {
     render(<AuthPage />);
     const panel = screen.getByRole('region', { name: '身份认证区域' });

@@ -14,6 +14,7 @@ import {
   type PaperLintCatalogResponse,
   type PaperLintRunResponse,
   type PaperLintRule,
+  type PaperLintEta,
 } from '../api/paperLint';
 import { PaperLintWorkspace } from '../components/paperLint/Workspace';
 import { ThesisUploadPanel } from '../components/paperLint/ThesisUploadPanel';
@@ -146,6 +147,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const [activeFilename, setActiveFilename] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<'pending' | 'running' | null>(null);
+  const [eta,setEta]=useState<PaperLintEta|null>(null);
   const [jobProgress, setJobProgress] = useState<{ completed: number; total: number } | null>(null);
   const [semanticStage, setSemanticStage] = useState<0 | 1 | 2>(0);
   const [externalConsent, setExternalConsent] = useState(false);
@@ -322,6 +324,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
         if (generation !== runGenerationRef.current) return;
         if (job.status === 'pending' || job.status === 'running') setJobStatus(job.status);
         setQueuePosition(job.queue_position ?? null);
+        setEta(job.eta??null);
         if (job.status === 'pending') deadline = Date.now() + 25 * 60 * 1000;
         if (disconnected) {
           disconnected = false;
@@ -512,6 +515,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     setJobProgress(null);
     setJobStatus(null);
     setQueuePosition(null);
+    setEta(null);
     setActiveFilename(file.name);
     setSemanticStage(0);
     setRunError(null);
@@ -563,6 +567,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   }
 
   if (isThirty) return <div className="space-y-6"><ThesisUploadPanel
+    eta={eta}
     rules={visibleRules}
     selectedRuleIds={selectedRuleIds}
     onSelectionChange={replaceSelectedRules}

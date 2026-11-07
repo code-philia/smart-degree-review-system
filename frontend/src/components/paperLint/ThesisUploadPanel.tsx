@@ -3,8 +3,11 @@ import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
 import { DetectionPageHeader } from './DetectionPageHeader';
 import type { PaperLintRule } from '../../api/paperLint';
 import { Button } from '../ui';
+import {DetectionWaitNotice} from './DetectionWaitNotice';
+import type {PaperLintEta} from '../../api/paperLint';
 
 type Props = {
+  eta?:PaperLintEta|null;
   rules: PaperLintRule[];
   selectedRuleIds: string[];
   onSelectionChange: (ids: string[]) => void;
@@ -45,7 +48,8 @@ function DetectionProgress({
   jobProgress,
   activeFilename,
   queuePosition,
-}: Pick<Props, 'uploadPercent' | 'jobStatus' | 'jobProgress' | 'activeFilename' | 'queuePosition'>) {
+  eta,
+}: Pick<Props, 'uploadPercent' | 'jobStatus' | 'jobProgress' | 'activeFilename' | 'queuePosition'|'eta'>) {
   const uploading = uploadPercent !== null;
   const phase = uploading ? 0 : jobStatus === 'running' ? 2 : 1;
   const stages = ['正在上传', '排队等待', '开始检测', '检测完成'];
@@ -58,8 +62,8 @@ function DetectionProgress({
     : stages[phase];
   const circumference = 2 * Math.PI * 42;
   return (
-    <section aria-label="检测任务状态" className="mt-5 rounded-2xl border border-brand-100 bg-brand-50/40 p-5 sm:p-6">
-      <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-center">
+    <section aria-label="检测任务状态" className="overflow-hidden rounded-2xl border border-[#d7e3f5] bg-white p-5 shadow-[0_10px_30px_-22px_rgba(27,53,89,.18)] sm:px-6 sm:py-5">
+      <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-5">
         <div
           role="progressbar"
           aria-label="检测进度"
@@ -67,7 +71,7 @@ function DetectionProgress({
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={percent ?? undefined}
-          className="relative size-24 shrink-0"
+          className="relative size-20 shrink-0"
         >
           <svg
             viewBox="0 0 100 100"
@@ -100,14 +104,14 @@ function DetectionProgress({
             {percent === null ? <FileText className="size-6" /> : `${percent}%`}
           </span>
         </div>
-        <div className="min-w-0 flex-1 text-center sm:text-left" role="status">
-          <p className="text-lg font-semibold text-slate-900">{stages[phase]}</p>
+        <div className="min-w-0 w-full flex-1">
+          <DetectionWaitNotice eta={eta}/>
           {activeFilename ? (
-            <p className="mt-1 truncate text-sm text-slate-600" title={activeFilename}>
+            <p className="mt-2 truncate text-sm leading-6 text-slate-600" title={activeFilename}>
               {activeFilename}
             </p>
           ) : null}
-          <p className="mt-2 text-sm leading-6 text-slate-500">
+          <p className="mt-1 text-xs leading-6 text-slate-500">
             {phase === 0
               ? '正在传输论文文件，上传后将提交后台处理。'
               : phase === 1
@@ -120,22 +124,17 @@ function DetectionProgress({
                     : `后台检测已开始，已完成 ${jobProgress.completed} / ${jobProgress.total} 项规则。`
                   : '后台检测已开始，正在解析论文并执行所选规则。'}
           </p>
-          {phase > 0 ? (
-            <p className="mt-1 text-xs leading-5 text-slate-500">
-              你可以离开页面，稍后从论文上传页恢复查看，完成的报告将保存在历史报告中。
-            </p>
-          ) : null}
         </div>
       </div>
-      <ol className="mt-5 grid grid-cols-2 gap-3 border-t border-brand-100 pt-4 sm:grid-cols-4" aria-label="检测阶段">
+      <ol className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-3 sm:grid-cols-4" aria-label="检测阶段">
         {stages.map((label, index) => (
           <li
             key={label}
             aria-current={index === phase ? 'step' : undefined}
-            className={`flex items-center gap-2 text-xs ${index === phase ? 'font-semibold text-brand-700' : index < phase ? 'text-emerald-700' : 'text-slate-400'}`}
+            className={`flex items-center justify-center gap-2 text-xs ${index === phase ? 'font-semibold text-brand-700' : index < phase ? 'text-emerald-700' : 'text-slate-400'}`}
           >
             <span
-              className={`flex size-5 shrink-0 items-center justify-center rounded-full border ${index === phase ? 'border-brand-500 bg-brand-600 text-white' : index < phase ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-white'}`}
+              className={`flex size-5 shrink-0 items-center justify-center rounded-full border ${index === phase ? 'border-brand-200 bg-brand-50 text-brand-700' : index < phase ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white'}`}
             >
               {index < phase ? <Check className="size-3" /> : index + 1}
             </span>
@@ -480,11 +479,7 @@ export function ThesisUploadPanel(props: Props) {
           3 次，请提前确认论文版本、合理勾选检测规则。检测结果仅供参考，系统尚在测试中，欢迎通过“使用反馈”提出建议。
         </p>
       </aside>
-      {running ? (
-        <div ref={progressRef}>
-          <DetectionProgress {...props} />
-        </div>
-      ) : null}
+      {running ? <div ref={progressRef}><DetectionProgress {...props}/></div> : null}
     </div>
   );
 }

@@ -13,13 +13,17 @@ function LegacyReviewRedirect() {
   const target = canonicalReviewUrl(location.pathname + location.search + location.hash);
   return <Navigate replace to={target || REVIEW_ROUTES.upload} state={location.state} />;
 }
+function SignInRoute(){
+  const location=useLocation();
+  return <AuthPage returnTo={canonicalReviewUrl(location.state?.from)}/>;
+}
 
 function App() {
   return (
     <Routes>
       <Route
         path="/auth"
-        element={<AuthPage />}
+        element={<SignInRoute />}
       />
 
       <Route element={<RequireSession />}>

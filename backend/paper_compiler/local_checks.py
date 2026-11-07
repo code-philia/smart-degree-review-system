@@ -513,17 +513,21 @@ def detect_ir(ir, selected_rules=RULES):
                     '请按实际著录资源核对并补齐类型标记；期刊用[J]、会议论文用[C]等，不能仅凭访问网址改变资源类型。'))
     if 36 in selected_rules:
         body_start = _body_start_page(ir)
+        keyword_blocks = 0
         for node in ir['nodes']:
             if not _KEYWORD_LABEL.search(node.get('text') or ''):
                 continue
             if body_start and _node_page_index(node) >= body_start:
                 continue
+            keyword_blocks += 1
             node = _keyword_block(ir, node)
             terms = _keyword_terms(node['text'])
             if not 3 <= len(terms) <= 8:
                 results['36']['findings'].append(_finding(ir, 36, node,
                     f'关键词共 {len(terms)} 个，国标要求 3—8 个。', '关键词数量',
                     '请将关键词调整为 3—8 个，并用分号分隔；依据 GB/T 7713.1—2025 附录 A、表 A.1。'))
+        if not keyword_blocks:
+            results['36'].update(status='unsupported', reason='未能检测：未可靠识别摘要中的关键词，无法检查关键词数量。')
     if 37 in selected_rules:
         for node in _abstract_nodes(ir):
             text = node['text']

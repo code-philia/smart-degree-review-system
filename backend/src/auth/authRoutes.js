@@ -4,6 +4,9 @@ const { parseCookies, requireAuth } = require('./authMiddleware');
 const jaccount = require('./jaccountService');
 const { ADMIN_ROLES, campusOnlyAuth, privateAdminRequest, sessionAllowed } = require('./loginPolicy');
 const { trialUserAllowed, trialLoginRequest, trialAttempts } = require('./trialLoginPolicy');
+const { normalizeEmail, notificationEmail, fixedNotificationEmail, campusIdentity } = require('../notifications/emailPolicy');
+const { mailConfig } = require('../notifications/mailConfig');
+const { run } = require('../database');
 
 const router = express.Router();
 
@@ -17,6 +20,24 @@ const cookieOptions = {
 };
 
 const campusCookieOptions = { ...cookieOptions, path: '/api/auth/jaccount' };
+
+function notificationSettings(user) {
+  return { email: notificationEmail(user), fixed: fixedNotificationEmail(user)||campusIdentity(user), delivery_available: Boolean(mailConfig()) };
+}
+router.get('/notification-settings', requireAuth(), (req, res) => {
+  res.set('Cache-Control', 'private, no-store');
+  res.json(notificationSettings(req.user));
+});
+router.put('/notification-settings', requireAuth(), express.json({ limit: '2kb' }), async (req, res, next) => {
+  if (fixedNotificationEmail(req.user)||campusIdentity(req.user)) return res.status(403).json({ code:403, message:'此账号的通知邮箱由系统确认，无需修改。' });
+  const email = normalizeEmail(req.body?.email);
+  if (!email) return res.status(400).json({ code:400, message:'请输入一个有效的接收邮箱。' });
+  try {
+    await run('UPDATE auth_users SET email=? WHERE id=?',[email,req.user.id]);
+    await run("UPDATE report_email_outbox SET status='pending', next_attempt_at=?, error_code=NULL WHERE user_id=? AND status='blocked' AND error_code='missing_recipient'",[new Date().toISOString(),req.user.id]);
+    return res.json(notificationSettings({ ...req.user,email }));
+  } catch (error) { return next(error); }
+});
 
 router.post('/trial-login', async (req, res, next) => {
   res.set('Cache-Control', 'no-store');
@@ -52,7 +73,7 @@ router.get('/jaccount/config', (req, res) => {
 router.get('/jaccount', async (req, res) => {
   res.set('Cache-Control', 'no-store');
   try {
-    const result = await jaccount.beginLogin();
+    const result = await jaccount.beginLogin(req.query.return_to);
     res.cookie(jaccount.STATE_COOKIE_NAME, result.state, { ...campusCookieOptions, maxAge: jaccount.STATE_TTL_MS });
     res.redirect(result.url);
   } catch (error) {
@@ -68,7 +89,7 @@ router.get('/jaccount/callback', async (req, res) => {
     const result = await jaccount.completeLogin({ state: req.query.state,
       browserState: cookies[jaccount.STATE_COOKIE_NAME], code: req.query.code, providerError: req.query.error });
     res.cookie(SESSION_COOKIE_NAME, result.sessionId, { ...cookieOptions, maxAge: SESSION_TTL_MS });
-    res.redirect('/paper-upload');
+    res.redirect(result.returnTo || '/paper-upload');
   } catch (error) {
     res.redirect(`/auth?jaccount_error=${error.jaccountCode || 'provider'}`);
   }

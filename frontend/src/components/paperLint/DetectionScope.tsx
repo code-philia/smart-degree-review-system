@@ -6,12 +6,14 @@ import { isDocumentBlocked } from './model';
 export function DetectionScope({ report, rules }: { report: PaperLintRunResponse; rules: PaperLintRule[] }) {
   if (isDocumentBlocked(report.result.rule_runs)) return <p role="status" className="rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-800">论文编译校验未通过，所选 {report.selected_rule_ids?.length ?? 0} 条论文规则全部未执行。</p>;
   const scope = buildDetectionScope(report, rules);
+  const automaticCount = report.result.rule_runs.filter(run => run.params?.automatic_core_check === true
+    && !report.selected_rule_ids?.includes(run.rule_id)).length;
   return (
     <details className="group overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <summary className="flex cursor-pointer list-none flex-wrap items-center gap-3 px-5 py-4 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 [&::-webkit-details-marker]:hidden">
         <ListChecks aria-hidden="true" className="size-4 shrink-0 text-brand-700" />
         <span className="text-sm font-semibold text-slate-900">本次检测范围</span>
-        <span className="text-xs text-slate-500">已选择 {scope.length} 项规则</span>
+        <span className="text-xs text-slate-500">已选择 {scope.length - automaticCount} 项规则{automaticCount ? ` · 自动检查 ${automaticCount} 项` : ''}</span>
         <ChevronDown aria-hidden="true" className="ml-auto size-4 shrink-0 text-slate-400 transition-transform group-open:rotate-180" />
       </summary>
       <div className="border-t border-slate-100 px-5 py-4">

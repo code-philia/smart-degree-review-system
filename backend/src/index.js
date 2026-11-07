@@ -3,6 +3,7 @@ const { initializeDatabase } = require('./database/init_db');
 const { createArchiveScanService } = require('./normative/archiveScanService');
 const paperLintJobService = require('./normative/paperLintJobService');
 const { campusOnlyAuth, adminPort } = require('./auth/loginPolicy');
+const { createReportEmailService } = require('./notifications/reportEmailService');
 
 const defaultPort = 3000;
 const port = Number(process.env.PORT || defaultPort);
@@ -12,6 +13,7 @@ initializeDatabase()
   .then(async () => {
     await createArchiveScanService().resumeJobs();
     await paperLintJobService.resumeJobs();
+    createReportEmailService().start();
     if (privatePort !== null) {
       app.listen(privatePort, '127.0.0.1', () => {
         console.log(`Private administrator API listening at http://127.0.0.1:${privatePort}`);

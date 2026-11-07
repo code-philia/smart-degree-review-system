@@ -4,12 +4,13 @@ const path = require('path');
 const { all, get, run } = require('../database');
 const { withTransaction } = require('../database/db_runtime');
 const { removeBrowserPdf } = require('./browserPdf');
+const presentation = import('../../../shared/paper-lint-presentation.mjs');
 
 function reportsDirectory() {
   return path.resolve(process.env.PAPER_LINT_REPORTS_DIR || path.join(process.cwd(), 'data', 'paper-lint-reports'));
 }
 
-function toReport(row, { includeResult = true } = {}) {
+async function toReport(row, { includeResult = true } = {}) {
   if (!row) return null;
   const parsedResult = JSON.parse(row.result_json);
   // A missing section has no original sentence or precise PDF location.
@@ -18,7 +19,8 @@ function toReport(row, { includeResult = true } = {}) {
       for (const finding of rule.findings || []) { finding.location = null; finding.anchors = []; }
     }
   }
-  const summary = parsedResult.summary || {};
+  const { displayedReportSummary } = await presentation;
+  const summary = displayedReportSummary(parsedResult);
   return {
     id: row.id,
     source_filename: row.source_filename,
@@ -29,6 +31,7 @@ function toReport(row, { includeResult = true } = {}) {
       error_finding_count: summary.error_finding_count || 0,
       warning_finding_count: summary.warning_finding_count || 0,
       info_finding_count: summary.info_finding_count || 0,
+      execution_warning_count: summary.execution_warning_count || 0,
       rule_count: summary.rule_count || 0,
       unsupported_rule_count: summary.unsupported_rule_count || 0,
       error_rule_count: summary.error_rule_count || 0,
@@ -67,7 +70,7 @@ async function listPaperLintReportsByUser(userId) {
     `SELECT * FROM paper_lint_reports WHERE user_id = ? ORDER BY created_at DESC;`,
     [userId],
   );
-  return rows.map((row) => toReport(row, { includeResult: false }));
+  return Promise.all(rows.map((row) => toReport(row, { includeResult: false })));
 }
 
 async function findPaperLintReportByIdForUser(id, userId) {

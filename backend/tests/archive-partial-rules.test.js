@@ -39,5 +39,7 @@ it('persists an all-unavailable reference selection as inconclusive instead of a
     expect(result.ruleset.name).toBeTruthy();
     expect(result.summary).toMatchObject({ rule_count: 1, unsupported_rule_count: 1, finding_count: 0 });
     expect(result.rule_runs[0]).toMatchObject({ execution_status: 'unsupported', outcome: 'inconclusive' });
+    expect(result.rule_runs).toHaveLength(1);
+    expect(result.rule_runs[0].message).toContain('缺少参考文献');
   } finally { await harness.cleanup(); await fs.rm(root, { recursive: true, force: true }); }
 });
