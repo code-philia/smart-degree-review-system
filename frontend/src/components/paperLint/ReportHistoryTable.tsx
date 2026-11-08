@@ -1,6 +1,7 @@
 import { useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowUpRight, ChevronLeft, ChevronRight, RotateCw, Check, ListChecks, Search, Trash2, X } from 'lucide-react';
+import { Select as SelectPrimitive } from 'radix-ui';
+import { ArrowUpRight, ChevronDown, ChevronLeft, ChevronRight, RotateCw, Check, ListChecks, Search, Trash2, X } from 'lucide-react';
 import type { PaperLintReportListItem } from '../../api/paperLint';
 import { formatChinaDateTime } from '../../utils/dateTime';
 import { Button } from '../ui';
@@ -244,18 +245,35 @@ export function ReportHistoryTable({
             共 <span className="font-medium text-slate-700">{reports.length}</span> 条{filtering ? `，匹配 ${filteredReports.length} 条` : ''}
           </span>
           <span className="sr-only">{rangeLabel}</span>
-          <select
-            aria-label="每页显示条数"
-            className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm tabular-nums text-slate-700 transition-colors hover:border-slate-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none"
-            value={pageSize}
-            disabled={deleting}
-            onChange={event => {
-              setPageSize(Number(event.target.value));
+          <SelectPrimitive.Root value={String(pageSize)} disabled={deleting}
+            onValueChange={value => {
+              setPageSize(Number(value));
               setPage(1);
-            }}
-          >
-            {[5, 10, 20, 50, 100].map(size => <option key={size} value={size}>{size} 条/页</option>)}
-          </select>
+            }}>
+            <SelectPrimitive.Trigger aria-label="每页显示条数"
+              className="group inline-flex h-9 min-w-28 items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 text-sm tabular-nums text-slate-700 outline-none transition-colors hover:border-slate-300 focus-visible:border-brand-300 focus-visible:ring-2 focus-visible:ring-brand-100 data-[state=open]:border-brand-300 data-[state=open]:ring-2 data-[state=open]:ring-brand-50 disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none">
+              <SelectPrimitive.Value />
+              <SelectPrimitive.Icon asChild>
+                <ChevronDown aria-hidden="true" className="size-4 text-slate-400 transition-transform duration-150 group-data-[state=open]:rotate-180 motion-reduce:transition-none" />
+              </SelectPrimitive.Icon>
+            </SelectPrimitive.Trigger>
+            <SelectPrimitive.Portal>
+              <SelectPrimitive.Content position="popper" align="start" sideOffset={6} collisionPadding={12}
+                className="z-50 min-w-32 overflow-hidden rounded-xl border border-slate-200/80 bg-white p-1.5 text-slate-700 shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)]">
+                <SelectPrimitive.Viewport className="max-h-[var(--radix-select-content-available-height)]">
+                  {[5, 10, 20, 50, 100].map(size => (
+                    <SelectPrimitive.Item key={size} value={String(size)}
+                      className="relative flex min-h-9 cursor-pointer items-center rounded-lg py-2 pl-2.5 pr-8 text-sm tabular-nums outline-none select-none data-[highlighted]:bg-brand-50 data-[highlighted]:text-brand-700 data-[state=checked]:bg-brand-50 data-[state=checked]:text-brand-700">
+                      <SelectPrimitive.ItemText>{size} 条/页</SelectPrimitive.ItemText>
+                      <SelectPrimitive.ItemIndicator className="absolute right-2.5 inline-flex items-center text-brand-600">
+                        <Check aria-hidden="true" className="size-3.5" />
+                      </SelectPrimitive.ItemIndicator>
+                    </SelectPrimitive.Item>
+                  ))}
+                </SelectPrimitive.Viewport>
+              </SelectPrimitive.Content>
+            </SelectPrimitive.Portal>
+          </SelectPrimitive.Root>
         </div>
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
           <div role="group" aria-label="页码选择" className="flex shrink-0 items-center gap-1">
