@@ -71,7 +71,7 @@ const countBadgeClassName = 'inline-flex min-w-10 shrink-0 items-center justify-
 function ExecutionStatus({ status, count }: { status: IncompleteStatus; count?: number }) {
   const Icon = status === 'running' ? LoaderCircle : status === 'error' ? CircleAlert : CircleHelp;
   const tone = status === 'running' ? 'bg-brand-50 text-brand-700' : status === 'error' ? 'bg-rose-50 text-rose-700' : status === 'needs_review' ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-500';
-  return <span title={count === undefined ? labels[status] : `${labels[status]} ${count} 条规则`} className={`inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full px-2.5 py-1.5 ${count === undefined ? 'text-[11px] font-medium' : 'text-xs font-semibold'} tabular-nums ${tone}`}>
+  return <span title={count === undefined ? labels[status] : `${labels[status]} ${count} 条规则`} className={`inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] font-medium tabular-nums ${tone}`}>
     <Icon className={`size-3.5 ${status === 'running' ? 'animate-spin motion-reduce:animate-none' : ''}`} />
     {labels[status]}{count !== undefined ? ` ${count}` : ''}
   </span>;
