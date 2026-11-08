@@ -1,6 +1,27 @@
 # Bilingual abstract alignment v5
 
-## Current review threshold: v5.1
+## Current review threshold: v5.2
+
+Review must supply `fact_checks`: exact source fragments with a coverage
+relation and exact target evidence for each covered fact. Claiming equivalence
+without fact evidence is a technical failure. All-covered facts suppress an
+unsupported omission verdict; any missing source fact preserves a partial
+omission even when the model's overall verdict says equivalent. Missing-source
+and untraceable-target evidence are rejected. The report retains `model_verdict`
+alongside the final coverage-derived verdict.
+
+This adds no per-sentence API requests. The alignment request and one batched
+review request remain the full model workflow. Semantic correctness of the
+fact-level relations still depends on the model; literal quote validation alone
+cannot prove cross-language entailment.
+
+In a live review replay over the original v1 report's saved alignment, Chinese
+sentence 15 was retained, sentences 24 and 31 were suppressed, and sentence 18
+was retained. This checks review behavior only and does not modify the historic
+report. Fact decomposition and semantic coverage remain model-dependent; the
+earlier v5.1 calibration limitations below are retained for comparison.
+
+## Previous review threshold: v5.1
 
 The sentence-alignment stage is unchanged. Review now also accepts
 `partial_omission`: a matched sentence/group does not explicitly cover concrete

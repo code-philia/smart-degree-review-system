@@ -158,6 +158,10 @@ def test_sentence_candidates_require_structured_full_review(monkeypatch,directio
                'from_english':[{'source_id':1,'target_ids':[1],'status':'matched'}]}
     alignment[direction][0].update(status='partial',target_ids=[])
     replies=iter([alignment,{'reviews':[{'candidate_id':direction+':1','verdict':verdict,
+        **({'fact_checks':[dict(source_quote='本文提出可复用框架。' if direction=='from_chinese' else 'We propose a reusable framework.',
+                            relation='missing' if verdict=='partial_omission' else 'covered',
+                            target_quote='' if verdict=='partial_omission' else ('We propose a reusable framework.' if direction=='from_chinese' else '本文提出可复用框架。'))]}
+           if verdict not in {'core_omission','contradiction'} else {}),
         'missing_in':'english',
         'target_ids':[1] if verdict in {'contradiction','partial_omission'} else [],'reason':'独立结论完全缺失。'}]}])
     prompts=[]
@@ -223,3 +227,46 @@ def test_explanation_explicitly_dismissing_difference_is_rejected():
     lint=module()
     assert lint._dismisses_mismatch('但核心贡献一致，不构成实质差异。')
     assert not lint._dismisses_mismatch('英文未保留独立的贡献结论。')
+
+
+def test_partial_fact_gap_cannot_be_dismissed_by_whole_sentence_equivalence(monkeypatch):
+    lint=module()
+    facts=dict(chinese_abstract='设备受到带宽限制，并使响应时间增长。',english_abstract='The device is bandwidth constrained.')
+    replies=iter([
+        {'from_chinese':[dict(source_id=1,status='partial',target_ids=[1])],
+         'from_english':[dict(source_id=1,status='matched',target_ids=[1])]},
+        {'reviews':[dict(candidate_id='from_chinese:1',verdict='equivalent',target_ids=[1],reason='主题一致。',
+            fact_checks=[dict(source_quote='设备受到带宽限制',relation='covered',target_quote='The device is bandwidth constrained.'),
+                         dict(source_quote='使响应时间增长',relation='missing',target_quote='')])]}])
+    monkeypatch.setattr(lint,'request_json',lambda _:(next(replies),dict(input_tokens=1,output_tokens=1)))
+    result=lint._run_semantic_rule({},facts,'bilingual_abstract_consistency_check')
+    assert len(result['findings'])==1
+    assert result['params']['candidate_reviews'][0]['verdict']=='partial_omission'
+    assert result['params']['candidate_reviews'][0]['model_verdict']=='equivalent'
+    assert '使响应时间增长' in result['findings'][0]['message']
+
+
+def test_equivalence_without_fact_evidence_cannot_silently_pass(monkeypatch):
+    lint=module()
+    replies=iter([
+        {'from_chinese':[dict(source_id=1,status='partial',target_ids=[1])],
+         'from_english':[dict(source_id=1,status='matched',target_ids=[1])]},
+        {'reviews':[dict(candidate_id='from_chinese:1',verdict='equivalent',target_ids=[1],reason='大意相近。')]}])
+    monkeypatch.setattr(lint,'request_json',lambda _:(next(replies),dict(input_tokens=1,output_tokens=1)))
+    with pytest.raises(ValueError,match='fact-level coverage evidence'):
+        lint._run_semantic_rule({},dict(chinese_abstract='设备受限。',english_abstract='Device constrained.'),'bilingual_abstract_consistency_check')
+
+
+def test_all_covered_facts_suppress_inconsistent_omission_label(monkeypatch):
+    lint=module()
+    zh='低效通信限制吞吐量。'
+    en='Inefficient communication limits throughput.'
+    replies=iter([
+        {'from_chinese':[dict(source_id=1,status='partial',target_ids=[1])],
+         'from_english':[dict(source_id=1,status='matched',target_ids=[1])]},
+        {'reviews':[dict(candidate_id='from_chinese:1',verdict='partial_omission',missing_in='english',
+            target_ids=[1],reason='措辞不同。',fact_checks=[dict(source_quote=zh,relation='covered',target_quote=en)])]}])
+    monkeypatch.setattr(lint,'request_json',lambda _:(next(replies),dict(input_tokens=1,output_tokens=1)))
+    result=lint._run_semantic_rule({},dict(chinese_abstract=zh,english_abstract=en),'bilingual_abstract_consistency_check')
+    assert result['findings']==[]
+    assert result['params']['candidate_reviews'][0]['verdict']=='equivalent'

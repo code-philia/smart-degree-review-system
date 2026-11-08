@@ -985,11 +985,22 @@ def _run_aligned_abstract(ir, facts):
             '泛称受约束不蕴含某项具体指标增大，不能标equivalent。'
             '只要其中一个具体事实在另一侧没有明确表达，就保留为partial_omission，'
             '只有各事实都有实际对应表达时才允许筛除。'
+            '必须返回fact_checks，逐项覆盖源句的全部事实；并列谓语或不同结果分别列一项，'
+            '不要把执行关系、指标变化与其他结果揉成一个笼统事实。'
+            '每项source_quote必须逐字摘自源句，不能先概括掉待核对的信息；'
+            'covered必须给出目标摘要中明确表达该项事实的target_quote原文，'
+            '不能用主题相近的泛称代替具体事实。不对应填missing且target_quote为空，不确定填uncertain。'
+            '注意正常的语义改写仍算covered：同一语境中性能的泛称与吞吐表现可以对应；'
+            '资源容量不足与需求超过可用容量是同一限制的两种说法，无法部署与设计不可行也可以对应。'
+            '不可因措辞不同漏掉这些实际对应。相反，具体指标的变化不能被仅有泛泛约束的句子覆盖。'
+            '只要一项missing，整句不得判equivalent；程序会据此保留部分缺失告警。'
             'reason 用一句简短中文只指出确实缺少的事实，不引用句子编号。'
             '仅输出JSON：{"reviews":[{"candidate_id":"from_chinese:1",'
             '"verdict":"equivalent|detail_difference|uncertain|core_omission|partial_omission|contradiction",'
             '"missing_in":"chinese|english|null，partial_omission必须指出实际缺失侧",'
             '"source_fact":"源句具体事实","target_fact":"目标实际对应事实或空串",'
+            '"fact_checks":[{"source_quote":"源句中的一项事实",'
+            '"relation":"covered|missing|uncertain","target_quote":"目标原文或空串"}],'
             '"target_ids":[1],"reason":"依据"}]}。\n'
             + context + '\n候选：\n' + json.dumps(candidates, ensure_ascii=False))}])
         for key in usage:
@@ -1003,16 +1014,47 @@ def _run_aligned_abstract(ir, facts):
     lookup = {r['candidate_id']:r for r in candidates}
     mismatches, seen = [], set()
     for review in reviews:
+        candidate = lookup[review['candidate_id']]
+        zh = candidate['direction'] == 'from_chinese'
+        sources, targets = (chinese,english) if zh else (english,chinese)
         verdict = review.get('verdict')
+        review['model_verdict'] = verdict
         if verdict not in {
             'equivalent','detail_difference','uncertain','core_omission','partial_omission','contradiction'
         }:
             raise ValueError('invalid abstract review verdict')
+        checks = review.get('fact_checks')
+        if verdict in {'equivalent','detail_difference'} and not checks:
+            raise ValueError('abstract equivalence requires fact-level coverage evidence')
+        if checks is not None:
+            if not isinstance(checks,list) or not checks:
+                raise ValueError('invalid abstract fact coverage')
+            source_text = _compact_claim(sources[candidate['source_id']-1])
+            target_text = _compact_claim(' '.join(targets))
+            missing = []
+            for check in checks:
+                if not isinstance(check,dict):
+                    raise ValueError('invalid abstract fact check')
+                quote = str(check.get('source_quote') or '').strip()
+                target_quote = str(check.get('target_quote') or '').strip()
+                relation = check.get('relation')
+                if not quote or _compact_claim(quote) not in source_text or relation not in {'covered','missing','uncertain'}:
+                    raise ValueError('abstract fact check has invalid source evidence: ' + repr(quote)[:200])
+                if relation == 'covered' and (not target_quote or _compact_claim(target_quote) not in target_text):
+                    raise ValueError('abstract fact check has untraceable target evidence')
+                if relation == 'missing':
+                    if target_quote:
+                        raise ValueError('missing abstract fact cannot have target evidence')
+                    missing.append(quote)
+            if missing and verdict != 'contradiction':
+                verdict = 'partial_omission'
+                review.update(verdict=verdict,missing_in='english' if zh else 'chinese',
+                              reason=('英文摘要' if zh else '中文摘要')+'未对应说明：'+'；'.join(missing))
+            elif all(check['relation']=='covered' for check in checks) and verdict != 'contradiction':
+                verdict = 'equivalent'
+                review.update(verdict=verdict,missing_in=None)
         if verdict not in {'core_omission','partial_omission','contradiction'}:
             continue
-        candidate = lookup[review['candidate_id']]
-        zh = candidate['direction'] == 'from_chinese'
-        sources, targets = (chinese,english) if zh else (english,chinese)
         tids = review.get('target_ids',candidate['target_ids'])
         if not isinstance(tids,list) or any(type(i) is not int or not 1 <= i <= len(targets) for i in tids):
             raise ValueError('invalid reviewed abstract target')
@@ -1049,7 +1091,7 @@ def _run_aligned_abstract(ir, facts):
     return dict(rule_run_id=f'run_{rule_id}',rule_id=rule_id,severity='warning',
         execution_status='completed',evidence_mode='derived',outcome='issues_found' if findings else 'passed',
         message=None,findings=findings,model_usage=usage,
-        params=dict(comparison_mode='full_sentence_alignment_v5.1',alignment=alignment,
+        params=dict(comparison_mode='full_sentence_alignment_v5.2',alignment=alignment,
                     candidate_reviews=reviews,mismatches=mismatches[:3]))
 
 
