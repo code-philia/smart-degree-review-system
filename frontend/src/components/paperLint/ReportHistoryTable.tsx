@@ -1,9 +1,11 @@
 import { useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowUpRight, RotateCw, Check, ListChecks, Search, Trash2, X } from 'lucide-react';
+import { ArrowUpRight, ChevronLeft, ChevronRight, RotateCw, Check, ListChecks, Search, Trash2, X } from 'lucide-react';
 import type { PaperLintReportListItem } from '../../api/paperLint';
 import { formatChinaDateTime } from '../../utils/dateTime';
 import { Button } from '../ui';
+
+const pageControlClassName = 'inline-flex size-9 shrink-0 items-center justify-center rounded-lg border text-sm font-medium tabular-nums transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none';
 
 const rowActionClassName = 'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-2 text-sm font-normal leading-6 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
 
@@ -32,6 +34,7 @@ export function ReportHistoryTable({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
   const [managing, setManaging] = useState(false);
+  const [jumpDraft, setJumpDraft] = useState<{ context: string; value: string } | null>(null);
   const normalizedQuery = query.trim().toLowerCase();
   const filtering = normalizedQuery.length > 0;
   const filteredReports = filtering
@@ -44,6 +47,23 @@ export function ReportHistoryTable({
   const visibleIds = visibleReports.map(record => record.id);
   const selectedOnPage = visibleIds.filter(id => selectedReportIds.includes(id)).length;
   const allPageSelected = visibleIds.length > 0 && selectedOnPage === visibleIds.length;
+  const jumpContext = `${currentPage}-${pageCount}-${pageSize}-${normalizedQuery}`;
+  const rangeLabel = `共 ${reports.length} 条，${filtering ? `匹配 ${filteredReports.length} 条，` : ''}显示第 ${filteredReports.length ? pageStart + 1 : 0}–${Math.min(pageStart + pageSize, filteredReports.length)} 条`;
+  const pageItems: (number | string)[] = pageCount <= 5
+    ? Array.from({ length: pageCount }, (_, index) => index + 1)
+    : currentPage <= 3 ? [1, 2, 3, 'end-gap', pageCount]
+      : currentPage >= pageCount - 2 ? [1, 'start-gap', pageCount - 2, pageCount - 1, pageCount]
+        : [1, 'start-gap', currentPage, 'end-gap', pageCount];
+
+  function jumpToPage(input: HTMLInputElement) {
+    const value = input.value.trim();
+    const requested = /^\d+$/.test(value) ? Number(value) : NaN;
+    const target = Number.isSafeInteger(requested)
+      ? Math.max(1, Math.min(pageCount, requested)) : currentPage;
+    setJumpDraft(null);
+    setPage(target);
+  }
+
 
   function changeQuery(value: string) {
     setQuery(value);
@@ -218,29 +238,66 @@ export function ReportHistoryTable({
           </tbody>
         </table>
       </div>
-      <nav aria-label="报告分页" className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-white px-6 py-4 text-[13px] text-slate-500">
-        <span>共 {reports.length} 条，{filtering ? `匹配 ${filteredReports.length} 条，` : ''}显示第 {filteredReports.length ? pageStart + 1 : 0}–{Math.min(pageStart + pageSize, filteredReports.length)} 条</span>
-        <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2">
-            每页显示
-            <select
-              aria-label="每页显示条数"
-              className="h-8 rounded-md border border-slate-300 bg-white px-2 text-slate-700 focus-visible:outline-2 focus-visible:outline-brand-500"
-              value={pageSize}
-              disabled={deleting}
-              onChange={event => {
-                setPageSize(Number(event.target.value));
-                setPage(1);
-              }}
-            >
-              {[5, 10, 20, 50, 100].map(size => <option key={size} value={size}>{size}</option>)}
-            </select>
-            条
-          </label>
-          <Button size="sm" variant="secondary" disabled={deleting || currentPage === 1} onClick={() => setPage(currentPage - 1)}>上一页</Button>
-          <span aria-live="polite" className="tabular-nums">第 {currentPage} / {pageCount} 页</span>
-          <Button size="sm" variant="secondary" disabled={deleting || currentPage === pageCount} onClick={() => setPage(currentPage + 1)}>下一页</Button>
+      <nav aria-label="报告分页" className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-t border-slate-100 bg-white px-4 py-4 text-[13px] text-slate-500 sm:px-6">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+          <span aria-hidden="true" title={rangeLabel} className="tabular-nums">
+            共 <span className="font-medium text-slate-700">{reports.length}</span> 条{filtering ? `，匹配 ${filteredReports.length} 条` : ''}
+          </span>
+          <span className="sr-only">{rangeLabel}</span>
+          <select
+            aria-label="每页显示条数"
+            className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm tabular-nums text-slate-700 transition-colors hover:border-slate-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none"
+            value={pageSize}
+            disabled={deleting}
+            onChange={event => {
+              setPageSize(Number(event.target.value));
+              setPage(1);
+            }}
+          >
+            {[5, 10, 20, 50, 100].map(size => <option key={size} value={size}>{size} 条/页</option>)}
+          </select>
         </div>
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+          <div role="group" aria-label="页码选择" className="flex shrink-0 items-center gap-1">
+            <button type="button" aria-label="上一页" title="上一页"
+              className={`${pageControlClassName} border-transparent bg-slate-50 text-slate-600 hover:border-slate-200 hover:bg-slate-100`}
+              disabled={deleting || currentPage === 1} onClick={() => setPage(currentPage - 1)}>
+              <ChevronLeft aria-hidden="true" className="size-4" />
+            </button>
+            {pageItems.map(item => typeof item === 'number' ? (
+              <button key={item} type="button" aria-label={`第 ${item} 页`} aria-current={item === currentPage ? 'page' : undefined}
+                className={`${pageControlClassName} ${item === currentPage
+                  ? 'border-brand-600 bg-brand-600 text-white shadow-sm'
+                  : 'border-transparent bg-white text-slate-600 hover:border-brand-100 hover:bg-brand-50 hover:text-brand-700'}`}
+                disabled={deleting} onClick={() => setPage(item)}>{item}</button>
+            ) : <span key={item} aria-hidden="true" className="inline-flex size-9 shrink-0 items-center justify-center text-slate-400">…</span>)}
+            <button type="button" aria-label="下一页" title="下一页"
+              className={`${pageControlClassName} border-transparent bg-slate-50 text-slate-600 hover:border-slate-200 hover:bg-slate-100`}
+              disabled={deleting || currentPage === pageCount} onClick={() => setPage(currentPage + 1)}>
+              <ChevronRight aria-hidden="true" className="size-4" />
+            </button>
+          </div>
+          <label className="flex shrink-0 items-center gap-2">
+            前往
+            <input
+              type="text" inputMode="numeric" aria-label="跳转页码"
+              title={`输入 1–${pageCount}，按 Enter 或移出输入框跳转`}
+              value={jumpDraft?.context === jumpContext ? jumpDraft.value : String(currentPage)}
+              onChange={event => setJumpDraft({ context: jumpContext, value: event.target.value })}
+              disabled={deleting || pageCount === 1}
+              onBlur={event => jumpToPage(event.currentTarget)}
+              onKeyDown={event => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  jumpToPage(event.currentTarget);
+                }
+              }}
+              className="h-9 w-12 rounded-lg border border-slate-200 bg-white px-1 text-center text-sm tabular-nums text-slate-700 transition-colors hover:border-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-40 motion-reduce:transition-none"
+            />
+            页
+          </label>
+        </div>
+        <span aria-live="polite" className="sr-only">第 {currentPage} / {pageCount} 页</span>
       </nav>
     </section>
   );
