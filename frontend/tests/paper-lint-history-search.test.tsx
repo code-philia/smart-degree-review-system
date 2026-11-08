@@ -94,8 +94,7 @@ it('shows a safe zero-result state and lets the user restore all reports', () =>
 
 it('clears existing selections whenever the search changes so hidden reports cannot be batch deleted', async () => {
   const { user, onDelete } = show();
-  await user.click(screen.getByRole('button', { name: '报告管理' }));
-  await user.click(screen.getByRole('menuitem', { name: '批量管理' }));
+  await user.click(screen.getByRole('button', { name: '批量管理', exact: true }));
   fireEvent.click(screen.getByRole('checkbox', { name: '选择报告：前言.pdf' }));
   expect(screen.getByRole('button', { name: '删除选中（1）' })).toBeEnabled();
   const search = screen.getByRole('searchbox', { name: '搜索检测报告' });

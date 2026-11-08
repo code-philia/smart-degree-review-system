@@ -56,14 +56,13 @@ async function showHistory() {
 
 async function manageReports() {
   const user = userEvent.setup();
-  await user.click(screen.getByRole('button', { name: '报告管理' }));
-  await user.click(screen.getByRole('menuitem', { name: '批量管理' }));
+  await user.click(screen.getByRole('button', { name: '批量管理', exact: true }));
 }
 
 async function deleteReport(filename: string) {
   const user = userEvent.setup();
-  await user.click(screen.getByRole('button', { name: `更多操作：${filename}` }));
-  await user.click(screen.getByRole('menuitem', { name: '删除报告' }));
+  const row = screen.getByRole('link', { name: filename, exact: true }).closest('tr')!;
+  await user.click(within(row).getByRole('button', { name: '删除报告', exact: true }));
 }
 
 function shownRows() {

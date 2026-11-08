@@ -1,12 +1,12 @@
 import { useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowUpRight, RotateCw, Check, ListChecks, MoreHorizontal, Search, Trash2, X } from 'lucide-react';
+import { ArrowUpRight, RotateCw, Check, ListChecks, Search, Trash2, X } from 'lucide-react';
 import type { PaperLintReportListItem } from '../../api/paperLint';
 import { formatChinaDateTime } from '../../utils/dateTime';
 import { Button } from '../ui';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../shadcn/dropdown-menu';
 
-const actionMenuClassName = 'w-40 rounded-xl border border-slate-200 bg-white p-1.5 text-slate-700 shadow-xl ring-0 duration-200 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-top-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 motion-reduce:animate-none!';
+const rowActionClassName = 'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-2 text-sm font-normal leading-6 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
+
 
 type ReportHistoryTableProps = {
   reports: PaperLintReportListItem[];
@@ -95,18 +95,16 @@ export function ReportHistoryTable({
             </button>
           ) : null}
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild ref={managementTriggerRef}>
-            <Button size="sm" variant="ghost" aria-label="报告管理" title="报告管理" disabled={deleting} className="size-9 rounded-lg border border-slate-200/80 p-0">
-              <MoreHorizontal className="size-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className={actionMenuClassName}>
-            <DropdownMenuItem disabled={deleting} onSelect={() => setManaging(true)} className="cursor-pointer gap-2 rounded-lg px-3 py-2.5 focus:bg-slate-100 focus:text-slate-900">
-              <ListChecks />批量管理
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <button
+          ref={managementTriggerRef}
+          type="button"
+          disabled={deleting}
+          aria-expanded={managing}
+          onClick={() => managing ? finishManaging() : setManaging(true)}
+          className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 aria-expanded:border-brand-200 aria-expanded:bg-brand-50 aria-expanded:text-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
+        >
+          <ListChecks aria-hidden="true" className="size-4" />批量管理
+        </button>
       </div>
       {managing ? (
         <div role="region" aria-label="批量管理" className="mx-5 mb-4 mt-4 flex animate-in flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-100 bg-brand-50/60 px-4 py-3 duration-200 fade-in-0 slide-in-from-top-2 motion-reduce:animate-none">
@@ -120,7 +118,7 @@ export function ReportHistoryTable({
         </div>
       ) : null}
       <div className="overflow-x-auto">
-        <table aria-labelledby={titleId} className="w-full min-w-[840px] table-fixed text-left text-sm">
+        <table aria-labelledby={titleId} className="w-full min-w-[960px] table-fixed text-left text-sm">
           <thead className="border-y border-slate-200/80 bg-slate-50 text-[13px] text-slate-700">
             <tr>
               {managing ? <th scope="col" className="w-12 pl-6 pr-2 py-3.5 font-semibold">
@@ -139,10 +137,10 @@ export function ReportHistoryTable({
                 </label>
               </th> : null}
               <th scope="col" className="px-6 py-3.5 font-semibold">文档名称</th>
-              <th scope="col" className="w-[124px] px-4 py-3.5 font-semibold">检测类型</th>
-              <th scope="col" className="w-[164px] px-4 py-3.5 font-semibold">检测结果</th>
-              <th scope="col" className="w-[156px] px-4 py-3.5 font-semibold">报告生成时间</th>
-              <th scope="col" className="w-[180px] px-4 py-3.5 font-semibold">操作</th>
+              <th scope="col" className="w-[108px] px-3 py-3.5 font-semibold">检测类型</th>
+              <th scope="col" className="w-[144px] px-3 py-3.5 font-semibold">检测结果</th>
+              <th scope="col" className="w-[144px] px-3 py-3.5 font-semibold">报告生成时间</th>
+              <th scope="col" className="w-[328px] px-3 py-3.5 font-semibold">操作</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200/80">
@@ -153,8 +151,8 @@ export function ReportHistoryTable({
                 ? 'border-amber-200 bg-amber-50 text-amber-900'
                 : 'border-emerald-200 bg-emerald-50 text-emerald-800';
               return (
-              <tr key={record.id} className="bg-white text-slate-700 transition-colors duration-150 even:bg-slate-50/40 hover:bg-brand-50/40 motion-reduce:transition-none">
-                {managing ? <td className="animate-in pl-6 pr-2 py-5 fade-in-0 motion-reduce:animate-none">
+              <tr key={record.id} className="bg-white text-sm font-normal leading-6 text-slate-700 transition-colors duration-150 even:bg-slate-50/40 hover:bg-brand-50/40 motion-reduce:transition-none">
+                {managing ? <td className="animate-in pl-6 pr-2 py-4 fade-in-0 motion-reduce:animate-none">
                   <input
                     type="checkbox"
                     aria-label={`选择报告：${record.source_filename}`}
@@ -166,39 +164,41 @@ export function ReportHistoryTable({
                       : selectedReportIds.filter(id => id !== record.id))}
                   />
                 </td> : null}
-                <td className="px-6 py-5">
-                  <Link to={detailPath} title={record.source_filename} className="line-clamp-2 break-all rounded-sm text-[15px] font-semibold leading-6 text-slate-900 transition-colors hover:text-brand-700 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-500 motion-reduce:transition-none">{record.source_filename}</Link>
+                <td className="px-6 py-4">
+                  <Link to={detailPath} title={record.source_filename} className="block truncate rounded-sm text-sm font-normal leading-6 text-slate-900 transition-colors hover:text-brand-700 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-500 motion-reduce:transition-none">{record.source_filename}</Link>
                 </td>
-                <td className="px-4 py-5"><span className="whitespace-nowrap text-[13px] text-slate-600">规范性检测</span></td>
-                <td className="px-4 py-5">
-                  <span className={`inline-flex whitespace-nowrap rounded-md border px-2.5 py-1 text-base font-semibold tabular-nums ${resultTone}`}>
+                <td className="px-3 py-4"><span className="whitespace-nowrap text-sm font-normal leading-6 text-slate-600">规范性检测</span></td>
+                <td className="px-3 py-4">
+                  <span className={`inline-flex whitespace-nowrap rounded-md border px-2 py-1 text-sm font-normal leading-6 tabular-nums ${resultTone}`}>
                     错误总数：{record.summary.finding_count}
                   </span>
                   {incomplete ? (
-                    <p className="mt-1.5 text-xs font-medium text-amber-700">
+                    <p className="mt-1.5 text-sm font-normal leading-6 text-amber-700">
                       {record.summary.error_rule_count ? '部分规则检测失败' : '部分规则无法判定'}
                     </p>
                   ) : null}
                 </td>
-                <td className="px-4 py-5">
-                  <time dateTime={record.created_at} className="block whitespace-pre-line text-[13px] leading-6 tabular-nums text-slate-600">
+                <td className="px-3 py-4">
+                  <time dateTime={record.created_at} className="block whitespace-pre-line text-sm font-normal leading-6 tabular-nums text-slate-600">
                     {formatChinaDateTime(record.created_at, { includeSeconds: true }).replace(' ', '\n')}
                   </time>
                 </td>
-                <td className="px-4 py-5">
+                <td className="px-3 py-4">
                   <div className="flex items-center gap-2 whitespace-nowrap">
-                    <Link className="group inline-flex h-9 items-center gap-1 rounded-lg border border-brand-100 bg-brand-50/70 px-3 text-[13px] font-semibold text-brand-700 transition-colors hover:border-brand-200 hover:bg-brand-100/70 hover:text-brand-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 motion-reduce:transition-none" to={detailPath}>
+                    <Link className={`${rowActionClassName} group border-brand-100 bg-brand-50/70 text-brand-700 hover:border-brand-200 hover:bg-brand-100/70 hover:text-brand-800 focus-visible:outline-brand-500`} to={detailPath}>
                       查看详情<ArrowUpRight className="size-3.5 transition-transform group-hover:-translate-y-px group-hover:translate-x-px motion-reduce:transform-none" aria-hidden="true" />
                     </Link>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button size="sm" variant="ghost" className="size-8 shrink-0 rounded-lg p-0 text-slate-400" disabled={deleting} aria-label={`更多操作：${record.source_filename}`} title="更多操作"><MoreHorizontal className="size-4" /></Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className={actionMenuClassName}>
-                        <DropdownMenuItem asChild className="cursor-pointer gap-2 rounded-lg px-3 py-2.5"><Link to={`${detailPath}?rerun=1`}><RotateCw />增量补跑</Link></DropdownMenuItem>
-                        <DropdownMenuItem disabled={deleting} onSelect={() => onDelete([record.id])} className="cursor-pointer gap-2 rounded-lg px-3 py-2.5 text-danger-600 focus:bg-red-50 focus:text-danger-600"><Trash2 />删除报告</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <Link to={`${detailPath}?rerun=1`}
+                      aria-disabled={deleting || undefined}
+                      tabIndex={deleting ? -1 : undefined}
+                      onClick={event => { if (deleting) event.preventDefault(); }}
+                      className={`${rowActionClassName} border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-brand-500 aria-disabled:pointer-events-none aria-disabled:opacity-50`}>
+                      <RotateCw aria-hidden="true" className="size-3.5" />增量补跑
+                    </Link>
+                    <button type="button" disabled={deleting} onClick={() => onDelete([record.id])}
+                      className={`${rowActionClassName} border-red-100 bg-white text-danger-600 hover:border-red-200 hover:bg-red-50 focus-visible:outline-danger-600`}>
+                      <Trash2 aria-hidden="true" className="size-3.5" />删除报告
+                    </button>
                   </div>
                 </td>
               </tr>
