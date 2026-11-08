@@ -1,12 +1,15 @@
 import { useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowUpRight, RotateCw, Check, ListChecks, MoreHorizontal, Search, Trash2, X } from 'lucide-react';
+import { Select as SelectPrimitive } from 'radix-ui';
+import { ArrowUpRight, ChevronDown, ChevronLeft, ChevronRight, RotateCw, Check, ListChecks, Search, Trash2, X } from 'lucide-react';
 import type { PaperLintReportListItem } from '../../api/paperLint';
 import { formatChinaDateTime } from '../../utils/dateTime';
 import { Button } from '../ui';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../shadcn/dropdown-menu';
 
-const actionMenuClassName = 'w-40 rounded-xl border border-slate-200 bg-white p-1.5 text-slate-700 shadow-xl ring-0 duration-200 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-top-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 motion-reduce:animate-none!';
+const pageControlClassName = 'inline-flex size-9 shrink-0 items-center justify-center rounded-lg border text-sm font-medium tabular-nums transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none';
+
+const rowActionClassName = 'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-2 text-sm font-normal leading-6 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
+
 
 type ReportHistoryTableProps = {
   reports: PaperLintReportListItem[];
@@ -32,6 +35,7 @@ export function ReportHistoryTable({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
   const [managing, setManaging] = useState(false);
+  const [jumpDraft, setJumpDraft] = useState<{ context: string; value: string } | null>(null);
   const normalizedQuery = query.trim().toLowerCase();
   const filtering = normalizedQuery.length > 0;
   const filteredReports = filtering
@@ -44,6 +48,23 @@ export function ReportHistoryTable({
   const visibleIds = visibleReports.map(record => record.id);
   const selectedOnPage = visibleIds.filter(id => selectedReportIds.includes(id)).length;
   const allPageSelected = visibleIds.length > 0 && selectedOnPage === visibleIds.length;
+  const jumpContext = `${currentPage}-${pageCount}-${pageSize}-${normalizedQuery}`;
+  const rangeLabel = `共 ${reports.length} 条，${filtering ? `匹配 ${filteredReports.length} 条，` : ''}显示第 ${filteredReports.length ? pageStart + 1 : 0}–${Math.min(pageStart + pageSize, filteredReports.length)} 条`;
+  const pageItems: (number | string)[] = pageCount <= 5
+    ? Array.from({ length: pageCount }, (_, index) => index + 1)
+    : currentPage <= 3 ? [1, 2, 3, 'end-gap', pageCount]
+      : currentPage >= pageCount - 2 ? [1, 'start-gap', pageCount - 2, pageCount - 1, pageCount]
+        : [1, 'start-gap', currentPage, 'end-gap', pageCount];
+
+  function jumpToPage(input: HTMLInputElement) {
+    const value = input.value.trim();
+    const requested = /^\d+$/.test(value) ? Number(value) : NaN;
+    const target = Number.isSafeInteger(requested)
+      ? Math.max(1, Math.min(pageCount, requested)) : currentPage;
+    setJumpDraft(null);
+    setPage(target);
+  }
+
 
   function changeQuery(value: string) {
     setQuery(value);
@@ -72,8 +93,7 @@ export function ReportHistoryTable({
     <section className="mb-6 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_8px_32px_-24px_rgba(15,23,42,0.25)]">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-6 py-5 lg:grid-cols-[minmax(0,1fr)_minmax(240px,320px)_auto]">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <h2 id={titleId} className="text-base font-semibold tracking-tight text-slate-900">PDF 论文检查报告</h2>
-          <span className="rounded-md bg-slate-100 px-2 py-1 text-[13px] font-medium tabular-nums text-slate-600">{reports.length} 份</span>
+          <h2 id={titleId} className="text-base font-semibold tracking-tight text-slate-900">规范性检测报告</h2>
           {filtering ? <span role="status" className="text-[13px] font-medium tabular-nums text-brand-700">匹配 {filteredReports.length} 份</span> : null}
         </div>
         <div className="relative order-last col-span-2 w-full lg:order-none lg:col-span-1">
@@ -95,18 +115,16 @@ export function ReportHistoryTable({
             </button>
           ) : null}
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild ref={managementTriggerRef}>
-            <Button size="sm" variant="ghost" aria-label="报告管理" title="报告管理" disabled={deleting} className="size-9 rounded-lg border border-slate-200/80 p-0">
-              <MoreHorizontal className="size-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className={actionMenuClassName}>
-            <DropdownMenuItem disabled={deleting} onSelect={() => setManaging(true)} className="cursor-pointer gap-2 rounded-lg px-3 py-2.5 focus:bg-slate-100 focus:text-slate-900">
-              <ListChecks />批量管理
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <button
+          ref={managementTriggerRef}
+          type="button"
+          disabled={deleting}
+          aria-expanded={managing}
+          onClick={() => managing ? finishManaging() : setManaging(true)}
+          className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 aria-expanded:border-brand-200 aria-expanded:bg-brand-50 aria-expanded:text-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
+        >
+          <ListChecks aria-hidden="true" className="size-4" />批量管理
+        </button>
       </div>
       {managing ? (
         <div role="region" aria-label="批量管理" className="mx-5 mb-4 mt-4 flex animate-in flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-100 bg-brand-50/60 px-4 py-3 duration-200 fade-in-0 slide-in-from-top-2 motion-reduce:animate-none">
@@ -120,7 +138,7 @@ export function ReportHistoryTable({
         </div>
       ) : null}
       <div className="overflow-x-auto">
-        <table aria-labelledby={titleId} className="w-full min-w-[840px] table-fixed text-left text-sm">
+        <table aria-labelledby={titleId} className="w-full min-w-[960px] table-fixed text-left text-sm">
           <thead className="border-y border-slate-200/80 bg-slate-50 text-[13px] text-slate-700">
             <tr>
               {managing ? <th scope="col" className="w-12 pl-6 pr-2 py-3.5 font-semibold">
@@ -139,10 +157,10 @@ export function ReportHistoryTable({
                 </label>
               </th> : null}
               <th scope="col" className="px-6 py-3.5 font-semibold">文档名称</th>
-              <th scope="col" className="w-[124px] px-4 py-3.5 font-semibold">检测类型</th>
-              <th scope="col" className="w-[164px] px-4 py-3.5 font-semibold">检测结果</th>
-              <th scope="col" className="w-[156px] px-4 py-3.5 font-semibold">报告生成时间</th>
-              <th scope="col" className="w-[180px] px-4 py-3.5 font-semibold">操作</th>
+              <th scope="col" className="w-[108px] px-3 py-3.5 font-semibold">检测类型</th>
+              <th scope="col" className="w-[144px] px-3 py-3.5 font-semibold">检测结果</th>
+              <th scope="col" className="w-[144px] px-3 py-3.5 font-semibold">报告生成时间</th>
+              <th scope="col" className="w-[328px] px-3 py-3.5 font-semibold">操作</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200/80">
@@ -153,8 +171,8 @@ export function ReportHistoryTable({
                 ? 'border-amber-200 bg-amber-50 text-amber-900'
                 : 'border-emerald-200 bg-emerald-50 text-emerald-800';
               return (
-              <tr key={record.id} className="bg-white text-slate-700 transition-colors duration-150 even:bg-slate-50/40 hover:bg-brand-50/40 motion-reduce:transition-none">
-                {managing ? <td className="animate-in pl-6 pr-2 py-5 fade-in-0 motion-reduce:animate-none">
+              <tr key={record.id} className="bg-white text-sm font-normal leading-6 text-slate-700 transition-colors duration-150 even:bg-slate-50/40 hover:bg-brand-50/40 motion-reduce:transition-none">
+                {managing ? <td className="animate-in pl-6 pr-2 py-4 fade-in-0 motion-reduce:animate-none">
                   <input
                     type="checkbox"
                     aria-label={`选择报告：${record.source_filename}`}
@@ -166,39 +184,41 @@ export function ReportHistoryTable({
                       : selectedReportIds.filter(id => id !== record.id))}
                   />
                 </td> : null}
-                <td className="px-6 py-5">
-                  <Link to={detailPath} title={record.source_filename} className="line-clamp-2 break-all rounded-sm text-[15px] font-semibold leading-6 text-slate-900 transition-colors hover:text-brand-700 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-500 motion-reduce:transition-none">{record.source_filename}</Link>
+                <td className="px-6 py-4">
+                  <Link to={detailPath} title={record.source_filename} className="block truncate rounded-sm text-sm font-normal leading-6 text-slate-900 transition-colors hover:text-brand-700 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-500 motion-reduce:transition-none">{record.source_filename}</Link>
                 </td>
-                <td className="px-4 py-5"><span className="whitespace-nowrap text-[13px] text-slate-600">规范性检测</span></td>
-                <td className="px-4 py-5">
-                  <span className={`inline-flex whitespace-nowrap rounded-md border px-2.5 py-1 text-base font-semibold tabular-nums ${resultTone}`}>
+                <td className="px-3 py-4"><span className="whitespace-nowrap text-sm font-normal leading-6 text-slate-600">规范性检测</span></td>
+                <td className="px-3 py-4">
+                  <span className={`inline-flex whitespace-nowrap rounded-md border px-2 py-1 text-sm font-normal leading-6 tabular-nums ${resultTone}`}>
                     错误总数：{record.summary.finding_count}
                   </span>
                   {incomplete ? (
-                    <p className="mt-1.5 text-xs font-medium text-amber-700">
+                    <p className="mt-1.5 text-sm font-normal leading-6 text-amber-700">
                       {record.summary.error_rule_count ? '部分规则检测失败' : '部分规则无法判定'}
                     </p>
                   ) : null}
                 </td>
-                <td className="px-4 py-5">
-                  <time dateTime={record.created_at} className="block whitespace-pre-line text-[13px] leading-6 tabular-nums text-slate-600">
+                <td className="px-3 py-4">
+                  <time dateTime={record.created_at} className="block whitespace-pre-line text-sm font-normal leading-6 tabular-nums text-slate-600">
                     {formatChinaDateTime(record.created_at, { includeSeconds: true }).replace(' ', '\n')}
                   </time>
                 </td>
-                <td className="px-4 py-5">
+                <td className="px-3 py-4">
                   <div className="flex items-center gap-2 whitespace-nowrap">
-                    <Link className="group inline-flex h-9 items-center gap-1 rounded-lg border border-brand-100 bg-brand-50/70 px-3 text-[13px] font-semibold text-brand-700 transition-colors hover:border-brand-200 hover:bg-brand-100/70 hover:text-brand-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 motion-reduce:transition-none" to={detailPath}>
+                    <Link className={`${rowActionClassName} group border-brand-100 bg-brand-50/70 text-brand-700 hover:border-brand-200 hover:bg-brand-100/70 hover:text-brand-800 focus-visible:outline-brand-500`} to={detailPath}>
                       查看详情<ArrowUpRight className="size-3.5 transition-transform group-hover:-translate-y-px group-hover:translate-x-px motion-reduce:transform-none" aria-hidden="true" />
                     </Link>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button size="sm" variant="ghost" className="size-8 shrink-0 rounded-lg p-0 text-slate-400" disabled={deleting} aria-label={`更多操作：${record.source_filename}`} title="更多操作"><MoreHorizontal className="size-4" /></Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className={actionMenuClassName}>
-                        <DropdownMenuItem asChild className="cursor-pointer gap-2 rounded-lg px-3 py-2.5"><Link to={`${detailPath}?rerun=1`}><RotateCw />增量补跑</Link></DropdownMenuItem>
-                        <DropdownMenuItem disabled={deleting} onSelect={() => onDelete([record.id])} className="cursor-pointer gap-2 rounded-lg px-3 py-2.5 text-danger-600 focus:bg-red-50 focus:text-danger-600"><Trash2 />删除报告</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <Link to={`${detailPath}?rerun=1`}
+                      aria-disabled={deleting || undefined}
+                      tabIndex={deleting ? -1 : undefined}
+                      onClick={event => { if (deleting) event.preventDefault(); }}
+                      className={`${rowActionClassName} border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-brand-500 aria-disabled:pointer-events-none aria-disabled:opacity-50`}>
+                      <RotateCw aria-hidden="true" className="size-3.5" />增量补跑
+                    </Link>
+                    <button type="button" disabled={deleting} onClick={() => onDelete([record.id])}
+                      className={`${rowActionClassName} border-red-100 bg-white text-danger-600 hover:border-red-200 hover:bg-red-50 focus-visible:outline-danger-600`}>
+                      <Trash2 aria-hidden="true" className="size-3.5" />删除报告
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -219,29 +239,83 @@ export function ReportHistoryTable({
           </tbody>
         </table>
       </div>
-      <nav aria-label="报告分页" className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-white px-6 py-4 text-[13px] text-slate-500">
-        <span>共 {reports.length} 条，{filtering ? `匹配 ${filteredReports.length} 条，` : ''}显示第 {filteredReports.length ? pageStart + 1 : 0}–{Math.min(pageStart + pageSize, filteredReports.length)} 条</span>
-        <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2">
-            每页显示
-            <select
-              aria-label="每页显示条数"
-              className="h-8 rounded-md border border-slate-300 bg-white px-2 text-slate-700 focus-visible:outline-2 focus-visible:outline-brand-500"
-              value={pageSize}
-              disabled={deleting}
-              onChange={event => {
-                setPageSize(Number(event.target.value));
-                setPage(1);
-              }}
-            >
-              {[5, 10, 20, 50, 100].map(size => <option key={size} value={size}>{size}</option>)}
-            </select>
-            条
-          </label>
-          <Button size="sm" variant="secondary" disabled={deleting || currentPage === 1} onClick={() => setPage(currentPage - 1)}>上一页</Button>
-          <span aria-live="polite" className="tabular-nums">第 {currentPage} / {pageCount} 页</span>
-          <Button size="sm" variant="secondary" disabled={deleting || currentPage === pageCount} onClick={() => setPage(currentPage + 1)}>下一页</Button>
+      <nav aria-label="报告分页" className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-t border-slate-100 bg-white px-4 py-4 text-[13px] text-slate-500 sm:px-6">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+          <span aria-hidden="true" title={rangeLabel} className="tabular-nums">
+            共 <span className="font-medium text-slate-700">{reports.length}</span> 条{filtering ? `，匹配 ${filteredReports.length} 条` : ''}
+          </span>
+          <span className="sr-only">{rangeLabel}</span>
+          <SelectPrimitive.Root value={String(pageSize)} disabled={deleting}
+            onValueChange={value => {
+              setPageSize(Number(value));
+              setPage(1);
+            }}>
+            <SelectPrimitive.Trigger aria-label="每页显示条数"
+              className="group inline-flex h-9 min-w-28 items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 text-sm tabular-nums text-slate-700 outline-none transition-colors hover:border-slate-300 focus-visible:border-brand-300 focus-visible:ring-2 focus-visible:ring-brand-100 data-[state=open]:border-brand-300 data-[state=open]:ring-2 data-[state=open]:ring-brand-50 disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none">
+              <SelectPrimitive.Value />
+              <SelectPrimitive.Icon asChild>
+                <ChevronDown aria-hidden="true" className="size-4 text-slate-400 transition-transform duration-150 group-data-[state=open]:rotate-180 motion-reduce:transition-none" />
+              </SelectPrimitive.Icon>
+            </SelectPrimitive.Trigger>
+            <SelectPrimitive.Portal>
+              <SelectPrimitive.Content position="popper" align="start" sideOffset={6} collisionPadding={12}
+                className="z-50 min-w-32 overflow-hidden rounded-xl border border-slate-200/80 bg-white p-1.5 text-slate-700 shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)]">
+                <SelectPrimitive.Viewport className="max-h-[var(--radix-select-content-available-height)]">
+                  {[5, 10, 20, 50, 100].map(size => (
+                    <SelectPrimitive.Item key={size} value={String(size)}
+                      className="relative flex min-h-9 cursor-pointer items-center rounded-lg py-2 pl-2.5 pr-8 text-sm tabular-nums outline-none select-none data-[highlighted]:bg-brand-50 data-[highlighted]:text-brand-700 data-[state=checked]:bg-brand-50 data-[state=checked]:text-brand-700">
+                      <SelectPrimitive.ItemText>{size} 条/页</SelectPrimitive.ItemText>
+                      <SelectPrimitive.ItemIndicator className="absolute right-2.5 inline-flex items-center text-brand-600">
+                        <Check aria-hidden="true" className="size-3.5" />
+                      </SelectPrimitive.ItemIndicator>
+                    </SelectPrimitive.Item>
+                  ))}
+                </SelectPrimitive.Viewport>
+              </SelectPrimitive.Content>
+            </SelectPrimitive.Portal>
+          </SelectPrimitive.Root>
         </div>
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+          <div role="group" aria-label="页码选择" className="flex shrink-0 items-center gap-1">
+            <button type="button" aria-label="上一页" title="上一页"
+              className={`${pageControlClassName} border-transparent bg-slate-50 text-slate-600 hover:border-slate-200 hover:bg-slate-100`}
+              disabled={deleting || currentPage === 1} onClick={() => setPage(currentPage - 1)}>
+              <ChevronLeft aria-hidden="true" className="size-4" />
+            </button>
+            {pageItems.map(item => typeof item === 'number' ? (
+              <button key={item} type="button" aria-label={`第 ${item} 页`} aria-current={item === currentPage ? 'page' : undefined}
+                className={`${pageControlClassName} ${item === currentPage
+                  ? 'border-brand-600 bg-brand-600 text-white shadow-sm'
+                  : 'border-transparent bg-white text-slate-600 hover:border-brand-100 hover:bg-brand-50 hover:text-brand-700'}`}
+                disabled={deleting} onClick={() => setPage(item)}>{item}</button>
+            ) : <span key={item} aria-hidden="true" className="inline-flex size-9 shrink-0 items-center justify-center text-slate-400">…</span>)}
+            <button type="button" aria-label="下一页" title="下一页"
+              className={`${pageControlClassName} border-transparent bg-slate-50 text-slate-600 hover:border-slate-200 hover:bg-slate-100`}
+              disabled={deleting || currentPage === pageCount} onClick={() => setPage(currentPage + 1)}>
+              <ChevronRight aria-hidden="true" className="size-4" />
+            </button>
+          </div>
+          <label className="flex shrink-0 items-center gap-2">
+            前往
+            <input
+              type="text" inputMode="numeric" aria-label="跳转页码"
+              title={`输入 1–${pageCount}，按 Enter 或移出输入框跳转`}
+              value={jumpDraft?.context === jumpContext ? jumpDraft.value : String(currentPage)}
+              onChange={event => setJumpDraft({ context: jumpContext, value: event.target.value })}
+              disabled={deleting || pageCount === 1}
+              onBlur={event => jumpToPage(event.currentTarget)}
+              onKeyDown={event => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  jumpToPage(event.currentTarget);
+                }
+              }}
+              className="h-9 w-12 rounded-lg border border-slate-200 bg-white px-1 text-center text-sm tabular-nums text-slate-700 transition-colors hover:border-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-40 motion-reduce:transition-none"
+            />
+            页
+          </label>
+        </div>
+        <span aria-live="polite" className="sr-only">第 {currentPage} / {pageCount} 页</span>
       </nav>
     </section>
   );

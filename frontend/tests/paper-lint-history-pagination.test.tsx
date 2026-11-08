@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import NormativeReportPage from '../src/pages/NormativeReportPage';
 import { deletePaperLintReport, deletePaperLintReports, fetchPaperLintReports, type PaperLintReportListItem } from '../src/api/paperLint';
 import { fetchNormativeDetectionHistory, fetchNormativeDetectionReport, type DetectionTaskResponse } from '../src/api/normativeRules';
@@ -38,6 +38,17 @@ const reports: PaperLintReportListItem[] = Array.from({ length: 23 }, (_, index)
   },
 }));
 
+// jsdom does not implement pointer capture; these tests use uncaptured pointer clicks.
+const needsPointerCaptureShim = !HTMLElement.prototype.hasPointerCapture;
+beforeAll(() => {
+  if (needsPointerCaptureShim) Object.defineProperty(HTMLElement.prototype, 'hasPointerCapture', {
+    configurable: true, value: () => false,
+  });
+});
+afterAll(() => {
+  if (needsPointerCaptureShim) Reflect.deleteProperty(HTMLElement.prototype, 'hasPointerCapture');
+});
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(fetchPaperLintReports).mockResolvedValue(reports);
@@ -51,28 +62,33 @@ afterEach(() => vi.restoreAllMocks());
 async function showHistory() {
   render(<MemoryRouter><NormativeReportPage mode="thirty" /></MemoryRouter>);
   await screen.findByText('论文-01.pdf');
-  fireEvent.change(screen.getByRole('combobox', { name: '每页显示条数' }), { target: { value: '10' } });
+  await changePageSize('10');
+}
+
+async function changePageSize(value: string) {
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('combobox', { name: '每页显示条数' }));
+  await user.click(await screen.findByRole('option', { name: `${value} 条/页`, exact: true }));
 }
 
 async function manageReports() {
   const user = userEvent.setup();
-  await user.click(screen.getByRole('button', { name: '报告管理' }));
-  await user.click(screen.getByRole('menuitem', { name: '批量管理' }));
+  await user.click(screen.getByRole('button', { name: '批量管理', exact: true }));
 }
 
 async function deleteReport(filename: string) {
   const user = userEvent.setup();
-  await user.click(screen.getByRole('button', { name: `更多操作：${filename}` }));
-  await user.click(screen.getByRole('menuitem', { name: '删除报告' }));
+  const row = screen.getByRole('link', { name: filename, exact: true }).closest('tr')!;
+  await user.click(within(row).getByRole('button', { name: '删除报告', exact: true }));
 }
 
 function shownRows() {
-  return within(screen.getByRole('table', { name: 'PDF 论文检查报告' })).getAllByRole('row').slice(1);
+  return within(screen.getByRole('table', { name: '规范性检测报告' })).getAllByRole('row').slice(1);
 }
 
 it('shows the required report columns, numeric results, seconds and existing detail routes', async () => {
   await showHistory();
-  const table = screen.getByRole('table', { name: 'PDF 论文检查报告' });
+  const table = screen.getByRole('table', { name: '规范性检测报告' });
   for (const name of ['文档名称', '检测类型', '检测结果', '报告生成时间', '操作']) {
     expect(within(table).getByRole('columnheader', { name })).toBeInTheDocument();
   }
@@ -95,15 +111,18 @@ it('paginates actual rows and resets to the first page after the page size chang
   expect(screen.queryByText('论文-01.pdf')).not.toBeInTheDocument();
 
   const pageSize = screen.getByRole('combobox', { name: '每页显示条数' });
-  expect(within(pageSize).getAllByRole('option').map(option => option.getAttribute('value'))).toEqual(['5', '10', '20', '50', '100']);
-  fireEvent.change(pageSize, { target: { value: '20' } });
+  const user = userEvent.setup();
+  await user.click(pageSize);
+  expect(screen.getAllByRole('option').map(option => option.textContent)).toEqual(['5 条/页', '10 条/页', '20 条/页', '50 条/页', '100 条/页']);
+  expect(screen.getByRole('option', { name: '10 条/页', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await user.click(screen.getByRole('option', { name: '20 条/页', exact: true }));
   expect(shownRows()).toHaveLength(20);
   expect(screen.getByText('第 1 / 2 页')).toBeInTheDocument();
   expect(screen.getByText('论文-01.pdf')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: '下一页' }));
   expect(shownRows()).toHaveLength(3);
   expect(screen.getByRole('button', { name: '下一页' })).toBeDisabled();
-  fireEvent.change(pageSize, { target: { value: '50' } });
+  await changePageSize('50');
   expect(shownRows()).toHaveLength(23);
   expect(screen.getByText('第 1 / 1 页')).toBeInTheDocument();
 });

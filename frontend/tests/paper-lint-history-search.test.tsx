@@ -40,7 +40,7 @@ function show(savedReports = reports) {
 }
 
 function rowNames() {
-  return within(screen.getByRole('table', { name: 'PDF 论文检查报告' }))
+  return within(screen.getByRole('table', { name: '规范性检测报告' }))
     .getAllByRole('link', { name: '查看详情' })
     .map(link => within(link.closest('tr')!).getByTitle(/\.pdf$/).textContent);
 }
@@ -52,7 +52,7 @@ it('searches every saved filename with a trimmed case-insensitive substring befo
   expect(search).toHaveAttribute('placeholder', '搜索文档名称…');
   fireEvent.change(search, { target: { value: '  tHeSiS-  ' } });
   expect(rowNames()).toEqual(['THESIS-01.pdf', 'thesis-02.pdf', 'Thesis-03.pdf', 'thesis-04.pdf', 'THESIS-05.pdf']);
-  expect(screen.getByText('13 份')).toBeInTheDocument();
+  expect(screen.queryByText('13 份')).not.toBeInTheDocument();
   expect(screen.getByText('匹配 7 份')).toBeInTheDocument();
   const pagination = screen.getByRole('navigation', { name: '报告分页' });
   expect(within(pagination).getByText('共 13 条，匹配 7 条，显示第 1–5 条')).toBeInTheDocument();
@@ -94,8 +94,7 @@ it('shows a safe zero-result state and lets the user restore all reports', () =>
 
 it('clears existing selections whenever the search changes so hidden reports cannot be batch deleted', async () => {
   const { user, onDelete } = show();
-  await user.click(screen.getByRole('button', { name: '报告管理' }));
-  await user.click(screen.getByRole('menuitem', { name: '批量管理' }));
+  await user.click(screen.getByRole('button', { name: '批量管理', exact: true }));
   fireEvent.click(screen.getByRole('checkbox', { name: '选择报告：前言.pdf' }));
   expect(screen.getByRole('button', { name: '删除选中（1）' })).toBeEnabled();
   const search = screen.getByRole('searchbox', { name: '搜索检测报告' });

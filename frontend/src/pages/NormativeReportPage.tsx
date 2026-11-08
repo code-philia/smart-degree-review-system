@@ -230,7 +230,7 @@ function NormativeReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
 
   return (
     <div className={isThirty ? 'mx-auto w-full max-w-6xl space-y-5' : undefined}>
-      {isThirty ? <DetectionPageHeader title="历史报告" description="查找已保存的检测报告，查看问题定位与修改建议。" /> : <>
+      {isThirty ? <DetectionPageHeader showEyebrow={false} title="历史报告" description="查找已保存的检测报告，查看问题定位与修改建议。" /> : <>
       <PageHeader
         title={isThirty ? '历史报告' : '基础规则检测'}
         description={isThirty ? '查看已保存的 PDF 规则检测报告。' : '查看本人已保存的基础规则检测记录和报告。'}
@@ -249,7 +249,7 @@ function NormativeReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
         <EmptyState
           title="暂无检测记录"
           description={
-            isThirty ? '完成一次 PDF 规则检测后，报告会出现在这里。' : '完成一次基础规则检测后，报告会出现在这里。'
+            isThirty ? '规范性检测完成之后，检测报告将展示在这里。' : '完成一次基础规则检测后，报告会出现在这里。'
           }
         />
       ) : null}

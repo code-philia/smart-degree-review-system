@@ -126,14 +126,15 @@ describe('saved PDF report history', () => {
     expect(await screen.findByText('关键词规则论文.pdf')).toBeInTheDocument();
     expect(await screen.findByText('摘要编号论文.pdf')).toBeInTheDocument();
     expect(screen.queryByText('基础规则论文.pdf')).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '发起检测' })).toHaveAttribute('href', '/thirty-rules-check');
+    expect(screen.getByRole('heading', { name: '历史报告', level: 1 })).toBeInTheDocument();
+    expect(screen.queryByText('论文规范性检测', { exact: true })).not.toBeInTheDocument();
     expect(
       screen.getAllByRole('link', { name: '查看详情' }).map((link) => link.getAttribute('href')),
     ).toEqual(
       expect.arrayContaining([
-        '/thirty-rules-check/reports/pdf/local-24',
-        '/thirty-rules-check/reports/pdf/keyword-36',
-        '/thirty-rules-check/reports/pdf/abstract-object-37',
+        '/reports/pdf/local-24',
+        '/reports/pdf/keyword-36',
+        '/reports/pdf/abstract-object-37',
       ]),
     );
   });
