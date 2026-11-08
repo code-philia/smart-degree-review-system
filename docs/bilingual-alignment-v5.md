@@ -1,5 +1,26 @@
 # Bilingual abstract alignment v5
 
+## Current review threshold: v5.1
+
+The sentence-alignment stage is unchanged. Review now also accepts
+`partial_omission`: a matched sentence/group does not explicitly cover concrete
+technical components, operations, conditions, mechanisms, results, or scope.
+An umbrella description does not automatically cover such explicit facts.
+Only actual fact equivalence, wording differences without factual loss, or
+uncertainty are suppressed. Partial omissions identify the actual missing
+language through `missing_in`, while retaining both source locations.
+
+Calibration replays the five saved candidates from preview report
+`1945a1bd-f870-46be-9ee8-5c2b76f66665` against the live campus API, keeping the
+original alignment fixed. Chinese sentence 18 and English sentence 20
+are retained; Chinese sentences 24 and 31 remain equivalent. Sentence 15 was
+retained in one early calibration but remained incorrectly equivalent in the
+final replay: the missing concrete mechanism/metric is still an observed model
+failure and is not claimed fixed. This is a review
+replay, not a new end-to-end PDF report and not a rewrite of the historic report.
+The v5 development behavior described below is historical and superseded by
+this threshold for partial factual coverage.
+
 The rule uses the existing Paper Model abstract text and sentence numbering.
 It never submits individual sentences as separate requests.
 

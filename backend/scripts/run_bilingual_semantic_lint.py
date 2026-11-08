@@ -907,10 +907,12 @@ def _run_aligned_abstract(ir, facts):
                + '\n英文摘要全文：\n' + _numbered_abstract(english))
     policy = (
         '按句级语义建立双向对应，允许一对多、多对一、拆句合句和跨顺序对应。'
-        '不得仅因术语展开、背景解释、概括与实例、措辞或解释详略不同判为不一致。'
-        '仅报告同一对象明确矛盾，或独立的核心研究事实、方法、实验结果、贡献结论完全缺失。'
+        '只有两侧实际表达了相同事实、仅翻译措辞或语序不同，才筛除为等价。'
+        '除明确矛盾、独立核心事实完全缺失外，也报告句组之间具体事实覆盖不完整。'
+        '一侧概括、一侧列出具体的技术组成、操作、条件、作用机制、结果或应用范围时，'
+        '若这些具体事实在概括侧全文中没有实际表达，应判partial_omission，不能仅按详略不同筛除。'
         '完整句子被删除且其独立事实在另一摘要全文均未表达时，属于实质缺失；'
-        '已有同一事实的概括表达、仅省略进一步解释时不报警。判断不清时不报警。'
+        '同一事实的同义翻译不报警；概括表达不自动覆盖其未明确表达的具体事实。判断不清时不报警。'
         '但主题相近不等于事实对应：同一处具体方法名称、算法、数值或结论对象不同，必须单独核对，'
         '不得用整体主题相似掩盖局部方法替换。'
         '独立贡献总结中的方法属性、应用对象或适用范围属于研究结论；'
@@ -960,7 +962,8 @@ def _run_aligned_abstract(ir, facts):
     if candidates:
         review, used = request_json([{'role':'user','content':(
             policy + '\n复核以下每个候选，重新搜索另一摘要全文中的等价表达。不得补造新候选。'
-            'equivalent、detail_difference、uncertain 一律不报警。'
+            'equivalent、detail_difference、uncertain 不报警；detail_difference仅限不损失事实的语言表达差异。'
+            'partial_omission用于存在对应句组、但其中部分具体事实没有对应表达的情况。'
             'core_omission 必须是独立核心事实完全缺失；contradiction 必须有两侧不兼容原句。'
             '先检验目标摘要是否实际表达了待核对事实，禁止由系统整体贡献、主题相近或常识推断补出原文没有的结论。'
             '若独立总结句的研究属性或应用范围在目标全文都没有表达，不可称为已涵盖或单纯扩展性说明。'
@@ -972,11 +975,20 @@ def _run_aligned_abstract(ir, facts):
             '先核对技术操作，再判断详略。只有核心技术操作、结果和贡献事实都一致时，才能判detail_difference。'
             '若同一对句子既有表示层次的详略差异，又有技术操作被替换，必须判contradiction，'
             '不能用前者抵消后者。例如同一环节采用动态规划与采用贪心不是同一技术操作。'
-            '如果目标全文已表达同一约束及其作用，而源句进一步解释该作用的机理或具体表现，'
-            '这种解释不能单独当作完全缺失的独立事实。'
-            'reason 用一句简短中文指出具体差异，不能只是说另一侧更详细。'
+            '目标只泛称某种约束时，不等于已经表达源句中的具体执行顺序、作用指标或因果机制；'
+            '缺失的具体事实应判partial_omission。'
+            '相反，两侧都明确表达了相同限制因素、因果关系和结果，仅用不同词语翻译时判equivalent。'
+            '本次审核的是翻译信息覆盖，不是判断两篇摘要主题是否相同。'
+            'equivalent必须满足句组事实双向覆盖，不能以核心意思相近替代完整对应。'
+            '将source_fact和target_fact各列为具体事实短列表，并逐项核对；'
+            'source_fact必须保留源句中的具体作用对象、执行关系、指标及变化方向，不能先概括掉差异。'
+            '泛称受约束不蕴含某项具体指标增大，不能标equivalent。'
+            '只要其中一个具体事实在另一侧没有明确表达，就保留为partial_omission，'
+            '只有各事实都有实际对应表达时才允许筛除。'
+            'reason 用一句简短中文只指出确实缺少的事实，不引用句子编号。'
             '仅输出JSON：{"reviews":[{"candidate_id":"from_chinese:1",'
-            '"verdict":"equivalent|detail_difference|uncertain|core_omission|contradiction",'
+            '"verdict":"equivalent|detail_difference|uncertain|core_omission|partial_omission|contradiction",'
+            '"missing_in":"chinese|english|null，partial_omission必须指出实际缺失侧",'
             '"source_fact":"源句具体事实","target_fact":"目标实际对应事实或空串",'
             '"target_ids":[1],"reason":"依据"}]}。\n'
             + context + '\n候选：\n' + json.dumps(candidates, ensure_ascii=False))}])
@@ -993,10 +1005,10 @@ def _run_aligned_abstract(ir, facts):
     for review in reviews:
         verdict = review.get('verdict')
         if verdict not in {
-            'equivalent','detail_difference','uncertain','core_omission','contradiction'
+            'equivalent','detail_difference','uncertain','core_omission','partial_omission','contradiction'
         }:
             raise ValueError('invalid abstract review verdict')
-        if verdict not in {'core_omission','contradiction'}:
+        if verdict not in {'core_omission','partial_omission','contradiction'}:
             continue
         candidate = lookup[review['candidate_id']]
         zh = candidate['direction'] == 'from_chinese'
@@ -1012,6 +1024,11 @@ def _run_aligned_abstract(ir, facts):
         source = sources[candidate['source_id']-1]
         target = ' '.join(targets[i-1] for i in tids)
         kind = 'conflict' if verdict == 'contradiction' else ('missing_in_english' if zh else 'missing_in_chinese')
+        if verdict == 'partial_omission':
+            missing_in = review.get('missing_in')
+            if missing_in not in {'chinese','english'}:
+                raise ValueError('partial abstract omission requires missing side')
+            kind = 'missing_in_' + missing_in
         # A core omission cannot simultaneously be declared matched to target sentences.
         if verdict == 'core_omission' and tids:
             continue
@@ -1032,7 +1049,7 @@ def _run_aligned_abstract(ir, facts):
     return dict(rule_run_id=f'run_{rule_id}',rule_id=rule_id,severity='warning',
         execution_status='completed',evidence_mode='derived',outcome='issues_found' if findings else 'passed',
         message=None,findings=findings,model_usage=usage,
-        params=dict(comparison_mode='full_sentence_alignment_v5',alignment=alignment,
+        params=dict(comparison_mode='full_sentence_alignment_v5.1',alignment=alignment,
                     candidate_reviews=reviews,mismatches=mismatches[:3]))
 
 

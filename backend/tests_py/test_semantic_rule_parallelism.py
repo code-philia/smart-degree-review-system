@@ -150,6 +150,7 @@ def test_abstract_issue_highlights_only_its_source_sentence(tmp_path):
     ('from_chinese','equivalent',0),
     ('from_chinese','uncertain',0),
     ('from_chinese','contradiction',1),
+    ('from_chinese','partial_omission',1),
 ])
 def test_sentence_candidates_require_structured_full_review(monkeypatch,direction,verdict,expected):
     lint=module()
@@ -157,7 +158,8 @@ def test_sentence_candidates_require_structured_full_review(monkeypatch,directio
                'from_english':[{'source_id':1,'target_ids':[1],'status':'matched'}]}
     alignment[direction][0].update(status='partial',target_ids=[])
     replies=iter([alignment,{'reviews':[{'candidate_id':direction+':1','verdict':verdict,
-        'target_ids':[1] if verdict=='contradiction' else [],'reason':'独立结论完全缺失。'}]}])
+        'missing_in':'english',
+        'target_ids':[1] if verdict in {'contradiction','partial_omission'} else [],'reason':'独立结论完全缺失。'}]}])
     prompts=[]
     def request(messages):
         prompts.append(messages[0]['content'])
