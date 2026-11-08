@@ -141,8 +141,9 @@ export function FindingsPane({
       : run.execution_status === 'unsupported' || run.outcome === 'inconclusive' ? 'needs_review'
       : run.outcome === 'not_applicable' ? 'not_applicable' : 'completed';
     const ruleCounts = counts.get(id) || { error: 0, warning: 0, info: 0 };
-    const hasExecutionWarning = executionWarnings.some(warning => (warning.ruleId || 'abstract_numeric_consistency_check') === id);
-    return { id, title: ruleNames.get(id) || id, count: ruleCounts.error + ruleCounts.warning + ruleCounts.info, counts: ruleCounts, status, hasExecutionWarning };
+    const executionWarningCount = executionWarnings.filter(warning => (warning.ruleId || 'abstract_numeric_consistency_check') === id).length;
+    return { id, title: ruleNames.get(id) || id, count: ruleCounts.error + ruleCounts.warning + ruleCounts.info, counts: ruleCounts, status,
+      hasExecutionWarning: executionWarningCount > 0, executionWarningCount };
   });
   // Keep the selected rule and status summary within the active result category.
   const chosenOption = ruleOptions.find(option => option.id === ruleFilter);

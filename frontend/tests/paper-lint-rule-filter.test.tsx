@@ -35,7 +35,7 @@ describe('clear report rule selector', () => {
       { id: 'prerequisite', title: '前置条件未满足的规则', count: 1, counts: { error: 0, warning: 1, info: 0 }, status: 'execution_warning' },
     ];
     render(<RuleFilter options={options} value={value} onValueChange={vi.fn()} totalCount={5} severity="execution" />);
-    expect(screen.getByRole('combobox')).toHaveTextContent('规则未实现警告');
+    expect(within(screen.getByRole('combobox')).getByTitle('规则未实现警告')).toHaveTextContent('规则未实现警告');
     expect(within(screen.getByRole('combobox')).queryByTitle(/警告 \d+ 处/)).not.toBeInTheDocument();
     const list = await openMenu();
     expect(within(list).queryByText('有警告的规则')).not.toBeInTheDocument();
@@ -204,7 +204,7 @@ describe('clear report rule selector', () => {
     const option = within(list).getByRole('option', { name: '论点论据一致性检测，规则未实现警告' });
     expect(option).not.toHaveTextContent('不适用');
     option.focus(); fireEvent.keyDown(option, { key: 'Enter' });
-    expect(screen.getByRole('combobox')).toHaveTextContent('规则未实现警告');
+    expect(within(screen.getByRole('combobox')).getByTitle('规则未实现警告')).toHaveTextContent('规则未实现警告');
     expect(screen.getByText('规则未实现警告', { selector: 'p' })).toBeInTheDocument();
     expect(screen.getByText(numeric.message)).toBeInTheDocument();
     expect(screen.queryByTestId('rule-empty-icon')).not.toBeInTheDocument();
