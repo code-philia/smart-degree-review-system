@@ -19,7 +19,7 @@ import {
 import { PaperLintWorkspace } from '../components/paperLint/Workspace';
 import { ThesisUploadPanel } from '../components/paperLint/ThesisUploadPanel';
 import { LivePaperLintReport } from '../components/paperLint/LivePaperLintReport';
-import { compilerPublicationLabel, compilerPublicationSummary, flattenPaperLintFindings, paperLintPresentation } from '../components/paperLint/model';
+import { compilerPublicationLabel, compilerPublicationSummary, flattenPaperLintFindings, paperLintFeedbackItems, paperLintPresentation } from '../components/paperLint/model';
 import { usePaperLintRepairSuggestions } from '../hooks/usePaperLintRepairSuggestions';
 import {
   deleteFindingFeedback,
@@ -132,7 +132,9 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   const [file, setFile] = useState<File | null>(null);
   const [resultFile, setResultFile] = useState<ResultFile | null>(null);
   const [rawResponse, setResponse] = useState<PaperLintRunResponse | null>(null);
+  const [confirmedSavedReportId, setConfirmedSavedReportId] = useState<string | null>(null);
   const response = useMemo(() => rawResponse ? { ...rawResponse, result: paperLintPresentation(rawResponse.result) } : null, [rawResponse]);
+  const feedbackReportId = response?.id === confirmedSavedReportId ? confirmedSavedReportId : null;
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [running, setRunning] = useState(false);
   const [stopping, setStopping] = useState(false);
@@ -185,26 +187,30 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     [selectedRuleIds, visibleRules],
   );
   const findings = useMemo(() => (response ? flattenPaperLintFindings(response.result) : []), [response]);
+  const feedbackItems = useMemo(() => (response && feedbackReportId ? paperLintFeedbackItems(response.result) : []), [response, feedbackReportId]);
   const [completedRuns, setCompletedRuns] = useState<PaperLintRunResponse['result']['rule_runs']>([]);
   const repairSuggestions = usePaperLintRepairSuggestions(response?.id);
-  const [findingFeedbackByKey, setFindingFeedbackByKey] = useState<Record<string, FindingFeedback | null>>({});
+  const [findingFeedbackByReportId, setFindingFeedbackByReportId] = useState<Record<string, Record<string, FindingFeedback | null>>>({});
+  const findingFeedbackByKey = feedbackReportId ? findingFeedbackByReportId[feedbackReportId] || {} : {};
   const [suggestionFeedbackByFindingKey, setSuggestionFeedbackByFindingKey] = useState<Record<string, SuggestionFeedback | null>>({});
 
   useEffect(() => {
-    if (!response?.id || !findings.length) return;
+    if (!feedbackReportId || !feedbackItems.length) return;
     let active = true;
-    void Promise.all(
-      findings.map(async (item) => [
+    void Promise.allSettled(
+      feedbackItems.map(async (item) => [
         item.key,
-        await fetchFindingFeedback(response.id, item.ruleRun.rule_id, item.finding.finding_id),
+        await fetchFindingFeedback(feedbackReportId, item.ruleRun.rule_id, item.finding.finding_id),
       ] as const),
     )
-      .then((entries) => active && setFindingFeedbackByKey(Object.fromEntries(entries)))
+      .then((results) => active && setFindingFeedbackByReportId(current => ({ ...current, [feedbackReportId]: Object.fromEntries(
+        results.flatMap(result => result.status === 'fulfilled' ? [result.value] : []),
+      ) })))
       .catch(() => {});
     return () => {
       active = false;
     };
-  }, [response?.id, findings]);
+  }, [feedbackReportId, feedbackItems]);
 
   useEffect(() => {
     if (!response?.id) return;
@@ -227,30 +233,30 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   }, [response?.id, findings, repairSuggestions.repairSuggestionByFindingKey]);
 
   const updateFindingFeedback = useCallback(async (item: (typeof findings)[number], value: 'positive' | 'negative') => {
-    if (!response?.id) return;
+    if (!feedbackReportId) return;
     try {
-      const feedback = await saveFindingFeedback(response.id, item.ruleRun.rule_id, item.finding.finding_id, { feedback_value: value });
-      setFindingFeedbackByKey((current) => ({ ...current, [item.key]: feedback }));
+      const feedback = await saveFindingFeedback(feedbackReportId, item.ruleRun.rule_id, item.finding.finding_id, { feedback_value: value });
+      setFindingFeedbackByReportId(current => ({ ...current, [feedbackReportId]: { ...current[feedbackReportId], [item.key]: feedback } }));
     } catch (cause) {
       window.alert(cause instanceof Error ? cause.message : '反馈保存失败');
     }
-  }, [response?.id]);
+  }, [feedbackReportId]);
   const updateFindingReason = useCallback(async (item: (typeof findings)[number], reasonCode: string | null, reasonText: string | null) => {
-    if (!response?.id) throw new Error('请重新打开检测报告后提交反馈');
-    const feedback = await saveFindingFeedback(response.id, item.ruleRun.rule_id, item.finding.finding_id, {
+    if (!feedbackReportId) throw new Error('请重新打开检测报告后提交反馈');
+    const feedback = await saveFindingFeedback(feedbackReportId, item.ruleRun.rule_id, item.finding.finding_id, {
       feedback_value: 'negative', reason_code: reasonCode, reason_text: reasonText,
     });
-    setFindingFeedbackByKey((current) => ({ ...current, [item.key]: feedback }));
-  }, [response?.id]);
+    setFindingFeedbackByReportId(current => ({ ...current, [feedbackReportId]: { ...current[feedbackReportId], [item.key]: feedback } }));
+  }, [feedbackReportId]);
   const cancelFindingFeedback = useCallback(async (item: (typeof findings)[number]) => {
-    if (!response?.id) return;
+    if (!feedbackReportId) return;
     try {
-      await deleteFindingFeedback(response.id, item.ruleRun.rule_id, item.finding.finding_id);
-      setFindingFeedbackByKey((current) => ({ ...current, [item.key]: null }));
+      await deleteFindingFeedback(feedbackReportId, item.ruleRun.rule_id, item.finding.finding_id);
+      setFindingFeedbackByReportId(current => ({ ...current, [feedbackReportId]: { ...current[feedbackReportId], [item.key]: null } }));
     } catch (cause) {
       window.alert(cause instanceof Error ? cause.message : '反馈取消失败');
     }
-  }, [response?.id]);
+  }, [feedbackReportId]);
   const updateSuggestionFeedback = useCallback(async (item: (typeof findings)[number], value: 'positive' | 'negative') => {
     const suggestion = repairSuggestions.repairSuggestionByFindingKey[item.key];
     if (!response?.id || !suggestion?.suggestion_id) return;
@@ -306,6 +312,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     const nextReport = await fetchPaperLintReport(reportId);
     if (generation !== runGenerationRef.current) return;
     setResponse(nextReport);
+    setConfirmedSavedReportId(nextReport.id);
     setRunError(null);
     setResultFile(sourceFile || {
       name: nextReport.source_filename || filename,
@@ -343,6 +350,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
             );
           }
           if (!isThirty && sourceFile && job.progress.rule_runs?.length) {
+            setConfirmedSavedReportId(null);
             setResponse(partialPaperLintResponse(job.job_id, filename, job.progress.rule_runs));
             setResultFile((current) => current || sourceFile);
           }
@@ -355,6 +363,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
           clearActiveJob();
           setStopped(true);
           setResponse(null);
+          setConfirmedSavedReportId(null);
           setResultFile(null);
           setJobProgress(null);
           setCompletedRuns([]);
@@ -400,6 +409,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
         setRunError(null);
         setStopped(true);
         setResponse(null);
+        setConfirmedSavedReportId(null);
         setResultFile(null);
         setJobProgress(null);
         setCompletedRuns([]);
@@ -448,6 +458,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     setStopped(false);
     setRunError(null);
     setResponse(null);
+    setConfirmedSavedReportId(null);
     setCompletedRuns([]);
     setResultFile(null);
     setSemanticStage(0);
@@ -484,12 +495,14 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
       current.includes(ruleId) ? current.filter((id) => id !== ruleId) : [...current, ruleId],
     );
     setResponse(null);
+    setConfirmedSavedReportId(null);
     setResultFile(null);
   }
 
   function replaceSelectedRules(ruleIds: string[]) {
     setSelectedRuleIds(ruleIds);
     setResponse(null);
+    setConfirmedSavedReportId(null);
     setResultFile(null);
     setRunError(null);
   }
@@ -520,6 +533,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     setSemanticStage(0);
     setRunError(null);
     setResponse(null);
+    setConfirmedSavedReportId(null);
     setResultFile(null);
     const requestId = requestIdRef.current || newRequestId();
     requestIdRef.current = requestId;
@@ -539,6 +553,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
       }
       if (generation !== runGenerationRef.current) return;
       setResponse(nextResponse);
+      setConfirmedSavedReportId(nextResponse.id);
       setResultFile(file);
       clearActiveJob();
       if (isThirty) navigate(reportDetailPath(nextResponse.id), { replace: true });
@@ -955,9 +970,9 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
             forceNewRepairSuggestion
             findingFeedbackByKey={findingFeedbackByKey}
             suggestionFeedbackByFindingKey={suggestionFeedbackByFindingKey}
-            onFindingFeedback={updateFindingFeedback}
-            onFindingFeedbackReason={updateFindingReason}
-            onFindingFeedbackCancel={cancelFindingFeedback}
+            onFindingFeedback={feedbackReportId ? updateFindingFeedback : undefined}
+            onFindingFeedbackReason={feedbackReportId ? updateFindingReason : undefined}
+            onFindingFeedbackCancel={feedbackReportId ? cancelFindingFeedback : undefined}
             onSuggestionFeedback={updateSuggestionFeedback}
             onSuggestionFeedbackReason={updateSuggestionReason}
             onSuggestionFeedbackCancel={cancelSuggestionFeedback}

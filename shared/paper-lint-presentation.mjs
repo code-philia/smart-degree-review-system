@@ -56,6 +56,32 @@ export function isGenericExecutionWarning(run) {
     || run.outcome === 'inconclusive' || unavailable;
 }
 
+/** Stable feedback-only identities for UI warnings; never added to saved findings. */
+export function executionWarningFeedbackTargets(run) {
+  const used = new Set(array(run.findings).map(finding => finding.finding_id));
+  const targets = [];
+  const add = (kind, suffix, preconditionIndex) => {
+    const base = `execution-warning:${run.rule_id}:${suffix}`;
+    let findingId = base;
+    let duplicate = 2;
+    while (used.has(findingId)) findingId = `${base}:${duplicate++}`;
+    used.add(findingId);
+    targets.push({ findingId, kind, ...(preconditionIndex === undefined ? {} : { preconditionIndex }) });
+  };
+  if (run.rule_id === numericRule) {
+    const params = run.params || {};
+    array(params.preconditions).forEach((condition, index) => {
+      if (condition.passed === false && condition.status !== 'skipped') {
+        add('precondition', `precondition:${encodeURIComponent(String(condition.id || 'unknown'))}`, index);
+      }
+    });
+    if (run.execution_status === 'error' || params.failure || array(params.validation_errors).length) add('failure', 'failure');
+  } else if (isGenericExecutionWarning(run)) {
+    add('generic', 'generic');
+  }
+  return targets;
+}
+
 export function chapterPrerequisiteSuggestion(run) {
   const reason = String(run.message || '');
   // The rule's target can mention both abstracts even when only one is absent.

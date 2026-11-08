@@ -86,3 +86,103 @@ describe('paper lint feedback', () => {
     await request(app).get(firstUrl).set('Cookie', 'arc_session=other-session').expect(404);
   });
 });
+
+
+const numericRule = 'abstract_numeric_consistency_check';
+const warningUrl = (ruleId, findingId) => `/api/normative/feedback/reports/report-1/findings/${encodeURIComponent(ruleId)}/${encodeURIComponent(findingId)}/feedback`;
+async function replaceRuns(runs) {
+  const resultJson = JSON.stringify({ rule_runs: runs });
+  await database.run('UPDATE paper_lint_reports SET result_json=? WHERE id=?', [resultJson, 'report-1']);
+  return resultJson;
+}
+
+describe('execution warning feedback through the existing finding-feedback API', () => {
+  it('persists, restores, changes and cancels a numeric precondition warning without rewriting the report', async () => {
+    const original = await replaceRuns([{ rule_id: numericRule, execution_status: 'completed', params: { preconditions: [
+      { id: 'abstract_numeric', passed: false, status: 'failed' },
+      { id: 'contribution_mapping', passed: false, status: 'skipped' },
+    ] }, findings: [] }]);
+    const url = warningUrl(numericRule, `execution-warning:${numericRule}:precondition:abstract_numeric`);
+    await request(app).put(url).set('Cookie', 'arc_session=owner-session')
+      .send({ feedback_value: 'negative', reason_code: 'false_positive', reason_text: '摘要中已有数值' }).expect(200);
+    await request(app).get(url).set('Cookie', 'arc_session=owner-session').expect(200)
+      .expect(({ body }) => expect(body.feedback).toMatchObject({ feedback_value: 'negative', reason_code: 'false_positive', reason_text: '摘要中已有数值' }));
+    await request(app).put(url).set('Cookie', 'arc_session=owner-session').send({ feedback_value: 'positive' }).expect(200)
+      .expect(({ body }) => expect(body.feedback).toMatchObject({ feedback_value: 'positive', reason_code: null, reason_text: null }));
+    await request(app).delete(url).set('Cookie', 'arc_session=owner-session').expect(204);
+    await request(app).get(url).set('Cookie', 'arc_session=owner-session').expect(200)
+      .expect(({ body }) => expect(body.feedback).toBeNull());
+    expect((await database.get('SELECT result_json FROM paper_lint_reports WHERE id=?', ['report-1'])).result_json).toBe(original);
+  });
+
+  it('keeps duplicate preconditions and run failure feedback separate', async () => {
+    await replaceRuns([{ rule_id: numericRule, execution_status: 'error', params: { preconditions: [
+      { id: 'abstract_numeric', passed: false }, { id: 'abstract_numeric', passed: false },
+    ] }, findings: [] }]);
+    const ids = [`execution-warning:${numericRule}:precondition:abstract_numeric`, `execution-warning:${numericRule}:precondition:abstract_numeric:2`, `execution-warning:${numericRule}:failure`];
+    for (const [index, id] of ids.entries()) {
+      await request(app).put(warningUrl(numericRule, id)).set('Cookie', 'arc_session=owner-session')
+        .send({ feedback_value: 'negative', reason_code: 'other', reason_text: `warning ${index}` }).expect(200);
+    }
+    for (const [index, id] of ids.entries()) {
+      await request(app).get(warningUrl(numericRule, id)).set('Cookie', 'arc_session=owner-session').expect(200)
+        .expect(({ body }) => expect(body.feedback.reason_text).toBe(`warning ${index}`));
+    }
+  });
+
+  it('does not collide with a raw finding ID using the warning namespace', async () => {
+    const rawId = `execution-warning:${numericRule}:precondition:abstract_numeric`;
+    await replaceRuns([{ rule_id: numericRule, execution_status: 'completed', params: { preconditions: [{ id: 'abstract_numeric', passed: false }] }, findings: [{ finding_id: rawId, rule_id: numericRule, message: 'raw finding' }] }]);
+    await request(app).put(warningUrl(numericRule, rawId)).set('Cookie', 'arc_session=owner-session').send({ feedback_value: 'positive' }).expect(200);
+    await request(app).put(warningUrl(numericRule, `${rawId}:2`)).set('Cookie', 'arc_session=owner-session').send({ feedback_value: 'negative' }).expect(200);
+    await request(app).get(warningUrl(numericRule, rawId)).set('Cookie', 'arc_session=owner-session').expect(200)
+      .expect(({ body }) => expect(body.feedback.feedback_value).toBe('positive'));
+    await request(app).get(warningUrl(numericRule, `${rawId}:2`)).set('Cookie', 'arc_session=owner-session').expect(200)
+      .expect(({ body }) => expect(body.feedback.feedback_value).toBe('negative'));
+  });
+
+  it('allows existing generic warnings without enabling AI repairs or unsupported actual findings', async () => {
+    const ruleId = 'saved_custom_rule';
+    await replaceRuns([{ rule_id: ruleId, execution_status: 'unsupported', findings: [{ finding_id: 'raw', message: 'raw finding' }] }]);
+    await request(app).put(warningUrl(ruleId, `execution-warning:${ruleId}:generic`)).set('Cookie', 'arc_session=owner-session').send({ feedback_value: 'positive' }).expect(200);
+    await request(app).put(warningUrl(ruleId, 'raw')).set('Cookie', 'arc_session=owner-session').send({ feedback_value: 'positive' }).expect(422);
+    await expect(suggestionService.getPaperLintReportFinding({ reportId: 'report-1', userId: 'owner', ruleId, findingId: `execution-warning:${ruleId}:generic` })).rejects.toMatchObject({ status: 422 });
+  });
+
+  it('rejects absent, skipped and forged warnings and enforces report ownership', async () => {
+    await replaceRuns([{ rule_id: numericRule, execution_status: 'completed', params: { preconditions: [{ id: 'abstract_numeric', passed: false, status: 'skipped' }] }, findings: [] }]);
+    const id = `execution-warning:${numericRule}:precondition:abstract_numeric`;
+    for (const findingId of [id, `execution-warning:${numericRule}:failure`, `execution-warning:${numericRule}:forged`]) {
+      await request(app).put(warningUrl(numericRule, findingId)).set('Cookie', 'arc_session=owner-session').send({ feedback_value: 'positive' }).expect(404);
+    }
+    await request(app).get(warningUrl(numericRule, id)).expect(401);
+    await request(app).get(warningUrl(numericRule, id)).set('Cookie', 'arc_session=other-session').expect(404);
+    expect(await database.all('SELECT id FROM paper_lint_finding_feedback')).toEqual([]);
+  });
+
+  it('persists a reference resource warning beside actual findings using the same owner boundary', async () => {
+    const ruleId = 'sjtu_rule_32';
+    const original = await replaceRuns([{ rule_id: ruleId, execution_status: 'completed', outcome: 'issues_found', params: { reference_resources_unavailable: true, reference_verification: { unresolved: 1, unavailable: 1 } }, findings: [
+      { finding_id: 'real-reference', rule_id: ruleId, message: '已有检索结果', reference_review: 'supported_suspicion' },
+    ] }]);
+    const url = warningUrl(ruleId, `execution-warning:${ruleId}:generic`);
+    await request(app).put(url).set('Cookie', 'arc_session=owner-session').send({ feedback_value: 'positive' }).expect(200);
+    await request(app).get(url).set('Cookie', 'arc_session=owner-session').expect(200)
+      .expect(({ body }) => expect(body.feedback.feedback_value).toBe('positive'));
+    await request(app).get(warningUrl(ruleId, 'real-reference')).set('Cookie', 'arc_session=owner-session').expect(200)
+      .expect(({ body }) => expect(body.feedback).toBeNull());
+    for (const method of ['get', 'put', 'delete']) {
+      await request(app)[method](url).set('Cookie', 'arc_session=other-session').send({ feedback_value: 'negative' }).expect(404);
+    }
+    expect((await database.get('SELECT result_json FROM paper_lint_reports WHERE id=?', ['report-1'])).result_json).toBe(original);
+  });
+
+  it('validates negative warning feedback before storing it', async () => {
+    const ruleId = 'keyword_count_check';
+    await replaceRuns([{ rule_id: ruleId, execution_status: 'error', findings: [] }]);
+    const url = warningUrl(ruleId, `execution-warning:${ruleId}:generic`);
+    await request(app).put(url).set('Cookie', 'arc_session=owner-session').send({ feedback_value: 'negative', reason_code: 'forged' }).expect(400);
+    await request(app).put(url).set('Cookie', 'arc_session=owner-session').send({ feedback_value: 'negative', reason_text: 'x'.repeat(1001) }).expect(400);
+    expect(await database.all('SELECT id FROM paper_lint_finding_feedback')).toEqual([]);
+  });
+});

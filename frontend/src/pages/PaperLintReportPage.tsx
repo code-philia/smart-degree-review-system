@@ -11,7 +11,7 @@ import {
   type PaperLintRunResponse,
 } from '../api/paperLint';
 import { PaperLintWorkspace } from '../components/paperLint/Workspace';
-import { isDocumentBlocked, compilerPublicationLabel, compilerPublicationSummary, flattenPaperLintFindings, paperLintPresentation, referenceResourcesUnavailable } from '../components/paperLint/model';
+import { isDocumentBlocked, compilerPublicationLabel, compilerPublicationSummary, flattenPaperLintFindings, paperLintFeedbackItems, paperLintPresentation, referenceResourcesUnavailable } from '../components/paperLint/model';
 import { usePaperLintRepairSuggestions } from '../hooks/usePaperLintRepairSuggestions';
 import {
   deleteFindingFeedback,
@@ -73,23 +73,28 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
     };
   }, [reportId]);
 
+  const feedbackReportId = report?.id === reportId ? reportId : null;
   const findings = useMemo(() => (report ? flattenPaperLintFindings(report.result) : []), [report]);
+  const feedbackItems = useMemo(() => (report && feedbackReportId ? paperLintFeedbackItems(report.result) : []), [report, feedbackReportId]);
   const repairRuleIds = useMemo(
     () => new Set(rules.filter((rule) => rule.repair_supported !== false).map((rule) => rule.rule_id)),
     [rules],
   );
   const repairSuggestions = usePaperLintRepairSuggestions(reportId, repairRuleIds);
-  const [findingFeedbackByKey, setFindingFeedbackByKey] = useState<Record<string, FindingFeedback | null>>({});
+  const [findingFeedbackByReportId, setFindingFeedbackByReportId] = useState<Record<string, Record<string, FindingFeedback | null>>>({});
+  const findingFeedbackByKey = feedbackReportId ? findingFeedbackByReportId[feedbackReportId] || {} : {};
   const [suggestionFeedbackByFindingKey, setSuggestionFeedbackByFindingKey] = useState<Record<string, SuggestionFeedback | null>>({});
 
   useEffect(() => {
-    if (!reportId || !findings.length) return;
+    if (!feedbackReportId || !feedbackItems.length) return;
     let active = true;
-    void Promise.all(findings.map(async (item) => [item.key, await fetchFindingFeedback(reportId, item.ruleRun.rule_id, item.finding.finding_id)] as const))
-      .then((entries) => active && setFindingFeedbackByKey(Object.fromEntries(entries)))
+    void Promise.allSettled(feedbackItems.map(async (item) => [item.key, await fetchFindingFeedback(feedbackReportId, item.ruleRun.rule_id, item.finding.finding_id)] as const))
+      .then((results) => active && setFindingFeedbackByReportId(current => ({ ...current, [feedbackReportId]: Object.fromEntries(
+        results.flatMap(result => result.status === 'fulfilled' ? [result.value] : []),
+      ) })))
       .catch(() => {});
     return () => { active = false; };
-  }, [reportId, findings]);
+  }, [feedbackReportId, feedbackItems]);
 
   useEffect(() => {
     if (!reportId) return;
@@ -105,22 +110,22 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
   }, [reportId, findings, repairSuggestions.repairSuggestionByFindingKey]);
 
   const updateFindingFeedback = useCallback(async (item: (typeof findings)[number], value: 'positive' | 'negative') => {
-    if (!reportId) return;
+    if (!feedbackReportId) return;
     try {
-      const feedback = await saveFindingFeedback(reportId, item.ruleRun.rule_id, item.finding.finding_id, { feedback_value: value });
-      setFindingFeedbackByKey((current) => ({ ...current, [item.key]: feedback }));
+      const feedback = await saveFindingFeedback(feedbackReportId, item.ruleRun.rule_id, item.finding.finding_id, { feedback_value: value });
+      setFindingFeedbackByReportId(current => ({ ...current, [feedbackReportId]: { ...current[feedbackReportId], [item.key]: feedback } }));
     } catch (cause) { window.alert(cause instanceof Error ? cause.message : '反馈保存失败'); }
-  }, [reportId]);
+  }, [feedbackReportId]);
   const updateFindingReason = useCallback(async (item: (typeof findings)[number], reasonCode: string | null, reasonText: string | null) => {
-    if (!reportId) throw new Error('请重新打开检测报告后提交反馈');
-    const feedback = await saveFindingFeedback(reportId, item.ruleRun.rule_id, item.finding.finding_id, { feedback_value: 'negative', reason_code: reasonCode, reason_text: reasonText });
-    setFindingFeedbackByKey((current) => ({ ...current, [item.key]: feedback }));
-  }, [reportId]);
+    if (!feedbackReportId) throw new Error('请重新打开检测报告后提交反馈');
+    const feedback = await saveFindingFeedback(feedbackReportId, item.ruleRun.rule_id, item.finding.finding_id, { feedback_value: 'negative', reason_code: reasonCode, reason_text: reasonText });
+    setFindingFeedbackByReportId(current => ({ ...current, [feedbackReportId]: { ...current[feedbackReportId], [item.key]: feedback } }));
+  }, [feedbackReportId]);
   const cancelFindingFeedback = useCallback(async (item: (typeof findings)[number]) => {
-    if (!reportId) return;
-    try { await deleteFindingFeedback(reportId, item.ruleRun.rule_id, item.finding.finding_id); setFindingFeedbackByKey((current) => ({ ...current, [item.key]: null })); }
+    if (!feedbackReportId) return;
+    try { await deleteFindingFeedback(feedbackReportId, item.ruleRun.rule_id, item.finding.finding_id); setFindingFeedbackByReportId(current => ({ ...current, [feedbackReportId]: { ...current[feedbackReportId], [item.key]: null } })); }
     catch (cause) { window.alert(cause instanceof Error ? cause.message : '反馈取消失败'); }
-  }, [reportId]);
+  }, [feedbackReportId]);
   const updateSuggestionFeedback = useCallback(async (item: (typeof findings)[number], value: 'positive' | 'negative') => {
     const suggestion = repairSuggestions.repairSuggestionByFindingKey[item.key];
     if (!reportId || !suggestion?.suggestion_id) return;

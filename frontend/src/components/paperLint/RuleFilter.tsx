@@ -96,7 +96,7 @@ function RuleBadges({ option, severity, summaryOptions, compact = false }: { opt
       const count = options.filter(rule => hasStatusBadge(rule, status, severity)).length;
       return count ? <ExecutionStatus key={status} status={status} count={summaryOptions ? count : undefined} /> : null;
     })}
-    {severity !== 'execution' && option.status === 'completed' && !visibleLevels.length && !executionCount ? <span className={`${countBadgeClassName} bg-emerald-50 text-emerald-600`}><CheckCircle2 className="size-3.5" />0</span> : null}
+    {option.status === 'completed' && !visibleLevels.length && !executionCount ? <span className={`${countBadgeClassName} bg-emerald-50 text-emerald-600`}><CheckCircle2 className="size-3.5" />0</span> : null}
   </span>;
 }
 
