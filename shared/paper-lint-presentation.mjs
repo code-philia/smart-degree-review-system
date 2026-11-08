@@ -47,6 +47,8 @@ export function referenceResourceMessage(run) {
 }
 
 export function isGenericExecutionWarning(run) {
+  if (run.rule_id === 'bilingual_abstract_consistency_check'
+      && run.execution_status === 'completed' && run.params?.validation_incomplete === true) return false;
   if (run.rule_id === numericRule) return false;
   const unavailable = referenceResourcesUnavailable(run);
   if (run.rule_id === 'sjtu_rule_32' && run.execution_status === 'completed' && !unavailable) return false;

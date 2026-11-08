@@ -141,7 +141,7 @@ export function FindingsPane({
       : run.execution_status === 'error' ? 'error'
       : prerequisiteWarning ? 'execution_warning'
       : id === 'sjtu_rule_32' && run.execution_status === 'completed' && !executionWarnings.some(warning => warning.ruleId === id) ? 'completed'
-      : run.execution_status === 'unsupported' || run.outcome === 'inconclusive' ? 'needs_review'
+      : run.execution_status === 'unsupported' || run.outcome === 'inconclusive' || run.params?.validation_incomplete === true ? 'needs_review'
       : run.outcome === 'not_applicable' ? 'not_applicable' : 'completed';
     const ruleCounts = counts.get(id) || { error: 0, warning: 0, info: 0 };
     const executionWarningCount = executionWarnings.filter(warning => (warning.ruleId || 'abstract_numeric_consistency_check') === id).length;
@@ -228,6 +228,12 @@ export function FindingsPane({
         ) : null}
       </div>
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-3">
+        {filter !== 'execution' ? [...runById.values()].filter(run =>
+          run.rule_id === 'bilingual_abstract_consistency_check' && run.params?.validation_incomplete === true
+          && (effectiveRuleFilter === 'all' || effectiveRuleFilter === run.rule_id)
+        ).map(run => <p key={`${run.rule_id}-validation-notice`} role="status" className="rounded-lg bg-sky-50 p-3 text-sm leading-6 text-slate-700">
+          {run.message || '部分摘要候选的证据暂未核实，已保留核实通过的结果；可稍后重新检测。'}
+        </p>) : null}
         {filter !== 'execution' && filtered.length > 0 && incomplete && selectedRun?.rule_id === 'sjtu_rule_32' ? <p role="status" className="rounded-xl bg-amber-50 p-3 text-xs leading-6 text-amber-800">{referenceReviewMessage(selectedRun)}</p> : null}
         {filter === 'execution' && visibleWarnings.length > 0 ? <p className="rounded-lg bg-slate-50 p-3 text-sm leading-6 text-slate-600">如需使用以下规则，请按建议内容调整；如无需使用，请忽略以下内容</p> : null}
         {filter === 'execution' && !visibleWarnings.length && !pending ? <p className="p-3 text-sm text-slate-500">当前检查项没有规则未实现警告</p> : null}

@@ -1,10 +1,27 @@
 # Bilingual abstract alignment v5
 
+## Evidence error isolation (2026-11-09)
+
+Individual fact/check and candidate validation errors no longer abort the rule.
+Invalid source quotes and contradictory missing-with-target evidence are
+recorded in `validation_diagnostics` and excluded from verified findings.
+Valid missing facts in the same candidate and valid findings elsewhere remain
+available. `raw_candidate_reviews` retains the unmodified model response.
+
+A completed model response with validation gaps has `validation_incomplete=true`.
+It returns `issues_found` when verified findings exist, or `inconclusive` when
+none exist, never a false `passed`. Shared presentation does not classify this
+specific completed/partial state as a rule-execution warning. The frontend shows
+a separate informational status notice without increasing issue counts.
+Actual API/process failures retain the existing execution-warning behavior.
+Historical failed reports need rerunning: their lost intermediate model results
+cannot safely be inferred from the exception text.
+
 ## Current review threshold: v5.2
 
 Review must supply `fact_checks`: exact source fragments with a coverage
 relation and exact target evidence for each covered fact. Claiming equivalence
-without fact evidence is a technical failure. All-covered facts suppress an
+without fact evidence marks that candidate unverified. All-covered facts suppress an
 unsupported omission verdict; any missing source fact preserves a partial
 omission even when the model's overall verdict says equivalent. Missing-source
 and untraceable-target evidence are rejected. The report retains `model_verdict`

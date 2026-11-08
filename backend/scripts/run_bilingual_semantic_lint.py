@@ -1010,76 +1010,95 @@ def _run_aligned_abstract(ir, facts):
             raise ValueError('invalid abstract review')
         if len(reviews) != len(expected) or {r.get('candidate_id') for r in reviews} != expected:
             raise ValueError('abstract review has missing or duplicate candidates')
+    raw_reviews = json.loads(json.dumps(reviews, ensure_ascii=True))
+    validation_diagnostics = []
     lookup = {r['candidate_id']:r for r in candidates}
     mismatches, seen = [], set()
     for review in reviews:
-        candidate = lookup[review['candidate_id']]
-        zh = candidate['direction'] == 'from_chinese'
-        sources, targets = (chinese,english) if zh else (english,chinese)
-        verdict = review.get('verdict')
-        review['model_verdict'] = verdict
-        if verdict not in {
-            'equivalent','detail_difference','uncertain','core_omission','partial_omission','contradiction'
-        }:
-            raise ValueError('invalid abstract review verdict')
-        checks = review.get('fact_checks')
-        if verdict in {'equivalent','detail_difference'} and not checks:
-            raise ValueError('abstract equivalence requires fact-level coverage evidence')
-        if checks is not None:
-            if not isinstance(checks,list) or not checks:
-                raise ValueError('invalid abstract fact coverage')
-            source_text = _compact_claim(sources[candidate['source_id']-1])
-            target_text = _compact_claim(' '.join(targets))
-            missing = []
-            for check in checks:
-                if not isinstance(check,dict):
-                    raise ValueError('invalid abstract fact check')
-                quote = str(check.get('source_quote') or '').strip()
-                target_quote = str(check.get('target_quote') or '').strip()
-                relation = check.get('relation')
-                if not quote or _compact_claim(quote) not in source_text or relation not in {'covered','missing','uncertain'}:
-                    raise ValueError('abstract fact check has invalid source evidence: ' + repr(quote)[:200])
-                if relation == 'covered' and (not target_quote or _compact_claim(target_quote) not in target_text):
-                    raise ValueError('abstract fact check has untraceable target evidence')
-                if relation == 'missing':
-                    if target_quote:
-                        raise ValueError('missing abstract fact cannot have target evidence')
-                    missing.append(quote)
-            if missing and verdict != 'contradiction':
-                verdict = 'partial_omission'
-                review.update(verdict=verdict,missing_in='english' if zh else 'chinese',
-                              reason=('英文摘要' if zh else '中文摘要')+'未对应说明：'+'；'.join(missing))
-            elif all(check['relation']=='covered' for check in checks) and verdict != 'contradiction':
-                verdict = 'equivalent'
-                review.update(verdict=verdict,missing_in=None)
-        if verdict not in {'core_omission','partial_omission','contradiction'}:
+        try:
+            candidate = lookup[review['candidate_id']]
+            zh = candidate['direction'] == 'from_chinese'
+            sources, targets = (chinese,english) if zh else (english,chinese)
+            verdict = review.get('verdict')
+            review['model_verdict'] = verdict
+            if verdict not in {
+                'equivalent','detail_difference','uncertain','core_omission','partial_omission','contradiction'
+            }:
+                raise ValueError('invalid abstract review verdict')
+            checks = review.get('fact_checks')
+            if verdict in {'equivalent','detail_difference'} and not checks:
+                raise ValueError('abstract equivalence requires fact-level coverage evidence')
+            if checks is not None:
+                if not isinstance(checks,list) or not checks:
+                    raise ValueError('invalid abstract fact coverage')
+                source_text = _compact_claim(sources[candidate['source_id']-1])
+                target_text = _compact_claim(' '.join(targets))
+                missing = []
+                invalid_checks = False
+                for fact_index, check in enumerate(checks, 1):
+                    try:
+                        if not isinstance(check,dict):
+                            raise ValueError('invalid abstract fact check')
+                        quote = str(check.get('source_quote') or '').strip()
+                        target_quote = str(check.get('target_quote') or '').strip()
+                        relation = check.get('relation')
+                        if not quote or _compact_claim(quote) not in source_text or relation not in {'covered','missing','uncertain'}:
+                            raise ValueError('abstract fact check has invalid source evidence: ' + repr(quote)[:200])
+                        if relation == 'covered' and (not target_quote or _compact_claim(target_quote) not in target_text):
+                            raise ValueError('abstract fact check has untraceable target evidence')
+                        if relation == 'missing':
+                            if target_quote:
+                                raise ValueError('missing abstract fact cannot have target evidence')
+                            missing.append(quote)
+                    except (ValueError, TypeError, KeyError) as error:
+                        invalid_checks = True
+                        diagnostic = dict(candidate_id=review['candidate_id'], stage='fact_evidence', fact_index=fact_index, reason=str(error))
+                        validation_diagnostics.append(diagnostic)
+                        review.setdefault('validation_errors', []).append(diagnostic)
+                if missing and verdict != 'contradiction':
+                    verdict = 'partial_omission'
+                    review.update(verdict=verdict,missing_in='english' if zh else 'chinese',
+                                  reason=('英文摘要' if zh else '中文摘要')+'未对应说明：'+'；'.join(missing))
+                elif invalid_checks:
+                    verdict = 'uncertain'
+                    review['verdict'] = verdict
+                elif all(check['relation']=='covered' for check in checks) and verdict != 'contradiction':
+                    verdict = 'equivalent'
+                    review.update(verdict=verdict,missing_in=None)
+            if verdict not in {'core_omission','partial_omission','contradiction'}:
+                continue
+            tids = review.get('target_ids',candidate['target_ids'])
+            if not isinstance(tids,list) or any(type(i) is not int or not 1 <= i <= len(targets) for i in tids):
+                raise ValueError('invalid reviewed abstract target')
+            reason = str(review.get('reason') or '').strip()
+            if not reason or _dismisses_mismatch(reason):
+                continue
+            if verdict == 'contradiction' and not tids:
+                continue
+            source = sources[candidate['source_id']-1]
+            target = ' '.join(targets[i-1] for i in tids)
+            kind = 'conflict' if verdict == 'contradiction' else ('missing_in_english' if zh else 'missing_in_chinese')
+            if verdict == 'partial_omission':
+                missing_in = review.get('missing_in')
+                if missing_in not in {'chinese','english'}:
+                    raise ValueError('partial abstract omission requires missing side')
+                kind = 'missing_in_' + missing_in
+            # A core omission cannot simultaneously be declared matched to target sentences.
+            if verdict == 'core_omission' and tids:
+                continue
+            row = dict(mismatch_type=kind, reason=reason,
+                       chinese_claim=source if zh else target,
+                       english_claim=target if zh else source)
+            signature = (kind,row['chinese_claim'],row['english_claim'])
+            if signature not in seen:
+                seen.add(signature)
+                mismatches.append(row)
+        except (ValueError, TypeError, KeyError) as error:
+            diagnostic = dict(candidate_id=review.get('candidate_id'), stage='review_evidence', reason=str(error))
+            validation_diagnostics.append(diagnostic)
+            review['validation_status'] = 'unverified'
+            review['validation_error'] = str(error)
             continue
-        tids = review.get('target_ids',candidate['target_ids'])
-        if not isinstance(tids,list) or any(type(i) is not int or not 1 <= i <= len(targets) for i in tids):
-            raise ValueError('invalid reviewed abstract target')
-        reason = str(review.get('reason') or '').strip()
-        if not reason or _dismisses_mismatch(reason):
-            continue
-        if verdict == 'contradiction' and not tids:
-            continue
-        source = sources[candidate['source_id']-1]
-        target = ' '.join(targets[i-1] for i in tids)
-        kind = 'conflict' if verdict == 'contradiction' else ('missing_in_english' if zh else 'missing_in_chinese')
-        if verdict == 'partial_omission':
-            missing_in = review.get('missing_in')
-            if missing_in not in {'chinese','english'}:
-                raise ValueError('partial abstract omission requires missing side')
-            kind = 'missing_in_' + missing_in
-        # A core omission cannot simultaneously be declared matched to target sentences.
-        if verdict == 'core_omission' and tids:
-            continue
-        row = dict(mismatch_type=kind, reason=reason,
-                   chinese_claim=source if zh else target,
-                   english_claim=target if zh else source)
-        signature = (kind,row['chinese_claim'],row['english_claim'])
-        if signature not in seen:
-            seen.add(signature)
-            mismatches.append(row)
     findings = []
     for index,row in enumerate(mismatches[:3],1):
         anchors,evidence = _abstract_issue_anchors(ir,facts,row)
@@ -1088,10 +1107,14 @@ def _run_aligned_abstract(ir, facts):
             suggestion='请结合正文核实该处差异，再调整对应摘要，使两种语言准确表达同一内容。',
             anchors=anchors,evidence=evidence,location=anchors[0]['location'] if anchors else None))
     return dict(rule_run_id=f'run_{rule_id}',rule_id=rule_id,severity='warning',
-        execution_status='completed',evidence_mode='derived',outcome='issues_found' if findings else 'passed',
-        message=None,findings=findings,model_usage=usage,
+        execution_status='completed',evidence_mode='derived',
+        outcome='issues_found' if findings else ('inconclusive' if validation_diagnostics else 'passed'),
+        message=('摘要对照已完成，部分候选的证据暂未核实。已保留核实通过的结果；可稍后重新检测。'
+                 if validation_diagnostics else None),findings=findings,model_usage=usage,
         params=dict(comparison_mode='full_sentence_alignment_v5.2',alignment=alignment,
-                    candidate_reviews=reviews,mismatches=mismatches[:3]))
+                    candidate_reviews=reviews,raw_candidate_reviews=raw_reviews,
+                    validation_incomplete=bool(validation_diagnostics),
+                    validation_diagnostics=validation_diagnostics,mismatches=mismatches[:3]))
 
 
 def _run_semantic_rule(ir, facts, rule_id, run_id=None):

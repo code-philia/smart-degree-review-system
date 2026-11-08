@@ -256,8 +256,11 @@ def test_equivalence_without_fact_evidence_cannot_silently_pass(monkeypatch):
          'from_english':[dict(source_id=1,status='matched',target_ids=[1])]},
         {'reviews':[dict(candidate_id='from_chinese:1',verdict='equivalent',target_ids=[1],reason='大意相近。')]}])
     monkeypatch.setattr(lint,'request_json',lambda _:(next(replies),dict(input_tokens=1,output_tokens=1)))
-    with pytest.raises(ValueError,match='fact-level coverage evidence'):
-        lint._run_semantic_rule({},dict(chinese_abstract='设备受限。',english_abstract='Device constrained.'),'bilingual_abstract_consistency_check')
+    result=lint._run_semantic_rule({},dict(chinese_abstract='设备受限。',english_abstract='Device constrained.'),'bilingual_abstract_consistency_check')
+    assert result['execution_status']=='completed'
+    assert result['outcome']=='inconclusive'
+    assert result['params']['validation_incomplete'] is True
+    assert 'fact-level coverage evidence' in result['params']['validation_diagnostics'][0]['reason']
 
 
 def test_all_covered_facts_suppress_inconsistent_omission_label(monkeypatch):
@@ -273,3 +276,30 @@ def test_all_covered_facts_suppress_inconsistent_omission_label(monkeypatch):
     result=lint._run_semantic_rule({},dict(chinese_abstract=zh,english_abstract=en),'bilingual_abstract_consistency_check')
     assert result['findings']==[]
     assert result['params']['candidate_reviews'][0]['verdict']=='equivalent'
+
+
+@pytest.mark.parametrize('include_valid',[True,False])
+def test_invalid_fact_evidence_is_isolated_without_losing_verified_findings(monkeypatch,include_valid):
+    lint=module()
+    checks=[dict(source_quote='模型改写出的不存在片段',relation='missing',target_quote='')]
+    if include_valid:
+        checks.append(dict(source_quote='使响应时间增长',relation='missing',target_quote=''))
+    replies=iter([
+        {'from_chinese':[dict(source_id=1,status='partial',target_ids=[1]),dict(source_id=2,status='missing',target_ids=[])],
+         'from_english':[dict(source_id=1,status='matched',target_ids=[1])]},
+        {'reviews':[
+            dict(candidate_id='from_chinese:1',verdict='partial_omission',missing_in='english',target_ids=[1],reason='响应时间事实缺失。',fact_checks=checks),
+            dict(candidate_id='from_chinese:2',verdict='core_omission',target_ids=[],reason='第二项缺失。',
+                 fact_checks=[dict(source_quote='第二项结论',relation='missing',target_quote='The device is bandwidth constrained.')])]}])
+    monkeypatch.setattr(lint,'request_json',lambda _:(next(replies),dict(input_tokens=1,output_tokens=1)))
+    result=lint._run_semantic_rule({},dict(chinese_abstract='设备受到带宽限制，并使响应时间增长。第二项结论。',english_abstract='The device is bandwidth constrained.'),'bilingual_abstract_consistency_check')
+    assert result['execution_status']=='completed'
+    assert result['outcome']==('issues_found' if include_valid else 'inconclusive')
+    assert len(result['findings'])==int(include_valid)
+    if include_valid:
+        assert '使响应时间增长' in result['findings'][0]['message']
+    diagnostics=result['params']['validation_diagnostics']
+    assert len(diagnostics)==2
+    assert any('invalid source evidence' in d['reason'] for d in diagnostics)
+    assert any('missing abstract fact cannot have target evidence' in d['reason'] for d in diagnostics)
+    assert result['params']['raw_candidate_reviews'][0]['fact_checks'][0]['source_quote']=='模型改写出的不存在片段'
