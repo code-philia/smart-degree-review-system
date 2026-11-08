@@ -33,13 +33,12 @@ async function menu() {
 }
 
 
-it.each(['all','execution'])('summarizes visible badges without duplicate review states or purple numbers (%s)',category=>{
+it.each(['all','execution'])('counts the summary while keeping individual purple badges unnumbered (%s)',category=>{
   render(pane([completed,numeric,reference],true));
   if(category==='execution') fireEvent.click(screen.getByRole('button',{name:'规则未实现警告 4',exact:true}));
   const trigger=screen.getByRole('combobox');
-  const badge=within(trigger).getByTitle('规则未实现警告');
-  expect(badge).toHaveTextContent('规则未实现警告');
-  expect(badge).not.toHaveTextContent(/\d/);
+  const badge=within(trigger).getByTitle('规则未实现警告 4 项');
+  expect(badge).toHaveTextContent('规则未实现警告 4');
   expect(trigger).not.toHaveTextContent('待核查');
   expect(trigger).toHaveTextContent('正在检测 1');
 });
@@ -73,9 +72,9 @@ it('keeps multiple warning entries in the category total while using one plain r
 it('removes warning and running badges once all corresponding rules complete',()=>{
   const {rerender}=render(pane([completed,numeric,reference],true));
   const trigger=screen.getByRole('combobox');
-  expect(within(trigger).getByTitle('规则未实现警告')).toBeInTheDocument();
+  expect(within(trigger).getByTitle('规则未实现警告 4 项')).toBeInTheDocument();
   rerender(pane(rules.map(rule=>({...completed,rule_id:rule.rule_id})),false));
-  expect(within(trigger).queryByTitle('规则未实现警告')).not.toBeInTheDocument();
+  expect(within(trigger).queryByTitle(/规则未实现警告/)).not.toBeInTheDocument();
   expect(trigger).not.toHaveTextContent('待核查');
   expect(trigger).not.toHaveTextContent('正在检测');
   expect(within(trigger).getByText('0')).toBeInTheDocument();
@@ -88,7 +87,7 @@ it('summarizes review only for a visible review row and keeps purple rows above 
   ];
   render(<RuleFilter options={options} value="all" onValueChange={vi.fn()} totalCount={2}/>);
   const trigger=screen.getByRole('combobox');
-  expect(within(trigger).getByTitle('规则未实现警告')).not.toHaveTextContent(/\d/);
+  expect(within(trigger).getByTitle('规则未实现警告 2 项')).toHaveTextContent('规则未实现警告 2');
   expect(trigger).toHaveTextContent('待核查 1');
   const list=await menu();
   expect(within(list).getAllByRole('option').map(row=>row.textContent?.split('，')[0])).toEqual(['全部检查项','未完成检测','独立待核查规则']);

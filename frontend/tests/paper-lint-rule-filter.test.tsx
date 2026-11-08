@@ -35,7 +35,7 @@ describe('clear report rule selector', () => {
       { id: 'prerequisite', title: '前置条件未满足的规则', count: 1, counts: { error: 0, warning: 1, info: 0 }, status: 'execution_warning' },
     ];
     render(<RuleFilter options={options} value={value} onValueChange={vi.fn()} totalCount={5} severity="execution" />);
-    expect(within(screen.getByRole('combobox')).getByTitle('规则未实现警告')).toHaveTextContent('规则未实现警告');
+    expect(within(screen.getByRole('combobox')).getByTitle(value === 'all' ? '规则未实现警告 1 项' : '规则未实现警告')).toHaveTextContent('规则未实现警告');
     expect(within(screen.getByRole('combobox')).queryByTitle(/警告 \d+ 处/)).not.toBeInTheDocument();
     const list = await openMenu();
     expect(within(list).queryByText('有警告的规则')).not.toBeInTheDocument();

@@ -86,7 +86,7 @@ function RuleBadges({ option, severity, summaryOptions }: { option: RuleFilterOp
       const tone = level === 'error' ? 'bg-rose-50 text-rose-600' : level === 'warning' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600';
       return <span key={level} data-severity={level} title={`${levelLabels[level]} ${option.counts[level]} 处`} className={`inline-flex min-w-10 items-center justify-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-semibold tabular-nums ${tone}`}><Icon className="size-3.5" />{option.counts[level]}</span>;
     })}
-    {showsExecutionWarning ? <span data-severity="execution" title="规则未实现警告" className="inline-flex min-w-10 shrink-0 items-center justify-center gap-1 rounded-full bg-violet-50 px-2.5 py-1.5 text-[11px] font-medium text-violet-700"><ShieldAlert className="size-3.5" />规则未实现警告</span> : null}
+    {showsExecutionWarning ? <span data-severity="execution" title={summaryOptions ? `规则未实现警告 ${executionCount} 项` : '规则未实现警告'} className="inline-flex min-w-10 shrink-0 items-center justify-center gap-1 rounded-full bg-violet-50 px-2.5 py-1.5 text-[11px] font-medium text-violet-700"><ShieldAlert className="size-3.5" />规则未实现警告{summaryOptions ? ` ${executionCount}` : ''}</span> : null}
     {incompleteStatuses.map(status => {
       // Aggregate exactly the badges shown on rule rows, including deduplication.
       const count = options.filter(rule => hasStatusBadge(rule, status, severity)).length;
