@@ -1,6 +1,7 @@
 import importlib.util
 from pathlib import Path
 import threading
+import pytest
 
 
 def module():
@@ -100,62 +101,10 @@ def test_abstract_prompt_requires_bidirectional_coverage_for_omitted_information
     assert 'missing_in_english' in prompt
 
 
-def test_abstract_model_omission_is_preserved_in_final_mismatches(monkeypatch):
-    lint = module()
-    facts = {'chinese_abstract': '中文有额外结论。', 'english_abstract': 'English omits it.'}
-    monkeypatch.setattr(lint, 'request_json', lambda _: ({
-        'outcome': 'inconsistent', 'summary': '英文摘要遗漏中文摘要中的可复用框架结论。',
-        'mismatches': [{'mismatch_type': 'missing_in_english', 'chinese_claim': '中文有额外结论'}],
-    }, {'input_tokens': 1, 'output_tokens': 1}))
-    monkeypatch.setattr(lint, '_anchors_and_evidence', lambda *_: ([], []))
-    result = lint._run_semantic_rule({}, facts, 'bilingual_abstract_consistency_check')
-    assert result['outcome'] == 'issues_found'
-    assert result['params']['mismatches'][0]['mismatch_type'] == 'missing_in_english'
-
-
-def test_directional_abstract_audits_promote_exact_source_backed_omissions(monkeypatch):
-    lint = module()
-    facts = {
-        'chinese_abstract': '本文说明循环依赖会约束迭代顺序并限制并行执行。',
-        'english_abstract': 'This work improves compilation performance.',
-    }
-    replies = iter([
-        ({'from_chinese': [{
-            'source_id': 1,
-            'status': 'missing',
-            'source_sentence': '本文说明循环依赖会约束迭代顺序并限制并行执行。',
-            'target_ids': [],
-            'target_sentence': '',
-            'reason': '英文摘要未表达该约束。',
-        }]}, {'input_tokens': 1, 'output_tokens': 1}),
-        ({'from_english': []}, {'input_tokens': 1, 'output_tokens': 1}),
-        ({'outcome': 'consistent', 'mismatches': [{
-            'mismatch_type': 'missing_in_english',
-            'chinese_claim': '循环依赖会约束迭代顺序并限制并行执行',
-            'reason': '英文摘要未表达该约束。',
-        }]}, {'input_tokens': 1, 'output_tokens': 1}),
-    ])
-    prompts = []
-    def request(messages):
-        prompts.append(messages[0]['content'])
-        return next(replies)
-    monkeypatch.setattr(lint, 'request_json', request)
-    monkeypatch.setattr(lint, '_anchors_and_evidence', lambda *_: ([], []))
-    result = lint._run_semantic_rule({}, facts, 'bilingual_abstract_consistency_check')
-    assert result['outcome'] == 'issues_found'
-    assert result['params']['comparison_mode'] == 'sentence_alignment_v4'
-    assert len(prompts) == 3
-    assert '英文摘要片段' in prompts[1]
-    assert '以下为句级初查候选' in prompts[-1]
-    assert result['params']['mismatches'][-1]['mismatch_type'] == 'missing_in_english'
-    assert '英文摘要缺失' in result['findings'][0]['message']
-
-
 def test_abstract_sentences_keep_the_whole_causal_sentence():
     lint = module()
     sentence = '循环携带依赖使不同迭代之间存在执行约束，可能增大流水线启动间隔并限制算子并行度。'
     assert lint._abstract_sentences(sentence + '结论成立。') == [sentence, '结论成立。']
-    assert lint._causal_result_ids([sentence, '结论成立。']) == [1]
     assert lint._abstract_sentences('At 1.5 GHz, it works. It is reusable.') == [
         'At 1.5 GHz, it works.', 'It is reusable.',
     ]
@@ -170,66 +119,6 @@ def test_abstract_summary_is_bounded_and_uses_verified_differences():
     assert '流水线启动间隔' in summary
     assert '方法不同' in summary
     assert len(summary) < 110
-
-
-def test_abstract_does_not_report_rejected_or_invented_evidence(monkeypatch):
-    lint = module()
-    facts = {'chinese_abstract': '我们提出一种编译方法。', 'english_abstract': 'We propose a compilation method.'}
-    responses = iter([
-        {'from_chinese': [{'source_id': 1, 'status': 'missing'}]},
-        {'from_english': []},
-        {'outcome': 'consistent', 'mismatches': [
-            {'mismatch_type': 'missing_in_english', 'chinese_claim': '不存在的摘录'},
-            {'mismatch_type': 'missing_in_english', 'chinese_id': 1,
-             'reason': '属于详略差异，不保留。'},
-        ]},
-    ])
-    monkeypatch.setattr(lint, 'request_json', lambda _: (
-        next(responses), {'input_tokens': 1, 'output_tokens': 1},
-    ))
-    result = lint._run_semantic_rule({}, facts, 'bilingual_abstract_consistency_check')
-    assert result['outcome'] == 'passed'
-    assert result['params']['mismatches'] == []
-
-
-def test_abstract_requires_final_review_to_accept_initial_candidate(monkeypatch):
-    lint = module()
-    facts = {'chinese_abstract': '本方法采用决策树。', 'english_abstract': 'Our method uses a neural network.'}
-    responses = iter([
-        {'from_chinese': [{'source_id': 1, 'target_ids': [1], 'status': 'conflict',
-                           'reason': '英文将决策树改为神经网络。'}]},
-        {'from_english': []},
-        {'outcome': 'consistent', 'mismatches': []},
-    ])
-    monkeypatch.setattr(lint, 'request_json', lambda _: (
-        next(responses), {'input_tokens': 1, 'output_tokens': 1},
-    ))
-    result = lint._run_semantic_rule({}, facts, 'bilingual_abstract_consistency_check')
-    assert result['outcome'] == 'passed'
-    assert result['findings'] == []
-
-
-def test_abstract_report_limits_three_independent_findings(monkeypatch):
-    lint = module()
-    claims = ['研究对象不同', '实验条件不同', '性能指标不同', '结论适用范围不同']
-    facts = {'chinese_abstract': '。'.join(claims) + '。', 'english_abstract': 'English abstract.'}
-    responses = iter([
-        {'from_chinese': []},
-        {'from_english': []},
-        {'outcome': 'inconsistent', 'mismatches': [
-            {'mismatch_type': 'missing_in_english', 'chinese_claim': claim, 'reason': claim}
-            for claim in claims
-        ]},
-    ])
-    monkeypatch.setattr(lint, 'request_json', lambda _: (
-        next(responses), {'input_tokens': 1, 'output_tokens': 1},
-    ))
-    result = lint._run_semantic_rule({}, facts, 'bilingual_abstract_consistency_check')
-    assert len(result['params']['mismatches']) == 3
-    assert len(result['findings']) == 3
-    assert len({row['finding_id'] for row in result['findings']}) == 3
-    for finding, claim in zip(result['findings'], claims[:3]):
-        assert claim in finding['message']
 
 
 def test_abstract_issue_highlights_only_its_source_sentence(tmp_path):
@@ -252,3 +141,83 @@ def test_abstract_issue_highlights_only_its_source_sentence(tmp_path):
     assert anchors[0]['location']['type'] == 'pdf_bbox'
     assert anchors[0]['location']['bounding_rect']['y2'] < 100
     assert evidence[0]['quote'] == quote
+
+
+@pytest.mark.parametrize('direction,verdict,expected', [
+    ('from_chinese','core_omission',1),
+    ('from_english','core_omission',1),
+    ('from_chinese','detail_difference',0),
+    ('from_chinese','equivalent',0),
+    ('from_chinese','uncertain',0),
+    ('from_chinese','contradiction',1),
+])
+def test_sentence_candidates_require_structured_full_review(monkeypatch,direction,verdict,expected):
+    lint=module()
+    alignment={'from_chinese':[{'source_id':1,'target_ids':[1],'status':'matched'}],
+               'from_english':[{'source_id':1,'target_ids':[1],'status':'matched'}]}
+    alignment[direction][0].update(status='partial',target_ids=[])
+    replies=iter([alignment,{'reviews':[{'candidate_id':direction+':1','verdict':verdict,
+        'target_ids':[1] if verdict=='contradiction' else [],'reason':'独立结论完全缺失。'}]}])
+    prompts=[]
+    def request(messages):
+        prompts.append(messages[0]['content'])
+        return next(replies),{'input_tokens':2,'output_tokens':1}
+    monkeypatch.setattr(lint,'request_json',request)
+    result=lint._run_semantic_rule({}, {'chinese_abstract':'本文提出可复用框架。','english_abstract':'We propose a reusable framework.'},'bilingual_abstract_consistency_check')
+    assert len(result['findings'])==expected
+    assert len(prompts)==2
+    assert all('中文摘要全文' in p and '英文摘要全文' in p for p in prompts)
+    assert result['model_usage']=={'input_tokens':4,'output_tokens':2}
+    assert result['params']['candidate_reviews']
+
+
+def test_reordered_and_merged_sentence_mapping_needs_no_review(monkeypatch):
+    lint=module()
+    calls=[]
+    def request(messages):
+        calls.append(messages)
+        return {'from_chinese':[{'source_id':1,'target_ids':[2],'status':'matched'},
+                               {'source_id':2,'target_ids':[1,2],'status':'matched'}],
+                'from_english':[{'source_id':1,'target_ids':[2],'status':'matched'},
+                                {'source_id':2,'target_ids':[1,2],'status':'matched'}]}, {'input_tokens':1,'output_tokens':1}
+    monkeypatch.setattr(lint,'request_json',request)
+    result=lint._run_semantic_rule({}, {'chinese_abstract':'提出方法。结果有效。','english_abstract':'Results are effective. We propose a method.'},'bilingual_abstract_consistency_check')
+    assert result['outcome']=='passed'
+    assert len(calls)==1
+
+
+def test_missing_sentence_alignment_is_technical_failure(monkeypatch):
+    lint=module()
+    monkeypatch.setattr(lint,'request_json',lambda _: ({'from_chinese':[], 'from_english':[]},{'input_tokens':1,'output_tokens':1}))
+    with pytest.raises(ValueError,match='missing or duplicate'):
+        lint._run_semantic_rule({}, {'chinese_abstract':'方法有效。','english_abstract':'It works.'},'bilingual_abstract_consistency_check')
+
+
+def test_verified_omissions_stay_independent_and_capped(monkeypatch):
+    lint=module()
+    zh=['贡献甲。','贡献乙。','贡献丙。','贡献丁。']
+    alignment={'from_chinese':[dict(source_id=i,status='missing',target_ids=[]) for i in range(1,5)],
+               'from_english':[dict(source_id=1,status='matched',target_ids=[1])]}
+    reviews={'reviews':[dict(candidate_id=f'from_chinese:{i}',accepted=True,verdict='core_omission',target_ids=[],reason=f'缺少第{i}项独立贡献。') for i in range(1,5)]}
+    replies=iter([alignment,reviews])
+    monkeypatch.setattr(lint,'request_json',lambda _:(next(replies),{'input_tokens':1,'output_tokens':1}))
+    result=lint._run_semantic_rule({},dict(chinese_abstract=''.join(zh),english_abstract='A study.'),'bilingual_abstract_consistency_check')
+    assert len(result['findings'])==3
+    assert len({f['finding_id'] for f in result['findings']})==3
+    assert len(result['params']['candidate_reviews'])==4
+
+
+def test_review_cannot_invent_candidates(monkeypatch):
+    lint=module()
+    replies=iter([{'from_chinese':[dict(source_id=1,status='missing',target_ids=[])],
+                   'from_english':[dict(source_id=1,status='matched',target_ids=[1])]},
+                  {'reviews':[dict(candidate_id='invented',accepted=True,verdict='core_omission')]}])
+    monkeypatch.setattr(lint,'request_json',lambda _:(next(replies),{'input_tokens':1,'output_tokens':1}))
+    with pytest.raises(ValueError,match='missing or duplicate candidates'):
+        lint._run_semantic_rule({},dict(chinese_abstract='本文贡献。',english_abstract='A study.'),'bilingual_abstract_consistency_check')
+
+
+def test_explanation_explicitly_dismissing_difference_is_rejected():
+    lint=module()
+    assert lint._dismisses_mismatch('但核心贡献一致，不构成实质差异。')
+    assert not lint._dismisses_mismatch('英文未保留独立的贡献结论。')

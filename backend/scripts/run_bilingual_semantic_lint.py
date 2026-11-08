@@ -169,17 +169,10 @@ def prompt_for(rule_id: str, facts: dict[str, Any]) -> str | None:
         if not left or not right:
             return None
         return (
-            "比较同一学位论文的中文摘要和英文摘要，逐项核对研究对象、方法、数据/实验条件、主要结果和结论是否对应。"
-            "必须双向覆盖：任一摘要包含另一摘要没有的核心研究信息，属于信息缺失型不一致，即使两者没有直接矛盾。"
-            "不要求逐字翻译，也不要把纯语言润色、背景或同义改写判为不一致。"
-            "用编号引用证据所在原句，chinese_id 和 english_id 分别对应两侧，缺失侧用 null。"
-            "chinese_claim 和 english_claim 可填写原文短摘录。summary 和 reason 各用一句简短中文。"
-            "reason 尽量控制在 35 字内，直接指出具体差异，不重复差异类型。同一处术语替换重复出现时只报告一次。"
-            "返回所有有实质影响的差异，按重要程度排序。优先关注方法被替换、"
-            "具体因果机制、实验条件与结果，以及整句研究贡献或适用范围的遗漏。"
-            "仅返回 JSON，键为：outcome (consistent|inconsistent|inconclusive), summary, mismatches (array of objects; "
-            "each object has chinese_id, english_id, chinese_claim, english_claim, "
-            "mismatch_type (missing_in_chinese|missing_in_english|conflict), reason)。\n"
+            # Preflight/context helper; the two model prompts are assembled by
+            # _run_aligned_abstract with their separate alignment/review schemas.
+            "必须双向覆盖每个完整句子。信息缺失型不一致须经全文复核确认独立核心事实完全缺失。"
+            "missing_in_english / missing_in_chinese 仅由复核确认的方向生成。\n"
             "中文摘要：\n" + _numbered_abstract(_abstract_sentences(left)) +
             "\n\n英文摘要：\n" + _numbered_abstract(_abstract_sentences(right))
         )
@@ -206,109 +199,15 @@ def _numbered_abstract(sentences: list[str]) -> str:
     return "\n".join(f"[{index}] {sentence}" for index, sentence in enumerate(sentences, 1))
 
 
-def _causal_result_ids(sentences: list[str]) -> list[int]:
-    """Direct attention to qualified claims about a concrete change or effect."""
-    pattern = r"(?:可能|或将|有时|往往|有望).{0,8}(?:增大|增加|减少|提高|降低|导致|造成|限制|延长|缩短|改善|恶化)"
-    return [index for index, sentence in enumerate(sentences, 1) if re.search(pattern, sentence)]
-
-
 def _compact_claim(value: Any) -> str:
     return re.sub(r"\s+", "", str(value or "")).replace("-", "").lower()
-
-
-def _sentence_coverage_mismatches(payload: Any, *, claims: list[str],
-                                  targets: list[str], mismatch_type: str) -> list[dict[str, Any]]:
-    """Keep only exact, source-backed sentence-level mismatches."""
-    rows = payload.get("alignments") if isinstance(payload, dict) else []
-    if not isinstance(rows, list):
-        return []
-    source_field = "chinese_claim" if mismatch_type == "missing_in_english" else "english_claim"
-    target_field = "english_claim" if mismatch_type == "missing_in_english" else "chinese_claim"
-    accepted = []
-    seen = set()
-    for row in rows:
-        if not isinstance(row, dict) or str(row.get("status") or "").lower() not in {"missing", "conflict"}:
-            continue
-        claim_id = row.get("source_id")
-        if type(claim_id) is not int or not 1 <= claim_id <= len(claims):
-            continue
-        expected = claims[claim_id - 1]
-        claim = str(row.get("source_sentence") or "").strip()
-        compact = _compact_claim(claim)
-        if not compact or compact not in _compact_claim(expected):
-            claim = expected
-            compact = _compact_claim(expected)
-        # Some model responses have historically used status=missing while their
-        # own explanation explicitly says the two formulations are equivalent.
-        # Never turn that internally contradictory output into a user warning.
-        reason = str(row.get("reason") or "")
-        if _dismisses_mismatch(reason):
-            continue
-        conflict = row["status"].lower() == "conflict"
-        target_ids = row.get("target_ids")
-        target = " ".join(targets[i - 1] for i in target_ids
-                          if type(i) is int and 1 <= i <= len(targets)) if isinstance(target_ids, list) else ""
-        if conflict and not target:
-            continue
-        key = (mismatch_type, compact)
-        if key in seen:
-            continue
-        seen.add(key)
-        accepted.append({
-            "category": str(row.get("category") or "other"),
-            source_field: claim,
-            target_field: target if conflict else "",
-            "mismatch_type": "conflict" if conflict else mismatch_type,
-            "reason": reason or "目标摘要缺少该核心信息。",
-            "chinese_id" if source_field == "chinese_claim" else "english_id": claim_id,
-            "target_ids": target_ids,
-        })
-    return accepted
-
-
-def _abstract_block_audit(chinese: str, english: str):
-    chinese_sentences = _abstract_sentences(chinese)
-    english_sentences = _abstract_sentences(english)
-    causal_ids = _causal_result_ids(chinese_sentences)
-    candidates = []
-    total_usage = {"input_tokens": 0, "output_tokens": 0}
-    # Two overlapping regions keep each review focused and preserve boundary context.
-    for first_half in (True, False):
-        def region(sentences):
-            middle = len(sentences) // 2
-            start, end = (0, middle + 3) if first_half else (max(0, middle - 3), len(sentences))
-            return "\n".join(f"[{index + 1}] {sentences[index]}" for index in range(start, min(end, len(sentences))))
-
-        comparison, usage = request_json([{"role": "user", "content": (
-            "检查同一论文的中英文摘要片段，按语义对齐完整句或句组。"
-            "分别从中文和英文找被遗漏的完整句、明确的因果机制或结论，以及术语替换。"
-            "例如一侧只说某依赖约束并行，另一侧还说明它怎样约束执行顺序并改变某个具体调度指标，"
-            "后者的具体因果链需要单独核对。不要将上位概括和下位实例判为冲突。"
-            "先找独立事实完全缺失的句子，重要的在前。"
-            "如果目标只保留了概括、没有表达源句明确的因果机制或具体结果，填 missing；"
-            "仅当两侧明确给出不可兼容的内容时填 conflict。" +
-            (f"另核对中文条件性结果编号 {causal_ids}，确认具体作用对象是否有对应。" if first_half else
-             "特别核对摘要最后几句的总结、复用性及应用范围是否有对应。") +
-            "只返回当前片段中确有实质差异的编号和一句简短中文依据。"
-            'JSON：{"from_chinese":[{"source_id":1,"target_ids":[],"status":"missing|conflict","reason":"具体差异"}],'
-            '"from_english":[]}，两边均使用输入原始编号。\n\n中文摘要片段：\n'
-            + region(chinese_sentences) + "\n\n英文摘要片段：\n" + region(english_sentences)
-        )}])
-        for key in total_usage:
-            total_usage[key] += usage[key]
-        candidates.extend(_sentence_coverage_mismatches(
-            {"alignments": comparison.get("from_chinese")}, claims=chinese_sentences,
-            targets=english_sentences, mismatch_type="missing_in_english"))
-        candidates.extend(_sentence_coverage_mismatches(
-            {"alignments": comparison.get("from_english")}, claims=english_sentences,
-            targets=chinese_sentences, mismatch_type="missing_in_chinese"))
-    return candidates, total_usage
 
 
 def _dismisses_mismatch(reason: str) -> bool:
     return reason.strip("。.!！ ").endswith((
         "不构成缺失", "不构成核心信息缺失", "不存在缺失", "无缺失", "故不缺失",
         "语义等价", "语义一致", "核心内容对应", "不保留", "无需报告", "侧重点不同",
+        "不构成实质差异", "不构成矛盾", "核心贡献一致",
     ))
 
 
@@ -1000,11 +899,150 @@ def _abstract_issue_anchors(ir, facts, row):
     return anchors, evidence
 
 
+def _run_aligned_abstract(ir, facts):
+    rule_id = 'bilingual_abstract_consistency_check'
+    chinese = _abstract_sentences(str(facts['chinese_abstract']))
+    english = _abstract_sentences(str(facts['english_abstract']))
+    context = ('中文摘要全文：\n' + _numbered_abstract(chinese)
+               + '\n英文摘要全文：\n' + _numbered_abstract(english))
+    policy = (
+        '按句级语义建立双向对应，允许一对多、多对一、拆句合句和跨顺序对应。'
+        '不得仅因术语展开、背景解释、概括与实例、措辞或解释详略不同判为不一致。'
+        '仅报告同一对象明确矛盾，或独立的核心研究事实、方法、实验结果、贡献结论完全缺失。'
+        '完整句子被删除且其独立事实在另一摘要全文均未表达时，属于实质缺失；'
+        '已有同一事实的概括表达、仅省略进一步解释时不报警。判断不清时不报警。'
+        '但主题相近不等于事实对应：同一处具体方法名称、算法、数值或结论对象不同，必须单独核对，'
+        '不得用整体主题相似掩盖局部方法替换。'
+        '独立贡献总结中的方法属性、应用对象或适用范围属于研究结论；'
+        '另一侧只说提出了系统或整体有效，不能据此认定这些属性或适用范围已经表达。')
+    alignment, usage = request_json([{'role': 'user', 'content': (
+        '你是双语句级对齐器，本阶段只核对句子的实际事实内容，不决定是否告警。'
+        '允许一对多、多对一、跨顺序对应。matched要求事实内容对应，不能只看主题相似。'
+        '同一主题中的方法名称或具体操作不相同须标conflict；任何未被对应句实际表达的独立事实标partial或missing，'
+        '即使你认为差异不重要，也必须交给下一阶段复核，不得在此省略候选。'
+        '\n为两侧每一个句子各返回一条记录，不得省略任何句子。'
+        'status 为 matched|partial|missing|conflict。matched 也必须填写对应句编号。'
+        '逐句检查具体方法名称和独立结论，不仅看句子主题；对应句组未覆盖独立事实时用partial。'
+        '方法名称或技术操作被不同概念替换时用conflict，即使其余句意相同。'
+        'partial、missing、conflict 仅是候选，不是最终告警。'
+        '仅输出JSON：{"from_chinese":[{"source_id":1,"target_ids":[1],'
+        '"status":"matched","reason":"简短依据"}],"from_english":[]}。\n' + context)}])
+    if not isinstance(alignment, dict):
+        raise ValueError('abstract alignment must be an object')
+    candidates = []
+    for name, sources, targets in (('from_chinese', chinese, english), ('from_english', english, chinese)):
+        rows = alignment.get(name)
+        if not isinstance(rows, list):
+            raise ValueError('abstract alignment missing direction: ' + name + '; keys=' + ','.join(alignment))
+        ids = []
+        for row in rows:
+            if not isinstance(row, dict) or type(row.get('source_id')) is not int:
+                raise ValueError('invalid abstract alignment source')
+            sid, status, tids = row['source_id'], row.get('status'), row.get('target_ids')
+            if tids is None and status in {'partial','missing'}:
+                tids = []
+                row = {**row, 'target_ids': []}
+            if not 1 <= sid <= len(sources) or status not in {'matched','partial','missing','conflict'}:
+                raise ValueError('invalid abstract alignment status or source')
+            if not isinstance(tids, list) or any(type(i) is not int or not 1 <= i <= len(targets) for i in tids):
+                raise ValueError('invalid abstract alignment target: ' + repr(row)[:200])
+            if status in {'matched','conflict'} and not tids:
+                raise ValueError('abstract alignment requires target')
+            ids.append(sid)
+            if status != 'matched':
+                candidates.append({'candidate_id': f'{name}:{sid}', 'direction': name,
+                                   'source_id': sid, 'target_ids': tids, 'status': status,
+                                   'source_sentence': sources[sid-1],
+                                   'target_sentences': [targets[i-1] for i in tids]})
+        if sorted(ids) != list(range(1, len(sources)+1)):
+            raise ValueError('abstract alignment has missing or duplicate sentence records: ' + name)
+    reviews = []
+    if candidates:
+        review, used = request_json([{'role':'user','content':(
+            policy + '\n复核以下每个候选，重新搜索另一摘要全文中的等价表达。不得补造新候选。'
+            'equivalent、detail_difference、uncertain 一律不报警。'
+            'core_omission 必须是独立核心事实完全缺失；contradiction 必须有两侧不兼容原句。'
+            '先检验目标摘要是否实际表达了待核对事实，禁止由系统整体贡献、主题相近或常识推断补出原文没有的结论。'
+            '若独立总结句的研究属性或应用范围在目标全文都没有表达，不可称为已涵盖或单纯扩展性说明。'
+            '每个候选恰好返回一条，用唯一verdict表达最终结论。'
+            '作出verdict前，必须填写source_fact和target_fact：分别写出待核对的具体事实，'
+            '包括相应的技术操作名称、方法属性、结果或适用范围；另一侧没有该事实时target_fact为空。'
+            '逐一比较两侧技术操作的实际含义，不能因句子的其他部分一致就认定操作相同。'
+            'source_fact和target_fact只写待比较的最小事实，不要整句重复所有背景。'
+            '先核对技术操作，再判断详略。只有核心技术操作、结果和贡献事实都一致时，才能判detail_difference。'
+            '若同一对句子既有表示层次的详略差异，又有技术操作被替换，必须判contradiction，'
+            '不能用前者抵消后者。例如同一环节采用动态规划与采用贪心不是同一技术操作。'
+            '如果目标全文已表达同一约束及其作用，而源句进一步解释该作用的机理或具体表现，'
+            '这种解释不能单独当作完全缺失的独立事实。'
+            'reason 用一句简短中文指出具体差异，不能只是说另一侧更详细。'
+            '仅输出JSON：{"reviews":[{"candidate_id":"from_chinese:1",'
+            '"verdict":"equivalent|detail_difference|uncertain|core_omission|contradiction",'
+            '"source_fact":"源句具体事实","target_fact":"目标实际对应事实或空串",'
+            '"target_ids":[1],"reason":"依据"}]}。\n'
+            + context + '\n候选：\n' + json.dumps(candidates, ensure_ascii=False))}])
+        for key in usage:
+            usage[key] += used[key]
+        reviews = review.get('reviews') if isinstance(review, dict) else None
+        expected = {r['candidate_id'] for r in candidates}
+        if not isinstance(reviews,list) or any(not isinstance(r,dict) for r in reviews):
+            raise ValueError('invalid abstract review')
+        if len(reviews) != len(expected) or {r.get('candidate_id') for r in reviews} != expected:
+            raise ValueError('abstract review has missing or duplicate candidates')
+    lookup = {r['candidate_id']:r for r in candidates}
+    mismatches, seen = [], set()
+    for review in reviews:
+        verdict = review.get('verdict')
+        if verdict not in {
+            'equivalent','detail_difference','uncertain','core_omission','contradiction'
+        }:
+            raise ValueError('invalid abstract review verdict')
+        if verdict not in {'core_omission','contradiction'}:
+            continue
+        candidate = lookup[review['candidate_id']]
+        zh = candidate['direction'] == 'from_chinese'
+        sources, targets = (chinese,english) if zh else (english,chinese)
+        tids = review.get('target_ids',candidate['target_ids'])
+        if not isinstance(tids,list) or any(type(i) is not int or not 1 <= i <= len(targets) for i in tids):
+            raise ValueError('invalid reviewed abstract target')
+        reason = str(review.get('reason') or '').strip()
+        if not reason or _dismisses_mismatch(reason):
+            continue
+        if verdict == 'contradiction' and not tids:
+            continue
+        source = sources[candidate['source_id']-1]
+        target = ' '.join(targets[i-1] for i in tids)
+        kind = 'conflict' if verdict == 'contradiction' else ('missing_in_english' if zh else 'missing_in_chinese')
+        # A core omission cannot simultaneously be declared matched to target sentences.
+        if verdict == 'core_omission' and tids:
+            continue
+        row = dict(mismatch_type=kind, reason=reason,
+                   chinese_claim=source if zh else target,
+                   english_claim=target if zh else source)
+        signature = (kind,row['chinese_claim'],row['english_claim'])
+        if signature not in seen:
+            seen.add(signature)
+            mismatches.append(row)
+    findings = []
+    for index,row in enumerate(mismatches[:3],1):
+        anchors,evidence = _abstract_issue_anchors(ir,facts,row)
+        findings.append(dict(finding_id=f'{rule_id}_{index}',rule_id=rule_id,
+            message=_abstract_mismatch_summary([row]),
+            suggestion='请结合正文核实该处差异，再调整对应摘要，使两种语言准确表达同一内容。',
+            anchors=anchors,evidence=evidence,location=anchors[0]['location'] if anchors else None))
+    return dict(rule_run_id=f'run_{rule_id}',rule_id=rule_id,severity='warning',
+        execution_status='completed',evidence_mode='derived',outcome='issues_found' if findings else 'passed',
+        message=None,findings=findings,model_usage=usage,
+        params=dict(comparison_mode='full_sentence_alignment_v5',alignment=alignment,
+                    candidate_reviews=reviews,mismatches=mismatches[:3]))
+
+
 def _run_semantic_rule(ir, facts, rule_id, run_id=None):
     if rule_id == TYPO_RULE:
         return run_typo_rule_from_ir(ir)
     if rule_id == NUMERIC_RULE:
         return run_numeric_consistency_rule(ir, run_id=run_id)
+    if rule_id == 'bilingual_abstract_consistency_check' and facts.get('chinese_abstract') and facts.get('english_abstract'):
+        return _run_aligned_abstract(ir, facts)
     prompt = prompt_for(rule_id, facts)
     if prompt is None:
         return {
@@ -1020,99 +1058,10 @@ def _run_semantic_rule(ir, facts, rule_id, run_id=None):
         }
     params = None
     usage = {"input_tokens": 0, "output_tokens": 0}
-    directional = []
-    if rule_id == "bilingual_abstract_consistency_check":
-        chinese = str(facts.get("chinese_abstract") or "")
-        english = str(facts.get("english_abstract") or "")
-        if chinese and english:
-            directional, usage = _abstract_block_audit(chinese, english)
-        if directional:
-            candidates = [{key: value for key, value in row.items()
-                           if key in ("mismatch_type", "chinese_id", "english_id", "target_ids", "reason")}
-                          for row in directional]
-            prompt += (
-                "\n\n以下为句级初查候选，可能含误报。请根据上面的两篇完整摘要重新核验，"
-                "尤其要在目标摘要全文查找等价内容。候选只因术语展开、转述详略或背景不同而被标记时，"
-                "不要保留。对关键机理，具体的因果关系、作用指标不能用泛泛的主题介绍代替；"
-                "对于不同的专业操作名称，检查同一系统的同一处方法描述是否发生替换。"
-                "请先核验初查编号对应的原句，初查的缺失或冲突标签可能标错，"
-                "如果没有对应的具体事实，应改判为对应方向的缺失，不要仅因冲突标签错误而删除。"
-                "若两个方向都存在实质差异，至少各保留最重要的一项。"
-                "具体机理或结论缺失的优先级高于术语或实现细节。"
-                "候选证据有误时请纠正，也可补充初查漏掉的实质差异。\n"
-                + json.dumps(candidates, ensure_ascii=False)
-            )
-        prompt += (
-            "\n\n提交前逐条复核：冲突必须是两侧对同一个对象或操作给出了不能同时成立的明确断言，"
-            "例如两侧明确采用不同算法。若一侧给出上位概念，另一侧列出具体实现，或两侧分别描述"
-            "同一约束的原因和表现，视为可兼容。仅一侧未提及的内容不能判冲突；缺失仅限"
-            "改变核心研究方法、明确机理、实验结论或贡献范围的信息。去掉因详略、近义转述、"
-            "上下位关系产生的候选，即使它被标为高重要性。"
-            "\n独立检查三个方面，保留核实的实质差异，任何方面都不能替代其他方面。"
-            "① 同一方法或贡献是否换成了不同的技术术语。"
-            "② 两种摘要的最后几句是否都保留了总结和贡献适用范围。"
-            f"③ 中文条件性结果句 {_causal_result_ids(_abstract_sentences(chinese))} 中的具体指标是否被遗漏。"
-            "若同一指标的变化和机制已经对应，单凭可能性措辞不同不报告。"
-            "最多返回三项最重要且证据明确的实质差异，按重要性排序。"
-            "不要为凑满三项报告细节差异；chinese_claim和english_claim只引用对应原句。"
-        )
-    payload, final_usage = request_json([{"role": "user", "content": prompt}])
-    for key in usage:
-        usage[key] += final_usage[key]
-    if rule_id == "bilingual_abstract_consistency_check":
-        primary = payload.get("mismatches") if isinstance(payload.get("mismatches"), list) else []
-        source = {"chinese_claim": _compact_claim(chinese), "english_claim": _compact_claim(english)}
-        sentences = {"chinese_claim": _abstract_sentences(chinese), "english_claim": _abstract_sentences(english)}
-        required = {
-            "missing_in_english": ("chinese_claim",),
-            "missing_in_chinese": ("english_claim",),
-            "conflict": ("chinese_claim", "english_claim"),
-        }
-        merged = []
-        seen = set()
-        for row in primary:
-            if not isinstance(row, dict) or _dismisses_mismatch(str(row.get("reason") or "")):
-                continue
-            kind = str(row.get("mismatch_type") or "")
-            fields = required.get(kind)
-            if not fields:
-                continue
-            evidence = {}
-            for field in fields:
-                claim = str(row.get(field) or "").strip()
-                quote = _compact_claim(claim).strip("。.!！；;，,")
-                number = row.get(field.replace("_claim", "_id"))
-                if quote and quote in source[field]:
-                    evidence[field] = claim
-                elif type(number) is int and 1 <= number <= len(sentences[field]):
-                    evidence[field] = sentences[field][number - 1]
-            if len(evidence) != len(fields):
-                continue
-            key = (kind, tuple(_compact_claim(evidence[field]) for field in fields))
-            if key in seen:
-                continue
-            seen.add(key)
-            merged.append({**row, **evidence})
-        merged = merged[:3]
-        params = {"comparison_mode": "sentence_alignment_v4", "mismatches": merged}
-        if merged:
-            payload = {**payload, "outcome": "inconsistent",
-                       "summary": _abstract_mismatch_summary(merged)}
-        elif str(payload.get("outcome") or "").lower() == "inconsistent":
-            payload = {**payload, "outcome": "inconclusive",
-                       "summary": "模型报告了差异，但未能从摘要原文中核实证据。"}
+    payload, usage = request_json([{"role": "user", "content": prompt}])
     outcome = str(payload.get("outcome", "inconclusive")).lower()
     findings = []
-    if outcome == "inconsistent" and rule_id == "bilingual_abstract_consistency_check":
-        for index, row in enumerate(params['mismatches'], 1):
-            anchors, evidence = _abstract_issue_anchors(ir, facts, row)
-            findings.append(dict(
-                finding_id=f'{rule_id}_{index}', rule_id=rule_id,
-                message=_abstract_mismatch_summary([row]),
-                suggestion='请结合正文核实该处差异，再调整对应摘要，使两种语言准确表达同一内容。',
-                location=anchors[0]['location'] if anchors else None,
-                anchors=anchors, evidence=evidence))
-    elif outcome == "inconsistent":
+    if outcome == "inconsistent":
         abstract = rule_id.endswith("abstract_consistency_check")
         anchors, evidence = _anchors_and_evidence(facts, "abstract" if abstract else "keywords")
         primary_location = anchors[0]["location"] if anchors else None

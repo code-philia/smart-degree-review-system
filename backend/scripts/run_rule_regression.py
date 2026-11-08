@@ -53,8 +53,7 @@ def evaluate_case(case: dict[str, Any], result: dict[str, Any]) -> list[str]:
         if result.get("execution_status") != "completed" or result.get("outcome") != "issues_found":
             return [f"expected completed abstract finding, got {result.get('outcome')}"]
         rows = (result.get("params") or {}).get("mismatches") or []
-        finding = (result.get("findings") or [{}])[0]
-        message = finding.get("message") or ""
+        message = '\n'.join(f.get('message') or '' for f in result.get('findings') or [])
         for expected in case["must_find"]:
             if not any(row.get("mismatch_type") == expected["mismatch_type"] and all(
                 semantic_lint._compact_claim(value) in semantic_lint._compact_claim(row.get(field))
@@ -114,10 +113,34 @@ def run_case(case: dict[str, Any], pdf: Path, *, live_llm: bool) -> dict[str, An
 
         def model_contract(messages):
             prompt = messages[0]["content"]
-            if prompt.startswith("检查同一论文的中英文摘要片段"):
-                payload = {"from_chinese": [], "from_english": []}
+            if '"reviews"' in prompt:
+                candidates = json.loads(prompt.split('\n候选：\n',1)[1])
+                payload = {'reviews':[{'candidate_id':c['candidate_id'],
+                    'verdict':'contradiction' if c['status']=='conflict' else 'core_omission',
+                    'target_ids':c['target_ids'], 'reason':next((r['reason'] for r in rows
+                        if any(r.get(field) and semantic_lint._compact_claim(r[field]) in
+                            semantic_lint._compact_claim(c['source_sentence'])
+                            for field in ('chinese_claim','english_claim'))), '回归模型契约差异。')}
+                    for c in candidates]}
             else:
-                payload = {"outcome": "consistent", "mismatches": rows}
+                payload = {}
+                for direction,source_field,target_field in (
+                    ('from_chinese','chinese_claim','english_claim'),
+                    ('from_english','english_claim','chinese_claim')):
+                    sources=semantic_lint._abstract_sentences(facts[source_field.replace('_claim','_abstract')])
+                    targets=semantic_lint._abstract_sentences(facts[target_field.replace('_claim','_abstract')])
+                    entries=[]
+                    for i,sentence in enumerate(sources,1):
+                        entry=dict(source_id=i,status='matched',target_ids=[1])
+                        for row in rows:
+                            claim=row.get(source_field)
+                            if claim and semantic_lint._compact_claim(claim) in semantic_lint._compact_claim(sentence):
+                                conflict=row['mismatch_type']=='conflict'
+                                entry.update(status='conflict' if conflict else 'missing',reason=row['reason'],
+                                    target_ids=[j for j,t in enumerate(targets,1) if row.get(target_field) and
+                                        semantic_lint._compact_claim(row[target_field]) in semantic_lint._compact_claim(t)] if conflict else [])
+                        entries.append(entry)
+                    payload[direction]=entries
             return payload, {"input_tokens": 0, "output_tokens": 0}
 
         from unittest.mock import patch
