@@ -96,3 +96,18 @@ it('summarizes review only for a visible review row and keeps purple rows above 
   expect(within(warning).queryByText('待核查',{exact:true})).not.toBeInTheDocument();
   expect(within(list).getByRole('option',{name:/^独立待核查规则，/})).toHaveTextContent('待核查');
 });
+
+
+it.each(['all', 'mixed'])('keeps blue finding badges after execution warnings in the trigger and rule row (selected=%s)', async value => {
+  const options: RuleFilterOption[] = [{
+    id: 'mixed', title: '混合结果', status: 'completed', count: 3,
+    counts: { error: 1, warning: 1, info: 1 }, executionWarningCount: 1,
+  }];
+  render(<RuleFilter options={options} value={value} onValueChange={vi.fn()} totalCount={4} />);
+  const order = (element: HTMLElement) => Array.from(element.querySelectorAll('[data-severity]'))
+    .map(badge => badge.getAttribute('data-severity'));
+  expect(order(screen.getByRole('combobox'))).toEqual(['error', 'warning', 'execution', 'info']);
+  const list = await menu();
+  const option = within(list).getByRole('option', { name: /^混合结果，/ });
+  expect(order(option)).toEqual(['error', 'warning', 'execution', 'info']);
+});

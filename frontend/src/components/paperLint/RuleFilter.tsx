@@ -66,10 +66,12 @@ function hasStatusBadge(option: RuleFilterOption, status: IncompleteStatus, seve
     && !(showsWarningBadge(option, severity) && ['needs_review', 'not_applicable'].includes(status));
 }
 
+const countBadgeClassName = 'inline-flex min-w-10 shrink-0 items-center justify-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-semibold tabular-nums';
+
 function ExecutionStatus({ status, count }: { status: IncompleteStatus; count?: number }) {
   const Icon = status === 'running' ? LoaderCircle : status === 'error' ? CircleAlert : CircleHelp;
   const tone = status === 'running' ? 'bg-brand-50 text-brand-700' : status === 'error' ? 'bg-rose-50 text-rose-700' : status === 'needs_review' ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-500';
-  return <span title={count === undefined ? labels[status] : `${labels[status]} ${count} 条规则`} className={`inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] font-medium tabular-nums ${tone}`}>
+  return <span title={count === undefined ? labels[status] : `${labels[status]} ${count} 条规则`} className={`inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full px-2.5 py-1.5 ${count === undefined ? 'text-[11px] font-medium' : 'text-xs font-semibold'} tabular-nums ${tone}`}>
     <Icon className={`size-3.5 ${status === 'running' ? 'animate-spin motion-reduce:animate-none' : ''}`} />
     {labels[status]}{count !== undefined ? ` ${count}` : ''}
   </span>;
@@ -80,19 +82,21 @@ function RuleBadges({ option, severity, summaryOptions, compact = false }: { opt
   const options = summaryOptions || [option];
   const executionCount = options.reduce((total, rule) => total + warningCount(rule), 0);
   const showsExecutionWarning = (severity === 'all' || severity === 'execution') && executionCount > 0;
+  const renderSeverityBadge = (level: RuleSeverity) => {
+    const Icon = level === 'error' ? CircleX : level === 'warning' ? TriangleAlert : Info;
+    const tone = level === 'error' ? 'bg-rose-50 text-rose-600' : level === 'warning' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600';
+    return <span key={level} data-severity={level} title={`${levelLabels[level]} ${option.counts[level]} 处`} className={`${countBadgeClassName} ${tone}`}><Icon className="size-3.5" />{option.counts[level]}</span>;
+  };
   return <span className="flex min-w-0 flex-wrap items-center justify-end gap-1.5">
-    {visibleLevels.map(level => {
-      const Icon = level === 'error' ? CircleX : level === 'warning' ? TriangleAlert : Info;
-      const tone = level === 'error' ? 'bg-rose-50 text-rose-600' : level === 'warning' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600';
-      return <span key={level} data-severity={level} title={`${levelLabels[level]} ${option.counts[level]} 处`} className={`inline-flex min-w-10 items-center justify-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-semibold tabular-nums ${tone}`}><Icon className="size-3.5" />{option.counts[level]}</span>;
-    })}
-    {showsExecutionWarning ? <span data-severity="execution" title={compact ? `规则未实现警告 ${executionCount} 项` : '规则未实现警告'} className="inline-flex min-w-10 shrink-0 items-center justify-center gap-1 rounded-full bg-violet-50 px-2.5 py-1.5 text-[11px] font-medium text-violet-700"><ShieldAlert className="size-3.5" />{compact ? executionCount : '规则未实现警告'}</span> : null}
+    {visibleLevels.filter(level => level !== 'info').map(renderSeverityBadge)}
+    {showsExecutionWarning ? <span data-severity="execution" title={compact ? `规则未实现警告 ${executionCount} 项` : '规则未实现警告'} className={`${compact ? countBadgeClassName : 'inline-flex min-w-10 shrink-0 items-center justify-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-medium'} bg-violet-50 text-violet-700`}><ShieldAlert className="size-3.5" />{compact ? executionCount : '规则未实现警告'}</span> : null}
+    {visibleLevels.includes('info') ? renderSeverityBadge('info') : null}
     {incompleteStatuses.map(status => {
       // Aggregate exactly the badges shown on rule rows, including deduplication.
       const count = options.filter(rule => hasStatusBadge(rule, status, severity)).length;
       return count ? <ExecutionStatus key={status} status={status} count={summaryOptions ? count : undefined} /> : null;
     })}
-    {severity !== 'execution' && option.status === 'completed' && !visibleLevels.length && !executionCount ? <span className="inline-flex min-w-10 items-center justify-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold tabular-nums text-emerald-600"><CheckCircle2 className="size-3.5" />0</span> : null}
+    {severity !== 'execution' && option.status === 'completed' && !visibleLevels.length && !executionCount ? <span className={`${countBadgeClassName} bg-emerald-50 text-emerald-600`}><CheckCircle2 className="size-3.5" />0</span> : null}
   </span>;
 }
 
