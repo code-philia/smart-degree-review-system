@@ -183,12 +183,12 @@ describe('clear report rule selector', () => {
     const options = [option('clean', 'completed'), option('pending', 'running'), option('review', 'needs_review'), option('failed', 'error'), option('issues', 'completed', 1), option('prerequisite', 'execution_warning')];
     const { rerender } = render(<RuleFilter options={options} value="review" onValueChange={vi.fn()} totalCount={1} />);
     let list = await openMenu();
-    expect(within(list).getAllByRole('option').map(row => row.textContent?.split('，')[0])).toEqual(['全部检查项', 'issues', 'prerequisite', 'review', 'failed', 'pending', 'clean']);
+    expect(within(list).getAllByRole('option').map(row => row.textContent?.split('，')[0])).toEqual(['全部检查项', 'issues', 'failed', 'prerequisite', 'review', 'pending', 'clean']);
     expect(within(list).getByText('6 条规则')).toBeInTheDocument();
     fireEvent.keyDown(list, { key: 'Escape' });
     rerender(<RuleFilter options={options.map(row => row.id === 'pending' ? option('pending', 'completed', 2) : row)} value="review" onValueChange={vi.fn()} totalCount={3} />);
     list = await openMenu();
-    expect(within(list).getAllByRole('option').map(row => row.textContent?.split('，')[0])).toEqual(['全部检查项', 'pending', 'issues', 'prerequisite', 'review', 'failed', 'clean']);
+    expect(within(list).getAllByRole('option').map(row => row.textContent?.split('，')[0])).toEqual(['全部检查项', 'pending', 'issues', 'failed', 'prerequisite', 'review', 'clean']);
     expect(within(list).getByRole('option', { name: 'review，待核查' })).toHaveAttribute('data-state', 'checked');
   });
 

@@ -16,7 +16,7 @@ export type RuleFilterOption = {
 
 export function isRuleVisible(option: RuleFilterOption, level: RuleFilterLevel) {
   if (level === 'all') return true;
-  if (level === 'execution') return option.status === 'execution_warning' || option.hasExecutionWarning === true;
+  if (level === 'execution') return option.status === 'running' || option.status === 'execution_warning' || option.hasExecutionWarning === true;
   if (option.status === 'running') return true;
   if (option.counts[level] > 0) return true;
   return level === 'info' && !option.hasExecutionWarning
@@ -34,10 +34,15 @@ function ExperimentalBadge({ ruleId }: { ruleId: string }) {
 }
 
 function resultOrder(option: RuleFilterOption) {
-  return option.count > 0 ? 0 : option.status === 'execution_warning' ? 1 : option.status === 'completed' ? 4 : option.status === 'running' ? 3 : 2;
+  if (option.counts.error > 0) return 0;
+  if (option.counts.warning > 0) return 1;
+  if (option.status === 'execution_warning' || option.status === 'error') return 2;
+  if (option.counts.info > 0 || ['needs_review', 'not_applicable'].includes(option.status)) return 3;
+  return option.status === 'running' ? 4 : 5;
 }
 
 function statusLabel(option: RuleFilterOption, severity: RuleFilterLevel) {
+  if (option.status === 'running') return labels.running;
   if (severity === 'execution') return option.status === 'error' ? '检测失败，规则未实现警告' : '规则未实现警告';
   if (option.status === 'completed') return `问题总数 ${option.count} 处${levels.filter(level => (severity === 'all' || severity === level) && option.counts[level]).map(level => `，${levelLabels[level]} ${option.counts[level]} 处`).join('')}`;
   return `${option.count ? `已发现 ${option.count} 处问题，` : ''}${labels[option.status]}`;

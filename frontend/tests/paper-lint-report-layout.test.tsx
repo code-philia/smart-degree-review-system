@@ -108,7 +108,7 @@ it('passes the saved user selection to report categories and rule filtering', as
   expect(await screen.findByLabelText('本次检测规则')).toHaveTextContent('one,two,three');
 });
 
-it.each([false, true])('adds the execution-warning statistic only for a selected experimental rule (selected=%s)', async selected => {
+it.each([false, true])('keeps the execution-warning statistic regardless of experimental selection (selected=%s)', async selected => {
   const id = 'abstract_numeric_consistency_check';
   vi.mocked(fetchPaperLintReport).mockResolvedValue({ ...report, selected_rule_ids: [...report.selected_rule_ids!, ...(selected ? [id] : [])],
     result: { ...report.result, rule_runs: [...report.result.rule_runs, ...(selected ? [{ rule_id: id, rule_run_id: 'numeric', severity: 'warning' as const,
@@ -119,5 +119,5 @@ it.each([false, true])('adds the execution-warning statistic only for a selected
   if (selected) {
     expect(screen.getByText('规则未实现警告数').closest('div')).toHaveTextContent('1');
     expect(screen.getByText('错误总数').closest('div')).toHaveTextContent('7');
-  } else expect(screen.queryByText('规则未实现警告数')).not.toBeInTheDocument();
+  } else expect(screen.getByText('规则未实现警告数').closest('div')).toHaveTextContent('0');
 });

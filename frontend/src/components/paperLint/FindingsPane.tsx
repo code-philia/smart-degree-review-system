@@ -203,7 +203,7 @@ export function FindingsPane({
               {value === 'all' ? '全部' : <>{severityLabels[value]} <span className="tabular-nums">{severityTotals[value]}</span></>}
             </button>
           ))}
-          {executionWarnings.length ? <Button size="sm" variant={filter === 'execution' ? 'secondary' : 'ghost'} aria-pressed={filter === 'execution'} onClick={() => changeFilter('execution')}>规则未实现警告 {executionWarnings.length}</Button> : null}
+          <Button size="sm" variant={filter === 'execution' ? 'secondary' : 'ghost'} aria-pressed={filter === 'execution'} onClick={() => changeFilter('execution')}>规则未实现警告 {executionWarnings.length}</Button>
         </div>
         {ruleIds.length > 0 ? (
           <RuleFilter options={ruleOptions} value={effectiveRuleFilter} onValueChange={setRuleFilter} totalCount={issueTotal} severity={filter} />
@@ -245,8 +245,8 @@ export function FindingsPane({
             </article>
           ))}
         </> : null}
-        {filter === 'execution' && !visibleWarnings.length ? <p className="p-3 text-sm text-slate-500">当前检查项没有规则未实现警告</p> : null}
-        {filter === 'execution' || (filtered.length === 0 && visibleWarnings.length > 0) ? null : filtered.length === 0 ? (
+        {filter === 'execution' && !visibleWarnings.length && !pending ? <p className="p-3 text-sm text-slate-500">当前检查项没有规则未实现警告</p> : null}
+        {(filter === 'execution' && !pending) || (filtered.length === 0 && visibleWarnings.length > 0) ? null : filtered.length === 0 ? (
           <div className="flex h-full min-h-60 flex-col items-center justify-center text-center">
             <EmptyIcon data-testid={!pending && !incomplete && !severityEmpty ? 'rule-empty-icon' : undefined} className={`size-8 ${pending ? 'animate-spin text-brand-600 motion-reduce:animate-none' : severityEmpty ? 'text-slate-400' : incomplete ? 'text-amber-600' : 'text-success-600'}`} />
             <p className="mt-3 text-sm font-bold text-slate-900">{emptyTitle}</p>
