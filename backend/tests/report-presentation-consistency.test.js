@@ -62,6 +62,12 @@ it('counts an existing visible legacy finding even when its old record has no se
 });
 
 it.each([
+  [{rule_id:'bilingual_abstract_consistency_check',severity:'warning',execution_status:'completed',outcome:'inconclusive',
+    params:{validation_incomplete:true},findings:[]},
+    {total:0,error:0,warning:0,info:0,execution:0}],
+  [{rule_id:'bilingual_abstract_consistency_check',severity:'warning',execution_status:'completed',outcome:'issues_found',
+    params:{validation_incomplete:true},findings:[{finding_id:'verified',message:'已核实的摘要差异'}]},
+    {total:1,error:0,warning:1,info:0,execution:0}],
   [{rule_id:'required_section_completeness_check',severity:'error',execution_status:'completed',outcome:'issues_found',
     findings:[{finding_id:'a',message:'缺少中文摘要'},{finding_id:'b',message:'缺少目录'}]}, {total:2,error:2,warning:0,info:0,execution:0}],
   [{rule_id:'sjtu_rule_32',severity:'warning',execution_status:'completed',outcome:'issues_found',publication_status:'ALERT',
@@ -99,7 +105,8 @@ it('returns the same displayed count from saved history and detail without rewri
     expect(history.summary.finding_count).toBe(1);
     expect(history.summary.execution_warning_count).toBe(1);
     expect(history.summary.finding_count).toBe(paperLintPresentation(detail.result).summary.finding_count);
-    expect(detail.result.summary.finding_count).toBe(0);
+    // Both response summaries are normalized; only persisted JSON stays original.
+    expect(detail.result.summary.finding_count).toBe(1);
     expect(detail.summary.finding_count).toBe(1);
     expect((await db.get('SELECT result_json FROM paper_lint_reports WHERE id=?',['saved'])).result_json).toBe(raw);
   }finally{await harness.cleanup();}
