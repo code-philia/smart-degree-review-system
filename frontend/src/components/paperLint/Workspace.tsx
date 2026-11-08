@@ -111,7 +111,8 @@ export function PaperLintWorkspace({
   }, []);
 
   return (
-    <div className={`grid min-h-[620px] gap-4 lg:h-[min(78vh,860px)] ${layout === 'semantic' ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]' : 'lg:grid-cols-[minmax(0,1.25fr)_minmax(340px,.75fr)]'}`}>
+    <div className="@container">
+    <div className={`grid min-h-[620px] gap-4 [&>section]:h-[max(560px,calc(142cqw+80px))] lg:[&>section]:h-auto ${layout === 'semantic' ? 'lg:h-[max(960px,calc(72cqw+80px))] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]' : 'lg:h-[max(960px,calc(90cqw+80px))] lg:grid-cols-[minmax(0,1.25fr)_minmax(340px,.75fr)]'}`}>
       <PdfPane
         file={file}
         openPdfUrl={openPdfUrl}
@@ -158,6 +159,7 @@ export function PaperLintWorkspace({
         onSuggestionFeedbackCancel={onSuggestionFeedbackCancel}
       />
       </div>
+    </div>
     </div>
   );
 }
