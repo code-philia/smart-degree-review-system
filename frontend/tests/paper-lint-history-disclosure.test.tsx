@@ -21,7 +21,7 @@ function show(onDelete = vi.fn()) {
 
 it('shows the required fields and all report actions directly', () => {
   show();
-  const table = screen.getByRole('table', { name: 'PDF 论文检查报告' });
+  const table = screen.getByRole('table', { name: '规范性检测报告' });
   expect(within(table).getAllByRole('columnheader').map(header => header.textContent)).toEqual(['文档名称','检测类型','检测结果','报告生成时间','操作']);
   expect(screen.getByText('错误总数：8')).toBeInTheDocument();
   expect(screen.getByRole('link', { name: '查看详情' })).toHaveAttribute('href','/reports/pdf/example');

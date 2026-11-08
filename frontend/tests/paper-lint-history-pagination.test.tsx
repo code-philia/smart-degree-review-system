@@ -66,12 +66,12 @@ async function deleteReport(filename: string) {
 }
 
 function shownRows() {
-  return within(screen.getByRole('table', { name: 'PDF 论文检查报告' })).getAllByRole('row').slice(1);
+  return within(screen.getByRole('table', { name: '规范性检测报告' })).getAllByRole('row').slice(1);
 }
 
 it('shows the required report columns, numeric results, seconds and existing detail routes', async () => {
   await showHistory();
-  const table = screen.getByRole('table', { name: 'PDF 论文检查报告' });
+  const table = screen.getByRole('table', { name: '规范性检测报告' });
   for (const name of ['文档名称', '检测类型', '检测结果', '报告生成时间', '操作']) {
     expect(within(table).getByRole('columnheader', { name })).toBeInTheDocument();
   }

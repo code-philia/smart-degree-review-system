@@ -72,8 +72,7 @@ export function ReportHistoryTable({
     <section className="mb-6 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_8px_32px_-24px_rgba(15,23,42,0.25)]">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-6 py-5 lg:grid-cols-[minmax(0,1fr)_minmax(240px,320px)_auto]">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <h2 id={titleId} className="text-base font-semibold tracking-tight text-slate-900">PDF 论文检查报告</h2>
-          <span className="rounded-md bg-slate-100 px-2 py-1 text-[13px] font-medium tabular-nums text-slate-600">{reports.length} 份</span>
+          <h2 id={titleId} className="text-base font-semibold tracking-tight text-slate-900">规范性检测报告</h2>
           {filtering ? <span role="status" className="text-[13px] font-medium tabular-nums text-brand-700">匹配 {filteredReports.length} 份</span> : null}
         </div>
         <div className="relative order-last col-span-2 w-full lg:order-none lg:col-span-1">

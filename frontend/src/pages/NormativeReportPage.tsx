@@ -249,7 +249,7 @@ function NormativeReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
         <EmptyState
           title="暂无检测记录"
           description={
-            isThirty ? '完成一次 PDF 规则检测后，报告会出现在这里。' : '完成一次基础规则检测后，报告会出现在这里。'
+            isThirty ? '规范性检测完成之后，检测报告将展示在这里。' : '完成一次基础规则检测后，报告会出现在这里。'
           }
         />
       ) : null}
