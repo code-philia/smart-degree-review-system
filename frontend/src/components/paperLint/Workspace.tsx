@@ -111,8 +111,7 @@ export function PaperLintWorkspace({
   }, []);
 
   return (
-    <div className="@container">
-    <div className={`grid min-h-[620px] gap-4 [&>section]:h-[max(560px,calc(142cqw+80px))] lg:[&>section]:h-auto ${layout === 'semantic' ? 'lg:h-[max(960px,calc(72cqw+80px))] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]' : 'lg:h-[max(960px,calc(90cqw+80px))] lg:grid-cols-[minmax(0,1.25fr)_minmax(340px,.75fr)]'}`}>
+    <div className={`grid gap-4 [--pdf-preview-min-height:0px] [--report-height:clamp(420px,calc(100dvh-10rem),960px)] [&>section]:h-[var(--report-height)] lg:h-[var(--report-height)] lg:[&>section]:h-auto ${layout === 'semantic' ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]' : 'lg:grid-cols-[minmax(0,1.25fr)_minmax(340px,.75fr)]'}`}>
       <PdfPane
         file={file}
         openPdfUrl={openPdfUrl}
@@ -125,7 +124,7 @@ export function PaperLintWorkspace({
         onAnchorClick={selectAnchor}
         onPageLabels={setPageLabels}
       />
-      <div className="flex min-h-0 flex-col gap-3">
+      <div className="flex min-h-0 max-h-[var(--report-height)] flex-col gap-3 [&>section]:flex-1">
       <FindingsPane
         executionWarnings={[
           ...numericExecutionWarnings(numericReviewRun),
@@ -159,7 +158,6 @@ export function PaperLintWorkspace({
         onSuggestionFeedbackCancel={onSuggestionFeedbackCancel}
       />
       </div>
-    </div>
     </div>
   );
 }

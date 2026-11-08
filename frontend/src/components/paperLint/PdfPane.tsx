@@ -344,10 +344,10 @@ export function PdfPane({
         {pageError ? <p id={pageErrorId} role="alert" className="border-t border-slate-100 px-4 py-2 text-xs leading-5 text-rose-600">{pageError}</p> : null}
         </div>
       </div>
-      <div className="relative min-h-[520px] flex-1 overflow-hidden">
+      <div className="relative min-h-[var(--pdf-preview-min-height,520px)] flex-1 overflow-hidden">
         {phase === 'rendering' ? <div role="status" className="pointer-events-none absolute inset-x-0 top-3 z-20 mx-auto flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-white/95 px-4 py-2 text-xs text-slate-600 shadow-sm"><LoaderCircle className="size-3.5 animate-spin" />正在渲染 PDF…</div> : null}
         {error ? (
-          <div className="flex h-full min-h-[520px] flex-col items-center justify-center gap-4 p-8 text-center" role="alert">
+          <div className="flex h-full min-h-[var(--pdf-preview-min-height,520px)] flex-col items-center justify-center gap-4 p-8 text-center" role="alert">
             <p className="max-w-sm text-sm leading-6 text-slate-700">{error}</p>
             <div className="flex flex-wrap justify-center gap-3">
               <Button size="sm" onClick={() => setAttempt(value => value + 1)}><RefreshCw className="size-4" />重新加载 PDF</Button>
@@ -374,7 +374,7 @@ export function PdfPane({
             onSupplementalAnnotationClick={onSupplementalAnnotationClick}
           />
         ) : (
-          <div role="status" className="flex h-full min-h-[520px] items-center justify-center text-sm text-slate-500">
+          <div role="status" className="flex h-full min-h-[var(--pdf-preview-min-height,520px)] items-center justify-center text-sm text-slate-500">
             <LoaderCircle className="mr-2 size-4 animate-spin" />
             正在加载 PDF…{receivedBytes > 0 ? `已接收 ${(receivedBytes / 1024 / 1024).toFixed(1)} MB` : ''}
           </div>

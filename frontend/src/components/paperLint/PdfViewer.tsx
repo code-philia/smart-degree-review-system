@@ -460,7 +460,7 @@ export const PdfViewer = memo(
       <div
         ref={containerRef}
         data-testid="paper-lint-pdf-viewer"
-        className="absolute inset-0 overflow-auto bg-slate-200/70"
+        className="absolute inset-0 overflow-auto overscroll-contain bg-slate-200/70"
       >
         <div ref={viewerRef} className="pdfViewer" />
         {portals}
