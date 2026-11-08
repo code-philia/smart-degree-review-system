@@ -1,5 +1,5 @@
 import type { PaperLintFinding, PaperLintResult, PaperLintRuleRun } from '../../api/paperLint';
-import { displayedReportSummary, isGenericExecutionWarning, chapterPrerequisiteSuggestion, referenceResourcesUnavailable, referenceInfoFindings } from '../../../../shared/paper-lint-presentation.mjs';
+import { displayedReportSummary, isGenericExecutionWarning, chapterPrerequisiteSuggestion, referenceResourcesUnavailable, referenceResourceMessage, referenceInfoFindings } from '../../../../shared/paper-lint-presentation.mjs';
 export { referenceResourcesUnavailable } from '../../../../shared/paper-lint-presentation.mjs';
 
 export type PaperLintFindingItem = {
@@ -114,7 +114,7 @@ export function genericExecutionWarnings(runs: PaperLintRuleRun[] = []): RuleExe
     .filter(isGenericExecutionWarning)
     .map(run => {
       const title = executionRuleTitles[run.rule_id] || run.rule_id;
-      const reason = String(run.message || '本规则因缺少必要的论文结构，暂无法可靠判定。');
+      const reason = String(referenceResourceMessage(run) || run.message || '本规则因缺少必要的论文结构，暂无法可靠判定。');
       return {
         ruleId: run.rule_id,
         title: `规则未完成检测：${title}`,
@@ -210,7 +210,7 @@ export function referencePresentationRun(run: PaperLintRuleRun): PaperLintRuleRu
     // Keep a backend resource-status explanation (quota, rate limit, or
     // temporary service outage) instead of replacing it with a false success.
     message: referenceResourcesUnavailable(run)
-      ? run.message || '检索资源暂不可用：部分参考文献未完成核验，请稍后重试。'
+      ? referenceResourceMessage(run)
       : [suspected ? `发现 ${suspected} 条疑似不存在的引用，请逐条人工复核。` : null,
         unresolved ? `${unresolved} 条引用核验证据不足，请人工核查（提示）。` : null,
       ].filter(Boolean).join(' ') || run.message || '未发现疑似不存在的引用。',

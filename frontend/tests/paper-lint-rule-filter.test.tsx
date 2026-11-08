@@ -62,7 +62,7 @@ describe('clear report rule selector', () => {
     fireEvent.click(screen.getByRole('button', { name: '提示 0', exact: true }));
     list = await openMenu();
     expect(within(list).getAllByRole('option').map(row => row.textContent?.split('，')[0])).toEqual(['全部检查项', '引用上下文与文献不相关']);
-    const reviewOption = within(list).getByRole('option', { name: '引用上下文与文献不相关，待核查' });
+    const reviewOption = within(list).getByRole('option', { name: '引用上下文与文献不相关，未完成检测' });
     reviewOption.focus(); fireEvent.keyDown(reviewOption, { key: 'Enter' });
     expect(screen.getByText('等待核查引用身份')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '规则未实现警告 1', exact: true }));
@@ -110,7 +110,7 @@ describe('clear report rule selector', () => {
 
   it.each([
     ['error', 'inconclusive', '检测失败', '本规则检测失败'],
-    ['completed', 'inconclusive', '待核查', '本规则暂无法判定'],
+    ['completed', 'inconclusive', '未完成检测', '本规则暂无法判定'],
     ['completed', 'not_applicable', '不适用', '本规则不适用'],
   ] as const)('keeps %s/%s separate from a successful zero count', async (execution_status, outcome, label, title) => {
     const run = { ...zero, execution_status, outcome, message: '原文证据不足或检测未完成' };
@@ -148,7 +148,7 @@ describe('clear report rule selector', () => {
     const run = { ...issues, outcome: 'inconclusive' as const };
     render(<FindingsPane {...props} findings={flattenPaperLintFindings({ rule_runs: [run] })} ruleRuns={[run]} />);
     const list = await openMenu();
-    expect(within(list).getByRole('option', { name: '正文公式引用目标缺失，已发现 2 处问题，待核查' })).toBeInTheDocument();
+    expect(within(list).getByRole('option', { name: '正文公式引用目标缺失，已发现 2 处问题，未完成检测' })).toBeInTheDocument();
   });
 
   it('filters completed results by severity while retaining pending live rules', async () => {
@@ -189,7 +189,7 @@ describe('clear report rule selector', () => {
     rerender(<RuleFilter options={options.map(row => row.id === 'pending' ? option('pending', 'completed', 2) : row)} value="review" onValueChange={vi.fn()} totalCount={3} />);
     list = await openMenu();
     expect(within(list).getAllByRole('option').map(row => row.textContent?.split('，')[0])).toEqual(['全部检查项', 'pending', 'issues', 'failed', 'prerequisite', 'review', 'clean']);
-    expect(within(list).getByRole('option', { name: 'review，待核查' })).toHaveAttribute('data-state', 'checked');
+    expect(within(list).getByRole('option', { name: 'review，未完成检测' })).toHaveAttribute('data-state', 'checked');
   });
 
   it.each([false, true])('labels failed experimental prerequisites and sorts them before clean rules (live=%s)', async running => {

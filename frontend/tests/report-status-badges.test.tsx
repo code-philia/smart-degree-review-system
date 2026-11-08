@@ -80,21 +80,21 @@ it('removes warning and running badges once all corresponding rules complete',()
   expect(within(trigger).getByText('0')).toBeInTheDocument();
 });
 
-it('summarizes review only for a visible review row and keeps purple rows above blue rows',async()=>{
+it('uses only execution warnings for incomplete rule badges',async()=>{
   const options:RuleFilterOption[]=[
-    {id:'review',title:'独立待核查规则',count:0,counts:{error:0,warning:0,info:0},status:'needs_review'},
+    {id:'review',title:'未完成核验规则',count:0,counts:{error:0,warning:0,info:0},status:'needs_review',executionWarningCount:1},
     {id:'warning',title:'未完成检测',count:0,counts:{error:0,warning:0,info:0},status:'needs_review',executionWarningCount:2},
   ];
-  render(<RuleFilter options={options} value="all" onValueChange={vi.fn()} totalCount={2}/>);
+  render(<RuleFilter options={options} value="all" onValueChange={vi.fn()} totalCount={3}/>);
   const trigger=screen.getByRole('combobox');
-  expect(within(trigger).getByTitle('规则未实现警告 2 项')).toHaveTextContent(/^2$/);
-  expect(trigger).toHaveTextContent('待核查 1');
+  expect(within(trigger).getByTitle('规则未实现警告 3 项')).toHaveTextContent(/^3$/);
+  expect(trigger).not.toHaveTextContent('待核查');
   const list=await menu();
-  expect(within(list).getAllByRole('option').map(row=>row.textContent?.split('，')[0])).toEqual(['全部检查项','未完成检测','独立待核查规则']);
+  expect(within(list).getAllByRole('option').map(row=>row.textContent?.split('，')[0])).toEqual(['全部检查项','未完成核验规则','未完成检测']);
   const warning=within(list).getByRole('option',{name:/^未完成检测，/});
   expect(within(warning).getByTitle('规则未实现警告')).toBeInTheDocument();
   expect(within(warning).queryByText('待核查',{exact:true})).not.toBeInTheDocument();
-  expect(within(list).getByRole('option',{name:/^独立待核查规则，/})).toHaveTextContent('待核查');
+  expect(within(within(list).getByRole('option',{name:/^未完成核验规则，/})).getByTitle('规则未实现警告')).toBeInTheDocument();
 });
 
 

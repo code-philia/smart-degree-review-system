@@ -24,7 +24,7 @@ export function isRuleVisible(option: RuleFilterOption, level: RuleFilterLevel) 
     && ['error', 'needs_review', 'not_applicable'].includes(option.status);
 }
 
-const labels = { running: '正在检测', error: '检测失败', needs_review: '待核查', not_applicable: '不适用', execution_warning: '规则未实现警告' };
+const labels = { running: '正在检测', error: '检测失败', needs_review: '未完成检测', not_applicable: '不适用', execution_warning: '规则未实现警告' };
 const levels = ['error', 'warning', 'info'] as const;
 const levelLabels = { error: '严重', warning: '警告', info: '提示' };
 
@@ -58,8 +58,8 @@ function statusLabel(option: RuleFilterOption, severity: RuleFilterLevel) {
   return `${option.count ? `已发现 ${option.count} 处问题，` : ''}${labels[option.status]}`;
 }
 
-type IncompleteStatus = 'error' | 'needs_review' | 'not_applicable' | 'running';
-const incompleteStatuses: IncompleteStatus[] = ['error', 'needs_review', 'not_applicable', 'running'];
+type IncompleteStatus = 'error' | 'not_applicable' | 'running';
+const incompleteStatuses: IncompleteStatus[] = ['error', 'not_applicable', 'running'];
 
 function hasStatusBadge(option: RuleFilterOption, status: IncompleteStatus, severity: RuleFilterLevel) {
   return option.status === status
@@ -70,7 +70,7 @@ const countBadgeClassName = 'inline-flex min-w-10 shrink-0 items-center justify-
 
 function ExecutionStatus({ status, count }: { status: IncompleteStatus; count?: number }) {
   const Icon = status === 'running' ? LoaderCircle : status === 'error' ? CircleAlert : CircleHelp;
-  const tone = status === 'running' ? 'bg-brand-50 text-brand-700' : status === 'error' ? 'bg-rose-50 text-rose-700' : status === 'needs_review' ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-500';
+  const tone = status === 'running' ? 'bg-brand-50 text-brand-700' : status === 'error' ? 'bg-rose-50 text-rose-700' : 'bg-slate-100 text-slate-500';
   return <span title={count === undefined ? labels[status] : `${labels[status]} ${count} 条规则`} className={`inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] font-medium tabular-nums ${tone}`}>
     <Icon className={`size-3.5 ${status === 'running' ? 'animate-spin motion-reduce:animate-none' : ''}`} />
     {labels[status]}{count !== undefined ? ` ${count}` : ''}
