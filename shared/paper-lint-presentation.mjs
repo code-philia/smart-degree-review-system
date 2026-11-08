@@ -2,22 +2,48 @@ const numericRule = 'abstract_numeric_consistency_check';
 const referenceRules = new Set(['sjtu_rule_31', 'sjtu_rule_32', 'sjtu_rule_33']);
 const array = value => Array.isArray(value) ? value : [];
 
+function referenceResourceBlocked(diagnostic) {
+  return array(diagnostic.reasons).some(reason =>
+    /reference_lookup_unavailable|QUOTA_EXHAUSTED|API_KEY.*configured|HTTP_[45]\d\d|TimeoutError/i.test(String(reason)));
+}
+
+const referenceNoticeId = (diagnostic, index) =>
+  `reference-info-${diagnostic.node_id || 'entry'}-${diagnostic.check_id}-${index}`;
+
 export function referenceInfoFindings(run) {
-  const findings = array(run.findings).filter(f => !f.prompt_only || ['supported_suspicion', 'insufficient_evidence'].includes(f.reference_review));
+  const unknown = array(run.compiler_diagnostics).filter(d => d.status === 'UNKNOWN');
+  const blockedIds = new Set(unknown.flatMap((d, index) => referenceResourceBlocked(d) ? [referenceNoticeId(d, index)] : []));
+  const verification = run.params?.reference_verification;
+  const allUnresolvedBlocked = Number(verification?.unresolved) > 0
+    && Number(verification?.unavailable) >= Number(verification?.unresolved);
+  const findings = array(run.findings).filter(f =>
+    (!f.prompt_only || ['supported_suspicion', 'insufficient_evidence'].includes(f.reference_review))
+    && !(f.reference_review === 'insufficient_evidence' && (blockedIds.has(f.finding_id) || allUnresolvedBlocked)));
   const keys = new Set(findings.map(f => f.finding_id));
-  const notices = array(run.compiler_diagnostics).filter(d => d.status === 'UNKNOWN').map((d, index) => ({
-    finding_id: `reference-info-${d.node_id || 'entry'}-${d.check_id}-${index}`,
+  const notices = unknown.flatMap((d, index) => referenceResourceBlocked(d) ? [] : [{
+    finding_id: referenceNoticeId(d, index),
     rule_id: 'sjtu_rule_32', severity: 'info', prompt_only: true, reference_review: 'insufficient_evidence',
     message: '引用核验证据不足，请人工核查。',
     suggestion: '请核对参考文献的题名、作者、年份和 DOI；未检索到充分证据不表示文献不存在。',
     location: d.location || null, evidence: array(d.evidence), basis_details: d.basis_details,
-  })).filter(f => !keys.has(f.finding_id));
+  }]).filter(f => !keys.has(f.finding_id));
   return [...findings, ...notices].map(f => ({ ...f, severity: 'info', reference_review: f.reference_review || 'supported_suspicion' }));
 }
 
 export function referenceResourcesUnavailable(run) {
   return run.rule_id === 'sjtu_rule_32' && (run.params?.reference_resources_unavailable === true
-    || Number(run.params?.reference_verification?.unavailable) > 0 || /检索资源暂不可用/.test(run.message || ''));
+    || Number(run.params?.reference_verification?.unavailable) > 0 || /检索资源暂不可用/.test(run.message || '')
+    || array(run.compiler_diagnostics).some(referenceResourceBlocked));
+}
+
+export function referenceResourceMessage(run) {
+  if (!referenceResourcesUnavailable(run)) return null;
+  const message = String(run.message || '').trim();
+  if (message && !/^(?:未触发告警|未发现疑似不存在的引用|未检测出问题)[。.!！\s]*$/.test(message)) return message;
+  const reasons = array(run.compiler_diagnostics).flatMap(d => array(d.reasons)).join(' ');
+  const cause = /QUOTA_EXHAUSTED/i.test(reasons) ? '检索额度已耗尽'
+    : /API_KEY.*configured/i.test(reasons) ? '检索密钥未配置' : '检索服务暂不可用';
+  return `检索资源暂不可用：${cause}，部分参考文献未完成核验，请稍后重试。`;
 }
 
 export function isGenericExecutionWarning(run) {

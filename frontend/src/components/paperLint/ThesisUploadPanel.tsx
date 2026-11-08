@@ -62,7 +62,7 @@ function DetectionProgress({
     : stages[phase];
   const circumference = 2 * Math.PI * 42;
   return (
-    <section aria-label="检测任务状态" className="overflow-hidden rounded-2xl border border-[#d7e3f5] bg-white p-5 shadow-[0_10px_30px_-22px_rgba(27,53,89,.18)] sm:px-6 sm:py-5">
+    <section aria-label="检测任务状态" className="overflow-hidden rounded-2xl border border-[#d7e3f5] bg-white p-6 shadow-[0_10px_30px_-22px_rgba(27,53,89,.18)] sm:px-6 sm:py-8">
       <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-5">
         <div
           role="progressbar"
@@ -107,11 +107,11 @@ function DetectionProgress({
         <div className="min-w-0 w-full flex-1">
           <DetectionWaitNotice eta={eta}/>
           {activeFilename ? (
-            <p className="mt-2 truncate text-sm leading-6 text-slate-600" title={activeFilename}>
+            <p className="mt-3 truncate text-sm leading-6 text-slate-600" title={activeFilename}>
               {activeFilename}
             </p>
           ) : null}
-          <p className="mt-1 text-xs leading-6 text-slate-500">
+          <p className="mt-2 text-xs leading-6 text-slate-500">
             {phase === 0
               ? '正在传输论文文件，上传后将提交后台处理。'
               : phase === 1
@@ -126,7 +126,7 @@ function DetectionProgress({
           </p>
         </div>
       </div>
-      <ol className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-3 sm:grid-cols-4" aria-label="检测阶段">
+      <ol className="mt-6 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4 sm:grid-cols-4" aria-label="检测阶段">
         {stages.map((label, index) => (
           <li
             key={label}

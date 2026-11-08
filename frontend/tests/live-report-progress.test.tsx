@@ -24,9 +24,9 @@ it.each([0, 1])('shows an explicit execution-warning statistic when the experime
   expect(screen.getByText('错误总数').closest('div')).toHaveTextContent(String(1 + count));
 });
 
-it('does not add an experimental statistic when the rule was not selected', () => {
+it('keeps a zero execution-warning statistic without an experimental selection', () => {
   render(<LivePaperLintReport file={{ name: 'paper.pdf', url: '/paper.pdf' }} rules={rules} selectedRuleIds={['sjtu_rule_18']} runs={[finished]} />);
-  expect(screen.queryByText('规则未实现警告数')).not.toBeInTheDocument();
+  expect(screen.getByText('规则未实现警告数').closest('div')).toHaveTextContent('0');
 });
 
 it.each(['全部', '严重 0', '警告 1', '提示 0'])('keeps every pending rule available alongside matching findings in a live filter (%s)', async level => {
@@ -42,11 +42,13 @@ it.each(['全部', '严重 0', '警告 1', '提示 0'])('keeps every pending rul
   const menu = await screen.findByRole('listbox');
   for (const name of ['章标题另起一页', '论点论据一致性检测']) {
     expect(within(menu).getByRole('option', { name: `${name}，正在检测` })).toBeInTheDocument();
+    expect(within(menu).getByRole('option', { name: `${name}，正在检测` })).not.toHaveTextContent(/正在检测\s+\d/);
   }
   expect(within(menu).queryByRole('option', { name: /^公式引用，/ }) !== null).toBe(level === '全部' || level === '警告 1');
   const pending = within(menu).getByRole('option', { name: '章标题另起一页，正在检测' });
   pending.focus(); fireEvent.keyDown(pending, { key: 'Enter' });
-  expect(screen.getByRole('combobox')).toHaveTextContent('正在检测 2');
+  expect(screen.getByRole('combobox')).toHaveTextContent('正在检测');
+  expect(screen.getByRole('combobox')).not.toHaveTextContent(/正在检测\s+\d/);
   expect(screen.getByText('正在检测相关问题')).toBeInTheDocument();
 });
 

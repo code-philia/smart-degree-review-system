@@ -19,13 +19,15 @@ async function toReport(row, { includeResult = true } = {}) {
       for (const finding of rule.findings || []) { finding.location = null; finding.anchors = []; }
     }
   }
-  const { displayedReportSummary, referenceInfoFindings } = await presentation;
+  const { displayedReportSummary, referenceInfoFindings, referenceResourcesUnavailable, referenceResourceMessage } = await presentation;
   for (const rule of parsedResult.rule_runs || []) {
     if (rule.rule_id === 'sjtu_rule_32') {
+      const resourceMessage = referenceResourceMessage(rule);
+      if (resourceMessage) rule.message = resourceMessage;
       rule.findings = referenceInfoFindings(rule);
       rule.severity = 'info';
       const unresolved = rule.findings.filter(f => f.reference_review === 'insufficient_evidence').length;
-      if (unresolved && !rule.params?.reference_resources_unavailable && rule.execution_status === 'completed') {
+      if (unresolved && !referenceResourcesUnavailable(rule) && rule.execution_status === 'completed') {
         const suspected = rule.findings.length - unresolved;
         rule.message = [suspected ? `发现 ${suspected} 条疑似不存在的引用，请逐条人工复核。` : null,
           `${unresolved} 条引用核验证据不足，请人工核查（提示）。`].filter(Boolean).join(' ');

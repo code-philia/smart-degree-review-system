@@ -129,7 +129,7 @@ def has_bilingual_abstract_bodies(pages):
         texts = _rows(page)
         compact = {re.sub(r'\s+', '', text).lower() for text in texts}
         if _contents_page(page):
-            break
+            continue
         if any(_INTRO.fullmatch(_NUMBER.sub('', text).strip()) for text in texts):
             break
         if not compact & {'摘要', '中文摘要', '英文摘要', 'abstract'}:
@@ -160,6 +160,7 @@ def abstract_sections(pages, profile):
     """
     sections = []
     current = None
+    scope = 0
     for index, page in enumerate(pages):
         texts = []
         for source in _rows(page, with_source=True):
@@ -169,7 +170,12 @@ def abstract_sections(pages, profile):
             else:
                 texts.append(source)
         if _contents_page(page):
-            break
+            # Institutions may place contents before one or both abstracts.
+            # A contents boundary closes any preceding fragment: its entries or
+            # later loose keywords cannot complete an earlier truncated abstract.
+            current = None
+            scope += 1
+            continue
         sizes = [row['font_size'] for row in texts if row.get('font_size', 0) > 0]
         normal_size = median(sizes) if sizes else 0
         for source in texts:
@@ -198,7 +204,7 @@ def abstract_sections(pages, profile):
                         and size and current['heading_size'] and size < current['heading_size'] * .88
                         and box and box[1] < page.get('height', 842) * .12):
                     continue
-                current = {'label': label, 'page_index': index, 'heading_size': size,
+                current = {'label': label, 'page_index': index, 'heading_size': size, 'scope': scope,
                            'at_top': bool(box and box[1] < page.get('height', 842) * .12),
                            'body': [], 'keywords': None, 'keyword_language': None, 'keyword_groups': []}
                 sections.append(current)
@@ -239,6 +245,7 @@ def _abstract_statuses(sections, profile):
     for section in sections:
         previous = continued[-1] if continued else None
         if (previous and previous['label'] == section['label']
+                and previous['scope'] == section['scope']
                 and section['page_index'] > previous['page_index'] and section['at_top']
                 and previous['keywords'] is None
                 and (not section['body'] or language(section['body']) == language(previous['body']))):

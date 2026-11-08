@@ -144,8 +144,9 @@ export function FindingsPane({
       : run.execution_status === 'unsupported' || run.outcome === 'inconclusive' ? 'needs_review'
       : run.outcome === 'not_applicable' ? 'not_applicable' : 'completed';
     const ruleCounts = counts.get(id) || { error: 0, warning: 0, info: 0 };
-    const hasExecutionWarning = executionWarnings.some(warning => (warning.ruleId || 'abstract_numeric_consistency_check') === id);
-    return { id, title: ruleNames.get(id) || id, count: ruleCounts.error + ruleCounts.warning + ruleCounts.info, counts: ruleCounts, status, hasExecutionWarning };
+    const executionWarningCount = executionWarnings.filter(warning => (warning.ruleId || 'abstract_numeric_consistency_check') === id).length;
+    return { id, title: ruleNames.get(id) || id, count: ruleCounts.error + ruleCounts.warning + ruleCounts.info, counts: ruleCounts, status,
+      hasExecutionWarning: executionWarningCount > 0, executionWarningCount };
   });
   // Keep the selected rule and status summary within the active result category.
   const chosenOption = ruleOptions.find(option => option.id === ruleFilter);
@@ -187,6 +188,20 @@ export function FindingsPane({
       || (warning.ruleId || 'abstract_numeric_consistency_check') === effectiveRuleFilter)
     : [];
 
+  const priority = { error: 0, warning: 1, info: 3 };
+  const ruleOrder = new Map(ruleIds.map((id, index) => [id, index]));
+  const cards = [
+    ...visibleWarnings.map((warning, index) => ({ kind: 'execution' as const, warning, index,
+      priority: 2, ruleId: warning.ruleId || 'abstract_numeric_consistency_check', page: 0, position: index })),
+    ...filtered.map(item => ({ kind: 'finding' as const, item, priority: priority[item.ruleRun.severity],
+      ruleId: item.ruleRun.rule_id,
+      page: item.finding.location?.page_number ?? item.finding.anchors?.[0]?.location.page_number ?? Number.MAX_SAFE_INTEGER,
+      position: item.index })),
+  ];
+  if (filter === 'all') cards.sort((left, right) => left.priority - right.priority
+    || (ruleOrder.get(left.ruleId) ?? Number.MAX_SAFE_INTEGER) - (ruleOrder.get(right.ruleId) ?? Number.MAX_SAFE_INTEGER)
+    || left.page - right.page || left.position - right.position);
+
   return (
     <section className="@container/report flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
       <div className="border-b border-slate-200 p-4">
@@ -206,58 +221,60 @@ export function FindingsPane({
               {value === 'all' ? '全部' : <>{severityLabels[value]} <span className="tabular-nums">{severityTotals[value]}</span></>}
             </button>
           ))}
-          {executionWarnings.length ? <Button size="sm" variant={filter === 'execution' ? 'secondary' : 'ghost'} aria-pressed={filter === 'execution'} onClick={() => changeFilter('execution')}>规则未实现警告 {executionWarnings.length}</Button> : null}
+          <Button size="sm" variant={filter === 'execution' ? 'secondary' : 'ghost'} aria-pressed={filter === 'execution'} onClick={() => changeFilter('execution')}>规则未实现警告 {executionWarnings.length}</Button>
         </div>
         {ruleIds.length > 0 ? (
           <RuleFilter options={ruleOptions} value={effectiveRuleFilter} onValueChange={setRuleFilter} totalCount={issueTotal} severity={filter} />
         ) : null}
       </div>
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-3">
         {filter !== 'execution' && filtered.length > 0 && incomplete && selectedRun?.rule_id === 'sjtu_rule_32' ? <p role="status" className="rounded-xl bg-amber-50 p-3 text-xs leading-6 text-amber-800">{referenceReviewMessage(selectedRun)}</p> : null}
-        {visibleWarnings.length ? <>
-          <p className="rounded-lg bg-slate-50 p-3 text-sm leading-6 text-slate-600">如需使用以下规则，请按建议内容调整；如无需使用，请忽略以下内容</p>
-          {visibleWarnings.map((warning, index) => (
-            <article key={index} className="rounded-lg border border-rose-200 p-3">
-              <h3 className="text-sm font-bold text-rose-700">{warning.title}</h3>
-              {warning.preconditionId ? (
-                <>
-                  <p className="mt-2 text-sm leading-6 text-slate-700">
-                    <strong>检测说明：</strong>本规则目前仅支持核验摘要中与<strong>实验数据</strong>相关的论点论据
-                  </p>
-                  <h4 className="mt-4 text-base font-bold leading-7 text-slate-900">
-                    {warning.preconditionId === 'abstract_numeric'
-                      ? <>摘要中不存在可核验的<strong>含有数值的</strong>论点</>
-                      : warning.issueTitle}
-                  </h4>
-                  <div className="mt-3 rounded-lg bg-slate-50 p-3 text-sm leading-6 text-slate-700">
-                    <p><strong>符合要求的示例：</strong></p>
-                    <p className="mt-1 whitespace-pre-line">{warning.example}</p>
-                    <p className="mt-3"><strong>说明：</strong>{warning.explanation}</p>
-                  </div>
-                  <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm leading-6 text-slate-700">
-                    <strong>调整建议：</strong>{warning.suggestion}
-                  </p>
-                  {warning.note ? <p className="mt-3 text-sm leading-6 text-slate-600">{warning.note}</p> : null}
-                </>
-              ) : (
-                <>
-                  <p className="mt-2 text-sm leading-6 text-slate-700">{warning.reason}</p>
-                  <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm leading-6"><strong>调整建议：</strong>{warning.suggestion}</p>
-                </>
-              )}
-            </article>
-          ))}
-        </> : null}
-        {filter === 'execution' && !visibleWarnings.length ? <p className="p-3 text-sm text-slate-500">当前检查项没有规则未实现警告</p> : null}
-        {filter === 'execution' || (filtered.length === 0 && visibleWarnings.length > 0) ? null : filtered.length === 0 ? (
+        {filter === 'execution' && visibleWarnings.length > 0 ? <p className="rounded-lg bg-slate-50 p-3 text-sm leading-6 text-slate-600">如需使用以下规则，请按建议内容调整；如无需使用，请忽略以下内容</p> : null}
+        {filter === 'execution' && !visibleWarnings.length && !pending ? <p className="p-3 text-sm text-slate-500">当前检查项没有规则未实现警告</p> : null}
+        {(filter === 'execution' && !pending) || cards.length > 0 ? null : (
           <div className="flex h-full min-h-60 flex-col items-center justify-center text-center">
             <EmptyIcon data-testid={!pending && !incomplete && !severityEmpty ? 'rule-empty-icon' : undefined} className={`size-8 ${pending ? 'animate-spin text-brand-600 motion-reduce:animate-none' : severityEmpty ? 'text-slate-400' : incomplete ? 'text-amber-600' : 'text-success-600'}`} />
             <p className="mt-3 text-sm font-bold text-slate-900">{emptyTitle}</p>
             <p className="mt-1 max-w-sm text-xs leading-6 text-slate-500">{emptyDescription}</p>
             {severityEmpty ? <Button className="mt-3" size="sm" variant="secondary" onClick={() => setFilter('all')}>查看全部级别</Button> : null}
           </div>
-        ) : (
-          filtered.map((item) => {
+        )}
+        {cards.map((card) => {
+            if (card.kind === 'execution') {
+              const { warning, index } = card;
+              return (
+                <article key={`execution-${index}`} className="rounded-lg border border-rose-200 p-3">
+                  <h3 className="text-sm font-bold text-rose-700">{warning.title}</h3>
+                  {warning.preconditionId ? (
+                    <>
+                      <p className="mt-2 text-sm leading-6 text-slate-700">
+                        <strong>检测说明：</strong>本规则目前仅支持核验摘要中与<strong>实验数据</strong>相关的论点论据
+                      </p>
+                      <h4 className="mt-4 text-base font-bold leading-7 text-slate-900">
+                        {warning.preconditionId === 'abstract_numeric'
+                          ? <>摘要中不存在可核验的<strong>含有数值的</strong>论点</>
+                          : warning.issueTitle}
+                      </h4>
+                      <div className="mt-3 rounded-lg bg-slate-50 p-3 text-sm leading-6 text-slate-700">
+                        <p><strong>符合要求的示例：</strong></p>
+                        <p className="mt-1 whitespace-pre-line">{warning.example}</p>
+                        <p className="mt-3"><strong>说明：</strong>{warning.explanation}</p>
+                      </div>
+                      <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm leading-6 text-slate-700">
+                        <strong>调整建议：</strong>{warning.suggestion}
+                      </p>
+                      {warning.note ? <p className="mt-3 text-sm leading-6 text-slate-600">{warning.note}</p> : null}
+                    </>
+                  ) : (
+                    <>
+                      <p className="mt-2 text-sm leading-6 text-slate-700">{warning.reason}</p>
+                      <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm leading-6"><strong>调整建议：</strong>{warning.suggestion}</p>
+                    </>
+                  )}
+                </article>
+              );
+            }
+            const item = card.item;
             const active = item.key === activeFindingKey;
             const page = displayFindingPages(item, pageLabels);
             const physicalPages = findingPageLabel(item);
@@ -273,7 +290,7 @@ export function FindingsPane({
             const showRepairSuggestion = Boolean(onGenerateRepairSuggestion || repair || generating || repairError);
             return (
               <article
-                key={item.key}
+                key={`finding-${item.key}`}
                 data-finding-key={item.key}
                 className={`cursor-pointer rounded-lg border border-l-4 p-3 transition ${
                   active ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-100' : 'border-slate-200 hover:bg-slate-50'
@@ -441,8 +458,7 @@ export function FindingsPane({
                 ) : null}
               </article>
             );
-          })
-        )}
+          })}
       </div>
     </section>
   );

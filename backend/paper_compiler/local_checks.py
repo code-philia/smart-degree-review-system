@@ -1,6 +1,7 @@
 """Six native-text checks over the shared Paper Model / Paper IR. No network."""
 import re
-from .structure import abstract_sections, section_display_name
+from statistics import median
+from .structure import abstract_sections, section_display_name, _contents_page
 
 RULES = (31, 34, 35, 36, 37, 38)  # execution keys only; public titles have no rule numbers
 _CHAPTER = re.compile(r'^(?:第[一二三四五六七八九十百0-9]+[章篇]|chapter\d+|\d+(?:[.．]\d+)*[.．、]?)(?:[:：]|[-–—])?', re.I)
@@ -122,12 +123,119 @@ def _finding(ir, rule, node, message, token, suggestion, offset=0):
             'suggestion': suggestion, 'location': location, 'text_excerpt': (node['text'] or '')[:600]}
 
 
+def _declaration_title_parts(text, *, displayed=False):
+    """Only complete declaration titles supply these parts; prose mentions do not."""
+    prefix = r'(?:(?:(?:硕士|博士)?研究生|硕士|博士)?(?:学位|毕业)?论文)?'
+    originality = r'(?:(?:原创性|独创性)(?:声明书?|说明书?)|原创声明书?|学术诚信声明书?)'
+    usage = (r'(?:(?:(?:版权)?使用|版权)授权(?:书|说明书?|声明书?)?|'
+             r'授权使用(?:书|说明书?|声明书?)?|版权使用(?:说明书?|声明书?|书)|'
+             r'使用权限(?:说明书?|声明书?)?|使用许可(?:说明书?|声明书?|书)?)')
+    separator = r'(?:[和与及暨、]|以及)'
+    title = compact(text)
+    # A real institution-prefixed heading is still a declaration, without
+    # enumerating universities or dropping arbitrary prose before an alias.
+    if displayed and not re.match(r'^(?:详见|参见|未提供|未提交|未签署|缺少|缺失|本章|本文|关于|有关)', title):
+        institution = re.match(r'^[\u3400-\u9fffA-Za-z·]{1,35}(?:大学|学院|研究生院|研究院|研究所|学校)', title)
+        if institution:
+            title = title[institution.end():]
+    if re.fullmatch(prefix + originality, title):
+        return {'原创性声明'}
+    if re.fullmatch(prefix + usage, title):
+        return {'使用授权说明'}
+    if (re.fullmatch(prefix + originality + separator + prefix + usage, title)
+            or re.fullmatch(prefix + usage + separator + prefix + originality, title)):
+        return {'原创性声明', '使用授权说明'}
+    return set()
+
+
+def _declaration_titles(ir, visual_rows):
+    """Recover one short horizontal title band, including skewed native glyphs.
+
+    This is deliberately local to declarations: the stricter rows() geometry
+    remains unchanged for chapter, punctuation and abstract checks.
+    """
+    by_id = {node['id']: node for node in ir['nodes']}
+    pending = [node['id'] for node in ir['nodes'] if node['kind'] in {
+        'ToC', 'ToCEntry', 'Bibliography', 'BibliographyEntry', 'UnknownBlock',
+        'Figure', 'Table', 'Caption', 'Equation', 'MathExpression'}]
+    excluded = set()
+    while pending:
+        node_id = pending.pop()
+        if node_id not in excluded:
+            excluded.add(node_id)
+            pending.extend(by_id[node_id]['children'])
+    pages = {}
+    page_layout = {page['page_index']: page for page in ir['layout']['pages']}
+    # Shared rows() may already have joined alternate glyph baselines in the
+    # wrong horizontal order. Recover declarations directly from live IR spans;
+    # immutable layout text must not restore a deleted or edited declaration.
+    for node in ir['nodes']:
+        if node['id'] in excluded or not node['text']:
+            continue
+        for span in node['provenance']:
+            source = _source(span)
+            if not source or 'bbox' not in source:
+                continue
+            page, box = source['page_index'], source['bbox']
+            layout = page_layout[page]
+            if box[3] - box[1] <= 12.5 and (box[1] < layout['height'] * .12
+                                          or box[3] > layout['height'] * .94):
+                continue
+            if span.get('kind') == 'synthetic' or len(node['provenance']) == 1:
+                text = node['text']
+            else:
+                text = node['text'][span.get('node_text_start', 0):span.get('node_text_end', len(node['text']))]
+            if not compact(text):
+                continue
+            width = layout.get('width', 0)
+            displayed = node['kind'] == 'Heading' or bool(width and box[3] - box[1] >= 14
+                and abs((box[0] + box[2]) / 2 - width / 2) <= width * .12)
+            pages.setdefault(page, []).append((box, compact(text), displayed))
+    found = {}
+    for page, entries in pages.items():
+        groups = []
+        for box, text, displayed in sorted(entries, key=lambda entry: (entry[0][0], entry[0][1])):
+            compatible = []
+            for group in groups:
+                previous = group['pieces'][-1][0]
+                heights = [piece[0][3] - piece[0][1] for piece in group['pieces']] + [box[3] - box[1]]
+                overlap = min(previous[3], box[3]) - max(previous[1], box[1])
+                gap = box[0] - previous[2]
+                band = max(group['bottom'], box[3]) - min(group['top'], box[1])
+                if (min(heights) > 0 and 0 <= gap <= 3 * min(heights)
+                        and overlap >= .2 * min(previous[3] - previous[1], box[3] - box[1])
+                        and max(heights) <= 1.5 * min(heights)
+                        and band <= 2 * median(heights)):
+                    compatible.append(group)
+            if len(compatible) == 1:
+                group = compatible[0]
+                group['pieces'].append((box, text, displayed))
+                group['top'] = min(group['top'], box[1])
+                group['bottom'] = max(group['bottom'], box[3])
+            else:
+                # Ambiguous bands cannot provide a title by dropping a neighbor.
+                for group in compatible:
+                    group['ambiguous'] = True
+                groups.append({'pieces': [(box, text, displayed)], 'top': box[1],
+                               'bottom': box[3], 'ambiguous': bool(compatible)})
+        for group in groups:
+            # Do not select an alias substring from a longer physical text band.
+            title = ''.join(text for _, text, _ in group['pieces'])
+            if group['ambiguous'] or len(group['pieces']) > 32 or len(title) > 45:
+                continue
+            parts = _declaration_title_parts(title, displayed=any(piece[2] for piece in group['pieces']))
+            if parts:
+                found.setdefault(page, set()).update(parts)
+    return found
+
+
 def title_page_evidence(ir, visual_rows):
     if any(n['kind'] == 'TitlePage' for n in ir['nodes']):
         return True
     grouped = {}
     for page, box, text, node in visual_rows:
         grouped.setdefault(page, []).append(compact(text))
+    declarations = _declaration_titles(ir, visual_rows)
     uncertain = False
     for page in sorted(grouped)[:6]:
         texts = grouped[page]
@@ -135,8 +243,7 @@ def title_page_evidence(ir, visual_rows):
             break
         if any(re.search(r'(?:\.\s*){3,}\s*\d+\s*$', t) for t in texts):
             break  # A contents continuation cannot be an unfamiliar title page.
-        declaration = any(re.search(r'(?:原创性|独创性|原创|使用授权|版权授权|版权使用).{0,8}(?:声明|说明|书)$', t) for t in texts if len(t) < 45)
-        if declaration:
+        if declarations.get(page):
             continue
         metadata = sum(bool(re.match(r'^(?:作者|姓名|学号|导师|指导教师|学科|专业|学院|申请学位|student|supervisor|department)', t)) for t in texts)
         if metadata >= 2:
@@ -172,12 +279,12 @@ def core_parts(ir, *, abstracts=None):
     body_end = min((page for page,_,text,node in visual_rows if page >= body_start and node['kind'] == 'Heading' and (_CONCLUSION.fullmatch(_CHAPTER.sub('',compact(text))) or compact(text) in {'参考文献','references','bibliography'})), default=len(ir['layout']['pages']))
     headings = [_CHAPTER.sub('', text) for text in texts]
     kinds = {node['kind'] for node in ir['nodes']}
-    all_text = '\n'.join(t for t in texts if len(t) <= 55 and not re.search(r'[，。；]', t))
+    declarations = set().union(*_declaration_titles(ir, visual_rows).values())
     by_id = {node['id']: node for node in ir['nodes']}
     return {
         '题名页': title_page_evidence(ir, visual_rows),
-        '原创性声明': bool(re.search(r'原创性声明|独创性声明|原创声明|学术诚信声明', all_text)),
-        '使用授权说明': bool(re.search(r'(?:使用|版权)授权(?:书|说明|声明)?|授权使用|版权使用(?:说明|声明|书)', all_text)),
+        '原创性声明': '原创性声明' in declarations,
+        '使用授权说明': '使用授权说明' in declarations,
         '摘要': abstracts.get('摘要', {}).get('status') == 'complete',
         '英文摘要': profile != 'chinese-thesis' or abstracts.get('英文摘要', {}).get('status') == 'complete',
         '关键词': any(value['has_keywords'] for value in abstracts.values()) or any(re.match(r'^(?:关键词|关键字|keywords?)(?:[:：]|$)', text) for text in texts),
@@ -299,11 +406,24 @@ def _keyword_block(ir, node):
     return {**node, 'text': text}
 
 
+def _current_contents_pages(ir, visual_rows):
+    """Contents evidence from current IR text, including split native entries."""
+    pages = {page['page_index']: {'lines': []} for page in ir['layout']['pages']}
+    for page, box, text, _ in visual_rows:
+        pages[page]['lines'].append({'text': text, 'bbox': box})
+    return {page for page, evidence in pages.items() if _contents_page(evidence)}
+
+
 def _body_start_page(ir):
     """First page after front matter, mirroring core_parts' body boundary."""
     visual_rows = rows(ir)
-    intro_pages = [page for page, _, text, _ in visual_rows if _INTRO.fullmatch(_CHAPTER.sub('', compact(text)))]
-    toc_pages = [page for page, _, text, _ in visual_rows if re.search(r'(?:\.\s*){3,}\s*\d+\s*$', text)]
+    contents_pages = _current_contents_pages(ir, visual_rows)
+    # A native ToC may split its entry title, leader and number into separate
+    # nodes. Its "chapter 1 introduction" entry is not the actual body opening.
+    intro_pages = [page for page, _, text, _ in visual_rows if page not in contents_pages
+                   and _INTRO.fullmatch(_CHAPTER.sub('', compact(text)))]
+    toc_pages = list(contents_pages) + [page for page, _, text, _ in visual_rows
+                                      if re.search(r'(?:\.\s*){3,}\s*\d+\s*$', text)]
     # Dotted leaders also occur in figure/table captions and body diagrams.
     # Once the first body introduction is visible, such lines must not push the
     # body boundary forward (R09 consequently skipped whole early chapters).
@@ -349,6 +469,27 @@ def chapter_labels(ir):
     prose = sorted(box[3] - box[1] for _, box, text, _ in visual
                    if len(compact(text)) >= 15 and 0 < box[3] - box[1] < 40)
     body = prose[len(prose) // 2] if prose else 0
+    # The retained top band can contain both real carry-over prose and headers.
+    # Recognize furniture by repeated native rows, rather than hiding the band:
+    # small text must recur on different pages at a stable top position and size.
+    header_candidates = {}
+    for page, box, text, node in visual:
+        height = page_height.get(page, 0)
+        if (not body or not height or box[1] >= height * _TOP_MARGIN
+                or not 0 < box[3] - box[1] < body * .9
+                or node['kind'] in {'TableCell', 'Caption'} or not horizontal(node, box)):
+            continue
+        header_candidates.setdefault(compact(text), []).append((page, box, node))
+    running_headers = set()
+    for candidates in header_candidates.values():
+        for page, box, node in candidates:
+            peer_pages = {other_page for other_page, other_box, _ in candidates
+                          if abs(other_box[1] / page_height[other_page]
+                                 - box[1] / page_height[page]) <= .003
+                          and abs((other_box[3] - other_box[1])
+                                  - (box[3] - box[1])) <= 1.5}
+            if len(peer_pages) >= 2:
+                running_headers.add((page, node['id'], tuple(box)))
     by_page = {}
     for page, box, text, node in visual:
         by_page.setdefault(page, []).append((box, text, node))
@@ -371,7 +512,8 @@ def chapter_labels(ir):
             # text whose bottom stays above the label is prior content.
             header_margin = page_height.get(page, 0) * _RUNNING_HEADER_MARGIN
             prior = [row for row in items
-                     if row[0][3] <= box[1] + 2 and row[0][1] >= header_margin]
+                     if row[0][3] <= box[1] + 2 and row[0][1] >= header_margin
+                     and (page, row[2]['id'], tuple(row[0])) not in running_headers]
             found.append((page, box, text, node, prior))
     return found
 
@@ -380,8 +522,10 @@ def _abstract_nodes(ir):
     """Front-matter abstract prose, including split headings and both languages."""
     body_start = _body_start_page(ir)
     visual = rows(ir)
+    contents_pages = _current_contents_pages(ir, visual)
     starts = sorted((page, box[1]) for page, box, text, _ in visual
-                    if compact(text) in _ABSTRACT_HEADING and (not body_start or page < body_start))
+                    if compact(text) in _ABSTRACT_HEADING and page not in contents_pages
+                    and (not body_start or page < body_start))
     if starts:
         # Keywords end abstract continuation after this page; keep source-only
         # paragraphs on the abstract page even when the tree missed their parent.
@@ -397,6 +541,7 @@ def _abstract_nodes(ir):
             if not node['text'] or node['kind'] not in {'Paragraph', 'Abstract'}:
                 continue
             selected = [span for span in node['provenance'] if (source := _source(span))
+                        and source['page_index'] not in contents_pages
                         and any(start <= (source['page_index'], source['bbox'][1]) < end
                                 for start, end in ranges)]
             if not selected or _ABSTRACT_KEYWORDS.match(node['text'].strip()):
@@ -415,7 +560,8 @@ def _abstract_nodes(ir):
     # Retain typed abstract evidence when its source heading is unavailable.
     pages = {page for page, _, text, _ in visual if compact(text) in _ABSTRACT_HEADING}
     pages |= {_node_page_index(node) for node in ir['nodes'] if node['kind'] == 'Abstract'}
-    pages = {page for page in pages if page < 10**9 and (not body_start or page < body_start)}
+    pages = {page for page in pages if page < 10**9 and page not in contents_pages
+             and (not body_start or page < body_start)}
     by_id = {node['id']: node for node in ir['nodes']}
     pending = [node['id'] for node in ir['nodes'] if node['kind'] == 'Abstract']
     abstract_ids = set()
@@ -427,6 +573,7 @@ def _abstract_nodes(ir):
     return [node for node in ir['nodes'] if node['text'] and node['kind'] in {'Paragraph', 'Abstract'}
             and not _KEYWORD_LABEL.match(node['text'])
             and (node['id'] in abstract_ids or any((_source(span) or {}).get('page_index') in pages for span in node['provenance']))
+            and _node_page_index(node) not in contents_pages
             and (not body_start or _node_page_index(node) < body_start)
             # A contents page repeats "摘要" as an entry; its dot leaders are not abstract prose.
             and not re.search(r'(?:\.\s*){5,}', node['text'])]
