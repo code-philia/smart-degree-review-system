@@ -221,8 +221,7 @@ def _abstract_mismatch_summary(mismatches: list[dict[str, Any]]) -> str:
     for row in mismatches:
         label = labels[row["mismatch_type"]]
         reason = re.sub(r"\s+", " ", str(row.get("reason") or "")).strip(" 。")
-        brief = reason[:48].rstrip("。；，.! ")
-        details.append(f"{label}：{brief}{'…' if len(reason) > 48 else ''}" if _has_cjk(reason) else label)
+        details.append(f"{label}：{reason}" if reason else label)
     return "；".join(details) + "。"
 
 

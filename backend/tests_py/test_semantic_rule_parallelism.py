@@ -110,15 +110,18 @@ def test_abstract_sentences_keep_the_whole_causal_sentence():
     ]
 
 
-def test_abstract_summary_is_bounded_and_uses_verified_differences():
+def test_abstract_summary_preserves_complete_chinese_and_english_reasons():
     lint = module()
     summary = lint._abstract_mismatch_summary([
         {'mismatch_type': 'missing_in_english', 'reason': '缺少流水线启动间隔。' + '详情' * 100},
         {'mismatch_type': 'conflict', 'reason': '方法不同。'},
+        {'mismatch_type': 'missing_in_chinese', 'reason': 'provide a reusable compilation framework for data-intensive applications'},
     ])
     assert '流水线启动间隔' in summary
     assert '方法不同' in summary
-    assert len(summary) < 110
+    assert '详情' * 100 in summary
+    assert 'provide a reusable compilation framework for data-intensive applications' in summary
+    assert '…' not in summary
 
 
 def test_abstract_issue_highlights_only_its_source_sentence(tmp_path):
