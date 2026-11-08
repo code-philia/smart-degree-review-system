@@ -38,7 +38,7 @@ it.each(['all','execution'])('counts the summary while keeping individual purple
   if(category==='execution') fireEvent.click(screen.getByRole('button',{name:'规则未实现警告 4',exact:true}));
   const trigger=screen.getByRole('combobox');
   const badge=within(trigger).getByTitle('规则未实现警告 4 项');
-  expect(badge).toHaveTextContent('规则未实现警告 4');
+  expect(badge).toHaveTextContent(/^4$/);
   expect(trigger).not.toHaveTextContent('待核查');
   expect(trigger).toHaveTextContent('正在检测 1');
 });
@@ -55,7 +55,7 @@ it.each(['inconclusive','passed','issues_found'] as const)('shows one plain purp
   expect(within(option).queryByText('待核查',{exact:true})).not.toBeInTheDocument();
   act(()=>{option.focus();fireEvent.keyDown(option,{key:'Enter'});});
   const trigger=screen.getByRole('combobox');
-  expect(within(trigger).getByTitle('规则未实现警告')).toHaveTextContent('规则未实现警告');
+  expect(within(trigger).getByTitle('规则未实现警告 1 项')).toHaveTextContent(/^1$/);
   expect(within(trigger).queryByText('待核查',{exact:true})).not.toBeInTheDocument();
   expect(within(trigger).queryByText('0')).not.toBeInTheDocument();
 });
@@ -87,7 +87,7 @@ it('summarizes review only for a visible review row and keeps purple rows above 
   ];
   render(<RuleFilter options={options} value="all" onValueChange={vi.fn()} totalCount={2}/>);
   const trigger=screen.getByRole('combobox');
-  expect(within(trigger).getByTitle('规则未实现警告 2 项')).toHaveTextContent('规则未实现警告 2');
+  expect(within(trigger).getByTitle('规则未实现警告 2 项')).toHaveTextContent(/^2$/);
   expect(trigger).toHaveTextContent('待核查 1');
   const list=await menu();
   expect(within(list).getAllByRole('option').map(row=>row.textContent?.split('，')[0])).toEqual(['全部检查项','未完成检测','独立待核查规则']);

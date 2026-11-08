@@ -75,7 +75,7 @@ function ExecutionStatus({ status, count }: { status: IncompleteStatus; count?: 
   </span>;
 }
 
-function RuleBadges({ option, severity, summaryOptions }: { option: RuleFilterOption; severity: RuleFilterLevel; summaryOptions?: RuleFilterOption[] }) {
+function RuleBadges({ option, severity, summaryOptions, compact = false }: { option: RuleFilterOption; severity: RuleFilterLevel; summaryOptions?: RuleFilterOption[]; compact?: boolean }) {
   const visibleLevels = levels.filter(level => (severity === 'all' || severity === level) && option.counts[level] > 0);
   const options = summaryOptions || [option];
   const executionCount = options.reduce((total, rule) => total + warningCount(rule), 0);
@@ -86,7 +86,7 @@ function RuleBadges({ option, severity, summaryOptions }: { option: RuleFilterOp
       const tone = level === 'error' ? 'bg-rose-50 text-rose-600' : level === 'warning' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600';
       return <span key={level} data-severity={level} title={`${levelLabels[level]} ${option.counts[level]} 处`} className={`inline-flex min-w-10 items-center justify-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-semibold tabular-nums ${tone}`}><Icon className="size-3.5" />{option.counts[level]}</span>;
     })}
-    {showsExecutionWarning ? <span data-severity="execution" title={summaryOptions ? `规则未实现警告 ${executionCount} 项` : '规则未实现警告'} className="inline-flex min-w-10 shrink-0 items-center justify-center gap-1 rounded-full bg-violet-50 px-2.5 py-1.5 text-[11px] font-medium text-violet-700"><ShieldAlert className="size-3.5" />规则未实现警告{summaryOptions ? ` ${executionCount}` : ''}</span> : null}
+    {showsExecutionWarning ? <span data-severity="execution" title={compact ? `规则未实现警告 ${executionCount} 项` : '规则未实现警告'} className="inline-flex min-w-10 shrink-0 items-center justify-center gap-1 rounded-full bg-violet-50 px-2.5 py-1.5 text-[11px] font-medium text-violet-700"><ShieldAlert className="size-3.5" />{compact ? executionCount : '规则未实现警告'}</span> : null}
     {incompleteStatuses.map(status => {
       // Aggregate exactly the badges shown on rule rows, including deduplication.
       const count = options.filter(rule => hasStatusBadge(rule, status, severity)).length;
@@ -112,11 +112,11 @@ export function RuleFilter({ options, value, onValueChange, totalCount, severity
     executionWarningCount };
   const selected = visible.find(option => option.id === value) || all;
   return <Select.Root value={selected.id} onValueChange={onValueChange}>
-    <Select.Trigger aria-label="按检查项筛选" className="group mt-3 grid min-h-13 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-2 @xl/report:grid-cols-[auto_minmax(0,1fr)_auto_auto] rounded-2xl border border-slate-200 bg-white px-3 py-3 text-left text-sm text-slate-800 outline-none transition-colors hover:border-slate-300 focus-visible:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-100 data-[state=open]:border-slate-300 motion-reduce:transition-none">
+    <Select.Trigger aria-label="按检查项筛选" className="group mt-3 flex min-h-13 w-full items-center gap-2.5 rounded-2xl border border-slate-200 bg-white px-3 py-3 text-left text-sm text-slate-800 outline-none transition-colors hover:border-slate-300 focus-visible:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-100 data-[state=open]:border-slate-300 motion-reduce:transition-none">
       <Funnel className="size-4 shrink-0 text-slate-500" aria-hidden="true" />
       <span className="flex min-w-0 flex-1 items-center gap-1.5 font-medium"><span className="min-w-0 truncate" title={selected.title}><Select.Value>{selected.title}</Select.Value></span><ExperimentalBadge ruleId={selected.id} /></span>
-      <span aria-hidden="true" className="col-span-2 col-start-2 row-start-2 min-w-0 @xl/report:col-span-1 @xl/report:col-start-3 @xl/report:row-start-1"><RuleBadges option={selected} severity={severity} summaryOptions={selected.id === 'all' ? visible : undefined} /></span>
-      <Select.Icon asChild><ChevronDown className="col-start-3 row-start-1 size-4 shrink-0 text-slate-400 transition-transform @xl/report:col-start-4 group-data-[state=open]:rotate-180 motion-reduce:transition-none" /></Select.Icon>
+      <span aria-hidden="true" className="max-w-[65%] min-w-0 shrink-0"><RuleBadges compact option={selected} severity={severity} summaryOptions={selected.id === 'all' ? visible : undefined} /></span>
+      <Select.Icon asChild><ChevronDown className="size-4 shrink-0 text-slate-400 transition-transform group-data-[state=open]:rotate-180 motion-reduce:transition-none" /></Select.Icon>
     </Select.Trigger>
     <Select.Portal>
       <Select.Content position="popper" align="start" sideOffset={8} collisionPadding={12}
