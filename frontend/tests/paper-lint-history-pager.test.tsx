@@ -83,27 +83,21 @@ it('preserves keyboard focus after submitting a different page', () => {
   expect(screen.getByRole('textbox', { name: '跳转页码' })).toHaveFocus();
 });
 
-it.each(['Escape', 'resize'] as const)('makes room below a bottom-of-page menu and clears it after %s', async closeAction => {
-  // jsdom has no layout: supply the measured short-window geometry at the DOM boundary.
-  let scrollY = 0;
-  const rect = (top: number, height: number) => ({
-    x: 24, y: top, left: 24, right: 136, top, bottom: top + height,
-    width: 112, height, toJSON: () => ({}),
-  });
+it.each(['Escape', 'resize'] as const)('keeps the page stationary while the popup opens and closes with %s', async closeAction => {
+  // jsdom has no layout: reproduce the footer sitting at the bottom of a short window.
   const geometry = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function () {
-    return this.getAttribute('aria-label') === '每页显示条数' ? rect(580 - scrollY, 36) : rect(0, 0);
+    const top = this.getAttribute('aria-label') === '每页显示条数' ? 580 : 0;
+    const height = top ? 36 : 0;
+    return { x: 24, y: top, left: 24, right: 136, top, bottom: top + height,
+      width: 112, height, toJSON: () => ({}) };
   });
   const scrollHeight = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function () {
     const space = document.querySelector<HTMLElement>('section > div[aria-hidden="true"]');
     return this.hasAttribute('data-radix-select-viewport') ? 180 : 620 + (parseFloat(space?.style.height || '0') || 0);
   });
   const innerHeight = vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(620);
-  const position = vi.spyOn(window, 'scrollY', 'get').mockImplementation(() => scrollY);
-  const scroll = vi.spyOn(window, 'scrollBy').mockImplementation(options => {
-    if (typeof options === 'object') {
-      scrollY = Math.min(document.documentElement.scrollHeight - window.innerHeight, scrollY + (options.top ?? 0));
-    }
-  });
+  const position = vi.spyOn(window, 'scrollY', 'get').mockReturnValue(0);
+  const scroll = vi.spyOn(window, 'scrollBy').mockImplementation(() => {});
   try {
     show();
     const trigger = screen.getByRole('combobox', { name: '每页显示条数' });
@@ -111,32 +105,15 @@ it.each(['Escape', 'resize'] as const)('makes room below a bottom-of-page menu a
     trigger.focus();
     await user.keyboard('{ArrowDown}');
     await screen.findByRole('listbox');
-    await waitFor(() => expect(scrollY).toBe(194));
     expect(screen.getAllByRole('option')).toHaveLength(5);
-    // 180px of options + the menu gap now fit below the trigger inside 620px.
-    expect(trigger.getBoundingClientRect().bottom + 6 + 180).toBeLessThanOrEqual(608);
-    if (closeAction === 'resize') {
-      innerHeight.mockReturnValue(230);
-      fireEvent(window, new Event('resize'));
-    } else await user.keyboard('{Escape}');
+    expect(scroll).not.toHaveBeenCalled();
+    expect(document.documentElement.scrollHeight).toBe(620);
+    if (closeAction === 'resize') fireEvent(window, new Event('resize'));
+    else await user.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument());
     await waitFor(() => expect(trigger).toHaveFocus());
+    expect(scroll).not.toHaveBeenCalled();
     expect(document.documentElement.scrollHeight).toBe(620);
-
-    if (closeAction === 'resize') {
-      // Radix closes on resize; reopening must use the smaller window, with scrollable options.
-      await user.keyboard('{ArrowDown}');
-      const menu = await screen.findByRole('listbox');
-      await waitFor(() => expect(scrollY).toBe(568));
-      const viewport = menu.querySelector<HTMLElement>('[data-radix-select-viewport]');
-      expect(viewport?.style.maxHeight).toBe('164px');
-      expect(screen.getAllByRole('option')).toHaveLength(5);
-      expect(trigger.getBoundingClientRect().bottom + 6 + 164).toBeLessThanOrEqual(218);
-      await user.keyboard('{Escape}');
-      await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument());
-      await waitFor(() => expect(trigger).toHaveFocus());
-      expect(document.documentElement.scrollHeight).toBe(620);
-    }
   } finally {
     geometry.mockRestore();
     scrollHeight.mockRestore();

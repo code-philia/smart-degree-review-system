@@ -1,7 +1,7 @@
-import { useId, useLayoutEffect, useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Select as SelectPrimitive } from 'radix-ui';
-import { ArrowUpRight, ChevronDown, ChevronLeft, ChevronRight, RotateCw, Check, ListChecks, Search, Trash2, X } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, RotateCw, Check, ListChecks, Search, Trash2, X } from 'lucide-react';
 import type { PaperLintReportListItem } from '../../api/paperLint';
 import { formatChinaDateTime } from '../../utils/dateTime';
 import { Button } from '../ui';
@@ -31,11 +31,6 @@ export function ReportHistoryTable({
   const titleId = useId();
   const managementTriggerRef = useRef<HTMLButtonElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const pageSizeTriggerRef = useRef<HTMLButtonElement>(null);
-  const pageSizeViewportRef = useRef<HTMLDivElement>(null);
-  const pageSizeSpaceRef = useRef<HTMLDivElement>(null);
-  const [pageSizeOpen, setPageSizeOpen] = useState(false);
-  const [pageSizeContent, setPageSizeContent] = useState<HTMLDivElement | null>(null);
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
@@ -60,34 +55,6 @@ export function ReportHistoryTable({
     : currentPage <= 3 ? [1, 2, 3, 'end-gap', pageCount]
       : currentPage >= pageCount - 2 ? [1, 'start-gap', pageCount - 2, pageCount - 1, pageCount]
         : [1, 'start-gap', currentPage, 'end-gap', pageCount];
-
-  useLayoutEffect(() => {
-    const trigger = pageSizeTriggerRef.current;
-    const viewport = pageSizeViewportRef.current;
-    const space = pageSizeSpaceRef.current;
-    if (!pageSizeOpen || !pageSizeContent || !trigger || !viewport || !space) return;
-
-    const margin = 12;
-    const gap = 6;
-    const triggerRect = trigger.getBoundingClientRect();
-    const styles = window.getComputedStyle(pageSizeContent);
-    const chrome = [styles.borderTopWidth, styles.paddingTop, styles.paddingBottom, styles.borderBottomWidth]
-      .reduce((height, value) => height + (parseFloat(value) || 0), 0);
-    const fullHeight = viewport.scrollHeight + chrome;
-    // Keep the trigger and menu inside short windows; only tiny windows need option scrolling.
-    const menuHeight = Math.min(fullHeight, Math.max(36, window.innerHeight - margin * 2 - triggerRect.height - gap));
-    viewport.style.maxHeight = `${Math.max(1, menuHeight - chrome)}px`;
-    const scrollNeeded = Math.max(0, triggerRect.bottom + gap + menuHeight + margin - window.innerHeight);
-    if (scrollNeeded > 0) {
-      // A footer at the document end has nowhere to scroll. Reserve only the missing room,
-      // and remove it when the popup closes instead of leaving a tall permanent footer.
-      const documentHeight = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
-      const missingRoom = Math.max(0, window.scrollY + scrollNeeded + window.innerHeight - documentHeight);
-      space.style.height = `${missingRoom}px`;
-      window.scrollBy({ top: scrollNeeded, behavior: 'instant' });
-    }
-    return () => { space.style.height = '0px'; };
-  }, [pageSizeOpen, pageSizeContent]);
 
   function jumpToPage(input: HTMLInputElement) {
     const value = input.value.trim();
@@ -278,12 +245,12 @@ export function ReportHistoryTable({
             共 <span className="font-medium text-slate-700">{reports.length}</span> 条{filtering ? `，匹配 ${filteredReports.length} 条` : ''}
           </span>
           <span className="sr-only">{rangeLabel}</span>
-          <SelectPrimitive.Root value={String(pageSize)} disabled={deleting} open={pageSizeOpen} onOpenChange={setPageSizeOpen}
+          <SelectPrimitive.Root value={String(pageSize)} disabled={deleting}
             onValueChange={value => {
               setPageSize(Number(value));
               setPage(1);
             }}>
-            <SelectPrimitive.Trigger ref={pageSizeTriggerRef} aria-label="每页显示条数"
+            <SelectPrimitive.Trigger aria-label="每页显示条数"
               className="group inline-flex h-9 min-w-28 items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 text-sm tabular-nums text-slate-700 outline-none transition-colors hover:border-slate-300 focus-visible:border-brand-300 focus-visible:ring-2 focus-visible:ring-brand-100 data-[state=open]:border-brand-300 data-[state=open]:ring-2 data-[state=open]:ring-brand-50 disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none">
               <SelectPrimitive.Value />
               <SelectPrimitive.Icon asChild>
@@ -291,19 +258,25 @@ export function ReportHistoryTable({
               </SelectPrimitive.Icon>
             </SelectPrimitive.Trigger>
             <SelectPrimitive.Portal>
-              <SelectPrimitive.Content ref={setPageSizeContent} position="popper" side="bottom" align="start" sideOffset={6} avoidCollisions={false}
-                className="z-50 min-w-32 overflow-hidden rounded-xl border border-slate-200/80 bg-white p-1.5 text-slate-700 shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)]">
-                <SelectPrimitive.Viewport ref={pageSizeViewportRef}>
+              <SelectPrimitive.Content position="popper" side="bottom" align="start" sideOffset={4} collisionPadding={12}
+                className="z-50 max-h-[min(176px,var(--radix-select-content-available-height))] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-lg border border-slate-200/80 bg-white p-1 text-slate-700 shadow-[0_8px_24px_-6px_rgba(15,23,42,0.16)]">
+                <SelectPrimitive.ScrollUpButton className="flex h-4 items-center justify-center text-slate-400">
+                  <ChevronUp aria-hidden="true" className="size-3" />
+                </SelectPrimitive.ScrollUpButton>
+                <SelectPrimitive.Viewport>
                   {[5, 10, 20, 50, 100].map(size => (
                     <SelectPrimitive.Item key={size} value={String(size)}
-                      className="relative flex min-h-9 cursor-pointer items-center rounded-lg py-2 pl-2.5 pr-8 text-sm tabular-nums outline-none select-none data-[highlighted]:bg-brand-50 data-[highlighted]:text-brand-700 data-[state=checked]:bg-brand-50 data-[state=checked]:text-brand-700">
+                      className="relative flex min-h-8 cursor-pointer items-center rounded-md py-1.5 pl-2 pr-7 text-[13px] leading-5 tabular-nums outline-none select-none data-[highlighted]:bg-brand-50 data-[highlighted]:text-brand-700 data-[state=checked]:bg-brand-50 data-[state=checked]:text-brand-700">
                       <SelectPrimitive.ItemText>{size} 条/页</SelectPrimitive.ItemText>
-                      <SelectPrimitive.ItemIndicator className="absolute right-2.5 inline-flex items-center text-brand-600">
+                      <SelectPrimitive.ItemIndicator className="absolute right-2 inline-flex items-center text-brand-600">
                         <Check aria-hidden="true" className="size-3.5" />
                       </SelectPrimitive.ItemIndicator>
                     </SelectPrimitive.Item>
                   ))}
                 </SelectPrimitive.Viewport>
+                <SelectPrimitive.ScrollDownButton className="flex h-4 items-center justify-center text-slate-400">
+                  <ChevronDown aria-hidden="true" className="size-3" />
+                </SelectPrimitive.ScrollDownButton>
               </SelectPrimitive.Content>
             </SelectPrimitive.Portal>
           </SelectPrimitive.Root>
@@ -350,7 +323,6 @@ export function ReportHistoryTable({
         </div>
         <span aria-live="polite" className="sr-only">第 {currentPage} / {pageCount} 页</span>
       </nav>
-      <div ref={pageSizeSpaceRef} aria-hidden="true" />
     </section>
   );
 }
