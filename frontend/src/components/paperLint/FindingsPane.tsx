@@ -68,7 +68,10 @@ function RepairAction({ instruction }: { instruction: string }) {
 }
 
 /** Render multi-point findings as readable bullets instead of one dense line. */
-function FindingMessage({ message }: { message: string }) {
+function FindingMessage({ message, paragraph = false }: { message: string; paragraph?: boolean }) {
+  if (paragraph) {
+    return <p className="mt-2 whitespace-pre-line break-words text-sm leading-6 text-slate-700">{message}</p>;
+  }
   const parts = message
     .split(/\r?\n+|[；;]+/)
     .map((part) => part.replace(/^\s*(?:[-•·*]|\d+[.)、])\s*/, '').trim())
@@ -340,7 +343,7 @@ export function FindingsPane({
                     </Button>
                   </div>
                 </div>
-                <FindingMessage message={item.finding.message} />
+                <FindingMessage message={item.finding.message} paragraph={item.ruleRun.rule_id === 'bilingual_abstract_consistency_check'} />
                 {referenceExcerpt ? <blockquote className="mt-3 rounded-lg bg-slate-50 p-3 text-xs leading-6 text-slate-700"><p className="font-semibold">参考文献原文</p><p className="mt-1 whitespace-pre-wrap break-words">{referenceExcerpt}</p></blockquote> : null}
                 {reference ? <p className="mt-2 text-xs leading-6 text-blue-700">{item.finding.suggestion || '请人工复核该条引用及其原始来源。'}</p> : null}
                 {onFindingFeedback ? <FeedbackControls
