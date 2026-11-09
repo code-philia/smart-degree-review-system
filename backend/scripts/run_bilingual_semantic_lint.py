@@ -926,8 +926,11 @@ def _run_aligned_abstract(ir, facts):
         '逐句检查具体方法名称和独立结论，不仅看句子主题；对应句组未覆盖独立事实时用partial。'
         '方法名称或技术操作被不同概念替换时用conflict，即使其余句意相同。'
         'partial、missing、conflict 仅是候选，不是最终告警。'
-        '仅输出JSON：{"from_chinese":[{"source_id":1,"target_ids":[1],'
-        '"status":"matched","reason":"简短依据"}],"from_english":[]}。\n' + context)}])
+        '只输出一个JSON对象，必须同时含有from_chinese和from_english两个数组。'
+        '每条记录只写source_id、target_ids、status，不写理由或原文。'
+        '以下为结构示例，实际必须覆盖两侧所有编号：'
+        '{"from_chinese":[{"source_id":1,"target_ids":[1],"status":"matched"}],'
+        '"from_english":[{"source_id":1,"target_ids":[1],"status":"matched"}]}。\n' + context)}])
     if not isinstance(alignment, dict):
         raise ValueError('abstract alignment must be an object')
     candidates = []
@@ -989,6 +992,10 @@ def _run_aligned_abstract(ir, facts):
             '每项source_quote必须逐字摘自源句，不能先概括掉待核对的信息；'
             'covered必须给出目标摘要中明确表达该项事实的target_quote原文，'
             '不能用主题相近的泛称代替具体事实。不对应填missing且target_quote为空，不确定填uncertain。'
+            '同一个方法环节在两侧列出了不同的具体操作时，必须标contradiction，'
+            '即使其余操作和句意相同。对比同一环节的两项实际操作，分别摘录两侧术语，'
+            '填入source_quote和target_quote，并在target_ids中标明目标术语所在句。'
+            '明确的替换属于冲突，不能只说源术语在另一侧缺失。只有没有替代内容时才标missing。'
             '注意正常的语义改写仍算covered：同一语境中性能的泛称与吞吐表现可以对应；'
             '资源容量不足与需求超过可用容量是同一限制的两种说法，无法部署与设计不可行也可以对应。'
             '不可因措辞不同漏掉这些实际对应。相反，具体指标的变化不能被仅有泛泛约束的句子覆盖。'
@@ -999,7 +1006,7 @@ def _run_aligned_abstract(ir, facts):
             '"missing_in":"chinese|english|null，partial_omission必须指出实际缺失侧",'
             '"source_fact":"源句具体事实","target_fact":"目标实际对应事实或空串",'
             '"fact_checks":[{"source_quote":"源句中的一项事实",'
-            '"relation":"covered|missing|uncertain","target_quote":"目标原文或空串"}],'
+            '"relation":"covered|missing|contradiction|uncertain","target_quote":"目标原文或空串"}],'
             '"target_ids":[1],"reason":"依据"}]}。\n'
             + context + '\n候选：\n' + json.dumps(candidates, ensure_ascii=False))}])
         for key in usage:
@@ -1013,7 +1020,7 @@ def _run_aligned_abstract(ir, facts):
     raw_reviews = json.loads(json.dumps(reviews, ensure_ascii=True))
     validation_diagnostics = []
     lookup = {r['candidate_id']:r for r in candidates}
-    mismatches, seen = [], set()
+    mismatches, seen = [], {}
     for review in reviews:
         try:
             candidate = lookup[review['candidate_id']]
@@ -1025,6 +1032,10 @@ def _run_aligned_abstract(ir, facts):
                 'equivalent','detail_difference','uncertain','core_omission','partial_omission','contradiction'
             }:
                 raise ValueError('invalid abstract review verdict')
+            tids = review.get('target_ids',candidate['target_ids'])
+            if not isinstance(tids,list) or any(type(i) is not int or not 1 <= i <= len(targets) for i in tids):
+                raise ValueError('invalid reviewed abstract target')
+            target = ' '.join(targets[i-1] for i in tids)
             checks = review.get('fact_checks')
             if verdict in {'equivalent','detail_difference'} and not checks:
                 raise ValueError('abstract equivalence requires fact-level coverage evidence')
@@ -1034,6 +1045,7 @@ def _run_aligned_abstract(ir, facts):
                 source_text = _compact_claim(sources[candidate['source_id']-1])
                 target_text = _compact_claim(' '.join(targets))
                 missing = []
+                conflicts = []
                 invalid_checks = False
                 for fact_index, check in enumerate(checks, 1):
                     try:
@@ -1042,10 +1054,14 @@ def _run_aligned_abstract(ir, facts):
                         quote = str(check.get('source_quote') or '').strip()
                         target_quote = str(check.get('target_quote') or '').strip()
                         relation = check.get('relation')
-                        if not quote or _compact_claim(quote) not in source_text or relation not in {'covered','missing','uncertain'}:
+                        if not quote or _compact_claim(quote) not in source_text or relation not in {'covered','missing','contradiction','uncertain'}:
                             raise ValueError('abstract fact check has invalid source evidence: ' + repr(quote)[:200])
                         if relation == 'covered' and (not target_quote or _compact_claim(target_quote) not in target_text):
                             raise ValueError('abstract fact check has untraceable target evidence')
+                        if relation == 'contradiction':
+                            if not target_quote or _compact_claim(target_quote) not in _compact_claim(target):
+                                raise ValueError('abstract conflict has no target evidence in aligned sentences')
+                            conflicts.append((quote, target_quote) if zh else (target_quote, quote))
                         if relation == 'missing':
                             if target_quote:
                                 raise ValueError('missing abstract fact cannot have target evidence')
@@ -1055,7 +1071,16 @@ def _run_aligned_abstract(ir, facts):
                         diagnostic = dict(candidate_id=review['candidate_id'], stage='fact_evidence', fact_index=fact_index, reason=str(error))
                         validation_diagnostics.append(diagnostic)
                         review.setdefault('validation_errors', []).append(diagnostic)
-                if missing and verdict != 'contradiction':
+                if conflicts:
+                    verdict = 'contradiction'
+                    left, right = conflicts[0]
+                    opposite_quote = _compact_claim(right if zh else left)
+                    matching_targets = [i for i in tids if opposite_quote in _compact_claim(targets[i-1])]
+                    if len(matching_targets) == 1:
+                        target = targets[matching_targets[0]-1]
+                    review.update(verdict=verdict, missing_in=None,
+                                  reason=f'中文写作「{left}」，英文写作「{right}」，对应事实表述不一致。')
+                elif missing and verdict != 'contradiction':
                     verdict = 'partial_omission'
                     review.update(verdict=verdict,missing_in='english' if zh else 'chinese',
                                   reason=('英文摘要' if zh else '中文摘要')+'未对应说明：'+'；'.join(missing))
@@ -1067,16 +1092,12 @@ def _run_aligned_abstract(ir, facts):
                     review.update(verdict=verdict,missing_in=None)
             if verdict not in {'core_omission','partial_omission','contradiction'}:
                 continue
-            tids = review.get('target_ids',candidate['target_ids'])
-            if not isinstance(tids,list) or any(type(i) is not int or not 1 <= i <= len(targets) for i in tids):
-                raise ValueError('invalid reviewed abstract target')
             reason = str(review.get('reason') or '').strip()
             if not reason or _dismisses_mismatch(reason):
                 continue
             if verdict == 'contradiction' and not tids:
                 continue
             source = sources[candidate['source_id']-1]
-            target = ' '.join(targets[i-1] for i in tids)
             kind = 'conflict' if verdict == 'contradiction' else ('missing_in_english' if zh else 'missing_in_chinese')
             if verdict == 'partial_omission':
                 missing_in = review.get('missing_in')
@@ -1091,14 +1112,17 @@ def _run_aligned_abstract(ir, facts):
                        english_claim=target if zh else source)
             signature = (kind,row['chinese_claim'],row['english_claim'])
             if signature not in seen:
-                seen.add(signature)
+                seen[signature] = len(mismatches)
                 mismatches.append(row)
+            elif kind == 'conflict' and len(reason) < len(mismatches[seen[signature]]['reason']):
+                mismatches[seen[signature]] = row
         except (ValueError, TypeError, KeyError) as error:
             diagnostic = dict(candidate_id=review.get('candidate_id'), stage='review_evidence', reason=str(error))
             validation_diagnostics.append(diagnostic)
             review['validation_status'] = 'unverified'
             review['validation_error'] = str(error)
             continue
+    mismatches.sort(key=lambda row: row['mismatch_type'] != 'conflict')
     findings = []
     for index,row in enumerate(mismatches[:3],1):
         anchors,evidence = _abstract_issue_anchors(ir,facts,row)
@@ -1111,7 +1135,7 @@ def _run_aligned_abstract(ir, facts):
         outcome='issues_found' if findings else ('inconclusive' if validation_diagnostics else 'passed'),
         message=('摘要对照已完成，部分候选的证据暂未核实。已保留核实通过的结果；可稍后重新检测。'
                  if validation_diagnostics else None),findings=findings,model_usage=usage,
-        params=dict(comparison_mode='full_sentence_alignment_v5.2',alignment=alignment,
+        params=dict(comparison_mode='full_sentence_alignment_v5.3',alignment=alignment,
                     candidate_reviews=reviews,raw_candidate_reviews=raw_reviews,
                     validation_incomplete=bool(validation_diagnostics),
                     validation_diagnostics=validation_diagnostics,mismatches=mismatches[:3]))

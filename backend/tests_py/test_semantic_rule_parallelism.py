@@ -202,6 +202,37 @@ def test_missing_sentence_alignment_is_technical_failure(monkeypatch):
         lint._run_semantic_rule({}, {'chinese_abstract':'方法有效。','english_abstract':'It works.'},'bilingual_abstract_consistency_check')
 
 
+def test_grounded_fact_conflict_survives_omissions_and_invalid_checks(monkeypatch):
+    lint = module()
+    zh = '研究背景甲。研究背景乙。研究背景丙。该方法使用循环变换。'
+    en = 'The method uses branch prediction.'
+    alignment = {
+        'from_chinese': [
+            dict(source_id=i, status='missing', target_ids=[]) for i in range(1, 5)
+        ],
+        'from_english': [dict(source_id=1, status='matched', target_ids=[4])],
+    }
+    reviews = [
+        dict(candidate_id=f'from_chinese:{i}', verdict='core_omission', target_ids=[],
+             reason=f'缺少第{i}项背景。') for i in range(1, 4)
+    ]
+    reviews.append(dict(candidate_id='from_chinese:4', verdict='partial_omission',
+        missing_in='english', target_ids=[1], reason='缺少操作。',
+        fact_checks=[
+            dict(source_quote='循环变换', relation='contradiction', target_quote='branch prediction'),
+            dict(source_quote='编造的片段', relation='missing', target_quote=''),
+        ]))
+    replies = iter([alignment, {'reviews': reviews}])
+    monkeypatch.setattr(lint, 'request_json', lambda _: (next(replies), dict(input_tokens=1, output_tokens=1)))
+    result = lint._run_semantic_rule({}, dict(chinese_abstract=zh, english_abstract=en),
+                                     'bilingual_abstract_consistency_check')
+    assert len(result['findings']) == 3
+    assert result['params']['mismatches'][0]['mismatch_type'] == 'conflict'
+    assert '循环变换' in result['findings'][0]['message']
+    assert 'branch prediction' in result['findings'][0]['message']
+    assert result['params']['validation_incomplete'] is True
+
+
 def test_verified_omissions_stay_independent_and_capped(monkeypatch):
     lint=module()
     zh=['贡献甲。','贡献乙。','贡献丙。','贡献丁。']
