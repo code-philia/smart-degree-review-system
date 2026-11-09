@@ -1,1 +1,1 @@
-export function startPondRenderer(canvas: HTMLCanvasElement, hit: SVGPathElement, stage: SVGSVGElement): () => void;
+export function startPondRenderer(canvas: HTMLCanvasElement, scene: HTMLDivElement): () => void;

@@ -1,15 +1,13 @@
-/* A damped height field: the surface propagates waves instead of stretching trails. */
-import { WaterWaveSolver, POOL_GLSL, POOL_PATH, isInPool, poolRight } from './waterSurface';
+import { ART_WIDTH, ART_HEIGHT, POOL_FAR, POOL_DEPTH, POOL_GLSL, WaterWaveSolver, sourcePoint, isInPool } from './waterSurface';
 
-/** Start the selected local pond effect; return a complete teardown for React navigation. */
-export function startPondRenderer(canvas, waterHit, waterStage) {
-  if (typeof WebGLRenderingContext === 'undefined') return () => {};
+export function startPondRenderer(canvas, scene) {
+  if (typeof WebGLRenderingContext === 'undefined') { canvas.dataset.renderer = 'static'; return () => {}; }
   let disposed = false;
   const shaders = [],
     textures = [];
   let buffer, image;
 
-  waterHit.setAttribute('d', POOL_PATH);
+
 
   const field = new WaterWaveSolver(window.innerWidth <= 800 ? 256 : 384, window.innerWidth <= 800 ? 112 : 160, 4.8),
     pixels = new Uint8Array(field.cols * field.rows * 4);
@@ -32,11 +30,11 @@ export function startPondRenderer(canvas, waterHit, waterStage) {
     ${POOL_GLSL}
     void main(){
       float scale=max(resolution.x/imageSize.x,resolution.y/imageSize.y);vec2 drawn=imageSize*scale;
-      vec2 source=(uv*resolution-vec2(0.,(resolution.y-drawn.y)*.5))/drawn;vec2 p=source*imageSize;
-      float depth=clamp((p.y-737.)/204.,0.,1.);float width=poolRight(p.y);
-      float edge=smoothstep(750.,762.,p.y)*smoothstep(0.,14.,p.x-poolLeft(p.y))*(1.-smoothstep(width-30.,width,p.x));
-      if(edge<.001||p.x<0.){gl_FragColor=vec4(0.);return;}
-      vec2 q=vec2(p.x/width,pow(depth,.55));
+      vec2 source=(uv*resolution-(resolution-drawn)*photoPosition)/drawn;vec2 p=source*imageSize;
+      if(p.y<628.||p.y>866.||p.x<110.||p.x>1672.){gl_FragColor=vec4(0.);return;}
+      float depth=clamp((p.y-625.)/250.,0.,1.);float edge=waterMask(p);
+      if(edge<.001){gl_FragColor=vec4(0.);return;}
+      vec2 q=vec2(p.x/imageSize.x,pow(depth,.55));
       float hx=(heightAt(q+vec2(texel.x,0.))-heightAt(q-vec2(texel.x,0.)))/(2.*4.8*texel.x);
       float hy=(heightAt(q+vec2(0.,texel.y))-heightAt(q-vec2(0.,texel.y)))/(2.*texel.y);
       // Perspective-compressed wave fronts run across the pond, rather than rounded blobs.
@@ -51,6 +49,7 @@ export function startPondRenderer(canvas, waterHit, waterStage) {
       float perspective=mix(.16,1.,depth);
       // A short vertical refraction breaks reflections into moving horizontal facets.
       vec2 refractOffset=clamp(vec2(hx*5.5,hy*6.5),vec2(-5.5,-3.5),vec2(5.5,3.5))*perspective;
+      refractOffset*=waterMask(p+refractOffset);
       vec3 normal=normalize(vec3(-hx*.5,-hy*.92,1.));
       vec3 light=normalize(vec3(.18,-.38,1.));
       vec3 halfVector=normalize(light+vec3(0.,0.,1.));
@@ -70,8 +69,20 @@ export function startPondRenderer(canvas, waterHit, waterStage) {
     if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw Error(gl.getShaderInfoLog(shader));
     return shader;
   }
+  let photoPosition = { x: 0.5, y: 0.5 }, lastLayout = "";
+  function readLayout() {
+    const rect = canvas.getBoundingClientRect();
+    const key = [rect.width, rect.height, window.innerWidth].join("/");
+    if (key !== lastLayout) {
+      const parts = getComputedStyle(scene).backgroundPosition.split(/\s+/);
+      photoPosition = { x: parseFloat(parts[0]) / 100, y: parseFloat(parts[1] || parts[0]) / 100 };
+      if (!Number.isFinite(photoPosition.x) || !Number.isFinite(photoPosition.y)) photoPosition = { x: 0.5, y: 0.5 };
+      lastLayout = key;
+    }
+    return rect;
+  }
   function resize() {
-    const r = canvas.getBoundingClientRect();
+    const r = readLayout();
     if (r.width < 1 || r.height < 1) return false;
     const ratio = Math.min(devicePixelRatio || 1, 1.25),
       w = Math.round(r.width * ratio),
@@ -82,6 +93,7 @@ export function startPondRenderer(canvas, waterHit, waterStage) {
     }
     gl.viewport(0, 0, w, h);
     gl.uniform2f(locations.resolution, r.width, r.height);
+    gl.uniform2f(locations.photoPosition, photoPosition.x, photoPosition.y);
     return true;
   }
   let steps = 0;
@@ -145,13 +157,11 @@ export function startPondRenderer(canvas, waterHit, waterStage) {
   }
   function disturb(event) {
     if (disposed || document.hidden) return;
-    const matrix = waterStage.getScreenCTM();
-    if (!matrix) return;
-    const p = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
-    if (!isInPool(p.x, p.y)) return;
-    const depth = (p.y - 737) / 204,
-      width = poolRight(p.y);
-    if (p.x < 0 || p.x > width) return;
+    if (event.target instanceof Element && event.target.closest(".signin,.v9-header-layer")) { previous = null; return; }
+    const rect = readLayout();
+    const p = sourcePoint(event.clientX, event.clientY, rect, photoPosition);
+    if (!isInPool(p.x, p.y)) { previous = null; return; }
+    const depth = Math.max(0, Math.min(1, (p.y - POOL_FAR) / POOL_DEPTH)), width = ART_WIDTH;
     const now = performance.now(),
       point = { x: p.x / width, y: Math.pow(depth, 0.55), time: now };
     if (previous && now - previous.time < 250) {
@@ -172,9 +182,9 @@ export function startPondRenderer(canvas, waterHit, waterStage) {
   const pointerLeave = () => {
     previous = null;
   };
-  waterHit.addEventListener('pointermove', disturb, { passive: true });
-  waterHit.addEventListener('pointerdown', pointerDown, { passive: true });
-  waterHit.addEventListener('pointerleave', pointerLeave);
+  window.addEventListener('pointermove', disturb, { passive: true });
+  window.addEventListener('pointerdown', pointerDown, { passive: true });
+  window.addEventListener('pointerleave', pointerLeave);
   try {
     gl = canvas.getContext('webgl', {
       alpha: true,
@@ -197,6 +207,7 @@ export function startPondRenderer(canvas, waterHit, waterStage) {
     gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
     locations = {
       resolution: gl.getUniformLocation(program, 'resolution'),
+      photoPosition: gl.getUniformLocation(program, 'photoPosition'),
       imageSize: gl.getUniformLocation(program, 'imageSize'),
       texel: gl.getUniformLocation(program, 'texel'),
       time: gl.getUniformLocation(program, 'time'),
@@ -238,13 +249,19 @@ export function startPondRenderer(canvas, waterHit, waterStage) {
       gl.bindTexture(gl.TEXTURE_2D, photo);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-      gl.uniform2f(locations.imageSize, image.naturalWidth, image.naturalHeight);
+      gl.uniform2f(locations.imageSize, ART_WIDTH, ART_HEIGHT);
+      canvas.dataset.sourceSize = image.naturalWidth + "x" + image.naturalHeight;
+      canvas.dataset.logicalSize = ART_WIDTH + "x" + ART_HEIGHT;
       loaded = true;
       canvas.dataset.renderer = 'height-field-webgl';
-      canvas.dataset.mask = 'pool-only';
+      canvas.dataset.mask = 'B-v5-water-only';
       start();
     };
-    image.src = '/sjtu-siyuan-illustration.webp';
+    const background = getComputedStyle(scene).backgroundImage;
+    const embedded = background.slice(4, -1).replace(/^["']|["']$/g, "");
+    if (!embedded || new URL(embedded, document.baseURI).origin !== window.location.origin) throw Error("Expected the approved same-origin illustration");
+    image.onerror = () => { canvas.dataset.renderer = "static"; canvas.hidden = true; };
+    image.src = embedded;
   } catch (error) {
     canvas.dataset.renderer = 'static';
     canvas.dataset.error = String(error.message);
@@ -265,20 +282,21 @@ export function startPondRenderer(canvas, waterHit, waterStage) {
     frameId = 0;
     canvas.hidden = true;
   };
-  window.addEventListener('resize', start);
+  const onResize = () => { previous = null; start(); };
+  window.addEventListener('resize', onResize);
   document.addEventListener('visibilitychange', visibility);
   canvas.addEventListener('webglcontextlost', contextLost);
   start();
   return () => {
     disposed = true;
     cancelAnimationFrame(frameId);
-    window.removeEventListener('resize', start);
+    window.removeEventListener('resize', onResize);
     document.removeEventListener('visibilitychange', visibility);
     canvas.removeEventListener('webglcontextlost', contextLost);
-    waterHit.removeEventListener('pointermove', disturb);
-    waterHit.removeEventListener('pointerdown', pointerDown);
-    waterHit.removeEventListener('pointerleave', pointerLeave);
-    if (image) image.onload = null;
+    window.removeEventListener('pointermove', disturb);
+    window.removeEventListener('pointerdown', pointerDown);
+    window.removeEventListener('pointerleave', pointerLeave);
+    if (image) { image.onload = null; image.onerror = null; }
     if (gl) {
       for (const texture of textures) gl.deleteTexture(texture);
       for (const shader of shaders) gl.deleteShader(shader);

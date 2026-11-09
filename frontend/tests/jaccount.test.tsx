@@ -13,11 +13,11 @@ describe('campus sign-in entry', () => {
     render(<AuthPage returnTo="https://evil.example"/>);
     expect(screen.getByRole('link',{name:'使用 jAccount 登录'})).toHaveAttribute('href','/api/auth/jaccount');
   });
-  it('keeps authentication, detection capabilities and system information in one panel', () => {
+  it('keeps authentication and capabilities in the card with the full description above it', () => {
     render(<AuthPage />);
     const panel = screen.getByRole('region', { name: '身份认证区域' });
-    expect(within(panel).getByRole('region', { name: '系统检测能力' })).toBeInTheDocument();
-    expect(within(panel).getByRole('heading', { name: '关于本系统' })).toBeInTheDocument();
+    expect(within(panel).getByRole('region', { name: '学位论文规范性检测' })).toBeInTheDocument();
+    expect(screen.getByLabelText('系统说明')).toBeInTheDocument();
     expect(within(panel).getByRole('link', { name: '使用 jAccount 登录' })).toBeInTheDocument();
   });
   it('offers only server-side campus authorization without local password sign-in', () => {

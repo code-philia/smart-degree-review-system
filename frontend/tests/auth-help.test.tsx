@@ -14,7 +14,7 @@ describe('public campus-only sign-in page', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('heading', { name: '统一身份认证' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '智慧学位AI评阅辅助系统', level: 2 })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '登录本地账号' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('本地账号登录帮助')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: '使用 jAccount 登录' })).toHaveAttribute('href', '/api/auth/jaccount');
@@ -34,7 +34,7 @@ describe('public campus-only sign-in page', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('heading', { name: '关于本系统' })).toBeInTheDocument();
+    expect(screen.getByLabelText('系统说明')).toBeInTheDocument();
     expect(screen.queryByText(/忘记密码|本地账号登录帮助|本地账号登录继续保留/)).not.toBeInTheDocument();
   });
 });
