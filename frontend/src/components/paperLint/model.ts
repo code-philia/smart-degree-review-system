@@ -126,7 +126,7 @@ export function genericExecutionWarnings(runs: PaperLintRuleRun[] = []): RuleExe
       return {
         ruleId: run.rule_id,
         feedbackTarget: warningFeedbackItem(run, executionWarningFeedbackTargets(run)[0].findingId, 0),
-        title: `规则未完成检测：${title}`,
+        title,
         reason,
         suggestion: chapterPrerequisiteSuggestion(run) || '请稍后重试；如问题持续，请检查运行记录。',
       };

@@ -86,8 +86,8 @@ it('preserves an inconclusive semantic result without presenting an all-clear', 
     rule_runs: [{ rule_id: 'sjtu_rule_17', rule_run_id: 'semantic', severity: 'warning', execution_status: 'completed',
       outcome: 'inconclusive', message: '未能提取英文摘要，请人工核对', findings: [] }] } });
   show();
-  expect(await screen.findByText('未能提取英文摘要，请人工核对')).toBeInTheDocument();
-  expect(screen.getByText('部分规则无法判定')).toBeInTheDocument();
+  expect(await screen.findByText('部分规则无法判定')).toBeInTheDocument();
+  expect(within(screen.getByRole('region', { name: '检测结论' })).queryByText('未能提取英文摘要，请人工核对')).not.toBeInTheDocument();
   expect(screen.queryByText('规则检查通过')).not.toBeInTheDocument();
 });
 

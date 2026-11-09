@@ -150,9 +150,6 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
   const inconclusiveRuns = report.result.rule_runs.filter((run) =>
     run.outcome === 'inconclusive' && !(run.rule_id === 'sjtu_rule_32' && run.execution_status === 'completed' && !referenceResourcesUnavailable(run)) && compilerPublicationLabel(run) !== '未触发告警');
   const hasInconclusiveRules = summary.unsupported_rule_count > 0 || inconclusiveRuns.length > 0;
-  const unavailableReasons = [...new Set(report.result.rule_runs
-    .filter((run) => run.execution_status === 'unsupported' || run.execution_status === 'error' || inconclusiveRuns.includes(run))
-    .map((run) => run.message).filter(Boolean))];
   const metricsPlaceholder = metricsLoading ? '统计中…' : '未统计';
   const pdfUrl = `/api/normative/paper-lint/reports/${encodeURIComponent(reportId!)}/pdf`;
   const numericReviewRun = report.result.rule_runs.find(run => run.rule_id === 'abstract_numeric_consistency_check');
@@ -210,7 +207,6 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
             </div>
           ))}
         </div>
-        {unavailableReasons.length > 0 ? <p className="mt-3 text-sm text-slate-600">{unavailableReasons.join('；')}</p> : null}
       </Card>
       <DetectionScope report={report} rules={rules} />
       {!isSemanticReport ? <div className="flex items-center gap-2">

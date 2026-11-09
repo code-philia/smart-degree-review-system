@@ -47,7 +47,7 @@ export function LivePaperLintReport({ file, rules, runs, selectedRuleIds }: Prop
         </dl>
         <p role="status" className="mt-3 h-12 overflow-y-auto text-xs leading-6 text-slate-500">
           {documentBlocked ? '论文编译校验未通过，所有论文规则均未检测。请查看严重级别的具体原因。' : failed.length || undecided.length
-            ? `${failed.length ? `${failed.length} 项规则执行失败。` : ''}${undecided.length ? `${undecided.length} 项规则暂无法判定。` : ''}${[...new Set([...failed, ...undecided].map(run => run.message).filter(Boolean))].join('；')}`
+            ? `${failed.length ? `${failed.length} 项规则执行失败。` : ''}${undecided.length ? `${undecided.length} 项规则暂无法判定。` : ''}`
             : '检测进行中，新发现的问题将自动更新到报告中。完成后自动保存至历史报告。'}
         </p>
       </div>

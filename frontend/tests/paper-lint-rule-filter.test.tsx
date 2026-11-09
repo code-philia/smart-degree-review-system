@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { describe, expect, it, vi } from 'vitest';
 import type { PaperLintRule, PaperLintRuleRun } from '../src/api/paperLint';
 import { FindingsPane } from '../src/components/paperLint/FindingsPane';
-import { flattenPaperLintFindings, numericExecutionWarnings } from '../src/components/paperLint/model';
+import { flattenPaperLintFindings, genericExecutionWarnings, numericExecutionWarnings } from '../src/components/paperLint/model';
 import { RuleFilter, type RuleFilterOption } from '../src/components/paperLint/RuleFilter';
 
 const rules = [
@@ -29,6 +29,18 @@ async function selectRule(title: string) {
 }
 
 describe('clear report rule selector', () => {
+  it('keeps finding explanations intact and uses plain rule names for execution warnings', () => {
+    const message = '原文误用了英文分号 “;”，应使用中文分号 “；”。';
+    const run = { ...issues, findings: [{ ...issues.findings[0], message }] };
+    const unavailable: PaperLintRuleRun = { ...zero, execution_status: 'unsupported', outcome: 'inconclusive', message: '缺少前置条件' };
+    render(<FindingsPane {...props} ruleRuns={[run, unavailable]}
+      findings={flattenPaperLintFindings({ rule_runs: [run] })}
+      executionWarnings={genericExecutionWarnings([unavailable])} />);
+    expect(screen.getByText(message).tagName).toBe('P');
+    expect(screen.queryByText(/规则未完成检测：/)).not.toBeInTheDocument();
+    expect(screen.getByText('章标题另起一页')).toBeInTheDocument();
+    expect(screen.getByText('缺少前置条件')).toBeInTheDocument();
+  });
   it.each(['all', 'prerequisite'])('shows only execution status badges in the execution-warning category (selected=%s)', async value => {
     const options: RuleFilterOption[] = [
       { id: 'warnings', title: '有警告的规则', count: 4, counts: { error: 0, warning: 4, info: 0 }, status: 'completed' },
