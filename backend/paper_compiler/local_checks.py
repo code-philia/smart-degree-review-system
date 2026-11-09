@@ -38,7 +38,7 @@ _OBJECT_NUMBERS = (
 # by an optionally spaced title of at most 40 chars without sentence punctuation.
 # Prose such as 第三章的… or 第一章是绪论，… therefore never becomes a chapter label.
 _CHAPTER_LABEL = re.compile(r'^第\s*[一二三四五六七八九十百零〇0-9]{1,4}\s*章(?:\s*[^\s，。；：！？、,;:!?]{1,40})?$')
-_NUMBERED_CHAPTER_LABEL = re.compile(r'^(?:chapter\s*\d+(?:\s+[^，。；：！？,;:!?]{1,100})?|\d{1,3}[.．、]?\s+[^\d\W][^，。；：！？,;:!?]{0,99})$', re.I)
+_NUMBERED_CHAPTER_LABEL = re.compile(r'^(?:chapter\s*\d+(?:\s+[^，。；！？,;!?]{1,100})?|\d{1,3}[.．、]?\s+[^\d\W][^，。；！？,;!?]{0,99})$', re.I)
 _LEADER_LINE = re.compile(r'\.{3,}|…')
 # Page furniture above the top margin (running headers, page numbers) is not prior
 # chapter content; rows() drops small ones, but 12.6 pt headers survive its 12.5 cut.
@@ -540,6 +540,27 @@ def chapter_labels(ir):
                        for node in ir['nodes'] if node['kind'] == 'Heading'
                        for span in node['provenance'] if (source := _source(span))]
 
+    widths = {page['page_index']: page['width'] for page in ir['layout']['pages']}
+
+    def centered(page, box):
+        width = widths[page]
+        centers = (width * .25, width * .75) if page in gutters else (width / 2,)
+        return min(abs((box[0] + box[2]) / 2 - center) for center in centers) <= width * .07
+
+    # Recover split numbered article headings that remain Paragraph nodes.
+    # Strong Introduction/Conclusion anchors supply the native first-level style;
+    # this fallback never broadens either thesis profile or unnumbered artwork.
+    article_sizes = [box[3] - box[1] for page, box, text, _ in visual
+                     if profile == 'research-article' and page not in contents_pages
+                     and _NUMBERED_CHAPTER_LABEL.fullmatch(text.strip())
+                     and (_INTRO.fullmatch(_CHAPTER.sub('', compact(text)))
+                          or _CONCLUSION.fullmatch(_CHAPTER.sub('', compact(text))))
+                     and body and box[3] - box[1] >= body * 1.15 and centered(page, box)]
+
+    def article_heading(page, box):
+        return (centered(page, box)
+                and any(abs((box[3] - box[1]) / size - 1) <= .06 for size in article_sizes))
+
     def numbered_heading(page, box, text):
         # Numeric first-level headings need native heading typography. Neither
         # subsection numbers (2.1) nor body-size numbered prose qualify.
@@ -548,9 +569,9 @@ def chapter_labels(ir):
                 and not re.search(r'[=<>≤≥←→{}\[\];]', text)
                 and re.search(r'[A-Za-z]{3,}|[\u3400-\u9fff]{2,}', text)
                 and body and box[3] - box[1] >= body * 1.15
-                and any(p == page and abs(b[1] - box[1]) <= 3
-                        and box[0] <= b[0] and b[2] <= box[2] + 2
-                        for p, b in native_headings))
+                and (any(p == page and abs(b[1] - box[1]) <= 3
+                         and box[0] <= b[0] and b[2] <= box[2] + 2
+                         for p, b in native_headings) or article_heading(page, box)))
 
     by_page = {}
     for page, box, text, node in visual:
@@ -572,6 +593,13 @@ def chapter_labels(ir):
         if len(labels) >= 3 and all(_CHAPTER_LABEL.match(row[1].strip()) for row in labels):
             continue
         for box, text, node in labels:
+            if node['kind'] != 'Heading' and numbered_heading(page, box, text):
+                source = next((_source(span) for span in node['provenance']
+                               if _source(span) and _source(span)['page_index'] == page
+                               and abs(_source(span)['bbox'][1] - box[1]) <= 3), None)
+                if source:
+                    node = {**node, 'text': text, 'provenance': [{**source, 'bbox': box,
+                            'node_text_start': 0, 'node_text_end': len(text)}]}
             # Same-baseline heading fragments end at this row's own baseline; only
             # text whose bottom stays above the label is prior content.
             header_margin = page_height.get(page, 0) * _RUNNING_HEADER_MARGIN
