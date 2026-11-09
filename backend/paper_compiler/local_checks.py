@@ -17,10 +17,11 @@ _KEYWORD_LABEL = re.compile(r'(?:关键词|关键字)\s*[:：]\s*(.*)', re.I | r
 _TERM_SPLIT = re.compile(r'[；;，,、]')
 _FRONT_TEXT = {'摘要', '中文摘要', 'abstract', '目录', '目次', 'contents', 'tableofcontents'}
 _ABSTRACT_HEADING = {'摘要', '中文摘要', '英文摘要', 'abstract'}
-_ABSTRACT_KEYWORDS = re.compile(r'^(?:关键词|关键字|key\s*words?)\s*[:：]', re.I)
+_ABSTRACT_KEYWORDS = re.compile(r'^(?:关键词|关键字|key\s*words?|index\s+terms)(?:\s*[:：]|\s*$)', re.I)
 _ABSTRACT_END_HEADING = {'目录', '目次', 'contents', 'tableofcontents', '插图', '插图目录',
                          '表格', '表格目录', '图表目录', '算法', '算法目录', '符号对照表',
-                         'listoffigures', 'listoftables'}
+                         'listoffigures', 'listoftables', 'ccsconcepts', 'acmreferenceformat',
+                         '参考文献', 'references', 'bibliography'}
 # Numbered objects a self-contained abstract must not cite. Each pattern needs a
 # digit so prose words such as 表明, 表达, 表决 and 形式 are never treated as 图/表/式.
 _OBJECT_NUMBERS = (
@@ -37,6 +38,7 @@ _OBJECT_NUMBERS = (
 # by an optionally spaced title of at most 40 chars without sentence punctuation.
 # Prose such as 第三章的… or 第一章是绪论，… therefore never becomes a chapter label.
 _CHAPTER_LABEL = re.compile(r'^第\s*[一二三四五六七八九十百零〇0-9]{1,4}\s*章(?:\s*[^\s，。；：！？、,;:!?]{1,40})?$')
+_NUMBERED_CHAPTER_LABEL = re.compile(r'^(?:chapter\s*\d+(?:\s+[^，。；：！？,;:!?]{1,100})?|\d{1,3}[.．、]?\s+[^\d\W][^，。；：！？,;:!?]{0,99})$', re.I)
 _LEADER_LINE = re.compile(r'\.{3,}|…')
 # Page furniture above the top margin (running headers, page numbers) is not prior
 # chapter content; rows() drops small ones, but 12.6 pt headers survive its 12.5 cut.
@@ -69,7 +71,47 @@ def _node_page_index(node):
     return min(pages, default=10**9)
 
 
-def rows(ir, *, retain_top_body=False):
+def _column_gutters(ir):
+    """Require repeated, overlapping prose on both sides of a native gutter."""
+    gutters = {}
+    for page in ir['layout']['pages']:
+        width = page['width']
+        boxes, all_boxes = [], []
+        for node in ir['nodes']:
+            if node['kind'] != 'Paragraph' or not node['text']:
+                continue
+            for span in node['provenance']:
+                source = _source(span)
+                if not source or source['page_index'] != page['page_index']:
+                    continue
+                box = source['bbox']
+                text = node['text'][span.get('node_text_start', 0):span.get('node_text_end', len(node['text']))]
+                if text.strip() and 0 < box[3] - box[1] < 40 and page['height'] * .09 <= box[1] and box[3] <= page['height'] * .94:
+                    all_boxes.append(box)
+                if len(compact(text)) >= 20 and width * .25 <= box[2] - box[0] and 0 < box[3] - box[1] < 40:
+                    boxes.append(box)
+        left = [b for b in boxes if b[2] <= width / 2]
+        right = [b for b in boxes if b[0] >= width / 2]
+        if len(left) < 3 or len(right) < 3:
+            continue
+        a, b = max(v[2] for v in left), min(v[0] for v in right)
+        overlap = min(max(v[3] for v in left), max(v[3] for v in right)) - max(min(v[1] for v in left), min(v[1] for v in right))
+        if b - a >= width * .015 and overlap > 30:
+            # Short final lines still belong to their columns; only long
+            # lines are required to establish the gutter itself.
+            column_boxes = [v for v in all_boxes if v[2] <= width / 2 or v[0] >= width / 2]
+            gutters[page['page_index']] = ((a + b) / 2, max(v[3] for v in column_boxes or left + right))
+    return gutters
+
+
+def _reading_position(page, box, gutters):
+    gutter = gutters.get(page)
+    # Content below the native columns resumes page-wide reading order.
+    column = (2 if box[1] > gutter[1] else int(box[0] >= gutter[0])) if gutter else 0
+    return page, column, box[1]
+
+
+def rows(ir, *, retain_top_body=False, column_gutters=None):
     """Join horizontally split glyphs by their PDF baseline, never by semantics."""
     pieces = []
     pages = {page['page_index']:page for page in ir['layout']['pages']}
@@ -94,8 +136,9 @@ def rows(ir, *, retain_top_body=False):
                 text = node['text'][span.get('node_text_start', 0):span.get('node_text_end', len(node['text']))]
             pieces.append((source['page_index'], source['bbox'], text, node))
     grouped = []
-    for page, box, text, node in sorted(pieces, key=lambda p: (p[0], p[1][1], p[1][0])):
-        if grouped and page == grouped[-1][0] and abs(box[1] - grouped[-1][1][1]) <= 3 and box[0] >= grouped[-1][1][2] and box[0] - grouped[-1][1][2] <= 60:
+    position = lambda page, box: _reading_position(page, box, column_gutters or {})
+    for page, box, text, node in sorted(pieces, key=lambda p: (*position(p[0], p[1]), p[1][0])):
+        if grouped and position(page, box)[:2] == position(grouped[-1][0], grouped[-1][1])[:2] and abs(box[1] - grouped[-1][1][1]) <= 3 and box[0] >= grouped[-1][1][2] and box[0] - grouped[-1][1][2] <= 60:
             previous = grouped[-1]
             grouped[-1] = (page, [previous[1][0], min(previous[1][1], box[1]), box[2], max(previous[1][3], box[3])], previous[2] + ' ' + text, previous[3])
         else:
@@ -431,8 +474,8 @@ def _body_start_page(ir):
         first_intro = min(intro_pages)
         toc_pages = [page for page in toc_pages if page < first_intro]
     body_start = max(max(toc_pages, default=-1) + 1, min(intro_pages, default=0))
-    if body_start:
-        return body_start
+    if intro_pages or body_start:
+        return body_start  # Page index zero is a valid introduction boundary.
     # Some papers have no detectable introduction/ToC heading. Fall back to the
     # last front-matter page so appendix/template mentions are still excluded.
     front_pages = [page for page, _, text, _ in visual_rows if compact(text) in _FRONT_TEXT]
@@ -452,7 +495,9 @@ def chapter_labels(ir):
     """
     body_start = _body_start_page(ir)
     page_height = {page['page_index']: page.get('height', 0) for page in ir['layout']['pages']}
-    visual = list(rows(ir, retain_top_body=True))
+    gutters = _column_gutters(ir)
+    visual = list(rows(ir, retain_top_body=True, column_gutters=gutters))
+    contents_pages = _current_contents_pages(ir, visual)
     directions = {line['id']: line.get('direction', [1, 0])
                   for page in ir['layout']['pages'] for line in page.get('lines', [])}
 
@@ -490,29 +535,51 @@ def chapter_labels(ir):
                                   - (box[3] - box[1])) <= 1.5}
             if len(peer_pages) >= 2:
                 running_headers.add((page, node['id'], tuple(box)))
+    profile = ir.get('metadata', {}).get('document_admission', {}).get('structure', {}).get('profile')
+    native_headings = [(source['page_index'], source['bbox'])
+                       for node in ir['nodes'] if node['kind'] == 'Heading'
+                       for span in node['provenance'] if (source := _source(span))]
+
+    def numbered_heading(page, box, text):
+        # Numeric first-level headings need native heading typography. Neither
+        # subsection numbers (2.1) nor body-size numbered prose qualify.
+        return (_NUMBERED_CHAPTER_LABEL.fullmatch(text.strip())
+                and (text.strip().lower().startswith('chapter') or profile == 'research-article')
+                and not re.search(r'[=<>≤≥←→{}\[\];]', text)
+                and re.search(r'[A-Za-z]{3,}|[\u3400-\u9fff]{2,}', text)
+                and body and box[3] - box[1] >= body * 1.15
+                and any(p == page and abs(b[1] - box[1]) <= 3
+                        and box[0] <= b[0] and b[2] <= box[2] + 2
+                        for p, b in native_headings))
+
     by_page = {}
     for page, box, text, node in visual:
         by_page.setdefault(page, []).append((box, text, node))
     found = []
     for page, items in sorted(by_page.items()):
-        if page < body_start:
+        if page < body_start or page in contents_pages:
             continue
         margin = page_height.get(page, 0) * _TOP_MARGIN
         items.sort(key=lambda row: (row[0][1], row[0][0]))
         labels = [row for row in items
-                  if _CHAPTER_LABEL.match(row[1].strip()) and not _LEADER_LINE.search(row[1])
+                  if (_CHAPTER_LABEL.match(row[1].strip()) or numbered_heading(page, row[0], row[1]))
+                  and not _LEADER_LINE.search(row[1])
                   and row[2]['kind'] not in {'TableCell', 'Caption'}
                   and horizontal(row[2], row[0])
                   and row[0][3] > margin
-                  and (not body or row[0][3] - row[0][1] >= body * _HEADING_SCALE)]
-        if len(labels) >= 3:
+                  and (not body or row[0][3] - row[0][1] >= body * _HEADING_SCALE
+                       or numbered_heading(page, row[0], row[1]))]
+        if len(labels) >= 3 and all(_CHAPTER_LABEL.match(row[1].strip()) for row in labels):
             continue
         for box, text, node in labels:
             # Same-baseline heading fragments end at this row's own baseline; only
             # text whose bottom stays above the label is prior content.
             header_margin = page_height.get(page, 0) * _RUNNING_HEADER_MARGIN
             prior = [row for row in items
-                     if row[0][3] <= box[1] + 2 and row[0][1] >= header_margin
+                     if (_reading_position(page, row[0], gutters)[:2] < _reading_position(page, box, gutters)[:2]
+                         or (_reading_position(page, row[0], gutters)[:2] == _reading_position(page, box, gutters)[:2]
+                             and row[0][3] <= box[1] + 2))
+                     and row[0][1] >= header_margin
                      and (page, row[2]['id'], tuple(row[0])) not in running_headers]
             found.append((page, box, text, node, prior))
     return found
@@ -521,20 +588,39 @@ def chapter_labels(ir):
 def _abstract_nodes(ir):
     """Front-matter abstract prose, including split headings and both languages."""
     body_start = _body_start_page(ir)
-    visual = rows(ir)
+    gutters = _column_gutters(ir)
+    position = lambda page, box: _reading_position(page, box, gutters)
+
+    def boundary_position(page, box):
+        gutter = gutters.get(page)
+        if gutter and box[0] < gutter[0] < box[2]:
+            return page, 2, box[1]  # A full-width ending closes both columns.
+        return position(page, box)
+
+    def within(source, start, end):
+        page, box = source['page_index'], source['bbox']
+        return (start <= position(page, box) < end
+                and not (page == end[0] and end[1] == 2 and box[1] >= end[2]))
+
+    visual = rows(ir, column_gutters=gutters)
     contents_pages = _current_contents_pages(ir, visual)
-    starts = sorted((page, box[1]) for page, box, text, _ in visual
+    introductions = [boundary_position(page, box) for page, box, text, _ in visual
+                     if page not in contents_pages and _INTRO.fullmatch(_CHAPTER.sub('', compact(text)))]
+    body_boundary = min(introductions, default=(body_start, 0, 0) if body_start else (10**9, 0, 0))
+    starts = sorted(position(page, box) for page, box, text, _ in visual
                     if compact(text) in _ABSTRACT_HEADING and page not in contents_pages
-                    and (not body_start or page < body_start))
+                    and position(page, box) < body_boundary)
     if starts:
-        # Keywords end abstract continuation after this page; keep source-only
-        # paragraphs on the abstract page even when the tree missed their parent.
-        endings = [(page + 1, 0) for page, _, text, _ in visual
-                   if _ABSTRACT_KEYWORDS.match(text.strip())]
-        endings += [(page, box[1]) for page, box, text, _ in visual
-                    if compact(text) in _ABSTRACT_END_HEADING]
-        endings += starts + ([(body_start, 0)] if body_start else [])
-        ranges = [(start, min((end for end in endings if end > start), default=(10**9, 0)))
+        # Abstract/body boundaries may share a page in different columns.
+        # Keywords and publisher metadata end prose at their actual source row.
+        shared_page = any(start[0] == body_boundary[0] for start in starts)
+        article = ir.get('metadata', {}).get('document_admission', {}).get('structure', {}).get('profile') == 'research-article'
+        endings = [boundary_position(page, box) if shared_page or article else (page + 1, 0, 0)
+                   for page, box, text, _ in visual if _ABSTRACT_KEYWORDS.match(text.strip())]
+        endings += [boundary_position(page, box) for page, box, text, _ in visual
+                    if compact(text).rstrip(':：') in _ABSTRACT_END_HEADING]
+        endings += starts + [body_boundary]
+        ranges = [(start, min((end for end in endings if end > start), default=(10**9, 0, 0)))
                   for start in starts]
         found = []
         for node in ir['nodes']:
@@ -542,20 +628,21 @@ def _abstract_nodes(ir):
                 continue
             selected = [span for span in node['provenance'] if (source := _source(span))
                         and source['page_index'] not in contents_pages
-                        and any(start <= (source['page_index'], source['bbox'][1]) < end
-                                for start, end in ranges)]
+                        and any(within(source, start, end) for start, end in ranges)]
             if not selected or _ABSTRACT_KEYWORDS.match(node['text'].strip()):
                 continue
             if len(selected) == len(node['provenance']):
                 found.append(node)
             else:
-                # Preserve precise source offsets if a paragraph straddles a boundary.
-                first = min(span.get('node_text_start', 0) for span in selected)
-                last = max(span.get('node_text_end', len(node['text'])) for span in selected)
-                found.append({**node, 'text': node['text'][first:last], 'provenance': [
-                    {**span, 'node_text_start': span.get('node_text_start', 0) - first,
-                     'node_text_end': span.get('node_text_end', len(node['text'])) - first}
-                    for span in selected]})
+                # Selected spans can be disjoint in an interleaved two-column
+                # paragraph. Do not restore excluded text between min/max offsets.
+                fragments, spans, offset = [], [], 0
+                for span in selected:
+                    text = node['text'][span.get('node_text_start', 0):span.get('node_text_end', len(node['text']))]
+                    fragments.append(text)
+                    spans.append({**span, 'node_text_start': offset, 'node_text_end': offset + len(text)})
+                    offset += len(text) + 1
+                found.append({**node, 'text': '\n'.join(fragments), 'provenance': spans})
         return found
     # Retain typed abstract evidence when its source heading is unavailable.
     pages = {page for page, _, text, _ in visual if compact(text) in _ABSTRACT_HEADING}
