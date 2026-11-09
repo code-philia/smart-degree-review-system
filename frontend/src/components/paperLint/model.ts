@@ -1,5 +1,5 @@
 import type { PaperLintFinding, PaperLintResult, PaperLintRuleRun } from '../../api/paperLint';
-import { displayedReportSummary, isGenericExecutionWarning, chapterPrerequisiteSuggestion, referenceResourcesUnavailable, referenceResourceMessage, referenceInfoFindings } from '../../../../shared/paper-lint-presentation.mjs';
+import { displayedReportSummary, executionWarningFeedbackTargets, isGenericExecutionWarning, chapterPrerequisiteSuggestion, referenceResourcesUnavailable, referenceResourceMessage, referenceInfoFindings } from '../../../../shared/paper-lint-presentation.mjs';
 export { referenceResourcesUnavailable } from '../../../../shared/paper-lint-presentation.mjs';
 
 export type PaperLintFindingItem = {
@@ -10,6 +10,7 @@ export type PaperLintFindingItem = {
 };
 
 export type RuleExecutionWarning = {
+  feedbackTarget?: PaperLintFindingItem;
   ruleId?: string;
   title: string;
   reason: string;
@@ -44,6 +45,11 @@ export function referenceReviewMessage(run?: PaperLintRuleRun): string | null {
   ].filter(Boolean).join(' ');
 }
 
+function warningFeedbackItem(run: PaperLintRuleRun, findingId: string, index: number): PaperLintFindingItem {
+  return { key: findingId, ruleRun: run, index,
+    finding: { finding_id: findingId, rule_id: run.rule_id, message: run.message || '' } };
+}
+
 export function numericExecutionWarnings(run?: PaperLintRuleRun): RuleExecutionWarning[] {
   if (!run || run.rule_id !== numericRule) return [];
   const params = run.params || {};
@@ -69,8 +75,9 @@ export function numericExecutionWarnings(run?: PaperLintRuleRun): RuleExecutionW
     },
   } as const;
   const conditions = Array.isArray(params.preconditions) ? params.preconditions : [];
+  const targets = executionWarningFeedbackTargets(run);
   const failed = conditions.filter(c => c.passed === false && c.status !== 'skipped');
-  const warnings = failed.map(c => {
+  const warnings: RuleExecutionWarning[] = failed.map(c => {
     const copy = preconditionCopy[c.id as keyof typeof preconditionCopy];
     return copy ? {
       title: '论点论据一致性检测',
@@ -87,7 +94,8 @@ export function numericExecutionWarnings(run?: PaperLintRuleRun): RuleExecutionW
   if (run.execution_status === 'error' || params.failure || (Array.isArray(params.validation_errors) && params.validation_errors.length)) {
     warnings.push({ title: '论点论据一致性检测未完成', reason: '当前系统使用人数较多，API 调用暂时繁忙，部分核验未完成。已完成的有效结果仍予以保留。', suggestion: '请稍后重试；若持续失败，请联系管理员检查运行记录。' });
   }
-  return warnings.map(warning => ({ ...warning, ruleId: numericRule }));
+  return warnings.map((warning, index) => ({ ...warning, ruleId: numericRule,
+    feedbackTarget: warningFeedbackItem(run, targets[index].findingId, index) }));
 }
 
 const executionRuleTitles: Record<string, string> = {
@@ -117,11 +125,18 @@ export function genericExecutionWarnings(runs: PaperLintRuleRun[] = []): RuleExe
       const reason = String(referenceResourceMessage(run) || run.message || '本规则因缺少必要的论文结构，暂无法可靠判定。');
       return {
         ruleId: run.rule_id,
+        feedbackTarget: warningFeedbackItem(run, executionWarningFeedbackTargets(run)[0].findingId, 0),
         title: `规则未完成检测：${title}`,
         reason,
         suggestion: chapterPrerequisiteSuggestion(run) || '请稍后重试；如问题持续，请检查运行记录。',
       };
     });
+}
+
+/** Feedback targets include visible warnings without turning them into PDF findings. */
+export function paperLintFeedbackItems(result: Pick<PaperLintResult, 'rule_runs'>): PaperLintFindingItem[] {
+  const warnings = result.rule_runs.flatMap(run => run.rule_id === numericRule ? numericExecutionWarnings(run) : genericExecutionWarnings([run]));
+  return [...flattenPaperLintFindings(result), ...warnings.flatMap(warning => warning.feedbackTarget ? [warning.feedbackTarget] : [])];
 }
 
 export function numericDisplayFindings(run: PaperLintRuleRun): PaperLintFinding[] {

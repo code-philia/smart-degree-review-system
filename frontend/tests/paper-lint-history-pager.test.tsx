@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { expect, it, vi } from 'vitest';
 import { ReportHistoryTable } from '../src/components/paperLint/ReportHistoryTable';
@@ -80,4 +81,44 @@ it('preserves keyboard focus after submitting a different page', () => {
   fireEvent.keyDown(input, { key: 'Enter' });
   expect(screen.getByText('第 2 / 29 页')).toBeInTheDocument();
   expect(screen.getByRole('textbox', { name: '跳转页码' })).toHaveFocus();
+});
+
+it.each(['Escape', 'resize'] as const)('keeps the page stationary while the popup opens and closes with %s', async closeAction => {
+  // jsdom has no layout: reproduce the footer sitting at the bottom of a short window.
+  const geometry = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function () {
+    const top = this.getAttribute('aria-label') === '每页显示条数' ? 580 : 0;
+    const height = top ? 36 : 0;
+    return { x: 24, y: top, left: 24, right: 136, top, bottom: top + height,
+      width: 112, height, toJSON: () => ({}) };
+  });
+  const scrollHeight = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function () {
+    const space = document.querySelector<HTMLElement>('section > div[aria-hidden="true"]');
+    return this.hasAttribute('data-radix-select-viewport') ? 180 : 620 + (parseFloat(space?.style.height || '0') || 0);
+  });
+  const innerHeight = vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(620);
+  const position = vi.spyOn(window, 'scrollY', 'get').mockReturnValue(0);
+  const scroll = vi.spyOn(window, 'scrollBy').mockImplementation(() => {});
+  try {
+    show();
+    const trigger = screen.getByRole('combobox', { name: '每页显示条数' });
+    const user = userEvent.setup();
+    trigger.focus();
+    await user.keyboard('{ArrowDown}');
+    await screen.findByRole('listbox');
+    expect(screen.getAllByRole('option')).toHaveLength(5);
+    expect(scroll).not.toHaveBeenCalled();
+    expect(document.documentElement.scrollHeight).toBe(620);
+    if (closeAction === 'resize') fireEvent(window, new Event('resize'));
+    else await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument());
+    await waitFor(() => expect(trigger).toHaveFocus());
+    expect(scroll).not.toHaveBeenCalled();
+    expect(document.documentElement.scrollHeight).toBe(620);
+  } finally {
+    geometry.mockRestore();
+    scrollHeight.mockRestore();
+    innerHeight.mockRestore();
+    position.mockRestore();
+    scroll.mockRestore();
+  }
 });

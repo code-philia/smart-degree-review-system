@@ -1,6 +1,8 @@
 const { randomUUID } = require('crypto');
 const db = require('../database/db_runtime');
 const suggestionService = require('./paperLintRepairSuggestionService');
+const reportRepository = require('./paperLintReportRepository');
+const presentation = import('../../../shared/paper-lint-presentation.mjs');
 
 const FINDING_REASONS = new Set(['false_positive', 'location_inaccurate', 'description_unclear', 'other']);
 const SUGGESTION_REASONS = new Set(['incorrect', 'not_directly_executable', 'insufficient_basis', 'unclear', 'other']);
@@ -49,8 +51,21 @@ function mapFeedback(row) {
   };
 }
 
-async function getFindingFeedback({ reportId, userId, ruleId, findingId }) {
+async function validateFindingFeedbackTarget({ reportId, userId, ruleId, findingId }) {
+  if (!findingId.startsWith(`execution-warning:${ruleId}:`)) {
+    return suggestionService.getPaperLintReportFinding({ reportId, userId, ruleId, findingId });
+  }
+  const report = await reportRepository.findPaperLintReportByIdForUser(reportId, userId);
+  if (!report) throw problem(404, '未找到该审查报告');
+  const ruleRun = report.result?.rule_runs?.find(run => run.rule_id === ruleId);
+  const { executionWarningFeedbackTargets } = await presentation;
+  if (ruleRun && executionWarningFeedbackTargets(ruleRun).some(target => target.findingId === findingId)) return;
+  // Preserve the existing actual-finding and AI-repair eligibility checks.
   await suggestionService.getPaperLintReportFinding({ reportId, userId, ruleId, findingId });
+}
+
+async function getFindingFeedback({ reportId, userId, ruleId, findingId }) {
+  await validateFindingFeedbackTarget({ reportId, userId, ruleId, findingId });
   return mapFeedback(await db.get(
     `SELECT * FROM paper_lint_finding_feedback WHERE user_id=? AND report_id=? AND rule_id=? AND finding_id=?`,
     [userId, reportId, ruleId, findingId],
@@ -58,7 +73,7 @@ async function getFindingFeedback({ reportId, userId, ruleId, findingId }) {
 }
 
 async function saveFindingFeedback({ reportId, userId, ruleId, findingId, input }) {
-  await suggestionService.getPaperLintReportFinding({ reportId, userId, ruleId, findingId });
+  await validateFindingFeedbackTarget({ reportId, userId, ruleId, findingId });
   const { feedbackValue, reasonCode, reasonText } = feedbackPayload(input, FINDING_REASONS);
   await db.withTransaction(async (tx) => {
     await tx.run(`INSERT INTO paper_lint_finding_feedback
@@ -73,7 +88,7 @@ async function saveFindingFeedback({ reportId, userId, ruleId, findingId, input 
 }
 
 async function deleteFindingFeedback({ reportId, userId, ruleId, findingId }) {
-  await suggestionService.getPaperLintReportFinding({ reportId, userId, ruleId, findingId });
+  await validateFindingFeedbackTarget({ reportId, userId, ruleId, findingId });
   await db.run(`DELETE FROM paper_lint_finding_feedback WHERE user_id=? AND report_id=? AND rule_id=? AND finding_id=?`, [userId, reportId, ruleId, findingId]);
 }
 

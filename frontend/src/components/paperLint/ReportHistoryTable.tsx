@@ -1,7 +1,7 @@
 import { useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Select as SelectPrimitive } from 'radix-ui';
-import { ArrowUpRight, ChevronDown, ChevronLeft, ChevronRight, RotateCw, Check, ListChecks, Search, Trash2, X } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, RotateCw, Check, ListChecks, Search, Trash2, X } from 'lucide-react';
 import type { PaperLintReportListItem } from '../../api/paperLint';
 import { formatChinaDateTime } from '../../utils/dateTime';
 import { Button } from '../ui';
@@ -258,19 +258,25 @@ export function ReportHistoryTable({
               </SelectPrimitive.Icon>
             </SelectPrimitive.Trigger>
             <SelectPrimitive.Portal>
-              <SelectPrimitive.Content position="popper" align="start" sideOffset={6} collisionPadding={12}
-                className="z-50 min-w-32 overflow-hidden rounded-xl border border-slate-200/80 bg-white p-1.5 text-slate-700 shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)]">
-                <SelectPrimitive.Viewport className="max-h-[var(--radix-select-content-available-height)]">
+              <SelectPrimitive.Content position="popper" side="bottom" align="start" sideOffset={4} collisionPadding={12}
+                className="z-50 max-h-[min(176px,var(--radix-select-content-available-height))] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-lg border border-slate-200/80 bg-white p-1 text-slate-700 shadow-[0_8px_24px_-6px_rgba(15,23,42,0.16)]">
+                <SelectPrimitive.ScrollUpButton className="flex h-4 items-center justify-center text-slate-400">
+                  <ChevronUp aria-hidden="true" className="size-3" />
+                </SelectPrimitive.ScrollUpButton>
+                <SelectPrimitive.Viewport>
                   {[5, 10, 20, 50, 100].map(size => (
                     <SelectPrimitive.Item key={size} value={String(size)}
-                      className="relative flex min-h-9 cursor-pointer items-center rounded-lg py-2 pl-2.5 pr-8 text-sm tabular-nums outline-none select-none data-[highlighted]:bg-brand-50 data-[highlighted]:text-brand-700 data-[state=checked]:bg-brand-50 data-[state=checked]:text-brand-700">
+                      className="relative flex min-h-8 cursor-pointer items-center rounded-md py-1.5 pl-2 pr-7 text-[13px] leading-5 tabular-nums outline-none select-none data-[highlighted]:bg-brand-50 data-[highlighted]:text-brand-700 data-[state=checked]:bg-brand-50 data-[state=checked]:text-brand-700">
                       <SelectPrimitive.ItemText>{size} 条/页</SelectPrimitive.ItemText>
-                      <SelectPrimitive.ItemIndicator className="absolute right-2.5 inline-flex items-center text-brand-600">
+                      <SelectPrimitive.ItemIndicator className="absolute right-2 inline-flex items-center text-brand-600">
                         <Check aria-hidden="true" className="size-3.5" />
                       </SelectPrimitive.ItemIndicator>
                     </SelectPrimitive.Item>
                   ))}
                 </SelectPrimitive.Viewport>
+                <SelectPrimitive.ScrollDownButton className="flex h-4 items-center justify-center text-slate-400">
+                  <ChevronDown aria-hidden="true" className="size-3" />
+                </SelectPrimitive.ScrollDownButton>
               </SelectPrimitive.Content>
             </SelectPrimitive.Portal>
           </SelectPrimitive.Root>

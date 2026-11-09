@@ -162,9 +162,9 @@ export function FindingsPane({
   const pending = selectedOption ? selectedOption.status === 'running' : running && visibleRuleOptions.some(option => option.status === 'running');
   const incomplete = selectedOption ? ['error', 'needs_review', 'not_applicable', 'execution_warning'].includes(selectedOption.status)
     : visibleRuleOptions.some(option => option.status !== 'completed');
-  const severityEmpty = !pending && !incomplete && filter !== 'all' && filter !== 'execution';
+  const severityEmpty = !pending && !incomplete && filter !== 'all';
   const emptyTitle = pending ? '正在检测相关问题'
-    : severityEmpty ? `当前筛选未发现${severityLabels[filter as keyof typeof severityLabels]}级别的问题`
+    : severityEmpty ? filter === 'execution' ? '当前筛选未发现规则未实现警告' : `当前筛选未发现${severityLabels[filter as keyof typeof severityLabels]}级别的问题`
     : selectedOption?.status === 'error' ? '本规则检测失败'
     : selectedOption?.status === 'needs_review' ? '本规则暂无法判定'
     : selectedOption?.status === 'execution_warning' ? '规则未实现警告'
@@ -236,8 +236,7 @@ export function FindingsPane({
         </p>) : null}
         {filter !== 'execution' && filtered.length > 0 && incomplete && selectedRun?.rule_id === 'sjtu_rule_32' ? <p role="status" className="rounded-xl bg-amber-50 p-3 text-xs leading-6 text-amber-800">{referenceReviewMessage(selectedRun)}</p> : null}
         {filter === 'execution' && visibleWarnings.length > 0 ? <p className="rounded-lg bg-slate-50 p-3 text-sm leading-6 text-slate-600">如需使用以下规则，请按建议内容调整；如无需使用，请忽略以下内容</p> : null}
-        {filter === 'execution' && !visibleWarnings.length && !pending ? <p className="p-3 text-sm text-slate-500">当前检查项没有规则未实现警告</p> : null}
-        {(filter === 'execution' && !pending) || cards.length > 0 ? null : (
+        {cards.length > 0 ? null : (
           <div className="flex h-full min-h-60 flex-col items-center justify-center text-center">
             <EmptyIcon data-testid={!pending && !incomplete && !severityEmpty ? 'rule-empty-icon' : undefined} className={`size-8 ${pending ? 'animate-spin text-brand-600 motion-reduce:animate-none' : severityEmpty ? 'text-slate-400' : incomplete ? 'text-amber-600' : 'text-success-600'}`} />
             <p className="mt-3 text-sm font-bold text-slate-900">{emptyTitle}</p>
@@ -248,8 +247,9 @@ export function FindingsPane({
         {cards.map((card) => {
             if (card.kind === 'execution') {
               const { warning, index } = card;
+              const feedbackTarget = warning.feedbackTarget;
               return (
-                <article key={`execution-${index}`} className="rounded-lg border border-rose-200 p-3">
+                <article key={`execution-${feedbackTarget?.key ?? index}`} data-execution-warning-key={feedbackTarget?.key} className="rounded-lg border border-rose-200 p-3">
                   <h3 className="text-sm font-bold text-rose-700">{warning.title}</h3>
                   {warning.preconditionId ? (
                     <>
@@ -277,6 +277,14 @@ export function FindingsPane({
                       <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm leading-6"><strong>调整建议：</strong>{warning.suggestion}</p>
                     </>
                   )}
+                  {feedbackTarget && onFindingFeedback ? <FeedbackControls
+                    label="这个问题的判断是否准确？"
+                    feedback={findingFeedbackByKey[feedbackTarget.key]}
+                    reasons={[['false_positive', '误报'], ['location_inaccurate', '定位不准'], ['description_unclear', '说明不清'], ['other', '其他']]}
+                    onValue={value => onFindingFeedback(feedbackTarget, value)}
+                    onReason={onFindingFeedbackReason ? (code, text) => onFindingFeedbackReason(feedbackTarget, code, text) : undefined}
+                    onCancel={() => onFindingFeedbackCancel?.(feedbackTarget)}
+                  /> : null}
                 </article>
               );
             }
