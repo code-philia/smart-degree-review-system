@@ -11,6 +11,8 @@ const require = createRequire(import.meta.url);
 const { registerFrontendStatic } = require('../src/frontendStatic');
 
 const html = '<!doctype html><title>Frontend fixture</title><div id="root">SPA fixture</div>';
+const approvedBackground = Buffer.from('unchanged approved PNG bytes');
+const backgroundPath = '/login-campus-B-v5-b25c6008.png';
 const workerText = 'const worker = "PDF viewer";\n'.repeat(1000);
 let root;
 let app;
@@ -26,6 +28,8 @@ beforeEach(() => {
   root = mkdtempSync(path.join(tmpdir(), 'frontend-static-'));
   const files = {
     'index.html': html,
+    [backgroundPath.slice(1)]: approvedBackground,
+    'login-schoolmark.jpg': Buffer.from('school mark fixture'),
     'assets/worker-hash.js': workerText,
     'assets/worker-hash.js.gz': gzipSync(workerText),
     'pdfjs-resources/5.4.624/cmaps/GBK-EUC-H.bcmap': Buffer.from('cmap fixture'),
@@ -105,5 +109,32 @@ it('keeps API requests outside the SPA fallback', async () => {
   for (const url of ['/api', '/api/missing']) {
     const response = await request(app).get(url).expect(404);
     expect(response.text).not.toContain('SPA fixture');
+  }
+});
+
+
+it('caches the approved background without changing bytes or range delivery', async () => {
+  const response = await request(app).get(backgroundPath).buffer(true).parse(binaryResponse).expect(200);
+  expect(response.body).toEqual(approvedBackground);
+  expect(response.headers['cache-control']).toBe('public, max-age=31536000, immutable');
+  expect(response.headers.etag).toBeTruthy();
+  await request(app).get(backgroundPath).set('If-None-Match', response.headers.etag).expect(304);
+  const partial = await request(app).get(backgroundPath).set('Range', 'bytes=0-8').buffer(true).parse(binaryResponse).expect(206);
+  expect(partial.body).toEqual(approvedBackground.subarray(0, 9));
+  const unversioned = await request(app).get('/login-schoolmark.jpg').expect(200);
+  expect(unversioned.headers['cache-control']).not.toContain('immutable');
+});
+
+it.each(['/auth', '/AUTH', '/auth/', '/auth?return_to=%2Fpaper-upload'])('preloads the original background from the sign-in response at %s', async (url) => {
+  const response = await request(app).get(url).expect(200);
+  expect(response.text).toBe(html);
+  expect(response.headers.link).toBe(`<${backgroundPath}>; rel=preload; as=image; fetchpriority=high`);
+  expect(response.headers['cache-control']).toMatch(/no-store/);
+});
+
+it('does not preload a login illustration for workspace pages or API responses', async () => {
+  for (const url of ['/paper-upload', '/reports', '/api/health']) {
+    const response = await request(app).get(url).expect(200);
+    expect(response.headers.link).toBeUndefined();
   }
 });

@@ -1,7 +1,7 @@
 import { preserveText } from "../i18n/jsx-runtime";
 import { RichMessage } from '../i18n/jsx-runtime';
-import { LanguageSwitch } from '../i18n/LanguageSwitch';
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { SettingsDialog } from '../components/SettingsDialog';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
   ChevronDown,
   ClipboardList,
@@ -9,6 +9,7 @@ import {
   LogIn,
   LogOut,
   ShieldCheck,
+  Settings2,
   Sparkles,
   type LucideIcon,
 } from 'lucide-react';
@@ -122,9 +123,10 @@ function NavigationGroup({
   );
 }
 
-function AccountMenu({ onLogout }: { onLogout: () => Promise<void> }) {
+function AccountMenu({ onLogout, onOpenSettings }: { onLogout: () => Promise<void>; onOpenSettings: (mobile: boolean, trigger: HTMLButtonElement | null) => void }) {
   const { status, user } = useAuthSession();
-  const { setOpenMobile } = useSidebar();
+  const { setOpenMobile, isMobile } = useSidebar();
+  const accountTriggerRef = useRef<HTMLButtonElement>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   async function handleLogout() {
@@ -171,7 +173,7 @@ function AccountMenu({ onLogout }: { onLogout: () => Promise<void> }) {
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <SidebarMenuButton size="lg" tooltip="账户菜单" className="data-open:bg-sidebar-accent">
+            <SidebarMenuButton ref={accountTriggerRef} size="lg" tooltip="账户菜单" className="data-open:bg-sidebar-accent">
               <Avatar className="size-8 border border-sidebar-border">
                 <AvatarFallback className="bg-sidebar-primary font-semibold text-sidebar-primary-foreground">
                   {preserveText(userInitial)}
@@ -183,10 +185,14 @@ function AccountMenu({ onLogout }: { onLogout: () => Promise<void> }) {
               <ChevronDown className="ml-auto" aria-hidden="true" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
-          <DropdownMenuContent side="right" align="end" sideOffset={8} className="account-menu-surface w-64 ring-0">
+          <DropdownMenuContent side={isMobile ? "top" : "right"} align={isMobile ? "start" : "end"} sideOffset={8} collisionPadding={12} avoidCollisions className="account-menu-surface w-64 ring-0">
             <DropdownMenuLabel className="space-y-1 px-2.5 py-2.5">
               <span className="block truncate text-sm font-semibold text-popover-foreground">{preserveText(displayName)}</span>
             </DropdownMenuLabel>
+            <DropdownMenuSeparator className="mx-1" />
+            <DropdownMenuItem onSelect={() => { setOpenMobile(false); onOpenSettings(isMobile, accountTriggerRef.current); }} className="account-menu-settings gap-2.5 rounded-lg px-2.5 py-2.5">
+              <Settings2 aria-hidden="true" />设置
+            </DropdownMenuItem>
             <DropdownMenuSeparator className="mx-1" />
             <DropdownMenuItem
               variant="destructive"
@@ -205,6 +211,9 @@ function AccountMenu({ onLogout }: { onLogout: () => Promise<void> }) {
 }
 
 function AppShell() {
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsReturnFocusRef = useRef<HTMLElement | null>(null);
+  const navigationTriggerRef = useRef<HTMLButtonElement>(null);
   const { user, logout } = useAuthSession();
   const location = useLocation();
   const navigate = useNavigate();
@@ -296,7 +305,10 @@ function AppShell() {
 
         <SidebarSeparator />
         <SidebarFooter className="p-2.5">
-          <AccountMenu onLogout={handleLogout} />
+          <AccountMenu onLogout={handleLogout} onOpenSettings={(mobile, trigger) => {
+            settingsReturnFocusRef.current = mobile ? navigationTriggerRef.current : trigger;
+            setSettingsOpen(true);
+          }} />
         </SidebarFooter>
         <SidebarRail aria-label="收起或展开主导航" title="收起或展开主导航" />
       </Sidebar>
@@ -304,7 +316,7 @@ function AppShell() {
       <SidebarInset className="min-w-0 bg-background">
         <header className="app-topbar sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between gap-4 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <SidebarTrigger aria-label="切换主导航" className="shrink-0" />
+            <SidebarTrigger ref={navigationTriggerRef} aria-label="切换主导航" className="shrink-0" />
             <Separator orientation="vertical" className="h-5" />
             <Breadcrumb className="min-w-0">
               <BreadcrumbList className="flex-nowrap text-xs sm:text-sm">
@@ -330,7 +342,6 @@ function AppShell() {
                 试点验证版
               </Badge>
             </span>
-            <LanguageSwitch />
             {user ? <SystemFeedbackDialog /> : null}
           </div>
         </header>
@@ -341,6 +352,14 @@ function AppShell() {
           </div>
         </main>
       </SidebarInset>
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} onCloseAutoFocus={(event) => {
+        const trigger = settingsReturnFocusRef.current?.isConnected
+          ? settingsReturnFocusRef.current : navigationTriggerRef.current;
+        if (trigger) {
+          event.preventDefault();
+          trigger.focus();
+        }
+      }} />
     </SidebarProvider>
   );
 }

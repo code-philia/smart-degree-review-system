@@ -209,6 +209,7 @@ export function ThesisUploadPanel(props: Props) {
             <h2 className="text-sm font-semibold text-slate-900">上传论文</h2>
           </div>
           <label
+            data-appearance-upload-dropzone=""
             className={`flex min-h-48 flex-col items-center justify-center rounded-[14px] border border-dashed px-4 py-5 text-center transition sm:min-h-54 sm:px-5 sm:py-6 ${busy ? 'cursor-not-allowed border-slate-200 bg-slate-50/70' : dragging ? 'cursor-pointer border-brand-500 bg-brand-50' : 'cursor-pointer border-[#c9d7ef] bg-linear-to-br from-[#fafcff] to-[#f4f7fc] hover:border-brand-400 hover:from-brand-50 hover:to-brand-50/60 focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-100'}`}
             aria-disabled={busy}
             onDragEnter={(event) => {
@@ -473,7 +474,7 @@ export function ThesisUploadPanel(props: Props) {
           已停止检测，可以重新开始。
         </p>
       ) : null}
-      <aside aria-label="检测说明" className="rounded-2xl border border-[#e0e8f5] bg-[#edf3fc] px-4 py-3.5 text-sm leading-7 text-[#52647e] sm:px-[22px] sm:py-4">
+      <aside data-appearance-review-note="" aria-label="检测说明" className="rounded-2xl border border-[#e0e8f5] bg-[#edf3fc] px-4 py-3.5 text-sm leading-7 text-[#52647e] sm:px-[22px] sm:py-4">
         <h2 className="mb-1 text-sm font-semibold leading-6 text-brand-800">检测说明</h2>
         <p>
           聚焦公式引用、文献引用与目录页码等可定位问题。上传论文后，您可自主选择已开放规则，逐项查看检测结果，并联动定位到论文原文位置。受算力资源限制，每位用户累计检测次数不超过

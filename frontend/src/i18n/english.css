@@ -3,7 +3,7 @@
 .i18n-languages button{font:inherit;font-size:12px;line-height:20px;padding:2px 7px;border:0;border-radius:5px;cursor:pointer;background:transparent;color:#69768b}
 .i18n-languages button[aria-pressed=true]{background:#edf2ff;color:#284d9b;font-weight:600}
 .i18n-languages button:focus-visible{outline:2px solid #3564d9;outline-offset:3px}
-.i18n-login-language{position:fixed;bottom:20px;left:22px;z-index:90}
+.i18n-login-language{position:fixed;bottom:25px;left:28px;z-index:90}
 .i18n-login-language .i18n-languages{background:#fffffff0;box-shadow:0 3px 15px #394b6210}
 @media(max-width:767px){.i18n-login-language{left:12px;bottom:14px}}
 /* English-only type rhythm, natural wrapping and room for longer labels. */
@@ -122,12 +122,12 @@ html[lang=en] [data-i18n-upload-actions]>button{white-space:nowrap;flex:0 0 auto
 html[lang=en] [data-i18n-upload-footer] p>svg{flex:none}
 html[lang=en] .campus-signin{font-family:var(--font-app)}
 html[lang=en] .campus-signin .signin{container-type:inline-size;container-name:login-card}
-html[lang=en] .campus-signin .signin h2{white-space:normal;max-width:100%;text-align:center;letter-spacing:-.015em;text-wrap:balance;word-break:normal;hyphens:none}
+html[lang=en] .campus-signin .signin h2{white-space:normal;max-width:100%;text-align:left;letter-spacing:-.015em;text-wrap:balance;word-break:normal;hyphens:none}
 html[lang=en] .campus-signin .reference-brand h1,html[lang=en] .campus-signin .brand h1{letter-spacing:-.015em;text-wrap:balance;word-break:normal;hyphens:none}
 html[lang=en] .campus-signin .reference-description,html[lang=en] .campus-signin .description{max-width:1232px;letter-spacing:0;text-wrap:balance;color:#4f5c56}
-@media(min-width:1280px){html[lang=en] .campus-signin .signin{padding-inline:26.4px}html[lang=en] .campus-signin .signin h2{white-space:nowrap;letter-spacing:-.035em;margin-inline:-8px;max-width:none}html[lang=en] .campus-signin .signin h2 .i18n-brand-phrase,html[lang=en] .campus-signin .signin h2 .i18n-brand-separator{display:inline}html[lang=en] .campus-signin .signin h2 .i18n-brand-separator{font-family:inherit;letter-spacing:-.015em;word-spacing:normal}}
+@media(min-width:1280px){html[lang=en] .campus-signin .signin{padding-inline:26.4px}html[lang=en] .campus-signin .signin h2{white-space:nowrap;letter-spacing:-.035em;margin-inline:0;max-width:none}html[lang=en] .campus-signin .signin h2 .i18n-brand-phrase,html[lang=en] .campus-signin .signin h2 .i18n-brand-separator{display:inline}html[lang=en] .campus-signin .signin h2 .i18n-brand-separator{font-family:inherit;letter-spacing:-.015em;word-spacing:normal}}
 html[lang=en] .campus-signin .hint{color:#596254;text-wrap:balance}
-html[lang=en] .campus-signin .service span{line-height:1.5;text-align:center;color:#596254}
+html[lang=en] .campus-signin .service span{line-height:normal;text-align:center;color:#596254}
 html[lang=en] .campus-signin .login-button{white-space:nowrap;padding-inline:32px}
 html[lang=en] .i18n-languages button{font-size:13px}
 @container report-summary (min-width:600px){html[lang=en] [aria-labelledby=report-conclusion-title]>.grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
@@ -141,3 +141,4 @@ html[lang=en] .i18n-languages button{font-size:13px}
 @media(min-width:1280px){html[lang=en] [data-ui-key="论文上传与检测设置"] section[data-ui-key$="检测规则"]>div:first-child{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(26px,auto) auto;align-items:start;gap:8px}html[lang=en] [data-ui-key="论文上传与检测设置"] section[data-ui-key$="检测规则"]>div:first-child>div:first-child{grid-row:1;align-self:start}html[lang=en] [data-ui-key="论文上传与检测设置"] section[data-ui-key$="检测规则"]>div:first-child>div:last-child{grid-row:2;justify-self:end;align-self:end}}
 @media(max-width:1100px){html[lang=en] .app-topbar [data-slot=breadcrumb-item]:first-child{display:none}html[lang=en] .app-topbar [data-slot=breadcrumb-separator]{display:none}html[lang=en] .app-topbar>div:last-child>span{display:none}}
 @media(max-width:360px){html[lang=en] .campus-signin .login-button{padding-inline:28px}html[lang=en] .campus-signin .login-button svg{width:16px;height:16px;right:12px}}
+@media(min-width:1760px){html[lang=en] .campus-signin .signin h2{letter-spacing:-.05em}}

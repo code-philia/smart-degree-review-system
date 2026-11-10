@@ -18,7 +18,7 @@ export function RichMessage({name,children,count,filteredCount}:RichMessageProps
   if(getLocale()!=='en')return children;
   if(name==='sidebar-brand')return emit('span',{title:translate('智慧学位 AI 评阅辅助系统'),children:[emit('span',{className:'i18n-brand-line',children:'Smart Degree'},'name'),' ',emit('span',{className:'i18n-brand-line',children:'AI Review Assistant'},'purpose')]});
   if(name==='login-brand'||name==='login-card-brand')return [emit('span',{className:'i18n-brand-phrase',children:'Smart Degree'},'name'),emit('span',{className:'i18n-brand-separator',children:' · '},'separator'),emit('wbr',{},'break'),emit('span',{className:'i18n-brand-phrase',children:'AI Review Assistant'},'purpose')];
-  if(name==='login-hint')return [emit('span',{className:'i18n-hint-line',children:['SJTU students and staff can ',emit('span',{className:'i18n-keep-phrase',children:'sign in'},'action')]},'audience'),' ',emit('span',{className:'i18n-hint-line',children:'with their university account.'},'account')];
+  if(name==='login-hint')return 'For SJTU students and staff';
   if(name==='login-description-rest')return translate('论文数据均在校内处理，保障信息安全。检测结果仅供参考，系统尚在测试中，欢迎通过“使用反馈”提出建议，我们将持续优化。');
   if(name==='wait-notice')return [emit('span',{className:'i18n-wait-title',children:'Your review is in progress,'},'title'),' ',emit('span',{className:'i18n-wait-note',children:'and we will email you when your report is ready.'},'note')];
   if(name==='pending-description')return [emit('span',{className:'i18n-pending-line',children:'Results update automatically.'},'updates'),' ',emit('span',{className:'i18n-pending-line',children:'You can view completed checks now.'},'completed')];

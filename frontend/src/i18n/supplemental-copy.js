@@ -1,5 +1,9 @@
 // Real workflow labels and errors absent from the offline review fixture.
 export const SUPPLEMENTAL_COPY={
+ '设置':'Settings','界面偏好':'Interface preferences',
+ '语言':'Language','界面语言':'Interface language','外观':'Appearance','显示主题':'Appearance',
+ '浅色':'Light','深色':'Dark','跟随系统':'System','自动保存':'Saved automatically',
+
  '疑似错别字':'Suspected typo',
  '引用核验证据不足，请人工核查。':'There is insufficient evidence to verify this reference. Please check it manually.',
  '请核对参考文献的题名、作者、年份和 DOI；未检索到充分证据不表示文献不存在。':'Check the reference title, authors, year and DOI. Insufficient search evidence does not mean that the reference does not exist.',

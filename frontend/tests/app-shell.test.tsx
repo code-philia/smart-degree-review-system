@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -94,4 +94,19 @@ describe('AppShell shadcn layout', () => {
     expect(authMocks.logout).toHaveBeenCalledOnce();
     expect(await screen.findByRole('heading', { name: '登录页' })).toBeInTheDocument();
   });
+});
+
+
+it('opens preferences from the account menu and restores focus after closing', async () => {
+  const user = userEvent.setup();
+  const { container } = renderShell();
+  expect(container.querySelector('.app-topbar .i18n-languages')).toBeNull();
+  const account = screen.getByRole('button', { name: /student01/ });
+  await user.click(account);
+  await user.click(screen.getByRole('menuitem', { name: '设置', exact: true }));
+  expect(screen.getByRole('dialog', { name: '设置', exact: true })).toBeInTheDocument();
+  await user.keyboard('{Escape}');
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: '设置', exact: true })).not.toBeInTheDocument());
+  await waitFor(() => expect(account).toHaveFocus());
+  expect(screen.getByRole('heading', { name: 'PDF 检测内容' })).toBeInTheDocument();
 });

@@ -9,6 +9,11 @@ function resourceNotFound(_req, res) {
 function registerFrontendStatic(app, frontendDistPath) {
   const staticOptions = { index: false, redirect: false };
   const assetsPath = path.join(frontendDistPath, 'assets');
+  app.get(/^\/auth\/?$/i, (_req, res, next) => {
+    // Start the same original image before the application bundle executes.
+    res.append('Link', '</login-campus-B-v5-b25c6008.png>; rel=preload; as=image; fetchpriority=high');
+    next();
+  });
   app.use('/assets', compressedAssets(assetsPath), express.static(assetsPath, staticOptions), resourceNotFound);
   app.use('/pdfjs-resources', express.static(path.join(frontendDistPath, 'pdfjs-resources'), {
     ...staticOptions,
@@ -20,6 +25,10 @@ function registerFrontendStatic(app, frontendDistPath) {
   app.use(express.static(frontendDistPath, {
     setHeaders(res, file) {
       if (path.extname(file) === '.html') res.set('Cache-Control', 'no-store');
+      else if (/-[a-f0-9]{8,}\.(?:png|jpe?g|webp)$/i.test(path.basename(file))) {
+        // A changed image gets a new content-hashed URL; keep its bytes intact.
+        res.set('Cache-Control', 'public, max-age=31536000, immutable');
+      }
     },
   }));
 
