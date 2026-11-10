@@ -13,6 +13,8 @@ const { registerFrontendStatic } = require('../src/frontendStatic');
 const html = '<!doctype html><title>Frontend fixture</title><div id="root">SPA fixture</div>';
 const approvedBackground = Buffer.from('unchanged approved PNG bytes');
 const backgroundPath = '/login-campus-B-v5-b25c6008.png';
+const avifPath = '/login-campus-B-v5-750f63ec.avif';
+const webpPath = '/login-campus-B-v5-229caf6d.webp';
 const workerText = 'const worker = "PDF viewer";\n'.repeat(1000);
 let root;
 let app;
@@ -29,6 +31,8 @@ beforeEach(() => {
   const files = {
     'index.html': html,
     [backgroundPath.slice(1)]: approvedBackground,
+    [avifPath.slice(1)]: Buffer.from('approved AVIF bytes'),
+    [webpPath.slice(1)]: Buffer.from('approved WebP bytes'),
     'login-schoolmark.jpg': Buffer.from('school mark fixture'),
     'assets/worker-hash.js': workerText,
     'assets/worker-hash.js.gz': gzipSync(workerText),
@@ -125,10 +129,10 @@ it('caches the approved background without changing bytes or range delivery', as
   expect(unversioned.headers['cache-control']).not.toContain('immutable');
 });
 
-it.each(['/auth', '/AUTH', '/auth/', '/auth?return_to=%2Fpaper-upload'])('preloads the original background from the sign-in response at %s', async (url) => {
+it.each(['/auth', '/AUTH', '/auth/', '/auth?return_to=%2Fpaper-upload'])('preloads only typed AVIF from the sign-in response at %s', async (url) => {
   const response = await request(app).get(url).expect(200);
   expect(response.text).toBe(html);
-  expect(response.headers.link).toBe(`<${backgroundPath}>; rel=preload; as=image; fetchpriority=high`);
+  expect(response.headers.link).toBe(`<${avifPath}>; rel=preload; as=image; type="image/avif"; fetchpriority=high`);
   expect(response.headers['cache-control']).toMatch(/no-store/);
 });
 
@@ -137,4 +141,15 @@ it('does not preload a login illustration for workspace pages or API responses',
     const response = await request(app).get(url).expect(200);
     expect(response.headers.link).toBeUndefined();
   }
+});
+
+
+it.each([[avifPath,'image/avif','approved AVIF bytes'],[webpPath,'image/webp','approved WebP bytes']])('serves %s immutably with its actual image type and range support',async(url,type,bytes)=>{
+  const response=await request(app).get(url).buffer(true).parse(binaryResponse).expect(200);
+  expect(response.headers['content-type']).toBe(type);
+  expect(response.headers['cache-control']).toBe('public, max-age=31536000, immutable');
+  expect(response.body).toEqual(Buffer.from(bytes));
+  await request(app).get(url).set('If-None-Match',response.headers.etag).expect(304);
+  const partial=await request(app).get(url).set('Range','bytes=0-7').buffer(true).parse(binaryResponse).expect(206);
+  expect(partial.body).toEqual(Buffer.from(bytes).subarray(0,8));
 });

@@ -1,5 +1,6 @@
-import { translate } from '../i18n/locale';
-import { preserveText } from "../i18n/jsx-runtime";
+import { preserveText, RichMessage } from "../i18n/jsx-runtime";
+import { FileText, LoaderCircle, Trash2 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/shadcn/alert-dialog';
 import { REVIEW_ROUTES } from '../nav/reviewRoutes';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
@@ -44,6 +45,11 @@ function NormativeReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
   const [pdfReports, setPdfReports] = useState<PaperLintReportListItem[]>([]);
   const [selectedReportIds, setSelectedReportIds] = useState<string[]>([]);
   const [deleting, setDeleting] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<{ ids: string[]; batch: boolean; filename: string } | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const deletionInFlight = useRef(false);
+  const deleteTriggerRef = useRef<HTMLElement | null>(null);
+  const historyRootRef = useRef<HTMLDivElement>(null);
   const [activeIssue, setActiveIssue] = useState<ActiveIssue | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -60,6 +66,8 @@ function NormativeReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
     setLoading(true);
     setErrorMessage(null);
     setSelectedReportIds([]);
+    setPendingDelete(null);
+    setDeleteError(null);
 
     const request = reportId
       ? fetchNormativeDetectionReport(reportId)
@@ -120,21 +128,32 @@ function NormativeReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
     URL.revokeObjectURL(url);
   }
 
-  async function handleDeleteReports(ids: string[], batch = false) {
-    const filename = pdfReports.find(record => record.id === ids[0])?.source_filename;
-    const prompt = batch ? `确定删除选中的 ${ids.length} 份历史报告及 PDF？删除后无法恢复。`
-      : `确定删除“${filename}”的历史报告及 PDF？删除后无法恢复。`;
-    if (!window.confirm(translate(prompt))) return;
+  function requestDeleteReports(ids: string[], batch = false) {
+    if (deletionInFlight.current) return;
+    const owned = new Set(pdfReports.map(record => record.id));
+    const snapshot = [...new Set(ids)].filter(id => owned.has(id));
+    if (!snapshot.length) return;
+    deleteTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setDeleteError(null);
+    setPendingDelete({ ids: snapshot, batch, filename: pdfReports.find(record => record.id === snapshot[0])!.source_filename });
+  }
+
+  async function confirmDeleteReports() {
+    if (!pendingDelete || deletionInFlight.current) return;
+    const { ids, batch } = pendingDelete;
+    deletionInFlight.current = true;
     setDeleting(true);
-    setErrorMessage(null);
+    setDeleteError(null);
     try {
       if (batch) await deletePaperLintReports(ids);
       else await deletePaperLintReport(ids[0]);
       setPdfReports(current => current.filter(record => !ids.includes(record.id)));
       setSelectedReportIds(current => current.filter(id => !ids.includes(id)));
+      setPendingDelete(null);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : '报告删除失败，请重试');
+      setDeleteError(error instanceof Error ? error.message : '报告删除失败，请重试');
     } finally {
+      deletionInFlight.current = false;
       setDeleting(false);
     }
   }
@@ -231,7 +250,37 @@ function NormativeReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
   }
 
   return (
-    <div className={isThirty ? 'mx-auto w-full max-w-6xl space-y-5' : undefined}>
+    <div ref={historyRootRef} tabIndex={-1} className={isThirty ? 'mx-auto w-full max-w-6xl space-y-5' : undefined}>
+      <AlertDialog open={Boolean(pendingDelete)} onOpenChange={open => {
+        if (!open && !deletionInFlight.current) { setPendingDelete(null); setDeleteError(null); }
+      }}>
+        <AlertDialogContent className="report-delete-dialog" aria-busy={deleting}
+          onEscapeKeyDown={event => { if (deletionInFlight.current) event.preventDefault(); }}
+          onCloseAutoFocus={event => {
+            event.preventDefault();
+            const trigger = deleteTriggerRef.current;
+            if (trigger?.isConnected && !trigger.hasAttribute('disabled')) trigger.focus({ preventScroll: true });
+            else historyRootRef.current?.focus({ preventScroll: true });
+          }}>
+          <AlertDialogHeader className="report-delete-header">
+            <span className="report-delete-icon" aria-hidden="true"><Trash2 size={21} /></span>
+            <AlertDialogTitle>{pendingDelete && pendingDelete.ids.length > 1 ? '删除选中的报告？' : '删除报告？'}</AlertDialogTitle>
+          </AlertDialogHeader>
+          <div className="report-delete-body">
+            <AlertDialogDescription>{pendingDelete && pendingDelete.ids.length > 1 ? '选中的报告及其 PDF 将被永久删除，此操作无法撤销。' : '报告及其 PDF 将被永久删除，此操作无法撤销。'}</AlertDialogDescription>
+            {pendingDelete?.batch ? <p className="report-delete-count"><RichMessage name="history-selected" count={pendingDelete.ids.length}>已选择 <strong>{pendingDelete.ids.length}</strong> 份报告</RichMessage></p>
+              : <div className="report-delete-file"><FileText size={18} aria-hidden="true" /><p>{preserveText(pendingDelete?.filename || '')}</p></div>}
+            {deleteError ? <p role="alert" className="report-delete-error">{deleteError}</p> : null}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>取消</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" disabled={deleting} onClick={event => { event.preventDefault(); void confirmDeleteReports(); }}>
+              {deleting ? <LoaderCircle size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" /> : null}
+              {deleting ? '正在删除…' : '确认删除'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {isThirty ? <DetectionPageHeader showEyebrow={false} title="历史报告" description="查找已保存的检测报告，查看问题定位与修改建议。" /> : <>
       <PageHeader
         title={isThirty ? '历史报告' : '基础规则检测'}
@@ -263,7 +312,7 @@ function NormativeReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
           selectedReportIds={selectedReportIds}
           onSelectionChange={setSelectedReportIds}
           deleting={deleting}
-          onDelete={(ids, batch) => void handleDeleteReports(ids, batch)}
+          onDelete={requestDeleteReports}
         />
       ) : null}
       {history.length > 0 ? (

@@ -145,3 +145,19 @@ html.dark[lang=en] .academic-shell details>div>ol>li>p.mt-1 {color:#b9c8dc;}
 .preferences-body {min-height:0;overflow-y:auto;}
 .dark :is(.app-content,[role='dialog'],[role='menu'],[role='listbox']) [class~='bg-slate-50/80'],
 .dark :is(.app-content,[role='dialog'],[role='menu'],[role='listbox']) [class~='bg-slate-200/50'] {background-color:#1d2b41;}
+
+/* History confirmation uses the same surfaces and typography as preferences. */
+.report-delete-dialog{display:flex;flex-direction:column;gap:0;width:min(480px,calc(100vw - 32px));max-width:480px;max-height:calc(100dvh - 32px);overflow:hidden;padding:0;border:1px solid var(--border);border-radius:20px;background:var(--popover);color:var(--popover-foreground);box-shadow:0 24px 80px -24px rgb(16 35 65 / 32%);}
+.report-delete-header{display:flex;flex-direction:row;align-items:center;gap:13px;flex-shrink:0;padding:24px 26px 0;text-align:left;}
+.report-delete-icon{display:flex;align-items:center;justify-content:center;width:42px;height:42px;flex:none;border:1px solid color-mix(in srgb,var(--destructive) 18%,transparent);border-radius:13px;background:color-mix(in srgb,var(--destructive) 8%,var(--popover));color:var(--destructive);}
+.report-delete-dialog [data-slot=alert-dialog-title]{font-size:18px;line-height:1.5;font-weight:650;color:var(--popover-foreground);}
+.report-delete-body{min-height:0;overflow-y:auto;padding:19px 26px 24px;display:grid;gap:16px;}
+.report-delete-dialog [data-slot=alert-dialog-description]{font-size:14px;line-height:1.75;text-wrap:pretty;color:var(--muted-foreground);}
+.report-delete-file{display:flex;align-items:flex-start;gap:11px;padding:13px 15px;min-width:0;border:1px solid var(--border);border-radius:11px;background:var(--muted);color:var(--popover-foreground);font-size:14px;line-height:1.6;}
+.report-delete-file>svg{flex:none;margin-top:2px;color:var(--muted-foreground);}.report-delete-file>p{min-width:0;overflow-wrap:anywhere;}
+.report-delete-count{font-size:14px;line-height:1.6;color:var(--popover-foreground);}.report-delete-count strong{font-weight:600;}
+.report-delete-error{padding:11px 13px;border:1px solid color-mix(in srgb,var(--destructive) 25%,var(--border));border-radius:10px;background:color-mix(in srgb,var(--destructive) 6%,var(--popover));color:var(--destructive);font-size:14px;line-height:1.65;overflow-wrap:anywhere;}
+.report-delete-dialog [data-slot=alert-dialog-footer]{display:flex;flex-direction:row;justify-content:flex-end;gap:10px;flex-shrink:0;margin:0;padding:16px 26px;border-color:var(--border);background:color-mix(in srgb,var(--muted) 55%,var(--popover));border-radius:0 0 20px 20px;}
+.report-delete-dialog [data-slot=alert-dialog-footer]>button{min-width:88px;height:36px;font-size:14px;}
+.dark .report-delete-dialog{box-shadow:0 28px 90px -20px rgb(0 0 0 / 65%);}
+@media(max-width:480px){.report-delete-header{padding:22px 20px 0;}.report-delete-body{padding:17px 20px 21px;}.report-delete-dialog [data-slot=alert-dialog-footer]{padding:15px 20px;}}

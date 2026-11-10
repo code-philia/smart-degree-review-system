@@ -3,7 +3,7 @@
 
 .campus-signin{--ink:#303331;--muted:#6c706a;--red:#96384e;--paper:#fbf9f4;--gold:#bc9756;--step:0;color-scheme:light}
 .campus-signin *{box-sizing:border-box}.campus-signin{margin:0;font-family:"PingFang SC","Microsoft YaHei",sans-serif;color:var(--ink);background:#e9e7e1}.campus-signin button{font:inherit;cursor:pointer}.campus-signin button:focus-visible{outline:3.3px solid #b68c55;outline-offset:4.4px}
-.campus-signin .scene{position:fixed;inset:0;z-index:-3;background:url('/login-campus-B-v5-b25c6008.png') 50% 50%/cover no-repeat}
+.campus-signin .scene{position:fixed;inset:0;z-index:-3;background-position:50% 50%;background-size:cover;background-repeat:no-repeat}
 .campus-signin .wash{position:fixed;inset:0;z-index:-2;background:linear-gradient(180deg,rgba(251,247,239,.88) 0%,rgba(251,247,239,.78) 16%,rgba(251,247,239,.18) 31%,rgba(251,247,239,0) 65%,rgba(251,247,239,.04) 100%)}
 .campus-signin .page{min-height:100svh;padding:35.2px 50.6px 30.8px;display:flex;flex-direction:column;position:relative}
 .campus-signin .masthead{text-align:center;max-width:1320px;margin:0 auto;width:100%;position:relative}

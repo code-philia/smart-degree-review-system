@@ -1,15 +1,17 @@
-import { useEffect, useRef, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { startPondRenderer } from './pondRenderer';
 import { startBreezeRenderer } from './windRenderer';
 
 export default function AuthCampusScene() {
+  const [backgroundSrc, setBackgroundSrc] = useState('');
+  const [fallback, setFallback] = useState(0);
   const canvas = useRef<HTMLCanvasElement>(null);
   const scene = useRef<HTMLDivElement>(null);
   const breeze = useRef<HTMLDivElement>(null);
   const art = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const surface = canvas.current, image = scene.current, layer = breeze.current, leaves = art.current;
-    if (!surface || !image || !layer || !leaves) return;
+    if (!backgroundSrc || !surface || !image || !layer || !leaves) return;
     const motion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
     let stop: (() => void) | undefined;
     function unmount() {
@@ -35,11 +37,22 @@ export default function AuthCampusScene() {
       window.removeEventListener('pagehide', unmount);
       window.removeEventListener('pageshow', mount);
     };
-  }, []);
+  }, [backgroundSrc]);
   return <>
-    <link rel="preload" as="image" href="/login-campus-B-v5-b25c6008.png" fetchPriority="high" />
+    <link rel="preload" as="image" href="/login-campus-B-v5-750f63ec.avif" type="image/avif" fetchPriority="high" />
+    <picture hidden aria-hidden="true">
+      {fallback === 0 ? <source type="image/avif" srcSet="/login-campus-B-v5-750f63ec.avif" /> : null}
+      <img
+        alt=""
+        src={fallback < 2 ? '/login-campus-B-v5-229caf6d.webp' : '/login-campus-B-v5-b25c6008.png'}
+        fetchPriority="high"
+        decoding="async"
+        onLoad={event => setBackgroundSrc(event.currentTarget.currentSrc || event.currentTarget.src)}
+        onError={() => setFallback(current => Math.min(2, current + 1))}
+      />
+    </picture>
     <canvas ref={canvas} className="pond-water-canvas" aria-hidden="true" />
-    <div ref={scene} className="scene" aria-hidden="true" />
+    <div ref={scene} className="scene" aria-hidden="true" style={{ backgroundImage: backgroundSrc ? `url("${backgroundSrc}")` : undefined }} />
     <div className="wash" aria-hidden="true" />
 <div ref={breeze} className="preview-breeze" aria-hidden="true" data-active="true" data-ready="false">
  <div ref={art} className="breeze-art">

@@ -55,7 +55,7 @@ beforeEach(() => {
   vi.mocked(deletePaperLintReport).mockResolvedValue(undefined);
   vi.mocked(deletePaperLintReports).mockResolvedValue([]);
   vi.mocked(fetchNormativeDetectionHistory).mockResolvedValue([]);
-  vi.spyOn(window, 'confirm').mockReturnValue(true);
+  vi.spyOn(window, 'confirm').mockReturnValue(false);
 });
 afterEach(() => vi.restoreAllMocks());
 
@@ -76,10 +76,15 @@ async function manageReports() {
   await user.click(screen.getByRole('button', { name: '批量管理', exact: true }));
 }
 
+async function confirmDeletion() {
+  await userEvent.setup().click(within(screen.getByRole('alertdialog')).getByRole('button', { name: '确认删除', exact: true }));
+}
+
 async function deleteReport(filename: string) {
   const user = userEvent.setup();
   const row = screen.getByRole('link', { name: filename, exact: true }).closest('tr')!;
   await user.click(within(row).getByRole('button', { name: '删除报告', exact: true }));
+  await confirmDeletion();
 }
 
 function shownRows() {
@@ -143,9 +148,10 @@ it('preserves selection across pages and selects or clears only the current page
   fireEvent.click(screen.getByRole('button', { name: '上一页' }));
   expect(screen.getByRole('checkbox', { name: '选择报告：论文-01.pdf' })).toBeChecked();
   fireEvent.click(screen.getByRole('button', { name: '删除选中（2）' }));
+  await confirmDeletion();
   await waitFor(() => expect(screen.queryByText('论文-01.pdf')).not.toBeInTheDocument());
   expect(deletePaperLintReports).toHaveBeenCalledWith(['report-1', 'report-11']);
-  expect(window.confirm).toHaveBeenCalledWith('确定删除选中的 2 份历史报告及 PDF？删除后无法恢复。');
+  expect(window.confirm).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button', { name: '下一页' }));
   expect(screen.queryByText('论文-11.pdf')).not.toBeInTheDocument();
 });
@@ -156,16 +162,17 @@ it('clamps the page after deleting the final page and preserves records when a b
   fireEvent.click(screen.getByRole('button', { name: '下一页' }));
   fireEvent.click(screen.getByRole('button', { name: '下一页' }));
   fireEvent.click(screen.getByRole('checkbox', { name: '全选报告' }));
-  vi.mocked(window.confirm).mockReturnValueOnce(false);
   fireEvent.click(screen.getByRole('button', { name: '删除选中（3）' }));
+  await userEvent.setup().click(within(screen.getByRole('alertdialog')).getByRole('button', { name: '取消', exact: true }));
   expect(deletePaperLintReports).not.toHaveBeenCalled();
   expect(screen.getByText('论文-23.pdf')).toBeInTheDocument();
   vi.mocked(deletePaperLintReports).mockRejectedValueOnce(new Error('批量删除未完成'));
   fireEvent.click(screen.getByRole('button', { name: '删除选中（3）' }));
+  await confirmDeletion();
   expect(await screen.findByText('批量删除未完成')).toBeInTheDocument();
   expect(screen.getByText('论文-23.pdf')).toBeInTheDocument();
-  expect(screen.getByRole('checkbox', { name: '选择报告：论文-23.pdf' })).toBeChecked();
-  fireEvent.click(screen.getByRole('button', { name: '删除选中（3）' }));
+  expect(screen.getByRole('checkbox', { name: '选择报告：论文-23.pdf', hidden: true })).toBeChecked();
+  await confirmDeletion();
   await waitFor(() => expect(screen.getByText('第 2 / 2 页')).toBeInTheDocument());
   expect(shownRows()).toHaveLength(10);
   expect(screen.getByText('论文-11.pdf')).toBeInTheDocument();

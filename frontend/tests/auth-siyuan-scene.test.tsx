@@ -20,6 +20,7 @@ describe('approved B-v5 sign-in scene', () => {
     const media = Object.assign(new EventTarget(), { matches: false });
     vi.stubGlobal('matchMedia', () => media);
     const view = render(<AuthPage />);
+    fireEvent.load(document.querySelector('picture img')!);
     const layer = document.querySelector('.preview-breeze')!;
     const canvas = document.querySelector('canvas')!;
     const hidden = Object.getOwnPropertyDescriptor(document, 'hidden');

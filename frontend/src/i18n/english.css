@@ -142,3 +142,6 @@ html[lang=en] .i18n-languages button{font-size:13px}
 @media(max-width:1100px){html[lang=en] .app-topbar [data-slot=breadcrumb-item]:first-child{display:none}html[lang=en] .app-topbar [data-slot=breadcrumb-separator]{display:none}html[lang=en] .app-topbar>div:last-child>span{display:none}}
 @media(max-width:360px){html[lang=en] .campus-signin .login-button{padding-inline:28px}html[lang=en] .campus-signin .login-button svg{width:16px;height:16px;right:12px}}
 @media(min-width:1760px){html[lang=en] .campus-signin .signin h2{letter-spacing:-.05em}}
+
+/* A bilingual control keeps identical geometry in either UI language. */
+.i18n-login-language .i18n-languages button{display:inline-flex;align-items:center;justify-content:center;flex:none;width:40px;height:24px;padding:0;font-size:13px;line-height:20px;}
