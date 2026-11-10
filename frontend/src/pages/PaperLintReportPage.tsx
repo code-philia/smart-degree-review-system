@@ -1,3 +1,7 @@
+import { translate } from '../i18n/locale';
+import { preserveText } from "../i18n/jsx-runtime";
+import { useReportTranslations } from '../i18n/reportTranslations';
+import { TranslationStatus } from '../i18n/TranslationStatus';
 import { REVIEW_ROUTES } from '../nav/reviewRoutes';
 import { ArrowLeft, FileText } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -81,6 +85,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
     [rules],
   );
   const repairSuggestions = usePaperLintRepairSuggestions(reportId, repairRuleIds);
+  const translations = useReportTranslations({reportId: report?.id === reportId ? reportId : undefined}, [report?.result, repairSuggestions.repairSuggestionByFindingKey]);
   const [findingFeedbackByReportId, setFindingFeedbackByReportId] = useState<Record<string, Record<string, FindingFeedback | null>>>({});
   const findingFeedbackByKey = feedbackReportId ? findingFeedbackByReportId[feedbackReportId] || {} : {};
   const [suggestionFeedbackByFindingKey, setSuggestionFeedbackByFindingKey] = useState<Record<string, SuggestionFeedback | null>>({});
@@ -114,7 +119,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
     try {
       const feedback = await saveFindingFeedback(feedbackReportId, item.ruleRun.rule_id, item.finding.finding_id, { feedback_value: value });
       setFindingFeedbackByReportId(current => ({ ...current, [feedbackReportId]: { ...current[feedbackReportId], [item.key]: feedback } }));
-    } catch (cause) { window.alert(cause instanceof Error ? cause.message : '反馈保存失败'); }
+    } catch (cause) { window.alert(translate(cause instanceof Error ? cause.message : '反馈保存失败')); }
   }, [feedbackReportId]);
   const updateFindingReason = useCallback(async (item: (typeof findings)[number], reasonCode: string | null, reasonText: string | null) => {
     if (!feedbackReportId) throw new Error('请重新打开检测报告后提交反馈');
@@ -124,13 +129,13 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
   const cancelFindingFeedback = useCallback(async (item: (typeof findings)[number]) => {
     if (!feedbackReportId) return;
     try { await deleteFindingFeedback(feedbackReportId, item.ruleRun.rule_id, item.finding.finding_id); setFindingFeedbackByReportId(current => ({ ...current, [feedbackReportId]: { ...current[feedbackReportId], [item.key]: null } })); }
-    catch (cause) { window.alert(cause instanceof Error ? cause.message : '反馈取消失败'); }
+    catch (cause) { window.alert(translate(cause instanceof Error ? cause.message : '反馈取消失败')); }
   }, [feedbackReportId]);
   const updateSuggestionFeedback = useCallback(async (item: (typeof findings)[number], value: 'positive' | 'negative') => {
     const suggestion = repairSuggestions.repairSuggestionByFindingKey[item.key];
     if (!reportId || !suggestion?.suggestion_id) return;
     try { const feedback = await saveSuggestionFeedback(reportId, suggestion.suggestion_id, { feedback_value: value }); setSuggestionFeedbackByFindingKey((current) => ({ ...current, [item.key]: feedback })); }
-    catch (cause) { window.alert(cause instanceof Error ? cause.message : '反馈保存失败'); }
+    catch (cause) { window.alert(translate(cause instanceof Error ? cause.message : '反馈保存失败')); }
   }, [reportId, repairSuggestions.repairSuggestionByFindingKey]);
   const updateSuggestionReason = useCallback(async (item: (typeof findings)[number], reasonCode: string | null, reasonText: string | null) => {
     const suggestion = repairSuggestions.repairSuggestionByFindingKey[item.key];
@@ -142,7 +147,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
     const suggestion = repairSuggestions.repairSuggestionByFindingKey[item.key];
     if (!reportId || !suggestion?.suggestion_id) return;
     try { await deleteSuggestionFeedback(reportId, suggestion.suggestion_id); setSuggestionFeedbackByFindingKey((current) => ({ ...current, [item.key]: null })); }
-    catch (cause) { window.alert(cause instanceof Error ? cause.message : '反馈取消失败'); }
+    catch (cause) { window.alert(translate(cause instanceof Error ? cause.message : '反馈取消失败')); }
   }, [reportId, repairSuggestions.repairSuggestionByFindingKey]);
   if (error) return <ErrorState title="报告暂不可用" message={error} />;
   if (!report) return <LoadingState label="正在加载检测报告和原文定位…" />;
@@ -165,7 +170,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
           <div className="w-full min-w-0 sm:w-auto sm:flex-1">
             <p className="text-lg font-bold leading-7 tracking-tight text-brand-700 sm:text-xl">规范性检测</p>
             <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h1 className={`break-all text-slate-600 ${REPORT_DOCUMENT_TEXT}`}>{report.source_filename}</h1>
+              <h1 className={`break-all text-slate-600 ${REPORT_DOCUMENT_TEXT}`}>{preserveText(report.source_filename)}</h1>
               <time dateTime={report.created_at} className="whitespace-nowrap text-xs text-slate-500">
                 {formatChinaDateTime(report.created_at, { includeSeconds: true })}
               </time>
@@ -208,6 +213,7 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
           ))}
         </div>
       </Card>
+      <TranslationStatus {...translations} />
       <DetectionScope report={report} rules={rules} />
       {!isSemanticReport ? <div className="flex items-center gap-2">
         <FileText className="size-5 text-brand-600" />

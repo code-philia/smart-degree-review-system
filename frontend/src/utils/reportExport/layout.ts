@@ -20,7 +20,14 @@ const styles = {
   notice: { size: 22, height: 35, gap: 16, bold: false, color: '#73624a' },
 };
 
-function* wrappedLines(text: string, width: number, measure: (text: string) => number): Generator<string> {
+export type ExportWrapping = 'character' | 'word';
+const latinWordCharacter = /[\p{Script=Latin}\p{Number}\p{Mark}_'’]/u;
+function* wrappedLines(
+  text: string,
+  width: number,
+  measure: (text: string) => number,
+  wrapping: ExportWrapping = 'character',
+): Generator<string> {
   for (const paragraph of text.replace(/\r\n?/g, '\n').split('\n')) {
     if (!paragraph) {
       yield '';
@@ -41,18 +48,35 @@ function* wrappedLines(text: string, width: number, measure: (text: string) => n
         if (fits(middle)) low = middle;
         else high = middle - 1;
       }
+      if (
+        wrapping === 'word' &&
+        offset + low < chars.length &&
+        latinWordCharacter.test(chars[offset + low - 1]) &&
+        latinWordCharacter.test(chars[offset + low])
+      ) {
+        let boundary = offset + low;
+        while (boundary > offset && latinWordCharacter.test(chars[boundary - 1])) boundary--;
+        // A word fitting on an empty line moves intact. An overlong token
+        // retains the existing character fallback so it cannot overflow.
+        if (boundary > offset) low = boundary - offset;
+      }
       yield chars.slice(offset, offset + low).join('');
       offset += low;
     }
   }
 }
-export const wrapText = (text: string, width: number, measure: (text: string) => number) =>
-  Array.from(wrappedLines(text, width, measure));
+export const wrapText = (
+  text: string,
+  width: number,
+  measure: (text: string) => number,
+  wrapping: ExportWrapping = 'character',
+) => Array.from(wrappedLines(text, width, measure, wrapping));
 
 export function* paginateReportSteps(
   blocks: ReportBlock[],
   measure: (text: string, size: number, bold: boolean) => number,
   options: typeof PAGE = PAGE,
+  wrapping: ExportWrapping = 'character',
 ): Generator<void, ExportPage[]> {
   const { pageWidth, pageHeight, margin, top, bottom } = options,
     maxY = pageHeight - bottom;
@@ -66,8 +90,11 @@ export function* paginateReportSteps(
   for (const block of blocks) {
     const style = styles[block.kind],
       indent = block.kind === 'quote' ? 18 : 0;
-    const lines = wrappedLines(block.text, pageWidth - margin * 2 - indent, (text) =>
-      measure(text, style.size, style.bold),
+    const lines = wrappedLines(
+      block.text,
+      pageWidth - margin * 2 - indent,
+      (text) => measure(text, style.size, style.bold),
+      wrapping,
     );
     if (
       (block.kind === 'heading' || block.kind === 'subheading') &&
@@ -77,17 +104,15 @@ export function* paginateReportSteps(
       next();
     for (const text of lines) {
       if (y + style.height > maxY && pages.at(-1)!.lines.length) next();
-      pages
-        .at(-1)!
-        .lines.push({
-          text,
-          y,
-          fontSize: style.size,
-          lineHeight: style.height,
-          bold: style.bold,
-          color: style.color,
-          indent,
-        });
+      pages.at(-1)!.lines.push({
+        text,
+        y,
+        fontSize: style.size,
+        lineHeight: style.height,
+        bold: style.bold,
+        color: style.color,
+        indent,
+      });
       y += style.height;
       if (++work >= 32) {
         work = 0;
@@ -102,8 +127,9 @@ export function paginateReport(
   blocks: ReportBlock[],
   measure: (text: string, size: number, bold: boolean) => number,
   options: typeof PAGE = PAGE,
+  wrapping: ExportWrapping = 'character',
 ): ExportPage[] {
-  const steps = paginateReportSteps(blocks, measure, options);
+  const steps = paginateReportSteps(blocks, measure, options, wrapping);
   let result = steps.next();
   while (!result.done) result = steps.next();
   return result.value;

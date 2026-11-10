@@ -1,3 +1,6 @@
+import { preserveText } from "../i18n/jsx-runtime";
+import { RichMessage } from '../i18n/jsx-runtime';
+import { LanguageSwitch } from '../i18n/LanguageSwitch';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import {
   ChevronDown,
@@ -171,18 +174,18 @@ function AccountMenu({ onLogout }: { onLogout: () => Promise<void> }) {
             <SidebarMenuButton size="lg" tooltip="账户菜单" className="data-open:bg-sidebar-accent">
               <Avatar className="size-8 border border-sidebar-border">
                 <AvatarFallback className="bg-sidebar-primary font-semibold text-sidebar-primary-foreground">
-                  {userInitial}
+                  {preserveText(userInitial)}
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0 flex-1 text-left leading-tight">
-                <span className="block truncate font-semibold">{displayName}</span>
+                <span className="block truncate font-semibold">{preserveText(displayName)}</span>
               </div>
               <ChevronDown className="ml-auto" aria-hidden="true" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent side="right" align="end" sideOffset={8} className="account-menu-surface w-64 ring-0">
             <DropdownMenuLabel className="space-y-1 px-2.5 py-2.5">
-              <span className="block truncate text-sm font-semibold text-popover-foreground">{displayName}</span>
+              <span className="block truncate text-sm font-semibold text-popover-foreground">{preserveText(displayName)}</span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="mx-1" />
             <DropdownMenuItem
@@ -269,7 +272,7 @@ function AppShell() {
                   className="size-8 rounded-full bg-white object-cover ring-1 ring-white/20"
                 />
                 <span className="min-w-0 leading-tight">
-                  <span className="block whitespace-normal text-[13px] font-semibold leading-5 text-sidebar-accent-foreground">{PRODUCT_NAME}</span>
+                  <span className="block whitespace-normal text-[13px] font-semibold leading-5 text-sidebar-accent-foreground"><RichMessage name="sidebar-brand">{PRODUCT_NAME}</RichMessage></span>
                   <span className="mt-0.5 block text-xs font-normal text-[var(--sidebar-muted)]">{PRODUCT_TAGLINE}</span>
                 </span>
               </SidebarMenuButton>
@@ -327,6 +330,7 @@ function AppShell() {
                 试点验证版
               </Badge>
             </span>
+            <LanguageSwitch />
             {user ? <SystemFeedbackDialog /> : null}
           </div>
         </header>

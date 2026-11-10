@@ -1,3 +1,6 @@
+import { createTranslator, getLocale } from '../../i18n/locale.js';
+import { ensureReportTranslations, assertTranslationsReady } from '../../i18n/reportTranslations';
+import { collectExportTranslationTexts, localizeExportReport, reportTranslator } from './presentation';
 import { reportBlocks, reportMarkdown, reportText, safeReportFilename, type ExportReport } from './model';
 import { canvasPng, checkCancelled, renderReportPages, type ExportProgress } from './renderPages';
 
@@ -10,7 +13,20 @@ export async function createReportFile(
   format: ReportExportFormat,
   { signal, onProgress }: Options = {},
 ): Promise<ExportFile> {
-  checkCancelled(signal);
+  const locale = getLocale();
+  checkCancelled(signal, locale);
+  if (locale === 'en') {
+    const required = collectExportTranslationTexts(model),
+      coverage = createTranslator('en');
+    if (required.some((text) => !coverage.has(text))) {
+      onProgress?.('Preparing English translation…');
+      await ensureReportTranslations({ reportId: model.report_id }, required, { locale: 'en', force: true });
+      checkCancelled(signal, locale);
+    }
+    assertTranslationsReady(required, 'en');
+    model = localizeExportReport(model, 'en', createTranslator('en'));
+  }
+  const t = reportTranslator(model) ?? createTranslator('zh');
   const stem = safeReportFilename(model.document.filename);
   if (format === 'markdown')
     return { filename: stem + '.md', blob: new Blob([reportMarkdown(model)], { type: 'text/markdown;charset=utf-8' }) };
@@ -25,9 +41,9 @@ export async function createReportFile(
       blob: new Blob([JSON.stringify(model, null, 2)], { type: 'application/json;charset=utf-8' }),
     };
   if (format === 'docx') {
-    onProgress?.('正在生成可编辑 Word 文档');
+    onProgress?.(t('正在生成可编辑 Word 文档'));
     const { Document, Paragraph, TextRun, Packer, Header, Footer, AlignmentType, PageNumber } = await import('docx');
-    checkCancelled(signal);
+    checkCancelled(signal, locale);
     const children = reportBlocks(model).map((block) => {
       const title = block.kind === 'title',
         heading = block.kind === 'heading',
@@ -50,8 +66,8 @@ export async function createReportFile(
       });
     });
     const document = new Document({
-      creator: '智慧学位 AI 评阅辅助系统',
-      title: '论文规范性检测报告',
+      creator: t('智慧学位 AI 评阅辅助系统'),
+      title: t('论文规范性检测报告'),
       styles: { default: { document: { run: { font: 'Microsoft YaHei', size: 22 } } } },
       sections: [
         {
@@ -65,7 +81,7 @@ export async function createReportFile(
             default: new Header({
               children: [
                 new Paragraph({
-                  children: [new TextRun({ text: '智慧学位 · 论文规范性检测报告', size: 18, color: '64748B' })],
+                  children: [new TextRun({ text: t('智慧学位 · 论文规范性检测报告'), size: 18, color: '64748B' })],
                 }),
               ],
             }),
@@ -76,7 +92,7 @@ export async function createReportFile(
                 new Paragraph({
                   alignment: AlignmentType.CENTER,
                   children: [
-                    new TextRun({ text: '检测结果仅供参考 · ', size: 18, color: '64748B' }),
+                    new TextRun({ text: t('检测结果仅供参考 · '), size: 18, color: '64748B' }),
                     new TextRun({ children: [PageNumber.CURRENT], size: 18, color: '64748B' }),
                   ],
                 }),
@@ -88,39 +104,39 @@ export async function createReportFile(
       ],
     });
     const blob = await Packer.toBlob(document);
-    checkCancelled(signal);
+    checkCancelled(signal, locale);
     return { blob, filename: stem + '.docx' };
   }
   if (format === 'pdf') {
-    onProgress?.('正在准备 PDF');
+    onProgress?.(t('正在准备 PDF'));
     const { jsPDF } = await import('jspdf');
-    checkCancelled(signal);
+    checkCancelled(signal, locale);
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
     pdf.setProperties({
-      title: '论文规范性检测报告',
+      title: t('论文规范性检测报告'),
       subject: model.document.filename,
-      author: '智慧学位 AI 评阅辅助系统',
+      author: t('智慧学位 AI 评阅辅助系统'),
     });
     for await (const { canvas, index } of renderReportPages(model, signal, onProgress)) {
       if (index) pdf.addPage();
       pdf.addImage(canvas, 'PNG', 0, 0, 210, 297, undefined, 'FAST');
     }
-    checkCancelled(signal);
+    checkCancelled(signal, locale);
     return { filename: stem + '.pdf', blob: pdf.output('blob') };
   }
   if (format === 'image') {
     const images: Record<string, Uint8Array> = {};
     let single: Blob | null = null;
     for await (const { canvas, index, total } of renderReportPages(model, signal, onProgress)) {
-      const blob = await canvasPng(canvas);
-      checkCancelled(signal);
+      const blob = await canvasPng(canvas, t);
+      checkCancelled(signal, locale);
       if (total === 1) single = blob;
       else images[`${stem}_${String(index + 1).padStart(3, '0')}.png`] = new Uint8Array(await blob.arrayBuffer());
     }
     if (single) return { filename: stem + '.png', blob: single };
-    onProgress?.('正在打包全部报告图片');
+    onProgress?.(t('正在打包全部报告图片'));
     const { zipSync } = await import('fflate');
-    checkCancelled(signal);
+    checkCancelled(signal, locale);
     // PNGs are already compressed; storing avoids a costly redundant compression pass.
     const bytes = zipSync(images, { level: 0 });
     return {
@@ -128,7 +144,7 @@ export async function createReportFile(
       blob: new Blob([new Uint8Array(bytes).buffer], { type: 'application/zip' }),
     };
   }
-  throw new Error('暂不支持此导出格式');
+  throw new Error(t('暂不支持此导出格式'));
 }
 
 export function downloadReportFile({ blob, filename }: ExportFile) {

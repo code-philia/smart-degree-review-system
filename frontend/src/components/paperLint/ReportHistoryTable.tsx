@@ -1,3 +1,5 @@
+import { preserveText } from "../../i18n/jsx-runtime";
+import { RichMessage } from '../../i18n/jsx-runtime';
 import { useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Select as SelectPrimitive } from 'radix-ui';
@@ -90,8 +92,8 @@ export function ReportHistoryTable({
   }
 
   return (
-    <section className="mb-6 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_8px_32px_-24px_rgba(15,23,42,0.25)]">
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-6 py-5 lg:grid-cols-[minmax(0,1fr)_minmax(240px,320px)_auto]">
+    <section data-i18n-history-table="" className="mb-6 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_8px_32px_-24px_rgba(15,23,42,0.25)]">
+      <div data-i18n-history-header="" className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-6 py-5 lg:grid-cols-[minmax(0,1fr)_minmax(240px,320px)_auto]">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <h2 id={titleId} className="text-base font-semibold tracking-tight text-slate-900">规范性检测报告</h2>
           {filtering ? <span role="status" className="text-[13px] font-medium tabular-nums text-brand-700">匹配 {filteredReports.length} 份</span> : null}
@@ -128,7 +130,7 @@ export function ReportHistoryTable({
       </div>
       {managing ? (
         <div role="region" aria-label="批量管理" className="mx-5 mb-4 mt-4 flex animate-in flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-100 bg-brand-50/60 px-4 py-3 duration-200 fade-in-0 slide-in-from-top-2 motion-reduce:animate-none">
-          <p className="text-sm text-slate-600" aria-live="polite">已选择 <span className="font-semibold text-slate-900">{selectedReportIds.length}</span> 份报告</p>
+          <p className="text-sm text-slate-600" aria-live="polite"><RichMessage name="history-selected" count={selectedReportIds.length}>已选择 <span className="font-semibold text-slate-900">{selectedReportIds.length}</span> 份报告</RichMessage></p>
           <div className="flex items-center gap-2">
             <Button size="sm" variant="ghost" disabled={deleting} onClick={finishManaging}><Check className="size-3.5" />完成管理</Button>
             <Button size="sm" variant="danger" disabled={deleting || !selectedReportIds.length} onClick={() => onDelete(selectedReportIds, true)}>
@@ -185,7 +187,7 @@ export function ReportHistoryTable({
                   />
                 </td> : null}
                 <td className="px-6 py-4">
-                  <Link to={detailPath} title={record.source_filename} className="block truncate rounded-sm text-sm font-normal leading-6 text-slate-900 transition-colors hover:text-brand-700 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-500 motion-reduce:transition-none">{record.source_filename}</Link>
+                  <Link data-i18n-original-attributes="title" to={detailPath} title={record.source_filename} className="block truncate rounded-sm text-sm font-normal leading-6 text-slate-900 transition-colors hover:text-brand-700 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-500 motion-reduce:transition-none">{preserveText(record.source_filename)}</Link>
                 </td>
                 <td className="px-3 py-4"><span className="whitespace-nowrap text-sm font-normal leading-6 text-slate-600">规范性检测</span></td>
                 <td className="px-3 py-4">
@@ -206,7 +208,7 @@ export function ReportHistoryTable({
                 <td className="px-3 py-4">
                   <div className="flex items-center gap-2 whitespace-nowrap">
                     <Link className={`${rowActionClassName} group border-brand-100 bg-brand-50/70 text-brand-700 hover:border-brand-200 hover:bg-brand-100/70 hover:text-brand-800 focus-visible:outline-brand-500`} to={detailPath}>
-                      查看详情<ArrowUpRight className="size-3.5 transition-transform group-hover:-translate-y-px group-hover:translate-x-px motion-reduce:transform-none" aria-hidden="true" />
+                      <ArrowUpRight className="size-3.5 transition-transform group-hover:-translate-y-px group-hover:translate-x-px motion-reduce:transform-none" aria-hidden="true" />查看详情
                     </Link>
                     <Link to={`${detailPath}?rerun=1`}
                       aria-disabled={deleting || undefined}
@@ -242,7 +244,7 @@ export function ReportHistoryTable({
       <nav aria-label="报告分页" className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-t border-slate-100 bg-white px-4 py-4 text-[13px] text-slate-500 sm:px-6">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
           <span aria-hidden="true" title={rangeLabel} className="tabular-nums">
-            共 <span className="font-medium text-slate-700">{reports.length}</span> 条{filtering ? `，匹配 ${filteredReports.length} 条` : ''}
+            <RichMessage name="history-total" count={reports.length} filteredCount={filtering ? filteredReports.length : null}>共 <span className="font-medium text-slate-700">{reports.length}</span> 条{filtering ? `，匹配 ${filteredReports.length} 条` : ''}</RichMessage>
           </span>
           <span className="sr-only">{rangeLabel}</span>
           <SelectPrimitive.Root value={String(pageSize)} disabled={deleting}
@@ -258,7 +260,7 @@ export function ReportHistoryTable({
               </SelectPrimitive.Icon>
             </SelectPrimitive.Trigger>
             <SelectPrimitive.Portal>
-              <SelectPrimitive.Content position="popper" side="bottom" align="start" sideOffset={4} collisionPadding={12}
+              <SelectPrimitive.Content data-i18n-page-size-content="" position="popper" side="bottom" align="start" sideOffset={4} collisionPadding={12}
                 className="z-50 max-h-[min(176px,var(--radix-select-content-available-height))] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-lg border border-slate-200/80 bg-white p-1 text-slate-700 shadow-[0_8px_24px_-6px_rgba(15,23,42,0.16)]">
                 <SelectPrimitive.ScrollUpButton className="flex h-4 items-center justify-center text-slate-400">
                   <ChevronUp aria-hidden="true" className="size-3" />
@@ -302,7 +304,7 @@ export function ReportHistoryTable({
             </button>
           </div>
           <label className="flex shrink-0 items-center gap-2">
-            前往
+            <RichMessage name="page-jump">前往
             <input
               type="text" inputMode="numeric" aria-label="跳转页码"
               title={`输入 1–${pageCount}，按 Enter 或移出输入框跳转`}
@@ -318,7 +320,7 @@ export function ReportHistoryTable({
               }}
               className="h-9 w-12 rounded-lg border border-slate-200 bg-white px-1 text-center text-sm tabular-nums text-slate-700 transition-colors hover:border-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-40 motion-reduce:transition-none"
             />
-            页
+            页</RichMessage>
           </label>
         </div>
         <span aria-live="polite" className="sr-only">第 {currentPage} / {pageCount} 页</span>

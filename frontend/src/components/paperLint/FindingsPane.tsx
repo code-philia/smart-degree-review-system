@@ -1,5 +1,8 @@
+import { preserveText } from "../../i18n/jsx-runtime";
+import { RichMessage } from '../../i18n/jsx-runtime';
 import { Bot, Check, CheckCircle2, CircleAlert, CircleHelp, ListFilter, LoaderCircle, MapPin } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useSyncExternalStore } from 'react';
+import { getLocale, getPresentationRevision, subscribe, translate } from '../../i18n/locale';
 import type { PaperLintRule, PaperLintRuleRun } from '../../api/paperLint';
 import type { RepairSuggestion } from '../../api/repairSuggestions';
 import type { FindingFeedback, SuggestionFeedback } from '../../api/feedback';
@@ -54,14 +57,18 @@ function repairActionParts(instruction: string) {
   return { text };
 }
 
-function RepairAction({ instruction }: { instruction: string }) {
+export function RepairAction({ instruction }: { instruction: string }) {
+  useSyncExternalStore(subscribe, getPresentationRevision, getPresentationRevision);
+  // The backend maps the complete instruction. Keep its protected quoted terms together.
+  const localized = translate(instruction);
+  if (getLocale() === 'en' && localized !== instruction) return <p className="whitespace-pre-wrap break-words">{preserveText(localized)}</p>;
   const parts = repairActionParts(instruction);
   if (!('before' in parts)) return <p>{parts.text}</p>;
   return (
     <p className="whitespace-pre-wrap break-words">
       {parts.prefix}
       <span className="mr-1 text-xs font-semibold text-emerald-700">建议修改为：</span>
-      <span className="rounded bg-emerald-100 px-1 text-emerald-800" title="建议修改后的文字">{parts.after}</span>
+      <span className="rounded bg-emerald-100 px-1 text-emerald-800" title="建议修改后的文字">{preserveText(parts.after)}</span>
       {parts.suffix}
     </p>
   );
@@ -152,7 +159,7 @@ export function FindingsPane({
     : incomplete ? '部分规则未完成有效检测'
     : selectedRun?.rule_id === 'sjtu_rule_32' ? '未发现疑似不存在的引用'
     : selectedOption ? '本规则未检测出问题' : '未检测出问题';
-  const emptyDescription = pending ? '检测完成后自动更新，您可以先查看其他已完成规则的结果。'
+  const emptyDescription = pending ? <RichMessage name="pending-description">检测完成后自动更新，您可以先查看其他已完成规则的结果。</RichMessage>
     : severityEmpty ? selectedTotal > 0 ? `${selectedOption ? '该规则' : '当前报告'}共发现 ${selectedTotal} ${!selectedOption && executionWarnings.length ? '项问题，分布在其他级别或规则未实现警告' : '处问题，分布在其他级别'}。` : '当前筛选下暂无该级别的问题。'
     : incomplete ? referenceReviewMessage(selectedRun) || selectedRun?.message || '请在规则下拉框查看检测状态；证据不足或检测失败不代表没有问题。'
     : selectedRun?.rule_id === 'sjtu_rule_32' ? '检测结果仅供参考。'
@@ -201,7 +208,7 @@ export function FindingsPane({
               {value === 'all' ? '全部' : <>{severityLabels[value]} <span className="tabular-nums">{severityTotals[value]}</span></>}
             </button>
           ))}
-          <Button size="sm" variant={filter === 'execution' ? 'secondary' : 'ghost'} aria-pressed={filter === 'execution'} onClick={() => changeFilter('execution')}>规则未实现警告 {executionWarnings.length}</Button>
+          <Button size="sm" variant={filter === 'execution' ? 'secondary' : 'ghost'} aria-pressed={filter === 'execution'} onClick={() => changeFilter('execution')}><RichMessage name="verification-filter" count={executionWarnings.length}>规则未实现警告 {executionWarnings.length}</RichMessage></Button>
         </div>
         {ruleIds.length > 0 ? (
           <RuleFilter options={ruleOptions} value={effectiveRuleFilter} onValueChange={setRuleFilter} totalCount={issueTotal} severity={filter} />
@@ -217,7 +224,7 @@ export function FindingsPane({
         {filter !== 'execution' && filtered.length > 0 && incomplete && selectedRun?.rule_id === 'sjtu_rule_32' ? <p role="status" className="rounded-xl bg-amber-50 p-3 text-xs leading-6 text-amber-800">{referenceReviewMessage(selectedRun)}</p> : null}
         {filter === 'execution' && visibleWarnings.length > 0 ? <p className="rounded-lg bg-slate-50 p-3 text-sm leading-6 text-slate-600">如需使用以下规则，请按建议内容调整；如无需使用，请忽略以下内容</p> : null}
         {cards.length > 0 ? null : (
-          <div className="flex h-full min-h-60 flex-col items-center justify-center text-center">
+          <div data-i18n-report-empty="" className="flex h-full min-h-60 flex-col items-center justify-center text-center">
             <EmptyIcon data-testid={!pending && !incomplete && !severityEmpty ? 'rule-empty-icon' : undefined} className={`size-8 ${pending ? 'animate-spin text-brand-600 motion-reduce:animate-none' : severityEmpty ? 'text-slate-400' : incomplete ? 'text-amber-600' : 'text-success-600'}`} />
             <p className="mt-3 text-sm font-bold text-slate-900">{emptyTitle}</p>
             <p className="mt-1 max-w-sm text-xs leading-6 text-slate-500">{emptyDescription}</p>
@@ -234,11 +241,11 @@ export function FindingsPane({
                   {warning.preconditionId ? (
                     <>
                       <p className="mt-2 text-sm leading-6 text-slate-700">
-                        <strong>检测说明：</strong>本规则目前仅支持核验摘要中与<strong>实验数据</strong>相关的论点论据
+                        <RichMessage name="numeric-scope"><strong>检测说明：</strong>本规则目前仅支持核验摘要中与<strong>实验数据</strong>相关的论点论据</RichMessage>
                       </p>
                       <h4 className="mt-4 text-base font-bold leading-7 text-slate-900">
                         {warning.preconditionId === 'abstract_numeric'
-                          ? <>摘要中不存在可核验的<strong>含有数值的</strong>论点</>
+                          ? <RichMessage name="numeric-missing"><>摘要中不存在可核验的<strong>含有数值的</strong>论点</></RichMessage>
                           : warning.issueTitle}
                       </h4>
                       <div className="mt-3 rounded-lg bg-slate-50 p-3 text-sm leading-6 text-slate-700">
@@ -277,6 +284,8 @@ export function FindingsPane({
             const generating = repairSuggestionLoadingByFindingKey[item.key] || repairSuggestionLoadingKey === item.key;
             const numeric = item.ruleRun.rule_id === 'abstract_numeric_consistency_check';
             const reference = item.ruleRun.rule_id === 'sjtu_rule_32';
+            const sourceCorrection = item.finding.rule_id === 'typo_detection_check' || item.ruleRun.rule_id === 'typo_detection_check';
+            const suggestionText = sourceCorrection ? preserveText(item.finding.suggestion) : item.finding.suggestion;
             const referenceExcerpt = reference ? item.finding.evidence?.filter(e => e.kind === 'source_span' && e.quote).at(-1)?.quote || item.finding.location?.text_excerpt : null;
             const repairEnabled = !documentBlocked && !numeric && !reference && supportsRepairSuggestion(item);
             const findingFeedback = findingFeedbackByKey[item.key];
@@ -338,7 +347,7 @@ export function FindingsPane({
                   </div>
                 </div>
                 <p className="mt-2 break-words text-sm leading-6 text-slate-700">{item.finding.message}</p>
-                {referenceExcerpt ? <blockquote className="mt-3 rounded-lg bg-slate-50 p-3 text-xs leading-6 text-slate-700"><p className="font-semibold">参考文献原文</p><p className="mt-1 whitespace-pre-wrap break-words">{referenceExcerpt}</p></blockquote> : null}
+                {referenceExcerpt ? <blockquote className="mt-3 rounded-lg bg-slate-50 p-3 text-xs leading-6 text-slate-700"><p className="font-semibold">参考文献原文</p><p className="mt-1 whitespace-pre-wrap break-words">{preserveText(referenceExcerpt)}</p></blockquote> : null}
                 {reference ? <p className="mt-2 text-xs leading-6 text-blue-700">{item.finding.suggestion || '请人工复核该条引用及其原始来源。'}</p> : null}
                 {onFindingFeedback ? <FeedbackControls
                   label="这个问题的判断是否准确？"
@@ -366,7 +375,7 @@ export function FindingsPane({
                 {!reference && (numeric || active) && item.finding.suggestion && (!repairEnabled || (!onLoadRepairSuggestion && !onGenerateRepairSuggestion)) ? (
                   <div className={`mt-3 rounded-lg bg-white p-3 text-slate-600 ${numeric ? 'text-sm leading-6' : 'text-xs leading-5'}`}>
                     <strong className="text-slate-800">修改建议：</strong>
-                    {item.finding.suggestion}
+                    {suggestionText}
                   </div>
                 ) : null}
                 {repairEnabled && (onLoadRepairSuggestion || onGenerateRepairSuggestion) && showRepairSuggestion ? (
@@ -393,7 +402,7 @@ export function FindingsPane({
                       <div className="mt-2 text-xs leading-5 text-slate-600" role="status">
                         <p>{repair ? '本次更新暂未完成，继续显示已保存的修复建议。' : (repairError || '修复建议暂未生成，可点击按钮重试。')}</p>
                         {!repair && item.finding.suggestion ? (
-                          <p className="mt-2 rounded-lg bg-slate-50 p-3"><strong>规则修改提示：</strong>{item.finding.suggestion}</p>
+                          <p className="mt-2 rounded-lg bg-slate-50 p-3"><strong>规则修改提示：</strong>{suggestionText}</p>
                         ) : null}
                       </div>
                     ) : null}

@@ -68,7 +68,7 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
-  plugins: [react(), tailwindcss(), copyPdfResources(), precompressAssets()],
+  plugins: [react({ jsxImportSource: '@/i18n' }), tailwindcss(), copyPdfResources(), precompressAssets()],
   test: {
     environment: 'jsdom',
     globals: true,

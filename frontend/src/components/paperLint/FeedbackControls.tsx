@@ -46,7 +46,7 @@ export function FeedbackControls({ label, feedback, reasons, onValue, onReason, 
 
   return (
     <div
-      className="mt-3 rounded-lg border border-slate-100 bg-slate-50 p-2"
+      data-i18n-feedback-control="" className="mt-3 rounded-lg border border-slate-100 bg-slate-50 p-2"
       onClick={(event) => event.stopPropagation()}
       onKeyDown={(event) => event.stopPropagation()}
       onKeyUp={(event) => event.stopPropagation()}

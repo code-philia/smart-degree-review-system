@@ -1,3 +1,4 @@
+import { preserveText } from "../i18n/jsx-runtime";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuthSession } from '../auth/AuthSessionProvider';
@@ -248,7 +249,7 @@ function WholePolishPage() {
               </div>
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                 <span className="text-xs text-slate-500">来源</span>
-                <strong className="mt-1 block truncate text-slate-900">{result.source_filename || '粘贴文本'}</strong>
+                <strong className="mt-1 block truncate text-slate-900">{preserveText(result.source_filename || '粘贴文本')}</strong>
               </div>
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                 <span className="text-xs text-slate-500">润色档位</span>

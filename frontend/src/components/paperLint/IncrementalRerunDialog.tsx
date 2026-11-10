@@ -1,3 +1,4 @@
+import { preserveText } from "../../i18n/jsx-runtime";
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RotateCw, LoaderCircle } from 'lucide-react';
@@ -37,11 +38,11 @@ export function IncrementalRerunDialog({ report, rules, initiallyOpen = false }:
   }
   return <Dialog open={open} onOpenChange={next => { if (!submitting) setOpen(next); }}>
     <DialogTrigger asChild><Button variant="outline" size="sm"><RotateCw className="size-4" />增量补跑</Button></DialogTrigger>
-    <DialogContent className="top-[50dvh] left-[50vw] max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl">
+    <DialogContent data-i18n-rerun="" className="top-[50dvh] left-[50vw] max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl">
       <DialogHeader><DialogTitle>基于历史报告增量补跑</DialogTitle><DialogDescription>
         复用原 PDF 和已完成结果，只补跑新增、失败或未能判定的规则。生成新报告，原报告保持不变。
       </DialogDescription></DialogHeader>
-      <p className="break-all rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700">{report.source_filename}</p>
+      <p className="break-all rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700">{preserveText(report.source_filename)}</p>
       <div className="max-h-80 space-y-2 overflow-y-auto">
         {report.selected_rule_ids.map(id => <div key={id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 px-3 py-2 text-sm">
           <span>{names.get(id) || id}</span><span className={`shrink-0 text-xs font-medium ${successful.has(id) ? 'text-emerald-700' : 'text-amber-700'}`}>

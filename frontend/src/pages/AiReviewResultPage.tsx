@@ -1,3 +1,4 @@
+import { preserveText } from "../i18n/jsx-runtime";
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { downloadAiReviewResultJson, fetchAiReviewResult, type AiReviewResultResponse } from '../api/normativeRules';
@@ -99,7 +100,7 @@ function AiReviewResultPage() {
             📄 论文预览
           </h2>
           <div className="flex h-11 items-center justify-center border-b border-[#D8D8D8] bg-white px-4 text-sm font-bold">
-            {result?.source_filename || result?.thesis_title || '—'}
+            {preserveText(result?.source_filename || result?.thesis_title || '—')}
           </div>
           <div className="min-h-0 flex-1 overflow-auto p-5">
             <pre className="min-h-full whitespace-pre-wrap border border-[#D8D8D8] bg-white p-5 text-[13px] leading-6 text-slate-800">

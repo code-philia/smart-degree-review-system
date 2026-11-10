@@ -1,3 +1,4 @@
+import { preserveText } from "../../i18n/jsx-runtime";
 import { useEffect, useRef, useState } from 'react';
 import { Braces, Check, Download, FileImage, FileText, FileType2, FileDown, LoaderCircle } from 'lucide-react';
 import type { PaperLintDocumentMetrics, PaperLintRule, PaperLintRunResponse } from '../../api/paperLint';
@@ -107,7 +108,7 @@ export function ReportExportDialog({ report, rules, metrics, repairs = {} }: Pro
           下载检测报告
         </Button>
       </DialogTrigger>
-      <DialogContent
+      <DialogContent data-i18n-export=""
         className="top-[50dvh] left-[50vw] max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl"
         onEscapeKeyDown={(event) => {
           if (pending) event.preventDefault();
@@ -121,7 +122,7 @@ export function ReportExportDialog({ report, rules, metrics, repairs = {} }: Pro
           <DialogDescription className="sr-only">选择检测报告的导出格式</DialogDescription>
         </DialogHeader>
         <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-3">
-          <p className="break-all text-center text-sm font-medium text-slate-800">{report.source_filename}</p>
+          <p className="break-all text-center text-sm font-medium text-slate-800">{preserveText(report.source_filename)}</p>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {formats.map(({ id, label, icon: Icon, color }) => (

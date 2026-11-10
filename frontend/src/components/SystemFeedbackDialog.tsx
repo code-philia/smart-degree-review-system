@@ -87,7 +87,7 @@ export function SystemFeedbackDialog() {
           使用反馈
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] gap-6 overflow-y-auto p-6 sm:max-w-xl">
+      <DialogContent data-i18n-system-feedback="" className="max-h-[calc(100dvh-2rem)] gap-6 overflow-y-auto p-6 sm:max-w-xl">
         <DialogHeader className="gap-3 pr-5">
           <DialogTitle className="text-xl font-semibold tracking-tight">使用反馈</DialogTitle>
           <DialogDescription className="leading-relaxed">

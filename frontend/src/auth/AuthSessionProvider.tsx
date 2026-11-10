@@ -1,4 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { clearReportTranslations } from '../i18n/reportTranslations';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   fetchCurrentSession,
   loginWithLocalAccount,
@@ -28,17 +29,24 @@ type AuthSessionProviderProps = {
 export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
   const [status, setStatus] = useState<AuthSessionStatus>('loading');
   const [user, setUser] = useState<AuthenticatedUser | null>(null);
+  const identity = useRef<string|null>(null);
+  const updateUser = useCallback((nextUser: AuthenticatedUser|null) => {
+    if (identity.current !== (nextUser?.id ?? null)) clearReportTranslations();
+    identity.current = nextUser?.id ?? null;
+    setUser(nextUser);
+  }, []);
 
   const refreshSession = useCallback(async () => {
     try {
       const session = await fetchCurrentSession();
-      setUser(session.user);
+      updateUser(session.user);
       setStatus('authenticated');
     } catch {
-      setUser(null);
+      clearReportTranslations();
+      updateUser(null);
       setStatus('anonymous');
     }
-  }, []);
+  }, [updateUser]);
 
   useEffect(() => {
     void refreshSession();
@@ -46,23 +54,24 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
 
   const login = useCallback(async (payload: LoginRequest) => {
     const session = await loginWithLocalAccount(payload);
-    setUser(session.user);
+    updateUser(session.user);
     setStatus('authenticated');
     return session.user;
-  }, []);
+  }, [updateUser]);
 
   const logout = useCallback(async () => {
+    clearReportTranslations();
     await logoutCurrentSession();
-    setUser(null);
+    updateUser(null);
     setStatus('anonymous');
-  }, []);
+  }, [updateUser]);
 
   const loginTrial = useCallback(async (payload: LoginRequest) => {
     const session = await loginWithTrialAccount(payload);
-    setUser(session.user);
+    updateUser(session.user);
     setStatus('authenticated');
     return session.user;
-  }, []);
+  }, [updateUser]);
 
   const value = useMemo(
     () => ({ status, user, refreshSession, login, loginTrial, logout }),

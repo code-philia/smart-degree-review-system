@@ -1,3 +1,4 @@
+import { presentationBlock } from './presentation';
 import type { PaperLintRuleRun } from '../../api/paperLint';
 import type { ReportBlock } from './model';
 
@@ -24,53 +25,115 @@ export function numericReportBlocks(run: PaperLintRuleRun): ReportBlock[] {
     results = rows(params.numeric_results);
   const blocks: ReportBlock[] = [{ kind: 'subheading', text: '摘要数值型论点核验' }];
   for (const condition of conditions) {
-    blocks.push({
-      kind: 'text',
-      text: `${labels[text(condition.id)] || text(condition.id)}：${condition.passed === true ? '已通过' : condition.status === 'skipped' ? '未检查' : '未通过'}`,
-    });
+    const label = labels[text(condition.id)] || text(condition.id),
+      status = condition.passed === true ? '已通过' : condition.status === 'skipped' ? '未检查' : '未通过';
+    blocks.push(
+      presentationBlock({ kind: 'text', text: `${label}：${status}` }, (t) => `${t(label)}: ${t(status)}`, [
+        label,
+        status,
+      ]),
+    );
     if (condition.reason) blocks.push({ kind: 'text', text: text(condition.reason) });
     const suggestion =
       text(condition.suggestion) || (condition.passed !== true ? defaultSuggestions[text(condition.id)] : '');
-    if (suggestion) blocks.push({ kind: 'text', text: `修改建议：${suggestion}` });
+    if (suggestion)
+      blocks.push(
+        presentationBlock(
+          { kind: 'text', text: `修改建议：${suggestion}` },
+          (t) => `${t('修改建议')}: ${t(suggestion)}`,
+          [suggestion],
+        ),
+      );
   }
   if (!conditions.length || conditions.some((condition) => condition.passed !== true)) {
     blocks.push({ kind: 'text', text: '前置条件未全部通过，未执行逐项数值核验。' });
     return blocks;
   }
-  blocks.push({
-    kind: 'meta',
-    text: `共核验 ${results.length} 项论点；一致 ${results.filter((row) => row.status === 'consistent').length} 项；不一致 ${results.filter((row) => row.status === 'inconsistent').length} 项；论据不明确 ${results.filter((row) => !['consistent', 'inconsistent'].includes(text(row.status))).length} 项。`,
-  });
+  blocks.push(
+    presentationBlock(
+      {
+        kind: 'meta',
+        text: `共核验 ${results.length} 项论点；一致 ${results.filter((row) => row.status === 'consistent').length} 项；不一致 ${results.filter((row) => row.status === 'inconsistent').length} 项；论据不明确 ${results.filter((row) => !['consistent', 'inconsistent'].includes(text(row.status))).length} 项。`,
+      },
+      () =>
+        `${results.length} ${results.length === 1 ? 'claim' : 'claims'} verified; ${results.filter((row) => row.status === 'consistent').length} consistent; ${results.filter((row) => row.status === 'inconsistent').length} inconsistent; ${results.filter((row) => !['consistent', 'inconsistent'].includes(text(row.status))).length} with unclear evidence.`,
+      [],
+    ),
+  );
   results.forEach((row, index) => {
     const declaration = (row.declaration || {}) as Row;
     const mapping = rows(params.mappings).find((item) => item.declaration_id === row.declaration_id);
     const contribution = rows(params.contributions).find((item) => item.id === declaration.contribution_id);
     const status = row.status === 'consistent' ? '一致' : row.status === 'inconsistent' ? '不一致' : '论据不明确';
-    blocks.push({
-      kind: 'subheading',
-      text: `论点 ${index + 1}：${text(declaration.text) || text(row.declaration_id)} · ${status}`,
-    });
-    if (contribution?.text) blocks.push({ kind: 'text', text: `研究贡献：${text(contribution.text)}` });
+    blocks.push(
+      presentationBlock(
+        {
+          kind: 'subheading',
+          text: `论点 ${index + 1}：${text(declaration.text) || text(row.declaration_id)} · ${status}`,
+        },
+        (t) => `Claim ${index + 1}: ${text(declaration.text) || text(row.declaration_id)} · ${t(status)}`,
+        [status],
+      ),
+    );
+    if (contribution?.text)
+      blocks.push(
+        presentationBlock(
+          { kind: 'text', text: `研究贡献：${text(contribution.text)}` },
+          (t) => `${t('研究贡献')}: ${text(contribution.text)}`,
+          [],
+        ),
+      );
     if (mapping)
-      blocks.push({
-        kind: 'text',
-        text: `研究章节：${text(mapping.chapter_title) || text(mapping.chapter_id)}；实验子章节：${(Array.isArray(mapping.experiment_titles) ? mapping.experiment_titles : Array.isArray(mapping.experiment_section_ids) ? mapping.experiment_section_ids : []).map(text).join('、')}`,
-      });
+      blocks.push(
+        presentationBlock(
+          {
+            kind: 'text',
+            text: `研究章节：${text(mapping.chapter_title) || text(mapping.chapter_id)}；实验子章节：${(Array.isArray(mapping.experiment_titles) ? mapping.experiment_titles : Array.isArray(mapping.experiment_section_ids) ? mapping.experiment_section_ids : []).map(text).join('、')}`,
+          },
+          (t) =>
+            `${t('研究章节')}: ${text(mapping.chapter_title) || text(mapping.chapter_id)}; ${t('实验子章节')}: ${(Array.isArray(mapping.experiment_titles) ? mapping.experiment_titles : Array.isArray(mapping.experiment_section_ids) ? mapping.experiment_section_ids : []).map(text).join('、')}`,
+          [],
+        ),
+      );
     for (const anchor of [...rows(row.abstract_anchors), ...rows(row.evidence_anchors)]) {
       const location = (anchor.location || {}) as Row;
       if (location.page_number)
-        blocks.push({
-          kind: 'meta',
-          text: `${text(anchor.label) || '原文定位'}：PDF 第 ${text(location.page_number)} 页`,
-        });
+        blocks.push(
+          presentationBlock(
+            { kind: 'meta', text: `${text(anchor.label) || '原文定位'}：PDF 第 ${text(location.page_number)} 页` },
+            (t) => `${t(text(anchor.label) || '原文定位')}: PDF page ${text(location.page_number)}`,
+            [text(anchor.label) || '原文定位'],
+          ),
+        );
       if (location.text_excerpt) blocks.push({ kind: 'quote', text: text(location.text_excerpt) });
     }
     for (const evidence of rows(row.evidence)) {
-      if (evidence.page) blocks.push({ kind: 'meta', text: `实验结果证据：PDF 第 ${text(evidence.page)} 页` });
+      if (evidence.page)
+        blocks.push(
+          presentationBlock(
+            { kind: 'meta', text: `实验结果证据：PDF 第 ${text(evidence.page)} 页` },
+            (t) => `${t('实验结果证据')}: PDF page ${text(evidence.page)}`,
+            [],
+          ),
+        );
       if (evidence.quote) blocks.push({ kind: 'quote', text: text(evidence.quote) });
     }
-    if (row.reason) blocks.push({ kind: 'text', text: `判断依据：${text(row.reason)}` });
-    if (row.suggestion) blocks.push({ kind: 'text', text: `修改建议：${text(row.suggestion)}` });
+    if (row.reason)
+      blocks.push(
+        presentationBlock(
+          { kind: 'text', text: `判断依据：${text(row.reason)}` },
+          (t) => `${t('判断依据')}: ${t(text(row.reason))}`,
+          [text(row.reason)],
+        ),
+      );
+    if (row.suggestion)
+      blocks.push(
+        presentationBlock(
+          { kind: 'text', text: `修改建议：${text(row.suggestion)}` },
+          (t) => `${t('修改建议')}: ${t(text(row.suggestion))}`,
+          [text(row.suggestion)],
+        ),
+      );
   });
   return blocks;
 }

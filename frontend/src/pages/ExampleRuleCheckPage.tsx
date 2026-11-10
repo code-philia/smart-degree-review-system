@@ -1,3 +1,4 @@
+import { preserveText } from "../i18n/jsx-runtime";
 import { FilePlus2, FlaskConical, Lightbulb, LockKeyhole, Pencil, Sparkles, Trash2, Upload } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -287,7 +288,7 @@ export default function ExampleRuleCheckPage() {
                   onClick={() => setActiveId(item.id)}
                   className={`w-full rounded-lg border p-3 text-left ${item.id === active?.id ? 'border-brand-400 bg-brand-50' : 'border-slate-200 hover:border-slate-300'}`}
                 >
-                  <p className="truncate text-sm font-bold">{item.source_filename}</p>
+                  <p className="truncate text-sm font-bold">{preserveText(item.source_filename)}</p>
                   <p className="mt-1 text-xs text-slate-500">{item.annotations.length} 条证据</p>
                 </button>
               ))}
@@ -418,7 +419,7 @@ export default function ExampleRuleCheckPage() {
                               {annotation.page_number} 页
                             </p>
                             <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-600">
-                              {annotation.text_excerpt}
+                              {preserveText(annotation.text_excerpt)}
                             </p>
                           </button>
                           <div className="flex shrink-0 items-center gap-1">

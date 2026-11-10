@@ -127,10 +127,10 @@ export function RuleFilter({ options, value, onValueChange, totalCount, severity
         className="z-50 flex max-h-[min(510px,var(--radix-select-content-available-height))] w-[var(--radix-select-trigger-width)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 text-slate-800 shadow-lg shadow-slate-900/5">
         <Select.ScrollUpButton className="flex h-5 shrink-0 items-center justify-center text-slate-400"><ChevronUp className="size-3.5" /></Select.ScrollUpButton>
         <Select.Viewport>
-          {[all, ...visible].map(option => <Select.Item key={option.id} value={option.id} textValue={option.title}
+          {[all, ...visible].map(option => <Select.Item data-i18n-check-option="" key={option.id} value={option.id} textValue={option.title}
             className={`relative flex min-h-13 cursor-default select-none items-center gap-3 rounded-xl py-3 pr-3 pl-8 text-xs outline-none data-[highlighted]:bg-slate-50 data-[state=checked]:font-semibold ${option.id === 'all' ? 'mb-1 border-b border-slate-100 text-sm font-semibold' : ''}`}>
             <Select.ItemIndicator className="absolute left-2.5 text-brand-600"><Check className="size-3.5" /></Select.ItemIndicator>
-            <span className="flex min-w-0 flex-1 items-center gap-1.5 leading-5"><Select.ItemText className="min-w-0 whitespace-normal">{option.title}<span className="sr-only">，{statusLabel(option, severity)}</span></Select.ItemText><ExperimentalBadge ruleId={option.id} /></span>
+            <span className="flex min-w-0 flex-1 items-center gap-1.5 leading-5"><Select.ItemText title={option.title} className="min-w-0 whitespace-normal">{option.title}<span className="sr-only">，{statusLabel(option, severity)}</span></Select.ItemText><ExperimentalBadge ruleId={option.id} /></span>
             <span aria-hidden="true" className="max-w-[55%] shrink-0">{option.id === 'all' ? <span className="whitespace-nowrap text-[11px] font-normal text-slate-400">{visible.length} 条规则</span> : <RuleBadges option={option} severity={severity} />}</span>
           </Select.Item>)}
         </Select.Viewport>

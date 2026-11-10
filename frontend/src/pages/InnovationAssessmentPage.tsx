@@ -1,3 +1,4 @@
+import { preserveText } from "../i18n/jsx-runtime";
 import { FormEvent, useMemo, useState } from 'react';
 import {
   createInnovationAssessment,
@@ -122,7 +123,7 @@ function InnovationAssessmentPage() {
         }
       />
       <p className="mb-5 text-sm text-slate-600">
-        当前登录用户：{user.username}（{user.role}）
+        当前登录用户：{preserveText(user.username)}（{user.role}）
       </p>
 
       <form onSubmit={handleSubmit}>

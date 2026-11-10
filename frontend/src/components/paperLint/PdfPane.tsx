@@ -1,3 +1,4 @@
+import { preserveText } from "../../i18n/jsx-runtime";
 import { ChevronDown, ChevronLeft, ChevronRight, Eye, EyeOff, Highlighter, Link2, LoaderCircle, RefreshCw, SlidersHorizontal, ZoomIn, ZoomOut } from 'lucide-react';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy } from 'pdfjs-dist';
 import { loadPdfJs, pdfResourceOptions } from '../../pdfRuntime';
@@ -255,7 +256,7 @@ export function PdfPane({
     <section data-pdf-status={phase} aria-busy={phase === 'loading' || phase === 'rendering'} className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
       <div className="@container border-b border-slate-200 bg-white">
         <div className="flex h-12 min-w-0 items-center gap-3 px-3">
-          <p className={`min-w-0 flex-1 truncate text-slate-600 ${REPORT_DOCUMENT_TEXT}`} title={file.name}><span className="sr-only">文档名称：</span>{file.name}</p>
+          <p data-i18n-original-attributes="title" className={`min-w-0 flex-1 truncate text-slate-600 ${REPORT_DOCUMENT_TEXT}`} title={file.name}><span className="sr-only">文档名称：</span>{preserveText(file.name)}</p>
           <button
             type="button"
             className={`inline-flex h-8 shrink-0 cursor-pointer items-center gap-2 rounded-lg border px-2.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/25 focus-visible:ring-offset-2 motion-reduce:transition-none ${REPORT_DOCUMENT_TEXT} ${toolbarExpanded ? 'border-brand-500/25 bg-brand-50 text-brand-700' : 'border-slate-200 bg-white text-slate-600 shadow-xs hover:border-slate-300 hover:bg-slate-50'}`}

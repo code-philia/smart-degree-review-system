@@ -1,5 +1,5 @@
 import type { PaperLintFinding, PaperLintResult, PaperLintRuleRun } from '../../api/paperLint';
-import { displayedReportSummary, executionWarningFeedbackTargets, isGenericExecutionWarning, chapterPrerequisiteSuggestion, referenceResourcesUnavailable, referenceResourceMessage, referenceInfoFindings } from '../../../../shared/paper-lint-presentation.mjs';
+import { numericDisplayFindings as sharedNumericDisplayFindings, displayedReportSummary, executionWarningFeedbackTargets, isGenericExecutionWarning, chapterPrerequisiteSuggestion, referenceResourcesUnavailable, referenceResourceMessage, referenceInfoFindings } from '../../../../shared/paper-lint-presentation.mjs';
 export { referenceResourcesUnavailable } from '../../../../shared/paper-lint-presentation.mjs';
 
 export type PaperLintFindingItem = {
@@ -140,58 +140,7 @@ export function paperLintFeedbackItems(result: Pick<PaperLintResult, 'rule_runs'
 }
 
 export function numericDisplayFindings(run: PaperLintRuleRun): PaperLintFinding[] {
-  const params = run.params || {};
-  const conditions = Array.isArray(params.preconditions) ? params.preconditions : [];
-  if (conditions.some(c => c.passed === false)) return [];
-  const rows = Array.isArray(params.numeric_results) ? params.numeric_results : null;
-  if (!rows) return run.findings || [];
-  const errors = Array.isArray(params.validation_errors) ? params.validation_errors : [];
-  return rows.filter(row => ['inconsistent', 'inconclusive'].includes(row.status)
-    && !errors.some(error => error.declaration_id === row.declaration_id)
-    && !/^结果校验未通过|.*核验执行失败/.test(String(row.reason || '')))
-    .map(row => {
-      const old = run.findings?.find(f => f.finding_id === `${numericRule}_${row.declaration_id}`);
-      const evidence = Array.isArray(row.evidence)
-        ? row.evidence.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object'))
-        : [];
-      const evidenceLabels = new Map(
-        evidence
-          .map(item => String(item.candidate_id || item.id || ''))
-          .filter(Boolean)
-          .map((id, index) => [id, `实验结果证据${index + 1}`]),
-      );
-      let fallbackEvidenceIndex = evidenceLabels.size + 1;
-      const readableReason = String(row.reason || '')
-        .replace(/\b[dD]\d+\s*:\s*[A-Za-z]\d+\b/g, id => {
-        const existing = evidenceLabels.get(id.replace(/\s/g, ''));
-        if (existing) return existing;
-        const label = `实验结果证据${fallbackEvidenceIndex++}`;
-        evidenceLabels.set(id.replace(/\s/g, ''), label);
-        return label;
-        })
-        // Page navigation is rendered separately and uses the verified anchor
-        // locations; do not expose model-supplied page claims in the explanation.
-        .replace(/第\s*\d+(?:\s*[、,]\s*\d+)*\s*页/g, '')
-        .replace(/页码\s*[:：]?\s*\d+(?:\s*[、,]\s*\d+)*/g, '')
-        .replace(/[ \t]{2,}/g, ' ')
-        .replace(/\s+([，。；：、])/g, '$1')
-        .trim();
-      const abstractAnchors = Array.isArray(row.abstract_anchors)
-        ? row.abstract_anchors.map(anchor => ({ ...anchor, label: '摘要数值论点' }))
-        : [];
-      const evidenceAnchors = Array.isArray(row.evidence_anchors)
-        ? row.evidence_anchors.map((anchor, index) => ({
-            ...anchor,
-            label: evidenceLabels.get(String(anchor.anchor_id || '')) || `实验结果证据${index + 1}`,
-          }))
-        : [];
-      const anchors = [...abstractAnchors, ...evidenceAnchors];
-      return { ...old, finding_id: `${numericRule}_${row.declaration_id}`, rule_id: numericRule,
-        severity: row.status === 'inconsistent' ? 'warning' : 'info',
-        message: `${row.status === 'inconsistent' ? '论点与论据不一致' : '论据不明确'}：${readableReason}`,
-        suggestion: row.suggestion || '', anchors: anchors.length ? anchors : old?.anchors,
-        location: anchors[0]?.location || old?.location } as PaperLintFinding;
-    });
+  return sharedNumericDisplayFindings(run);
 }
 
 function pageNumber(item: PaperLintFindingItem) {

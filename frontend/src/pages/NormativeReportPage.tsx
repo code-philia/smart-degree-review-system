@@ -1,3 +1,5 @@
+import { translate } from '../i18n/locale';
+import { preserveText } from "../i18n/jsx-runtime";
 import { REVIEW_ROUTES } from '../nav/reviewRoutes';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
@@ -122,7 +124,7 @@ function NormativeReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
     const filename = pdfReports.find(record => record.id === ids[0])?.source_filename;
     const prompt = batch ? `确定删除选中的 ${ids.length} 份历史报告及 PDF？删除后无法恢复。`
       : `确定删除“${filename}”的历史报告及 PDF？删除后无法恢复。`;
-    if (!window.confirm(prompt)) return;
+    if (!window.confirm(translate(prompt))) return;
     setDeleting(true);
     setErrorMessage(null);
     try {
@@ -285,7 +287,7 @@ function NormativeReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
                 {history.map((record, index) => (
                   <tr key={record.id} className={index % 2 === 0 ? 'bg-white' : 'bg-[#F5F9FC]'}>
                     <td className="px-6 py-6 font-bold text-slate-900">
-                      📄 {record.source_filename || '粘贴文本检测'}
+                      📄 {preserveText(record.source_filename || '粘贴文本检测')}
                     </td>
                     <td className="px-6 py-6 font-black text-[#D62020]">{record.issues.length}</td>
                     <td className="px-6 py-6 text-slate-700">

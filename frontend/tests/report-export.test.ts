@@ -125,3 +125,36 @@ describe('paginated report layout', () => {
     expect(reportBlocks(model).some((b) => b.text.includes('未发现问题'))).toBe(true);
   });
 });
+
+describe('English export word wrapping', () => {
+  const measure = (text: string) => Array.from(text).length;
+  it('keeps complete English words together and preserves every original space and punctuation', () => {
+    const text = 'Verify that matching citations stay away from incorrect wrapping.';
+    const lines = wrapText(text, 13, measure, 'word');
+    expect(lines.join('')).toBe(text);
+    expect(lines.every((line) => measure(line) <= 13)).toBe(true);
+    for (const word of text.match(/[A-Za-z]+/g) || []) expect(lines.some((line) => line.includes(word))).toBe(true);
+    expect(lines).not.toEqual(wrapText(text, 13, measure));
+  });
+  it('wraps mixed CJK/source quotes and overlong tokens safely without changing the text', () => {
+    const text = '原文：matching 检测结果 abcdefghijklmnopqrstuvwxyz 中文校核。';
+    const lines = wrapText(text, 10, measure, 'word');
+    expect(lines.join('')).toBe(text);
+    expect(lines.every((line) => measure(line) <= 10)).toBe(true);
+    expect(lines.some((line) => line.includes('matching'))).toBe(true);
+    expect(wrapText('中文测试\n\n下一行', 2, measure, 'word')).toEqual(['中文', '测试', '', '下一', '行']);
+  });
+  it('uses the English mode in pagination without changing the default Chinese path', () => {
+    const text = 'Verify that matching citations stay away from incorrect wrapping.';
+    const page = { pageHeight: 2000, pageWidth: 33, margin: 10, top: 20, bottom: 20 };
+    const english = paginateReport([{ kind: 'text', text }], measure, page, 'word').flatMap((p) =>
+      p.lines.map((l) => l.text),
+    );
+    expect(english.join('')).toBe(text);
+    for (const word of text.match(/[A-Za-z]+/g) || []) expect(english.some((line) => line.includes(word))).toBe(true);
+    const chinese = '中文测试原文不变'.repeat(3);
+    expect(paginateReport([{ kind: 'quote', text: chinese }], measure, page)).toEqual(
+      paginateReport([{ kind: 'quote', text: chinese }], measure, page, 'character'),
+    );
+  });
+});

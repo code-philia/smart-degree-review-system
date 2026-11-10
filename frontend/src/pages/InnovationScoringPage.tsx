@@ -1,3 +1,4 @@
+import { preserveText } from "../i18n/jsx-runtime";
 import { FormEvent, useState } from 'react';
 import { Calculator, CheckCircle2, Info, Sparkles } from 'lucide-react';
 import {
@@ -80,7 +81,7 @@ function InnovationScoringPage() {
         description="选择学位类型与五项自评等级，系统按固定权重生成可追溯的参考分。"
         actions={
           <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-500">
-            当前账号：{user.username}
+            当前账号：{preserveText(user.username)}
           </span>
         }
       />

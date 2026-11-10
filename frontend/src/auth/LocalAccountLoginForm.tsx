@@ -1,3 +1,4 @@
+import { preserveText } from "../i18n/jsx-runtime";
 import { FormEvent, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthSession } from './AuthSessionProvider';
@@ -56,7 +57,7 @@ function LocalAccountLoginForm() {
       {errorMessage ? <p className="text-sm font-semibold text-red-600">{errorMessage}</p> : null}
       {user ? (
         <p className="rounded border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-          已登录：{user.username}（{user.role}）
+          已登录：{preserveText(user.username)}（{user.role}）
         </p>
       ) : null}
     </form>

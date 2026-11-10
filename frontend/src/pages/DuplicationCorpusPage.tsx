@@ -1,3 +1,4 @@
+import { preserveText } from "../i18n/jsx-runtime";
 import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -225,7 +226,7 @@ function DuplicationCorpusPage() {
                 <h3 className="font-bold text-slate-900">{sample.title}</h3>
                 <p className="mt-1 text-xs text-slate-500">
                   {sample.subject} · {sample.year} ·{' '}
-                  {sample.source_type === 'file' ? sample.source_filename : '粘贴文本'}
+                  {preserveText(sample.source_type === 'file' ? sample.source_filename : '粘贴文本')}
                 </p>
                 <button
                   className="mt-3 text-sm font-semibold text-danger-600"

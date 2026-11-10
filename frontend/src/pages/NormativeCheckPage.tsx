@@ -1,3 +1,7 @@
+import { translate } from '../i18n/locale';
+import { preserveText } from "../i18n/jsx-runtime";
+import { useReportTranslations } from '../i18n/reportTranslations';
+import { TranslationStatus } from '../i18n/TranslationStatus';
 import { reportDetailPath } from '../nav/reviewRoutes';
 import axios from 'axios';
 import { FileCheck2, FileText, LoaderCircle, Play, Square, Upload, X } from 'lucide-react';
@@ -190,6 +194,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   const feedbackItems = useMemo(() => (response && feedbackReportId ? paperLintFeedbackItems(response.result) : []), [response, feedbackReportId]);
   const [completedRuns, setCompletedRuns] = useState<PaperLintRunResponse['result']['rule_runs']>([]);
   const repairSuggestions = usePaperLintRepairSuggestions(response?.id);
+  const translations = useReportTranslations(activeJobId ? {jobId:activeJobId} : {reportId:feedbackReportId || undefined}, [response?.result, completedRuns, repairSuggestions.repairSuggestionByFindingKey]);
   const [findingFeedbackByReportId, setFindingFeedbackByReportId] = useState<Record<string, Record<string, FindingFeedback | null>>>({});
   const findingFeedbackByKey = feedbackReportId ? findingFeedbackByReportId[feedbackReportId] || {} : {};
   const [suggestionFeedbackByFindingKey, setSuggestionFeedbackByFindingKey] = useState<Record<string, SuggestionFeedback | null>>({});
@@ -238,7 +243,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
       const feedback = await saveFindingFeedback(feedbackReportId, item.ruleRun.rule_id, item.finding.finding_id, { feedback_value: value });
       setFindingFeedbackByReportId(current => ({ ...current, [feedbackReportId]: { ...current[feedbackReportId], [item.key]: feedback } }));
     } catch (cause) {
-      window.alert(cause instanceof Error ? cause.message : '反馈保存失败');
+      window.alert(translate(cause instanceof Error ? cause.message : '反馈保存失败'));
     }
   }, [feedbackReportId]);
   const updateFindingReason = useCallback(async (item: (typeof findings)[number], reasonCode: string | null, reasonText: string | null) => {
@@ -254,7 +259,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
       await deleteFindingFeedback(feedbackReportId, item.ruleRun.rule_id, item.finding.finding_id);
       setFindingFeedbackByReportId(current => ({ ...current, [feedbackReportId]: { ...current[feedbackReportId], [item.key]: null } }));
     } catch (cause) {
-      window.alert(cause instanceof Error ? cause.message : '反馈取消失败');
+      window.alert(translate(cause instanceof Error ? cause.message : '反馈取消失败'));
     }
   }, [feedbackReportId]);
   const updateSuggestionFeedback = useCallback(async (item: (typeof findings)[number], value: 'positive' | 'negative') => {
@@ -264,7 +269,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
       const feedback = await saveSuggestionFeedback(response.id, suggestion.suggestion_id, { feedback_value: value });
       setSuggestionFeedbackByFindingKey((current) => ({ ...current, [item.key]: feedback }));
     } catch (cause) {
-      window.alert(cause instanceof Error ? cause.message : '反馈保存失败');
+      window.alert(translate(cause instanceof Error ? cause.message : '反馈保存失败'));
     }
   }, [response?.id, repairSuggestions.repairSuggestionByFindingKey]);
   const updateSuggestionReason = useCallback(async (item: (typeof findings)[number], reasonCode: string | null, reasonText: string | null) => {
@@ -282,7 +287,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
       await deleteSuggestionFeedback(response.id, suggestion.suggestion_id);
       setSuggestionFeedbackByFindingKey((current) => ({ ...current, [item.key]: null }));
     } catch (cause) {
-      window.alert(cause instanceof Error ? cause.message : '反馈取消失败');
+      window.alert(translate(cause instanceof Error ? cause.message : '反馈取消失败'));
     }
   }, [response?.id, repairSuggestions.repairSuggestionByFindingKey]);
 
@@ -605,6 +610,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     activeFilename={activeFilename}
     queuePosition={queuePosition}
   />
+    <TranslationStatus {...translations} />
     {running && jobStatus && activeJobId ? <LivePaperLintReport
       file={file || { name: activeFilename || '论文.pdf', url: `/api/normative/paper-lint/jobs/${encodeURIComponent(activeJobId)}/pdf` }}
       rules={visibleRules}
@@ -691,7 +697,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
               {file ? (
                 <>
                   <FileText className="size-10 text-brand-500" />
-                  <span className="mt-3 max-w-full truncate text-sm font-bold text-slate-900">{file.name}</span>
+                  <span className="mt-3 max-w-full truncate text-sm font-bold text-slate-900">{preserveText(file.name)}</span>
                   <span className="mt-1 text-xs text-slate-500">{fileSizeLabel(file.size)}</span>
                   <Button
                     className="mt-4"
@@ -951,6 +957,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
             <FileCheck2 className="size-5 text-brand-600" />
             <h2 className="text-lg font-black text-slate-900">PDF 定位与问题联动</h2>
           </div>
+          <TranslationStatus {...translations} />
           <PaperLintWorkspace
             file={resultFile}
             layout={isSemantic ? 'semantic' : 'default'}

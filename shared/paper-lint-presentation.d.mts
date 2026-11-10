@@ -7,3 +7,5 @@ export function displayedReportSummary(result: Pick<PaperLintResult, 'rule_runs'
 
 export type ExecutionWarningFeedbackTarget = { findingId: string; kind: 'precondition' | 'failure' | 'generic'; preconditionIndex?: number };
 export function executionWarningFeedbackTargets(run: PaperLintRuleRun): ExecutionWarningFeedbackTarget[];
+
+export function numericDisplayFindings(run: PaperLintRuleRun): import('../frontend/src/api/paperLint').PaperLintFinding[];

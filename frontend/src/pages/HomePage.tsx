@@ -1,3 +1,4 @@
+import { preserveText } from "../i18n/jsx-runtime";
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthSession } from '../auth/AuthSessionProvider';
@@ -324,7 +325,7 @@ function HomePage() {
     <div>
       <header className="mb-6">
         <p className="text-sm font-bold text-brand-500">{roleLabels[user.role]}工作台</p>
-        <h1 className="mt-1 text-2xl font-black text-slate-900">欢迎回来，{user.username}</h1>
+        <h1 className="mt-1 text-2xl font-black text-slate-900">欢迎回来，{preserveText(user.username)}</h1>
         <p className="mt-1.5 text-sm text-slate-500">
           当前身份：{roleLabels[user.role]} · 数据范围：{roleScopeLabels[user.role]}
         </p>

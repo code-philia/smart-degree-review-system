@@ -1,3 +1,4 @@
+import { preserveText } from "../../i18n/jsx-runtime";
 import { ArrowRight, Check, ChevronDown, FileText, FlaskConical, LoaderCircle, ShieldCheck, Square, Upload, X } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
 import { DetectionPageHeader } from './DetectionPageHeader';
@@ -107,8 +108,8 @@ function DetectionProgress({
         <div className="min-w-0 w-full flex-1">
           <DetectionWaitNotice eta={eta}/>
           {activeFilename ? (
-            <p className="mt-3 truncate text-sm leading-6 text-slate-600" title={activeFilename}>
-              {activeFilename}
+            <p data-i18n-original-attributes="title" className="mt-3 truncate text-sm leading-6 text-slate-600" title={activeFilename}>
+              {preserveText(activeFilename)}
             </p>
           ) : null}
           <p className="mt-2 text-xs leading-6 text-slate-500">
@@ -238,7 +239,7 @@ export function ThesisUploadPanel(props: Props) {
             </span>
             {filename ? (
               <>
-                <span className="mt-3 max-w-full break-all text-base font-semibold text-slate-900">{filename}</span>
+                <span className="mt-3 max-w-full break-all text-base font-semibold text-slate-900">{preserveText(filename)}</span>
                 <span className="mt-2 text-xs text-slate-500">
                   {file
                     ? file.size >= 1024 * 1024
@@ -422,13 +423,13 @@ export function ThesisUploadPanel(props: Props) {
           ) : null}
         </section>
 
-        <div className="border-t border-slate-100 bg-[#fbfcfe] px-[18px] py-4 sm:px-6">
+        <div data-i18n-upload-footer="" className="border-t border-slate-100 bg-[#fbfcfe] px-[18px] py-4 sm:px-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="flex items-center gap-1.5 text-xs text-slate-500">
               <ShieldCheck className="size-4 text-brand-500" />
               请确认论文版本及本次检测范围
             </p>
-            <div className="flex gap-2">
+            <div data-i18n-upload-actions="" className="flex gap-2">
               {busy ? (
                 <Button
                   variant="ghost"
