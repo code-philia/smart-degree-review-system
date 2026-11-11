@@ -1,8 +1,9 @@
+import { requestedReturnTo } from '../nav/reportLinks';
 import { preserveText } from "../i18n/jsx-runtime";
 import { FormEvent, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthSession } from './AuthSessionProvider';
-import { canonicalReviewUrl, REVIEW_ROUTES } from '../nav/reviewRoutes';
+import { REVIEW_ROUTES } from '../nav/reviewRoutes';
 
 function LocalAccountLoginForm() {
   const { login, status, user } = useAuthSession();
@@ -20,8 +21,7 @@ function LocalAccountLoginForm() {
 
     try {
       await login({ username, password });
-      const requested = location.state?.from;
-      const target = canonicalReviewUrl(requested) || REVIEW_ROUTES.upload;
+      const target = requestedReturnTo(location.state, location.search) || REVIEW_ROUTES.upload;
       navigate(target, { replace: true });
     } catch {
       setErrorMessage('用户名或密码错误，请重试。');

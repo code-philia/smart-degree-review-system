@@ -90,7 +90,7 @@ it('collects dynamic explanations without collecting source or evidence strings'
   expect(required).not.toContain(source);
   expect(required).not.toContain('参考证据：检测结果');
 });
-it('retains Chinese model, blocks and filename without requiring translations', async () => {
+it('retains Chinese model, blocks and filename without requiring English translations', async () => {
   setLocale('zh');
   const model = modelFixture(),
     snapshot = JSON.stringify(model);
@@ -98,7 +98,10 @@ it('retains Chinese model, blocks and filename without requiring translations', 
   expect(reportText(model)).toContain('研究贡献：' + source);
   const file = await createReportFile(model, 'json');
   expect(file.filename).toBe('检测结果    提示_检测报告.json');
-  expect(await file.blob.text()).toBe(JSON.stringify(model, null, 2));
+  const exported = JSON.parse(await file.blob.text());
+  expect(exported.reports[0]).toEqual(JSON.parse(JSON.stringify(model)));
+  expect(exported.reports).toHaveLength(1);
+  expect(exported.reports[0].language).toBe('zh-CN');
   expect(JSON.stringify(model)).toBe(snapshot);
 });
 it('blocks incomplete English exports with a retry message instead of mixed dynamic prose', async () => {

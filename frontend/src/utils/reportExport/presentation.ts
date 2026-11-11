@@ -46,6 +46,8 @@ export function markFindingSources(
 ): ExportFinding {
   const marked = {
     ...finding,
+    source_basis_indices: [...basisSourceIndices],
+    source_suggestion_indices: [...suggestionSourceIndices],
     [findingSources]: {
       basis: new Set(basisSourceIndices),
       suggestions: new Set(suggestionSourceIndices),
@@ -55,10 +57,18 @@ export function markFindingSources(
 }
 type MarkedFinding = ExportFinding & { [findingSources]?: { basis: Set<number>; suggestions: Set<number> } };
 function sourceBasis(finding: ExportFinding, index: number): boolean {
-  return (finding as MarkedFinding)[findingSources]?.basis.has(index) ?? false;
+  return (
+    (finding as MarkedFinding)[findingSources]?.basis.has(index) ??
+    finding.source_basis_indices?.includes(index) ??
+    false
+  );
 }
 function sourceSuggestion(finding: ExportFinding, index: number): boolean {
-  return (finding as MarkedFinding)[findingSources]?.suggestions.has(index) ?? false;
+  return (
+    (finding as MarkedFinding)[findingSources]?.suggestions.has(index) ??
+    finding.source_suggestion_indices?.includes(index) ??
+    false
+  );
 }
 type BlockPresentation = { english: (t: Translator) => string; required: string[] };
 type MarkedBlock = ReportBlock & { [blockPresentation]?: BlockPresentation };
@@ -85,7 +95,7 @@ export function reportTranslator(model: ExportReport): Translator | undefined {
   return (model as PresentedReport)[reportPresentation]?.translate;
 }
 export function reportLocale(model: ExportReport): 'en' | 'zh' {
-  return (model as PresentedReport)[reportPresentation]?.locale ?? 'zh';
+  return model.language === 'en' ? 'en' : ((model as PresentedReport)[reportPresentation]?.locale ?? 'zh');
 }
 export function collectExportTranslationTexts(model: ExportReport): string[] {
   return [
@@ -123,6 +133,12 @@ export function localizeExportReport(
   return {
     ...model,
     [reportPresentation]: { locale: 'en', translate: t },
+    language: 'en',
+    signature: {
+      system: 'Smart Degree · AI Review Assistant',
+      institution: 'Shanghai Jiao Tong University Graduate Degree Information System',
+      website: model.signature?.website ?? '',
+    },
     detection_type: t(model.detection_type),
     ruleset: localizedRuleset(model, t),
     conclusion: t(model.conclusion),
@@ -131,7 +147,16 @@ export function localizeExportReport(
     findings: model.findings.map((item) => ({
       ...item,
       rule_title: t(item.rule_title),
-      severity: t(item.severity),
+      severity:
+        (
+          {
+            严重: 'Critical',
+            严重错误: 'Critical',
+            警告: 'Warnings',
+            规则未实现警告: 'Unverified',
+            提示: 'Info',
+          } as Record<string, string>
+        )[item.severity] ?? t(item.severity),
       message: t(item.message),
       suggestions: item.suggestions.map((text, index) => (sourceSuggestion(item, index) ? text : t(text))),
       basis: item.basis.map((text, index) => (sourceBasis(item, index) ? text : t(text))),

@@ -17,6 +17,8 @@ import {
   numericExecutionWarnings,
   genericExecutionWarnings,
   referenceResourcesUnavailable,
+  comparePaperLintRuleIds,
+  type PaperLintFindingItem,
 } from '../../components/paperLint/model';
 import { formatChinaDateTime } from '../dateTime';
 import { numericReportBlocks } from './numericDetails';
@@ -39,11 +41,10 @@ export function buildDetectionScope(report: PaperLintRunResponse, rules: PaperLi
     const description = automaticIds.includes(id)
       ? '系统自动执行核心章节结构检查，不受前端勾选影响。'
       : rule?.description?.trim().replace(/\s+/g, ' ');
-    const characters = Array.from(description || '规则说明暂不可用（目录中未提供）。');
     return {
       id,
       title: rule?.title?.trim() || (id === 'required_section_completeness_check' ? '核心章节完整性' : id),
-      description: characters.length > 120 ? characters.slice(0, 120).join('') + '…' : characters.join(''),
+      description: description || '规则说明暂不可用（目录中未提供）。',
     };
   });
 }
@@ -55,13 +56,17 @@ export type ExportFinding = {
   rule_title: string;
   severity: string;
   message: string;
-  locations: { label: string; page: number; text: string }[];
+  locations: { label: string; page: number; text: string; marks?: { start: number; end: number }[] }[];
   suggestions: string[];
   evidence: string[];
   basis: string[];
+  source_basis_indices?: number[];
+  source_suggestion_indices?: number[];
 };
 export type ExportReport = {
   schema_version: 1;
+  language?: 'zh-CN' | 'en';
+  signature?: { system: string; institution: string; website: string };
   report_id: string;
   document: { filename: string; title: string; page_count: number | null; word_count: number | null };
   detection_type: string;
@@ -74,6 +79,8 @@ export type ExportReport = {
     id: string;
     title: string;
     status: string;
+    execution_status?: string;
+    outcome?: string;
     message: string;
     finding_count: number;
     details: ReportBlock[];
@@ -82,9 +89,24 @@ export type ExportReport = {
   notice: string;
 };
 export type ReportBlock = {
-  kind: 'title' | 'heading' | 'subheading' | 'meta' | 'text' | 'quote' | 'notice';
+  kind: 'title' | 'heading' | 'subheading' | 'meta' | 'text' | 'quote' | 'notice' | 'label';
   text: string;
+  role?: 'document' | 'metadata' | 'signature' | 'signature_school' | 'website' | 'advice' | 'scope';
+  status?: string;
+  marks?: { start: number; end: number }[];
+  sourceLabel?: string;
 };
+export type ExportReportBundle = { schema_version: 1; reports: [ExportReport] };
+
+export function reportSignature(english = false) {
+  return {
+    system: english ? 'Smart Degree · AI Review Assistant' : '智慧学位 AI 评阅辅助系统',
+    institution: english
+      ? 'Shanghai Jiao Tong University Graduate Degree Information System'
+      : '上海交通大学研究生学位信息系统',
+    website: typeof window === 'undefined' ? '' : window.location.origin,
+  };
+}
 
 export function buildExportReport(
   report: PaperLintRunResponse,
@@ -113,10 +135,51 @@ export function buildExportReport(
         : inconclusive
           ? '部分规则无法判定，请人工核对。'
           : compilerPublicationSummary(result) || '规则检查通过，未发现问题。';
-  const severity = { error: '严重错误', warning: '警告', info: '提示' };
+  const severity = { error: '严重', warning: '警告', info: '提示' };
+  const warningItems: (PaperLintFindingItem & { executionWarning: boolean })[] = result.rule_runs.flatMap((run) =>
+    (run.rule_id === 'abstract_numeric_consistency_check'
+      ? numericExecutionWarnings(run)
+      : genericExecutionWarnings([run])
+    ).flatMap((warning) =>
+      warning.feedbackTarget
+        ? [
+            {
+              ...warning.feedbackTarget,
+              finding: {
+                ...warning.feedbackTarget.finding,
+                message: warning.reason,
+                suggestion: warning.suggestion,
+                // Examples are quoted source illustrations; retain them verbatim.
+                evidence: warning.example ? [{ id: 'execution-example', quote: warning.example }] : [],
+                basis_details: [warning.explanation, warning.note]
+                  .filter(Boolean)
+                  .map((text, index) => ({ id: `execution-basis-${index}`, text })),
+              },
+              executionWarning: true,
+            },
+          ]
+        : [],
+    ),
+  );
+  const findingItems = [
+    ...flattenPaperLintFindings(result).map((item) => ({ ...item, executionWarning: false })),
+    ...warningItems,
+  ];
+  const order = (item: (typeof findingItems)[number]) =>
+    item.executionWarning ? 2 : ({ error: 0, warning: 1, info: 3 }[item.ruleRun.severity] ?? 3);
+  findingItems.sort(
+    (a, b) =>
+      order(a) - order(b) ||
+      comparePaperLintRuleIds(a.ruleRun.rule_id, b.ruleRun.rule_id) ||
+      (a.finding.location?.page_number ?? Number.MAX_SAFE_INTEGER) -
+        (b.finding.location?.page_number ?? Number.MAX_SAFE_INTEGER) ||
+      a.index - b.index,
+  );
   return markRulesetPresentation(
     {
       schema_version: 1,
+      language: 'zh-CN',
+      signature: reportSignature(),
       report_id: report.id,
       document: {
         filename: report.source_filename,
@@ -133,6 +196,8 @@ export function buildExportReport(
       rules: result.rule_runs.map((run) => ({
         id: run.rule_id,
         title: title(run.rule_id),
+        execution_status: run.execution_status,
+        outcome: run.outcome,
         status:
           compilerPublicationLabel(run) ||
           (run.execution_status === 'error'
@@ -143,11 +208,10 @@ export function buildExportReport(
                   run.outcome
                 ]),
         message: run.message || '',
-        finding_count:
-          run.findings.length + numericExecutionWarnings(run).length + genericExecutionWarnings([run]).length,
+        finding_count: findingItems.filter((item) => item.ruleRun.rule_id === run.rule_id).length,
         details: numericReportBlocks(run),
       })),
-      findings: flattenPaperLintFindings(result).map(({ key, finding, ruleRun }, index) => {
+      findings: findingItems.map(({ key, finding, ruleRun, executionWarning }, index) => {
         const locations: ExportFinding['locations'] = [];
         const add = (location: typeof finding.location, label: string) => {
           if (!location) return;
@@ -160,8 +224,21 @@ export function buildExportReport(
               Number.isInteger(page) &&
               page > 0 &&
               !locations.some((x) => x.page === page && x.text === (location.text_excerpt || ''))
-            )
-              locations.push({ label, page, text: location.text_excerpt || '' });
+            ) {
+              const text = location.text_excerpt || '';
+              const typo =
+                ruleRun.rule_id === 'typo_detection_check'
+                  ? /^(?:疑似错别字|疑似错字)[：:]\s*(.+)$/.exec(finding.message)?.[1]?.trim()
+                  : undefined;
+              const start = typo ? text.indexOf(typo) : -1;
+              // Only an explicit, unique source span can receive a visual mark.
+              // Avoid ambiguous offsets for supplementary Unicode characters.
+              const marks =
+                typo && start >= 0 && text.indexOf(typo, start + typo.length) < 0 && !/[\uD800-\uDFFF]/.test(text)
+                  ? [{ start, end: start + typo.length }]
+                  : undefined;
+              locations.push({ label, page, text, ...(marks ? { marks } : {}) });
+            }
         };
         add(finding.location, '原文定位');
         finding.anchors?.forEach((anchor) => add(anchor.location, anchor.label || anchor.role || '相关位置'));
@@ -182,7 +259,7 @@ export function buildExportReport(
             id: finding.finding_id,
             rule_id: ruleRun.rule_id,
             rule_title: title(ruleRun.rule_id),
-            severity: severity[ruleRun.severity] || ruleRun.severity,
+            severity: executionWarning ? '规则未实现警告' : severity[ruleRun.severity] || ruleRun.severity,
             message: finding.message,
             locations,
             suggestions: [...new Set(suggestions)],
@@ -205,61 +282,9 @@ export function buildExportReport(
   );
 }
 
-function sourceReportBlocks(model: ExportReport): ReportBlock[] {
-  const blocks: ReportBlock[] = [
-    { kind: 'title', text: '论文规范性检测报告' },
-    { kind: 'meta', text: `文档名称：${model.document.filename}` },
-    { kind: 'meta', text: `论文题目：${model.document.title || '未提供'}` },
-    { kind: 'meta', text: `报告生成时间：${formatChinaDateTime(model.created_at, { includeSeconds: true })}` },
-    { kind: 'meta', text: `检测类型：${model.detection_type}    规则版本：${model.ruleset}` },
-    { kind: 'heading', text: '检测结论' },
-    { kind: 'text', text: model.conclusion },
-    {
-      kind: 'meta',
-      text: `论文总页数：${model.document.page_count ?? '未统计'}    论文总字数：${model.document.word_count ?? '未统计'}`,
-    },
-    {
-      kind: 'meta',
-      text: `错误总数：${model.summary.finding_count}    严重错误数：${model.summary.error_finding_count}    警告错误数：${model.summary.warning_finding_count}    提示错误数：${model.summary.info_finding_count}`,
-    },
-    { kind: 'notice', text: model.notice },
-    { kind: 'heading', text: '本次检测范围' },
-    { kind: 'meta', text: `已选择 ${model.scope.length} 项规则` },
-    ...(model.scope.length
-      ? model.scope.map((rule): ReportBlock => ({
-          kind: 'text',
-          text: `${rule.title}（${rule.id}）：${rule.description}`,
-        }))
-      : [{ kind: 'text' as const, text: '未记录检测规则，无法确认本次检测范围。' }]),
-    { kind: 'heading', text: '问题清单' },
-  ];
-  if (!model.findings.length)
-    blocks.push({ kind: 'text', text: '未发现问题条目；请同时核对上方检测结论及未完成的规则。' });
-  for (const item of model.findings) {
-    blocks.push(
-      { kind: 'subheading', text: `${item.number}. ${item.rule_title} · ${item.severity}` },
-      { kind: 'text', text: item.message },
-    );
-    if (!item.locations.length) blocks.push({ kind: 'meta', text: '原文定位：未提供具体页码' });
-    for (const location of item.locations) {
-      blocks.push({ kind: 'meta', text: `${location.label}：PDF 第 ${location.page} 页` });
-      if (location.text) blocks.push({ kind: 'quote', text: location.text });
-    }
-    for (const text of item.basis) blocks.push({ kind: 'text', text: `检查依据：${text}` });
-    for (const text of item.evidence) blocks.push({ kind: 'quote', text: `参考证据：${text}` });
-    for (const text of item.suggestions) blocks.push({ kind: 'text', text: `修改建议：${text}` });
-  }
-  blocks.push({ kind: 'heading', text: '检测规则' });
-  for (const rule of model.rules) {
-    blocks.push({ kind: 'text', text: `${rule.title}：${rule.status}（${rule.finding_count} 项）` });
-    if (rule.message) blocks.push({ kind: 'meta', text: rule.message });
-    blocks.push(...rule.details);
-  }
-  return blocks;
-}
 export const reportText = (model: ExportReport) =>
   reportBlocks(model)
-    .map((b) => b.text)
+    .map((b) => (b.sourceLabel ? b.sourceLabel + '  ' + b.text : b.text))
     .join('\n\n') + '\n';
 const mdEscape = (text: string) =>
   text
@@ -270,11 +295,12 @@ const mdEscape = (text: string) =>
 export function reportMarkdown(model: ExportReport) {
   return (
     reportBlocks(model)
-      .map(({ kind, text }) => {
-        const value = mdEscape(text);
+      .map(({ kind, text, sourceLabel }) => {
+        const value = mdEscape(sourceLabel ? sourceLabel + '  ' + text : text);
         if (kind === 'title') return '# ' + value;
         if (kind === 'heading') return '## ' + value;
         if (kind === 'subheading') return '### ' + value;
+        if (kind === 'label') return '**' + value + '**';
         if (kind === 'quote' || kind === 'notice')
           return value
             .split('\n')
@@ -285,7 +311,7 @@ export function reportMarkdown(model: ExportReport) {
       .join('\n\n') + '\n'
   );
 }
-export function safeReportFilename(filename: string) {
+export function safeReportFilename(filename: string, locale = 'zh') {
   const clean = Array.from(
     filename
       .replace(/\.[^.]+$/, '')
@@ -295,58 +321,122 @@ export function safeReportFilename(filename: string) {
     .slice(0, 100)
     .join('')
     .replace(/[. ]+$/, '');
-  return (clean || '论文') + '_检测报告';
+  return (clean || (locale === 'en' ? 'Thesis' : '论文')) + (locale === 'en' ? '_Review_Report' : '_检测报告');
 }
 
-// English blocks are assembled from field provenance, never by parsing source text.
+// Labels and source values remain separate: evidence is never translated or parsed.
 export function reportBlocks(model: ExportReport): ReportBlock[] {
-  if (reportLocale(model) !== 'en') return sourceReportBlocks(model);
-  const t = reportTranslator(model)!;
+  const en = reportLocale(model) === 'en';
+  const t = reportTranslator(model) ?? ((value: string) => value);
+  const L = (zh: string, english: string) => (en ? english : zh);
+  const join = (values: string[]) => values.filter(Boolean).join(en ? ' ' : '');
+  const s = model.summary;
   const blocks: ReportBlock[] = [
-    { kind: 'title', text: t('论文规范性检测报告') },
-    { kind: 'meta', text: `${t('文档名称')}: ${model.document.filename}` },
-    { kind: 'meta', text: `${t('论文题目')}: ${model.document.title || t('未提供')}` },
-    { kind: 'meta', text: `${t('报告生成时间')}: ${formatChinaDateTime(model.created_at, { includeSeconds: true })}` },
-    { kind: 'meta', text: `${t('检测类型')}: ${model.detection_type}    ${t('规则版本')}: ${model.ruleset}` },
-    { kind: 'heading', text: t('检测结论') },
+    { kind: 'title', text: L('论文规范性检测报告', 'Thesis compliance report') },
+    { kind: 'meta', role: 'document', text: L('检测文件：', 'Document: ') + model.document.filename },
+    { kind: 'meta', role: 'metadata', text: L('论文题目：', 'Thesis title: ') + (model.document.title || t('未提供')) },
+    {
+      kind: 'meta',
+      role: 'metadata',
+      text:
+        L('报告生成时间：', 'Report generated: ') +
+        formatChinaDateTime(model.created_at, { includeSeconds: true }) +
+        ' (UTC+08:00)' +
+        L(
+          ` · ${model.document.page_count ?? '未统计'} 页，${model.document.word_count ?? '未统计'} 字`,
+          ` · ${model.document.page_count ?? 'Not counted'} pages; ${model.document.word_count ?? 'Not counted'} characters`,
+        ),
+    },
+    { kind: 'heading', text: L('1 检测综述', '1 Review summary') },
+    {
+      kind: 'text',
+      text: L(
+        `本次记录 ${s.finding_count} 项检测结果：严重 ${s.error_finding_count}、警告 ${s.warning_finding_count}、规则未实现警告 ${s.execution_warning_count ?? 0}、提示 ${s.info_finding_count}。`,
+        `This review records ${s.finding_count} ${s.finding_count === 1 ? 'result' : 'results'}: Critical: ${s.error_finding_count}; Warnings: ${s.warning_finding_count}; Unverified: ${s.execution_warning_count ?? 0}; Info: ${s.info_finding_count}.`,
+      ),
+    },
     { kind: 'text', text: model.conclusion },
     {
-      kind: 'meta',
-      text: `${t('论文总页数')}: ${model.document.page_count ?? t('未统计')}    ${t('论文总字数')}: ${model.document.word_count ?? t('未统计')}`,
+      kind: 'text',
+      text: L(
+        '请结合原文复核下列问题与建议。以下页码均为 PDF 文件页码；检测范围及执行情况见第三节。',
+        'Review the findings against the thesis text. Page references use physical PDF page numbers. Section 3 lists the review scope and execution status.',
+      ),
     },
-    {
-      kind: 'meta',
-      text: `${t('错误总数')}: ${model.summary.finding_count}    ${t('严重错误数')}: ${model.summary.error_finding_count}    ${t('警告错误数')}: ${model.summary.warning_finding_count}    ${t('提示错误数')}: ${model.summary.info_finding_count}`,
-    },
-    { kind: 'notice', text: model.notice },
-    { kind: 'heading', text: t('本次检测范围') },
-    { kind: 'meta', text: `${model.scope.length} ${model.scope.length === 1 ? 'check' : 'checks'} selected` },
-    ...(model.scope.length
-      ? model.scope.map((rule) => ({ kind: 'text' as const, text: `${rule.title} (${rule.id}): ${rule.description}` }))
-      : [{ kind: 'text' as const, text: t('未记录检测规则，无法确认本次检测范围。') }]),
-    { kind: 'heading', text: t('问题清单') },
+    { kind: 'heading', text: L('2 检测发现与修改建议', '2 Findings and suggested actions') },
   ];
   if (!model.findings.length)
     blocks.push({ kind: 'text', text: t('未发现问题条目；请同时核对上方检测结论及未完成的规则。') });
   for (const item of model.findings) {
-    blocks.push(
-      { kind: 'subheading', text: `${item.number}. ${item.rule_title} · ${item.severity}` },
-      { kind: 'text', text: item.message },
+    blocks.push({
+      kind: 'subheading',
+      status: item.severity,
+      text: `2.${item.number} ${item.rule_title} (${item.severity})`,
+    });
+    blocks.push({ kind: 'text', text: item.message });
+    item.basis.forEach((text, index) =>
+      blocks.push({ kind: item.source_basis_indices?.includes(index) ? 'quote' : 'text', text }),
     );
-    if (!item.locations.length) blocks.push({ kind: 'meta', text: `${t('原文定位')}: No specific page provided` });
     for (const location of item.locations) {
-      blocks.push({ kind: 'meta', text: `${location.label}: PDF page ${location.page}` });
-      if (location.text) blocks.push({ kind: 'quote', text: location.text });
+      const label = L(`${location.label} · PDF 第 ${location.page} 页`, `${location.label} · PDF p. ${location.page}`);
+      if (location.text) blocks.push({ kind: 'quote', text: location.text, sourceLabel: label, marks: location.marks });
+      else blocks.push({ kind: 'meta', text: label });
     }
-    for (const text of item.basis) blocks.push({ kind: 'text', text: `${t('检查依据')}: ${text}` });
-    for (const text of item.evidence) blocks.push({ kind: 'quote', text: `${t('参考证据')}: ${text}` });
-    for (const text of item.suggestions) blocks.push({ kind: 'text', text: `${t('修改建议')}: ${text}` });
+    if (!item.locations.length)
+      blocks.push({ kind: 'meta', text: L('原文定位：未提供具体页码', 'Source location: No specific page provided') });
+    if (item.suggestions.length)
+      blocks.push({
+        kind: 'text',
+        role: 'advice',
+        text: L('修改建议：', 'Suggested action: ') + join(item.suggestions),
+      });
+    for (const text of item.evidence) blocks.push({ kind: 'quote', text: t('参考证据') + L('：', ': ') + text });
   }
-  blocks.push({ kind: 'heading', text: t('检测规则') });
-  for (const rule of model.rules) {
-    blocks.push({ kind: 'text', text: `${rule.title}: ${rule.status} (${rule.finding_count})` });
-    if (rule.message) blocks.push({ kind: 'meta', text: rule.message });
-    blocks.push(...rule.details);
+  blocks.push(
+    { kind: 'heading', text: L('3 检测范围与执行情况', '3 Review scope and execution') },
+    {
+      kind: 'text',
+      text: L(
+        '执行状态不等同于问题等级。未能检测或无法判定的项目不能视为通过。',
+        'Execution status is separate from finding categories. Incomplete or inconclusive checks must not be treated as passed.',
+      ),
+    },
+    {
+      kind: 'text',
+      text: L('本次检测采用规则版本：', 'Rule version used for this review: ') + model.ruleset + L('。', '.'),
+    },
+  );
+  const scopeIds = [...new Set([...model.scope.map((rule) => rule.id), ...model.rules.map((rule) => rule.id)])];
+  if (!scopeIds.length) blocks.push({ kind: 'text', text: t('未记录检测规则，无法确认本次检测范围。') });
+  for (const [index, id] of scopeIds.entries()) {
+    const scope = model.scope.find((rule) => rule.id === id),
+      run = model.rules.find((rule) => rule.id === id);
+    const status = run?.status || L('未完成', 'Incomplete');
+    blocks.push({
+      kind: 'subheading',
+      role: 'scope',
+      status,
+      text: `3.${index + 1} ${scope?.title || run?.title || id} (${status})`,
+    });
+    if (scope?.description) blocks.push({ kind: 'text', text: scope.description });
+    if (run) {
+      if (run.message) blocks.push({ kind: 'text', text: run.message });
+      blocks.push({
+        kind: 'text',
+        text: L(
+          `本项记录 ${run.finding_count} 项检测结果。`,
+          `This check records ${run.finding_count} ${run.finding_count === 1 ? 'result' : 'results'}.`,
+        ),
+      });
+      blocks.push(...run.details);
+    }
   }
+  const signature = model.signature ?? reportSignature(en);
+  blocks.push(
+    { kind: 'text', text: model.notice },
+    { kind: 'meta', role: 'signature', text: signature.system },
+    { kind: 'meta', role: 'signature_school', text: signature.institution },
+    { kind: 'meta', role: 'website', text: signature.website },
+  );
   return blocks;
 }

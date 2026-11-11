@@ -1,3 +1,5 @@
+import { getLocale } from '../i18n/locale';
+import { signInDestination } from '../nav/reportLinks';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { LoadingState } from '../components/ui';
 import { useAuthSession } from './AuthSessionProvider';
@@ -13,7 +15,7 @@ export default function RequireSession() {
     );
   }
   if (!user) {
-    return <Navigate replace to="/auth" state={{ from: location.pathname + location.search + location.hash }} />;
+    return <Navigate replace to={signInDestination(location.pathname + location.search + location.hash, getLocale())} state={{ from: location.pathname + location.search + location.hash }} />;
   }
   return <Outlet />;
 }

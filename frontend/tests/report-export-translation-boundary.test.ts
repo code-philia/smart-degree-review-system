@@ -181,8 +181,9 @@ it.each(['检测结果', '提示'])(
     for (const format of ['json', 'text'] as const) {
       const file = await createReportFile(model, format),
         content = await file.blob.text();
-      if (format === 'json') expect(JSON.parse(content).findings[0].suggestions).toEqual([correction]);
-      else expect(content).toContain(translate('修改建议') + ': ' + correction);
+      if (format === 'json')
+        for (const report of JSON.parse(content).reports) expect(report.findings[0].suggestions).toEqual([correction]);
+      else expect(content).toContain('Suggested action: ' + correction);
       expect(content).toContain(sourceDescription);
     }
     expect(JSON.stringify(report)).toBe(canonicalBefore);

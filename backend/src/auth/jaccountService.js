@@ -32,7 +32,7 @@ function hashState(state) {
 }
 
 function reportReturnPath(value) {
-  return typeof value==='string' && /^\/reports\/pdf\/[A-Za-z0-9-]{1,128}$/.test(value) ? value : null;
+  return typeof value==='string' && /^\/reports\/pdf\/[A-Za-z0-9-]{1,128}(?:\?lang=(?:zh|en))?$/.test(value) ? value : null;
 }
 async function beginLogin(returnTo) {
   const settings = config();

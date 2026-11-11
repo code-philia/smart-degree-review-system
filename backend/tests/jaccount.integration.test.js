@@ -117,7 +117,20 @@ describe('campus authorization-code sign-in', () => {
     const login={state:new URL(response.headers.location).searchParams.get('state'),browserCookie:cookie(response,'arc_jaccount_state')};
     await finish(login).expect(302).expect('Location','/reports/pdf/123e4567-e89b-12d3-a456-426614174000');
   });
-  it.each(['https://evil.example','//evil.example','/\\evil.example','/reports/pdf/../../admin'])('does not use an unsafe return path %s',async returnTo=>{
+  it.each(['zh','en'])('preserves the %s report link through the campus OAuth round trip',async lang=>{
+    provider({id:'return-report-'+lang,account:'return.report.'+lang});
+    const returnTo='/reports/pdf/123e4567-e89b-12d3-a456-426614174000?lang='+lang;
+    const response=await request(app).get('/api/auth/jaccount').query({return_to:returnTo}).expect(302);
+    const login={state:new URL(response.headers.location).searchParams.get('state'),browserCookie:cookie(response,'arc_jaccount_state')};
+    await finish(login).expect(302).expect('Location',returnTo);
+  });
+  it.each(['https://evil.example','//evil.example','/\\evil.example','/reports/pdf/../../admin',
+    '/reports/pdf/id?lang=en&next=https://evil.example','/reports/pdf/id?lang=fr',
+    '/reports/pdf/id?lang=en&lang=zh','/reports/pdf/id?lang=en#//evil.example',
+    '/reports/pdf/id?lang=%65n','/reports/pdf/id%2F..%2Fadmin?lang=en',
+    '/reports/pdf/id?return_to=https://evil.example','/reports/pdf/id?lang=en%0d%0aLocation:https://evil.example',
+    '/reports/pdf/id?lang=en%26next%3Dhttps://evil.example',
+    '/reports/pdf/id?lang=en\n','/reports/pdf/id\r','/reports/pdf/id?lang=zh\u2028','/reports/pdf/id\u2029'])('does not use an unsafe return path %s',async returnTo=>{
     provider({id:'unsafe-'+returnTo,account:'unsafe'+Buffer.from(returnTo).toString('hex').slice(0,60)});
     const response=await request(app).get('/api/auth/jaccount').query({return_to:returnTo}).expect(302);
     const login={state:new URL(response.headers.location).searchParams.get('state'),browserCookie:cookie(response,'arc_jaccount_state')};

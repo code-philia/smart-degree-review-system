@@ -4,9 +4,23 @@ import { unzipSync, strFromU8 } from 'fflate';
 import { buildExportReport } from '../src/utils/reportExport/model';
 import { createReportFile, downloadReportFile } from '../src/utils/reportExport/formats';
 import { fixture } from './fixtures/reportExport';
+import { collectExportTranslationTexts } from '../src/utils/reportExport/presentation';
+import { addTranslations } from '../src/i18n/locale.js';
+import { clearReportTranslations } from '../src/i18n/reportTranslations';
 
-beforeEach(() => vi.stubGlobal('Blob', NodeBlob));
+beforeEach(() => {
+  vi.stubGlobal('Blob', NodeBlob);
+  addTranslations(
+    Object.fromEntries(
+      collectExportTranslationTexts(buildExportReport(fixture, [], null)).map((text, index) => [
+        text,
+        `English explanation ${index}.`,
+      ]),
+    ),
+  );
+});
 afterEach(() => {
+  clearReportTranslations();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   vi.useRealTimers();
@@ -22,8 +36,11 @@ it('creates genuine Unicode Markdown, TXT and JSON files', async () => {
     expect(file.filename).toMatch(new RegExp(extension.replace('.', '\\.') + '$'));
     const text = await file.blob.text();
     expect(text).toContain('中文');
-    if (format === 'json') expect(JSON.parse(text).findings).toHaveLength(1);
-    else expect(text).toContain('检测结果仅供参考');
+    if (format === 'json') {
+      const reports = JSON.parse(text).reports;
+      expect(reports).toHaveLength(1);
+      for (const report of reports) expect(report.findings).toHaveLength(1);
+    } else expect(text).toContain('检测结果仅供参考');
   }
 });
 it('creates a valid editable DOCX ZIP with every finding and line break', async () => {

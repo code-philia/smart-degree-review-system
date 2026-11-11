@@ -1,4 +1,5 @@
 import { preserveText } from "../../i18n/jsx-runtime";
+import { getLocale } from '../../i18n/locale.js';
 import { useEffect, useRef, useState } from 'react';
 import { Braces, Check, Download, FileImage, FileText, FileType2, FileDown, LoaderCircle } from 'lucide-react';
 import type { PaperLintDocumentMetrics, PaperLintRule, PaperLintRunResponse } from '../../api/paperLint';
@@ -54,6 +55,7 @@ export function ReportExportDialog({ report, rules, metrics, repairs = {} }: Pro
   );
   async function download(format: ReportExportFormat) {
     if (active.current) return;
+    const exportLocale = getLocale() === 'en' ? 'en' : 'zh';
     const controller = new AbortController();
     active.current = controller;
     setPending(format);
@@ -71,7 +73,11 @@ export function ReportExportDialog({ report, rules, metrics, repairs = {} }: Pro
           latest[item.finding_id] = { ...item.response, generation: item.generation };
       }
       const model = buildExportReport(report, rules, metrics, latest);
-      const file = await createReportFile(model, format, { signal: controller.signal, onProgress: setProgress });
+      const file = await createReportFile(model, format, {
+        signal: controller.signal,
+        onProgress: setProgress,
+        locale: exportLocale,
+      });
       if (controller.signal.aborted) return;
       downloadReportFile(file);
       setSuccess(`已生成 ${file.filename}`);

@@ -1,17 +1,41 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { ReportExportDialog } from '../src/components/paperLint/ReportExportDialog';
 import { fetchPaperLintRepairSuggestionHistory } from '../src/api/repairSuggestions';
 import { createReportFile, downloadReportFile } from '../src/utils/reportExport/formats';
 import { fixture } from './fixtures/reportExport';
+import { setLocale } from '../src/i18n/locale.js';
 
 vi.mock('../src/api/repairSuggestions', () => ({ fetchPaperLintRepairSuggestionHistory: vi.fn() }));
 vi.mock('../src/utils/reportExport/formats', () => ({ createReportFile: vi.fn(), downloadReportFile: vi.fn() }));
 beforeEach(() => {
+  setLocale('zh');
   vi.clearAllMocks();
   vi.mocked(fetchPaperLintRepairSuggestionHistory).mockResolvedValue([]);
   vi.mocked(createReportFile).mockResolvedValue({ filename: '检测报告.pdf', blob: new Blob(['report']) });
+});
+afterEach(() => act(() => setLocale('zh')));
+
+it('keeps the language selected at the export action while saved suggestions are loading', async () => {
+  let resolve!: (value: []) => void;
+  vi.mocked(fetchPaperLintRepairSuggestionHistory).mockReturnValueOnce(
+    new Promise((done) => {
+      resolve = done;
+    }),
+  );
+  const user = userEvent.setup();
+  render(<ReportExportDialog report={fixture} rules={[]} metrics={null} />);
+  await user.click(screen.getByRole('button', { name: '下载检测报告' }));
+  await user.click(screen.getByRole('button', { name: '导出 PDF' }));
+  await act(async () => {
+    setLocale('en');
+    resolve([]);
+    await Promise.resolve();
+  });
+  await waitFor(() =>
+    expect(createReportFile).toHaveBeenCalledWith(expect.anything(), 'pdf', expect.objectContaining({ locale: 'zh' })),
+  );
 });
 it('offers all six formats and exports only saved data without triggering a detector', async () => {
   const user = userEvent.setup();

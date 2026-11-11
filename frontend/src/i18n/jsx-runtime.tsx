@@ -21,7 +21,7 @@ export function RichMessage({name,children,count,filteredCount}:RichMessageProps
   if(name==='login-hint')return 'For SJTU students and staff';
   if(name==='login-description-rest')return translate('论文数据均在校内处理，保障信息安全。检测结果仅供参考，系统尚在测试中，欢迎通过“使用反馈”提出建议，我们将持续优化。');
   if(name==='wait-notice')return [emit('span',{className:'i18n-wait-title',children:'Your review is in progress,'},'title'),' ',emit('span',{className:'i18n-wait-note',children:'and we will email you when your report is ready.'},'note')];
-  if(name==='pending-description')return [emit('span',{className:'i18n-pending-line',children:'Results update automatically.'},'updates'),' ',emit('span',{className:'i18n-pending-line',children:'You can view completed checks now.'},'completed')];
+  if(name==='pending-description')return [emit('span',{className:'i18n-pending-line',children:'Results update automatically.'},'updates'),' ',emit('span',{className:'i18n-pending-line',children:'You can view completed checks.'},'completed')];
   if(name==='verification-filter')return emit('span',{title:'Verification warnings · '+translate('部分核验未完成，并不表示没有问题。数字表示警告条目数。'),'aria-label':translate(`规则未实现警告 ${count} 项`),children:`Unverified ${count}`});
   if(name==='history-total')return ['Total ',emit('span',{className:'font-medium text-slate-700',children:count},'total'),filteredCount==null?null:' · Matching ',filteredCount==null?null:emit('span',{className:'font-medium text-slate-700',children:filteredCount},'matching')];
   if(name==='history-selected')return [emit('span',{className:'font-semibold text-slate-900',children:count},'count'),` ${Number(count)===1?'report':'reports'} selected`];

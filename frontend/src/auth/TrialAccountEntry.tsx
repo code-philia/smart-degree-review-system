@@ -1,8 +1,9 @@
+import { requestedReturnTo } from '../nav/reportLinks';
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { ArrowUpRight, LoaderCircle, ShieldCheck, X } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '../components/shadcn/dialog';
-import { canonicalReviewUrl, REVIEW_ROUTES } from '../nav/reviewRoutes';
+import { REVIEW_ROUTES } from '../nav/reviewRoutes';
 import { useAuthSession } from './AuthSessionProvider';
 
 function TrialAccountForm({ pending, setPending }: { pending: boolean; setPending: (value: boolean) => void }) {
@@ -26,7 +27,7 @@ function TrialAccountForm({ pending, setPending }: { pending: boolean; setPendin
     try {
       await loginTrial({ username: username.trim(), password });
       setPassword('');
-      navigate(canonicalReviewUrl(location.state?.from) || REVIEW_ROUTES.upload, { replace: true });
+      navigate(requestedReturnTo(location.state, location.search) || REVIEW_ROUTES.upload, { replace: true });
     } catch (cause) {
       setPassword('');
       setError(cause instanceof Error && /[\u4e00-\u9fff]/.test(cause.message)

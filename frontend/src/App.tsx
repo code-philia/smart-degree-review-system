@@ -1,3 +1,6 @@
+import { useLayoutEffect } from 'react';
+import { getLocale, setLocale } from './i18n/locale';
+import { readLinkLocale, requestedReturnTo } from './nav/reportLinks';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { canonicalReviewUrl, REVIEW_ROUTES } from './nav/reviewRoutes';
 import AppShell from './layout/AppShell';
@@ -15,10 +18,15 @@ function LegacyReviewRedirect() {
 }
 function SignInRoute(){
   const location=useLocation();
-  return <AuthPage returnTo={canonicalReviewUrl(location.state?.from)}/>;
+  return <AuthPage returnTo={requestedReturnTo(location.state, location.search)}/>;
 }
 
 function App() {
+  const location = useLocation();
+  useLayoutEffect(() => {
+    const requested = readLinkLocale(location.search);
+    if (requested && requested !== getLocale()) setLocale(requested);
+  }, [location.search]);
   return (
     <Routes>
       <Route

@@ -1,20 +1,58 @@
+import apiClient from '../../api';
 import { createTranslator, getLocale } from '../../i18n/locale.js';
 import { ensureReportTranslations, assertTranslationsReady } from '../../i18n/reportTranslations';
-import { collectExportTranslationTexts, localizeExportReport, reportTranslator } from './presentation';
-import { reportBlocks, reportMarkdown, reportText, safeReportFilename, type ExportReport } from './model';
-import { canvasPng, checkCancelled, renderReportPages, type ExportProgress } from './renderPages';
+import { collectExportTranslationTexts, localizeExportReport, reportLocale } from './presentation';
+import { reportMarkdown, reportText, safeReportFilename, type ExportReportBundle, type ExportReport } from './model';
+import { checkCancelled, type ExportProgress } from './renderPages';
 
 export type ReportExportFormat = 'pdf' | 'markdown' | 'text' | 'docx' | 'image' | 'json';
 export type ExportFile = { blob: Blob; filename: string };
-type Options = { signal?: AbortSignal; onProgress?: ExportProgress };
+type Options = { signal?: AbortSignal; onProgress?: ExportProgress; locale?: 'zh' | 'en' };
+
+const exportErrors: Record<string, string> = {
+  '导出报告内容无效，请刷新报告后重试。': 'The report export content is invalid. Refresh the report and try again.',
+  '报告内容过大，请联系系统管理员。': 'The report content is too large. Contact the system administrator.',
+  '报告正在导出，请稍后重试。': 'This report is already being exported. Try again shortly.',
+  '报告导出超时，请稍后重试。': 'The report export timed out. Try again shortly.',
+  '报告导出暂不可用，请稍后重试。': 'Report export is temporarily unavailable. Try again shortly.',
+  '导出文件过大，请联系系统管理员。': 'The exported file is too large. Contact the system administrator.',
+};
+async function exportFailure(error: unknown, locale: string): Promise<Error> {
+  const failure = error as { message?: string; code?: string; response?: { status?: number; data?: unknown } };
+  let message = failure?.message || '';
+  const data = failure?.response?.data;
+  try {
+    const body = data instanceof Blob && data.size < 20000 ? JSON.parse(await data.text()) : data;
+    if (body && typeof body === 'object' && 'message' in body && typeof body.message === 'string')
+      message = body.message;
+  } catch {
+    /* Use the HTTP status if a proxy did not return JSON. */
+  }
+  const status = failure?.response?.status;
+  const fallback: Record<number, [string, string]> = {
+    400: ['导出报告内容无效，请刷新报告后重试。', exportErrors['导出报告内容无效，请刷新报告后重试。']],
+    401: ['请重新登录后导出报告。', 'Sign in again before exporting the report.'],
+    403: ['无权导出此报告。', 'You do not have permission to export this report.'],
+    404: ['未找到已保存的报告。', 'The saved report could not be found.'],
+    413: ['报告内容过大，请联系系统管理员。', exportErrors['报告内容过大，请联系系统管理员。']],
+    429: ['报告正在导出，请稍后重试。', exportErrors['报告正在导出，请稍后重试。']],
+    503: ['报告导出暂不可用，请稍后重试。', exportErrors['报告导出暂不可用，请稍后重试。']],
+    504: ['报告导出超时，请稍后重试。', exportErrors['报告导出超时，请稍后重试。']],
+  };
+  if (locale === 'en')
+    return new Error(exportErrors[message] || fallback[status ?? 0]?.[1] || 'Report export failed. Try again shortly.');
+  return new Error(message || fallback[status ?? 0]?.[0] || '报告导出失败，请稍后重试。');
+}
 
 export async function createReportFile(
   model: ExportReport,
   format: ReportExportFormat,
-  { signal, onProgress }: Options = {},
+  { signal, onProgress, locale: requestedLocale }: Options = {},
 ): Promise<ExportFile> {
-  const locale = getLocale();
+  const locale = requestedLocale ?? getLocale(),
+    t = createTranslator(locale);
   checkCancelled(signal, locale);
+  if (reportLocale(model) === 'en') throw new Error('Export requires the original saved Chinese report.');
   if (locale === 'en') {
     const required = collectExportTranslationTexts(model),
       coverage = createTranslator('en');
@@ -24,125 +62,65 @@ export async function createReportFile(
       checkCancelled(signal, locale);
     }
     assertTranslationsReady(required, 'en');
-    model = localizeExportReport(model, 'en', createTranslator('en'));
   }
-  const t = reportTranslator(model) ?? createTranslator('zh');
-  const stem = safeReportFilename(model.document.filename);
+  // Capture the chosen edition and translation snapshot before rendering callbacks.
+  const selected = locale === 'en' ? localizeExportReport(model, 'en', createTranslator('en')) : model;
+  const bundle: ExportReportBundle = {
+    schema_version: 1,
+    reports: [selected],
+  };
+  const stem = safeReportFilename(model.document.filename, locale);
   if (format === 'markdown')
-    return { filename: stem + '.md', blob: new Blob([reportMarkdown(model)], { type: 'text/markdown;charset=utf-8' }) };
+    return {
+      filename: stem + '.md',
+      blob: new Blob([reportMarkdown(selected)], {
+        type: 'text/markdown;charset=utf-8',
+      }),
+    };
   if (format === 'text')
     return {
       filename: stem + '.txt',
-      blob: new Blob(['\uFEFF', reportText(model)], { type: 'text/plain;charset=utf-8' }),
+      blob: new Blob(['\uFEFF', reportText(selected)], {
+        type: 'text/plain;charset=utf-8',
+      }),
     };
   if (format === 'json')
     return {
       filename: stem + '.json',
-      blob: new Blob([JSON.stringify(model, null, 2)], { type: 'application/json;charset=utf-8' }),
+      blob: new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json;charset=utf-8' }),
     };
   if (format === 'docx') {
     onProgress?.(t('正在生成可编辑 Word 文档'));
-    const { Document, Paragraph, TextRun, Packer, Header, Footer, AlignmentType, PageNumber } = await import('docx');
+    const { createWordReport } = await import('./docxReport');
     checkCancelled(signal, locale);
-    const children = reportBlocks(model).map((block) => {
-      const title = block.kind === 'title',
-        heading = block.kind === 'heading',
-        subheading = block.kind === 'subheading';
-      const lines = block.text.replace(/\r\n?/g, '\n').split('\n');
-      return new Paragraph({
-        children: lines.map(
-          (text, index) =>
-            new TextRun({
-              text,
-              break: index ? 1 : 0,
-              bold: title || heading || subheading,
-              size: title ? 38 : heading ? 30 : subheading ? 25 : 22,
-              color: title || heading ? '1E3A5F' : block.kind === 'notice' ? '73624A' : '263747',
-            }),
-        ),
-        spacing: { before: heading ? 220 : subheading ? 140 : 0, after: title ? 280 : heading ? 140 : 120, line: 320 },
-        keepNext: title || heading || subheading,
-        indent: block.kind === 'quote' ? { left: 240 } : undefined,
-      });
-    });
-    const document = new Document({
-      creator: t('智慧学位 AI 评阅辅助系统'),
-      title: t('论文规范性检测报告'),
-      styles: { default: { document: { run: { font: 'Microsoft YaHei', size: 22 } } } },
-      sections: [
-        {
-          properties: {
-            page: {
-              size: { width: 11906, height: 16838 },
-              margin: { top: 1100, right: 1100, bottom: 1100, left: 1100 },
-            },
-          },
-          headers: {
-            default: new Header({
-              children: [
-                new Paragraph({
-                  children: [new TextRun({ text: t('智慧学位 · 论文规范性检测报告'), size: 18, color: '64748B' })],
-                }),
-              ],
-            }),
-          },
-          footers: {
-            default: new Footer({
-              children: [
-                new Paragraph({
-                  alignment: AlignmentType.CENTER,
-                  children: [
-                    new TextRun({ text: t('检测结果仅供参考 · '), size: 18, color: '64748B' }),
-                    new TextRun({ children: [PageNumber.CURRENT], size: 18, color: '64748B' }),
-                  ],
-                }),
-              ],
-            }),
-          },
-          children,
-        },
-      ],
-    });
-    const blob = await Packer.toBlob(document);
+    const blob = await createWordReport(selected);
     checkCancelled(signal, locale);
-    return { blob, filename: stem + '.docx' };
+    return { filename: stem + '.docx', blob };
   }
-  if (format === 'pdf') {
-    onProgress?.(t('正在准备 PDF'));
-    const { jsPDF } = await import('jspdf');
-    checkCancelled(signal, locale);
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
-    pdf.setProperties({
-      title: t('论文规范性检测报告'),
-      subject: model.document.filename,
-      author: t('智慧学位 AI 评阅辅助系统'),
-    });
-    for await (const { canvas, index } of renderReportPages(model, signal, onProgress)) {
-      if (index) pdf.addPage();
-      pdf.addImage(canvas, 'PNG', 0, 0, 210, 297, undefined, 'FAST');
-    }
-    checkCancelled(signal, locale);
-    return { filename: stem + '.pdf', blob: pdf.output('blob') };
-  }
-  if (format === 'image') {
-    const images: Record<string, Uint8Array> = {};
-    let single: Blob | null = null;
-    for await (const { canvas, index, total } of renderReportPages(model, signal, onProgress)) {
-      const blob = await canvasPng(canvas, t);
+  if (format === 'pdf' || format === 'image') {
+    onProgress?.(t(format === 'pdf' ? '正在准备 PDF' : '正在打包全部报告图片'));
+    let response;
+    try {
+      response = await apiClient.post<Blob>(
+        `/normative/paper-lint/reports/${encodeURIComponent(model.report_id)}/export`,
+        { format, model: bundle },
+        { responseType: 'blob', timeout: 300000, signal },
+      );
+    } catch (error) {
       checkCancelled(signal, locale);
-      if (total === 1) single = blob;
-      else images[`${stem}_${String(index + 1).padStart(3, '0')}.png`] = new Uint8Array(await blob.arrayBuffer());
+      throw await exportFailure(error, locale);
     }
-    if (single) return { filename: stem + '.png', blob: single };
-    onProgress?.(t('正在打包全部报告图片'));
-    const { zipSync } = await import('fflate');
     checkCancelled(signal, locale);
-    // PNGs are already compressed; storing avoids a costly redundant compression pass.
-    const bytes = zipSync(images, { level: 0 });
-    return {
-      filename: stem + '_图片.zip',
-      blob: new Blob([new Uint8Array(bytes).buffer], { type: 'application/zip' }),
-    };
+    const contentType = String(response.headers?.['content-type'] || response.data.type || '');
+    const extension =
+      format === 'pdf'
+        ? '.pdf'
+        : contentType.includes('image/png')
+          ? '.png'
+          : locale === 'en'
+            ? '_Images.zip'
+            : '_图片.zip';
+    return { filename: stem + extension, blob: response.data };
   }
   throw new Error(t('暂不支持此导出格式'));
 }

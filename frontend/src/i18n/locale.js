@@ -1,3 +1,4 @@
+import { readLinkLocale } from '../nav/reportLinks';
 import legacy from './legacy-copy.json';
 import { exportLabels } from '../utils/reportExport/labels';
 import {REVIEW_COPY,reviewPatterns} from './review-copy';
@@ -97,7 +98,7 @@ export const COPY={...SUPPLEMENTAL_COPY,...exportLabels,...legacy,
  '检测结果':'Findings','规则未实现警告':'Incomplete checks','未完成检测':'Incomplete','检测失败':'Failed','不适用':'Not applicable',
  '全部规则':'All checks','全部检测规则':'All checks','全部检查项':'All checks','选择检测规则':'Select a check','按规则筛选':'Filter by check','规则筛选':'Filter checks',
  '无问题':'No issues','问题总数':'Total issues','已发现':'Found','正在检测相关问题':'Checks are still running',
- '检测完成后自动更新，您可以先查看其他已完成规则的结果。':'Results update automatically. You can view completed checks now.',
+ '检测完成后自动更新，您可以先查看其他已完成规则的结果。':'Results update automatically. You can view completed checks.',
  '本规则未检测出问题':'No issues found for this check','未检测出问题':'No issues found',
  '当前筛选下暂无该级别的问题。':'No findings of this severity match the current filter.',
  '基于当前规范性检测规则，证据不足的内容仍可能无法判定。':'The current checks may be inconclusive where evidence is insufficient.',
@@ -194,6 +195,8 @@ const patterns=[
 // Presentation state only. Canonical report data never enters localStorage.
 const STORAGE_KEY='sjtu-ui-locale';
 let locale='zh';try{locale=localStorage.getItem(STORAGE_KEY)==='en'?'en':'zh';}catch{}
+// Resolve an explicit email language before any React component renders.
+if(typeof window!=='undefined')locale=readLinkLocale(window.location.search)||locale;
 const listeners=new Set();
 let version=0;
 let dynamic=new Map();

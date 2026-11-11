@@ -1,6 +1,7 @@
 const express = require('express');
 const reviewPilotPaperLintRoutes = require('./reviewPilotPaperLintRoutes');
 const { createReportTranslationRouter } = require('./reportTranslationRoutes');
+const { createReportExportRouter } = require('./reportExportRoutes');
 const { createPaperLintRepairSuggestionRouter } = require('./paperLintRepairSuggestionRoutes');
 const { feedbackRouter } = require('./paperLintFeedbackRoutes');
 const { createArchiveScanRouter } = require('./archiveScanRoutes');
@@ -127,6 +128,7 @@ function jsonBodyWithLimit(limit, message) {
 router.use('/paper-lint', reviewPilotPaperLintRoutes);
 router.use('/paper-lint', createPaperLintRepairSuggestionRouter());
 router.use('/paper-lint', createReportTranslationRouter());
+router.use('/paper-lint', createReportExportRouter());
 router.use('/feedback', feedbackRouter());
 router.use('/archive-scans', createArchiveScanRouter());
 router.use('/repair-suggestions', createRepairSuggestionRouter());
