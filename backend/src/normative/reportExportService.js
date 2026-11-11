@@ -16,7 +16,8 @@ function validateExportModel(model, reportId) {
   if (!model || model.schema_version !== 1 || !Array.isArray(model.reports) || model.reports.length !== 1) invalid();
   if (Buffer.byteLength(JSON.stringify(model), 'utf8') > MAX_MODEL_BYTES) throw failure(413, '报告内容过大，请联系系统管理员。');
   function object(value) { if (!value || typeof value!=='object' || Array.isArray(value)) invalid(); }
-  function text(value, max = 100000) { if (typeof value !== 'string' || value.length > max || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(value)) invalid(); }
+  function text(value, max = 100000) { if (typeof value !== 'string' || value.length > max) invalid(); }
+  function identifier(value, max = 100000) { text(value,max); if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(value)) invalid(); }
   function list(value, max) { if (!Array.isArray(value) || value.length > max) invalid(); }
   function texts(value) { list(value, 1000); value.forEach(item => text(item)); }
   function integer(value) { if (!Number.isSafeInteger(value) || value < 0 || value > 1000000) invalid(); }
@@ -30,17 +31,18 @@ function validateExportModel(model, reportId) {
     for (const count of Object.values(report.summary)) integer(count);
     for (const field of ['page_count','word_count']) if (report.document[field] != null) integer(report.document[field]);
     list(report.findings, 5000); list(report.scope, 1000); list(report.rules, 1000);
-    for (const scope of report.scope) { object(scope); for (const key of ['id','title','description']) text(scope[key]); }
+    for (const scope of report.scope) { object(scope); identifier(scope.id); for (const key of ['title','description']) text(scope[key]); }
     for (const rule of report.rules) {
-      object(rule);for(const key of ['execution_status','outcome'])if(rule[key]!==undefined)text(rule[key],100);
-      for (const key of ['id','title','status','message']) text(rule[key]);
+      object(rule);identifier(rule.id);for(const key of ['execution_status','outcome'])if(rule[key]!==undefined)identifier(rule[key],100);
+      for (const key of ['title','status','message']) text(rule[key]);
       integer(rule.finding_count); list(rule.details, 5000);
       for (const detail of rule.details) { object(detail);text(detail.text); if (!['title','heading','subheading','meta','text','quote','notice','label'].includes(detail.kind)) invalid(); }
     }
     for (const finding of report.findings) {
       object(finding);
       integer(finding.number);
-      for (const key of ['id','rule_id','rule_title','severity','message']) text(finding[key]);
+      identifier(finding.id);identifier(finding.rule_id);
+      for (const key of ['rule_title','severity','message']) text(finding[key]);
       for (const key of ['suggestions','basis','evidence']) texts(finding[key]);
       for (const key of ['source_basis_indices','source_suggestion_indices']) if (finding[key] !== undefined) {
         list(finding[key], 1000); const target=key==='source_basis_indices'?finding.basis:finding.suggestions;

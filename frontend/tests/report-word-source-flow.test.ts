@@ -2,6 +2,30 @@ import { expect, it } from 'vitest';
 import { flowWordSourceText } from '../src/utils/reportExport/wordSourceFlow';
 
 it.each([
+  ['The source says "alpha"\nbeta.', 'The source says "alpha" beta.'],
+  ['The source says “alpha”\nbeta.', 'The source says “alpha” beta.'],
+  ['The source says ‘alpha’\nbeta.', 'The source says ‘alpha’ beta.'],
+  ['The source says «alpha»\nbeta.', 'The source says «alpha» beta.'],
+  ['The token [alpha]\ncontinues here.', 'The token [alpha] continues here.'],
+  ['The token {alpha}\ncontinues here.', 'The token {alpha} continues here.'],
+  ['One sentence.\n“Another sentence.”', 'One sentence. “Another sentence.”'],
+  ['Some text\n"quoted text"', 'Some text "quoted text"'],
+  ['a) First item\nb) Second item', 'a) First item\nb) Second item'],
+  ['(a) First item\n(b) Second item', '(a) First item\n(b) Second item'],
+  ['A. First item\nB. Second item', 'A. First item\nB. Second item'],
+  ['An embedded\na)embeddedtext continues', 'An embedded a)embeddedtext continues'],
+  ["don'\nt split contractions", "don't split contractions"],
+  ["it\n's one word", "it's one word"],
+  ["it\n's Alice's work", "it's Alice's work"],
+  ["The source says 'alpha'\nbeta.", "The source says 'alpha' beta."],
+  ["Some text\n'quoted text'", "Some text 'quoted text'"],
+])('preserves Latin separators and clear list boundaries in %j', (source, expected) => {
+  const result = flowWordSourceText(source);
+  expect(result.text).toBe(expected);
+  expect(result.text.replace(/\s/g, '')).toBe(source.replace(/\s/g, ''));
+});
+
+it.each([
   ['中文原文，\n继续完整引用。', '中文原文，继续完整引用。'],
   ['A quoted\nEnglish sentence,\nwith every-word.\nOther.', 'A quoted English sentence, with every-word. Other.'],
   ['hyphen-\nated token', 'hyphen-ated token'],

@@ -6,8 +6,10 @@ export function flowWordSourceText(source: string): { text: string; offsets: num
   offsets[0] = 0;
   const cjk = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\u3000-\u303f\uff00-\uffef]/u;
   const word = /[\p{L}\p{N}\p{M}]/u;
+  const closingPunctuation = ['.', ',', '!', '?', ';', ':', ')', ']', '}', '"', '”', '»', '›'];
+  const openingQuotes = ['"', '“', '‘', '«', '‹'];
   const listStart =
-    /^(?:[•●○◦▪▫‣⁃*+\-]\s+|(?:\d{1,3}[.)、](?!\d)|[（(]\d{1,3}[）)]|[一二三四五六七八九十百]+[、.)）]|[（(][一二三四五六七八九十百]+[）)]|[①-⑳])\s*)\S/u;
+    /^(?:[•●○◦▪▫‣⁃*+\-]\s+|(?:[A-Za-z][.)]|[（(][A-Za-z][）)])[ \t]+|(?:\d{1,3}[.)、](?!\d)|[（(]\d{1,3}[）)]|[一二三四五六七八九十百]+[、.)）]|[（(][一二三四五六七八九十百]+[）)]|[①-⑳])\s*)\S/u;
   while (cursor < source.length) {
     let end = cursor;
     if (/[ \t\r\n]/.test(source[cursor])) while (end < source.length && /[ \t\r\n]/.test(source[end])) end++;
@@ -17,6 +19,16 @@ export function flowWordSourceText(source: string): { text: string; offsets: num
       const left = Array.from(source.slice(Math.max(0, cursor - 2), cursor)).at(-1) || '';
       const right = end < source.length ? String.fromCodePoint(source.codePointAt(end)!) : '';
       const nextLine = source.slice(end).split(/[\r\n]/, 1)[0];
+      // An unmatched apostrophe may be inside a split contraction, rather than
+      // a quotation boundary. Only a paired single quote supplies a separator.
+      const previousSingleQuote = left === "'" ? source.lastIndexOf("'", cursor - 2) : -1;
+      const closesSingleQuote =
+        (left === '’' && source.lastIndexOf('‘', cursor - 2) > source.lastIndexOf('’', cursor - 2)) ||
+        (previousSingleQuote >= 0 && (previousSingleQuote === 0 || /[\s([{]/.test(source[previousSingleQuote - 1])));
+      const closes = closingPunctuation.includes(left) || closesSingleQuote;
+      const contractionSuffix = /^'(?:s|t|re|ve|ll|d|m)(?=$|[\s.,;:!?])/i.test(source.slice(end));
+      const opens =
+        openingQuotes.includes(right) || (right === "'" && !contractionSuffix && source.indexOf("'", end + 1) >= 0);
       let replacement = '';
       const indent = whitespace.match(/[ \t]*$/)?.[0] || '';
       if (breaks.length > 1) replacement = '\n'.repeat(breaks.length) + indent;
@@ -27,7 +39,9 @@ export function flowWordSourceText(source: string): { text: string; offsets: num
         !cjk.test(left) &&
         !cjk.test(right) &&
         !/[-‐‑−]/u.test(left) &&
-        ((word.test(left) && word.test(right)) || (/[,.!?;:)]/.test(left) && word.test(right)))
+        ((word.test(left) && word.test(right)) ||
+          (closes && word.test(right)) ||
+          (opens && (word.test(left) || closes)))
       )
         replacement = ' ';
       offsets[cursor] = text.length;

@@ -24,13 +24,16 @@ def command(args,timeout):
         if code:raise RuntimeError('Typesetting process failed')
 def esc(value):
     mapping={'\\':r'\textbackslash{}','&':r'\&','%':r'\%','$':r'\$','#':r'\#','_':r'\_\allowbreak{}','{':r'\{','}':r'\}','~':r'\textasciitilde{}','^':r'\textasciicircum{}','·':r'\brandseparator{}'}
-    text=str(value or '').replace('\r','')
+    # Source punctuation must not become TeX smart-quote shorthand.
+    mapping.update({"'":r'\textquotesingle{}','`':r'\textasciigrave{}','"':r'\textquotedbl{}','<':r'\textless{}','>':r'\textgreater{}'})
+    # PDF extraction may carry nonprinting controls; never mutate the archived source.
+    text=re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]','',str(value or '')).replace('\r','')
     # Discretionary break points preserve even long technical identifiers verbatim.
-    chunks=re.split(r'([A-Za-z0-9]{49,})',text)
+    chunks=re.split(r'([A-Za-z0-9]{24,})',text)
     output=[]
     for chunk in chunks:
-        if re.fullmatch(r'[A-Za-z0-9]{49,}',chunk):
-            output.append(r'\allowbreak{}'.join(''.join(mapping.get(c,c) for c in chunk[i:i+40]) for i in range(0,len(chunk),40)))
+        if re.fullmatch(r'[A-Za-z0-9]{24,}',chunk):
+            output.append(r'\allowbreak{}'.join(''.join(mapping.get(c,c) for c in chunk[i:i+16]) for i in range(0,len(chunk),16)))
         else:output.append(''.join(mapping.get(c,c)+(r'\allowbreak{}' if c in '/.-' else '') for c in chunk))
     result=''.join(output)
     return ''.join(r'\unicodechar{'+char+'}' if (0x370<=ord(char)<=0x52f or 0x2000<=ord(char)<0x2e80 or 0x1d400<=ord(char)<=0x1d7ff) else char for char in result)
@@ -38,9 +41,11 @@ head=r'''\documentclass[12pt,a4paper]{article}
 \usepackage[left=25mm,right=25mm,top=23mm,bottom=23mm,footskip=12mm]{geometry}
 \usepackage{fontspec,xeCJK,xcolor,needspace,framed,fancyhdr,hyperref,bookmark}
 \setmainfont{Latin Modern Roman}\setCJKmainfont{Noto Serif CJK SC}
-\newfontfamily\unicodefont{DejaVu Serif}\newfontfamily\mathsymbols{Latin Modern Math}
-\newcommand{\unicodechar}[1]{\iffontchar\font`#1 #1\else{\unicodefont\iffontchar\font`#1 #1\else{\mathsymbols #1}\fi}\fi}
+\newfontfamily\unicodefont{DejaVu Serif}\newfontfamily\cjkfallback{Noto Serif CJK SC}\newfontfamily\mathsymbols{Latin Modern Math}
+\newcommand{\unicodechar}[1]{\iffontchar\font`#1 #1\else{\unicodefont\iffontchar\font`#1 #1\else{\cjkfallback\iffontchar\font`#1 #1\else{\mathsymbols #1}\fi}\fi}\fi}
 \tracinglostchars=3
+% Preserve source Unicode when a font shares glyphs between character aliases.
+\XeTeXgenerateactualtext=1
 \xeCJKDeclareCharClass{Default}{"00B7}
 \newcommand{\brandseparator}{\unskip\nobreak\hspace{.25em}{\fontspec{Latin Modern Roman}\symbol{"00B7}}\nobreak\hspace{.25em}\ignorespaces}
 \definecolor{ink}{HTML}{202A35}\definecolor{accent}{HTML}{96354A}\definecolor{muted}{HTML}{455363}\definecolor{edge}{HTML}{BBC4CF}\definecolor{mark}{HTML}{F6E6BE}
@@ -69,7 +74,8 @@ for index,report in enumerate(model['reports']):
     parts.append(r'\pdfbookmark[0]{'+L('中文报告','English report')+'}{'+('en' if en else 'zh')+'}')
     parts.append(r'{\centering\bfseries\fontsize{22}{30}\selectfont '+L('论文规范性检测报告','Thesis compliance report')+r'\par}\vspace{8pt}')
     parts.append(r'\noindent '+L('检测文件：','Document: ')+esc(report['document']['filename'])+r'\par')
-    if report['document'].get('title'):parts.append(r'{\parskip=3pt\noindent '+L('论文题目：','Thesis title: ')+esc(report['document']['title'])+r'\par}')
+    title=report['document'].get('title') or ''
+    if title.strip() and title.strip()!='上传论文':parts.append(r'{\parskip=3pt\noindent '+L('论文题目：','Thesis title: ')+esc(title)+r'\par}')
     from datetime import datetime,timedelta,timezone
     try:date=datetime.fromisoformat(report['created_at'].replace('Z','+00:00')).astimezone(timezone(timedelta(hours=8)));when=date.strftime('%d %b %Y, %H:%M' if en else '%Y-%m-%d %H:%M')
     except (ValueError,TypeError):when=report['created_at']

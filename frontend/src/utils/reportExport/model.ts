@@ -282,10 +282,14 @@ export function buildExportReport(
   );
 }
 
+export const stripExportControls = (text: string) => text.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '');
+
 export const reportText = (model: ExportReport) =>
-  reportBlocks(model)
-    .map((b) => (b.sourceLabel ? b.sourceLabel + '  ' + b.text : b.text))
-    .join('\n\n') + '\n';
+  stripExportControls(
+    reportBlocks(model)
+      .map((b) => (b.sourceLabel ? b.sourceLabel + '  ' + b.text : b.text))
+      .join('\n\n') + '\n',
+  );
 const mdEscape = (text: string) =>
   text
     .replace(/&/g, '&amp;')
@@ -293,7 +297,7 @@ const mdEscape = (text: string) =>
     .replace(/>/g, '&gt;')
     .replace(/[\\`*{}\[\]()#+.!_|-]/g, '\\$&');
 export function reportMarkdown(model: ExportReport) {
-  return (
+  return stripExportControls(
     reportBlocks(model)
       .map(({ kind, text, sourceLabel }) => {
         const value = mdEscape(sourceLabel ? sourceLabel + '  ' + text : text);
@@ -308,7 +312,7 @@ export function reportMarkdown(model: ExportReport) {
             .join('\n');
         return value.replace(/\n/g, '  \n');
       })
-      .join('\n\n') + '\n'
+      .join('\n\n') + '\n',
   );
 }
 export function safeReportFilename(filename: string, locale = 'zh') {
@@ -331,10 +335,14 @@ export function reportBlocks(model: ExportReport): ReportBlock[] {
   const L = (zh: string, english: string) => (en ? english : zh);
   const join = (values: string[]) => values.filter(Boolean).join(en ? ' ' : '');
   const s = model.summary;
+  const titleMetadata: ReportBlock[] =
+    model.document.title?.trim() && model.document.title.trim() !== '上传论文'
+      ? [{ kind: 'meta', role: 'metadata', text: L('论文题目：', 'Thesis title: ') + model.document.title }]
+      : [];
   const blocks: ReportBlock[] = [
     { kind: 'title', text: L('论文规范性检测报告', 'Thesis compliance report') },
     { kind: 'meta', role: 'document', text: L('检测文件：', 'Document: ') + model.document.filename },
-    { kind: 'meta', role: 'metadata', text: L('论文题目：', 'Thesis title: ') + (model.document.title || t('未提供')) },
+    ...titleMetadata,
     {
       kind: 'meta',
       role: 'metadata',

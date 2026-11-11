@@ -73,3 +73,84 @@ it('uses the configured PDF inspection tool rather than a system-disk binary',{t
  try{await expect(renderReport({userId:'tool-path',report:{id:'report-1',source_filename:'论文.pdf',created_at:'2026-11-11T08:30:00Z'},model:sample(),format:'pdf'})).rejects.toMatchObject({status:503});}
  finally{if(previous===undefined)delete process.env.REPORT_EXPORT_PDFINFO;else process.env.REPORT_EXPORT_PDFINFO=previous;}
 });
+
+
+it('renders nonprinting source controls without changing raw evidence or literal TeX',{timeout:120000},async()=>{
+ const model=sample('en'),finding=model.reports[0].findings[0];
+ const controls=String.fromCharCode(...[0,1,2,3,4,5,6,7,8,11,12,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31]);
+ finding.locations[0]={...finding.locations[0],text:'A\u0000wrong\u0001token',marks:[{start:2,end:7}]};
+ finding.evidence=['Original'+controls+'source evidence\nWith\tliteral \\input{/etc/passwd} and α ≥ ℝ'];
+ finding.basis=['Source\u0000basis'];finding.source_basis_indices=[0];
+ model.reports[0].rules[0].details.push({kind:'quote',text:'Quoted\u0001source'});
+ const before=JSON.stringify(model);
+ const pdf=await renderReport({userId:'source-controls',report:{id:'report-1',source_filename:'论文.pdf',created_at:'2026-11-11T08:30:00Z'},model,format:'pdf'});
+ expect(JSON.stringify(model)).toBe(before);
+ const directory=await fs.mkdtemp(path.join(os.tmpdir(),'export-controls-'));
+ try{const file=path.join(directory,'report.pdf');await fs.writeFile(file,pdf.content);
+  const text=execFileSync(process.env.REPORT_EXPORT_PDFTOTEXT||'/usr/bin/pdftotext',['-enc','UTF-8',file,'-'],{encoding:'utf8'}),compact=text.replace(/\s/g,'');
+  for(const value of ['Awrongtoken','Originalsourceevidence','Sourcebasis','Quotedsource','\\input{/etc/passwd}','α','≥','ℝ'])expect(compact).toContain(value);
+  expect(text).not.toMatch(/root:x:0:0/);
+ }finally{await fs.rm(directory,{recursive:true,force:true});}
+});
+
+it('preserves circled numerals in original source quotations',{timeout:120000},async()=>{
+ const model=sample('en');model.reports[0].findings[0].locations[0]={label:'Original source',page:2,text:'① first ② second ③ third',marks:[]};
+ const before=JSON.stringify(model);
+ const pdf=await renderReport({userId:'circled-source',report:{id:'report-1',source_filename:'论文.pdf',created_at:'2026-11-11T08:30:00Z'},model,format:'pdf'});
+ expect(JSON.stringify(model)).toBe(before);
+ const directory=await fs.mkdtemp(path.join(os.tmpdir(),'export-circled-'));
+ try{const file=path.join(directory,'report.pdf');await fs.writeFile(file,pdf.content);const text=execFileSync(process.env.REPORT_EXPORT_PDFTOTEXT||'/usr/bin/pdftotext',['-enc','UTF-8',file,'-'],{encoding:'utf8'});for(const symbol of ['①','②','③'])expect(text).toContain(symbol);}finally{await fs.rm(directory,{recursive:true,force:true});}
+});
+
+
+it('keeps canonical report identity and machine identifiers strict when source controls are accepted',()=>{
+ for(const mutate of [m=>m.reports[0].report_id+='\u0000',m=>{const r=m.reports[0];r.scope[0].id+='\u0000';r.rules[0].id+='\u0000';r.findings[0].rule_id+='\u0000';}]){const model=sample();mutate(model);expect(()=>validateExportModel(model,'report-1')).toThrowError(expect.objectContaining({status:400}));}
+});
+
+
+it('keeps literal ASCII quote punctuation in technical source excerpts',{timeout:120000},async()=>{
+ const source="Tram`er O'Neil ``quoted'' --flag ---option \"quoted\" <<left>>";
+ const model=sample('en');model.reports[0].findings[0].locations[0]={label:'Original source',page:2,text:source,marks:[]};
+ const pdf=await renderReport({userId:'literal-source-punctuation',report:{id:'report-1',source_filename:'论文.pdf',created_at:'2026-11-11T08:30:00Z'},model,format:'pdf'});
+ const directory=await fs.mkdtemp(path.join(os.tmpdir(),'export-punctuation-'));
+ try{const file=path.join(directory,'report.pdf');await fs.writeFile(file,pdf.content);const text=execFileSync(process.env.REPORT_EXPORT_PDFTOTEXT||'/usr/bin/pdftotext',['-enc','UTF-8',file,'-'],{encoding:'utf8'});expect(text.replace(/\s/g,'')).toContain("Tram`erO'Neil``quoted''--flag---option\"quoted\"<<left>>");}finally{await fs.rm(directory,{recursive:true,force:true});}
+});
+
+
+it.each([
+ ['  上传论文  ',false],
+ ['   ',false],
+ ['上传论文的语义分析',true],
+])('prints only an actual thesis title, preserving the raw model (%j)',{timeout:120000},async(title,present)=>{
+ const model=sample('en');model.reports[0].document.title=title;const before=JSON.stringify(model);
+ const pdf=await renderReport({userId:'actual-title',report:{id:'report-1',source_filename:'论文.pdf',created_at:'2026-11-11T08:30:00Z'},model,format:'pdf'});
+ expect(JSON.stringify(model)).toBe(before);
+ const directory=await fs.mkdtemp(path.join(os.tmpdir(),'export-title-'));
+ try{const file=path.join(directory,'report.pdf');await fs.writeFile(file,pdf.content);const text=execFileSync(process.env.REPORT_EXPORT_PDFTOTEXT||'/usr/bin/pdftotext',['-enc','UTF-8',file,'-'],{encoding:'utf8'});if(present){expect(text).toContain('Thesis title:');expect(text.replace(/\s/g,'')).toContain('上传论文的语义分析');}else expect(text).not.toContain('Thesis title:');}finally{await fs.rm(directory,{recursive:true,force:true});}
+});
+
+
+it('wraps a long ruleset hash inside the PDF body margins without losing characters',{timeout:120000},async()=>{
+ const hash='858ba4587fd4d6a15e37cda456229d4627b067aff8b9ecae82381c8d2773aa151';
+ const model=sample('en');model.reports[0].ruleset='Current local version · Reference checks '+hash;
+ const pdf=await renderReport({userId:'ruleset-hash-margin',report:{id:'report-1',source_filename:'论文.pdf',created_at:'2026-11-11T08:30:00Z'},model,format:'pdf'});
+ const directory=await fs.mkdtemp(path.join(os.tmpdir(),'export-hash-margin-'));
+ try{const file=path.join(directory,'report.pdf');await fs.writeFile(file,pdf.content);const tool=process.env.REPORT_EXPORT_PDFTOTEXT||'/usr/bin/pdftotext';
+  const text=execFileSync(tool,['-enc','UTF-8',file,'-'],{encoding:'utf8'});expect(text.replace(/\s/g,'')).toContain(hash);
+  const bbox=execFileSync(tool,['-bbox',file,'-'],{encoding:'utf8'});const rightEdges=[...bbox.matchAll(/<word\b[^>]*\bxMax="([\d.]+)"/g)].map(match=>Number(match[1]));expect(rightEdges.length).toBeGreaterThan(0);expect(Math.max(...rightEdges)).toBeLessThanOrEqual(525);
+ }finally{await fs.rm(directory,{recursive:true,force:true});}
+});
+
+
+it('wraps source titles after an unspaced translated opening quote inside PDF margins',{timeout:120000},async()=>{
+ const model=sample('en');model.reports[0].findings[0].suggestions=[
+  'Please insert a page break before“4benchmarkdesignandexperiments”',
+  'Please insert a page break before‘4benchmarkdesignandexperiments’',
+ ];
+ const pdf=await renderReport({userId:'opening-quote-margin',report:{id:'report-1',source_filename:'论文.pdf',created_at:'2026-11-11T08:30:00Z'},model,format:'pdf'});
+ const directory=await fs.mkdtemp(path.join(os.tmpdir(),'export-quote-margin-'));
+ try{const file=path.join(directory,'report.pdf');await fs.writeFile(file,pdf.content);const tool=process.env.REPORT_EXPORT_PDFTOTEXT||'/usr/bin/pdftotext';
+  const text=execFileSync(tool,['-enc','UTF-8',file,'-'],{encoding:'utf8'}).replace(/\s/g,'');expect(text).toContain('before“4benchmarkdesignandexperiments”');expect(text).toContain('before‘4benchmarkdesignandexperiments’');
+  const bbox=execFileSync(tool,['-bbox',file,'-'],{encoding:'utf8'});const rightEdges=[...bbox.matchAll(/<word\b[^>]*\bxMax="([\d.]+)"/g)].map(match=>Number(match[1]));expect(rightEdges.length).toBeGreaterThan(0);expect(Math.max(...rightEdges)).toBeLessThanOrEqual(525);
+ }finally{await fs.rm(directory,{recursive:true,force:true});}
+});

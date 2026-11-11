@@ -25,6 +25,30 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+it.each(['zh', 'en'])('omits blank and engine fallback thesis titles only from printed %s metadata', async (locale) => {
+  setLocale(locale);
+  for (const title of ['', ' \t\n ', '上传论文', ' \t上传论文\n ']) {
+    const model = ready();
+    model.document.title = title;
+    const before = JSON.stringify(model);
+    const selected = locale === 'en' ? localizeExportReport(model, 'en') : model;
+    expect(reportBlocks(selected).some((block) => /^(?:论文题目：|Thesis title: )/.test(block.text))).toBe(false);
+    const file = await createReportFile(model, 'json');
+    expect(JSON.parse(await file.blob.text()).reports[0].document.title).toBe(title);
+    expect(JSON.stringify(model)).toBe(before);
+  }
+  for (const title of ['实际论文原始题名', 'Original Thesis Title', '上传论文（修订稿）']) {
+    const model = ready();
+    model.document.title = title;
+    const before = JSON.stringify(model);
+    const selected = locale === 'en' ? localizeExportReport(model, 'en') : model;
+    expect(reportBlocks(selected)).toContainEqual(
+      expect.objectContaining({ kind: 'meta', text: (locale === 'en' ? 'Thesis title: ' : '论文题目：') + title }),
+    );
+    expect(JSON.stringify(model)).toBe(before);
+  }
+});
+
 it('keeps the uploaded filename recognizable and selects only the report suffix by export language', () => {
   expect(safeReportFilename('中文论文.pdf', 'en')).toBe('中文论文_Review_Report');
   expect(safeReportFilename('中文论文.pdf')).toBe('中文论文_检测报告');
@@ -318,6 +342,51 @@ it('flows extracted source lines in left-aligned Word quotes while keeping body 
   expect(body.getElementsByTagName('w:ind')[0].getAttribute('w:firstLine')).toBe('480');
   expect(quote.getElementsByTagName('w:spacing')[0].getAttribute('w:line')).toBe('400');
   expect(JSON.stringify(model)).toBe(before);
+});
+
+it('strips illegal C0 controls only at printed output boundaries after slicing source highlights', async () => {
+  setLocale('zh');
+  const model = buildExportReport(fixture, [], null);
+  const text = '原文\u0000\u0001错字\u0008\u000b\u000c\u000e\u001f末尾\t下一行\n结尾';
+  const start = text.indexOf('错字');
+  model.findings[0].locations[0] = { label: '原文定位', page: 3, text, marks: [{ start, end: start + 2 }] };
+  const before = JSON.stringify(model);
+  for (const format of ['text', 'markdown', 'docx', 'json'] as const) {
+    const file = await createReportFile(model, format);
+    if (format === 'json') {
+      expect(JSON.parse(await file.blob.text()).reports[0].findings[0].locations[0].text).toBe(text);
+      continue;
+    }
+    const content =
+      format === 'docx'
+        ? strFromU8(unzipSync(new Uint8Array(await file.blob.arrayBuffer()))['word/document.xml'])
+        : await file.blob.text();
+    expect(content).not.toMatch(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/);
+    if (format === 'docx') {
+      const doc = new DOMParser().parseFromString(content, 'application/xml');
+      expect(doc.getElementsByTagName('parsererror')).toHaveLength(0);
+      const marked = [...doc.getElementsByTagName('w:r')].filter((run) => run.getElementsByTagName('w:shd').length);
+      expect(marked.map((run) => run.textContent).join('')).toBe('错字');
+      expect(doc.documentElement.textContent).toContain('原文错字末尾');
+    } else expect(content).toContain('原文错字末尾\t下一行');
+  }
+  expect(JSON.stringify(model)).toBe(before);
+});
+
+it('keeps the final scope description with its count without chaining the next scope entry', async () => {
+  setLocale('en');
+  const model = ready();
+  const file = await createReportFile(model, 'docx');
+  const content = strFromU8(unzipSync(new Uint8Array(await file.blob.arrayBuffer()))['word/document.xml']);
+  const doc = new DOMParser().parseFromString(content, 'application/xml');
+  const paragraphs = [...doc.getElementsByTagName('w:p')];
+  const countIndex = paragraphs.findIndex((p) => p.textContent === 'This check records 1 result.');
+  expect(countIndex).toBeGreaterThan(0);
+  const previous = paragraphs[countIndex - 1].getElementsByTagName('w:keepNext')[0];
+  expect(previous?.getAttribute('w:val')).not.toBe('false');
+  expect(previous).toBeTruthy();
+  expect(paragraphs[countIndex].getElementsByTagName('w:keepNext')[0]?.getAttribute('w:val')).toBe('false');
+  expect(paragraphs[countIndex - 1].getElementsByTagName('w:spacing')[0].getAttribute('w:line')).toBe('400');
 });
 
 it('reflows Word source quotes and typo snippets without altering raw models or highlight targets', async () => {

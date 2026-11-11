@@ -1,4 +1,4 @@
-import { reportBlocks, type ExportReport } from './model';
+import { reportBlocks, stripExportControls, type ExportReport } from './model';
 import { flowWordSourceText } from './wordSourceFlow';
 
 /** Native editable paragraphs mirror the article used by the XeLaTeX export. */
@@ -16,6 +16,15 @@ export async function createWordReport(model: ExportReport): Promise<Blob> {
     LineRuleType,
   } = await import('docx');
   const reports = [model];
+  const blocks = reportBlocks(model),
+    scopeStart = blocks.findIndex((block) => block.role === 'scope');
+  const scopeCounts = new Set(
+    model.rules.map((rule) =>
+      model.language === 'en'
+        ? `This check records ${rule.finding_count} ${rule.finding_count === 1 ? 'result' : 'results'}.`
+        : `本项记录 ${rule.finding_count} 项检测结果。`,
+    ),
+  );
   const sourceCorrections = model.findings
     .flatMap((finding) => (finding.source_suggestion_indices || []).map((index) => finding.suggestions[index]))
     .filter((text) => Boolean(text) && /[\r\n]/.test(text));
@@ -26,13 +35,18 @@ export async function createWordReport(model: ExportReport): Promise<Blob> {
     cs: 'Latin Modern Roman',
   };
   const children = reports.flatMap((report) =>
-    reportBlocks(report).map((block) => {
+    blocks.map((block, index) => {
       const title = block.kind === 'title',
         heading = block.kind === 'heading',
         subheading = block.kind === 'subheading';
       const signature = ['signature', 'signature_school', 'website'].includes(block.role || '');
       const quote = block.kind === 'quote';
       const prose = block.kind === 'text' || block.kind === 'notice';
+      const keepWithScopeCount =
+        scopeStart >= 0 &&
+        index > scopeStart &&
+        block.kind === 'text' &&
+        scopeCounts.has(blocks[index + 1]?.text || '');
       const sourceSnippet =
         block.kind === 'text' && /^(?:(?:疑似错别字|疑似错字)[：:]|Suspected typo:)/i.test(block.text);
       const sourceCorrection = block.role === 'advice' && sourceCorrections.some((text) => block.text.includes(text));
@@ -40,7 +54,7 @@ export async function createWordReport(model: ExportReport): Promise<Blob> {
       const text = flow?.text ?? block.text;
       const size = title ? 44 : heading ? 28 : 24;
       const run = (text: string, marked = false, bold = title || heading || subheading) =>
-        text
+        stripExportControls(text)
           .replace(/\r\n?/g, '\n')
           .split('\n')
           .map(
@@ -107,7 +121,8 @@ export async function createWordReport(model: ExportReport): Promise<Blob> {
           block.role === 'signature' ||
           block.role === 'signature_school' ||
           block.role === 'document' ||
-          block.role === 'metadata',
+          block.role === 'metadata' ||
+          keepWithScopeCount,
         widowControl: true,
         border: quote ? { left: { style: BorderStyle.SINGLE, size: 6, color: 'BBC4CF', space: 7 } } : undefined,
       });
