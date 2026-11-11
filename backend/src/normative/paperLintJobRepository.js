@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { all, get, run, withTransaction } = require('../database/db_runtime');
 const { estimateJobEta } = require('./paperLintEta');
+const { notifyReportEmailReady } = require('../notifications/reportEmailWakeup');
 
 function jobsDirectory() {
   return path.resolve(process.env.PAPER_LINT_JOBS_DIR || path.join(process.cwd(), 'data', 'paper-lint-jobs'));
@@ -77,16 +78,20 @@ async function updateProgress(id, progress) {
 }
 
 async function completeJob(id, reportId) {
-  return withTransaction(async tx => {
+  let notificationQueued=false;
+  const completed=await withTransaction(async tx => {
     const now = new Date().toISOString();
     const changed = await tx.run("UPDATE paper_lint_jobs SET status = 'completed', report_id = ?, error_message = NULL, updated_at = ? WHERE id = ? AND status = 'running' AND cancelled_at IS NULL",
       [reportId, now, id]);
     if (!changed.changes) return false;
-    await tx.run(`INSERT OR IGNORE INTO report_email_outbox
+    const queued=await tx.run(`INSERT OR IGNORE INTO report_email_outbox
       (job_id,user_id,report_id,status,attempts,next_attempt_at,created_at,updated_at)
       SELECT id,user_id,report_id,'pending',0,?,?,? FROM paper_lint_jobs WHERE id=? AND notify_completion=1`, [now,now,now,id]);
+    notificationQueued=queued.changes>0;
     return true;
   });
+  if (notificationQueued) notifyReportEmailReady();
+  return completed;
 }
 
 async function cancelJobForUser(id, userId) {

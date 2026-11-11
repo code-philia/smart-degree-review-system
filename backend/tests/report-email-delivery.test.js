@@ -85,3 +85,43 @@ it('blocks a missing recipient until the user supplies a mailbox',async()=>{
   await run('UPDATE auth_users SET email=? WHERE id=?',['person@example.test','mail-user']);
   await worker(async mail=>sent.push(mail)).drain();expect(sent).toHaveLength(1);
 });
+it('keeps old queued notifications untouched while delivering jobs after activation',async()=>{
+  const old=await completed(),recent=await completed();
+  await run('UPDATE report_email_outbox SET created_at=? WHERE job_id=?',['2026-11-10T23:59:59.000Z',old]);
+  await run('UPDATE report_email_outbox SET created_at=? WHERE job_id=?',['2026-11-11T00:00:00.000Z',recent]);
+  const sent=[];await worker(async mail=>sent.push(mail),()=>({...settings,notBefore:'2026-11-11T00:00:00.000Z'})).drain();
+  expect(sent.map(mail=>mail.messageId)).toEqual([`<report-${recent}@example.test>`]);
+  expect(await get('SELECT status,attempts FROM report_email_outbox WHERE job_id=?',[old])).toEqual({status:'pending',attempts:0});
+});
+it('delivers through the configured campus API provider using the normal outbox worker',async()=>{
+  const id=await completed('student01');const originalFetch=globalThis.fetch;const calls=[];
+  globalThis.fetch=async(url,opts)=>{calls.push({url,opts});return new Response(JSON.stringify(url.endsWith('/token')
+    ?{access_token:'worker-token',token_type:'Bearer',expires_in:1800}
+    :{errno:0,error:'success',total:0,entities:[{id,emails:['123090058@link.cuhk.edu.cn'],channels:['email']}]}),{status:200});};
+  try {
+    const apiSettings={...settings,provider:'sjtu-notification',clientId:'outbox-app',clientSecret:'test-app-secret',username:'sender',password:'test-sender-secret'};
+    await require('../src/notifications/reportEmailService').createReportEmailService({config:()=>apiSettings,now:()=>clock}).drain();
+    expect((await get('SELECT status FROM report_email_outbox WHERE job_id=?',[id])).status).toBe('sent');
+    expect(calls).toHaveLength(2);expect(JSON.parse(calls[1].opts.body).emails).toEqual(['123090058@link.cuhk.edu.cn']);
+    expect(JSON.parse(calls[1].opts.body).content).toContain('/reports/pdf/'+id);
+  } finally {globalThis.fetch=originalFetch;}
+});
+it('sends immediately after commit without waiting for a poll or delaying the completed report',async()=>{
+  let began,release;const started=new Promise(resolve=>{began=resolve;});const blocked=new Promise(resolve=>{release=resolve;});
+  const service=worker(async()=>{began();await blocked;});const stop=service.start();
+  let timer;
+  try {
+    await service.drain(); // Finish the startup scan before the new report exists.
+    const id=await completed();
+    expect((await jobs.getJob(id)).status).toBe('completed');
+    const notified=await Promise.race([started.then(()=>true),new Promise(resolve=>{timer=setTimeout(()=>resolve(false),1500);})]);
+    expect(notified).toBe(true);
+    release();await service.drain();
+    expect((await get('SELECT status FROM report_email_outbox WHERE job_id=?',[id])).status).toBe('sent');
+  } finally {clearTimeout(timer);release();stop();}
+});
+it('unsubscribes the completion wake-up when the mail worker stops',async()=>{
+  const sent=[];const service=worker(async mail=>sent.push(mail));const stop=service.start();await service.drain();stop();
+  const id=await completed();await new Promise(resolve=>setTimeout(resolve,40));
+  expect(sent).toHaveLength(0);expect((await get('SELECT status FROM report_email_outbox WHERE job_id=?',[id])).status).toBe('pending');
+});
