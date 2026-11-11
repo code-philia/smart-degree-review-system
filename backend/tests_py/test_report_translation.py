@@ -11,16 +11,22 @@ def module():
     mod=importlib.util.module_from_spec(spec);spec.loader.exec_module(mod)
     return mod
 
-def test_translation_model_is_qwen_without_changing_detection_environment(monkeypatch):
+@pytest.mark.parametrize('inherited_rate', ['90', '37', None])
+def test_translation_model_is_qwen_without_changing_detection_environment(monkeypatch, inherited_rate):
     monkeypatch.setenv('SJTU_API_MODEL','deepseek-chat')
     monkeypatch.setenv('SJTU_API_KEY','test-secret')
     monkeypatch.setenv('SJTU_API_BASE_URL','https://models.sjtu.edu.cn/api/v1')
     monkeypatch.delenv('REPORT_TRANSLATION_MODEL',raising=False)
+    if inherited_rate is None:
+        monkeypatch.delenv('SJTU_API_REQUESTS_PER_MINUTE',raising=False)
+    else:
+        monkeypatch.setenv('SJTU_API_REQUESTS_PER_MINUTE',inherited_rate)
     import os
     with module().translation_environment():
         assert os.environ['SJTU_API_MODEL']=='qwen'
-        assert os.environ['SJTU_API_REQUESTS_PER_MINUTE']=='10'
+        assert os.environ.get('SJTU_API_REQUESTS_PER_MINUTE')==inherited_rate
     assert os.environ['SJTU_API_MODEL']=='deepseek-chat'
+    assert os.environ.get('SJTU_API_REQUESTS_PER_MINUTE')==inherited_rate
 
 def test_transport_uses_existing_ledger_client_with_one_attempt_and_bounded_tokens(tmp_path):
     mod=module()

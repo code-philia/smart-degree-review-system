@@ -224,3 +224,30 @@ def test_short_database_write_lock_does_not_fail_slot_cleanup(tmp_path):
             db.rollback()
         assert future.result(timeout=5)
         assert db.execute('SELECT count(*) FROM leases').fetchone()[0] == 0
+
+
+def test_qwen_and_detection_use_one_account_without_slowing_shared_request_pacing(tmp_path, monkeypatch):
+    from pathlib import Path
+    import importlib.util
+    api, clock = fake_clock(monkeypatch)
+    path = tmp_path / 'shared-model-rate.sqlite'
+    monkeypatch.setenv('SJTU_API_COORDINATOR_DB', str(path))
+    monkeypatch.setenv('SJTU_API_REQUESTS_PER_MINUTE', '90')
+    monkeypatch.setenv('SJTU_API_MODEL', 'deepseek-chat')
+    monkeypatch.delenv('REPORT_TRANSLATION_MODEL', raising=False)
+    script = Path(__file__).parents[1] / 'scripts' / 'report_translation.py'
+    spec = importlib.util.spec_from_file_location('shared_rate_translation', script)
+    translation = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(translation)
+    starts = []
+    def request():
+        with api.campus_request_slot('https://models.sjtu.edu.cn/api/v1/chat/completions',
+                                     {'Authorization': 'Bearer same-account'}, 10):
+            starts.append(clock.now)
+    request()
+    with translation.translation_environment():
+        request()
+    request()
+    assert starts == pytest.approx([1000.0, 1000.0 + 2/3, 1000.0 + 4/3])
+    with sqlite3.connect(path) as db:
+        assert db.execute('SELECT count(*) FROM accounts').fetchone()[0] == 1

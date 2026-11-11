@@ -27,18 +27,14 @@ Do not infer absence of the whole abstract from these comparison prefixes."""
 
 @contextmanager
 def translation_environment():
-    names = ('SJTU_API_MODEL', 'SJTU_API_MODEL_VERSION', 'SJTU_API_REQUESTS_PER_MINUTE')
+    names = ('SJTU_API_MODEL', 'SJTU_API_MODEL_VERSION')
     previous = {name: os.environ.get(name) for name in names}
     model = os.environ.get('REPORT_TRANSLATION_MODEL', 'qwen').strip()
     if model not in {'qwen', 'qwen3.8-27b'}:
         raise ValueError('translation requires the approved campus Qwen model')
     os.environ['SJTU_API_MODEL'] = model
     os.environ['SJTU_API_MODEL_VERSION'] = os.environ.get('REPORT_TRANSLATION_MODEL_VERSION', 'campus-current')
-    try:
-        requested_rpm = int(os.environ.get('SJTU_API_REQUESTS_PER_MINUTE', '10'))
-    except ValueError:
-        requested_rpm = 10
-    os.environ['SJTU_API_REQUESTS_PER_MINUTE'] = str(max(1, min(10, requested_rpm)))
+    # Detection and translation inherit one account-wide quota and coordinator.
     try:
         yield
     finally:

@@ -105,6 +105,7 @@ export const REVIEW_COPY={
  '任务已提交，请从论文上传页恢复查看':'The review was submitted. Return to Upload thesis to resume viewing it.',
  '请先选择 PDF 文件':'Select a PDF first.','PDF 文件无效':'The PDF is invalid.','规则目录加载失败':'Checks could not be loaded.',
  '规则审查运行超时，请减少规则后重试':'The review timed out. Select fewer checks and try again.',
+ '检测失败，请重试：规则审查运行超时，请减少规则后重试':'The review timed out. Select fewer checks and try again.',
  '连接异常，正在确认任务状态':'Connection interrupted. Checking the review status.',
  '检测失败，请重试':'The review failed. Try again.',
  '检测完成，但报告未保存，请重试':'The review finished, but the report was not saved. Try again.',

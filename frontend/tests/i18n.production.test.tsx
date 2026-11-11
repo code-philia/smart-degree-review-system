@@ -221,3 +221,23 @@ it.each(['检测结果','提示'])('protects the literal typo correction %s whil
  const correction=screen.getByText(literal);expect(correction).toBeTruthy();expect(screen.getByText('Suggested action:')).toBeTruthy();
  act(()=>setLocale('zh'));expect(correction).toHaveTextContent(literal);
 });
+
+it('localizes the real full-review timeout when it arrives after switching to English', async () => {
+  const chinese='检测失败，请重试：规则审查运行超时，请减少规则后重试';
+  let finish!: (message:string) => void;
+  const request=new Promise<string>(resolve => {finish=resolve;});
+  function AsyncReviewError(){
+    const [error,setError]=React.useState('');
+    React.useEffect(()=>{void request.then(setError);},[]);
+    return jsx('p',{role:'alert',children:error});
+  }
+  render(React.createElement(AsyncReviewError));
+  act(()=>setLocale('en'));
+  await act(async()=>{finish(chinese);await request;});
+  expect(screen.getByRole('alert').textContent).toBe('The review timed out. Select fewer checks and try again.');
+  expect(screen.getByRole('alert').textContent).not.toMatch(/\p{Script=Han}/u);
+  act(()=>setLocale('zh'));
+  expect(screen.getByRole('alert').textContent).toBe(chinese);
+  act(()=>setLocale('en'));
+  expect(screen.getByRole('alert').textContent).toBe('The review timed out. Select fewer checks and try again.');
+});
