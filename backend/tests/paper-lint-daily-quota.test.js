@@ -100,3 +100,28 @@ it('applies the same daily allowance to incremental reruns without changing the 
  await expect(createPaperLintJobService(engine).enqueueIncremental({userId:'quota-student',reportId:id,selectedRuleIds:['sjtu_rule_22']})).rejects.toMatchObject({status:429});
  expect(engine.runPaperLint).not.toHaveBeenCalled();expect(await get('SELECT result_json FROM paper_lint_reports WHERE id=?',[id])).toEqual(before);
 });
+
+it.each([['student01','STUDENT'],['supervisor01','SUPERVISOR'],['college_admin01','COLLEGE_ADMIN'],['school_admin01','SCHOOL_ADMIN']])('keeps the designated test account %s unlimited beyond three completed reports',async(id,role)=>{
+ await run("INSERT INTO auth_users(id,username,password_hash,role,scope) VALUES (?,?,'test',?,'COLLEGE')",[id,id,role]);
+ for(let n=0;n<5;n++)await completed(id,'trial-report-'+n);
+ expect(await quota(id)).toMatchObject({limited:false,remaining:null,used:0,reserved:0});
+});
+it.each([['jaccount:student01','jaccount:student01'],['campus-student','student01'],['student02','student02'],['STUDENT01','STUDENT01']])('does not grant ordinary identity %s the named-test-account exemption',async(id,username)=>{
+ await run("INSERT INTO auth_users(id,username,password_hash,role,scope) VALUES (?,?,'test','STUDENT','COLLEGE')",[id,username]);
+ for(let n=0;n<3;n++)await completed(id);
+ expect(await quota(id)).toMatchObject({limited:true,used:3,remaining:0});
+ await expect(jobs.createJob(args(id))).rejects.toMatchObject({status:429});
+});
+it('returns unlimited status over HTTP and admits a fourth test-account job',async()=>{
+ const id='student01';await run("INSERT INTO auth_users(id,username,password_hash,role,scope) VALUES (?,?,'test','STUDENT','COLLEGE')",[id,id]);
+ for(let n=0;n<3;n++)await completed(id);
+ const {createReviewPilotPaperLintRouter}=require('../src/normative/reviewPilotPaperLintRoutes');
+ const {createUserSession}=require('../src/auth/sessionService');
+ const session=await createUserSession(await get('SELECT * FROM auth_users WHERE id=?',[id]));
+ const cookie='arc_session='+session.sessionId;
+ const engine={MAX_PDF_BYTES:50*1024*1024,validatePdf:()=>{},normalizeSelectedRuleIds:async ids=>ids};
+ const service={enqueue:async input=>{const jobId=await jobs.createJob(input);return jobs.getJobForUser(jobId,input.userId);}};
+ const app=express();app.use('/api/normative/paper-lint',createReviewPilotPaperLintRouter(engine,{},service,{}));
+ await request(app).get('/api/normative/paper-lint/quota').set('Cookie',cookie).expect(200).expect(({body})=>expect(body).toMatchObject({limited:false,remaining:null}));
+ await request(app).post('/api/normative/paper-lint/run').set('Cookie',cookie).set('Content-Type','application/pdf').set('X-Paper-Lint-Rule-Ids','sjtu_rule_22').send(pdf).expect(202);
+});

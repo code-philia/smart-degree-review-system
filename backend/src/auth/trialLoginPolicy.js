@@ -58,4 +58,4 @@ const trialAttempts = {
   },
 };
 
-module.exports = { TRIAL_SESSION_PREFIX, trialUserAllowed, trialSessionAllowed, trialLoginRequest, trialAttempts };
+module.exports = { TRIAL_ACCOUNTS, TRIAL_SESSION_PREFIX, trialUserAllowed, trialSessionAllowed, trialLoginRequest, trialAttempts };
