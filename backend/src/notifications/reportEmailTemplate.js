@@ -4,7 +4,7 @@ const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
 }[char]));
 const family = "Arial,'Microsoft YaHei','PingFang SC',sans-serif";
-const type = `font-family:${family};font-size:16px;font-weight:400;line-height:24px;color:#334155;`;
+const type = `font-family:${family};font-size:14px;font-weight:400;line-height:22px;color:#334155;`;
 const paragraph = text => `<p style="margin:0;${type}">${text}</p>`;
 const row = (html, padding = 0) => `<tr><td style="padding:0 0 ${padding}px;${type}">${html}</td></tr>`;
 
@@ -18,9 +18,9 @@ function reportEmail(report, recipient, settings, jobId, locale = 'zh') {
   const ready = L('您的论文检测报告已生成。', 'Your thesis report is ready.');
   const action = L('查看检测报告', 'View report');
   const automatic = L('系统自动发送，请勿回复。', 'This is an automated email. Please do not reply.');
-  const button = `<table role="presentation" class="action" width="196" cellpadding="0" cellspacing="0" border="0" style="width:196px;max-width:100%;border-collapse:separate"><tr><td align="center" bgcolor="#96354a" style="background:#96354a;border:1px solid #96354a;border-radius:5px;mso-padding-alt:12px 16px"><a href="${escapeHtml(href)}" style="display:block;padding:11px 16px;${type}color:#ffffff;line-height:24px;text-align:center;text-decoration:none!important;mso-padding-alt:0"><span style="color:#ffffff;text-decoration:none!important">${action}</span></a></td></tr></table>`;
+  const button = `<table role="presentation" class="action" width="196" cellpadding="0" cellspacing="0" border="0" style="width:196px;max-width:100%;border-collapse:separate"><tr><td align="center" bgcolor="#96354a" style="background:#96354a;border:1px solid #96354a;border-radius:5px;mso-padding-alt:12px 16px"><a href="${escapeHtml(href)}" style="display:block;padding:11px 16px;${type}color:#ffffff;line-height:22px;text-align:center;text-decoration:none!important;mso-padding-alt:0"><span style="color:#ffffff;text-decoration:none!important">${action}</span></a></td></tr></table>`;
   const body =
-    row(`<h1 style="margin:0;font-family:${family};font-size:20px;font-weight:600;line-height:28px;color:#1f2937">${title}</h1>`, 16) +
+    row(`<h1 style="margin:0;font-family:${family};font-size:18px;font-weight:600;line-height:26px;color:#1f2937">${title}</h1>`, 16) +
     row(paragraph(`${greeting}<br>${ready}`), 16) +
     row(`<p style="margin:0;${type}color:#64748b">${L('检测文件', 'Document')}</p><p data-filename="" style="margin:0;${type}overflow-wrap:anywhere;word-wrap:break-word;word-break:break-word">${escapeHtml(filename)}</p>`, 16) +
     row(button, 16) +

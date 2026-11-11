@@ -63,7 +63,8 @@ it.each(['zh', 'en'])('renders only the %s letter, subject and action without an
   expect(mail.html).toContain(`/reports/pdf/sample?lang=${locale}`);
   expect(mail.text).toContain(`/reports/pdf/sample?lang=${locale}`);
   expect(mail.html).not.toContain(`?lang=${locale === 'en' ? 'zh' : 'en'}`);
-  expect(mail.html).toContain('font-size:16px;font-weight:400;line-height:24px');
+  expect(mail.html).toContain('font-size:14px;font-weight:400;line-height:22px');
+  expect(mail.html).toContain('font-size:18px;font-weight:600;line-height:26px');
   expect(mail.messageId).toBe('<report-job@sjtu.edu.cn>');
 });
 it.each([undefined, '', 'EN', 'de', '<script>'])('defaults missing or unsupported locale %s to Chinese', locale => {
