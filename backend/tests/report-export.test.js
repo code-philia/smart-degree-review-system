@@ -154,3 +154,10 @@ it('wraps source titles after an unspaced translated opening quote inside PDF ma
   const bbox=execFileSync(tool,['-bbox',file,'-'],{encoding:'utf8'});const rightEdges=[...bbox.matchAll(/<word\b[^>]*\bxMax="([\d.]+)"/g)].map(match=>Number(match[1]));expect(rightEdges.length).toBeGreaterThan(0);expect(Math.max(...rightEdges)).toBeLessThanOrEqual(525);
  }finally{await fs.rm(directory,{recursive:true,force:true});}
 });
+
+it.each(['zh-CN','en'])('prints the official user-facing domain in the %s PDF footer, independent of the development host',{timeout:120000},async language=>{
+ const model=sample(language);model.reports[0].signature={system:'System',institution:'Institution',website:'http://121.36.247.138:3000'};
+ const pdf=await renderReport({userId:'canonical-domain',report:{id:'report-1',source_filename:'论文.pdf',created_at:'2026-11-11T08:30:00Z'},model,format:'pdf'});
+ const directory=await fs.mkdtemp(path.join(os.tmpdir(),'export-domain-'));
+ try{const file=path.join(directory,'report.pdf');await fs.writeFile(file,pdf.content);const text=execFileSync(process.env.REPORT_EXPORT_PDFTOTEXT||'/usr/bin/pdftotext',['-enc','UTF-8',file,'-'],{encoding:'utf8'});expect(text).toContain('https://thesis-review.sjtu.edu.cn');expect(text).not.toContain('121.36.247.138');}finally{await fs.rm(directory,{recursive:true,force:true});}
+});

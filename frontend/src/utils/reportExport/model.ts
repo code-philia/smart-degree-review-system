@@ -104,7 +104,7 @@ export function reportSignature(english = false) {
     institution: english
       ? 'Shanghai Jiao Tong University Graduate Degree Information System'
       : '上海交通大学研究生学位信息系统',
-    website: typeof window === 'undefined' ? '' : window.location.origin,
+    website: 'https://thesis-review.sjtu.edu.cn',
   };
 }
 
@@ -444,7 +444,7 @@ export function reportBlocks(model: ExportReport): ReportBlock[] {
     { kind: 'text', text: model.notice },
     { kind: 'meta', role: 'signature', text: signature.system },
     { kind: 'meta', role: 'signature_school', text: signature.institution },
-    { kind: 'meta', role: 'website', text: signature.website },
+    { kind: 'meta', role: 'website', text: reportSignature(en).website },
   );
   return blocks;
 }

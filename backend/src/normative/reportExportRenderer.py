@@ -126,7 +126,7 @@ for index,report in enumerate(model['reports']):
     if not ids:paragraph(L('未记录检测规则，无法确认本次检测范围。','No checks were recorded, so the review scope cannot be confirmed.'))
     paragraph(report['notice'])
     signature=[L('智慧学位 AI 评阅辅助系统','Smart Degree · AI Review Assistant'),L('上海交通大学研究生学位信息系统','Shanghai Jiao Tong University Graduate Degree Information System')]
-    website=report.get('signature',{}).get('website','https://thesis-review.sjtu.edu.cn')
+    website='https://thesis-review.sjtu.edu.cn'
     parts.append(r'\par\Needspace{4\baselineskip}\vspace{26pt}{\parskip=2pt\noindent '+esc(signature[0])+r'\par}\nopagebreak')
     parts.append(r'{\parskip=2pt\noindent '+esc(signature[1])+r'\par}\nopagebreak')
     parts.append(r'\noindent '+esc(website)+r'\par')

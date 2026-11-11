@@ -2,7 +2,7 @@ import { Blob as NodeBlob } from 'node:buffer';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { unzipSync, strFromU8 } from 'fflate';
 import apiClient from '../src/api';
-import { buildExportReport, reportBlocks, safeReportFilename } from '../src/utils/reportExport/model';
+import { buildExportReport, reportBlocks, reportSignature, safeReportFilename } from '../src/utils/reportExport/model';
 import { createReportFile } from '../src/utils/reportExport/formats';
 import { collectExportTranslationTexts, localizeExportReport } from '../src/utils/reportExport/presentation';
 import { addTranslations, setLocale } from '../src/i18n/locale.js';
@@ -415,4 +415,13 @@ it('reflows Word source quotes and typo snippets without altering raw models or 
   expect(advice.getElementsByTagName('w:br')).toHaveLength(0);
   expect(advice.textContent).toBe('修改建议：原始替换文本');
   expect(JSON.stringify(model)).toBe(before);
+});
+
+it.each(['zh', 'en'])('keeps the official user-facing domain in the %s report signature on development hosts', (locale) => {
+  vi.stubGlobal('window', { location: { origin: 'http://121.36.247.138:3000' } });
+  expect(reportSignature(locale === 'en').website).toBe('https://thesis-review.sjtu.edu.cn');
+  const model = ready();
+  model.signature!.website = 'http://121.36.247.138:3000';
+  const selected = locale === 'en' ? localizeExportReport(model, 'en') : model;
+  expect(reportBlocks(selected).find((block) => block.role === 'website')?.text).toBe('https://thesis-review.sjtu.edu.cn');
 });
