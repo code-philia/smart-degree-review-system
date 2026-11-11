@@ -1,3 +1,4 @@
+import { ReportProse } from '../i18n/ReportProse';
 import { translate } from '../i18n/locale';
 import { preserveText } from "../i18n/jsx-runtime";
 import { useReportTranslations } from '../i18n/reportTranslations';
@@ -943,7 +944,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
                       <span className="block truncate text-sm text-slate-700">
                         {rulesById.get(run.rule_id)?.title || run.rule_id}
                       </span>
-                      {run.message ? <p className="mt-1 text-xs text-slate-500">{run.message}</p> : null}
+                      {run.message ? <p className="mt-1 text-xs text-slate-500"><ReportProse text={run.message} /></p> : null}
                     </div>
                     <StatusBadge tone={outcomeTones[run.outcome]}>{compilerPublicationLabel(run) || outcomeLabels[run.outcome]}</StatusBadge>
                   </div>

@@ -94,7 +94,12 @@ function extractLiteralProtections(result) {
         ...rows(finding?.evidence).map(item => item?.quote),
       ].filter(value => typeof value === 'string' && value.trim());
       for (const field of ['message', 'explanation', 'reason', 'suggestion', 'rationale']) {
-        for (const source of sources) protect(finding?.[field], source);
+        // Abstract comparison prose explains omitted/different content. An
+        // unquoted clause matching the thesis still needs an English explanation;
+        // exact quotes, numbers and separate source fields remain protected.
+        if (rule?.rule_id !== 'bilingual_abstract_consistency_check') {
+          for (const source of sources) protect(finding?.[field], source);
+        }
       }
       // The existing typo detector's suggestion is the literal replacement,
       // whereas other rules' suggestions are explanatory instructions.

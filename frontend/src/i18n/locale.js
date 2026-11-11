@@ -144,7 +144,10 @@ export const COPY={...SUPPLEMENTAL_COPY,...exportLabels,...legacy,
 Object.assign(COPY,REVIEW_COPY,RULE_COPY);
 const plural=(n,s,p=s+'s')=>Number(n)===1?s:p;
 const SECTION_NAMES={ '摘要':'abstract', '中文摘要':'Chinese abstract', '英文摘要（Abstract）':'English abstract (Abstract)', '关键词':'keywords', '目录':'contents', '引言':'introduction', '主体':'main text', '结论':'conclusion', '参考文献':'references' };
+const punctuationNames={ '冒号':'colon', '逗号':'comma', '分号':'semicolon', '句号':'full stop', '问号':'question mark', '感叹号':'exclamation mark' };
 const patterns=[
+ [/^目录页码 (\d+) 与正文实际页码 (\d+) 不一致$/,(_,shown,actual)=>`The table of contents lists page ${shown}, but the corresponding text is on page ${actual}.`],
+ [/^“([\s\S]+)”\s*中误用了(中文|英文)(冒号|逗号|分号|句号|问号|感叹号)\s*“([^”]+)”\s*，\s*应使用(中文|英文)\3\s*“([^”]+)”\s*。$/,(_,source,from,kind,wrong,to,right)=>`In “${source}”, ${from==='中文'?'a Chinese':'an English'} ${punctuationNames[kind]} “${wrong}” is used instead of ${to==='中文'?'a Chinese':'an English'} ${punctuationNames[kind]} “${right}”.`],
  [/^第 (\d+) 页审查高亮$/,(_,page)=>`Review highlights on page ${page}`],
  [/^定位审查问题：([\s\S]*)$/,(_,excerpt)=>`Locate review finding: ${excerpt}`],
  [/^(.+)：定位第 (\d+) 页$/,(_,label,page)=>`${staticEnglish(label)}: Locate page ${page}`],
@@ -245,6 +248,8 @@ export function addTranslations(values){
 }
 export function clearTranslations(){dynamic.clear();emit();}
 Object.assign(COPY,{
+ '中文摘要原句':'Original sentence from the Chinese abstract','英文摘要原句':'Original sentence from the English abstract','中文摘要':'Chinese abstract','英文摘要':'English abstract',
+ '缺少完整的方括号文献类型标记':'The bracketed reference type code is missing or incomplete.',
  '报告加载失败':'Failed to load report','反馈保存失败':'Failed to save feedback','反馈取消失败':'Failed to withdraw feedback',
  '请重新打开检测报告后提交反馈':'Reopen the report before submitting feedback','请重新加载修复建议后提交反馈':'Reload the suggestion before submitting feedback',
  '当前 AI 服务请求较多，请稍后重试':'The AI service is busy. Please try again later.','修复建议暂不可用':'Suggestions are temporarily unavailable',

@@ -1,8 +1,9 @@
+import { ReportProse } from '../../i18n/ReportProse';
 import { preserveText } from "../../i18n/jsx-runtime";
 import { RichMessage } from '../../i18n/jsx-runtime';
 import { Bot, Check, CheckCircle2, CircleAlert, CircleHelp, ListFilter, LoaderCircle, MapPin } from 'lucide-react';
 import { useMemo, useState, useSyncExternalStore } from 'react';
-import { getLocale, getPresentationRevision, subscribe, translate } from '../../i18n/locale';
+import { getLocale, getPresentationRevision, subscribe } from '../../i18n/locale';
 import type { PaperLintRule, PaperLintRuleRun } from '../../api/paperLint';
 import type { RepairSuggestion } from '../../api/repairSuggestions';
 import type { FindingFeedback, SuggestionFeedback } from '../../api/feedback';
@@ -60,8 +61,7 @@ function repairActionParts(instruction: string) {
 export function RepairAction({ instruction }: { instruction: string }) {
   useSyncExternalStore(subscribe, getPresentationRevision, getPresentationRevision);
   // The backend maps the complete instruction. Keep its protected quoted terms together.
-  const localized = translate(instruction);
-  if (getLocale() === 'en' && localized !== instruction) return <p className="whitespace-pre-wrap break-words">{preserveText(localized)}</p>;
+  if (getLocale() === 'en') return <p className="whitespace-pre-wrap break-words"><ReportProse text={instruction} /></p>;
   const parts = repairActionParts(instruction);
   if (!('before' in parts)) return <p>{parts.text}</p>;
   return (
@@ -219,15 +219,15 @@ export function FindingsPane({
           run.rule_id === 'bilingual_abstract_consistency_check' && run.params?.validation_incomplete === true
           && (effectiveRuleFilter === 'all' || effectiveRuleFilter === run.rule_id)
         ).map(run => <p key={`${run.rule_id}-validation-notice`} role="status" className="rounded-lg bg-sky-50 p-3 text-sm leading-6 text-slate-700">
-          {run.message || '部分摘要候选的证据暂未核实，已保留核实通过的结果；可稍后重新检测。'}
+          <ReportProse text={run.message || '部分摘要候选的证据暂未核实，已保留核实通过的结果；可稍后重新检测。'} />
         </p>) : null}
-        {filter !== 'execution' && filtered.length > 0 && incomplete && selectedRun?.rule_id === 'sjtu_rule_32' ? <p role="status" className="rounded-xl bg-amber-50 p-3 text-xs leading-6 text-amber-800">{referenceReviewMessage(selectedRun)}</p> : null}
+        {filter !== 'execution' && filtered.length > 0 && incomplete && selectedRun?.rule_id === 'sjtu_rule_32' ? <p role="status" className="rounded-xl bg-amber-50 p-3 text-xs leading-6 text-amber-800"><ReportProse text={referenceReviewMessage(selectedRun)} /></p> : null}
         {filter === 'execution' && visibleWarnings.length > 0 ? <p className="rounded-lg bg-slate-50 p-3 text-sm leading-6 text-slate-600">如需使用以下规则，请按建议内容调整；如无需使用，请忽略以下内容</p> : null}
         {cards.length > 0 ? null : (
           <div data-i18n-report-empty="" className="flex h-full min-h-60 flex-col items-center justify-center text-center">
             <EmptyIcon data-testid={!pending && !incomplete && !severityEmpty ? 'rule-empty-icon' : undefined} className={`size-8 ${pending ? 'animate-spin text-brand-600 motion-reduce:animate-none' : severityEmpty ? 'text-slate-400' : incomplete ? 'text-amber-600' : 'text-success-600'}`} />
             <p className="mt-3 text-sm font-bold text-slate-900">{emptyTitle}</p>
-            <p className="mt-1 max-w-sm text-xs leading-6 text-slate-500">{emptyDescription}</p>
+            <p className="mt-1 max-w-sm text-xs leading-6 text-slate-500">{typeof emptyDescription === 'string' ? <ReportProse text={emptyDescription} /> : emptyDescription}</p>
             {severityEmpty ? <Button className="mt-3" size="sm" variant="secondary" onClick={() => setFilter('all')}>查看全部级别</Button> : null}
           </div>
         )}
@@ -251,17 +251,17 @@ export function FindingsPane({
                       <div className="mt-3 rounded-lg bg-slate-50 p-3 text-sm leading-6 text-slate-700">
                         <p><strong>符合要求的示例：</strong></p>
                         <p className="mt-1 whitespace-pre-line">{warning.example}</p>
-                        <p className="mt-3"><strong>说明：</strong>{warning.explanation}</p>
+                        <p className="mt-3"><strong>说明：</strong><ReportProse text={warning.explanation} /></p>
                       </div>
                       <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm leading-6 text-slate-700">
-                        <strong>调整建议：</strong>{warning.suggestion}
+                        <strong>调整建议：</strong><ReportProse text={warning.suggestion} />
                       </p>
-                      {warning.note ? <p className="mt-3 text-sm leading-6 text-slate-600">{warning.note}</p> : null}
+                      {warning.note ? <p className="mt-3 text-sm leading-6 text-slate-600"><ReportProse text={warning.note} /></p> : null}
                     </>
                   ) : (
                     <>
-                      <p className="mt-2 text-sm leading-6 text-slate-700">{warning.reason}</p>
-                      <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm leading-6"><strong>调整建议：</strong>{warning.suggestion}</p>
+                      <p className="mt-2 text-sm leading-6 text-slate-700"><ReportProse text={warning.reason} /></p>
+                      <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm leading-6"><strong>调整建议：</strong><ReportProse text={warning.suggestion} /></p>
                     </>
                   )}
                   {feedbackTarget && onFindingFeedback ? <FeedbackControls
@@ -285,7 +285,7 @@ export function FindingsPane({
             const numeric = item.ruleRun.rule_id === 'abstract_numeric_consistency_check';
             const reference = item.ruleRun.rule_id === 'sjtu_rule_32';
             const sourceCorrection = item.finding.rule_id === 'typo_detection_check' || item.ruleRun.rule_id === 'typo_detection_check';
-            const suggestionText = sourceCorrection ? preserveText(item.finding.suggestion) : item.finding.suggestion;
+            const suggestionText = sourceCorrection ? preserveText(item.finding.suggestion) : <ReportProse text={item.finding.suggestion} />;
             const referenceExcerpt = reference ? item.finding.evidence?.filter(e => e.kind === 'source_span' && e.quote).at(-1)?.quote || item.finding.location?.text_excerpt : null;
             const repairEnabled = !documentBlocked && !numeric && !reference && supportsRepairSuggestion(item);
             const findingFeedback = findingFeedbackByKey[item.key];
@@ -346,9 +346,9 @@ export function FindingsPane({
                     </Button>
                   </div>
                 </div>
-                <p className="mt-2 break-words text-sm leading-6 text-slate-700">{item.finding.message}</p>
+                <p className="mt-2 break-words text-sm leading-6 text-slate-700"><ReportProse text={item.finding.message} /></p>
                 {referenceExcerpt ? <blockquote className="mt-3 rounded-lg bg-slate-50 p-3 text-xs leading-6 text-slate-700"><p className="font-semibold">参考文献原文</p><p className="mt-1 whitespace-pre-wrap break-words">{preserveText(referenceExcerpt)}</p></blockquote> : null}
-                {reference ? <p className="mt-2 text-xs leading-6 text-blue-700">{item.finding.suggestion || '请人工复核该条引用及其原始来源。'}</p> : null}
+                {reference ? <p className="mt-2 text-xs leading-6 text-blue-700"><ReportProse text={item.finding.suggestion || '请人工复核该条引用及其原始来源。'} /></p> : null}
                 {onFindingFeedback ? <FeedbackControls
                   label="这个问题的判断是否准确？"
                   feedback={findingFeedback}
@@ -454,7 +454,7 @@ export function FindingsPane({
                           onAnchorClick(item.key, anchor.anchor_id);
                         }}
                       >
-                        {anchor.label || `证据 ${index + 1}`}
+                        <ReportProse text={anchor.label || `证据 ${index + 1}`} />
                       </Button>
                     ))}
                   </div>
