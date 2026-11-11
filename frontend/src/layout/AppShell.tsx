@@ -1,6 +1,7 @@
 import { preserveText } from "../i18n/jsx-runtime";
 import { RichMessage } from '../i18n/jsx-runtime';
 import { SettingsDialog } from '../components/SettingsDialog';
+import { NotificationBell } from '../components/NotificationBell';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
   ChevronDown,
@@ -342,6 +343,7 @@ function AppShell() {
                 试点验证版
               </Badge>
             </span>
+            {user ? <NotificationBell userId={user.id} /> : null}
             {user ? <SystemFeedbackDialog /> : null}
           </div>
         </header>

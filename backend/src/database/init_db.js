@@ -345,6 +345,16 @@ async function initializeDatabase(options = {}) {
     );`);
     await runStatement(database, `CREATE INDEX IF NOT EXISTS idx_report_email_pending
       ON report_email_outbox (status, next_attempt_at);`);
+    await runStatement(database, `CREATE TABLE IF NOT EXISTS app_notification_config (
+      id INTEGER PRIMARY KEY CHECK (id=1), starts_at TEXT NOT NULL
+    );`);
+    await runStatement(database, `INSERT OR IGNORE INTO app_notification_config(id,starts_at)
+      VALUES (1,strftime('%Y-%m-%dT%H:%M:%fZ','now'));`);
+    await runStatement(database, `CREATE TABLE IF NOT EXISTS user_notification_reads (
+      user_id TEXT NOT NULL, notification_id TEXT NOT NULL, read_at TEXT NOT NULL,
+      PRIMARY KEY (user_id,notification_id),
+      FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE
+    );`);
     await runStatement(database, `CREATE UNIQUE INDEX IF NOT EXISTS idx_paper_lint_jobs_request
       ON paper_lint_jobs (user_id, request_id) WHERE request_id IS NOT NULL;`);
     await runStatement(database, `CREATE INDEX IF NOT EXISTS idx_paper_lint_jobs_status

@@ -32,6 +32,7 @@ app.get('/api/health', (req, res) => {
 });
 app.use('/api/internal', internalReadinessRoutes);
 app.use('/api/auth', bodyParser.json({ limit: '16kb' }), authRoutes);
+app.use('/api/notifications', require('./notifications/notificationRoutes'));
 app.use('/api/normative', normativeRoutes);
 app.use('/api/example-rule-check', exampleRuleRoutes);
 
