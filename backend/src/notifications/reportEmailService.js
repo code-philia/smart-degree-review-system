@@ -54,7 +54,8 @@ function createReportEmailService({send=sendReportMail, config=mailConfig, now=(
         const recipient=notificationEmail(await users.findUserById(row.user_id));
         if (!recipient) {await finish(row,'blocked','missing_recipient',false);continue;}
         await run('UPDATE report_email_outbox SET recipient=? WHERE job_id=? AND claim_token=?',[recipient,row.job_id,token]);
-        await send(reportEmail(report,recipient,settings,row.job_id),settings);
+        const job = await get('SELECT notification_locale FROM paper_lint_jobs WHERE id=?', [row.job_id]);
+        await send(reportEmail(report,recipient,settings,row.job_id,job?.notification_locale),settings);
         await finish(row,'sent',null);
       } catch (error) {
         const errorCode=['notification_authentication','notification_unavailable','recipient_rejected'].includes(error?.code)

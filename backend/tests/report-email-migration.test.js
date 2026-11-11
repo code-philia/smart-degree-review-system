@@ -16,9 +16,12 @@ it('preserves existing accounts and opts old completed or pending jobs out of em
     await initializeDatabase();
     expect(await get("SELECT username,password_hash,email FROM auth_users WHERE id='old-user'")).toEqual({username:'old-user',password_hash:'existing-hash',email:null});
     expect((await get("SELECT notify_completion FROM paper_lint_jobs WHERE id='old-completed'")).notify_completion).toBe(0);
+    expect((await get("SELECT notification_locale FROM paper_lint_jobs WHERE id='old-completed'")).notification_locale).toBe('zh');
+    await run("UPDATE paper_lint_jobs SET notification_locale='en' WHERE id='old-pending'");
     const jobs=require('../src/normative/paperLintJobRepository');await jobs.claimJob('old-pending');await jobs.completeJob('old-pending','old-report');
     expect((await get('SELECT count(*) AS total FROM report_email_outbox')).total).toBe(0);
     await closeDb();await initializeDatabase();
     expect((await get("SELECT notify_completion FROM paper_lint_jobs WHERE id='old-pending'")).notify_completion).toBe(0);
+    expect((await get("SELECT notification_locale FROM paper_lint_jobs WHERE id='old-pending'")).notification_locale).toBe('en');
   }finally{await closeDb();await setDbPath(previous);fs.rmSync(directory,{recursive:true,force:true});}
 });

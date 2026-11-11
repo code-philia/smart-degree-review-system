@@ -136,6 +136,7 @@ function createReviewPilotPaperLintRouter(service = defaultService, exampleServi
         userId: req.user.id, reportId: req.params.reportId, selectedRuleIds: ids,
         externalProcessingConsent: true,
         requestId: typeof req.get('x-paper-lint-request-id') === 'string' ? req.get('x-paper-lint-request-id') : null,
+        notificationLocale: req.get('x-paper-lint-notification-locale'),
       });
       return res.status(202).json(job);
     } catch (error) { sendError(error, res, next); }
@@ -221,6 +222,7 @@ function createReviewPilotPaperLintRouter(service = defaultService, exampleServi
           sourceFilename: typeof req.query.filename === 'string' ? req.query.filename.slice(0, 255) : '论文.pdf',
           requestId: typeof req.get('x-paper-lint-request-id') === 'string' ? req.get('x-paper-lint-request-id') : null,
           pdfBuffer: req.body, selectedRuleIds: normalizedRuleIds, externalProcessingConsent,
+          notificationLocale: req.get('x-paper-lint-notification-locale'),
         });
         return res.status(202).json(job);
       } catch (error) {

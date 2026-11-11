@@ -23,7 +23,7 @@ function publicJob(row) {
   };
 }
 
-async function createJob({ userId, sourceFilename, pdfBuffer, selectedRuleIds, externalProcessingConsent, requestId = null, reuse = null }) {
+async function createJob({ userId, sourceFilename, pdfBuffer, selectedRuleIds, externalProcessingConsent, requestId = null, reuse = null, notificationLocale = 'zh' }) {
   if (requestId) {
     const existing = await get('SELECT id FROM paper_lint_jobs WHERE user_id = ? AND request_id = ?', [userId, requestId]);
     if (existing) return existing.id;
@@ -36,10 +36,11 @@ async function createJob({ userId, sourceFilename, pdfBuffer, selectedRuleIds, e
   try {
     const now = new Date().toISOString();
     const guard = quotaAdmission(userId, now);
-    const inserted = await run(`INSERT INTO paper_lint_jobs (id,user_id,source_filename,source_pdf_path,selected_rule_ids_json,external_consent,request_id,status,attempts,created_at,updated_at,reuse_json,notify_completion)
-      SELECT ?,?,?,?,?,?,?,?,?,?,?,?,1 WHERE (${guard.sql})`,
+    const inserted = await run(`INSERT INTO paper_lint_jobs (id,user_id,source_filename,source_pdf_path,selected_rule_ids_json,external_consent,request_id,status,attempts,created_at,updated_at,reuse_json,notification_locale,notify_completion)
+      SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,1 WHERE (${guard.sql})`,
       [id, userId, sourceFilename, pdfPath, JSON.stringify(selectedRuleIds),
-        externalProcessingConsent ? 1 : 0, requestId, 'pending', 0, now, now, reuse ? JSON.stringify(reuse) : null, ...guard.params]);
+        externalProcessingConsent ? 1 : 0, requestId, 'pending', 0, now, now, reuse ? JSON.stringify(reuse) : null,
+        notificationLocale === 'en' ? 'en' : 'zh', ...guard.params]);
     if (!inserted.changes) {
       await fs.promises.rm(pdfPath, { force: true });
       if (requestId) {

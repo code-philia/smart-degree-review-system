@@ -1,4 +1,5 @@
 import apiClient from './index';
+import { getLocale } from '../i18n/locale';
 
 export type PaperLintDailyQuota = {
   limited: boolean; limit: number; used: number; reserved: number; remaining: number | null;
@@ -232,6 +233,7 @@ export async function runReviewPilotPaperLint(
   requestId?: string,
   onUploadProgress?: (percent: number) => void,
 ): Promise<PaperLintRunResponse | PaperLintJobResponse> {
+  const notificationLocale = getLocale();
   let body: Blob = file;
   if (file.size >= 1024 * 1024 && typeof CompressionStream !== 'undefined') {
     const compressed = await new Response(file.stream().pipeThrough(new CompressionStream('gzip'))).blob();
@@ -246,6 +248,7 @@ export async function runReviewPilotPaperLint(
         'Content-Type': 'application/pdf',
         ...(body !== file ? { 'Content-Encoding': 'gzip' } : {}),
         'X-Paper-Lint-Rule-Ids': selectedRuleIds.join(','),
+        'X-Paper-Lint-Notification-Locale': notificationLocale,
         ...(requestId ? { 'X-Paper-Lint-Request-Id': requestId } : {}),
         ...(externalProcessingConsent ? { 'X-Paper-Lint-External-Processing-Consent': 'confirmed' } : {}),
       },
@@ -328,7 +331,7 @@ export async function rerunPaperLintReport(reportId: string, selectedRuleIds: st
   const response = await apiClient.post<PaperLintJobResponse>(
     `/normative/paper-lint/reports/${encodeURIComponent(reportId)}/rerun`,
     { selected_rule_ids: selectedRuleIds },
-    { headers: { 'X-Paper-Lint-Request-Id': requestId }, timeout: 60_000 },
+    { headers: { 'X-Paper-Lint-Request-Id': requestId, 'X-Paper-Lint-Notification-Locale': getLocale() }, timeout: 60_000 },
   );
   return response.data;
 }

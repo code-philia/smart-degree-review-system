@@ -332,6 +332,10 @@ async function initializeDatabase(options = {}) {
     if (!paperLintJobColumns.some((column) => column.name === 'started_at')) {
       await runStatement(database, 'ALTER TABLE paper_lint_jobs ADD COLUMN started_at TEXT;');
     }
+    // Freeze the notification language at submission; legacy jobs use Chinese.
+    if (!paperLintJobColumns.some((column) => column.name === 'notification_locale')) {
+      await runStatement(database, "ALTER TABLE paper_lint_jobs ADD COLUMN notification_locale TEXT NOT NULL DEFAULT 'zh' CHECK (notification_locale IN ('zh','en'));");
+    }
     await runStatement(database, `CREATE TABLE IF NOT EXISTS report_email_outbox (
       job_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, report_id TEXT NOT NULL,
       recipient TEXT, status TEXT NOT NULL DEFAULT 'pending'

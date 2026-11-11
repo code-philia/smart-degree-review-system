@@ -31,13 +31,13 @@ afterAll(async()=>{await harness.cleanup();fs.rmSync(directory,{recursive:true,f
 function worker(send, config=()=>settings) {
   return require('../src/notifications/reportEmailService').createReportEmailService({send,config,now:()=>clock});
 }
-it('sends one bilingual report-ready notice with language-specific protected report links',async()=>{
+it('sends one Chinese report-ready notice for jobs without an explicit language',async()=>{
   const id=await completed();const sent=[];await worker(async mail=>sent.push(mail)).drain();
   expect(sent).toHaveLength(1); const mail=sent[0];
   expect(mail.to).toBe('person@example.test');expect(mail.text).toContain('您的论文检测报告已生成');
-  expect(mail.text).toContain('Your thesis report is ready.');
+  expect(mail.text).not.toContain('Your thesis report is ready.');
   expect(mail.html).toContain('https://review.example.test/reports/pdf/'+id+'?lang=zh');
-  expect(mail.html).toContain('https://review.example.test/reports/pdf/'+id+'?lang=en');
+  expect(mail.html).not.toContain('?lang=en');
   expect(mail.attachments).toBeUndefined();expect((await get('SELECT status FROM report_email_outbox WHERE job_id=?',[id])).status).toBe('sent');
 });
 it.each(['student01','supervisor01','school_admin01','college_admin01'])('sends %s only to the fixed destination',async user=>{

@@ -139,15 +139,15 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
   }
 
   async function enqueue({ userId, sourceFilename, pdfBuffer, selectedRuleIds,
-                           externalProcessingConsent, requestId, reuse = null }) {
+                           externalProcessingConsent, requestId, reuse = null, notificationLocale }) {
     const id = await repository.createJob({
-      userId, sourceFilename, pdfBuffer, selectedRuleIds, externalProcessingConsent, requestId, reuse,
+      userId, sourceFilename, pdfBuffer, selectedRuleIds, externalProcessingConsent, requestId, reuse, notificationLocale,
     });
     add(id);
     return repository.getJobForUser(id, userId);
   }
 
-  async function enqueueIncremental({ userId, reportId, selectedRuleIds = [], externalProcessingConsent, requestId }) {
+  async function enqueueIncremental({ userId, reportId, selectedRuleIds = [], externalProcessingConsent, requestId, notificationLocale }) {
     const source = await reportRepository.findPaperLintReportByIdForUser(reportId, userId);
     if (!source) throw Object.assign(new Error('未找到该审查报告'), { status: 404 });
     const allIds = [...new Set([...source.selected_rule_ids, ...selectedRuleIds])];
@@ -167,7 +167,7 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
     }
     paperLintService.validatePdf(pdfBuffer);
     return enqueue({ userId, sourceFilename: source.source_filename, pdfBuffer,
-      selectedRuleIds: allIds, externalProcessingConsent, requestId,
+      selectedRuleIds: allIds, externalProcessingConsent, requestId, notificationLocale,
       reuse: { source_report_id: reportId, result: { ...source.result, rule_runs: reusedRuns } },
     });
   }
