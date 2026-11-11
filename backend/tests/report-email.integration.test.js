@@ -1,6 +1,6 @@
 import express from 'express';
 import request from 'supertest';
-import { afterAll, beforeAll, expect, it } from 'vitest';
+import { afterAll, beforeAll, expect, it, vi } from 'vitest';
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -78,4 +78,45 @@ it('keeps a campus recipient server-authoritative for an existing session',async
   const response=await request(app).get('/api/auth/notification-settings').set('Cookie',cookie).expect(200);
   expect(response.body).toMatchObject({email:'existing.person@sjtu.edu.cn',fixed:true});
   await request(app).put('/api/auth/notification-settings').set('Cookie',cookie).send({email:'override@example.test'}).expect(403);
+});
+
+it.each(['pending','running'])('never creates or sends mail after successful cancellation of a %s job, including late completion', async status => {
+  const id = await jobs.createJob({userId:'mail-user',sourceFilename:'cancelled.pdf',pdfBuffer:pdf,selectedRuleIds:[]});
+  if(status==='running') await jobs.claimJob(id);
+  const cancelled=await jobs.cancelJobForUser(id,'mail-user');
+  expect(jobs.publicJob(cancelled).status).toBe('cancelled');
+  expect(await jobs.completeJob(id,id)).toBe(false);
+  expect(await all('SELECT * FROM report_email_outbox WHERE job_id=?',[id])).toHaveLength(0);
+});
+
+it('returns completed when completion wins the race, preserving its report and exactly one notification',async()=>{
+  const id=await jobs.createJob({userId:'mail-user',sourceFilename:'completed.pdf',pdfBuffer:pdf,selectedRuleIds:[]});
+  await jobs.claimJob(id);
+  await reports.createPaperLintReport({userId:'mail-user',sourceFilename:'completed.pdf',pdfBuffer:pdf,selectedRuleIds:[],result,reportId:id});
+  expect(await jobs.completeJob(id,id)).toBe(true);
+  const cancelled=jobs.publicJob(await jobs.cancelJobForUser(id,'mail-user'));
+  expect(cancelled).toMatchObject({status:'completed',report_id:id});
+  expect(await reports.findPaperLintReportByIdForUser(id,'mail-user')).toBeTruthy();
+  expect(await all('SELECT * FROM report_email_outbox WHERE job_id=?',[id])).toHaveLength(1);
+});
+
+it('does not send completion mail when a cancelled engine finishes late despite its abort signal',async()=>{
+  const {createPaperLintJobService}=require('../src/normative/paperLintJobService');
+  const {createReportEmailService}=require('../src/notifications/reportEmailService');
+  let started, release;
+  const began=new Promise(resolve=>{started=resolve;});
+  const gate=new Promise(resolve=>{release=resolve;});
+  const service=createPaperLintJobService({runPaperLint:async({selectedRuleIds})=>{started();await gate;return {result,selectedRuleIds};}});
+  const state=await service.enqueue({userId:'mail-user',sourceFilename:'late-engine.pdf',pdfBuffer:pdf,selectedRuleIds:[]});
+  await began;
+  const cancellation=service.cancelForUser(state.job_id,'mail-user');
+  try {await vi.waitFor(async()=>expect((await jobs.getJob(state.job_id)).cancelled_at).toBeTruthy());}
+  finally {release();}
+  expect((await cancellation).status).toBe('cancelled');
+  await service.waitForIdle();
+  expect(await reports.findPaperLintReportByIdForUser(state.job_id,'mail-user')).toBeFalsy();
+  expect(await all('SELECT * FROM report_email_outbox WHERE job_id=?',[state.job_id])).toHaveLength(0);
+  const sent=[];
+  await createReportEmailService({send:async mail=>sent.push(mail.messageId),config:()=>({from:'noreply@example.test',fromName:'Test',origin:'https://example.test'})}).drain();
+  expect(sent).not.toContain(`<report-${state.job_id}@example.test>`);
 });

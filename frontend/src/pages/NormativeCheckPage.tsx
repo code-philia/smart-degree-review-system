@@ -48,6 +48,7 @@ import {
 } from '../components/ui';
 
 import { DetectionPageHeader } from '../components/paperLint/DetectionPageHeader';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/shadcn/alert-dialog';
 
 const MAX_PDF_BYTES = 50 * 1024 * 1024;
 type CheckMode = 'basic' | 'thirty' | 'semantic';
@@ -143,6 +144,10 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [running, setRunning] = useState(false);
   const [stopping, setStopping] = useState(false);
+  const stoppingJobRef = useRef<string | null>(null);
+  const [completedStop, setCompletedStop] = useState<{ reportId: string; filename: string; sourceFile?: File; generation: number } | null>(null);
+  const [openingCompletedReport, setOpeningCompletedReport] = useState(false);
+  const [completedReportError, setCompletedReportError] = useState<string | null>(null);
   const [stopped, setStopped] = useState(false);
   const runGenerationRef = useRef(0);
   const [uploadPercent, setUploadPercent] = useState<number | null>(null);
@@ -316,6 +321,9 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
 
   async function showSavedReport(reportId: string, filename: string, sourceFile?: File, generation = runGenerationRef.current) {
     const nextReport = await fetchPaperLintReport(reportId);
+    while (stoppingJobRef.current && generation === runGenerationRef.current) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
     if (generation !== runGenerationRef.current) return;
     setResponse(nextReport);
     setConfirmedSavedReportId(nextReport.id);
@@ -335,6 +343,11 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
       try {
         const job = await fetchPaperLintJob(jobId);
         if (generation !== runGenerationRef.current) return;
+        // The cancel response owns the outcome while its request is in flight.
+        if (stoppingJobRef.current === jobId) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          continue;
+        }
         if (job.status === 'pending' || job.status === 'running') setJobStatus(job.status);
         setQueuePosition(job.queue_position ?? null);
         setEta(job.eta??null);
@@ -401,15 +414,19 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     if (!activeJobId || stopping) return;
     let generation = runGenerationRef.current;
     const jobId = activeJobId;
+    stoppingJobRef.current = jobId;
     setStopping(true);
     setRunError(null);
     try {
       const job = await cancelPaperLintJob(jobId);
       if (generation !== runGenerationRef.current) return;
       if (job.status === 'failed') throw new Error(job.error_message || '检测失败，请重试');
+      if (job.status === 'completed' && !job.report_id) throw new Error('检测完成，但报告未保存，请重试');
+      if (job.status !== 'cancelled' && job.status !== 'completed') throw new Error('尚未确认停止检测，请稍后重试。');
       generation = ++runGenerationRef.current;
-      if (job.status === 'completed' && job.report_id) {
-        await showSavedReport(job.report_id, file?.name || '论文.pdf', file || undefined, generation);
+      if (job.status === 'completed') {
+        setCompletedReportError(null);
+        setCompletedStop({ reportId: job.report_id!, filename: activeFilename || file?.name || '论文.pdf', sourceFile: file || undefined, generation });
       } else {
         clearActiveJob();
         setRunError(null);
@@ -425,6 +442,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     } catch (error) {
       if (generation === runGenerationRef.current) setRunError(errorMessage(error, '停止检查失败，请重试'));
     } finally {
+      if (stoppingJobRef.current === jobId) stoppingJobRef.current = null;
       setStopping(false);
     }
   }
@@ -573,6 +591,41 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     }
   }
 
+  async function openCompletedReport() {
+    if (!completedStop || openingCompletedReport) return;
+    const completed = completedStop;
+    setOpeningCompletedReport(true);
+    setCompletedReportError(null);
+    try {
+      await showSavedReport(completed.reportId, completed.filename, completed.sourceFile, completed.generation);
+      if (completed.generation === runGenerationRef.current) setCompletedStop(null);
+    } catch {
+      if (completed.generation === runGenerationRef.current) setCompletedReportError('报告暂时无法加载，请重试。');
+    } finally {
+      setOpeningCompletedReport(false);
+    }
+  }
+
+  const completedStopNotice = <AlertDialog open={Boolean(completedStop)} onOpenChange={open => {
+    if (!open && !openingCompletedReport) { clearActiveJob(); setCompletedStop(null); setCompletedReportError(null); }
+  }}>
+    <AlertDialogContent className="w-[calc(100%_-_2rem)] gap-5 rounded-2xl p-6 sm:max-w-md" aria-busy={openingCompletedReport}
+      onEscapeKeyDown={event => { if (openingCompletedReport) event.preventDefault(); }}>
+      <AlertDialogHeader>
+        <span className="mb-2 inline-flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary" aria-hidden="true"><FileCheck2 className="size-6" /></span>
+        <AlertDialogTitle className="text-xl font-semibold">检测已完成</AlertDialogTitle>
+        <AlertDialogDescription className="text-base leading-7">检测已完成，无法取消。您可以查看检测报告。</AlertDialogDescription>
+      </AlertDialogHeader>
+      {completedReportError ? <p role="alert" className="text-sm leading-6 text-destructive">{completedReportError}</p> : null}
+      <AlertDialogFooter className="-mx-6 -mb-6 p-6">
+        <AlertDialogCancel disabled={openingCompletedReport} className="min-h-10 rounded-xl px-5 text-sm font-semibold">稍后查看</AlertDialogCancel>
+        <AlertDialogAction disabled={openingCompletedReport} className="min-h-10 rounded-xl px-5 text-sm font-semibold" onClick={event => { event.preventDefault(); void openCompletedReport(); }}>
+          {openingCompletedReport ? <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : null}查看检测报告
+        </AlertDialogAction>
+      </AlertDialogFooter>
+    </AlertDialogContent>
+  </AlertDialog>;
+
   if (status === 'loading') return <LoadingState label="正在加载登录状态…" />;
 
   if (!user) {
@@ -587,7 +640,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     );
   }
 
-  if (isThirty) return <div className="space-y-6"><ThesisUploadPanel
+  if (isThirty) return <div className="space-y-6">{completedStopNotice}<ThesisUploadPanel
     eta={eta}
     rules={visibleRules}
     selectedRuleIds={selectedRuleIds}
@@ -622,6 +675,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
 
   return (
     <div className={isSemantic ? 'mx-auto w-full max-w-5xl space-y-5' : 'space-y-6'}>
+      {completedStopNotice}
       {isSemantic ? <DetectionPageHeader
         title="摘要数值语义检测"
         description="核对摘要数值型论点与正文实验结果的一致性。"
