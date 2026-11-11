@@ -22,3 +22,9 @@ __pycache__/
 
 # Private raw MinerU layouts and resumable parsing tasks
 backend/data/mineru-layout-cache/
+
+# Private backend maintenance exports (never publish)
+backend/feedback/
+backend/admin-export/
+backend/data/feedback/
+backend/data/admin-export/

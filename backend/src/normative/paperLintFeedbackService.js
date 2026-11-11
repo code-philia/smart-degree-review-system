@@ -1,5 +1,6 @@
 const { randomUUID } = require('crypto');
 const db = require('../database/db_runtime');
+const { refreshFeedbackArchiveSafely } = require('./feedbackArchive');
 const suggestionService = require('./paperLintRepairSuggestionService');
 const reportRepository = require('./paperLintReportRepository');
 const presentation = import('../../../shared/paper-lint-presentation.mjs');
@@ -84,12 +85,14 @@ async function saveFindingFeedback({ reportId, userId, ruleId, findingId, input 
       reason_text=excluded.reason_text, updated_at=CURRENT_TIMESTAMP`,
     [randomUUID(), userId, reportId, ruleId, findingId, feedbackValue, reasonCode, reasonText]);
   });
+  await refreshFeedbackArchiveSafely();
   return getFindingFeedback({ reportId, userId, ruleId, findingId });
 }
 
 async function deleteFindingFeedback({ reportId, userId, ruleId, findingId }) {
   await validateFindingFeedbackTarget({ reportId, userId, ruleId, findingId });
   await db.run(`DELETE FROM paper_lint_finding_feedback WHERE user_id=? AND report_id=? AND rule_id=? AND finding_id=?`, [userId, reportId, ruleId, findingId]);
+  await refreshFeedbackArchiveSafely();
 }
 
 async function getSuggestion({ reportId, userId, suggestionId }) {
@@ -116,12 +119,14 @@ async function saveSuggestionFeedback(values) {
       reason_text=excluded.reason_text, updated_at=CURRENT_TIMESTAMP`,
     [randomUUID(), values.userId, values.reportId, suggestion.rule_id, suggestion.finding_id, suggestion.id, suggestion.generation, feedbackValue, reasonCode, reasonText]);
   });
+  await refreshFeedbackArchiveSafely();
   return getSuggestionFeedback(values);
 }
 
 async function deleteSuggestionFeedback(values) {
   const suggestion = await getSuggestion(values);
   await db.run(`DELETE FROM paper_lint_suggestion_feedback WHERE user_id=? AND suggestion_id=?`, [values.userId, suggestion.id]);
+  await refreshFeedbackArchiveSafely();
 }
 
 async function saveSystemFeedback({ userId, input }) {
@@ -132,9 +137,13 @@ async function saveSystemFeedback({ userId, input }) {
   const comment = validateText(input?.comment);
   const requestId = input?.request_id == null ? null : String(input.request_id).trim().slice(0, 128) || null;
   const existing = requestId ? await db.get('SELECT id FROM system_feedback WHERE user_id=? AND request_id=?', [userId, requestId]) : null;
-  if (existing) return { id: existing.id, duplicate: true };
+  if (existing) {
+    await refreshFeedbackArchiveSafely();
+    return { id: existing.id, duplicate: true };
+  }
   const id = randomUUID();
   await db.run(`INSERT INTO system_feedback (id,user_id,satisfaction_score,improvement_areas_json,comment,request_id) VALUES (?,?,?,?,?,?)`, [id, userId, score, JSON.stringify(areas), comment, requestId]);
+  await refreshFeedbackArchiveSafely();
   return { id, duplicate: false };
 }
 

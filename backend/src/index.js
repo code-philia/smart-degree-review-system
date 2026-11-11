@@ -11,6 +11,7 @@ const privatePort = campusOnlyAuth() ? adminPort() : null;
 
 initializeDatabase()
   .then(async () => {
+    await require('./normative/feedbackArchive').refreshFeedbackArchiveSafely();
     await createArchiveScanService().resumeJobs();
     await paperLintJobService.resumeJobs();
     createReportEmailService().start();

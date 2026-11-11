@@ -118,6 +118,7 @@ async function deletePaperLintReportsForUser(ids, userId) {
     return owned;
   });
   if (!rows) return null;
+  await require('./feedbackArchive').refreshFeedbackArchiveSafely();
   await Promise.all(rows.map(async row => {
     await fs.promises.rm(row.source_pdf_path, { force: true });
     await removeBrowserPdf(row.source_pdf_path);

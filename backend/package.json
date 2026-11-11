@@ -5,6 +5,8 @@
   "main": "src/index.js",
   "scripts": {
     "dev": "nodemon src/index.js",
+    "feedback:export": "node src/adminExport.js feedback",
+    "reports:export": "node src/adminExport.js reports",
     "start": "node src/index.js",
     "db:seed": "node src/database/seed_db.js",
     "db:seed:demo": "node src/database/seed_demo_db.js",
