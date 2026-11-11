@@ -1,6 +1,6 @@
 import express from 'express';
 import request from 'supertest';
-import { afterAll, beforeAll, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -26,6 +26,10 @@ beforeAll(async () => {
     const login = await request(app).post('/api/auth/login').send({ username, password: 'ArcDemo123!' }).expect(200);
     cookies[username] = login.headers['set-cookie'].find(v => v.startsWith('arc_session='));
   }
+});
+beforeEach(async () => {
+  // Keep unrelated job/mail cases independent of the daily quota.
+  await run("UPDATE paper_lint_jobs SET created_at = ? WHERE status IN ('completed','failed')", [new Date(Date.now() - 86400000).toISOString()]);
 });
 afterAll(async () => {
   await harness.cleanup(); fs.rmSync(directory, { recursive: true, force: true });

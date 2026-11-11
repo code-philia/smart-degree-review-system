@@ -359,6 +359,8 @@ async function initializeDatabase(options = {}) {
       ON paper_lint_jobs (user_id, request_id) WHERE request_id IS NOT NULL;`);
     await runStatement(database, `CREATE INDEX IF NOT EXISTS idx_paper_lint_jobs_status
       ON paper_lint_jobs (status, created_at);`);
+    await runStatement(database, `CREATE INDEX IF NOT EXISTS idx_paper_lint_jobs_user_created
+      ON paper_lint_jobs (user_id, created_at);`);
     // Personal example-derived rules are deliberately isolated from normative rules.
     await runStatement(database, `CREATE TABLE IF NOT EXISTS example_rule_documents (
       id TEXT PRIMARY KEY, user_id TEXT NOT NULL, source_filename TEXT NOT NULL,

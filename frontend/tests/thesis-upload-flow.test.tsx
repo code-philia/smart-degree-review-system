@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom';
 import { beforeEach, expect, it, vi } from 'vitest';
 import NormativeCheckPage from '../src/pages/NormativeCheckPage';
 import {
+  fetchPaperLintDailyQuota,
   fetchPaperLintJob,
   fetchPaperLintReport,
   fetchReviewPilotPaperLintRules,
@@ -19,6 +20,7 @@ vi.mock('../src/api/paperLint', async () => ({
   ...(await vi.importActual('../src/api/paperLint')),
   fetchReviewPilotPaperLintRules: vi.fn(),
   runReviewPilotPaperLint: vi.fn(),
+  fetchPaperLintDailyQuota: vi.fn(),
   fetchPaperLintJob: vi.fn(),
   fetchPaperLintReport: vi.fn(),
 }));
@@ -76,6 +78,7 @@ async function choosePdf() {
 beforeEach(() => {
   localStorage.clear();
   vi.clearAllMocks();
+  vi.mocked(fetchPaperLintDailyQuota).mockResolvedValue({limited:true,limit:3,used:1,reserved:0,remaining:2,day:"2026-11-12",resets_at:"2026-11-12T16:00:00Z",server_time:"2026-11-12T02:00:00Z",timezone:"Asia/Shanghai"});
   vi.mocked(fetchReviewPilotPaperLintRules).mockResolvedValue(catalog as never);
   vi.mocked(runReviewPilotPaperLint).mockResolvedValue(pendingJob);
   vi.mocked(fetchPaperLintJob).mockImplementation(() => new Promise(() => {}));
@@ -427,4 +430,35 @@ it('shows the real queue position without suggesting another upload', async () =
   expect(await screen.findByText('已加入检测队列，前方还有 2 个任务，轮到后将自动开始。')).toBeInTheDocument();
   expect(screen.getByRole('progressbar', { name: '检测进度' })).toHaveAttribute('aria-valuetext', '排队等待');
   expect(runReviewPilotPaperLint).toHaveBeenCalledTimes(1);
+});
+
+it('blocks a fourth new review while leaving the Detection notes unchanged', async () => {
+  vi.mocked(fetchPaperLintDailyQuota).mockResolvedValue({limited:true,limit:3,used:3,reserved:0,remaining:0,day:'2026-11-12',resets_at:'2026-11-12T16:00:00Z',server_time:'2026-11-12T02:00:00Z',timezone:'Asia/Shanghai'});
+  showUpload(); await choosePdf();
+  expect(await screen.findByText('今日次数已用完')).toBeVisible();
+  expect(screen.getByRole('button',{name:'开始检测',exact:true})).toBeDisabled();
+  expect(screen.getByLabelText('检测说明').textContent?.replace(/\s+/g,' ')).toBe('检测说明聚焦公式引用、文献引用与目录页码等可定位问题。上传论文后，您可自主选择已开放规则，逐项查看检测结果，并联动定位到论文原文位置。受算力资源限制，每位用户累计检测次数不超过 3 次，请提前确认论文版本、合理勾选检测规则。检测结果仅供参考，系统尚在测试中，欢迎通过“使用反馈”提出建议。');
+});
+it('can recover the final reserved slot with the same request after a lost submission response', async () => {
+  const unknown = Object.assign(new Error('Network Error'),{isAxiosError:true});
+  vi.mocked(runReviewPilotPaperLint).mockImplementationOnce(async()=>{
+    vi.mocked(fetchPaperLintDailyQuota).mockResolvedValue({limited:true,limit:3,used:2,reserved:1,remaining:0,day:'2026-11-12',resets_at:'2026-11-12T16:00:00Z',server_time:'2026-11-12T02:00:00Z',timezone:'Asia/Shanghai'});
+    throw unknown;
+  });
+  showUpload(); await choosePdf();
+  const start = screen.getByRole('button',{name:'开始检测',exact:true});fireEvent.click(start);
+  expect(await screen.findByText('可用次数已暂占')).toBeVisible();
+  await waitFor(()=>expect(start).toBeEnabled());fireEvent.click(start);
+  await waitFor(()=>expect(runReviewPilotPaperLint).toHaveBeenCalledTimes(2));
+  expect(vi.mocked(runReviewPilotPaperLint).mock.calls[1][3]).toBe(vi.mocked(runReviewPilotPaperLint).mock.calls[0][3]);
+});
+
+it('recovers an unconfirmed final-slot submission after reloading and reselecting the same PDF', async () => {
+ vi.mocked(fetchPaperLintDailyQuota).mockResolvedValue({limited:true,limit:3,used:2,reserved:1,remaining:0,day:'2026-11-12',resets_at:'2026-11-12T16:00:00Z',server_time:'2026-11-12T02:00:00Z',timezone:'Asia/Shanghai'});
+ localStorage.setItem('paper-lint-active-job:upload-student',JSON.stringify({jobId:null,requestId:'unconfirmed-original',filename:'论文.pdf',selectedRuleIds:rules.filter(r=>r.available).map(r=>r.rule_id),canRecover:true}));
+ showUpload();await choosePdf();
+ expect(await screen.findByText('可用次数已暂占')).toBeVisible();
+ const start=screen.getByRole('button',{name:'开始检测',exact:true});expect(start).toBeEnabled();fireEvent.click(start);
+ await waitFor(()=>expect(runReviewPilotPaperLint).toHaveBeenCalledTimes(1));
+ expect(vi.mocked(runReviewPilotPaperLint).mock.calls[0][3]).toBe('unconfirmed-original');
 });

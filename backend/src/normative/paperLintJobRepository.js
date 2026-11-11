@@ -4,6 +4,7 @@ const path = require('path');
 const { all, get, run, withTransaction } = require('../database/db_runtime');
 const { estimateJobEta } = require('./paperLintEta');
 const { notifyReportEmailReady } = require('../notifications/reportEmailWakeup');
+const { quotaAdmission, quotaExceeded } = require('./paperLintQuota');
 
 function jobsDirectory() {
   return path.resolve(process.env.PAPER_LINT_JOBS_DIR || path.join(process.cwd(), 'data', 'paper-lint-jobs'));
@@ -33,9 +34,20 @@ async function createJob({ userId, sourceFilename, pdfBuffer, selectedRuleIds, e
   await fs.promises.mkdir(directory, { recursive: true, mode: 0o700 });
   await fs.promises.writeFile(pdfPath, pdfBuffer, { flag: 'wx', mode: 0o600 });
   try {
-    await run('INSERT INTO paper_lint_jobs (id,user_id,source_filename,source_pdf_path,selected_rule_ids_json,external_consent,request_id,status,attempts,created_at,updated_at,reuse_json,notify_completion) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1)',
+    const now = new Date().toISOString();
+    const guard = quotaAdmission(userId, now);
+    const inserted = await run(`INSERT INTO paper_lint_jobs (id,user_id,source_filename,source_pdf_path,selected_rule_ids_json,external_consent,request_id,status,attempts,created_at,updated_at,reuse_json,notify_completion)
+      SELECT ?,?,?,?,?,?,?,?,?,?,?,?,1 WHERE (${guard.sql})`,
       [id, userId, sourceFilename, pdfPath, JSON.stringify(selectedRuleIds),
-        externalProcessingConsent ? 1 : 0, requestId, 'pending', 0, new Date().toISOString(), new Date().toISOString(), reuse ? JSON.stringify(reuse) : null]);
+        externalProcessingConsent ? 1 : 0, requestId, 'pending', 0, now, now, reuse ? JSON.stringify(reuse) : null, ...guard.params]);
+    if (!inserted.changes) {
+      await fs.promises.rm(pdfPath, { force: true });
+      if (requestId) {
+        const existing = await get('SELECT id FROM paper_lint_jobs WHERE user_id = ? AND request_id = ?', [userId, requestId]);
+        if (existing) return existing.id;
+      }
+      throw await quotaExceeded(userId);
+    }
   } catch (error) {
     await fs.promises.rm(pdfPath, { force: true });
     if (requestId && String(error?.message || '').includes('UNIQUE')) {

@@ -1,5 +1,13 @@
 /* Reviewed student-facing English. Chinese source copy remains unchanged. */
 export const REVIEW_COPY={
+ '今日次数已用完':'Daily limit reached',
+ '可用次数已暂占':'Slots reserved',
+ '检测额度说明':'About the daily allowance',
+ '更新可用次数':'Refresh allowance',
+ '每日最多生成 3 份报告，北京时间 00:00 刷新。仅报告生成成功计次；失败或取消不计次。进行中的任务暂占次数，额度按提交日期计算。':'You can generate up to 3 reports per day. The allowance resets at 00:00 China Standard Time (UTC+8). Only successfully generated reports count; failed or cancelled reviews do not. Ongoing reviews reserve a slot. The submission date determines the allowance used.',
+ '今日检测次数已用完，请于北京时间明日00:00后重试。':'You have reached today’s limit. Try again after 00:00 China Standard Time (UTC+8).',
+ '当前可用检测次数已被进行中的任务占用，请在任务结束或取消后重试。':'All available slots are reserved by ongoing reviews. Try again once a review finishes or is cancelled.',
+ '检测额度已更新，请重试。':'Your allowance has changed. Please try again.',
  '显示移动端主导航菜单。':'Shows the main navigation menu on mobile devices.',
  '提示':'Info','错误总数':'Total findings',
  '正文公式引用目标缺失':'Unmatched equation references',
@@ -139,6 +147,7 @@ export const REVIEW_COPY={
 };
 const noun=(n,s,p=s+'s')=>Number(n)===1?s:p;
 export function reviewPatterns(t){return [
+ [/^今日剩余 (\d+) \/ (\d+) 次$/,(_,n,limit)=>`${n} / ${limit} left today`],
  [/^论文编译校验未通过，所选 (\d+) 条论文规则全部未执行。$/,(_,n)=>`The document failed validation. No thesis checks were run (${n} selected).`],
  [/^请输入 1–(\d+) 范围内的整数页码。$/,(_,n)=>`Enter a whole-number page from 1 to ${n}.`],
  // Printed PDF labels may use Roman numerals, prefixes or several page labels.

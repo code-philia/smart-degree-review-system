@@ -23,6 +23,10 @@ beforeAll(async()=>{
   await run('UPDATE auth_users SET email=? WHERE id=?',['person@example.test','mail-user']);
 });
 beforeEach(async()=>{clock=Date.now()+1000;await run('DELETE FROM report_email_outbox');});
+beforeEach(async () => {
+  // Keep unrelated job/mail cases independent of the daily quota.
+  await run("UPDATE paper_lint_jobs SET created_at = ? WHERE status IN ('completed','failed')", [new Date(Date.now() - 86400000).toISOString()]);
+});
 afterAll(async()=>{await harness.cleanup();fs.rmSync(directory,{recursive:true,force:true});delete process.env.PAPER_LINT_JOBS_DIR;delete process.env.PAPER_LINT_REPORTS_DIR;});
 function worker(send, config=()=>settings) {
   return require('../src/notifications/reportEmailService').createReportEmailService({send,config,now:()=>clock});

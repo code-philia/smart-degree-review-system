@@ -2,8 +2,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { afterEach, expect, it, vi } from 'vitest';
 import { IncrementalRerunDialog } from '../src/components/paperLint/IncrementalRerunDialog';
-import { rerunPaperLintReport } from '../src/api/paperLint';
-vi.mock('../src/api/paperLint', async () => ({ ...await vi.importActual('../src/api/paperLint'), rerunPaperLintReport: vi.fn() }));
+import { fetchPaperLintDailyQuota, rerunPaperLintReport } from '../src/api/paperLint';
+vi.mock('../src/api/paperLint', async () => ({ ...await vi.importActual('../src/api/paperLint'), fetchPaperLintDailyQuota: vi.fn(), rerunPaperLintReport: vi.fn() }));
 afterEach(() => { localStorage.clear(); vi.clearAllMocks(); vi.unstubAllGlobals(); });
 const report = { id: 'old-report', source_filename: 'original.pdf', selected_rule_ids: ['sjtu_rule_18', 'sjtu_rule_22'], result: { rule_runs: [
   { rule_id: 'sjtu_rule_18', execution_status: 'completed', outcome: 'issues_found', findings: [] },
@@ -43,4 +43,26 @@ it('retains the request identifier when retrying a failed submission', async () 
   fireEvent.click(button);
   await waitFor(() => expect(rerunPaperLintReport).toHaveBeenCalledTimes(2));
   expect(vi.mocked(rerunPaperLintReport).mock.calls[1][2]).toBe(vi.mocked(rerunPaperLintReport).mock.calls[0][2]);
+});
+
+it('also blocks incremental reruns once three reports have been generated', async () => {
+ vi.mocked(fetchPaperLintDailyQuota).mockResolvedValue({limited:true,limit:3,used:3,reserved:0,remaining:0,day:'2026-11-12',resets_at:'2026-11-12T16:00:00Z',server_time:'2026-11-12T02:00:00Z',timezone:'Asia/Shanghai'});
+ show(); expect(await screen.findByText('今日次数已用完')).toBeVisible();
+ expect(screen.getByRole('button',{name:'开始增量检测（1 项）'})).toBeDisabled();
+ expect(rerunPaperLintReport).not.toHaveBeenCalled();
+});
+
+it('recovers a reserved rerun after a lost response without creating a new request', async () => {
+ const quota={limited:true,limit:3,used:2,reserved:0,remaining:1,day:'2026-11-12',resets_at:'2026-11-12T16:00:00Z',server_time:'2026-11-12T02:00:00Z',timezone:'Asia/Shanghai'};
+ vi.mocked(fetchPaperLintDailyQuota).mockResolvedValue(quota);
+ vi.mocked(rerunPaperLintReport).mockImplementationOnce(async()=>{
+   vi.mocked(fetchPaperLintDailyQuota).mockResolvedValue({...quota,reserved:1,remaining:0});
+   throw Object.assign(new Error('Network Error'),{isAxiosError:true});
+ }).mockResolvedValueOnce({job_id:'retry-job',user_id:'student',source_filename:'original.pdf',status:'pending'} as any);
+ show(); await screen.findByText('今日剩余 1 / 3 次');
+ const start=screen.getByRole('button',{name:'开始增量检测（1 项）'});fireEvent.click(start);
+ expect(await screen.findByText('可用次数已暂占')).toBeVisible();
+ await waitFor(()=>expect(start).toBeEnabled());fireEvent.click(start);
+ expect(await screen.findByText('已进入检测进度页')).toBeVisible();
+ expect(vi.mocked(rerunPaperLintReport).mock.calls[1][2]).toBe(vi.mocked(rerunPaperLintReport).mock.calls[0][2]);
 });

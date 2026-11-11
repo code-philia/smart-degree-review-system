@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { preserveText } from "../../i18n/jsx-runtime";
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -5,6 +6,8 @@ import { RotateCw, LoaderCircle } from 'lucide-react';
 import { rerunPaperLintReport, type PaperLintRule, type PaperLintRunResponse } from '../../api/paperLint';
 import { Button } from '../shadcn/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../shadcn/dialog';
+import { DailyQuotaHint } from './DailyQuotaHint';
+import { usePaperLintDailyQuota } from '../../hooks/usePaperLintDailyQuota';
 import { REVIEW_ROUTES } from '../../nav/reviewRoutes';
 
 type Props = { report: PaperLintRunResponse; rules: PaperLintRule[]; initiallyOpen?: boolean };
@@ -13,8 +16,10 @@ export function IncrementalRerunDialog({ report, rules, initiallyOpen = false }:
   const [open, setOpen] = useState(initiallyOpen);
   const [extraIds, setExtraIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const dailyQuota = usePaperLintDailyQuota(open ? `rerun:${report.id}` : null, submitting);
   const [error, setError] = useState<string | null>(null);
   const requestId = useRef<string | null>(null);
+  const [recoverableRequestId, setRecoverableRequestId] = useState<string | null>(null);
   const names = new Map(rules.map(rule => [rule.rule_id, rule.title]));
   const successful = new Set(report.result.rule_runs.filter(run => run.execution_status === 'completed' && run.outcome !== 'inconclusive').map(run => run.rule_id));
   const retryIds = report.selected_rule_ids.filter(id => !successful.has(id));
@@ -33,7 +38,12 @@ export function IncrementalRerunDialog({ report, rules, initiallyOpen = false }:
         selectedRuleIds: job.selected_rule_ids || [...report.selected_rule_ids, ...extraIds],
       }));
       navigate(REVIEW_ROUTES.upload);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : '增量补跑提交失败，请重试'); }
+    } catch (cause) {
+      const message = (cause as {response?: {data?: {message?: string}}})?.response?.data?.message;
+      setRecoverableRequestId(axios.isAxiosError(cause) && (!cause.response || cause.response.status >= 500) ? requestId.current : null);
+      setError(message || (cause instanceof Error ? cause.message : '增量补跑提交失败，请重试'));
+      void dailyQuota.refresh();
+    }
     finally { setSubmitting(false); }
   }
   return <Dialog open={open} onOpenChange={next => { if (!submitting) setOpen(next); }}>
@@ -57,10 +67,13 @@ export function IncrementalRerunDialog({ report, rules, initiallyOpen = false }:
       </div>
       {!count ? <p className="text-xs leading-6 text-slate-500">已有规则均已完成，请勾选新增规则后补跑。</p> : null}
       {error ? <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
-      <Button disabled={!count || submitting} onClick={() => void submit()}>
+      <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-3">
+      <DailyQuotaHint quota={dailyQuota.quota} unavailable={dailyQuota.error} onRetry={() => void dailyQuota.refresh()} />
+      <Button disabled={!count || submitting || (dailyQuota.quota?.limited && dailyQuota.quota.remaining === 0 && !(recoverableRequestId && recoverableRequestId === requestId.current))} onClick={() => void submit()}>
         {submitting ? <LoaderCircle className="size-4 animate-spin" /> : <RotateCw className="size-4" />}
         {submitting ? '正在加入队列…' : `开始增量检测（${count} 项）`}
       </Button>
+      </div>
     </DialogContent>
   </Dialog>;
 }

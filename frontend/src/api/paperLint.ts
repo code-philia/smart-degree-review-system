@@ -1,5 +1,14 @@
 import apiClient from './index';
 
+export type PaperLintDailyQuota = {
+  limited: boolean; limit: number; used: number; reserved: number; remaining: number | null;
+  day: string; resets_at: string; server_time: string; timezone: string;
+};
+export async function fetchPaperLintDailyQuota(): Promise<PaperLintDailyQuota> {
+  const response = await apiClient.get('/normative/paper-lint/quota');
+  return response.data;
+}
+
 export type PaperLintSeverity = 'error' | 'warning' | 'info';
 export type PaperLintExecutionStatus = 'completed' | 'unsupported' | 'error';
 export type PaperLintOutcome = 'passed' | 'issues_found' | 'inconclusive' | 'not_applicable';

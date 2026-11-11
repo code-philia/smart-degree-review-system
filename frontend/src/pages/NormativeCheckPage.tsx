@@ -25,6 +25,8 @@ import { PaperLintWorkspace } from '../components/paperLint/Workspace';
 import { ThesisUploadPanel } from '../components/paperLint/ThesisUploadPanel';
 import { LivePaperLintReport } from '../components/paperLint/LivePaperLintReport';
 import { compilerPublicationLabel, compilerPublicationSummary, flattenPaperLintFindings, paperLintFeedbackItems, paperLintPresentation } from '../components/paperLint/model';
+import { usePaperLintDailyQuota } from '../hooks/usePaperLintDailyQuota';
+import { DailyQuotaHint } from '../components/paperLint/DailyQuotaHint';
 import { usePaperLintRepairSuggestions } from '../hooks/usePaperLintRepairSuggestions';
 import {
   deleteFindingFeedback,
@@ -53,7 +55,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 const MAX_PDF_BYTES = 50 * 1024 * 1024;
 type CheckMode = 'basic' | 'thirty' | 'semantic';
 type ResultFile = File | { name: string; url: string };
-type StoredPaperLintJob = { jobId: string | null; requestId: string; filename: string; selectedRuleIds: string[] };
+type StoredPaperLintJob = { canRecover?: boolean; jobId: string | null; requestId: string; filename: string; selectedRuleIds: string[] };
 
 function activeJobStorageKey(userId: string, mode?: CheckMode) {
   if (mode === 'thirty' && !localStorage.getItem(`paper-lint-active-job:${userId}`)) {
@@ -143,6 +145,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   const feedbackReportId = response?.id === confirmedSavedReportId ? confirmedSavedReportId : null;
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [running, setRunning] = useState(false);
+  const [recoverableRequestId, setRecoverableRequestId] = useState<string | null>(null);
   const [stopping, setStopping] = useState(false);
   const stoppingJobRef = useRef<string | null>(null);
   const [completedStop, setCompletedStop] = useState<{ reportId: string; filename: string; sourceFile?: File; generation: number } | null>(null);
@@ -156,6 +159,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   const [runError, setRunError] = useState<string | null>(null);
   const requestIdRef = useRef<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const dailyQuota = usePaperLintDailyQuota(user?.id, `${activeJobId ?? ''}:${running}:${stopping}`);
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const [activeFilename, setActiveFilename] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<'pending' | 'running' | null>(null);
@@ -303,10 +307,11 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     setActiveJobId(job.jobId);
   }
 
-  function savePendingRequest(requestId: string, filename: string, selectedRuleIdsToSave: string[]) {
+  function savePendingRequest(requestId: string, filename: string, selectedRuleIdsToSave: string[], canRecover = true) {
     if (!user) return;
     localStorage.setItem(activeJobStorageKey(user.id, mode), JSON.stringify({
       jobId: null,
+      canRecover,
       requestId,
       filename,
       selectedRuleIds: selectedRuleIdsToSave,
@@ -459,6 +464,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     if (!stored?.requestId || !stored.filename) return;
     requestIdRef.current = stored.requestId || null;
     if (!stored.jobId) {
+      setRecoverableRequestId(stored.canRecover !== false ? stored.requestId : null);
       setSelectedRuleIds(stored.selectedRuleIds || []);
       setRunError('上次提交状态不明确，请重新选择同一文件后重试');
       return;
@@ -562,9 +568,11 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     const requestId = requestIdRef.current || newRequestId();
     requestIdRef.current = requestId;
     savePendingRequest(requestId, file.name, selectedRuleIds);
+    let submissionAccepted = false;
     try {
       setUploadPercent(0);
       const submitted = await runReviewPilotPaperLint(file, selectedRuleIds, isThirty ? selectedExternalRule : externalConsent, requestId, setUploadPercent);
+      submissionAccepted = true;
       setUploadPercent(null);
       let nextResponse: PaperLintRunResponse;
       if (isPaperLintJobResponse(submitted)) {
@@ -582,7 +590,13 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
       clearActiveJob();
       if (isThirty) navigate(reportDetailPath(nextResponse.id), { replace: true });
     } catch (error) {
-      if (generation === runGenerationRef.current) setRunError(errorMessage(error, '规则审查运行失败'));
+      if (generation === runGenerationRef.current) {
+        setRunError(errorMessage(error, '规则审查运行失败'));
+        const uncertain = axios.isAxiosError(error) && (!error.response || error.response.status >= 500);
+        setRecoverableRequestId(uncertain ? requestId : null);
+        if (!submissionAccepted && !uncertain) savePendingRequest(requestId, file.name, selectedRuleIds, false);
+      }
+      void dailyQuota.refresh();
     } finally {
       if (generation === runGenerationRef.current) {
         setUploadPercent(null);
@@ -641,6 +655,8 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   }
 
   if (isThirty) return <div className="space-y-6">{completedStopNotice}<ThesisUploadPanel
+    quotaRetryAllowed={Boolean(recoverableRequestId && recoverableRequestId === requestIdRef.current)}
+    quota={dailyQuota.quota} quotaUnavailable={dailyQuota.error} onRefreshQuota={() => void dailyQuota.refresh()}
     eta={eta}
     rules={visibleRules}
     selectedRuleIds={selectedRuleIds}
@@ -880,7 +896,8 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
               <p className="text-sm text-slate-600">
                 已选择 <strong className="text-slate-900">{selectedRuleIds.length}</strong> 条规则
               </p>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <DailyQuotaHint quota={dailyQuota.quota} unavailable={dailyQuota.error} onRetry={() => void dailyQuota.refresh()} />
               {running || stopping ? (
                 <Button variant="danger" disabled={!activeJobId || stopping}
                   title={!activeJobId ? '上传完成后可停止检查' : undefined} onClick={() => void stopReview()}>
@@ -893,6 +910,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
                   !file ||
                   !catalog ||
                   selectedRuleIds.length === 0 ||
+                  (dailyQuota.quota?.limited && dailyQuota.quota.remaining === 0 && !(recoverableRequestId && recoverableRequestId === requestIdRef.current)) ||
                   running ||
                   stopping ||
                   (selectedExternalRule && !externalConsent)

@@ -4,10 +4,16 @@ import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
 import { DetectionPageHeader } from './DetectionPageHeader';
 import type { PaperLintRule } from '../../api/paperLint';
 import { Button } from '../ui';
+import { DailyQuotaHint } from './DailyQuotaHint';
+import type { PaperLintDailyQuota } from '../../api/paperLint';
 import {DetectionWaitNotice} from './DetectionWaitNotice';
 import type {PaperLintEta} from '../../api/paperLint';
 
 type Props = {
+  quota?: PaperLintDailyQuota | null;
+  quotaRetryAllowed?: boolean;
+  quotaUnavailable?: boolean;
+  onRefreshQuota?: () => void;
   eta?:PaperLintEta|null;
   rules: PaperLintRule[];
   selectedRuleIds: string[];
@@ -430,7 +436,8 @@ export function ThesisUploadPanel(props: Props) {
               <ShieldCheck className="size-4 text-brand-500" />
               请确认论文版本及本次检测范围
             </p>
-            <div data-i18n-upload-actions="" className="flex gap-2">
+            <div data-i18n-upload-actions="" className="flex w-full flex-wrap items-center justify-end gap-x-2 gap-y-2 sm:w-auto sm:gap-x-4">
+              <DailyQuotaHint quota={props.quota ?? null} unavailable={props.quotaUnavailable} onRetry={props.onRefreshQuota} />
               {busy ? (
                 <Button
                   variant="ghost"
@@ -450,6 +457,7 @@ export function ThesisUploadPanel(props: Props) {
                   catalogLoading ||
                   noSelection ||
                   unavailableSelection ||
+                  (props.quota?.limited && props.quota.remaining === 0 && !props.quotaRetryAllowed) ||
                   busy
                 }
                 onClick={onStart}

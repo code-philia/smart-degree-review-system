@@ -7,6 +7,7 @@ const paperLintDocumentMetrics = require('./paperLintDocumentMetrics');
 const { sendPrivatePdf } = require('./privatePdfResponse');
 const defaultJobService = require('./paperLintJobService');
 const defaultCompilerService = require('./paperCompilerService');
+const { getDailyQuota } = require('./paperLintQuota');
 const { getEnabledMvpRuleIds } = require('../../rules/registry');
 
 const allowedRoles = ['STUDENT', 'SUPERVISOR', 'SCHOOL_ADMIN', 'COLLEGE_ADMIN'];
@@ -21,7 +22,12 @@ function sendError(error, res, next) {
   if (error?.type === 'entity.too.large') {
     res.status(413).json({ code: 413, message: 'PDF 文件大小不能超过 50 MB' });
   } else if (error?.status) {
-    res.status(error.status).json({ code: error.status, message: error.message });
+    if (error.quota) {
+      const delay = error.quota.used >= error.quota.limit
+        ? Math.ceil((Date.parse(error.quota.resets_at) - Date.parse(error.quota.server_time)) / 1000) : 30;
+      res.set('Retry-After', String(Math.max(1, delay)));
+    }
+    res.status(error.status).json({ code: error.status, message: error.message, ...(error.quota ? { error_code: error.code, quota: error.quota } : {}) });
   } else {
     next(error);
   }
@@ -74,6 +80,13 @@ function createReviewPilotPaperLintRouter(service = defaultService, exampleServi
     } catch (error) {
       sendError(error, res, next);
     }
+  });
+
+  router.get('/quota', requireAuth({ allowedRoles }), async (req, res, next) => {
+    try {
+      res.set('Cache-Control', 'private, no-store');
+      return res.json(await getDailyQuota(req.user.id));
+    } catch (error) { return sendError(error, res, next); }
   });
 
   router.get('/rules', requireAuth({ allowedRoles }), async (_req, res, next) => {
