@@ -30,6 +30,8 @@ html[lang=en] .i18n-system-line,html[lang=en] .i18n-pending-line{display:block}
 @media(max-width:360px){html[lang=en] .campus-signin .reference-brand h1 .i18n-brand-phrase{white-space:normal}}
 html[lang=en] [data-sidebar=header] [data-sidebar=menu-button]>span>span:first-child{white-space:nowrap}
 html[lang=en] [data-sidebar=group-label]{height:auto;min-height:36px;padding-top:8px;padding-bottom:8px;font-size:13px;line-height:1.5;letter-spacing:.015em;text-transform:none}
+/* Match the collapsed label height to its -32px hiding offset. */
+html[lang=en] [data-slot=sidebar][data-collapsible=icon] [data-sidebar=group-label]{height:32px;min-height:32px}
 html[lang=en] [data-sidebar=group-label] span{white-space:normal;text-wrap:balance}
 html[lang=en] .app-topbar nav{min-width:0}
 html[lang=en] .app-topbar [data-slot=breadcrumb-list]{font-size:14px;line-height:20px;color:#52627b}
