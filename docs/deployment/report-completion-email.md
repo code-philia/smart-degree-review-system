@@ -25,6 +25,8 @@ Set `REPORT_EMAIL_NOT_BEFORE` to the activation time, for example a value genera
 
 ## Optional SJTU notification API provider
 
+For the verified low-latency campus SMTP path, select `REPORT_EMAIL_PROVIDER=sjtu-smtp` with `JACCOUNT_NOTIFICATION_USERNAME` and `JACCOUNT_NOTIFICATION_PASSWORD_FILE`, the same origin and activation cutoff. The host is fixed to `mail.sjtu.edu.cn`, port 465 with TLS. Do not set legacy `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD` or `SMTP_PASSWORD_FILE` for this deployment. Earlier releases ignore the new credential variables and therefore keep email disabled during rollback, rather than sending queued historical notifications. `smtp` remains available for existing generic SMTP configurations.
+
 The approved API provider can be explicitly selected instead of SMTP:
 
 ```dotenv

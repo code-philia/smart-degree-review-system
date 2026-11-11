@@ -9,7 +9,7 @@ function secret(value, filename) {
 function mailConfig() {
   if (process.env.REPORT_EMAIL_ENABLED !== '1') return null;
   const provider=process.env.REPORT_EMAIL_PROVIDER?.trim() || 'smtp';
-  if (!['smtp','sjtu-notification'].includes(provider)) return null;
+  if (!['smtp','sjtu-smtp','sjtu-notification'].includes(provider)) return null;
   let origin;
   try {
     const url=new URL(process.env.APP_PUBLIC_URL);
@@ -19,12 +19,14 @@ function mailConfig() {
   const notBefore=process.env.REPORT_EMAIL_NOT_BEFORE?.trim() || '';
   if (notBefore && (!Number.isFinite(Date.parse(notBefore)) || new Date(notBefore).toISOString()!==notBefore)) return null;
   const common={provider,origin,notBefore,fromName:(process.env.SMTP_FROM_NAME || '研究生学位信息系统').replace(/[\r\n\u0000]/g,' ').slice(0,100)};
-  if (provider==='sjtu-notification') {
+  if (provider==='sjtu-notification' || provider==='sjtu-smtp') {
     const clientId=process.env.JACCOUNT_CLIENT_ID?.trim(),clientSecret=process.env.JACCOUNT_CLIENT_SECRET?.trim();
     const username=process.env.JACCOUNT_NOTIFICATION_USERNAME?.trim();
     const password=secret(process.env.JACCOUNT_NOTIFICATION_PASSWORD,process.env.JACCOUNT_NOTIFICATION_PASSWORD_FILE);
-    if (!clientId || !clientSecret || !username || !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(username) || !password) return null;
+    if (!username || !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(username) || !password) return null;
     const from=normalizeEmail(`${username}@sjtu.edu.cn`);
+    if (provider==='sjtu-smtp') return from?{...common,host:'mail.sjtu.edu.cn',port:465,user:from,password,from}:null;
+    if (!clientId || !clientSecret) return null;
     return from?{...common,clientId,clientSecret,username,password,from}:null;
   }
   const host=process.env.SMTP_HOST?.trim(),user=process.env.SMTP_USER?.trim();

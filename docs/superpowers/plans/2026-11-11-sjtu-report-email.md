@@ -57,3 +57,5 @@ The API accepted the test at 16:33:05 CST; Outlook displayed it at 16:35 and the
 - [x] Run 105 related mail, authentication and job tests; no detector verdict or front-end changes.
 - [ ] Review the added completion wake-up, then deploy code with mail still disabled. Configure SMTP and a fresh cutover only after healthy code activation.
 - [ ] Verify old queued rows, users, stored result JSON, shared model rate and public assets remain intact; record live configuration and receipt confirmation.
+
+Rollback safety: use `sjtu-smtp` with only the new sender credential variables, not legacy SMTP variables. Old releases ignore these variables and remain unconfigured if rolled back. Regression tests validate the new fixed-host provider; activation additionally executes the old mailConfig against the new environment and requires null.
