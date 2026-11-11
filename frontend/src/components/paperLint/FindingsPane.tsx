@@ -285,7 +285,12 @@ export function FindingsPane({
             const numeric = item.ruleRun.rule_id === 'abstract_numeric_consistency_check';
             const reference = item.ruleRun.rule_id === 'sjtu_rule_32';
             const sourceCorrection = item.finding.rule_id === 'typo_detection_check' || item.ruleRun.rule_id === 'typo_detection_check';
-            const suggestionText = sourceCorrection ? preserveText(item.finding.suggestion) : <ReportProse text={item.finding.suggestion} />;
+            const sourceLiterals = [
+              item.finding.location?.text_excerpt,
+              ...(item.finding.anchors || []).map(anchor => anchor.location?.text_excerpt),
+              ...(item.finding.evidence || []).map(evidence => evidence.quote),
+            ].filter((value): value is string => typeof value === 'string' && Boolean(value.trim()));
+            const suggestionText = sourceCorrection ? preserveText(item.finding.suggestion) : <ReportProse text={item.finding.suggestion} sourceLiterals={sourceLiterals} />;
             const referenceExcerpt = reference ? item.finding.evidence?.filter(e => e.kind === 'source_span' && e.quote).at(-1)?.quote || item.finding.location?.text_excerpt : null;
             const repairEnabled = !documentBlocked && !numeric && !reference && supportsRepairSuggestion(item);
             const findingFeedback = findingFeedbackByKey[item.key];
@@ -346,9 +351,9 @@ export function FindingsPane({
                     </Button>
                   </div>
                 </div>
-                <p className="mt-2 break-words text-sm leading-6 text-slate-700"><ReportProse text={item.finding.message} /></p>
+                <p className="mt-2 break-words text-sm leading-6 text-slate-700"><ReportProse text={item.finding.message} sourceLiterals={sourceLiterals} /></p>
                 {referenceExcerpt ? <blockquote className="mt-3 rounded-lg bg-slate-50 p-3 text-xs leading-6 text-slate-700"><p className="font-semibold">参考文献原文</p><p className="mt-1 whitespace-pre-wrap break-words">{preserveText(referenceExcerpt)}</p></blockquote> : null}
-                {reference ? <p className="mt-2 text-xs leading-6 text-blue-700"><ReportProse text={item.finding.suggestion || '请人工复核该条引用及其原始来源。'} /></p> : null}
+                {reference ? <p className="mt-2 text-xs leading-6 text-blue-700"><ReportProse text={item.finding.suggestion || '请人工复核该条引用及其原始来源。'} sourceLiterals={sourceLiterals} /></p> : null}
                 {onFindingFeedback ? <FeedbackControls
                   label="这个问题的判断是否准确？"
                   feedback={findingFeedback}
