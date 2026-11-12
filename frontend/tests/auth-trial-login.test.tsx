@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import AuthPage from '../src/pages/AuthPage';
 import { AuthSessionProvider, useAuthSession } from '../src/auth/AuthSessionProvider';
 import * as api from '../src/api/authSession';
+import {setLocale} from '../src/i18n/locale';
 
 vi.mock('../src/api/authSession',async () => ({
   ...await vi.importActual('../src/api/authSession'),
@@ -18,15 +19,17 @@ function show() {
 }
 describe('hidden trial login dialog',() => {
   beforeEach(() => {
+    setLocale('zh');
     vi.mocked(api.fetchCurrentSession).mockRejectedValue(new Error('anonymous'));
     vi.mocked(api.loginWithTrialAccount).mockReset();
   });
-  it('keeps the form hidden until the existing version text is clicked and focuses the account field',async () => {
+  it('removes the pilot label and keeps the form hidden until the campus emblem is clicked',async () => {
     show();const user=userEvent.setup();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('账号')).not.toBeInTheDocument();
     expect(screen.getByRole('link',{name:/使用 jAccount 登录/})).toBeInTheDocument();
-    await user.click(screen.getByRole('button',{name:'试点验证版 V0.9'}));
+    expect(screen.queryByText('试点验证版 V0.9')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button',{name:'上海交通大学校徽'}));
     expect(screen.getByRole('dialog',{name:'试验账号登录'})).toBeInTheDocument();
     expect(screen.getByLabelText('密码')).toHaveAttribute('type','password');
     await waitFor(()=>expect(screen.getByLabelText('账号')).toHaveFocus());
@@ -35,7 +38,7 @@ describe('hidden trial login dialog',() => {
     'signs %s in through the trial endpoint and keeps its server-assigned role',async (username,role) => {
       vi.mocked(api.loginWithTrialAccount).mockResolvedValue({user:{id:username,username,role:role as api.AuthRole,collegeId:null,supervisorId:null,scope:'SCHOOL'}});
       show();const user=userEvent.setup();
-      await user.click(screen.getByRole('button',{name:'试点验证版 V0.9'}));
+      await user.click(screen.getByRole('button',{name:'上海交通大学校徽'}));
       await user.type(screen.getByLabelText('账号'),username);
       await user.type(screen.getByLabelText('密码'),'test-password');
       await user.click(screen.getByRole('button',{name:'登录'}));
@@ -45,7 +48,7 @@ describe('hidden trial login dialog',() => {
   it('shows a failed login without authenticating and clears the password',async () => {
     vi.mocked(api.loginWithTrialAccount).mockRejectedValue(new Error('账号或密码错误，请重试。'));
     show();const user=userEvent.setup();
-    await user.click(screen.getByRole('button',{name:'试点验证版 V0.9'}));
+    await user.click(screen.getByRole('button',{name:'上海交通大学校徽'}));
     await user.type(screen.getByLabelText('账号'),'student01');await user.type(screen.getByLabelText('密码'),'wrong');
     await user.click(screen.getByRole('button',{name:'登录'}));
     expect(await screen.findByRole('alert')).toHaveTextContent('账号或密码错误');
@@ -53,8 +56,8 @@ describe('hidden trial login dialog',() => {
     await waitFor(()=>expect(screen.getByLabelText('密码')).toHaveFocus());
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
-  it('clears credentials on Escape and returns focus to the version label',async () => {
-    show();const user=userEvent.setup();const trigger=screen.getByRole('button',{name:'试点验证版 V0.9'});
+  it('clears credentials on Escape and returns focus to the campus emblem',async () => {
+    show();const user=userEvent.setup();const trigger=screen.getByRole('button',{name:'上海交通大学校徽'});
     await user.click(trigger);await user.type(screen.getByLabelText('账号'),'student01');
     await user.type(screen.getByLabelText('密码'),'temporary-secret');await user.keyboard('{Escape}');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -64,7 +67,7 @@ describe('hidden trial login dialog',() => {
   it('prevents duplicate submits while login is pending',async () => {
     let reject!:(error:Error)=>void;
     vi.mocked(api.loginWithTrialAccount).mockReturnValue(new Promise((_,r)=>{reject=r;}));
-    show();const user=userEvent.setup();await user.click(screen.getByRole('button',{name:'试点验证版 V0.9'}));
+    show();const user=userEvent.setup();await user.click(screen.getByRole('button',{name:'上海交通大学校徽'}));
     await user.type(screen.getByLabelText('账号'),'student01');await user.type(screen.getByLabelText('密码'),'password');
     const form=screen.getByRole('form',{name:'试验账号登录表单'});
     fireEvent.submit(form);fireEvent.submit(form);
@@ -72,5 +75,12 @@ describe('hidden trial login dialog',() => {
     expect(screen.getByRole('button',{name:'登录中…'})).toBeDisabled();
     await act(async()=>{reject(new Error('稍后重试'));});
     expect(screen.getByRole('alert')).toHaveTextContent('稍后重试');
+  });
+  it.each(['zh','en'])('opens from the emblem with keyboard access in %s',async language=>{
+    setLocale(language);show();const user=userEvent.setup();
+    expect(screen.queryByText(language==='en'?'Pilot V0.9':'试点验证版 V0.9')).not.toBeInTheDocument();
+    const trigger=screen.getByRole('button',{name:language==='en'?'Shanghai Jiao Tong University emblem':'上海交通大学校徽'});
+    trigger.focus();await user.keyboard('{Enter}');
+    expect(screen.getByRole('dialog',{name:language==='en'?'Trial account sign-in':'试验账号登录'})).toBeInTheDocument();
   });
 });

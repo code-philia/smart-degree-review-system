@@ -4,6 +4,7 @@ const sessionRepository = require('./sessionRepository');
 const { createUserSession } = require('./sessionService');
 const { campusUserAllowed } = require('./loginPolicy');
 const { campusEmail, notificationEmail } = require('../notifications/emailPolicy');
+const { defaultLocaleFromProfile } = require('./nationalityLocale');
 
 const STATE_COOKIE_NAME = 'arc_jaccount_state';
 const STATE_TTL_MS = 10 * 60 * 1000;
@@ -84,11 +85,12 @@ async function completeLogin({ state, browserState, code, providerError }) {
   // identities separate from all password users and preserve assigned roles.
   const id = `jaccount:${profile.id}`;
   const displayName = typeof profile.name === 'string' ? profile.name.trim() || null : null;
-  await run(`INSERT INTO auth_users (id, username, display_name, email, password_hash, role, scope)
-    VALUES (?, ?, ?, ?, '!jaccount-only', 'STUDENT', 'COLLEGE')
+  await run(`INSERT INTO auth_users (id, username, display_name, email, password_hash, role, scope, default_locale)
+    VALUES (?, ?, ?, ?, '!jaccount-only', 'STUDENT', 'COLLEGE', ?)
     ON CONFLICT(id) DO UPDATE SET display_name = COALESCE(excluded.display_name, auth_users.display_name),
-      email = COALESCE(auth_users.email, excluded.email)`,
-  [id, `jaccount:${profile.account}`, displayName, campusEmail(profile)]);
+      email = COALESCE(auth_users.email, excluded.email),
+      default_locale = COALESCE(excluded.default_locale, auth_users.default_locale)`,
+  [id, `jaccount:${profile.account}`, displayName, campusEmail(profile), defaultLocaleFromProfile(profile)]);
   const user = await sessionRepository.findUserById(id);
   if (!campusUserAllowed(user)) throw failure('forbidden_role');
   if(notificationEmail(user))await run("UPDATE report_email_outbox SET status='pending',next_attempt_at=?,error_code=NULL WHERE user_id=? AND status='blocked' AND error_code='missing_recipient'",[new Date().toISOString(),id]);

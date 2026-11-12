@@ -236,4 +236,50 @@ describe('campus authorization-code sign-in', () => {
     expect(response.body).toEqual({ enabled: false });
     await request(app).get('/api/auth/jaccount').expect(302).expect('Location', '/auth?jaccount_error=unavailable');
   });
+
+  it.each([
+    ['CN','zh'],['CHN','zh'],['156','zh'],[' cn ','zh'],
+    ['US','en'],['USA','en'],['840','en'],['GBR','en'],['826','en'],['JP','en'],['JPN','en'],['392','en'],['DZ','en'],['DZA','en'],['012','en'],['12','en'],
+    [undefined,null],['',null],['ZZ',null],['ZZZ',null],['001',null],['999',null],[156,null],[{},null],['China',null],
+    ['HK',null],['HKG',null],['344',null],['MO',null],['MAC',null],['446',null],['TW',null],['TWN',null],['158',null],
+  ])('defaults the authenticated session language only for recognized nationality code %j',async (gjm,expected) => {
+    const id='nationality-'+crypto.randomUUID();
+    provider({id,account:id,name:'Locale Test',identities:[{isDefault:true,userType:'student',gjm}]});
+    const response=await finish(await start()).expect(302);
+    const me=await request(app).get('/api/auth/me').set('Cookie',cookie(response,'arc_session')).expect(200);
+    if(expected){
+      expect(me.body.user.defaultLocale).toBe(expected);
+      expect((await get('SELECT default_locale FROM auth_users WHERE id=?',['jaccount:'+id])).default_locale).toBe(expected);
+    }else expect(me.body.user).not.toHaveProperty('defaultLocale');
+    expect(me.body.user).not.toHaveProperty('gjm');
+    expect(me.body.user).not.toHaveProperty('nationality');
+  });
+  it.each([
+    [[{isDefault:true,gjm:'CN'},{gjm:'US'}],'zh'],
+    [[{isDefault:true},{gjm:'US'}],null],
+    [[{gjm:'CN'},{gjm:'US'}],null],
+    [[{gjm:'US'},{gjm:'USA'}],'en'],
+    [[{isDefault:true,gjm:'CN'},{isDefault:true,gjm:'US'}],null],
+    [[],null],[{},null],[null,null],[[null,{}],null],
+  ])('handles default and conflicting identity metadata without guessing: %j',async (identities,expected) => {
+    const id='identities-'+crypto.randomUUID();provider({id,account:id,name:'English Name',gjm:'US',identities});
+    const response=await finish(await start()).expect(302);
+    const me=await request(app).get('/api/auth/me').set('Cookie',cookie(response,'arc_session')).expect(200);
+    if(expected)expect(me.body.user.defaultLocale).toBe(expected);
+    else expect(me.body.user).not.toHaveProperty('defaultLocale');
+  });
+  it('retains an established default if a later profile omits nationality, and updates it on a confirmed change',async () => {
+    const id='nationality-repeat';
+    provider({id,account:id,identities:[{isDefault:true,gjm:'US'}]});
+    let response=await finish(await start()).expect(302);
+    let me=await request(app).get('/api/auth/me').set('Cookie',cookie(response,'arc_session')).expect(200);
+    expect(me.body.user.defaultLocale).toBe('en');
+    provider({id,account:id});response=await finish(await start()).expect(302);
+    me=await request(app).get('/api/auth/me').set('Cookie',cookie(response,'arc_session')).expect(200);
+    expect(me.body.user.defaultLocale).toBe('en');
+    provider({id,account:id,identities:[{isDefault:true,gjm:'CN'}]});response=await finish(await start()).expect(302);
+    me=await request(app).get('/api/auth/me').set('Cookie',cookie(response,'arc_session')).expect(200);
+    expect(me.body.user.defaultLocale).toBe('zh');
+    expect(await get("SELECT COUNT(*) AS n FROM auth_users WHERE id='jaccount:nationality-repeat'")).toEqual({n:1});
+  });
 });

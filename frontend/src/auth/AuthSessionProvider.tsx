@@ -1,4 +1,5 @@
 import { clearReportTranslations } from '../i18n/reportTranslations';
+import { applyDefaultLocale } from '../i18n/locale';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   fetchCurrentSession,
@@ -33,6 +34,7 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
   const updateUser = useCallback((nextUser: AuthenticatedUser|null) => {
     if (identity.current !== (nextUser?.id ?? null)) clearReportTranslations();
     identity.current = nextUser?.id ?? null;
+    if (nextUser?.id.startsWith('jaccount:')) applyDefaultLocale(nextUser.defaultLocale);
     setUser(nextUser);
   }, []);
 

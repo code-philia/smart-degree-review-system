@@ -5,6 +5,7 @@ import {REVIEW_COPY,reviewPatterns} from './review-copy';
 import { SUPPLEMENTAL_COPY } from './supplemental-copy';
 import {RULE_COPY} from './rule-copy';
 export const COPY={...SUPPLEMENTAL_COPY,...exportLabels,...legacy,
+ '上海交通大学校徽':'Shanghai Jiao Tong University emblem',
  '使用反馈':'Feedback',
  '预':'P','中文':'中文','Language / 语言':'Language / 语言',
  '检查参考文献是否在正文、附录或图表题等全文位置被引用；发现需人工复核。':'Check whether each reference is cited in the text, appendices, captions or notes. Findings require manual review.',
@@ -194,7 +195,13 @@ const patterns=[
 
 // Presentation state only. Canonical report data never enters localStorage.
 const STORAGE_KEY='sjtu-ui-locale';
-let locale='zh';try{locale=localStorage.getItem(STORAGE_KEY)==='en'?'en':'zh';}catch{}
+function browserLocale(){
+ if(typeof navigator==='undefined')return 'zh';
+ const language=navigator.languages?.[0]||navigator.language||'';
+ return language&&!/^zh(?:-|$)/i.test(language)?'en':'zh';
+}
+let manualLocale=false;
+let locale=browserLocale();try{const saved=localStorage.getItem(STORAGE_KEY);if(saved==='zh'||saved==='en'){locale=saved;manualLocale=true;}}catch{}
 // Resolve an explicit email language before any React component renders.
 if(typeof window!=='undefined')locale=readLinkLocale(window.location.search)||locale;
 const listeners=new Set();
@@ -212,9 +219,16 @@ export function localizeDocument(){
  document.title=locale==='en'?'Smart Degree · AI Review Assistant':'智慧学位 · AI 评阅辅助系统';
 }
 export function setLocale(value){
+ manualLocale=true;
  locale=value==='en'?'en':'zh';localizeDocument();
  try{localStorage.setItem(STORAGE_KEY,locale);}catch{}
  emit();
+}
+export function applyDefaultLocale(value){
+ if(manualLocale||!['zh','en'].includes(value))return;
+ if(typeof window!=='undefined'&&readLinkLocale(window.location.search))return;
+ if(locale===value)return;
+ locale=value;localizeDocument();emit();
 }
 function staticEnglish(value){
  const trim=value.trim();if(!trim)return value;
@@ -263,5 +277,5 @@ Object.assign(COPY,{
  '此账号无法通过 jAccount 登录，请联系系统管理员。':'This account cannot sign in with jAccount. Contact the administrator.',
  'Translation is not ready. Please retry before exporting.':'Translation is not ready. Please retry before exporting.'
 });
-if(typeof window!=='undefined')window.addEventListener('storage',event=>{if(event.key===STORAGE_KEY){locale=event.newValue==='en'?'en':'zh';localizeDocument();emit();}});
+if(typeof window!=='undefined')window.addEventListener('storage',event=>{if(event.key===STORAGE_KEY){manualLocale=event.newValue==='en'||event.newValue==='zh';locale=manualLocale?event.newValue:browserLocale();localizeDocument();emit();}});
 localizeDocument();

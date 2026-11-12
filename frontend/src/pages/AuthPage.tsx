@@ -39,7 +39,6 @@ export default function AuthPage({returnTo}:{returnTo?:string|null}={}) {
       <div className="page">
  <header className="masthead masthead-layout-anchor" aria-hidden="true" inert={true}>
   <div className="brand"><img src="/login-schoolmark.jpg" alt="上海交通大学校徽" /><h1><RichMessage name="login-brand">智慧学位AI评阅辅助系统</RichMessage></h1></div>
-  <span className="trial">试点验证版 V0.9</span>
   <p className="description">本系统依托人工智能技术，对照国家标准与学校规范，为学位论文提供格式排版、文字表述、语言规范等自动化检测，并给出修改建议。<br /><RichMessage name="login-description-rest">论文数据均在校内处理，保障信息安全。检测结果仅供参考，系统尚在测试中，欢迎通过“使用反馈”提出建议，我们将持续优化。</RichMessage></p>
  </header>
  <div className="composition">
@@ -58,8 +57,7 @@ export default function AuthPage({returnTo}:{returnTo?:string|null}={}) {
 </div>
       <div className="v9-header-layer">
 <header className="reference-masthead">
-  <div className="reference-brand"><img src="/login-schoolmark.jpg" alt="上海交通大学校徽" /><h1><RichMessage name="login-brand">智慧学位AI评阅辅助系统</RichMessage></h1></div>
-  <div className="reference-trial"><TrialAccountEntry /></div>
+  <div className="reference-brand"><TrialAccountEntry /><h1><RichMessage name="login-brand">智慧学位AI评阅辅助系统</RichMessage></h1></div>
   <p className="reference-description" aria-label="系统说明">本系统依托人工智能技术，对照国家标准与学校规范，为学位论文提供格式排版、文字表述、语言规范等自动化检测，并给出修改建议。<br /><RichMessage name="login-description-rest">论文数据均在校内处理，保障信息安全。检测结果仅供参考，系统尚在测试中，欢迎通过“使用反馈”提出建议，我们将持续优化。</RichMessage></p>
  </header></div>
     </main>

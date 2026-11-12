@@ -66,7 +66,9 @@ export default function TrialAccountEntry() {
   const [pending, setPending] = useState(false);
   return <Dialog open={open} onOpenChange={next => { if (!pending) setOpen(next); }}>
     <DialogTrigger asChild>
-      <button type="button" className="campus-version">试点验证版 V0.9</button>
+      <button type="button" className="campus-emblem-entry" aria-label="上海交通大学校徽">
+        <img src="/login-schoolmark.jpg" alt="" />
+      </button>
     </DialogTrigger>
     {open ? <DialogContent className="trial-account-dialog" showCloseButton={false}>
       <TrialAccountForm pending={pending} setPending={setPending} />

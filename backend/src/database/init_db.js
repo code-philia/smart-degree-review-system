@@ -92,6 +92,9 @@ async function initializeDatabase(options = {}) {
     if (!authUserColumns.some((column) => column.name === 'email')) {
       await runStatement(database, 'ALTER TABLE auth_users ADD COLUMN email TEXT;');
     }
+    if (!authUserColumns.some((column) => column.name === 'default_locale')) {
+      await runStatement(database, "ALTER TABLE auth_users ADD COLUMN default_locale TEXT CHECK (default_locale IN ('zh','en'));");
+    }
 
     await runStatement(database, `CREATE TABLE IF NOT EXISTS auth_jaccount_states (
       state_hash TEXT PRIMARY KEY,

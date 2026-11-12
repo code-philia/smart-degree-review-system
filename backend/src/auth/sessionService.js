@@ -16,6 +16,7 @@ function serializeUser(row) {
     username: row.username,
     ...(row.displayName ? { displayName: row.displayName } : {}),
     ...(row.email ? { email: row.email } : {}),
+    ...(['zh', 'en'].includes(row.defaultLocale) ? { defaultLocale: row.defaultLocale } : {}),
     role: row.role,
     collegeId: row.collegeId || null,
     supervisorId: row.supervisorId || null,

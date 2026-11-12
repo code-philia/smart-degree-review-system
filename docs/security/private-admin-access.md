@@ -4,7 +4,7 @@ Production browser access uses jAccount by default. The public login page contai
 
 ## Owner-requested trial access
 
-Clicking the existing **试点验证版 V0.9** label opens a dialog for the four existing trial identities: `student01`, `supervisor01`, `college_admin01`, and `school_admin01`. Their existing database passwords, roles and data scopes remain authoritative; no credentials appear in the frontend bundle or help text.
+Clicking the university emblem in the login-page masthead opens a dialog for the four existing trial identities: `student01`, `supervisor01`, `college_admin01`, and `school_admin01`. The login-page Pilot V0.9 label is removed. Their existing database passwords, roles and data scopes remain authoritative; no credentials appear in the frontend bundle or help text. The emblem trigger also supports keyboard focus/activation; credentials are cleared when the dialog closes.
 
 Public trial access is disabled unless `ARC_TRIAL_LOGIN_ENABLED=1` and either `ARC_TRIAL_LOGIN_ORIGINS` or the legacy `ARC_TRIAL_LOGIN_ORIGIN` are explicitly configured. The legacy setting must be the site's exact HTTP(S) origin, for example `http://121.36.247.138:3000`.
 

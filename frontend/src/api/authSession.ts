@@ -6,6 +6,7 @@ export type AuthenticatedUser = {
   id: string;
   username: string;
   displayName?: string | null;
+  defaultLocale?: 'zh' | 'en';
   role: AuthRole;
   collegeId: string | null;
   supervisorId: string | null;

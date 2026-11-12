@@ -29,7 +29,7 @@ it.each(['zh','en'])('retains %s after an anonymous report link and refreshing i
 it.each(['zh','en'])('returns a refreshed %s auth URL to its report after trial login',async lang=>{
  const report='/reports/pdf/report-1?lang='+lang;
  show('/auth?lang='+lang+'&return_to='+encodeURIComponent(report));const actor=userEvent.setup();
- await actor.click(screen.getByRole('button',{name:lang==='en'?'Pilot V0.9':'试点验证版 V0.9'}));
+ await actor.click(screen.getByRole('button',{name:lang==='en'?'Shanghai Jiao Tong University emblem':'上海交通大学校徽'}));
  await actor.type(screen.getByLabelText(lang==='en'?'Account':'账号'),'student01');
  await actor.type(screen.getByLabelText(lang==='en'?'Password':'密码'),'test-password');
  await actor.click(screen.getByRole('button',{name:lang==='en'?'Sign in':'登录'}));
