@@ -19,11 +19,12 @@ function cookie(response) { return response.headers['set-cookie']?.find(v=>v.sta
 
 describe('hidden trial sign-in', () => {
   beforeAll(async () => {
-    for (const key of ['ARC_AUTH_MODE','ARC_TRIAL_LOGIN_ENABLED','ARC_TRIAL_LOGIN_ORIGIN']) saved[key]=process.env[key];
+    for (const key of ['ARC_AUTH_MODE','ARC_TRIAL_LOGIN_ENABLED','ARC_TRIAL_LOGIN_ORIGIN','ARC_TRIAL_LOGIN_ORIGINS']) saved[key]=process.env[key];
     harness=createTestDatabaseHarness({label:'hidden-trial-login',seedDefault:true});
     await harness.setup();
   });
   beforeEach(() => {
+    delete process.env.ARC_TRIAL_LOGIN_ORIGINS;
     Object.assign(process.env,{ARC_AUTH_MODE:'jaccount-only',ARC_TRIAL_LOGIN_ENABLED:'1',ARC_TRIAL_LOGIN_ORIGIN:origin});
     try { require('../src/auth/trialLoginPolicy').trialAttempts.clear(); } catch { /* RED: policy not implemented yet. */ }
   });
@@ -52,6 +53,48 @@ describe('hidden trial sign-in', () => {
   });
   it('keeps the normal public password endpoint closed',async () => {
     await request(app).post('/api/auth/login').send({username:'school_admin01',password}).expect(403);
+  });
+  it.each(['http://10.119.15.175','https://thesis-review.sjtu.edu.cn'])('supports all four existing trial accounts at the configured origin %s',async allowedOrigin => {
+    process.env.ARC_TRIAL_LOGIN_ORIGINS='http://10.119.15.175, https://thesis-review.sjtu.edu.cn';
+    for (const username of ['student01','supervisor01','college_admin01','school_admin01']) {
+      const response=await request(app).post('/api/auth/trial-login')
+        .set('Host',new URL(allowedOrigin).host).set('Origin',allowedOrigin).send({username,password}).expect(200);
+      const session=cookie(response);
+      expect((await request(app).get('/api/auth/me').set('Cookie',session).expect(200)).body.user.username).toBe(username);
+      await request(app).post('/api/auth/logout').set('Cookie',session).expect(204);
+    }
+  });
+  it('requires an exact approved origin and matching host even when multiple origins are enabled',async () => {
+    process.env.ARC_TRIAL_LOGIN_ORIGINS='http://10.119.15.175,https://thesis-review.sjtu.edu.cn';
+    const before=await get('SELECT count(*) AS n FROM auth_sessions');
+    for (const [host,browserOrigin] of [
+      ['10.119.15.175','https://thesis-review.sjtu.edu.cn'],
+      ['thesis-review.sjtu.edu.cn','http://10.119.15.175'],
+      ['thesis-review.sjtu.edu.cn','https://untrusted.example'],
+      ['untrusted.example','https://thesis-review.sjtu.edu.cn'],
+      ['thesis-review.sjtu.edu.cn.evil.example','https://thesis-review.sjtu.edu.cn.evil.example'],
+      ['localhost:3000',origin],
+    ]) await request(app).post('/api/auth/trial-login').set('Host',host).set('Origin',browserOrigin)
+      .set('X-Forwarded-Host','thesis-review.sjtu.edu.cn').send({username:'student01',password}).expect(403);
+    await request(app).post('/api/auth/trial-login').set('Host','thesis-review.sjtu.edu.cn')
+      .set('Origin','https://thesis-review.sjtu.edu.cn').set('Sec-Fetch-Site','cross-site')
+      .send({username:'student01',password}).expect(403);
+    expect(await get('SELECT count(*) AS n FROM auth_sessions')).toEqual(before);
+  });
+  it.each(['','https://thesis-review.sjtu.edu.cn,','https://thesis-review.sjtu.edu.cn,not-a-url',
+    'https://user:password@thesis-review.sjtu.edu.cn','https://thesis-review.sjtu.edu.cn/path',
+    'https://thesis-review.sjtu.edu.cn?query=1','https://thesis-review.sjtu.edu.cn#fragment','ftp://thesis-review.sjtu.edu.cn',
+  ])('fails closed rather than falling back to the legacy origin for an invalid list: %s',async value => {
+    process.env.ARC_TRIAL_LOGIN_ORIGINS=value;
+    await trial({username:'student01',password}).expect(403);
+    await request(app).post('/api/auth/trial-login').set('Host','thesis-review.sjtu.edu.cn')
+      .set('Origin','https://thesis-review.sjtu.edu.cn').send({username:'student01',password}).expect(403);
+  });
+  it('does not enable multiple-origin trial login when the explicit feature flag is off',async () => {
+    process.env.ARC_TRIAL_LOGIN_ORIGINS='http://10.119.15.175,https://thesis-review.sjtu.edu.cn';
+    process.env.ARC_TRIAL_LOGIN_ENABLED='0';
+    await request(app).post('/api/auth/trial-login').set('Host','thesis-review.sjtu.edu.cn')
+      .set('Origin','https://thesis-review.sjtu.edu.cn').send({username:'student01',password}).expect(403);
   });
   it('fails closed when trial sign-in is disabled or its origin is not configured',async () => {
     delete process.env.ARC_TRIAL_LOGIN_ENABLED;

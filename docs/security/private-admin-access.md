@@ -6,7 +6,15 @@ Production browser access uses jAccount by default. The public login page contai
 
 Clicking the existing **试点验证版 V0.9** label opens a dialog for the four existing trial identities: `student01`, `supervisor01`, `college_admin01`, and `school_admin01`. Their existing database passwords, roles and data scopes remain authoritative; no credentials appear in the frontend bundle or help text.
 
-Public trial access is disabled unless both `ARC_TRIAL_LOGIN_ENABLED=1` and `ARC_TRIAL_LOGIN_ORIGIN` are explicitly configured. The latter must be the site's exact HTTP(S) origin, for example `http://121.36.247.138:3000`.
+Public trial access is disabled unless `ARC_TRIAL_LOGIN_ENABLED=1` and either `ARC_TRIAL_LOGIN_ORIGINS` or the legacy `ARC_TRIAL_LOGIN_ORIGIN` are explicitly configured. The legacy setting must be the site's exact HTTP(S) origin, for example `http://121.36.247.138:3000`.
+
+For multiple approved entry points, set `ARC_TRIAL_LOGIN_ORIGINS` to a comma-separated list of exact HTTP(S) origins. For the campus IP and official domain:
+
+```text
+ARC_TRIAL_LOGIN_ORIGINS=http://10.119.15.175,https://thesis-review.sjtu.edu.cn
+```
+
+When present, this list replaces the legacy single-origin setting. An empty or invalid list disables trial access; it does not fall back to the legacy value. URLs with credentials, paths, queries or fragments are rejected. Requests still require an Origin in the list and a Host matching that particular Origin; being separately listed does not permit mixing one entry's Origin with another entry's Host. Configure each deployment explicitly; adding the campus domain here does not enable it on other servers.
 
 The separate `POST /api/auth/trial-login` endpoint requires same-origin JSON, a trusted Host and an exact trial user ID/name/role match. A process-local bounded limiter allows five attempts per TCP-peer/account pair and twenty per TCP peer in fifteen minutes; spoofed forwarding headers do not change the peer. Trial sessions have a server-created `trial:` random-ID prefix and the usual HttpOnly/SameSite cookie. Prefixing an existing cookie cannot produce a valid database session. Disabling the feature or changing a trial identity's expected role immediately rejects that session.
 

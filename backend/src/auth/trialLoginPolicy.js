@@ -4,15 +4,22 @@ const TRIAL_ACCOUNTS = Object.freeze({
   college_admin01: 'COLLEGE_ADMIN', school_admin01: 'SCHOOL_ADMIN',
 });
 
-function trialOrigin() {
+function trialOrigins() {
   try {
-    const url = new URL(process.env.ARC_TRIAL_LOGIN_ORIGIN || '');
-    return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password
-      && url.pathname === '/' && !url.search && !url.hash ? url.origin : null;
-  } catch { return null; }
+    const configured = process.env.ARC_TRIAL_LOGIN_ORIGINS;
+    const values = configured === undefined
+      ? [process.env.ARC_TRIAL_LOGIN_ORIGIN || ''] : configured.split(',');
+    const origins = values.map(value => {
+      const url = new URL(value.trim());
+      if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password
+          || url.pathname !== '/' || url.search || url.hash) throw new Error('Invalid trial origin');
+      return url.origin;
+    });
+    return [...new Set(origins)];
+  } catch { return []; }
 }
 function trialEnabled() {
-  return process.env.ARC_TRIAL_LOGIN_ENABLED === '1' && Boolean(trialOrigin());
+  return process.env.ARC_TRIAL_LOGIN_ENABLED === '1' && trialOrigins().length > 0;
 }
 function trialUserAllowed(user) {
   return Boolean(user) && Object.hasOwn(TRIAL_ACCOUNTS, user.username)
@@ -23,8 +30,8 @@ function trialSessionAllowed(user, sessionId) {
     && sessionId.startsWith(TRIAL_SESSION_PREFIX) && trialUserAllowed(user);
 }
 function trialLoginRequest(req) {
-  const origin = trialOrigin();
-  return trialEnabled() && req.is('application/json') && req.headers.origin === origin
+  const origin = req.headers.origin;
+  return trialEnabled() && req.is('application/json') && trialOrigins().includes(origin)
     && req.headers.host === new URL(origin).host && req.headers['sec-fetch-site'] !== 'cross-site';
 }
 
