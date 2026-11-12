@@ -9,6 +9,7 @@ import {
   History,
   LogIn,
   LogOut,
+  ShieldCheck,
   Settings2,
   Sparkles,
   type LucideIcon,
@@ -16,6 +17,7 @@ import {
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthSession } from '../auth/AuthSessionProvider';
 import { Avatar, AvatarFallback } from '../components/shadcn/avatar';
+import { Badge } from '../components/shadcn/badge';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -335,6 +337,12 @@ function AppShell() {
           </div>
 
           <div className="flex items-center gap-2">
+            <span className="hidden shrink-0 sm:inline-flex">
+              <Badge variant="outline" className="border-primary/20 bg-primary/5 text-primary">
+                <ShieldCheck aria-hidden="true" />
+                试点验证版
+              </Badge>
+            </span>
             {user ? <NotificationBell userId={user.id} /> : null}
             {user ? <SystemFeedbackDialog /> : null}
           </div>

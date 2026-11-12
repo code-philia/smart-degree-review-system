@@ -23,12 +23,12 @@ describe('hidden trial login dialog',() => {
     vi.mocked(api.fetchCurrentSession).mockRejectedValue(new Error('anonymous'));
     vi.mocked(api.loginWithTrialAccount).mockReset();
   });
-  it('removes the pilot label and keeps the form hidden until the campus emblem is clicked',async () => {
+  it('shows the restored pilot label while keeping trial sign-in on the campus emblem',async () => {
     show();const user=userEvent.setup();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('账号')).not.toBeInTheDocument();
     expect(screen.getByRole('link',{name:/使用 jAccount 登录/})).toBeInTheDocument();
-    expect(screen.queryByText('试点验证版 V0.9')).not.toBeInTheDocument();
+    expect(screen.getByText('试点验证版 V0.9')).toBeVisible();
     await user.click(screen.getByRole('button',{name:'上海交通大学校徽'}));
     expect(screen.getByRole('dialog',{name:'试验账号登录'})).toBeInTheDocument();
     expect(screen.getByLabelText('密码')).toHaveAttribute('type','password');
@@ -78,7 +78,7 @@ describe('hidden trial login dialog',() => {
   });
   it.each(['zh','en'])('opens from the emblem with keyboard access in %s',async language=>{
     setLocale(language);show();const user=userEvent.setup();
-    expect(screen.queryByText(language==='en'?'Pilot V0.9':'试点验证版 V0.9')).not.toBeInTheDocument();
+    expect(screen.getByText(language==='en'?'Pilot V0.9':'试点验证版 V0.9')).toBeVisible();
     const trigger=screen.getByRole('button',{name:language==='en'?'Shanghai Jiao Tong University emblem':'上海交通大学校徽'});
     trigger.focus();await user.keyboard('{Enter}');
     expect(screen.getByRole('dialog',{name:language==='en'?'Trial account sign-in':'试验账号登录'})).toBeInTheDocument();
