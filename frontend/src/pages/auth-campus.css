@@ -92,8 +92,8 @@
 .campus-signin{position:relative;isolation:isolate;min-height:100svh;line-height:normal;font-weight:400}
 .campus-signin a.login-button{text-decoration:none;color:#fff9ef}
 .campus-signin a.login-button:focus-visible{outline:3.3px solid #b68c55;outline-offset:4.4px}
-.campus-signin .campus-emblem-entry{display:flex;align-items:center;justify-content:center;flex:none;border:0;padding:0;background:transparent;line-height:0;cursor:pointer;border-radius:50%}
-.campus-signin .campus-emblem-entry img{display:block}
+.campus-signin .campus-emblem-entry{display:flex;align-items:center;justify-content:center;flex:none;border:0;padding:0;background:transparent;box-shadow:none;line-height:0;cursor:pointer;border-radius:50%}
+.campus-signin .campus-emblem-entry img{display:block;border:0;border-radius:50%;box-shadow:none}
 .campus-signin .campus-emblem-entry:focus-visible{outline:2px solid #b68c55;outline-offset:4px}
 
 .trial-account-dialog {
