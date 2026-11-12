@@ -1,0 +1,267 @@
+[
+  {
+    "id": "summary",
+    "figs": [
+      6
+    ],
+    "zh_title": "先看汇总与检测范围",
+    "en_title": "Read the summary and review scope",
+    "zh_lead": "打开报告后，先核对文件，再查看统计和检测范围。结果总数不代表所有规则都已成功执行。",
+    "en_lead": "First confirm the file, then read the summary and review scope. The finding count does not mean that every selected check ran successfully.",
+    "zh_steps": [
+      "核对文件名与报告时间，避免误看旧版本论文。",
+      "查看严重、警告、提示和规则未实现警告等数量。徽标的颜色、图标和含义见本章专页。",
+      "展开“本次检测范围”查看所选规则，并结合规则筛选列表中的执行状态，判断是否需要补跑或人工复核。"
+    ],
+    "en_steps": [
+      "Check the filename and report time to avoid reading a report for an older thesis version.",
+      "Review the Critical, Warnings, Info and Unverified counts. A dedicated badge guide in this chapter explains the colours and icons.",
+      "Expand Review scope to see the selected checks. Also inspect execution statuses in the check filter to decide whether to resume checks or review an item manually."
+    ],
+    "zh_note": "“0 项问题”不等于论文合规证明。未完成、失败、不适用或无法判定的检查，仍需结合说明处理。",
+    "en_note": "Zero findings is not a certificate of compliance. Read the explanations for checks that failed, were incomplete, were not applicable or could not reach a conclusion.",
+    "zh_caption": "核对文件、汇总结果与检测范围",
+    "en_caption": "File identity, summary and review scope"
+  },
+  {
+    "id": "locate",
+    "figs": [
+      7
+    ],
+    "zh_title": "对照论文阅读检测结果",
+    "en_title": "Read findings alongside your thesis",
+    "zh_lead": "报告详情分为左侧 PDF 和右侧结果列表，两边分别滚动。先读清问题说明，再核对论文上下文。",
+    "en_lead": "Report details contain a PDF pane on the left and findings on the right. Each pane scrolls independently. Read the explanation, then check the surrounding thesis text.",
+    "zh_steps": [
+      "点击右侧结果，或卡片中的“跳到第…页”，定位相关页面。",
+      "有精确位置的结果可能显示高亮；仅有页码的结果不一定出现精确框选。",
+      "结合原文判断是否修改，不要仅凭规则名或颜色直接改动论文。"
+    ],
+    "en_steps": [
+      "Select a finding or its Go to Page link to navigate to the relevant page.",
+      "A highlight may appear when a precise location is available. A page-level finding may navigate without an exact highlight.",
+      "Use the thesis context to decide whether a change is needed. Do not revise solely on the basis of a rule name or badge colour."
+    ],
+    "zh_note": "论文印刷页码可能使用罗马数字，与 PDF 实际页序不同。阅读工具输入的是 PDF 页序；卡片可能显示识别出的论文页码。 卡片对勾是本次页面的临时已处理标记，刷新后不保留，也不会修改论文。",
+    "en_note": "Printed thesis page labels, including Roman numerals, may differ from PDF page order. The reading-tool input uses PDF page order; finding cards may show detected thesis page labels. The card checkmark is a temporary handled marker: it resets on refresh and does not edit the thesis.",
+    "zh_caption": "PDF 与检测结果联动；论文正文已隐藏",
+    "en_caption": "Linked PDF and findings panes; thesis text is hidden"
+  },
+  {
+    "id": "reading",
+    "figs": [
+      8
+    ],
+    "zh_title": "使用阅读工具",
+    "en_title": "Use the reading tools",
+    "zh_lead": "点击 PDF 面板右上角“阅读工具”展开工具栏。工具只改变阅读方式，不会修改论文、结果或执行状态。",
+    "en_lead": "Select Reading tools at the upper right of the PDF pane. These controls change the view without editing the thesis, findings or check statuses.",
+    "zh_steps": [
+      "左右箭头：上一页、下一页。页码框：输入有效的 PDF 页序后按 Enter。",
+      "斜线眼睛：隐藏高亮；眼睛：显示选中结果的高亮；荧光笔：显示所有可用高亮。",
+      "放大镜减号／加号：缩小／放大。链条图标：在新标签页打开完整原始 PDF。"
+    ],
+    "en_steps": [
+      "Left/right arrows: previous/next page. Page input: enter a valid PDF page number and press Enter.",
+      "Crossed-out eye: hide highlights. Eye: show the selected finding's highlights. Highlighter: show all available highlights.",
+      "Minus/plus magnifiers: zoom out/in. Link icon: open the complete original PDF in a new tab."
+    ],
+    "zh_note": "新标签页中的文件是上传的论文原始 PDF，不是检测报告。保存检测结果请用“下载检测报告”。",
+    "en_note": "The new tab opens the original thesis PDF, not the review report. To save findings, use Download report.",
+    "zh_caption": "翻页、页码、高亮、缩放与原始 PDF 工具",
+    "en_caption": "Pages, highlights, zoom and original-PDF controls"
+  },
+  {
+    "id": "filter",
+    "figs": [
+      9
+    ],
+    "zh_title": "按类别或规则筛选",
+    "en_title": "Filter by category or check",
+    "zh_lead": "结果较多时，先按问题类别筛选，再用规则下拉框缩小范围。筛选只改变当前显示，不会删除结果。",
+    "en_lead": "For a long list, first choose a finding category, then narrow the view with the check dropdown. Filtering changes what is shown; it does not delete findings.",
+    "zh_steps": [
+      "选择“全部、严重、警告、提示、规则未实现警告”。选择“全部”恢复全部类别。",
+      "打开下拉框选择具体规则，或选择“全部检查项”恢复全部规则。",
+      "查看右侧数量和状态徽标。三角形加数字通常表示问题数量；旋转圆环、盾牌等另有含义，见下一页。"
+    ],
+    "en_steps": [
+      "Choose All, Critical, Warnings, Info or Unverified. Select All to restore all categories.",
+      "Select a specific check in the dropdown, or choose All checks to restore the full scope.",
+      "Read counts and badges beside each check. A warning triangle with a number usually counts findings; spinners, shields and other icons have different meanings, explained next."
+    ],
+    "zh_note": "实时报告筛选后仍可能保留正在执行的规则。当前筛选下没有结果，不代表整份报告没有其他类别的问题。",
+    "en_note": "Running checks may remain visible in the live-report filter. An empty filtered list does not mean the report has no findings in other categories.",
+    "zh_caption": "类别筛选、规则筛选及数量／状态徽标",
+    "en_caption": "Category/check filters, with count and status badges"
+  },
+  {
+    "id": "findingfeedback",
+    "figs": [
+      10
+    ],
+    "zh_title": "评价一条检测结果",
+    "en_title": "Give feedback on a finding",
+    "zh_lead": "如认为某条结果准确或存在误判，可在结果卡片内反馈。此处评价的是这一条检测结果。",
+    "en_lead": "If a finding is accurate or seems incorrect, give feedback within its card. This feedback concerns that individual finding.",
+    "zh_steps": [
+      "在“这个问题的判断是否准确？”处选择点赞或点踩。",
+      "按需选择原因并补充说明，尽量写清误判位置及理由。",
+      "点击“提交反馈”；已提交的评价可通过“取消评价”撤回。"
+    ],
+    "en_steps": [
+      "Choose thumbs up or thumbs down under Is this finding accurate?",
+      "Select a reason and add comments if useful. Explain the location and reason for the problem.",
+      "Select Submit feedback. Use Withdraw feedback to remove a submitted rating."
+    ],
+    "zh_note": "反馈不会自动删除问题或修改论文。此入口与建议评价、右上角“使用反馈”不同。",
+    "en_note": "Feedback does not automatically remove a finding or edit the thesis. It is separate from suggestion feedback and the Feedback control in the page header.",
+    "zh_caption": "结果评价、原因与提交入口",
+    "en_caption": "Finding rating, optional reason and submission"
+  },
+  {
+    "id": "repair",
+    "figs": [
+      11
+    ],
+    "zh_title": "阅读修复建议并修改源文件",
+    "en_title": "Review suggestions and edit your source",
+    "zh_lead": "部分结果支持生成修复建议。建议帮助理解如何调整，不能替代你对论文原文和学校要求的判断。",
+    "en_lead": "Some findings support generated suggestions. These explain possible changes, but do not replace your judgement about the thesis or university requirements.",
+    "zh_steps": [
+      "在支持该功能的卡片中点击“获取修复建议”，等待返回后完整阅读。",
+      "核对建议与原文，在本地 Word 或 LaTeX 源文件中修改。系统不会自动改写上传的 PDF。",
+      "可对建议点赞或点踩。修改后导出新 PDF，从“论文上传”重新提交。"
+    ],
+    "en_steps": [
+      "Select Get a suggestion on a supported card, wait for the response, and read it in full.",
+      "Check it against the thesis, then edit your local Word or LaTeX source. The system does not rewrite the uploaded PDF.",
+      "You can rate the suggestion. Export a revised PDF and submit it through Upload thesis."
+    ],
+    "zh_note": "建议无法生成时，可稍后重试或人工复核。不要用“增量补跑”检测修改后的新论文文件。",
+    "en_note": "If a suggestion cannot be generated, retry later or review manually. Resume checks does not analyse a newly revised thesis file.",
+    "zh_caption": "修复建议与评价；论文摘录已隐藏",
+    "en_caption": "Suggestions and feedback; thesis excerpts omitted"
+  },
+  {
+    "id": "export",
+    "figs": [
+      12,
+      13
+    ],
+    "zh_title": "下载检测报告",
+    "en_title": "Download a report",
+    "zh_lead": "核对报告顶部文件名，点击“下载检测报告”，再选择格式。导出的是检测结果，不是论文原始 PDF。",
+    "en_lead": "Check the filename in the report header, select Download report, then choose a format. This exports the review findings, not the original thesis PDF.",
+    "zh_steps": [
+      "PDF 适合阅读和打印；Word 便于继续整理；Markdown、文本用于保存文字。",
+      "图片用于保存报告页面；JSON 提供结构化数据。按需要选择六种格式之一。",
+      "导出语言取决于开始下载时的界面语言。导出英文报告前，先等待英文说明准备完整。"
+    ],
+    "en_steps": [
+      "Choose PDF for reading/printing, Word for further editing, or Markdown or Text for a text copy.",
+      "Choose Images to save report pages as images, or JSON for structured data. Select the format you need.",
+      "Exports use the interface language at the start of download. Wait for English explanations to be ready before exporting an English report."
+    ],
+    "zh_note": "中途切换语言不会将一次导出混成双语。引文、文件名保留原语言。取消导出不会取消论文检测。",
+    "en_note": "Switching language mid-export does not mix languages in that download. Quotations and filenames retain their original language. Cancelling an export does not cancel the review.",
+    "zh_caption": "下载入口与六种导出格式",
+    "en_caption": "Download control and six export formats"
+  },
+  {
+    "id": "history",
+    "figs": [
+      14
+    ],
+    "zh_title": "查找历史报告",
+    "en_title": "Find saved reports",
+    "zh_lead": "左侧选择“历史报告”，查看本人已保存的报告。先按文件名定位，再核对创建时间，区分论文版本。",
+    "en_lead": "Select Report history in the sidebar to view your saved reports. Search by filename, then check the creation time to distinguish thesis versions.",
+    "zh_steps": [
+      "输入文件名关键词搜索。长文件名被省略时，可悬停查看完整名称。",
+      "“查看详情”打开报告；“增量补跑”复用旧 PDF 继续检查；“删除”进入确认窗口。",
+      "使用底部每页条数和页码浏览记录，不要仅凭列表第一行判断论文版本。"
+    ],
+    "en_steps": [
+      "Search using part of the filename. Hover over a shortened filename to see the full name.",
+      "View report opens a report. Resume checks reuses its saved PDF. Delete report opens a confirmation dialog.",
+      "Use the page-size selector and page controls to browse records. Check filenames and times rather than relying on row order alone."
+    ],
+    "zh_note": "报告与提交账号关联。邮件链接要求登录时，也需使用提交该论文的账号。",
+    "en_note": "Reports are linked to the submitting account. When an email link asks you to sign in, use that account.",
+    "zh_caption": "搜索、查看、补跑、删除与分页",
+    "en_caption": "Search, report actions and pagination"
+  },
+  {
+    "id": "resume",
+    "figs": [
+      15
+    ],
+    "zh_title": "增量补跑旧报告",
+    "en_title": "Resume checks on a saved report",
+    "zh_lead": "旧报告有未完成、失败或新增规则时，可使用“增量补跑”。它读取报告保存的旧 PDF，不是电脑上后来修改的文件。",
+    "en_lead": "Use Resume checks for new, failed or inconclusive checks. It uses the PDF stored with the report, not a file you have since revised on your computer.",
+    "zh_steps": [
+      "在历史报告或报告顶部点击“增量补跑”，确认弹窗中的文件。",
+      "查看哪些规则复用已完成结果、哪些将执行。",
+      "确认后运行。系统创建新报告并保留原报告；成功报告同样计入每日额度。"
+    ],
+    "en_steps": [
+      "Select Resume checks in the history list or report header and confirm the saved file.",
+      "Review which completed results will be reused and which checks will run.",
+      "Confirm and run. A new report is created and the original is retained. A successful report uses the daily allowance."
+    ],
+    "zh_note": "论文已修改时，请上传新的 PDF 重新检测。旧 PDF 的补跑结果不能验证修改后的新论文。",
+    "en_note": "If the thesis has changed, upload the revised PDF for a new review. Resuming checks on an old PDF does not validate the revised thesis.",
+    "zh_caption": "保存的 PDF、复用结果与待执行规则",
+    "en_caption": "Saved PDF, reused results and checks to run"
+  },
+  {
+    "id": "delete",
+    "figs": [
+      16
+    ],
+    "zh_title": "删除单份报告",
+    "en_title": "Delete one report",
+    "zh_lead": "在历史报告中点击“删除”后，先阅读确认窗口。删除无法撤销，需保留的报告请先下载。",
+    "en_lead": "After selecting Delete report, read the confirmation dialog carefully. Deletion cannot be undone; download any report you need to keep first.",
+    "zh_steps": [
+      "核对窗口中的文件名，确保不是仍需保留的版本。",
+      "不确定时选“取消”；确认不再需要后，再选“删除”。",
+      "删除的是系统中的报告及保存的 PDF，不影响电脑原文件，也不退还检测额度。"
+    ],
+    "en_steps": [
+      "Check the filename and make sure you do not need that version.",
+      "Choose Cancel if unsure. Select Delete only when you no longer need the report.",
+      "The report and stored PDF are removed from the system. Your local file is unaffected, and used allowance is not restored."
+    ],
+    "zh_note": "批量删除具有同样的不可撤销性，方法见下一页。",
+    "en_note": "Batch deletion is also irreversible. The next page explains selecting multiple records.",
+    "zh_caption": "删除前核对文件；不确定时取消",
+    "en_caption": "Check the file before deleting; cancel if unsure"
+  },
+  {
+    "id": "batch",
+    "figs": [
+      17
+    ],
+    "zh_title": "批量管理历史记录",
+    "en_title": "Manage multiple records",
+    "zh_lead": "在历史报告右上角点击“管理记录”。进入管理模式后，先勾选，再核对数量。",
+    "en_lead": "Select Manage records at the upper right of Report history. Select records, then check the selection count before taking action.",
+    "zh_steps": [
+      "勾选需要管理的报告。使用表头复选框时，注意实际选中的记录。",
+      "核对已选数量和文件名。",
+      "需要删除时点击“删除所选”并完成确认；点击“完成”退出管理模式。"
+    ],
+    "en_steps": [
+      "Select the reports to manage. If you use the header checkbox, check which records are actually selected.",
+      "Review the selected count and filenames.",
+      "Select Delete selected and confirm if you want to remove them. Select Done to leave management mode."
+    ],
+    "zh_note": "不要在未核对文件和数量时直接批量删除。先导出需要保留的报告。",
+    "en_note": "Do not batch-delete before checking the files and count. Export reports you need to keep first.",
+    "zh_caption": "勾选、已选数量与批量删除",
+    "en_caption": "Selection, selected count and batch deletion"
+  }
+]

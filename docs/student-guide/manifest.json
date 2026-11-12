@@ -1,0 +1,24 @@
+{
+  "updated": "2026-11-12",
+  "ui_reference_commit": "2383654b29f29baf0bcc35236722c31635173379",
+  "documents": [
+    {
+      "language": "zh",
+      "filename": "智慧学位AI评阅辅助系统-学生端操作手册.pdf",
+      "pages": 29,
+      "sha256": "5c1abc9c716a2a1e323b9c9c5c6ee8acaa547480ead3fc7a624ca65d96598513",
+      "repository_path": "frontend/public/manuals/智慧学位AI评阅辅助系统-学生端操作手册.pdf",
+      "download_path": "/manuals/%E6%99%BA%E6%85%A7%E5%AD%A6%E4%BD%8DAI%E8%AF%84%E9%98%85%E8%BE%85%E5%8A%A9%E7%B3%BB%E7%BB%9F-%E5%AD%A6%E7%94%9F%E7%AB%AF%E6%93%8D%E4%BD%9C%E6%89%8B%E5%86%8C.pdf"
+    },
+    {
+      "language": "en",
+      "filename": "Smart Degree · AI Review Assistant - Student User Guide.pdf",
+      "pages": 30,
+      "sha256": "75ff9d4ffbfb62c09a1edfaf60a15c848b49babf96dd88c6f6a179495bad397a",
+      "repository_path": "frontend/public/manuals/Smart Degree · AI Review Assistant - Student User Guide.pdf",
+      "download_path": "/manuals/Smart%20Degree%20%C2%B7%20AI%20Review%20Assistant%20-%20Student%20User%20Guide.pdf"
+    }
+  ],
+  "source_directory": "docs/student-guide/latex",
+  "image_manifest": "docs/student-guide/latex/asset-manifest.json"
+}

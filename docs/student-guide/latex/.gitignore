@@ -1,0 +1,7 @@
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.pdf
+__pycache__/

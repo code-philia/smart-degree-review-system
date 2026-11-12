@@ -1,0 +1,277 @@
+
+\documentclass[12pt,a4paper]{article}
+\usepackage[left=22mm,right=22mm,top=23mm,bottom=23mm,headheight=15pt,headsep=8mm]{geometry}
+\usepackage{fontspec,xeCJK}
+\setmainfont{DejaVu Serif}
+\setsansfont{DejaVu Sans}
+\setCJKmainfont{Noto Serif CJK SC}
+\setCJKsansfont{Noto Sans CJK SC}
+\setCJKmonofont{Noto Sans Mono CJK SC}
+\usepackage{graphicx,xcolor,tikz,enumitem,needspace,tabularx,array,booktabs,fancyhdr,titlesec}
+\usetikzlibrary{arrows.meta,calc}
+\usepackage[unicode,colorlinks=true,linkcolor=navy,urlcolor=maroon,bookmarksopen=true,bookmarksnumbered=true]{hyperref}
+\definecolor{navy}{HTML}{172D46}
+\definecolor{maroon}{HTML}{96364F}
+\definecolor{muted}{HTML}{526276}
+\definecolor{pale}{HTML}{F2F5F9}
+\definecolor{rose}{HTML}{E11D48}
+\definecolor{amber}{HTML}{D97706}
+\definecolor{blue}{HTML}{2563EB}
+\definecolor{progressink}{HTML}{1F3F63}
+\definecolor{progressbg}{HTML}{F5F9FF}
+\definecolor{violet}{HTML}{7C3AED}
+\definecolor{green}{HTML}{059669}
+\definecolor{slate}{HTML}{64748B}
+\hypersetup{pdftitle={智慧学位 AI 评阅辅助系统：学生端操作手册 / Student User Guide},pdfauthor={智慧学位 AI 评阅辅助系统},pdfsubject={Chinese followed by English, illustrated student instructions}}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+\setlength{\emergencystretch}{2em}
+\AtBeginDocument{\fontsize{12}{19.5}\selectfont}
+\setlist[enumerate]{leftmargin=1.8em,label=\textcolor{maroon}{\bfseries\arabic*.},itemsep=4pt,topsep=5pt,parsep=0pt}
+\setlist[itemize]{leftmargin=1.5em,itemsep=4pt,topsep=5pt}
+\titleformat{\section}{\sffamily\bfseries\color{navy}\fontsize{19}{25}\selectfont}{\textcolor{maroon}{\thesection}}{.7em}{}
+\titleformat{\subsection}{\sffamily\bfseries\color{navy}\fontsize{15}{21}\selectfont}{\thesubsection}{.65em}{}
+\titlespacing*{\section}{0pt}{0pt}{10pt}
+\titlespacing*{\subsection}{0pt}{8pt}{9pt}
+\newcommand{\currentlanguage}{zh}
+\renewcommand{\theHsection}{\currentlanguage.\arabic{section}}
+\renewcommand{\theHsubsection}{\theHsection.\arabic{subsection}}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\sffamily\fontsize{9}{12}\selectfont\color{muted}\runningtitle}
+\fancyhead[R]{\sffamily\fontsize{9}{12}\selectfont\color{muted}2026.11}
+\fancyfoot[C]{\sffamily\fontsize{10}{13}\selectfont\color{muted}\thepage}
+\renewcommand{\headrulewidth}{.35pt}
+\renewcommand{\footrulewidth}{0pt}
+\newcommand{\runningtitle}{学生端操作手册}
+\newcommand{\note}[1]{\par\medskip\noindent\begingroup\setlength{\fboxsep}{9pt}\colorbox{pale}{\parbox{\dimexpr\linewidth-18pt\relax}{#1}}\endgroup\par}
+\newcommand{\pic}[5]{\begin{center}\includegraphics[width=#3,height=#4,keepaspectratio]{guide-assets/#1.png}\par\vspace{3pt}{\fontsize{10}{14}\selectfont\color{muted}#5}\label{fig:#1}\end{center}}
+\newcommand{\circlex}{\tikz[baseline=-.4ex,x=.65em,y=.65em,line width=.8pt,sharp corners]{\draw (0,0)circle(.65);\draw(-.24,-.24)--(.24,.24)(-.24,.24)--(.24,-.24);}}
+\newcommand{\triangleicon}{\tikz[baseline=-.4ex,x=.65em,y=.65em,line width=.8pt,sharp corners]{\draw(0,.72)--(-.68,-.48)--(.68,-.48)--cycle;\draw(0,.3)--(0,-.08);\fill(0,-.27)circle(.05);}}
+\newcommand{\infoicon}{\tikz[baseline=-.4ex,x=.65em,y=.65em,line width=.8pt,sharp corners]{\draw(0,0)circle(.65);\draw(0,-.3)--(0,.08);\fill(0,.32)circle(.06);}}
+\newcommand{\shieldicon}{\tikz[baseline=-.4ex,x=.65em,y=.65em,line width=.8pt,sharp corners]{\draw(0,.7)--(.58,.46)--(.48,-.23)..controls(.2,-.57)..(0,-.72)..controls(-.2,-.57)..(-.48,-.23)--(-.58,.46)--cycle;\draw(0,.3)--(0,-.08);\fill(0,-.3)circle(.05);}}
+\newcommand{\spinicon}{\tikz[baseline=-.4ex,x=.65em,y=.65em,line width=1pt,sharp corners]{\draw(30:.62)arc(30:320:.62);}}
+\newcommand{\alerticon}{\tikz[baseline=-.4ex,x=.65em,y=.65em,line width=.8pt,sharp corners]{\draw(0,0)circle(.65);\draw(0,.32)--(0,-.08);\fill(0,-.3)circle(.05);}}
+\newcommand{\questionicon}{\tikz[baseline=-.4ex,x=.65em,y=.65em,line width=.8pt,sharp corners]{\draw(0,0)circle(.65);\node[font=\sffamily\bfseries\scriptsize]at(0,0){?};}}
+\newcommand{\checkicon}{\tikz[baseline=-.4ex,x=.65em,y=.65em,line width=.8pt,sharp corners]{\draw(0,0)circle(.65);\draw(-.32,0)--(-.08,-.24)--(.35,.27);}}
+\newcommand{\flaskicon}{\tikz[baseline=-.4ex,x=.65em,y=.65em,line width=.8pt,sharp corners]{\draw(-.25,.7)--(.25,.7)(-.15,.7)--(-.15,.2)--(-.63,-.56)--(.63,-.56)--(.15,.2)--(.15,.7);\draw(-.38,-.18)--(.38,-.18);}}
+\newsavebox{\badgeIconBox}
+\newsavebox{\badgeLabelBox}
+\newlength{\badgeIconLift}
+\newcommand{\badge}[4]{%
+  \begingroup\color{#1}%
+  \sbox{\badgeLabelBox}{\sffamily\small\color{black}#3}%
+  \sbox{\badgeIconBox}{\sffamily\small#2}%
+  \setlength{\badgeIconLift}{\dimexpr(\ht\badgeLabelBox-\dp\badgeLabelBox-\ht\badgeIconBox+\dp\badgeIconBox)/2\relax}%
+  \tikz[baseline=-.6ex]\node[rounded corners=4pt,fill=#4,inner xsep=6pt,inner ysep=4pt,font=\sffamily\small]{\raisebox{\badgeIconLift}{\usebox{\badgeIconBox}}\hspace{4pt}\usebox{\badgeLabelBox}};%
+  \endgroup}
+\raggedbottom
+\begin{document}
+
+\hypersetup{pdftitle={Smart Degree · AI Review Assistant - Student User Guide},pdfsubject={Student User Guide},pdflang={en}}
+\clearpage
+\renewcommand{\currentlanguage}{en}
+\renewcommand{\runningtitle}{Smart Degree · Student User Guide}
+\clearpage\thispagestyle{empty}\pdfbookmark[0]{Student User Guide}{part-en}
+\vspace*{26mm}\begingroup\centering\includegraphics[width=22mm]{guide-assets/sjtu-emblem.jpg}\par
+\vspace{22mm}{\sffamily\color{navy}\bfseries\fontsize{22}{34}\selectfont Smart Degree · AI Review Assistant\par}
+\vspace{10mm}{\sffamily\color{navy}\bfseries\fontsize{32}{42}\selectfont Student User Guide\par}
+\vspace{15mm}{\color{maroon}\rule{.62\linewidth}{1.1pt}}\par\vspace{15mm}
+{\sffamily\color{muted}Student access\par}\vspace{2mm}\url{https://thesis-review.sjtu.edu.cn}\par
+\vfill{\color{muted}November 2026\par}
+\vspace*{7mm}\par\endgroup
+\clearpage\thispagestyle{plain}\section*{Contents}
+\noindent\hyperref[en:intro]{1  About this guide}\dotfill\pageref{en:intro}\par\vspace{5mm}
+\noindent\hyperref[en:overview]{2  System overview}\dotfill\pageref{en:overview}\par\vspace{5mm}
+\noindent\hyperref[en:basic]{3  Starting a review}\dotfill\pageref{en:basic}\par\vspace{5mm}
+\noindent\hyperref[en:reports]{4  Reading and managing reports}\dotfill\pageref{en:reports}\par\vspace{5mm}
+\noindent\hyperref[en:extras]{5  Other features}\dotfill\pageref{en:extras}\par\vspace{5mm}
+\noindent\hyperref[en:faq]{6  Frequently asked questions}\dotfill\pageref{en:faq}\par\vspace{5mm}
+\noindent\hyperref[en:rules]{Appendix: Check reference}\dotfill\pageref{en:rules}\par\vspace{5mm}
+\vspace{5mm}{\sffamily\bfseries\color{navy}Quick links}\par
+\hyperref[en:upload]{File requirements}\dotfill\pageref{en:upload}\par
+\hyperref[en:progress]{Stopping a review}\dotfill\pageref{en:progress}\par
+\hyperref[en:reading]{Reading tools}\dotfill\pageref{en:reading}\par
+\hyperref[en:badges]{Colours and badges}\dotfill\pageref{en:badges}\par
+\hyperref[en:export]{Downloading reports}\dotfill\pageref{en:export}\par
+\hyperref[en:settings]{Language and appearance}\dotfill\pageref{en:settings}\par
+\clearpage\setcounter{section}{0}\section{About this guide}\label{en:intro}
+\subsection*{Purpose}This guide helps students sign in, submit a thesis, review findings, download reports and manage saved records. Follow the numbered steps and use the red boxes, arrows and labels in each illustration to locate controls.\par
+\subsection*{Scope}This guide covers the student interface available in November 2026. Use the official student access link. After updates, follow the current page prompts if minor layout differences occur.\par
+\subsection*{How to use this guide}Figures 01–23 cover corresponding operations in each language; a procedure may use two figures. Counts, times and accounts in screenshots are illustrative.\par
+\subsection*{Thesis privacy}Other users’ thesis text is not shown. Use your own report and review its findings against the original thesis.\par
+\subsection*{Using the results}The system provides assisted checks and suggestions. It does not replace review by a supervisor, school or university. Check each finding against the thesis and university requirements. No findings is not a certificate of compliance.\par
+\clearpage\section{System overview}\label{en:overview}
+The system assists with thesis compliance checks, including formatting, wording, bilingual content and selected claim–evidence checks. Findings link to PDF pages. You can read available findings during a review, then revisit and download the saved report after completion.
+\subsection*{Before you begin}
+\begin{itemize}\item Your own working SJTU jAccount.\item The degree thesis to review: a text-based PDF, no larger than 50 MB. Do not upload an unrelated PDF, a scan or an image-only PDF.\item The Word or LaTeX source file, so you can make and verify revisions yourself.\end{itemize}
+\subsection*{Recommended workflow}
+\begin{enumerate}\item Sign in\item Upload thesis\item Choose checks\item Start review\item Verify findings\item Edit source\item Upload revision\end{enumerate}
+\note{For a first review, follow Chapter 3 in order. For an existing report, go to Chapter 4. Chapter 5 covers notifications, emails, preferences and feedback.}
+\clearpage\section{Starting a review}\label{en:basic}
+\subsection{Sign in}\label{en:login}
+Open \url{https://thesis-review.sjtu.edu.cn} in your browser and sign in with your own SJTU account. You can choose the interface language before signing in.\par
+\pic{en-01}{Sign-in page and language selection}{\linewidth}{109mm}{Figure 01  Sign-in page and language selection}
+\begin{enumerate}\item Select 中文 or EN at the lower left.\item Select Sign in with jAccount and follow the university authentication prompts.\item After signing in, open Upload thesis. If you followed a report link in an email, you will return to that report.\end{enumerate}
+\note{Use the same account that submitted the thesis to open its report. Sign out when you finish on a shared computer.}
+\clearpage
+\subsection{Choose your thesis PDF}\label{en:upload}
+Select Upload thesis in the sidebar. Click the upload area to choose a file, or drag it into the area. Submit one thesis at a time.\par
+\pic{en-02}{Confirm the thesis file before starting}{\linewidth}{109mm}{Figure 02  Confirm the thesis file before starting}
+\begin{enumerate}\item The file must be the degree thesis you want to review. Do not upload an unrelated PDF.\item Use a text-based PDF with selectable, copyable text, no larger than 50 MB. Scanned or image-only PDFs are not supported.\item Check the displayed filename and version. Remove an incorrect file before choosing another.\item Open Choose checks, confirm the scope, and select Start review. Check selection is explained on the next page.\end{enumerate}
+\note{Before uploading, try selecting and copying a paragraph in a PDF reader. If the text cannot be selected, export a text-based PDF from the Word or LaTeX source.}
+\clearpage
+\subsection{Select checks and check your allowance}\label{en:checks}
+Expand the check selector and choose the relevant checks under Formatting, Content, and Claims and evidence. The selected-check count updates as you make changes.\par
+\pic{en-03}{Check selection; the purple flask indicates a beta feature}{\linewidth}{124mm}{Figure 03  Check selection; the purple flask indicates a beta feature}
+\begin{enumerate}\item Use Select all or Clear for the whole list or a group, or select individual checks. Keep at least one available check selected.\item Read each description to understand its scope. A purple flask marked Beta identifies an experimental feature; review its results carefully.\item Confirm the file and checks, then start. Regular users can generate up to three reports per day. The allowance resets at 00:00 Beijing time.\end{enumerate}
+\note{Only successfully generated reports count. Failed or cancelled reviews do not count. Active tasks temporarily reserve capacity. New and resumed reviews share the allowance; deleting a report does not restore a use.}
+\clearpage
+\subsection{Track progress or stop a review}\label{en:progress}
+The page shows upload, queue and check progress. The estimated time changes with processing conditions and is not a guaranteed completion time.\par
+\pic{en-04}{Progress, changing time estimate and the stop control}{\linewidth}{109mm}{Figure 04  Progress, changing time estimate and the stop control}
+\begin{enumerate}\item Read the current stage, completed-check count and time estimate. Do not repeatedly submit the same task while waiting.\item To stop, select Stop review and wait for the server response. The task is stopped only when cancellation is confirmed.\item If the system says the review is already complete, open the report or view it later. This is not a successful cancellation.\end{enumerate}
+\note{A successfully cancelled review does not produce a completion report or send its completion email. Email already accepted by a mail server cannot be reliably recalled. You can return through Notifications or Report history. A green check on the progress bar marks a completed stage, not a thesis without issues.}
+\clearpage
+\subsection{Read results while checks are running}\label{en:live}
+The live report shows available findings while other checks continue. Counts may change as more checks finish, so this is not the final review outcome.\par
+\pic{en-05}{Live report with thesis excerpts omitted}{\linewidth}{109mm}{Figure 05  Live report with thesis excerpts omitted}
+\begin{enumerate}\item Read the summary for the findings returned so far.\item Select a finding or its Go to Page link to locate the relevant thesis page.\item Watch for the blue-grey spinner and In progress status. After completion, review the saved report and check execution statuses.\end{enumerate}
+\note{A notice may appear while English explanations are being prepared. Wait for them to become available. Quotations and filenames retain their original language. Thesis excerpts are hidden in this guide; displayed counts are illustrative.}
+\clearpage\section{Reading and managing reports}\label{en:reports}
+\subsection{Read the summary and review scope}\label{en:summary}
+First confirm the file, then read the summary and review scope. The finding count does not mean that every selected check ran successfully.\par
+\pic{en-06}{File identity, summary and review scope}{\linewidth}{90mm}{Figure 06  File identity, summary and review scope}
+\begin{enumerate}\item Check the filename and report time to avoid reading a report for an older thesis version.\item Review the Critical, Warnings, Info and Unverified counts. A dedicated badge guide in this chapter explains the colours and icons.\item Expand Review scope to see the selected checks. Also inspect execution statuses in the check filter to decide whether to resume checks or review an item manually.\end{enumerate}
+\note{Zero findings is not a certificate of compliance. Read the explanations for checks that failed, were incomplete, were not applicable or could not reach a conclusion.}
+\clearpage
+\subsection{Read findings alongside your thesis}\label{en:locate}
+Report details contain a PDF pane on the left and findings on the right. Each pane scrolls independently. Read the explanation, then check the surrounding thesis text.\par
+\pic{en-07}{Linked PDF and findings panes; thesis text is hidden}{\linewidth}{101mm}{Figure 07  Linked PDF and findings panes; thesis text is hidden}
+\begin{enumerate}\item Select a finding or its Go to Page link to navigate to the relevant page.\item A highlight may appear when a precise location is available. A page-level finding may navigate without an exact highlight.\item Use the thesis context to decide whether a change is needed. Do not revise solely on the basis of a rule name or badge colour.\end{enumerate}
+\note{Printed thesis page labels, including Roman numerals, may differ from PDF page order. The reading-tool input uses PDF page order; finding cards may show detected thesis page labels. The card checkmark is a temporary handled marker: it resets on refresh and does not edit the thesis.}
+\clearpage
+\subsection{Use the reading tools}\label{en:reading}
+Select Reading tools at the upper right of the PDF pane. These controls change the view without editing the thesis, findings or check statuses.\par
+\pic{en-08}{Pages, highlights, zoom and original-PDF controls}{\linewidth}{98mm}{Figure 08  Pages, highlights, zoom and original-PDF controls}
+\begin{enumerate}\item Left/right arrows: previous/next page. Page input: enter a valid PDF page number and press Enter.\item Crossed-out eye: hide highlights. Eye: show the selected finding's highlights. Highlighter: show all available highlights.\item Minus/plus magnifiers: zoom out/in. Link icon: open the complete original PDF in a new tab.\end{enumerate}
+\note{The new tab opens the original thesis PDF, not the review report. To save findings, use Download report.}
+\clearpage
+\subsection{Filter by category or check}\label{en:filter}
+For a long list, first choose a finding category, then narrow the view with the check dropdown. Filtering changes what is shown; it does not delete findings.\par
+\pic{en-09}{Category/check filters, with count and status badges}{\linewidth}{109mm}{Figure 09  Category/check filters, with count and status badges}
+\begin{enumerate}\item Choose All, Critical, Warnings, Info or Unverified. Select All to restore all categories.\item Select a specific check in the dropdown, or choose All checks to restore the full scope.\item Read counts and badges beside each check. A warning triangle with a number usually counts findings; spinners, shields and other icons have different meanings, explained next.\end{enumerate}
+\note{Running checks may remain visible in the live-report filter. An empty filtered list does not mean the report has no findings in other categories.}
+\clearpage\subsection{Understand badge colours and icons}\label{en:badges}
+Use the icon, label, number and current filter together, rather than colour alone. Background shades vary with the light/dark theme; these examples use light-theme colours.\par
+\vspace{3mm}\begingroup\renewcommand{\tabularxcolumn}[1]{m{#1}}\renewcommand{\arraystretch}{1.1}\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}m{39mm}@{\hspace{7mm}}>{\raggedright\arraybackslash}X@{}}\toprule
+Badge & Meaning and use\\\midrule\addlinespace[6pt]
+\badge{rose}{\circlex}{Critical}{rose!8} & Red circle with a cross: a finding to prioritise. The number counts critical findings in the current scope.\\\addlinespace[10pt]
+\badge{amber}{\triangleicon}{Warnings}{amber!8} & Amber warning triangle: an issue to check. The number counts warnings, not failed checks.\\\addlinespace[10pt]
+\badge{blue}{\infoicon}{Info}{blue!8} & Blue information icon: an informational finding or item for attention, not a critical error.\\\addlinespace[10pt]
+\badge{violet}{\shieldicon}{Unverified}{violet!8} & Purple shield with an exclamation mark: verification could not be fully carried out. It is not a confirmed thesis error.\\\addlinespace[10pt]
+\bottomrule\end{tabularx}\endgroup\clearpage\subsection*{Execution status and feature labels}
+\begingroup\renewcommand{\tabularxcolumn}[1]{m{#1}}\renewcommand{\arraystretch}{1.1}\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}m{39mm}@{\hspace{7mm}}>{\raggedright\arraybackslash}X@{}}\toprule
+Badge & Meaning and use\\\midrule\addlinespace[6pt]
+\badge{progressink}{\spinicon}{\textcolor{progressink}{In progress}}{progressbg} & Blue-grey spinner: checks are still running. In the All checks summary, its number counts running checks.\\\addlinespace[10pt]
+\badge{rose}{\alerticon}{Failed}{rose!8} & Red circle with an exclamation mark: execution failed. This differs from a critical finding with a cross.\\\addlinespace[10pt]
+\badge{slate}{\questionicon}{Not applicable}{slate!8} & Grey circle with a question mark: the check is not applicable. Read its explanation; this does not establish overall compliance.\\\addlinespace[10pt]
+\badge{green}{\checkicon}{0}{green!8} & Green circle with a check and zero: no matching finding in the displayed scope, not an overall certificate.\\\addlinespace[10pt]
+\badge{violet}{\flaskicon}{Beta}{violet!8} & Purple flask: a beta-feature label. It is not an Unverified warning or a finding count.\\\addlinespace[10pt]
+\bottomrule\end{tabularx}\endgroup
+\note{The compact Unverified summary may show only a purple shield and number; hover for details. Read the explanations for incomplete or inconclusive checks. The blue Pilot shield in the header marks the system’s pilot phase. The bell’s red dot means unread notifications. Neither is a thesis finding category.}
+\clearpage
+\subsection{Give feedback on a finding}\label{en:findingfeedback}
+If a finding is accurate or seems incorrect, give feedback within its card. This feedback concerns that individual finding.\par
+\pic{en-10}{Finding rating, optional reason and submission}{\linewidth}{109mm}{Figure 10  Finding rating, optional reason and submission}
+\begin{enumerate}\item Choose thumbs up or thumbs down under Is this finding accurate?\item Select a reason and add comments if useful. Explain the location and reason for the problem.\item Select Submit feedback. Use Withdraw feedback to remove a submitted rating.\end{enumerate}
+\note{Feedback does not automatically remove a finding or edit the thesis. It is separate from suggestion feedback and the Feedback control in the page header.}
+\clearpage
+\subsection{Review suggestions and edit your source}\label{en:repair}
+Some findings support generated suggestions. These explain possible changes, but do not replace your judgement about the thesis or university requirements.\par
+\noindent\begin{minipage}[t]{.46\linewidth}\vspace{0pt}\raggedright\pic{en-11}{Suggestions and feedback; thesis excerpts omitted}{\linewidth}{125mm}{Figure 11  Suggestions and feedback; thesis excerpts omitted}\end{minipage}\hfill\begin{minipage}[t]{.50\linewidth}\vspace{0pt}\raggedright\begin{enumerate}\item Select Get a suggestion on a supported card, wait for the response, and read it in full.\item Check it against the thesis, then edit your local Word or LaTeX source. The system does not rewrite the uploaded PDF.\item You can rate the suggestion. Export a revised PDF and submit it through Upload thesis.\end{enumerate}\end{minipage}
+\note{If a suggestion cannot be generated, retry later or review manually. Resume checks does not analyse a newly revised thesis file.}
+\clearpage
+\subsection{Download a report}\label{en:export}
+Check the filename in the report header, select Download report, then choose a format. This exports the review findings, not the original thesis PDF.\par
+\pic{en-12}{Download control}{\linewidth}{43mm}{Figure 12  Download control}
+\noindent\begin{minipage}[t]{.43\linewidth}\vspace{0pt}\raggedright\pic{en-13}{Choose a format}{\linewidth}{81mm}{Figure 13  Choose a format}\end{minipage}\hfill\begin{minipage}[t]{.53\linewidth}\vspace{0pt}\raggedright\begin{enumerate}\item Choose PDF for reading/printing, Word for further editing, or Markdown or Text for a text copy.\item Choose Images to save report pages as images, or JSON for structured data. Select the format you need.\item Exports use the interface language at the start of download. Wait for English explanations to be ready before exporting an English report.\end{enumerate}\end{minipage}
+\note{Switching language mid-export does not mix languages in that download. Quotations and filenames retain their original language. Cancelling an export does not cancel the review.}
+\clearpage
+\subsection{Find saved reports}\label{en:history}
+Select Report history in the sidebar to view your saved reports. Search by filename, then check the creation time to distinguish thesis versions.\par
+\pic{en-14}{Search, report actions and pagination}{\linewidth}{109mm}{Figure 14  Search, report actions and pagination}
+\begin{enumerate}\item Search using part of the filename. Hover over a shortened filename to see the full name.\item View report opens a report. Resume checks reuses its saved PDF. Delete report opens a confirmation dialog.\item Use the page-size selector and page controls to browse records. Check filenames and times rather than relying on row order alone.\end{enumerate}
+\note{Reports are linked to the submitting account. When an email link asks you to sign in, use that account.}
+\clearpage
+\subsection{Resume checks on a saved report}\label{en:resume}
+Use Resume checks for new, failed or inconclusive checks. It uses the PDF stored with the report, not a file you have since revised on your computer.\par
+\pic{en-15}{Saved PDF, reused results and checks to run}{\linewidth}{109mm}{Figure 15  Saved PDF, reused results and checks to run}
+\begin{enumerate}\item Select Resume checks in the history list or report header and confirm the saved file.\item Review which completed results will be reused and which checks will run.\item Confirm and run. A new report is created and the original is retained. A successful report uses the daily allowance.\end{enumerate}
+\note{If the thesis has changed, upload the revised PDF for a new review. Resuming checks on an old PDF does not validate the revised thesis.}
+\clearpage
+\subsection{Delete one report}\label{en:delete}
+After selecting Delete report, read the confirmation dialog carefully. Deletion cannot be undone; download any report you need to keep first.\par
+\pic{en-16}{Check the file before deleting; cancel if unsure}{\linewidth}{87mm}{Figure 16  Check the file before deleting; cancel if unsure}
+\begin{enumerate}\item Check the filename and make sure you do not need that version.\item Choose Cancel if unsure. Select Delete only when you no longer need the report.\item The report and stored PDF are removed from the system. Your local file is unaffected, and used allowance is not restored.\end{enumerate}
+\note{Batch deletion is also irreversible. The next page explains selecting multiple records.}
+\clearpage
+\subsection{Manage multiple records}\label{en:batch}
+Select Manage records at the upper right of Report history. Select records, then check the selection count before taking action.\par
+\pic{en-17}{Selection, selected count and batch deletion}{\linewidth}{109mm}{Figure 17  Selection, selected count and batch deletion}
+\begin{enumerate}\item Select the reports to manage. If you use the header checkbox, check which records are actually selected.\item Review the selected count and filenames.\item Select Delete selected and confirm if you want to remove them. Select Done to leave management mode.\end{enumerate}
+\note{Do not batch-delete before checking the files and count. Export reports you need to keep first.}
+\clearpage\section{Other features}\label{en:extras}
+\subsection{Read notifications}\label{en:notifications}
+Select the bell in the page header to open Notifications. A red dot indicates unread notifications, not a critical thesis finding.\par
+\pic{en-18}{Bell, unread indicators, filenames and Mark all read}{\linewidth}{109mm}{Figure 18  Bell, unread indicators, filenames and Mark all read}
+\begin{enumerate}\item Check the filename, time and event, such as Report ready, Report email sent, a failed review or failed email delivery.\item Select View report on the relevant notification to open that file's report.\item Use Mark all read after checking the notifications. Marking a notification as read does not delete the report.\end{enumerate}
+\note{Report email sent means the mail server accepted the message, not that it is already visible in your inbox. Check Notifications or Report history directly for the report.}
+\clearpage
+\subsection{Change preferences and sign out}\label{en:settings}
+Open the user menu at the lower left and select Settings. Language and appearance are separate preferences; they do not change the thesis or review decisions.\par
+\pic{en-19}{Open the user menu}{\linewidth}{23mm}{Figure 19  Open the user menu}
+\pic{en-20}{Language and appearance}{\linewidth}{80mm}{Figure 20  Language and appearance}
+\begin{enumerate}\item Choose 简体中文 or English. Interface text and report explanations follow the selection; allow time for English explanations to prepare.\item Choose Light, Dark or System. System follows your device's light/dark preference. The sign-in illustration is unaffected.\item Select Done to leave Settings. To leave the account, select Sign out in the user menu.\end{enumerate}
+\note{Quotations and filenames are not translated. Exports use the language at the start of download; emails use the language at submission.}
+\clearpage
+\subsection{Send feedback about the system}\label{en:systemfeedback}
+For feedback about the overall experience, interface, response speed or reliability, select Feedback in the page header. This is separate from rating an individual finding.\par
+\pic{en-21}{Feedback entry}{\linewidth}{23mm}{Figure 21  Feedback entry}
+\pic{en-22}{Complete and submit}{\linewidth}{93mm}{Figure 22  Complete and submit}
+\begin{enumerate}\item Choose an overall satisfaction rating. This is required.\item Select any areas that could be improved and add comments if useful, up to 1,000 characters.\item Select Submit feedback and wait for confirmation. Describe the steps, expected behaviour and actual result to help maintainers understand the issue.\end{enumerate}
+\note{Do not include passwords, verification codes or other sensitive credentials. Use the relevant finding card for feedback about a specific finding.}
+\clearpage
+\subsection{Open a report from an email}\label{en:email}
+After a report is generated, the system sends a notification to the email address associated with your account. The email provides a report link and does not require a reply.\par
+\pic{en-23}{Report notification email, filename and report link}{\linewidth}{123mm}{Figure 23  Report notification email, filename and report link}
+\begin{enumerate}\item Check the system name in the subject and the thesis filename to identify the report.\item Select View report. If prompted, sign in with the account that submitted the thesis.\item The email and button use the interface language selected at submission. That language is retained through sign-in.\end{enumerate}
+\note{If no email arrives, check your spam folder and sign in to view Report history directly. Switching language later does not change the email language of an already submitted review.}
+\clearpage\section{Frequently asked questions}\label{en:faq}
+\Needspace{32mm}\subsection*{Why is my PDF unsuitable?}It must be a degree thesis in text-based PDF format, no larger than 50 MB. Unrelated PDFs, scans and image-only files are unsuitable. Export from the source and check that body text can be selected and copied.\par
+\Needspace{32mm}\subsection*{No email has arrived. Is the review unfinished?}Not necessarily. Email may be delayed or filtered into spam. Sign in and check Notifications and Report history instead of relying only on email.\par
+\Needspace{32mm}\subsection*{Is a thesis with no findings ready to submit?}It does not establish full compliance. Check whether the selected checks completed and whether anything is Unverified or inconclusive, then review the thesis against university requirements.\par
+\clearpage\subsection*{More questions}
+\Needspace{32mm}\subsection*{Why is there no exact highlight after selecting a finding?}Open Reading tools and check the highlight mode. Some findings have only page-level locations; read the surrounding text on the indicated page.\par
+\Needspace{32mm}\subsection*{Should I use Resume checks after revising the thesis?}No. Resume checks still uses the PDF saved with the old report. Export the revised thesis as a new PDF and upload it for a new review.\par
+\Needspace{32mm}\subsection*{Are stopping, cancelling an export and deleting the same?}No. Stopping cancels a review task. Cancelling an export stops download preparation. Deleting removes a saved report and its stored PDF. A successful cancellation does not count toward the allowance; deleting a completed report does not restore a use.\par
+\note{For other issues, use Feedback and include the steps and error message. Do not share passwords or verification codes.}
+\clearpage\section*{Appendix: Check reference}\label{en:rules}
+\addcontentsline{toc}{section}{Appendix: Check reference}
+These are the 15 checks represented in this interface version. The descriptions explain scope; they are not additional thesis-formatting requirements. Follow the current interface for availability, execution results and applicability.
+\Needspace{26mm}\par\medskip{\sffamily\bfseries\color{navy}1. Equation cross-references}\par Check that equations cited in the text have matching visible equation numbers.\par
+\Needspace{26mm}\par\medskip{\sffamily\bfseries\color{navy}2. Citation matching}\par Match numbered citations to entries in the reference list.\par
+\Needspace{26mm}\par\medskip{\sffamily\bfseries\color{navy}3. Uncited references}\par Identify reference-list entries with no citation in the document; review flagged entries manually.\par
+\Needspace{26mm}\par\medskip{\sffamily\bfseries\color{navy}4. Contents page numbers}\par Compare contents page numbers with the pages containing the corresponding headings.\par
+\Needspace{26mm}\par\medskip{\sffamily\bfseries\color{navy}5. Reference type codes}\par Check for missing or invalid reference type codes, such as [J] for journal articles, where required.\par
+\Needspace{26mm}\par\medskip{\sffamily\bfseries\color{navy}6. Required thesis sections}\par Check that required thesis sections are present.\par
+\Needspace{26mm}\par\medskip{\sffamily\bfseries\color{navy}7. Chinese/English punctuation}\par Find English punctuation used incorrectly in Chinese prose, or Chinese punctuation used incorrectly in English prose.\par
+\Needspace{26mm}\par\medskip{\sffamily\bfseries\color{navy}8. Chinese keyword count}\par Check that the Chinese keyword list contains 3–8 keywords.\par
+\Needspace{26mm}\par\medskip{\sffamily\bfseries\color{navy}9. Abstract cross-references}\par Flag figure, table and equation numbers and numbered citations in Chinese and English abstracts.\par
+\Needspace{26mm}\par\medskip{\sffamily\bfseries\color{navy}10. Chapter page breaks}\par Check that each chapter starts on a new page, without text from the previous chapter above its heading.\par
+\Needspace{26mm}\par\medskip{\sffamily\bfseries\color{navy}11. Reference verification}\par Look up cited publications to assess whether they exist. Distinguish suspected nonexistent references from incomplete searches.\par
+\Needspace{26mm}\par\medskip{\sffamily\bfseries\color{navy}12. Chinese character errors}\par Find clear Chinese character errors in the main text. This is not a general grammar, style or English spelling check.\par
+\Needspace{26mm}\par\medskip{\sffamily\bfseries\color{navy}13. Bilingual keyword match}\par Check whether Chinese and English keyword lists express matching concepts and correspond to each other.\par
+\Needspace{26mm}\par\medskip{\sffamily\bfseries\color{navy}14. Bilingual abstract agreement}\par Compare the abstracts for substantive differences in topic, methods, results and conclusions.\par
+\Needspace{26mm}\par\medskip{\sffamily\bfseries\color{navy}15. Numerical claim verification (Beta)}\par Check numerical claims in the abstract against experimental results in the corresponding research chapters. This is not a general assessment of academic quality.\par
+\end{document}

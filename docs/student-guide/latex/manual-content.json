@@ -1,0 +1,145 @@
+{
+  "sections": [
+    {
+      "id": "basic",
+      "zh": "基本操作",
+      "en": "Starting a review",
+      "modules": [
+        {
+          "id": "login",
+          "figs": [
+            1
+          ],
+          "zh_title": "登录系统",
+          "en_title": "Sign in",
+          "zh_lead": "在浏览器中打开正式入口 https://thesis-review.sjtu.edu.cn，使用本人校园账号登录。首次使用可先选择界面语言。",
+          "en_lead": "Open https://thesis-review.sjtu.edu.cn in your browser and sign in with your own SJTU account. You can choose the interface language before signing in.",
+          "zh_steps": [
+            "在登录页左下角选择中文或 EN。",
+            "点击“使用 jAccount 登录”，按校园统一身份认证页面的提示完成认证。",
+            "返回系统后进入“论文上传”。从邮件链接进入时，登录后将返回对应报告。"
+          ],
+          "en_steps": [
+            "Select 中文 or EN at the lower left.",
+            "Select Sign in with jAccount and follow the university authentication prompts.",
+            "After signing in, open Upload thesis. If you followed a report link in an email, you will return to that report."
+          ],
+          "zh_note": "请使用提交论文时的同一账号查看报告。在公共电脑上操作后，记得退出登录。",
+          "en_note": "Use the same account that submitted the thesis to open its report. Sign out when you finish on a shared computer.",
+          "zh_caption": "登录首页与语言切换",
+          "en_caption": "Sign-in page and language selection"
+        },
+        {
+          "id": "upload",
+          "figs": [
+            2
+          ],
+          "zh_title": "选择论文 PDF",
+          "en_title": "Choose your thesis PDF",
+          "zh_lead": "左侧选择“论文上传”，点击上传区域选择文件，也可将文件拖入该区域。每次提交一份论文。",
+          "en_lead": "Select Upload thesis in the sidebar. Click the upload area to choose a file, or drag it into the area. Submit one thesis at a time.",
+          "zh_steps": [
+            "文件必须是需要检测的学位论文，不能上传其他用途的 PDF 文件。",
+            "文件必须是含可选择、可复制文字的 PDF，不超过 50 MB。不能使用扫描版或纯图片 PDF。",
+            "核对页面显示的文件名和版本；选错时先移除，再重新选择。",
+            "展开“检测规则”确认范围后，点击“开始检测”。规则选择见下一页。"
+          ],
+          "en_steps": [
+            "The file must be the degree thesis you want to review. Do not upload an unrelated PDF.",
+            "Use a text-based PDF with selectable, copyable text, no larger than 50 MB. Scanned or image-only PDFs are not supported.",
+            "Check the displayed filename and version. Remove an incorrect file before choosing another.",
+            "Open Choose checks, confirm the scope, and select Start review. Check selection is explained on the next page."
+          ],
+          "zh_note": "提交前可在本地 PDF 阅读器中尝试选择并复制一段正文。无法选中文字时，请从 Word 或 LaTeX 源文件重新导出文字版 PDF。",
+          "en_note": "Before uploading, try selecting and copying a paragraph in a PDF reader. If the text cannot be selected, export a text-based PDF from the Word or LaTeX source.",
+          "zh_caption": "确认论文文件与开始检测入口",
+          "en_caption": "Confirm the thesis file before starting"
+        },
+        {
+          "id": "checks",
+          "figs": [
+            3
+          ],
+          "zh_title": "选择检测规则与确认额度",
+          "en_title": "Select checks and check your allowance",
+          "zh_lead": "展开检测规则，按需要选择格式规范、内容规范以及论点论据审查中的检查项。已选数量会同步更新。",
+          "en_lead": "Expand the check selector and choose the relevant checks under Formatting, Content, and Claims and evidence. The selected-check count updates as you make changes.",
+          "zh_steps": [
+            "使用整体或分组的“全选／清空”，也可逐项勾选。至少保留一项可用规则。",
+            "阅读规则描述，确认检查对象。紫色烧瓶“实验性”表示试验阶段的功能，结果需要谨慎复核。",
+            "确认论文与规则后开始检测。普通用户每天可成功生成 3 份报告，北京时间次日 00:00 刷新。"
+          ],
+          "en_steps": [
+            "Use Select all or Clear for the whole list or a group, or select individual checks. Keep at least one available check selected.",
+            "Read each description to understand its scope. A purple flask marked Beta identifies an experimental feature; review its results carefully.",
+            "Confirm the file and checks, then start. Regular users can generate up to three reports per day. The allowance resets at 00:00 Beijing time."
+          ],
+          "zh_note": "仅成功生成报告计次，失败或取消不计次。进行中的任务暂占名额；新检测与增量补跑共用额度。删除报告不退次数。以账号当前可用额度为准。",
+          "en_note": "Only successfully generated reports count. Failed or cancelled reviews do not count. Active tasks temporarily reserve capacity. New and resumed reviews share the allowance; deleting a report does not restore a use.",
+          "zh_caption": "选择检查项；紫色烧瓶表示实验性功能",
+          "en_caption": "Check selection; the purple flask indicates a beta feature"
+        },
+        {
+          "id": "progress",
+          "figs": [
+            4
+          ],
+          "zh_title": "查看进度与停止检测",
+          "en_title": "Track progress or stop a review",
+          "zh_lead": "开始后，页面显示上传、排队及规则执行进度。预计时间会随处理情况变化，并非固定完成时间。",
+          "en_lead": "The page shows upload, queue and check progress. The estimated time changes with processing conditions and is not a guaranteed completion time.",
+          "zh_steps": [
+            "查看当前阶段、完成数量与预计时间。请勿因等待而重复提交同一任务。",
+            "需要中止时点击“停止检测”，等待服务器返回结果。只有页面确认取消成功，才表示任务已停止。",
+            "若提示“检测已完成，无法取消”，可查看报告或稍后查看；这不属于取消成功。"
+          ],
+          "en_steps": [
+            "Read the current stage, completed-check count and time estimate. Do not repeatedly submit the same task while waiting.",
+            "To stop, select Stop review and wait for the server response. The task is stopped only when cancellation is confirmed.",
+            "If the system says the review is already complete, open the report or view it later. This is not a successful cancellation."
+          ],
+          "zh_note": "取消成功后不生成该次完成报告，也不发该次完成邮件。已被邮件服务器接收的邮件无法保证撤回。正常检测无需一直盯着页面，完成后可从通知或历史报告查看。 流程条的绿色对勾只表示该阶段完成，不代表论文无问题。",
+          "en_note": "A successfully cancelled review does not produce a completion report or send its completion email. Email already accepted by a mail server cannot be reliably recalled. You can return through Notifications or Report history. A green check on the progress bar marks a completed stage, not a thesis without issues.",
+          "zh_caption": "进度、动态预计时间与停止检测入口",
+          "en_caption": "Progress, changing time estimate and the stop control"
+        },
+        {
+          "id": "live",
+          "figs": [
+            5
+          ],
+          "zh_title": "查看实时检测结果",
+          "en_title": "Read results while checks are running",
+          "zh_lead": "部分规则完成后，实时报告先显示已有结果，其余规则继续执行。数量可能继续变化，不能当作最终结论。",
+          "en_lead": "The live report shows available findings while other checks continue. Counts may change as more checks finish, so this is not the final review outcome.",
+          "zh_steps": [
+            "查看顶部汇总，了解当前已返回的结果数量。",
+            "选择右侧结果卡片或“跳到第…页”，查看对应论文位置。",
+            "留意蓝灰色旋转图标及“正在检测”；任务完成后再查看完整报告及各项执行状态。"
+          ],
+          "en_steps": [
+            "Read the summary for the findings returned so far.",
+            "Select a finding or its Go to Page link to locate the relevant thesis page.",
+            "Watch for the blue-grey spinner and In progress status. After completion, review the saved report and check execution statuses."
+          ],
+          "zh_note": "英文说明准备期间可能显示翻译中的提示，请等待完成。论文原句和文件名保持原语言。本手册已隐藏截图中的论文摘录，画面中的数量仅为演示。",
+          "en_note": "A notice may appear while English explanations are being prepared. Wait for them to become available. Quotations and filenames retain their original language. Thesis excerpts are hidden in this guide; displayed counts are illustrative.",
+          "zh_caption": "实时报告；论文摘录已隐藏",
+          "en_caption": "Live report with thesis excerpts omitted"
+        }
+      ]
+    },
+    {
+      "id": "reports",
+      "zh": "报告查看与管理",
+      "en": "Reading and managing reports",
+      "modules": []
+    },
+    {
+      "id": "extras",
+      "zh": "辅助功能",
+      "en": "Other features",
+      "modules": []
+    }
+  ]
+}

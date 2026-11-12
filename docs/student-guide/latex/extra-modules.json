@@ -1,0 +1,100 @@
+[
+  {
+    "id": "notifications",
+    "figs": [
+      18
+    ],
+    "zh_title": "查看站内通知",
+    "en_title": "Read notifications",
+    "zh_lead": "点击右上角铃铛查看通知。红点表示有未读提醒，与论文问题的严重程度无关。",
+    "en_lead": "Select the bell in the page header to open Notifications. A red dot indicates unread notifications, not a critical thesis finding.",
+    "zh_steps": [
+      "核对通知中的文件名、时间及事件，例如报告已生成、邮件已发送、检测失败或邮件发送失败。",
+      "点击对应的“查看报告”，进入该文件的报告。",
+      "处理后可选择“全部已读”。标记已读只改变提醒状态，不删除报告。"
+    ],
+    "en_steps": [
+      "Check the filename, time and event, such as Report ready, Report email sent, a failed review or failed email delivery.",
+      "Select View report on the relevant notification to open that file's report.",
+      "Use Mark all read after checking the notifications. Marking a notification as read does not delete the report."
+    ],
+    "zh_note": "“邮件已发送”表示邮件服务器已接收，不保证收件箱立即显示。报告是否可读，请直接查看站内通知或历史报告。",
+    "en_note": "Report email sent means the mail server accepted the message, not that it is already visible in your inbox. Check Notifications or Report history directly for the report.",
+    "zh_caption": "铃铛、未读红点、文件名与全部已读",
+    "en_caption": "Bell, unread indicators, filenames and Mark all read"
+  },
+  {
+    "id": "settings",
+    "figs": [
+      19,
+      20
+    ],
+    "zh_title": "设置语言、外观与退出登录",
+    "en_title": "Change preferences and sign out",
+    "zh_lead": "点击左下角用户卡片，选择“设置”。语言和外观可分别调整，不改变已上传论文或检测判断。",
+    "en_lead": "Open the user menu at the lower left and select Settings. Language and appearance are separate preferences; they do not change the thesis or review decisions.",
+    "zh_steps": [
+      "语言选择“简体中文”或 English，界面与报告说明随之切换；英文说明准备时请稍候。",
+      "外观选择浅色、深色或跟随系统。“跟随系统”采用设备当前的深浅色偏好；登录页插图不受影响。",
+      "选择后点击“完成”退出设置。需要离开账号时，在用户菜单选择“退出登录”。"
+    ],
+    "en_steps": [
+      "Choose 简体中文 or English. Interface text and report explanations follow the selection; allow time for English explanations to prepare.",
+      "Choose Light, Dark or System. System follows your device's light/dark preference. The sign-in illustration is unaffected.",
+      "Select Done to leave Settings. To leave the account, select Sign out in the user menu."
+    ],
+    "zh_note": "原文引文和文件名不翻译。导出取开始下载时的语言，通知邮件取提交检测时的语言。",
+    "en_note": "Quotations and filenames are not translated. Exports use the language at the start of download; emails use the language at submission.",
+    "zh_caption": "用户菜单及语言、外观设置",
+    "en_caption": "User menu, language and appearance settings"
+  },
+  {
+    "id": "systemfeedback",
+    "figs": [
+      21,
+      22
+    ],
+    "zh_title": "提交使用反馈",
+    "en_title": "Send feedback about the system",
+    "zh_lead": "整体体验、界面、响应速度或稳定性问题，可通过右上角“使用反馈”提交。此入口不同于某条结果的点赞、点踩。",
+    "en_lead": "For feedback about the overall experience, interface, response speed or reliability, select Feedback in the page header. This is separate from rating an individual finding.",
+    "zh_steps": [
+      "选择整体满意度星级，此项必填。",
+      "勾选需改进的方面，可多选；按需补充说明，最多 1000 字。",
+      "点击“提交反馈”，等待成功提示。写清操作步骤、预期与实际现象，有助于维护人员理解。"
+    ],
+    "en_steps": [
+      "Choose an overall satisfaction rating. This is required.",
+      "Select any areas that could be improved and add comments if useful, up to 1,000 characters.",
+      "Select Submit feedback and wait for confirmation. Describe the steps, expected behaviour and actual result to help maintainers understand the issue."
+    ],
+    "zh_note": "不要填写密码、验证码或其他敏感凭据。论文具体结果的问题，优先在对应结果卡片内反馈。",
+    "en_note": "Do not include passwords, verification codes or other sensitive credentials. Use the relevant finding card for feedback about a specific finding.",
+    "zh_caption": "使用反馈入口、评分、改进方面与提交",
+    "en_caption": "Feedback entry, rating, improvement areas and submission"
+  },
+  {
+    "id": "email",
+    "figs": [
+      23
+    ],
+    "zh_title": "通过邮件返回报告",
+    "en_title": "Open a report from an email",
+    "zh_lead": "报告生成后，系统向账号对应的通知邮箱发送提醒邮件，提供报告入口，不需要回复。",
+    "en_lead": "After a report is generated, the system sends a notification to the email address associated with your account. The email provides a report link and does not require a reply.",
+    "zh_steps": [
+      "核对标题中的系统名称及论文文件名，确认是本次报告。",
+      "点击“查看检测报告”。如需登录，使用提交该论文时的账号。",
+      "邮件及按钮语言采用提交检测时的界面语言，登录过程也保留该语言。"
+    ],
+    "en_steps": [
+      "Check the system name in the subject and the thesis filename to identify the report.",
+      "Select View report. If prompted, sign in with the account that submitted the thesis.",
+      "The email and button use the interface language selected at submission. That language is retained through sign-in."
+    ],
+    "zh_note": "没收到邮件时，先查垃圾邮件，并直接登录网站查看历史报告。中途切换界面语言不会改变已提交任务的邮件语言。",
+    "en_note": "If no email arrives, check your spam folder and sign in to view Report history directly. Switching language later does not change the email language of an already submitted review.",
+    "zh_caption": "报告通知邮件、文件名与报告链接",
+    "en_caption": "Report notification email, filename and report link"
+  }
+]

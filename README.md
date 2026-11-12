@@ -3,6 +3,12 @@
 面向学生、导师、学院管理员和学校管理员的可解释论文辅助系统。
 前端使用 React + Vite，后端使用 Express + SQLite，所有核心结果都由本地规则、公式和持久化数据生成。
 
+## 学生端操作手册
+
+- [中文 PDF（29 页）](frontend/public/manuals/智慧学位AI评阅辅助系统-学生端操作手册.pdf)
+- [English PDF (30 pages)](<frontend/public/manuals/Smart Degree · AI Review Assistant - Student User Guide.pdf>)
+- [LaTeX 源码与维护说明](docs/student-guide/README.md)
+
 ## 核心特性
 
 - 本地账号密码登录、会话恢复、退出登录

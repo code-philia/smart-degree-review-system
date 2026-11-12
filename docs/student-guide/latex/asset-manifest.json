@@ -1,0 +1,775 @@
+[
+  {
+    "key": "zh-01",
+    "pixels": [
+      2497,
+      1426
+    ],
+    "redaction_boxes": [],
+    "crop": null,
+    "sha256": "b1fc35511d79d824d58b037213a4ee0d7e076bd9865caa1f89299cb394abcf9f"
+  },
+  {
+    "key": "en-01",
+    "pixels": [
+      2497,
+      1426
+    ],
+    "redaction_boxes": [],
+    "crop": null,
+    "sha256": "f888a71e33c049f9d8eb19641e9f72a2b13a8ee4ad1cf9a631bc3d7bb250b27d"
+  },
+  {
+    "key": "zh-02",
+    "pixels": [
+      1850,
+      915
+    ],
+    "redaction_boxes": [],
+    "crop": [
+      570,
+      100,
+      2420,
+      1015
+    ],
+    "sha256": "fae575e2843dd79860c5e9b5e856e1c9bbca66180a5e24442b918ac8db6debca"
+  },
+  {
+    "key": "en-02",
+    "pixels": [
+      1860,
+      990
+    ],
+    "redaction_boxes": [],
+    "crop": [
+      570,
+      100,
+      2430,
+      1090
+    ],
+    "sha256": "00bdc8c4c476e5f1e2ed4503c644fdcafa7056b0c518fa302efb6458e68d74c2"
+  },
+  {
+    "key": "zh-03",
+    "pixels": [
+      1870,
+      1424
+    ],
+    "redaction_boxes": [],
+    "crop": [
+      570,
+      0,
+      2440,
+      1424
+    ],
+    "sha256": "6a095b1a2bd8d74497baf0b12360e2f27b3b435d769155d315524d28f38ec4c7"
+  },
+  {
+    "key": "en-03",
+    "pixels": [
+      1870,
+      1424
+    ],
+    "redaction_boxes": [],
+    "crop": [
+      570,
+      0,
+      2440,
+      1424
+    ],
+    "sha256": "de9995b5379c99eca5678a817c1bcf99a77fca1be835b3b8e366018815c710bb"
+  },
+  {
+    "key": "zh-04",
+    "pixels": [
+      2330,
+      1220
+    ],
+    "redaction_boxes": [],
+    "crop": [
+      110,
+      200,
+      2440,
+      1420
+    ],
+    "sha256": "5234690f543be35758821f317edc3c177e6c832ca937a07910e2ae0e9fc0e15b"
+  },
+  {
+    "key": "en-04",
+    "pixels": [
+      2330,
+      1220
+    ],
+    "redaction_boxes": [],
+    "crop": [
+      110,
+      200,
+      2440,
+      1420
+    ],
+    "sha256": "7df4ae874f8217c7dc82afef30a68e44005aa347a71dd3c89194fd746a0828f6"
+  },
+  {
+    "key": "zh-05",
+    "pixels": [
+      1940,
+      1305
+    ],
+    "redaction_boxes": [
+      [
+        1730,
+        934,
+        2348,
+        1005
+      ],
+      [
+        1730,
+        1207,
+        2348,
+        1282
+      ],
+      [
+        650,
+        855,
+        1510,
+        983
+      ],
+      [
+        925,
+        1090,
+        1240,
+        1175
+      ],
+      [
+        665,
+        1180,
+        1460,
+        1330
+      ]
+    ],
+    "crop": [
+      470,
+      95,
+      2410,
+      1400
+    ],
+    "sha256": "bbb7eee313e75b1a12dda1f31b26ca26c862e9038b1b51bd0e66179cdaeb2d40"
+  },
+  {
+    "key": "en-05",
+    "pixels": [
+      1940,
+      1305
+    ],
+    "redaction_boxes": [
+      [
+        1730,
+        966,
+        2365,
+        1180
+      ],
+      [
+        650,
+        855,
+        1510,
+        983
+      ],
+      [
+        925,
+        1090,
+        1240,
+        1175
+      ],
+      [
+        665,
+        1180,
+        1460,
+        1330
+      ]
+    ],
+    "crop": [
+      470,
+      95,
+      2410,
+      1400
+    ],
+    "sha256": "4eb767a8c7aaa4532c90756c293a9b753dad3c8067138e9ebf2210dda35403bd"
+  },
+  {
+    "key": "zh-06",
+    "pixels": [
+      2050,
+      900
+    ],
+    "redaction_boxes": [
+      [
+        490,
+        858,
+        1640,
+        1423
+      ]
+    ],
+    "crop": [
+      470,
+      0,
+      2520,
+      900
+    ],
+    "sha256": "a4981cef9ef7b6e060d710c0ae42f35c16863796658ba7f2f7ae6d35d19fffbc"
+  },
+  {
+    "key": "en-06",
+    "pixels": [
+      2027,
+      900
+    ],
+    "redaction_boxes": [],
+    "crop": [
+      470,
+      0,
+      2520,
+      900
+    ],
+    "sha256": "8465e779d235caf2013485f7b026b191e2b7d08b378c72afcbd2387169efde27"
+  },
+  {
+    "key": "zh-07",
+    "pixels": [
+      1970,
+      1356
+    ],
+    "redaction_boxes": [
+      [
+        500,
+        284,
+        1640,
+        1390
+      ],
+      [
+        1730,
+        575,
+        2350,
+        722
+      ]
+    ],
+    "crop": [
+      470,
+      50,
+      2440,
+      1406
+    ],
+    "sha256": "fcd604a63be221b60c669c56f8ab75518ead20dc641e5857eaa1a9fa29195f4e"
+  },
+  {
+    "key": "en-07",
+    "pixels": [
+      1970,
+      1356
+    ],
+    "redaction_boxes": [
+      [
+        1730,
+        598,
+        2340,
+        634
+      ]
+    ],
+    "crop": [
+      470,
+      50,
+      2440,
+      1406
+    ],
+    "sha256": "523decb282dc4cb097f71b86a7bf1262c43dbb8bc41daabc67b7e6f19addbdf0"
+  },
+  {
+    "key": "zh-08",
+    "pixels": [
+      2050,
+      960
+    ],
+    "redaction_boxes": [],
+    "crop": [
+      410,
+      80,
+      2460,
+      1040
+    ],
+    "sha256": "4ad381937491ca5094503e649780fa5786e55441baf58396bdbc73c2bfc0d52c"
+  },
+  {
+    "key": "en-08",
+    "pixels": [
+      2050,
+      960
+    ],
+    "redaction_boxes": [],
+    "crop": [
+      410,
+      80,
+      2460,
+      1040
+    ],
+    "sha256": "6a1d593a110289948c11e108e3f8d412b1bc1ac8831efaaeb34bd2be9f85e6b5"
+  },
+  {
+    "key": "zh-09",
+    "pixels": [
+      2050,
+      1360
+    ],
+    "redaction_boxes": [],
+    "crop": [
+      470,
+      0,
+      2520,
+      1360
+    ],
+    "sha256": "bd90d16f14c7ab9731262b70a67eebc4868b0b3a01286de81a33f34031adedaa"
+  },
+  {
+    "key": "en-09",
+    "pixels": [
+      2050,
+      1360
+    ],
+    "redaction_boxes": [],
+    "crop": [
+      470,
+      0,
+      2520,
+      1360
+    ],
+    "sha256": "069fa0fb6bec14fb470e2373d7912a89023907278ea53f8e03b7220ef07d2592"
+  },
+  {
+    "key": "zh-10",
+    "pixels": [
+      674,
+      812
+    ],
+    "redaction_boxes": [
+      [
+        20,
+        112,
+        660,
+        229
+      ],
+      [
+        20,
+        229,
+        301,
+        252
+      ]
+    ],
+    "crop": null,
+    "sha256": "5de2458e35e7861744de3d9a1081d15f636bdd0f4b94f437aa844c6c1bbda504"
+  },
+  {
+    "key": "en-10",
+    "pixels": [
+      1420,
+      705
+    ],
+    "redaction_boxes": [
+      [
+        1730,
+        600,
+        2340,
+        671
+      ]
+    ],
+    "crop": [
+      970,
+      475,
+      2390,
+      1180
+    ],
+    "sha256": "93d66bf4d95d910f83ab99b1aad472e05ff9647ec3346ab0658708cde84d165b"
+  },
+  {
+    "key": "zh-11",
+    "pixels": [
+      584,
+      873
+    ],
+    "redaction_boxes": [
+      [
+        20,
+        103,
+        563,
+        202
+      ],
+      [
+        30,
+        445,
+        551,
+        662
+      ]
+    ],
+    "crop": null,
+    "sha256": "9a2a0f990c69cf80e20487c49f5ee8877905dbd783b27436939094c315d24205"
+  },
+  {
+    "key": "en-11",
+    "pixels": [
+      482,
+      821
+    ],
+    "redaction_boxes": [
+      [
+        18,
+        92,
+        466,
+        255
+      ],
+      [
+        24,
+        463,
+        455,
+        684
+      ]
+    ],
+    "crop": null,
+    "sha256": "59b90ba8ccf4803f0a485daf3898d14be95f12e5f00e3cc3ef905df4457d50bd"
+  },
+  {
+    "key": "zh-12",
+    "pixels": [
+      1940,
+      510
+    ],
+    "redaction_boxes": [],
+    "crop": [
+      470,
+      210,
+      2410,
+      720
+    ],
+    "sha256": "de88f25b923ad692492e611864fc86596a8db6c4254cde785eb5bc51a78d1e6a"
+  },
+  {
+    "key": "en-12",
+    "pixels": [
+      1940,
+      510
+    ],
+    "redaction_boxes": [],
+    "crop": [
+      470,
+      210,
+      2410,
+      720
+    ],
+    "sha256": "368ca51be788a3332e865fa3830d208120d102ded3d8e32b04d7c5c4188f5b75"
+  },
+  {
+    "key": "zh-13",
+    "pixels": [
+      915,
+      950
+    ],
+    "redaction_boxes": [],
+    "crop": [
+      795,
+      100,
+      1710,
+      1050
+    ],
+    "sha256": "4b21604b90a070ee15b2e66e3815292c1311a0a7de59d966435d498752a02ea4"
+  },
+  {
+    "key": "en-13",
+    "pixels": [
+      915,
+      950
+    ],
+    "redaction_boxes": [],
+    "crop": [
+      795,
+      100,
+      1710,
+      1050
+    ],
+    "sha256": "78458d9bdbd2318b1e3545417f2527338085dfd9051fcfe39e63c0471de068c1"
+  },
+  {
+    "key": "zh-14",
+    "pixels": [
+      1940,
+      1200
+    ],
+    "redaction_boxes": [],
+    "crop": [
+      570,
+      120,
+      2510,
+      1320
+    ],
+    "sha256": "f4dcdc21e860bd080c256e9a2bc1dfdea472ae38d7d0e3f39d14563703228143"
+  },
+  {
+    "key": "en-14",
+    "pixels": [
+      1940,
+      1200
+    ],
+    "redaction_boxes": [],
+    "crop": [
+      570,
+      120,
+      2510,
+      1320
+    ],
+    "sha256": "a7db7e5b1105e0b3a6de668853713aa6f3f13d15ff6505e834adc65b1d99c553"
+  },
+  {
+    "key": "zh-15",
+    "pixels": [
+      860,
+      829
+    ],
+    "redaction_boxes": [
+      [
+        40,
+        156,
+        819,
+        211
+      ]
+    ],
+    "crop": null,
+    "sha256": "fac436ca2329a75a71af37cfcd77599bcec8bdcdab68a696104ec8bc031b4602"
+  },
+  {
+    "key": "en-15",
+    "pixels": [
+      1640,
+      1080
+    ],
+    "redaction_boxes": [
+      [
+        859,
+        461,
+        1615,
+        522
+      ]
+    ],
+    "crop": [
+      800,
+      70,
+      2440,
+      1150
+    ],
+    "sha256": "70214a44ddb120875e35855fe21da40fb5c7ba0db6cb2a8a333d3e7f99b59d11"
+  },
+  {
+    "key": "zh-16",
+    "pixels": [
+      719,
+      396
+    ],
+    "redaction_boxes": [],
+    "crop": null,
+    "sha256": "e22ce7363f93d9bfb8f182c65425cf7ee8503b755de5780257cd2b96358938fc"
+  },
+  {
+    "key": "en-16",
+    "pixels": [
+      721,
+      441
+    ],
+    "redaction_boxes": [],
+    "crop": null,
+    "sha256": "2eb8c64edc0da67d6d84f0b077ebd5dfcca9070a21b789cac03578822d96a71e"
+  },
+  {
+    "key": "zh-17",
+    "pixels": [
+      1760,
+      1180
+    ],
+    "redaction_boxes": [],
+    "crop": [
+      570,
+      120,
+      2330,
+      1300
+    ],
+    "sha256": "cf7597fba61d1b6dc4fe135f9d62419f51ebe3fdf56b8f22423a1161d41f719d"
+  },
+  {
+    "key": "en-17",
+    "pixels": [
+      1760,
+      1180
+    ],
+    "redaction_boxes": [],
+    "crop": [
+      570,
+      120,
+      2330,
+      1300
+    ],
+    "sha256": "729c18f694794287e5c005755b009dbaba4df43b05b725f2bdb60fd22569574f"
+  },
+  {
+    "key": "zh-18",
+    "pixels": [
+      1450,
+      1310
+    ],
+    "redaction_boxes": [],
+    "crop": [
+      1020,
+      0,
+      2470,
+      1310
+    ],
+    "sha256": "c6c2e54091ca4e0c4d587b2da81cf3449927fbed7b2136796629f8a05260e058"
+  },
+  {
+    "key": "en-18",
+    "pixels": [
+      1420,
+      1095
+    ],
+    "redaction_boxes": [],
+    "crop": [
+      920,
+      5,
+      2340,
+      1100
+    ],
+    "sha256": "dd34f14fca0e2795bb52136c4f937a12b1cbc82e25e39758d9eb14f9e9c0afa0"
+  },
+  {
+    "key": "zh-19",
+    "pixels": [
+      1820,
+      302
+    ],
+    "redaction_boxes": [],
+    "crop": [
+      0,
+      1120,
+      1820,
+      1422
+    ],
+    "sha256": "3b482d2ea6c5035ffb438c5381636223baa67ec7112f42688b93c8b7ba76df86"
+  },
+  {
+    "key": "en-19",
+    "pixels": [
+      1820,
+      306
+    ],
+    "redaction_boxes": [],
+    "crop": [
+      0,
+      1120,
+      1820,
+      1426
+    ],
+    "sha256": "a0eb317a612277b64dcecc2003de0ba8fb4c0c684473eb6419ba97960cfd566b"
+  },
+  {
+    "key": "zh-20",
+    "pixels": [
+      781,
+      711
+    ],
+    "redaction_boxes": [],
+    "crop": null,
+    "sha256": "3996d38d014cb79a95900b67031d8f731e2b5a919e20bbae51c55c9409621331"
+  },
+  {
+    "key": "en-20",
+    "pixels": [
+      1640,
+      730
+    ],
+    "redaction_boxes": [],
+    "crop": [
+      850,
+      350,
+      2490,
+      1080
+    ],
+    "sha256": "c5e72e623a1077483f48e8c55894c3a342d7ad59300f1a1fc42140f12da3a429"
+  },
+  {
+    "key": "zh-21",
+    "pixels": [
+      550,
+      420
+    ],
+    "redaction_boxes": [],
+    "crop": [
+      1940,
+      0,
+      2490,
+      420
+    ],
+    "sha256": "2a60bdd3e5d9aa1c62bd454d87d9187c6399b3d2e049c71d0ceafd46d5e2cdd3"
+  },
+  {
+    "key": "en-21",
+    "pixels": [
+      1070,
+      300
+    ],
+    "redaction_boxes": [],
+    "crop": [
+      1420,
+      0,
+      2490,
+      300
+    ],
+    "sha256": "1516bf9cec925fda2b828200f4eeffef9ba5ff1e02340e1553274b326d4eaee5"
+  },
+  {
+    "key": "zh-22",
+    "pixels": [
+      865,
+      1187
+    ],
+    "redaction_boxes": [],
+    "crop": null,
+    "sha256": "4738a0add3143a0f654a663256a61941caeb94f4961b98740cf9434c5e1d8d91"
+  },
+  {
+    "key": "en-22",
+    "pixels": [
+      1660,
+      1272
+    ],
+    "redaction_boxes": [],
+    "crop": [
+      810,
+      108,
+      2470,
+      1380
+    ],
+    "sha256": "f0011686d784fd5c4724c93f2dfb6e08724dded20942e91c9c6f5d5f05809af5"
+  },
+  {
+    "key": "zh-23",
+    "pixels": [
+      1307,
+      996
+    ],
+    "redaction_boxes": [],
+    "crop": null,
+    "sha256": "62e37af82a34917a2544aeb6eba25a93bdec90cab392484c3528cea6567658c8"
+  },
+  {
+    "key": "en-23",
+    "pixels": [
+      1309,
+      1057
+    ],
+    "redaction_boxes": [],
+    "crop": null,
+    "sha256": "1f67bfa9245842f5a63754d6f6abf336b5c012dcdf0ebb54fa0ab478f3de6df5"
+  }
+]

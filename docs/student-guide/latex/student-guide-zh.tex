@@ -1,0 +1,273 @@
+
+\documentclass[12pt,a4paper]{article}
+\usepackage[left=22mm,right=22mm,top=23mm,bottom=23mm,headheight=15pt,headsep=8mm]{geometry}
+\usepackage{fontspec,xeCJK}
+\setmainfont{DejaVu Serif}
+\setsansfont{DejaVu Sans}
+\setCJKmainfont{Noto Serif CJK SC}
+\setCJKsansfont{Noto Sans CJK SC}
+\setCJKmonofont{Noto Sans Mono CJK SC}
+\usepackage{graphicx,xcolor,tikz,enumitem,needspace,tabularx,array,booktabs,fancyhdr,titlesec}
+\usetikzlibrary{arrows.meta,calc}
+\usepackage[unicode,colorlinks=true,linkcolor=navy,urlcolor=maroon,bookmarksopen=true,bookmarksnumbered=true]{hyperref}
+\definecolor{navy}{HTML}{172D46}
+\definecolor{maroon}{HTML}{96364F}
+\definecolor{muted}{HTML}{526276}
+\definecolor{pale}{HTML}{F2F5F9}
+\definecolor{rose}{HTML}{E11D48}
+\definecolor{amber}{HTML}{D97706}
+\definecolor{blue}{HTML}{2563EB}
+\definecolor{progressink}{HTML}{1F3F63}
+\definecolor{progressbg}{HTML}{F5F9FF}
+\definecolor{violet}{HTML}{7C3AED}
+\definecolor{green}{HTML}{059669}
+\definecolor{slate}{HTML}{64748B}
+\hypersetup{pdftitle={智慧学位 AI 评阅辅助系统：学生端操作手册 / Student User Guide},pdfauthor={智慧学位 AI 评阅辅助系统},pdfsubject={Chinese followed by English, illustrated student instructions}}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+\setlength{\emergencystretch}{2em}
+\AtBeginDocument{\fontsize{12}{19.5}\selectfont}
+\setlist[enumerate]{leftmargin=1.8em,label=\textcolor{maroon}{\bfseries\arabic*.},itemsep=4pt,topsep=5pt,parsep=0pt}
+\setlist[itemize]{leftmargin=1.5em,itemsep=4pt,topsep=5pt}
+\titleformat{\section}{\sffamily\bfseries\color{navy}\fontsize{19}{25}\selectfont}{\textcolor{maroon}{\thesection}}{.7em}{}
+\titleformat{\subsection}{\sffamily\bfseries\color{navy}\fontsize{15}{21}\selectfont}{\thesubsection}{.65em}{}
+\titlespacing*{\section}{0pt}{0pt}{10pt}
+\titlespacing*{\subsection}{0pt}{8pt}{9pt}
+\newcommand{\currentlanguage}{zh}
+\renewcommand{\theHsection}{\currentlanguage.\arabic{section}}
+\renewcommand{\theHsubsection}{\theHsection.\arabic{subsection}}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\sffamily\fontsize{9}{12}\selectfont\color{muted}\runningtitle}
+\fancyhead[R]{\sffamily\fontsize{9}{12}\selectfont\color{muted}2026.11}
+\fancyfoot[C]{\sffamily\fontsize{10}{13}\selectfont\color{muted}\thepage}
+\renewcommand{\headrulewidth}{.35pt}
+\renewcommand{\footrulewidth}{0pt}
+\newcommand{\runningtitle}{学生端操作手册}
+\newcommand{\note}[1]{\par\medskip\noindent\begingroup\setlength{\fboxsep}{9pt}\colorbox{pale}{\parbox{\dimexpr\linewidth-18pt\relax}{#1}}\endgroup\par}
+\newcommand{\pic}[5]{\begin{center}\includegraphics[width=#3,height=#4,keepaspectratio]{guide-assets/#1.png}\par\vspace{3pt}{\fontsize{10}{14}\selectfont\color{muted}#5}\label{fig:#1}\end{center}}
+\newcommand{\circlex}{\tikz[baseline=-.4ex,x=.65em,y=.65em,line width=.8pt,sharp corners]{\draw (0,0)circle(.65);\draw(-.24,-.24)--(.24,.24)(-.24,.24)--(.24,-.24);}}
+\newcommand{\triangleicon}{\tikz[baseline=-.4ex,x=.65em,y=.65em,line width=.8pt,sharp corners]{\draw(0,.72)--(-.68,-.48)--(.68,-.48)--cycle;\draw(0,.3)--(0,-.08);\fill(0,-.27)circle(.05);}}
+\newcommand{\infoicon}{\tikz[baseline=-.4ex,x=.65em,y=.65em,line width=.8pt,sharp corners]{\draw(0,0)circle(.65);\draw(0,-.3)--(0,.08);\fill(0,.32)circle(.06);}}
+\newcommand{\shieldicon}{\tikz[baseline=-.4ex,x=.65em,y=.65em,line width=.8pt,sharp corners]{\draw(0,.7)--(.58,.46)--(.48,-.23)..controls(.2,-.57)..(0,-.72)..controls(-.2,-.57)..(-.48,-.23)--(-.58,.46)--cycle;\draw(0,.3)--(0,-.08);\fill(0,-.3)circle(.05);}}
+\newcommand{\spinicon}{\tikz[baseline=-.4ex,x=.65em,y=.65em,line width=1pt,sharp corners]{\draw(30:.62)arc(30:320:.62);}}
+\newcommand{\alerticon}{\tikz[baseline=-.4ex,x=.65em,y=.65em,line width=.8pt,sharp corners]{\draw(0,0)circle(.65);\draw(0,.32)--(0,-.08);\fill(0,-.3)circle(.05);}}
+\newcommand{\questionicon}{\tikz[baseline=-.4ex,x=.65em,y=.65em,line width=.8pt,sharp corners]{\draw(0,0)circle(.65);\node[font=\sffamily\bfseries\scriptsize]at(0,0){?};}}
+\newcommand{\checkicon}{\tikz[baseline=-.4ex,x=.65em,y=.65em,line width=.8pt,sharp corners]{\draw(0,0)circle(.65);\draw(-.32,0)--(-.08,-.24)--(.35,.27);}}
+\newcommand{\flaskicon}{\tikz[baseline=-.4ex,x=.65em,y=.65em,line width=.8pt,sharp corners]{\draw(-.25,.7)--(.25,.7)(-.15,.7)--(-.15,.2)--(-.63,-.56)--(.63,-.56)--(.15,.2)--(.15,.7);\draw(-.38,-.18)--(.38,-.18);}}
+\newsavebox{\badgeIconBox}
+\newsavebox{\badgeLabelBox}
+\newlength{\badgeIconLift}
+\newcommand{\badge}[4]{%
+  \begingroup\color{#1}%
+  \sbox{\badgeLabelBox}{\sffamily\small\color{black}#3}%
+  \sbox{\badgeIconBox}{\sffamily\small#2}%
+  \setlength{\badgeIconLift}{\dimexpr(\ht\badgeLabelBox-\dp\badgeLabelBox-\ht\badgeIconBox+\dp\badgeIconBox)/2\relax}%
+  \tikz[baseline=-.6ex]\node[rounded corners=4pt,fill=#4,inner xsep=6pt,inner ysep=4pt,font=\sffamily\small]{\raisebox{\badgeIconLift}{\usebox{\badgeIconBox}}\hspace{4pt}\usebox{\badgeLabelBox}};%
+  \endgroup}
+\raggedbottom
+\begin{document}
+
+\hypersetup{pdftitle={智慧学位 AI 评阅辅助系统 - 学生端操作手册},pdfsubject={学生端操作手册},pdflang={zh-CN}}
+\clearpage
+\renewcommand{\currentlanguage}{zh}
+\renewcommand{\runningtitle}{智慧学位 AI 评阅辅助系统 · 学生端操作手册}
+\clearpage\thispagestyle{empty}\pdfbookmark[0]{学生端操作手册}{part-zh}
+\vspace*{26mm}\begingroup\centering\includegraphics[width=22mm]{guide-assets/sjtu-emblem.jpg}\par
+\vspace{22mm}{\sffamily\color{navy}\bfseries\fontsize{24}{34}\selectfont 智慧学位 AI 评阅辅助系统\par}
+\vspace{10mm}{\sffamily\color{navy}\bfseries\fontsize{32}{42}\selectfont 学生端操作手册\par}
+\vspace{15mm}{\color{maroon}\rule{.62\linewidth}{1.1pt}}\par\vspace{15mm}
+{\sffamily\color{muted}学生使用入口\par}\vspace{2mm}\url{https://thesis-review.sjtu.edu.cn}\par
+\vfill{\color{muted}2026 年 11 月\par}
+\vspace*{7mm}\par\endgroup
+\clearpage\thispagestyle{plain}\section*{目录}
+\noindent\hyperref[zh:intro]{1  文档介绍}\dotfill\pageref{zh:intro}\par\vspace{5mm}
+\noindent\hyperref[zh:overview]{2  系统概述}\dotfill\pageref{zh:overview}\par\vspace{5mm}
+\noindent\hyperref[zh:basic]{3  基本操作}\dotfill\pageref{zh:basic}\par\vspace{5mm}
+\noindent\hyperref[zh:reports]{4  报告查看与管理}\dotfill\pageref{zh:reports}\par\vspace{5mm}
+\noindent\hyperref[zh:extras]{5  辅助功能}\dotfill\pageref{zh:extras}\par\vspace{5mm}
+\noindent\hyperref[zh:faq]{6  常见问题}\dotfill\pageref{zh:faq}\par\vspace{5mm}
+\noindent\hyperref[zh:rules]{附录：检测规则速查}\dotfill\pageref{zh:rules}\par\vspace{5mm}
+\vspace{5mm}{\sffamily\bfseries\color{navy}常用操作快速定位}\par
+\hyperref[zh:upload]{上传文件要求}\dotfill\pageref{zh:upload}\par
+\hyperref[zh:progress]{停止检测}\dotfill\pageref{zh:progress}\par
+\hyperref[zh:reading]{阅读工具}\dotfill\pageref{zh:reading}\par
+\hyperref[zh:badges]{颜色与徽标说明}\dotfill\pageref{zh:badges}\par
+\hyperref[zh:export]{下载报告}\dotfill\pageref{zh:export}\par
+\hyperref[zh:settings]{语言与外观}\dotfill\pageref{zh:settings}\par
+\clearpage\setcounter{section}{0}\section{文档介绍}\label{zh:intro}
+\subsection*{编写目的}本手册帮助学生完成登录、论文提交、结果复核、报告下载与历史记录管理。按照编号步骤操作，并结合对应截图中的红框、箭头和文字定位按钮。\par
+\subsection*{适用范围}适用于智慧学位 AI 评阅辅助系统学生端。内容依据 2026 年 11 月的界面整理。请使用正式域名；后续界面局部变化时，以当前页面提示为准。\par
+\subsection*{阅读约定}图 01—23 在每种语言中分别对应同一组操作；同一流程可能合用两张图。截图中的数量、时间和账号仅用于说明操作。\par
+\subsection*{内容保护}手册不展示他人论文正文。请以本人实际报告为准，逐项核对原文。\par
+\subsection*{结果使用}系统提供辅助检查与修改建议，不代替导师、学院或学校的人工审核。请对照论文原文与学校要求逐项复核，不把“未发现问题”理解为合规证明。\par
+\clearpage\section{系统概述}\label{zh:overview}
+系统围绕学位论文的规范性检查，帮助发现格式、文字、双语内容及部分论点论据问题，并把结果与 PDF 页面关联。可在检测过程中查看已有结果，完成后再按文件保存、复核和下载报告。
+\subsection*{开始前准备}
+\begin{itemize}\item 本人可用的校园 jAccount 账号。\item 需要检测的学位论文：文字版 PDF，文件不超过 50 MB。不能上传非论文 PDF，也不能使用扫描版或纯图片 PDF。\item 保留 Word 或 LaTeX 源文件，便于根据复核结果自行修改。\end{itemize}
+\subsection*{推荐流程}
+\begin{enumerate}\item 登录系统\item 上传论文\item 选择规则\item 开始检测\item 复核报告\item 修改源文件\item 上传新版本\end{enumerate}
+\note{建议首次按第 3 章完整完成一次流程。已有报告可直接到第 4 章；通知、邮件、设置和使用反馈见第 5 章。}
+\clearpage\section{基本操作}\label{zh:basic}
+\subsection{登录系统}\label{zh:login}
+在浏览器中打开正式入口 \url{https://thesis-review.sjtu.edu.cn}，使用本人校园账号登录。首次使用可先选择界面语言。\par
+\pic{zh-01}{登录首页与语言切换}{\linewidth}{109mm}{图 01  登录首页与语言切换}
+\begin{enumerate}\item 在登录页左下角选择中文或 EN。\item 点击“使用 jAccount 登录”，按校园统一身份认证页面的提示完成认证。\item 返回系统后进入“论文上传”。从邮件链接进入时，登录后将返回对应报告。\end{enumerate}
+\note{请使用提交论文时的同一账号查看报告。在公共电脑上操作后，记得退出登录。}
+\clearpage
+\subsection{选择论文 PDF}\label{zh:upload}
+左侧选择“论文上传”，点击上传区域选择文件，也可将文件拖入该区域。每次提交一份论文。\par
+\pic{zh-02}{确认论文文件与开始检测入口}{\linewidth}{109mm}{图 02  确认论文文件与开始检测入口}
+\begin{enumerate}\item 文件必须是需要检测的学位论文，不能上传其他用途的 PDF 文件。\item 文件必须是含可选择、可复制文字的 PDF，不超过 50 MB。不能使用扫描版或纯图片 PDF。\item 核对页面显示的文件名和版本；选错时先移除，再重新选择。\item 展开“检测规则”确认范围后，点击“开始检测”。规则选择见下一页。\end{enumerate}
+\note{提交前可在本地 PDF 阅读器中尝试选择并复制一段正文。无法选中文字时，请从 Word 或 LaTeX 源文件重新导出文字版 PDF。}
+\clearpage
+\subsection{选择检测规则与确认额度}\label{zh:checks}
+展开检测规则，按需要选择格式规范、内容规范以及论点论据审查中的检查项。已选数量会同步更新。\par
+\pic{zh-03}{选择检查项；紫色烧瓶表示实验性功能}{\linewidth}{124mm}{图 03  选择检查项；紫色烧瓶表示实验性功能}
+\begin{enumerate}\item 使用整体或分组的“全选／清空”，也可逐项勾选。至少保留一项可用规则。\item 阅读规则描述，确认检查对象。紫色烧瓶“实验性”表示试验阶段的功能，结果需要谨慎复核。\item 确认论文与规则后开始检测。普通用户每天可成功生成 3 份报告，北京时间次日 00:00 刷新。\end{enumerate}
+\note{仅成功生成报告计次，失败或取消不计次。进行中的任务暂占名额；新检测与增量补跑共用额度。删除报告不退次数。以账号当前可用额度为准。}
+\clearpage
+\subsection{查看进度与停止检测}\label{zh:progress}
+开始后，页面显示上传、排队及规则执行进度。预计时间会随处理情况变化，并非固定完成时间。\par
+\pic{zh-04}{进度、动态预计时间与停止检测入口}{\linewidth}{109mm}{图 04  进度、动态预计时间与停止检测入口}
+\begin{enumerate}\item 查看当前阶段、完成数量与预计时间。请勿因等待而重复提交同一任务。\item 需要中止时点击“停止检测”，等待服务器返回结果。只有页面确认取消成功，才表示任务已停止。\item 若提示“检测已完成，无法取消”，可查看报告或稍后查看；这不属于取消成功。\end{enumerate}
+\note{取消成功后不生成该次完成报告，也不发该次完成邮件。已被邮件服务器接收的邮件无法保证撤回。正常检测无需一直盯着页面，完成后可从通知或历史报告查看。 流程条的绿色对勾只表示该阶段完成，不代表论文无问题。}
+\clearpage
+\subsection{查看实时检测结果}\label{zh:live}
+部分规则完成后，实时报告先显示已有结果，其余规则继续执行。数量可能继续变化，不能当作最终结论。\par
+\pic{zh-05}{实时报告；论文摘录已隐藏}{\linewidth}{109mm}{图 05  实时报告；论文摘录已隐藏}
+\begin{enumerate}\item 查看顶部汇总，了解当前已返回的结果数量。\item 选择右侧结果卡片或“跳到第…页”，查看对应论文位置。\item 留意蓝灰色旋转图标及“正在检测”；任务完成后再查看完整报告及各项执行状态。\end{enumerate}
+\note{英文说明准备期间可能显示翻译中的提示，请等待完成。论文原句和文件名保持原语言。本手册已隐藏截图中的论文摘录，画面中的数量仅为演示。}
+\clearpage\section{报告查看与管理}\label{zh:reports}
+\subsection{先看汇总与检测范围}\label{zh:summary}
+打开报告后，先核对文件，再查看统计和检测范围。结果总数不代表所有规则都已成功执行。\par
+\pic{zh-06}{核对文件、汇总结果与检测范围}{\linewidth}{90mm}{图 06  核对文件、汇总结果与检测范围}
+\begin{enumerate}\item 核对文件名与报告时间，避免误看旧版本论文。\item 查看严重、警告、提示和规则未实现警告等数量。徽标的颜色、图标和含义见本章专页。\item 展开“本次检测范围”查看所选规则，并结合规则筛选列表中的执行状态，判断是否需要补跑或人工复核。\end{enumerate}
+\note{“0 项问题”不等于论文合规证明。未完成、失败、不适用或无法判定的检查，仍需结合说明处理。}
+\clearpage
+\subsection{对照论文阅读检测结果}\label{zh:locate}
+报告详情分为左侧 PDF 和右侧结果列表，两边分别滚动。先读清问题说明，再核对论文上下文。\par
+\pic{zh-07}{PDF 与检测结果联动；论文正文已隐藏}{\linewidth}{101mm}{图 07  PDF 与检测结果联动；论文正文已隐藏}
+\begin{enumerate}\item 点击右侧结果，或卡片中的“跳到第…页”，定位相关页面。\item 有精确位置的结果可能显示高亮；仅有页码的结果不一定出现精确框选。\item 结合原文判断是否修改，不要仅凭规则名或颜色直接改动论文。\end{enumerate}
+\note{论文印刷页码可能使用罗马数字，与 PDF 实际页序不同。阅读工具输入的是 PDF 页序；卡片可能显示识别出的论文页码。 卡片对勾是本次页面的临时已处理标记，刷新后不保留，也不会修改论文。}
+\clearpage
+\subsection{使用阅读工具}\label{zh:reading}
+点击 PDF 面板右上角“阅读工具”展开工具栏。工具只改变阅读方式，不会修改论文、结果或执行状态。\par
+\pic{zh-08}{翻页、页码、高亮、缩放与原始 PDF 工具}{\linewidth}{98mm}{图 08  翻页、页码、高亮、缩放与原始 PDF 工具}
+\begin{enumerate}\item 左右箭头：上一页、下一页。页码框：输入有效的 PDF 页序后按 Enter。\item 斜线眼睛：隐藏高亮；眼睛：显示选中结果的高亮；荧光笔：显示所有可用高亮。\item 放大镜减号／加号：缩小／放大。链条图标：在新标签页打开完整原始 PDF。\end{enumerate}
+\note{新标签页中的文件是上传的论文原始 PDF，不是检测报告。保存检测结果请用“下载检测报告”。}
+\clearpage
+\subsection{按类别或规则筛选}\label{zh:filter}
+结果较多时，先按问题类别筛选，再用规则下拉框缩小范围。筛选只改变当前显示，不会删除结果。\par
+\pic{zh-09}{类别筛选、规则筛选及数量／状态徽标}{\linewidth}{109mm}{图 09  类别筛选、规则筛选及数量／状态徽标}
+\begin{enumerate}\item 选择“全部、严重、警告、提示、规则未实现警告”。选择“全部”恢复全部类别。\item 打开下拉框选择具体规则，或选择“全部检查项”恢复全部规则。\item 查看右侧数量和状态徽标。三角形加数字通常表示问题数量；旋转圆环、盾牌等另有含义，见下一页。\end{enumerate}
+\note{实时报告筛选后仍可能保留正在执行的规则。当前筛选下没有结果，不代表整份报告没有其他类别的问题。}
+\clearpage\subsection{读懂徽标的颜色与图标}\label{zh:badges}
+不要只看颜色：同时看图标、文字、数字及所选筛选范围。浅色／深色模式底色会变化，下列以浅色模式示意。\par
+\vspace{3mm}\begingroup\renewcommand{\tabularxcolumn}[1]{m{#1}}\renewcommand{\arraystretch}{1.1}\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}m{39mm}@{\hspace{7mm}}>{\raggedright\arraybackslash}X@{}}\toprule
+徽标示意 & 含义与使用方法\\\midrule\addlinespace[6pt]
+\badge{rose}{\circlex}{严重}{rose!8} & 红色圆圈叉号：需要优先复核的问题。数字表示当前显示范围内的严重结果数。\\\addlinespace[7pt]
+\badge{amber}{\triangleicon}{警告}{amber!8} & 橙黄色三角感叹号：需要核对的规范问题。数字是警告数，不是失败规则数。\\\addlinespace[7pt]
+\badge{blue}{\infoicon}{提示}{blue!8} & 蓝色圆圈 i：信息性结果或需人工关注的提示，不等于严重错误。\\\addlinespace[7pt]
+\badge{violet}{\shieldicon}{盾牌}{violet!8} & 紫色盾牌感叹号：规则未实现警告，相关核验未能完整落实；不能当作已证实的论文错误。\\\addlinespace[7pt]
+\bottomrule\end{tabularx}\endgroup\clearpage\subsection*{执行状态与功能标签}
+\begingroup\renewcommand{\tabularxcolumn}[1]{m{#1}}\renewcommand{\arraystretch}{1.1}\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}m{39mm}@{\hspace{7mm}}>{\raggedright\arraybackslash}X@{}}\toprule
+徽标示意 & 含义与使用方法\\\midrule\addlinespace[6pt]
+\badge{progressink}{\spinicon}{\textcolor{progressink}{正在检测}}{progressbg} & 蓝灰色旋转圆环：规则仍在执行。“全部检查项”后的数字是仍在执行的规则数。\\\addlinespace[7pt]
+\badge{rose}{\alerticon}{检测失败}{rose!8} & 红色圆圈感叹号：检查执行失败，与红色叉号的严重问题不同。\\\addlinespace[7pt]
+\badge{slate}{\questionicon}{不适用}{slate!8} & 灰色圆圈问号：当前论文不适用该项检查。结合状态说明理解，不能据此推断所有内容合格。\\\addlinespace[7pt]
+\badge{green}{\checkicon}{0}{green!8} & 绿色圆圈对勾和 0：当前显示范围未发现对应问题，不能代替整份报告的结论。\\\addlinespace[7pt]
+\badge{violet}{\flaskicon}{实验性}{violet!8} & 紫色烧瓶：试验阶段的功能标签。它不是规则未实现警告，也不表示发现问题。\\\addlinespace[7pt]
+\bottomrule\end{tabularx}\endgroup
+\note{完整分类名称为“规则未实现警告”。汇总栏可能只显示紫色盾牌和数字，悬停可看说明。“未完成／无法判定”等需读具体状态；顶部蓝色盾牌“试点验证版”表示系统处于试点阶段；铃铛红点仅表示未读，二者都不是论文问题等级。}
+\clearpage
+\subsection{评价一条检测结果}\label{zh:findingfeedback}
+如认为某条结果准确或存在误判，可在结果卡片内反馈。此处评价的是这一条检测结果。\par
+\noindent\begin{minipage}[t]{.46\linewidth}\vspace{0pt}\raggedright\pic{zh-10}{结果评价、原因与提交入口}{\linewidth}{125mm}{图 10  结果评价、原因与提交入口}\end{minipage}\hfill\begin{minipage}[t]{.50\linewidth}\vspace{0pt}\raggedright\begin{enumerate}\item 在“这个问题的判断是否准确？”处选择点赞或点踩。\item 按需选择原因并补充说明，尽量写清误判位置及理由。\item 点击“提交反馈”；已提交的评价可通过“取消评价”撤回。\end{enumerate}\end{minipage}
+\note{反馈不会自动删除问题或修改论文。此入口与建议评价、右上角“使用反馈”不同。}
+\clearpage
+\subsection{阅读修复建议并修改源文件}\label{zh:repair}
+部分结果支持生成修复建议。建议帮助理解如何调整，不能替代你对论文原文和学校要求的判断。\par
+\noindent\begin{minipage}[t]{.46\linewidth}\vspace{0pt}\raggedright\pic{zh-11}{修复建议与评价；论文摘录已隐藏}{\linewidth}{125mm}{图 11  修复建议与评价；论文摘录已隐藏}\end{minipage}\hfill\begin{minipage}[t]{.50\linewidth}\vspace{0pt}\raggedright\begin{enumerate}\item 在支持该功能的卡片中点击“获取修复建议”，等待返回后完整阅读。\item 核对建议与原文，在本地 Word 或 LaTeX 源文件中修改。系统不会自动改写上传的 PDF。\item 可对建议点赞或点踩。修改后导出新 PDF，从“论文上传”重新提交。\end{enumerate}\end{minipage}
+\note{建议无法生成时，可稍后重试或人工复核。不要用“增量补跑”检测修改后的新论文文件。}
+\clearpage
+\subsection{下载检测报告}\label{zh:export}
+核对报告顶部文件名，点击“下载检测报告”，再选择格式。导出的是检测结果，不是论文原始 PDF。\par
+\pic{zh-12}{下载入口}{\linewidth}{43mm}{图 12  下载入口}
+\noindent\begin{minipage}[t]{.43\linewidth}\vspace{0pt}\raggedright\pic{zh-13}{选择格式}{\linewidth}{81mm}{图 13  选择格式}\end{minipage}\hfill\begin{minipage}[t]{.53\linewidth}\vspace{0pt}\raggedright\begin{enumerate}\item PDF 适合阅读和打印；Word 便于继续整理；Markdown、文本用于保存文字。\item 图片用于保存报告页面；JSON 提供结构化数据。按需要选择六种格式之一。\item 导出语言取决于开始下载时的界面语言。导出英文报告前，先等待英文说明准备完整。\end{enumerate}\end{minipage}
+\note{中途切换语言不会将一次导出混成双语。引文、文件名保留原语言。取消导出不会取消论文检测。}
+\clearpage
+\subsection{查找历史报告}\label{zh:history}
+左侧选择“历史报告”，查看本人已保存的报告。先按文件名定位，再核对创建时间，区分论文版本。\par
+\pic{zh-14}{搜索、查看、补跑、删除与分页}{\linewidth}{109mm}{图 14  搜索、查看、补跑、删除与分页}
+\begin{enumerate}\item 输入文件名关键词搜索。长文件名被省略时，可悬停查看完整名称。\item “查看详情”打开报告；“增量补跑”复用旧 PDF 继续检查；“删除”进入确认窗口。\item 使用底部每页条数和页码浏览记录，不要仅凭列表第一行判断论文版本。\end{enumerate}
+\note{报告与提交账号关联。邮件链接要求登录时，也需使用提交该论文的账号。}
+\clearpage
+\subsection{增量补跑旧报告}\label{zh:resume}
+旧报告有未完成、失败或新增规则时，可使用“增量补跑”。它读取报告保存的旧 PDF，不是电脑上后来修改的文件。\par
+\pic{zh-15}{保存的 PDF、复用结果与待执行规则}{\linewidth}{109mm}{图 15  保存的 PDF、复用结果与待执行规则}
+\begin{enumerate}\item 在历史报告或报告顶部点击“增量补跑”，确认弹窗中的文件。\item 查看哪些规则复用已完成结果、哪些将执行。\item 确认后运行。系统创建新报告并保留原报告；成功报告同样计入每日额度。\end{enumerate}
+\note{论文已修改时，请上传新的 PDF 重新检测。旧 PDF 的补跑结果不能验证修改后的新论文。}
+\clearpage
+\subsection{删除单份报告}\label{zh:delete}
+在历史报告中点击“删除”后，先阅读确认窗口。删除无法撤销，需保留的报告请先下载。\par
+\pic{zh-16}{删除前核对文件；不确定时取消}{\linewidth}{87mm}{图 16  删除前核对文件；不确定时取消}
+\begin{enumerate}\item 核对窗口中的文件名，确保不是仍需保留的版本。\item 不确定时选“取消”；确认不再需要后，再选“删除”。\item 删除的是系统中的报告及保存的 PDF，不影响电脑原文件，也不退还检测额度。\end{enumerate}
+\note{批量删除具有同样的不可撤销性，方法见下一页。}
+\clearpage
+\subsection{批量管理历史记录}\label{zh:batch}
+在历史报告右上角点击“管理记录”。进入管理模式后，先勾选，再核对数量。\par
+\pic{zh-17}{勾选、已选数量与批量删除}{\linewidth}{109mm}{图 17  勾选、已选数量与批量删除}
+\begin{enumerate}\item 勾选需要管理的报告。使用表头复选框时，注意实际选中的记录。\item 核对已选数量和文件名。\item 需要删除时点击“删除所选”并完成确认；点击“完成”退出管理模式。\end{enumerate}
+\note{不要在未核对文件和数量时直接批量删除。先导出需要保留的报告。}
+\clearpage\section{辅助功能}\label{zh:extras}
+\subsection{查看站内通知}\label{zh:notifications}
+点击右上角铃铛查看通知。红点表示有未读提醒，与论文问题的严重程度无关。\par
+\pic{zh-18}{铃铛、未读红点、文件名与全部已读}{\linewidth}{109mm}{图 18  铃铛、未读红点、文件名与全部已读}
+\begin{enumerate}\item 核对通知中的文件名、时间及事件，例如报告已生成、邮件已发送、检测失败或邮件发送失败。\item 点击对应的“查看报告”，进入该文件的报告。\item 处理后可选择“全部已读”。标记已读只改变提醒状态，不删除报告。\end{enumerate}
+\note{“邮件已发送”表示邮件服务器已接收，不保证收件箱立即显示。报告是否可读，请直接查看站内通知或历史报告。}
+\clearpage
+\subsection{设置语言、外观与退出登录}\label{zh:settings}
+点击左下角用户卡片，选择“设置”。语言和外观可分别调整，不改变已上传论文或检测判断。\par
+\pic{zh-19}{打开用户菜单}{\linewidth}{29mm}{图 19  打开用户菜单}
+\noindent\begin{minipage}[t]{.46\linewidth}\vspace{0pt}\raggedright\pic{zh-20}{语言与外观}{\linewidth}{91mm}{图 20  语言与外观}\end{minipage}\hfill\begin{minipage}[t]{.50\linewidth}\vspace{0pt}\raggedright\begin{enumerate}\item 语言选择“简体中文”或 English，界面与报告说明随之切换；英文说明准备时请稍候。\item 外观选择浅色、深色或跟随系统。“跟随系统”采用设备当前的深浅色偏好；登录页插图不受影响。\item 选择后点击“完成”退出设置。需要离开账号时，在用户菜单选择“退出登录”。\end{enumerate}\end{minipage}
+\note{原文引文和文件名不翻译。导出取开始下载时的语言，通知邮件取提交检测时的语言。}
+\clearpage
+\subsection{提交使用反馈}\label{zh:systemfeedback}
+整体体验、界面、响应速度或稳定性问题，可通过右上角“使用反馈”提交。此入口不同于某条结果的点赞、点踩。\par
+\pic{zh-21}{使用反馈入口}{\linewidth}{32mm}{图 21  使用反馈入口}
+\noindent\begin{minipage}[t]{.46\linewidth}\vspace{0pt}\raggedright\pic{zh-22}{填写与提交}{\linewidth}{106mm}{图 22  填写与提交}\end{minipage}\hfill\begin{minipage}[t]{.50\linewidth}\vspace{0pt}\raggedright\begin{enumerate}\item 选择整体满意度星级，此项必填。\item 勾选需改进的方面，可多选；按需补充说明，最多 1000 字。\item 点击“提交反馈”，等待成功提示。写清操作步骤、预期与实际现象，有助于维护人员理解。\end{enumerate}\end{minipage}
+\note{不要填写密码、验证码或其他敏感凭据。论文具体结果的问题，优先在对应结果卡片内反馈。}
+\clearpage
+\subsection{通过邮件返回报告}\label{zh:email}
+报告生成后，系统向账号对应的通知邮箱发送提醒邮件，提供报告入口，不需要回复。\par
+\pic{zh-23}{报告通知邮件、文件名与报告链接}{\linewidth}{123mm}{图 23  报告通知邮件、文件名与报告链接}
+\begin{enumerate}\item 核对标题中的系统名称及论文文件名，确认是本次报告。\item 点击“查看检测报告”。如需登录，使用提交该论文时的账号。\item 邮件及按钮语言采用提交检测时的界面语言，登录过程也保留该语言。\end{enumerate}
+\note{没收到邮件时，先查垃圾邮件，并直接登录网站查看历史报告。中途切换界面语言不会改变已提交任务的邮件语言。}
+\clearpage\section{常见问题}\label{zh:faq}
+\Needspace{32mm}\subsection*{文件已是 PDF，为什么仍不能用？}文件还必须是学位论文的文字版 PDF，不是非论文文件、扫描件或纯图片，且不超过 50 MB。请从源文件重新导出，并先检查能否选择、复制正文。\par
+\Needspace{32mm}\subsection*{一直没有收到邮件，是否还没完成？}不一定。邮件可能延迟或进入垃圾邮件。直接登录网站，看铃铛通知和历史报告，不要只等邮件。\par
+\Needspace{32mm}\subsection*{没有发现问题，是否可以直接提交学校？}不能据此认定全部合格。还要看检查是否完成、是否存在规则未实现警告或无法判定状态，并按学校要求人工复核。\par
+\Needspace{32mm}\subsection*{点击结果后没有精确高亮怎么办？}先确认已打开阅读工具，并选择合适的高亮方式。有些结果只有页码，没有精确定位框，可按页码核对上下文。\par
+\Needspace{32mm}\subsection*{论文修改后用增量补跑吗？}不要。增量补跑仍使用旧报告保存的 PDF。论文内容修改后，需要导出新 PDF 并重新上传。\par
+\Needspace{32mm}\subsection*{停止检测、取消导出、删除报告一样吗？}不一样。停止检测中止任务；取消导出只停止文件准备；删除报告移除历史记录及保存的 PDF。成功取消不占额度，删除已生成报告不退额度。\par
+\note{其他异常可通过“使用反馈”提交，请附操作步骤和错误提示，不要提供密码或验证码。}
+\clearpage\section*{附录：检测规则速查}\label{zh:rules}
+\addcontentsline{toc}{section}{附录：检测规则速查}
+以下对应本版界面的 15 项规则，帮助理解检查范围；不是额外的论文格式标准。规则是否可选、实际执行结果及适用性，以当前页面为准。
+\Needspace{26mm}\par\medskip{\sffamily\bfseries\color{navy}1. 正文公式引用目标缺失}\par 检查正文所引用的公式是否有对应的可见公式编号。\par
+\Needspace{26mm}\par\medskip{\sffamily\bfseries\color{navy}2. 正文引文引用编号缺失}\par 检查编号引文是否对应参考文献列表中的条目。\par
+\Needspace{26mm}\par\medskip{\sffamily\bfseries\color{navy}3. 参考文献列表中存在未被正文引用的条目}\par 找出参考文献列表中未在文档中引用的条目，再人工核查。\par
+\Needspace{26mm}\par\medskip{\sffamily\bfseries\color{navy}4. 目录中的核心内容页码系统性错位}\par 核对目录页码与对应正文标题所在页是否一致。\par
+\Needspace{26mm}\par\medskip{\sffamily\bfseries\color{navy}5. 引用格式错误}\par 检查参考文献类型标识是否缺失或不完整，例如期刊的 [J]。\par
+\Needspace{26mm}\par\medskip{\sffamily\bfseries\color{navy}6. 核心章节完整性}\par 检查论文是否包含要求的核心章节。\par
+\Needspace{26mm}\par\medskip{\sffamily\bfseries\color{navy}7. 中英文标点符号是否混用}\par 检查中文语境误用英文标点、英文语境误用中文标点的情况。\par
+\Needspace{26mm}\par\medskip{\sffamily\bfseries\color{navy}8. 关键词数量}\par 检查中文关键词数量是否为 3—8 个。\par
+\Needspace{26mm}\par\medskip{\sffamily\bfseries\color{navy}9. 摘要图表公式文献编号}\par 检查中英文摘要中的图、表、公式及编号引文引用。\par
+\Needspace{26mm}\par\medskip{\sffamily\bfseries\color{navy}10. 章标题另起一页}\par 检查各章是否另起一页，标题上方是否残留上一章文字。\par
+\Needspace{26mm}\par\medskip{\sffamily\bfseries\color{navy}11. 引用的外部文献不存在}\par 检索引用文献并评估是否存在；疑似不存在和检索未完成需分别处理。\par
+\Needspace{26mm}\par\medskip{\sffamily\bfseries\color{navy}12. 正文错别字检测}\par 检测正文中明确的中文错别字，不等于全面语法润色或英文拼写检查。\par
+\Needspace{26mm}\par\medskip{\sffamily\bfseries\color{navy}13. 中英文关键词语义对应}\par 比较中英文关键词表达的概念是否相符、能否对应。\par
+\Needspace{26mm}\par\medskip{\sffamily\bfseries\color{navy}14. 中英文摘要内容一致性}\par 比较中英文摘要的研究主题、方法、结果和结论是否存在实质差异。\par
+\Needspace{26mm}\par\medskip{\sffamily\bfseries\color{navy}15. 论点论据一致性检测（实验性）}\par 核对摘要中的数值性论断与对应研究章节的实验结果，不是全面判断学术质量。\par
+\end{document}
