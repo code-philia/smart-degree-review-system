@@ -4,7 +4,7 @@ export const REVIEW_COPY={
  '可用次数已暂占':'Slots reserved',
  '检测额度说明':'About the review allowance',
  '更新可用次数':'Refresh allowance',
- '每个账号累计可生成 3 份报告，不按日刷新。仅报告生成成功计次；失败或取消不计次。进行中的任务暂占次数。':'Each account can generate up to 3 reports in total. The allowance does not reset daily. Only successfully generated reports count; failed or cancelled reviews do not. Ongoing reviews reserve a slot.',
+ '每个账号累计可生成 3 份报告。仅报告生成成功计次，失败或取消不计次。':'Each account can generate up to 3 reports in total. Only successfully generated reports count, while failed or cancelled reviews do not.',
  '检测次数已用完，每个账号累计可生成 3 份报告。':'You have used all 3 reports available for this account.',
  '当前可用检测次数已被进行中的任务占用，请在任务结束或取消后重试。':'All available slots are reserved by ongoing reviews. Try again once a review finishes or is cancelled.',
  '检测额度已更新，请重试。':'Your allowance has changed. Please try again.',
