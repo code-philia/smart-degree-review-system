@@ -22,10 +22,9 @@ function sendError(error, res, next) {
   if (error?.type === 'entity.too.large') {
     res.status(413).json({ code: 413, message: 'PDF 文件大小不能超过 50 MB' });
   } else if (error?.status) {
-    if (error.quota) {
-      const delay = error.quota.used >= error.quota.limit
-        ? Math.ceil((Date.parse(error.quota.resets_at) - Date.parse(error.quota.server_time)) / 1000) : 30;
-      res.set('Retry-After', String(Math.max(1, delay)));
+    // Exhausted lifetime allowances do not become available after a delay.
+    if (error.quota && error.quota.used < error.quota.limit) {
+      res.set('Retry-After', '30');
     }
     res.status(error.status).json({ code: error.status, message: error.message, ...(error.quota ? { error_code: error.code, quota: error.quota } : {}) });
   } else {

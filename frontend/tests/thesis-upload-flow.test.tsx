@@ -435,7 +435,7 @@ it('shows the real queue position without suggesting another upload', async () =
 it('blocks a fourth new review while leaving the Detection notes unchanged', async () => {
   vi.mocked(fetchPaperLintDailyQuota).mockResolvedValue({limited:true,limit:3,used:3,reserved:0,remaining:0,day:'2026-11-12',resets_at:'2026-11-12T16:00:00Z',server_time:'2026-11-12T02:00:00Z',timezone:'Asia/Shanghai'});
   showUpload(); await choosePdf();
-  expect(await screen.findByText('今日次数已用完')).toBeVisible();
+  expect(await screen.findByText('检测次数已用完')).toBeVisible();
   expect(screen.getByRole('button',{name:'开始检测',exact:true})).toBeDisabled();
   expect(screen.getByLabelText('检测说明').textContent?.replace(/\s+/g,' ')).toBe('检测说明聚焦公式引用、文献引用与目录页码等可定位问题。上传论文后，您可自主选择已开放规则，逐项查看检测结果，并联动定位到论文原文位置。受算力资源限制，每位用户累计检测次数不超过 3 次，请提前确认论文版本、合理勾选检测规则。检测结果仅供参考，系统尚在测试中，欢迎通过“使用反馈”提出建议。');
 });

@@ -47,7 +47,7 @@ it('retains the request identifier when retrying a failed submission', async () 
 
 it('also blocks incremental reruns once three reports have been generated', async () => {
  vi.mocked(fetchPaperLintDailyQuota).mockResolvedValue({limited:true,limit:3,used:3,reserved:0,remaining:0,day:'2026-11-12',resets_at:'2026-11-12T16:00:00Z',server_time:'2026-11-12T02:00:00Z',timezone:'Asia/Shanghai'});
- show(); expect(await screen.findByText('今日次数已用完')).toBeVisible();
+ show(); expect(await screen.findByText('检测次数已用完')).toBeVisible();
  expect(screen.getByRole('button',{name:'开始增量检测（1 项）'})).toBeDisabled();
  expect(rerunPaperLintReport).not.toHaveBeenCalled();
 });
@@ -59,7 +59,7 @@ it('recovers a reserved rerun after a lost response without creating a new reque
    vi.mocked(fetchPaperLintDailyQuota).mockResolvedValue({...quota,reserved:1,remaining:0});
    throw Object.assign(new Error('Network Error'),{isAxiosError:true});
  }).mockResolvedValueOnce({job_id:'retry-job',user_id:'student',source_filename:'original.pdf',status:'pending'} as any);
- show(); await screen.findByText('今日剩余 1 / 3 次');
+ show(); await screen.findByText('剩余 1 / 3 次');
  const start=screen.getByRole('button',{name:'开始增量检测（1 项）'});fireEvent.click(start);
  expect(await screen.findByText('可用次数已暂占')).toBeVisible();
  await waitFor(()=>expect(start).toBeEnabled());fireEvent.click(start);

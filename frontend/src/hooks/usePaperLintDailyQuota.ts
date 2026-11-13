@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchPaperLintDailyQuota, type PaperLintDailyQuota } from '../api/paperLint';
 
-/** Server-authoritative allowance, refreshed on task changes and Shanghai midnight. */
+/** Server-authoritative allowance, refreshed on task changes, focus and cross-tab updates. */
 export function usePaperLintDailyQuota(ownerKey: string | null | undefined, refreshKey?: unknown) {
   const [state, setState] = useState<{owner: string; quota: PaperLintDailyQuota | null; error: boolean} | null>(null);
   const refreshRef = useRef<() => Promise<void>>(async () => {});
@@ -17,8 +17,6 @@ export function usePaperLintDailyQuota(ownerKey: string | null | undefined, refr
         if (disposed || request !== sequence) return;
         setState({owner: ownerKey!, quota, error: false});
         clearTimeout(timer);
-        const untilMidnight = Date.parse(quota.resets_at) - Date.parse(quota.server_time);
-        timer = setTimeout(() => void load(), Math.max(100, untilMidnight + 100));
       } catch {
         if (disposed || request !== sequence) return;
         setState(previous => ({owner: ownerKey!, quota: previous?.owner === ownerKey ? previous.quota : null, error: true}));

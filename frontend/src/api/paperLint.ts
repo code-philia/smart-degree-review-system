@@ -3,7 +3,7 @@ import { getLocale } from '../i18n/locale';
 
 export type PaperLintDailyQuota = {
   limited: boolean; limit: number; used: number; reserved: number; remaining: number | null;
-  day: string; resets_at: string; server_time: string; timezone: string;
+  period?: 'lifetime'; starts_at?: string; day: string | null; resets_at: string | null; server_time: string; timezone: string;
 };
 export async function fetchPaperLintDailyQuota(): Promise<PaperLintDailyQuota> {
   const response = await apiClient.get('/normative/paper-lint/quota');

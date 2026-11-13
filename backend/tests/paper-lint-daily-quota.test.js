@@ -62,16 +62,34 @@ it('isolates ordinary users and exempts both administrator roles',async()=>{
   expect(await quota(user)).toMatchObject({limited:false,remaining:null});
  }
 });
-it('resets at Shanghai midnight independently of UTC dates and retains old-day task attribution',async()=>{
+it('keeps successes and reservations across midnight and future days',async()=>{
  vi.setSystemTime(new Date('2026-11-12T15:59:59.900Z'));
- await completed();await completed();const oldPending=await jobs.createJob(args());
- expect(await quota()).toMatchObject({used:2,reserved:1,remaining:0,resets_at:'2026-11-12T16:00:00.000Z'});
+ await completed();await completed();const pending=await jobs.createJob(args());
  vi.setSystemTime(new Date('2026-11-12T16:00:00.000Z'));
- expect(await quota()).toMatchObject({used:0,reserved:0,remaining:3,resets_at:'2026-11-13T16:00:00.000Z'});
- await jobs.claimJob(oldPending);
- await reports.createPaperLintReport({userId:'quota-student',sourceFilename:'论文.pdf',pdfBuffer:pdf,selectedRuleIds:[],reportId:oldPending,result:{type:'paper_lint',rule_runs:[],summary:{}}});
- await jobs.completeJob(oldPending,oldPending);
- expect((await quota()).remaining).toBe(3);
+ expect(await quota()).toMatchObject({used:2,reserved:1,remaining:0,period:'lifetime',resets_at:null});
+ await expect(jobs.createJob(args())).rejects.toMatchObject({status:429});
+ await jobs.claimJob(pending);
+ await reports.createPaperLintReport({userId:'quota-student',sourceFilename:'论文.pdf',pdfBuffer:pdf,selectedRuleIds:[],reportId:pending,result:{type:'paper_lint',rule_runs:[],summary:{}}});
+ await jobs.completeJob(pending,pending);
+ vi.setSystemTime(new Date('2027-01-01T00:00:00.000Z'));
+ expect(await quota()).toMatchObject({used:3,reserved:0,remaining:0});
+ await expect(jobs.createJob(args())).rejects.toMatchObject({status:429});
+});
+it('starts fresh at the update and never resets the persisted policy on restart',async()=>{
+ const old=await completed();await completed();const pending=await jobs.createJob(args());
+ // Simulate an existing installation with jobs but no lifetime policy yet.
+ await run('DROP TABLE IF EXISTS paper_lint_quota_policy');
+ vi.setSystemTime(new Date('2026-11-13T02:00:00.000Z'));
+ const init=require('../src/database/init_db');await init.closeDb();await init.initializeDatabase();
+ expect(await quota()).toMatchObject({used:0,reserved:0,remaining:3,starts_at:'2026-11-13T02:00:00.000Z'});
+ await jobs.claimJob(pending);await jobs.completeJob(pending,old);
+ expect(await quota()).toMatchObject({used:0,reserved:0,remaining:3});
+ for(let n=0;n<3;n++)await completed();
+ const before=await quota();
+ vi.setSystemTime(new Date('2026-12-13T02:00:00.000Z'));
+ await init.closeDb();await init.initializeDatabase();
+ expect(await quota()).toMatchObject({starts_at:before.starts_at,used:3,remaining:0});
+ await expect(jobs.createJob(args())).rejects.toMatchObject({status:429});
 });
 it('does not refund deleted reports and survives reopening the database',async()=>{
  const id=await completed();await completed();await completed();await reports.deletePaperLintReportForUser(id,'quota-student');
@@ -91,8 +109,18 @@ it('authenticates the quota endpoint and enforces the same admission guard for H
  const submit=()=>request(app).post('/api/normative/paper-lint/run').set('Cookie',cookie).set('Content-Type','application/pdf').set('X-Paper-Lint-Rule-Ids','sjtu_rule_22').send(pdf);
  for(let n=0;n<3;n++)await submit().expect(202);
  await submit().expect(429).expect(({body})=>expect(body.quota).toMatchObject({remaining:0,reserved:3}));
+ for(const {id} of await all("SELECT id FROM paper_lint_jobs WHERE user_id='quota-student'")){
+  await jobs.claimJob(id);
+  await reports.createPaperLintReport({userId:'quota-student',sourceFilename:'论文.pdf',pdfBuffer:pdf,selectedRuleIds:[],reportId:id,result:{type:'paper_lint',rule_runs:[],summary:{}}});
+  await jobs.completeJob(id,id);
+ }
+ await submit().expect(429).expect(({body,headers})=>{
+  expect(body.quota).toMatchObject({used:3,remaining:0,resets_at:null});
+  expect(headers['retry-after']).toBeUndefined();
+  expect(body.message).not.toMatch(/今日|明日|00:00/);
+ });
 });
-it('applies the same daily allowance to incremental reruns without changing the source report',async()=>{
+it('applies the same lifetime allowance to incremental reruns without changing the source report',async()=>{
  const id=await completed();await completed();await completed();
  const {createPaperLintJobService}=require('../src/normative/paperLintJobService');
  const engine={validatePdf:vi.fn(),normalizeSelectedRuleIds:async ids=>ids,runPaperLint:vi.fn()};

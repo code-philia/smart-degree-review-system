@@ -339,6 +339,12 @@ async function initializeDatabase(options = {}) {
     if (!paperLintJobColumns.some((column) => column.name === 'notification_locale')) {
       await runStatement(database, "ALTER TABLE paper_lint_jobs ADD COLUMN notification_locale TEXT NOT NULL DEFAULT 'zh' CHECK (notification_locale IN ('zh','en'));");
     }
+    // One durable cutover for the lifetime allowance; never reset on restart/deploy.
+    await runStatement(database, `CREATE TABLE IF NOT EXISTS paper_lint_quota_policy (
+      id INTEGER PRIMARY KEY CHECK (id=1), starts_at TEXT NOT NULL
+    );`);
+    await runStatement(database, `INSERT OR IGNORE INTO paper_lint_quota_policy(id,starts_at)
+      VALUES (1,'${new Date().toISOString()}');`);
     await runStatement(database, `CREATE TABLE IF NOT EXISTS report_email_outbox (
       job_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, report_id TEXT NOT NULL,
       recipient TEXT, status TEXT NOT NULL DEFAULT 'pending'
