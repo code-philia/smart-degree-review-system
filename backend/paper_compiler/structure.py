@@ -44,7 +44,9 @@ def _rows(page, *, with_source=False):
                 a, b = line['bbox'], right['bbox']
                 size, other_size = line.get('font_size', 0), right.get('font_size', 0)
                 peer_style = not size or not other_size or .9 <= other_size / size <= 1.1
-                same_row = abs(a[1] - b[1]) <= 3 and 0 <= b[0] - a[2] <= 150
+                # CJK/Latin fonts can report different ascents on one baseline.
+                same_row = (abs(a[1] - b[1]) <= max(3, size * .3, other_size * .3)
+                            and 0 <= b[0] - a[2] <= 150)
                 next_row = 0 <= b[1] - a[3] <= max(24, size * 1.6)
                 if peer_style and (same_row or next_row) and not _LEADER.search(other):
                     text += ' ' + other
@@ -73,6 +75,47 @@ def _rows(page, *, with_source=False):
     normalized = [{**lines[index], 'text': unicodedata.normalize('NFKC', text).strip()}
                   for index, text in sorted(values, key=lambda value: value[0])]
     return normalized if with_source else [line['text'] for line in normalized]
+
+
+def _grammar_rows(pages):
+    """Exclude corroborated running headers from core-section evidence.
+
+    Some templates place headers well below the physical page edge. Require the
+    same short section label, position and normal text size on three pages;
+    prominent chapter titles therefore remain independent source evidence.
+    """
+    observed = [_rows(page, with_source=True) for page in pages]
+    groups = {}
+    for index, (page, rows) in enumerate(zip(pages, observed)):
+        sizes = [row['font_size'] for row in rows if row.get('font_size', 0) > 0]
+        normal_size = median(sizes) if sizes else 0
+        for order, row in enumerate(rows):
+            box, size = row.get('bbox'), row.get('font_size', 0)
+            if (not box or not normal_size or not size or size > normal_size * 1.05
+                    or box[1] >= page.get('height', 842) * .15 or len(row['text']) > 120):
+                continue
+            text = re.sub(r'\s+', '', row['text']).lower()
+            heading = _NUMBER.sub('', row['text']).strip()
+            key = _section_key(row['text'])
+            if not ((key and key[0] == 'chapter')
+                    or _INTRO.fullmatch(heading) or _BODY.fullmatch(heading) or _CONCLUSION.fullmatch(heading)
+                    or text in {'摘要', '中文摘要', '英文摘要', 'abstract', '目录', '目次',
+                                'contents', 'tableofcontents', '参考文献', '參考文獻', 'references', 'bibliography'}):
+                continue
+            matches = groups.setdefault(text, [])
+            group = next((group for group in matches
+                          if abs(group['box'][0] - box[0]) <= 3
+                          and abs(group['box'][1] - box[1]) <= 3
+                          and abs(group['size'] - size) <= .5), None)
+            if group is None:
+                group = {'box': box, 'size': size, 'rows': []}
+                matches.append(group)
+            group['rows'].append((index, order))
+    headers = {key for matches in groups.values() for group in matches
+               if len({index for index, _ in group['rows']}) >= 3
+               for key in group['rows']}
+    return [[row for order, row in enumerate(rows) if (index, order) not in headers]
+            for index, rows in enumerate(observed)]
 
 
 def _contents_page(page):
@@ -125,8 +168,8 @@ def has_bilingual_abstract_bodies(pages):
     provide the missing abstract merely by containing English text.
     """
     found = {'zh': set(), 'en': set()}
-    for index, page in enumerate(pages):
-        texts = _rows(page)
+    for index, (page, rows) in enumerate(zip(pages, _grammar_rows(pages))):
+        texts = [row['text'] for row in rows]
         compact = {re.sub(r'\s+', '', text).lower() for text in texts}
         if _contents_page(page):
             continue
@@ -161,9 +204,9 @@ def abstract_sections(pages, profile):
     sections = []
     current = None
     scope = 0
-    for index, page in enumerate(pages):
+    for index, (page, rows) in enumerate(zip(pages, _grammar_rows(pages))):
         texts = []
-        for source in _rows(page, with_source=True):
+        for source in rows:
             if (texts and texts[-1]['text'].lower() in {'key', 'index'}
                     and re.match(r'^(?:words?|terms)\b', source['text'], re.I)):
                 texts[-1]['text'] += ' ' + source['text']
@@ -282,7 +325,10 @@ def _abstract_statuses(sections, profile):
 
 
 def assess_structure(pages, identity):
-    rows = [(index, text) for index, page in enumerate(pages) for text in _rows(page)]
+    page_rows = _grammar_rows(pages)
+    rows = [(index, row['text']) for index, values in enumerate(page_rows) for row in values]
+    normal_sizes = {index: median([row['font_size'] for row in values if row.get('font_size', 0) > 0] or [0])
+                    for index, values in enumerate(page_rows)}
     styles = {(index, unicodedata.normalize('NFKC', line['text']).strip()):
               (line.get('font_size', 0), bool(line.get('is_bold') or any(char.get('flags', 0) & 16 for char in line.get('chars', []))))
               for index, page in enumerate(pages) for line in page.get('lines', [])}
@@ -323,10 +369,15 @@ def assess_structure(pages, identity):
         if re.search(r'[。；;]|[.!?]$', heading):
             return False
         size, bold = styles.get((index, text), (0, False))
-        if intro_style[0] and (size < intro_style[0] * .88
-                              or (intro_style[1] and not bold and size <= intro_style[0])):
-            return False
         key = _section_key(text)
+        # Numbered peer chapters can change font weight while retaining their
+        # heading size. Normal-size mentions and lists remain insufficient.
+        prominent_chapter = bool(key and key[0] == 'chapter' and normal_sizes[index]
+                                 and size > normal_sizes[index] * 1.15)
+        if intro_style[0] and (size < intro_style[0] * .88
+                              or (intro_style[1] and not bold and size <= intro_style[0]
+                                  and not prominent_chapter)):
+            return False
         if intro_key:
             # Introduction subsections and its numbered lists are not a main
             # chapter. A separate peer chapter/section must exist after it.

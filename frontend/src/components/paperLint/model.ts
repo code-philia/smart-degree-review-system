@@ -50,6 +50,29 @@ function warningFeedbackItem(run: PaperLintRuleRun, findingId: string, index: nu
     finding: { finding_id: findingId, rule_id: run.rule_id, message: run.message || '' } };
 }
 
+function numericFailureCopy(params: PaperLintRuleRun['params']): Pick<RuleExecutionWarning, 'reason' | 'suggestion'> {
+  const value = params || {};
+  const failure = value.failure && typeof value.failure === 'object' ? value.failure as Record<string, unknown> : {};
+  const detail = [failure.message, value.technical_failure].filter((text): text is string => typeof text === 'string').join(' ');
+  const contract = failure.error_type === 'ContractError' || (Array.isArray(value.validation_errors) && value.validation_errors.length > 0);
+  const suggestion = contract
+    ? '请通过使用反馈提交该报告，供管理员核查检测过程。'
+    : '请稍后重试；若持续失败，请联系管理员检查运行记录。';
+  let reason = '部分核验未完成。已完成的有效结果仍予以保留。';
+  if (contract) {
+    reason = /experiment is not a descendant|named method.*not found|missing.*mapping|章节结构未完整恢复/i.test(detail)
+      ? '未能可靠建立摘要论点与实验章节的对应关系，部分核验未完成。已完成的有效结果仍予以保留。'
+      : '检测结果未通过校验，部分核验未完成。已完成的有效结果仍予以保留。';
+  } else if (/timed? out|timeout|超时/i.test(detail)) {
+    reason = '检测请求超时，部分核验未完成。已完成的有效结果仍予以保留。';
+  } else if (/\bHTTP(?:\s+Error)?[\s:_-]*429\b|too many requests/i.test(detail)) {
+    reason = '检测服务暂时受到请求限制，部分核验未完成。已完成的有效结果仍予以保留。';
+  } else if (/\bHTTP(?:\s+Error)?[\s:_-]*50[234]\b/i.test(detail)) {
+    reason = '检测服务暂不可用，部分核验未完成。已完成的有效结果仍予以保留。';
+  }
+  return { reason, suggestion };
+}
+
 export function numericExecutionWarnings(run?: PaperLintRuleRun): RuleExecutionWarning[] {
   if (!run || run.rule_id !== numericRule) return [];
   const params = run.params || {};
@@ -92,7 +115,7 @@ export function numericExecutionWarnings(run?: PaperLintRuleRun): RuleExecutionW
     };
   });
   if (run.execution_status === 'error' || params.failure || (Array.isArray(params.validation_errors) && params.validation_errors.length)) {
-    warnings.push({ title: '论点论据一致性检测未完成', reason: '当前系统使用人数较多，API 调用暂时繁忙，部分核验未完成。已完成的有效结果仍予以保留。', suggestion: '请稍后重试；若持续失败，请联系管理员检查运行记录。' });
+    warnings.push({ title: '论点论据一致性检测未完成', ...numericFailureCopy(params) });
   }
   return warnings.map((warning, index) => ({ ...warning, ruleId: numericRule,
     feedbackTarget: warningFeedbackItem(run, targets[index].findingId, index) }));

@@ -338,7 +338,7 @@ def experimental_support(model, section_id):
     return support
 
 
-def _single_contribution_fallback(structure, context, model):
+def _single_contribution_fallback(structure, context, model, diagnostics=None):
     """Conservatively map one contribution to one independent experiment root."""
     contributions = rows(structure, 'contributions')
     declarations = rows(structure, 'declarations')
@@ -389,17 +389,31 @@ def _single_contribution_fallback(structure, context, model):
         if heading:
             evidence.append({'source_node_id': heading['source_node_id'],
                              'page': heading['page'], 'quote': heading['text']})
-    for mapping in structure.get('mappings', []):
+    import copy
+    candidate = copy.deepcopy(structure)
+    for mapping in candidate.get('mappings', []):
         mapping['chapter_id'] = root['section_id']
         mapping['experiment_section_ids'] = experiment_ids
         mapping['mapping_mode'] = 'single_contribution_fallback'
         mapping['evidence'] = evidence
-    condition = next((c for c in rows(structure, 'preconditions')
+    condition = next((c for c in rows(candidate, 'preconditions')
                       if c.get('id') == 'experiment_subsection'), None)
     if condition:
         condition['passed'] = True
         condition['reason'] = '标准父子章节映射未满足；已通过唯一研究贡献与唯一独立实验章节的受限语义回退映射。'
         condition['suggestion'] = ''
+    try:
+        if not validate_structure(candidate, context, model):
+            return False
+    except ContractError as exc:
+        if diagnostics is not None:
+            diagnostics.append({'status': 'rejected', 'reason': str(exc)})
+        return False
+    if diagnostics is not None:
+        diagnostics.append({'status': 'accepted'})
+    # A failed fallback must never publish true prerequisites or partial maps.
+    structure.clear()
+    structure.update(candidate)
     return True
 
 
@@ -462,6 +476,9 @@ def numeric_candidates(text):
             elif re.search(r'第\s*$', before) and re.match(r'\s*[章节部分项]', after):
                 reason = 'section_or_ordinal'
             elif re.search(r'[\[【（(]\s*$', before) and re.match(r'\s*[\]】）)、.]', after):
+                reason = 'citation_or_list_index'
+            elif (re.search(r'(?:^|[：:；;，,\n])\s*$', before)
+                  and re.match(r'\s*[）)](?!\s*\d)', after)):
                 reason = 'citation_or_list_index'
             elif (re.search(r'[A-Za-z@/_-]$', before) or re.match(r'\s*/\s*\d', after)
                   or (re.search(r'[A-Za-z]\s+$', before) and re.match(r'\s*-\s*\d+[A-Za-z]', after))):
@@ -571,6 +588,61 @@ def resolve_structure(data, context, model):
                 evidence.append({'source_node_id': block['source_node_id'], 'quote': block['text'], 'page': block['page'], 'quote_origin': 'program_section_heading'})
         mapping['evidence'] = evidence
     return resolved
+
+
+def prune_non_numeric_declarations(data, context):
+    """Remove only source-proven extra rows, without hiding real candidates.
+
+    Wrong/missing values in candidate-bearing spans and values from another
+    candidate span remain contract errors. No candidate span may disappear.
+    """
+    import copy
+    if (not isinstance(data, dict) or 'numeric_candidates' not in context
+            or not isinstance(data.get('declarations'), list)
+            or not isinstance(data.get('mappings'), list)):
+        return data, []
+    try:
+        declarations = unique(rows(data, 'declarations'))
+        unique(rows(data, 'mappings'), 'declaration_id')
+    except ContractError:
+        return data, []
+    spans = {s['id']: s for s in context.get('abstract_spans', [])}
+    candidates = context['numeric_candidates']
+    values = {c['value'] for c in candidates}
+    by_span = {}
+    for c in candidates:
+        by_span.setdefault(c['abstract_span_id'], set()).add(c['value'])
+    removed, covered_spans, covered_values = [], set(), {}
+    for d in declarations.values():
+        sid = d.get('abstract_span_id')
+        span = spans.get(sid)
+        if not span or not isinstance(d.get('text'), str) or not grounded_quote(d['text'], span['text']):
+            continue
+        represented = numeric_values(str(d.get('number', '')))
+        local = by_span.get(sid, set())
+        if represented and represented <= local and represented <= numeric_values(d['text']):
+            covered_spans.add(sid)
+            covered_values.setdefault(sid, set()).update(represented)
+            # Experimental population/scale counts may accompany result values
+            # in the same source span. They are not silently treated as results:
+            # require the explicit count phrase in both condition and source.
+            condition = d.get('condition')
+            if isinstance(condition, str):
+                for match in re.finditer(r'(?<![A-Za-z0-9.])(\d+(?:\.\d+)?)\s*(?:个\s*)?(?:应用|节点|样本|数据集|设备|处理器|线程|进程)', condition):
+                    if grounded_quote(match.group(), span['text']):
+                        covered_values[sid].add(format(Decimal(match.group(1)).normalize(), 'f'))
+        elif not local and not (represented & values):
+            removed.append({'declaration_id': d['id'], 'abstract_span_id': sid,
+                            'reason': 'source_span_has_no_numeric_candidate',
+                            'model_number': d.get('number'), 'source_text': span['text']})
+    if (not removed or not set(by_span) <= covered_spans
+            or any(not local <= covered_values.get(sid, set()) for sid, local in by_span.items())):
+        return data, []
+    removed_ids = {d['declaration_id'] for d in removed}
+    output = copy.deepcopy(data)
+    output['declarations'] = [d for d in output['declarations'] if d['id'] not in removed_ids]
+    output['mappings'] = [m for m in output['mappings'] if m.get('declaration_id') not in removed_ids]
+    return output, removed
 
 
 def merge_duplicate_ranges(data):
@@ -735,6 +807,12 @@ def validate_structure(data, context, model):
         require(bool(d['metric'].strip()), 'missing metric')
         require(type(d.get('number')) in (int, float, str) and re.search(r'\d', str(d['number'])) is not None, 'invalid numeric value')
         require(re.search(r'\d', d['text']) is not None, 'declaration has no numeric source')
+        represented = numeric_values(str(d['number']))
+        require(represented and represented <= numeric_values(d['text']), 'numeric value not grounded in declaration source')
+        if d.get('abstract_span_id') and 'numeric_candidates' in context:
+            source_values = {c['value'] for c in context['numeric_candidates']
+                             if c['abstract_span_id'] == d['abstract_span_id']}
+            require(represented <= source_values, 'numeric value is not a candidate in declaration source')
         require(not (len(percentage_values(d['text'])) > 1 and re.search(r'同时(?!期)|以及|并且', d['text']) and not d.get('abstract_span_id')), 'split independent numeric metrics into separate declarations')
     mappings = unique(rows(data, 'mappings'), 'declaration_id')
     require(set(mappings) <= set(declarations), 'mapping has unknown declaration')
@@ -1191,6 +1269,11 @@ def run_numeric(ir, facts, request, trace=None, verification_mode=None):
         structure = resolve_structure(structure, context, model)
         if trace:
             trace('structure_resolved_output', structure)
+        structure, excluded = prune_non_numeric_declarations(structure, context)
+        if excluded:
+            params['excluded_non_numeric_declarations'] = excluded
+            if trace:
+                trace('structure_non_numeric_exclusions', excluded)
         structure, merged = merge_duplicate_ranges(structure)
         if merged:
             params['merged_interval_declarations'] = merged
@@ -1203,16 +1286,15 @@ def run_numeric(ir, facts, request, trace=None, verification_mode=None):
             # A malformed standard parent/child experiment mapping is a
             # legitimate trigger for the narrow fallback.
             if 'experiment' in str(exc).lower():
-                condition = next((c for c in rows(structure, 'preconditions')
+                import copy
+                fallback = copy.deepcopy(structure)
+                condition = next((c for c in rows(fallback, 'preconditions')
                                   if c.get('id') == 'experiment_subsection'), None)
                 if condition:
                     condition['passed'] = False
-                    fallback_used = _single_contribution_fallback(structure, context, model)
+                    fallback_used = _single_contribution_fallback(fallback, context, model, params.setdefault('mapping_fallback_attempts', []))
                     if fallback_used:
-                        try:
-                            passed = validate_structure(structure, context, model)
-                        except ContractError:
-                            fallback_used = False
+                        structure, passed = fallback, True
             if not fallback_used:
                 structure = repair(locator_prompt, structure, [str(exc)], 'structure_locator')
             params['structure_output'] = structure
@@ -1221,6 +1303,11 @@ def run_numeric(ir, facts, request, trace=None, verification_mode=None):
             structure = resolve_structure(structure, context, model)
             if trace:
                 trace('structure_resolved_output', structure)
+            structure, excluded = prune_non_numeric_declarations(structure, context)
+            if excluded:
+                params['excluded_non_numeric_declarations'] = excluded
+                if trace:
+                    trace('structure_non_numeric_exclusions', excluded)
             structure, merged = merge_duplicate_ranges(structure)
             if merged:
                 params['merged_interval_declarations'] = merged
@@ -1237,7 +1324,7 @@ def run_numeric(ir, facts, request, trace=None, verification_mode=None):
         if not passed:
             failed_ids = {c['id'] for c in rows(structure, 'preconditions') if not c['passed']}
             if failed_ids == {'experiment_subsection'}:
-                fallback_used = _single_contribution_fallback(structure, context, model)
+                fallback_used = _single_contribution_fallback(structure, context, model, params.setdefault('mapping_fallback_attempts', []))
                 if fallback_used:
                     try:
                         passed = validate_structure(structure, context, model)
