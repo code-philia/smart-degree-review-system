@@ -1,8 +1,8 @@
 // Real workflow labels and errors absent from the offline review fixture.
 export const SUPPLEMENTAL_COPY={
  '删除报告？':'Delete report?','删除选中的报告？':'Delete selected reports?',
- '报告及其 PDF 将被永久删除，此操作无法撤销。':'The report and its PDF will be permanently deleted. This cannot be undone.',
- '选中的报告及其 PDF 将被永久删除，此操作无法撤销。':'The selected reports and their PDFs will be permanently deleted. This cannot be undone.',
+ '报告及论文原文 将被永久删除，此操作无法撤销。':'The report and its PDF will be permanently deleted. This cannot be undone.',
+ '选中的报告及论文原文 将被永久删除，此操作无法撤销。':'The selected reports and their PDFs will be permanently deleted. This cannot be undone.',
  '正在删除…':'Deleting…',
 
  '设置':'Settings','界面偏好':'Interface preferences',
