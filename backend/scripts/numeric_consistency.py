@@ -1542,6 +1542,100 @@ def abstract_anchors(ir, quote, anchor_id):
     return anchors
 
 
+def apply_structure_repair_patch(previous_output, response):
+    """Apply explicit structure-only JSON Patch operations, never infer repairs."""
+    if not isinstance(response, dict) or 'patches' not in response:
+        return response  # Preserve the original complete-JSON repair protocol.
+    import copy
+    require(set(response) == {'patches'}, 'structure repair patch response must contain only patches')
+    operations = response['patches']
+    require(isinstance(operations, list) and len(operations) <= 128, 'structure repair patches must be an array of at most 128 operations')
+    require(isinstance(previous_output, dict), 'structure repair patch base must be an object')
+    result = copy.deepcopy(previous_output)
+    allowed_roots = {'preconditions', 'contributions', 'declarations', 'mappings'}
+
+    def array_index(token, length, add=False):
+        if token == '-':
+            require(add, 'structure repair append is allowed only for final list add')
+            return length
+        require(re.fullmatch(r'0|[1-9][0-9]*', token) is not None, 'invalid structure repair array index')
+        require(len(token) <= len(str(length)), 'structure repair array index out of bounds')
+        index = int(token)
+        require(0 <= index <= length if add else 0 <= index < length, 'structure repair array index out of bounds')
+        return index
+
+    def json_value(value):
+        try:
+            json.dumps(value, ensure_ascii=False, allow_nan=False)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ContractError('structure repair value must be finite JSON') from exc
+        pending = [value]
+        while pending:
+            current = pending.pop()
+            require(type(current) in (dict, list, str, int, float, bool, type(None)), 'structure repair value must be JSON')
+            if isinstance(current, dict):
+                require(all(isinstance(key, str) for key in current), 'structure repair object keys must be strings')
+                pending.extend(current.values())
+            elif isinstance(current, list):
+                pending.extend(current)
+
+    for operation in operations:
+        require(isinstance(operation, dict), 'structure repair operation must be an object')
+        op, path = operation.get('op'), operation.get('path')
+        require(op in ('add', 'replace', 'remove'), 'unknown structure repair operation')
+        expected = {'op', 'path'} if op == 'remove' else {'op', 'path', 'value'}
+        require(set(operation) == expected, 'invalid structure repair operation fields')
+        require(isinstance(path, str) and path.startswith('/'), 'invalid structure repair JSON Pointer')
+        encoded = path.split('/')[1:]
+        require(all(token and re.search(r'~(?:[^01]|$)', token) is None for token in encoded), 'invalid structure repair JSON Pointer escape')
+        parts = [token.replace('~1', '/').replace('~0', '~') for token in encoded]
+        require(len(parts) >= 2 and parts[0] in allowed_roots, 'structure repair path must stay inside a permitted root array')
+        require(parts[0] in result and isinstance(result[parts[0]], list), 'structure repair root must be an existing array')
+        parent = result[parts[0]]
+        for token in parts[1:-1]:
+            require(token != '-', 'structure repair append cannot be an intermediate path')
+            if isinstance(parent, list):
+                parent = parent[array_index(token, len(parent))]
+            elif isinstance(parent, dict):
+                require(token in parent, 'structure repair intermediate path does not exist')
+                parent = parent[token]
+            else:
+                raise ContractError('structure repair parent is not a container')
+        key = parts[-1]
+        if op != 'remove':
+            value = operation['value']
+            json_value(value)
+            experiment_list = (parts[0] == 'mappings' and len(parts) == 3 and
+                               parts[2] == 'experiment_section_ids' and isinstance(value, list) and
+                               all(isinstance(sid, str) for sid in value))
+            require(not isinstance(value, list) or experiment_list, 'whole-array structure repair writes are forbidden')
+        if isinstance(parent, list):
+            index = array_index(key, len(parent), add=op == 'add')
+            require(not (op == 'replace' and parts[0] == 'preconditions' and len(parts) == 2), 'whole precondition replacement is forbidden')
+            if op != 'remove' and len(parts) == 2:
+                require(isinstance(value, dict), 'structure repair root array entries must be objects')
+            if op != 'remove' and len(parts) > 2 and parts[-2] == 'experiment_section_ids':
+                require(isinstance(value, str), 'experiment section repair entries must be strings')
+            if op == 'replace':
+                require(not isinstance(parent[index], list), 'whole-array structure repair replacement is forbidden')
+                parent[index] = copy.deepcopy(value)
+            elif op == 'add':
+                parent.insert(index, copy.deepcopy(value))
+            else:
+                parent.pop(index)
+        elif isinstance(parent, dict):
+            require(key != '-', 'structure repair append requires a list')
+            require(op == 'add' or key in parent, 'structure repair target does not exist')
+            if op != 'remove':
+                require(not isinstance(parent.get(key), list) or experiment_list, 'whole-array structure repair replacement is forbidden')
+                parent[key] = copy.deepcopy(value)
+            else:
+                del parent[key]
+        else:
+            raise ContractError('structure repair parent is not a container')
+    return result
+
+
 def run_numeric(ir, facts, request, trace=None, verification_mode=None):
     usage = {'input_tokens': 0, 'output_tokens': 0}
     params = {'stage': 'structure_locator', 'versions': {'context': CONTEXT_VERSION, 'retrieval': RETRIEVAL_VERSION, 'contract': CONTRACT_VERSION, 'prompts': 'numeric-prompts/3.0', 'structure_locator': 'structure-locator/3.0', 'numeric_verifier': 'numeric-verifier/2.5', 'citation_resolution': 'candidate-exact/1.0'}}
@@ -1570,8 +1664,20 @@ def run_numeric(ir, facts, request, trace=None, verification_mode=None):
                        '不能丢弃真实数值、移到无关片段或仅改章节绕过其余错误。'
                        '章节提示仅供核对，必须重新确认所属研究章、原实验依据和前置条件；'
                        '无法满足真实前置条件时如实返回false及原文理由，不编造数值或映射。')
+        if stage == 'structure_locator':
+            suffix += ('\n本次结构修复优先返回JSON Patch子集：'
+                       '{"patches":[{"op":"replace","path":"/mappings/0/experiment_section_ids","value":["真实实验子节ID"]}]}。'
+                       '仅允许add、replace、remove，总计最多128项；remove只含op/path，其余必须含value。'
+                       'path使用标准JSON Pointer及严格数组索引；末级list add可用-显式追加。'
+                       '仅可修改preconditions、contributions、declarations、mappings内部；'
+                       '禁止四顶层数组整替、整个precondition对象replace；仅单条mapping的experiment_section_ids字段允许显式纯字符串数组add/replace，其余优先只改需要修复的leaf。'
+                       '未指定的内容原样保留，不自动补字段、改编号或清理派生text/evidence。'
+                       '若改变来源引用需重建已有派生字段，须显式remove相关text/evidence字段。'
+                       '不得为通过而删除仍真实存在的校验错误；合并后仍执行原完整严格校验。'
+                       '若现有结构形状无法用此子集修复，仍可返回原完整结构JSON；两种格式不得混合。')
         require(len(prompt + suffix) <= 100000, 'contract repair context exceeds budget')
-        return call(prompt + suffix)
+        repaired = call(prompt + suffix)
+        return apply_structure_repair_patch(output, repaired) if stage == 'structure_locator' else repaired
     try:
         model = source_model(ir)
         params['versions']['navigation'] = model.get('navigation', {}).get('version', 'paper-model-native')

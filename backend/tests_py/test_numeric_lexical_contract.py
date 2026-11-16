@@ -875,3 +875,194 @@ def test_structural_self_check_instruction_is_not_added_to_numeric_verifier_repa
     result = n.run_numeric(ir, facts, request)
     assert len(calls) == 3 and result['execution_status'] == 'error'
     assert '修复后请逐项自查' not in calls[2][0]['content']
+
+
+
+def test_structure_patch_fixes_only_explicit_mapping_leaf_and_keeps_suggestions():
+    ir, facts, bad = wrong_parent_structure()
+    before = copy.deepcopy(bad)
+    response = {'patches': [{'op': 'replace', 'path': '/mappings/0/experiment_section_ids/0', 'value': 'exp'}]}
+    fixed = n.apply_structure_repair_patch(bad, response)
+    assert fixed['preconditions'] == before['preconditions']
+    assert fixed['declarations'] == before['declarations'] and bad == before
+    assert fixed['mappings'][0]['experiment_section_ids'] == ['exp']
+    assert n.validate_structure(fixed, n.structure_context(facts, n.source_model(ir)), n.source_model(ir))
+    dropped = copy.deepcopy(fixed)
+    for condition in dropped['preconditions']: condition.pop('suggestion')
+    with pytest.raises(n.ContractError, match='precondition suggestion must be text'):
+        n.validate_structure(dropped, n.structure_context(facts, n.source_model(ir)), n.source_model(ir))
+
+
+def test_structure_patch_preserves_other_valid_mappings_when_two_broken_entries_are_fixed():
+    ir, facts, bad = wrong_parent_structure()
+    for did in ['d2', 'd3', 'd4']:
+        bad['declarations'].append({**copy.deepcopy(bad['declarations'][0]), 'id': did})
+        bad['mappings'].append({**copy.deepcopy(bad['mappings'][0]), 'declaration_id': did,
+                                'experiment_section_ids': ['other_exp'] if did == 'd2' else ['exp']})
+    before = copy.deepcopy(bad)
+    ops = [{'op': 'replace', 'path': '/mappings/' + str(i) + '/experiment_section_ids/0', 'value': 'exp'} for i in [0, 1]]
+    fixed = n.apply_structure_repair_patch(bad, {'patches': ops})
+    assert fixed['mappings'][2:] == before['mappings'][2:] and bad == before
+    assert n.validate_structure(fixed, n.structure_context(facts, n.source_model(ir)), n.source_model(ir))
+    broken_full = copy.deepcopy(fixed)
+    broken_full['mappings'][2]['experiment_section_ids'] = ['other_exp']
+    with pytest.raises(n.ContractError, match='experiment is not a descendant'):
+        n.validate_structure(broken_full, n.structure_context(facts, n.source_model(ir)), n.source_model(ir))
+
+
+@pytest.mark.parametrize('append', ['-', '1'])
+def test_structure_patch_append_is_explicit_and_never_renumbers_existing_ids(append):
+    _, _, original = fixture(); before = copy.deepcopy(original)
+    row = {**copy.deepcopy(original['declarations'][0]), 'id': 'd8'}
+    result = n.apply_structure_repair_patch(original, {'patches': [{'op': 'add', 'path': '/declarations/' + append, 'value': row}]})
+    assert [d['id'] for d in result['declarations']] == ['d1', 'd8']
+    assert original == before and result['declarations'][1] is not row
+
+
+def test_structure_patch_adds_a_missing_leaf_only_when_the_model_explicitly_supplies_it():
+    _, _, original = fixture(); original['preconditions'][0].pop('suggestion'); before = copy.deepcopy(original)
+    result = n.apply_structure_repair_patch(original, {'patches': [{'op': 'add', 'path': '/preconditions/0/suggestion', 'value': ''}]})
+    assert result['preconditions'][0] == {**before['preconditions'][0], 'suggestion': ''}
+    assert original == before
+
+
+def test_structure_patch_pointer_decodes_standard_escapes_once():
+    _, _, original = fixture(); original['declarations'][0]['proof/key~tag'] = 'old'; original['declarations'][0]['~1'] = 'old2'
+    result = n.apply_structure_repair_patch(original, {'patches': [
+        {'op': 'replace', 'path': '/declarations/0/proof~1key~0tag', 'value': 'new'},
+        {'op': 'replace', 'path': '/declarations/0/~01', 'value': 'new2'}]})
+    assert result['declarations'][0]['proof/key~tag'] == 'new'
+    assert result['declarations'][0]['~1'] == 'new2'
+    assert original['declarations'][0]['proof/key~tag'] == 'old'
+
+
+def test_structure_patch_does_not_implicitly_clear_derived_text_or_evidence():
+    ir, model, context, st = source_structure('本文提出融合模型。定性方法描述。准确率92.5%。')
+    st = n.resolve_structure(st, context, model); before = copy.deepcopy(st)
+    result = n.apply_structure_repair_patch(st, {'patches': [{'op': 'replace', 'path': '/declarations/0/abstract_span_id', 'value': 'a3'}]})
+    assert result['declarations'][0]['text'] == before['declarations'][0]['text']
+    assert result['mappings'][0]['evidence'] == before['mappings'][0]['evidence']
+    with pytest.raises(n.ContractError): n.validate_structure(n.resolve_structure(result, context, model), context, model)
+    explicit = n.apply_structure_repair_patch(st, {'patches': [
+        {'op': 'replace', 'path': '/declarations/0/abstract_span_id', 'value': 'a3'},
+        {'op': 'remove', 'path': '/declarations/0/text'}]})
+    assert n.validate_structure(n.resolve_structure(explicit, context, model), context, model)
+    assert st == before
+
+
+@pytest.mark.parametrize('response', [
+    {'patches': {}}, {'patches': [], 'declarations': []}, {'patches': [None]},
+    {'patches': [{'op': 'move', 'path': '/declarations/0'}]},
+    {'patches': [{'op': 'replace', 'path': '' ,'value': 1}]},
+    {'patches': [{'op': 'replace', 'path': 0 ,'value': 1}]},
+    {'patches': [{'op': 'remove', 'path': '/preconditions'}]},
+    {'patches': [{'op': 'replace', 'path': '/unknown/0', 'value': 1}]},
+    {'patches': [{'op': 'replace', 'path': '/declarations/00/number', 'value': 1}]},
+    {'patches': [{'op': 'replace', 'path': '/declarations/-1/number', 'value': 1}]},
+    {'patches': [{'op': 'replace', 'path': '/declarations/+1/number', 'value': 1}]},
+    {'patches': [{'op': 'replace', 'path': '/declarations/1/number', 'value': 1}]},
+    {'patches': [{'op': 'add', 'path': '/declarations/2', 'value': {}}]},
+    {'patches': [{'op': 'replace', 'path': '/declarations/-', 'value': {}}]},
+    {'patches': [{'op': 'remove', 'path': '/declarations/-'}]},
+    {'patches': [{'op': 'add', 'path': '/declarations/-/number', 'value': 1}]},
+    {'patches': [{'op': 'replace', 'path': '/declarations/0/not_here', 'value': 1}]},
+    {'patches': [{'op': 'add', 'path': '/declarations/0/missing/field', 'value': 1}]},
+    {'patches': [{'op': 'add', 'path': '/declarations/0/~2invalid', 'value': 1}]},
+    {'patches': [{'op': 'add', 'path': '/declarations/0/invalid~', 'value': 1}]},
+    {'patches': [{'op': 'add', 'path': '/declarations/0/number/nested', 'value': 1}]},
+    {'patches': [{'op': 'replace', 'path': '/mappings/0/evidence', 'value': []}]},
+    {'patches': [{'op': 'replace', 'path': '/mappings/0/experiment_section_ids', 'value': [None]}]},
+    {'patches': [{'op': 'add', 'path': '/mappings/0/experiment_section_ids', 'value': [7]}]},
+    {'patches': [{'op': 'replace', 'path': '/preconditions/0', 'value': {}}]},
+    {'patches': [{'op': 'add', 'path': '/declarations/-', 'value': 7}]},
+    {'patches': [{'op': 'remove', 'path': '/declarations/0/number', 'value': 7}]},
+    {'patches': [{'op': 'replace', 'path': '/declarations/0/number'}]},
+    {'patches': [{'op': 'replace', 'path': '/declarations/0/number', 'value': float('nan')}]},
+    {'patches': [{'op': 'replace', 'path': '/declarations/0/number', 'value': '92.5'}] * 129},
+])
+def test_invalid_structure_patch_rejects_without_mutating_previous_output(response):
+    _, _, original = fixture(); before = copy.deepcopy(original)
+    with pytest.raises(n.ContractError): n.apply_structure_repair_patch(original, response)
+    assert original == before
+
+
+def test_structure_patch_is_atomic_if_a_later_operation_is_invalid():
+    _, _, original = fixture(); before = copy.deepcopy(original)
+    with pytest.raises(n.ContractError): n.apply_structure_repair_patch(original, {'patches': [
+        {'op': 'replace', 'path': '/declarations/0/number', 'value': '7'},
+        {'op': 'remove', 'path': '/declarations/5'}]})
+    assert original == before
+
+
+def test_structure_patch_empty_operations_preserve_original_validation_failure():
+    ir, facts, original = wrong_parent_structure(); before = copy.deepcopy(original)
+    result = n.apply_structure_repair_patch(original, {'patches': []})
+    assert result == original and result is not original and original == before
+    with pytest.raises(n.ContractError, match='experiment is not a descendant'):
+        n.validate_structure(result, n.structure_context(facts, n.source_model(ir)), n.source_model(ir))
+
+
+def test_structure_patch_keeps_legacy_complete_json_response_exactly():
+    _, _, original = fixture(); full = copy.deepcopy(original); full['preconditions'][0]['suggestion'] = '保留原有建议'
+    assert n.apply_structure_repair_patch(original, full) == full
+
+
+def test_structure_patch_supports_explicit_declaration_removal_without_guessing_scope():
+    _, model, context, st = source_structure('本文提出融合模型。准确率92.5%。数据集含2808个AIGC视频。')
+    st['declarations'].append({**copy.deepcopy(st['declarations'][0]), 'id': 'extra', 'abstract_span_id': 'a3', 'number': '2808'})
+    st['mappings'].append({**copy.deepcopy(st['mappings'][0]), 'declaration_id': 'extra'})
+    st = n.resolve_structure(st, context, model); before = copy.deepcopy(st)
+    empty = n.apply_structure_repair_patch(st, {'patches': []})
+    with pytest.raises(n.ContractError): n.validate_structure(empty, context, model)
+    result = n.apply_structure_repair_patch(st, {'patches': [
+        {'op': 'remove', 'path': '/declarations/1'}, {'op': 'remove', 'path': '/mappings/1'}]})
+    assert n.validate_structure(result, context, model) and st == before
+
+
+@pytest.mark.parametrize('response', [{'patches': []}, {'patches': [{'op': 'remove', 'path': '/declarations/99'}]}])
+def test_failed_structure_patch_uses_only_original_single_repair(response):
+    ir, facts, original = wrong_parent_structure(); replies = iter([original, response]); calls = []
+    def request(messages): calls.append(messages); return copy.deepcopy(next(replies)), {}
+    result = n.run_numeric(ir, facts, request)
+    assert len(calls) == 2 and result['execution_status'] == 'error'
+    assert result['params']['contract_repairs'][0]['errors'][0].startswith('experiment is not a descendant')
+    assert not result['findings']
+
+
+def test_structure_patch_single_repair_and_legacy_full_repair_have_same_final_verdict():
+    from test_numeric_consistency import valid_output
+    ir, facts, bad = wrong_parent_structure(); model = n.source_model(ir); good = copy.deepcopy(bad)
+    good['mappings'][0]['experiment_section_ids'] = ['exp']
+    candidates, _ = n.retrieve_candidates(good['declarations'], good['mappings'], model)
+    answer = valid_output(next(c for c in candidates if c['source_node_id'] == 'data'))
+    results = []
+    for repair in [good, {'patches': [{'op': 'replace', 'path': '/mappings/0/experiment_section_ids/0', 'value': 'exp'}]}]:
+        replies = iter([bad, repair, answer]); calls = []
+        def request(messages): calls.append(messages); return copy.deepcopy(next(replies)), {}
+        result = n.run_numeric(ir, facts, request)
+        assert len(calls) == 3 and result['execution_status'] == 'completed'
+        assert 'patches' in calls[1][0]['content'] and 'JSON Patch' in calls[1][0]['content']
+        assert calls[0][0]['content'] == n.structure_prompt(n.structure_context(facts, model))
+        results.append((result['outcome'], result['findings'], result['params']['numeric_results']))
+    assert results[0] == results[1]
+
+
+
+@pytest.mark.parametrize('op', ['add', 'replace'])
+def test_structure_patch_explicit_experiment_id_string_list_changes_only_that_field(op):
+    ir, facts, bad = wrong_parent_structure(); before = copy.deepcopy(bad)
+    repaired = n.apply_structure_repair_patch(bad, {'patches': [
+        {'op': op, 'path': '/mappings/0/experiment_section_ids', 'value': ['exp']}]})
+    assert repaired['preconditions'] == before['preconditions'] and repaired['declarations'] == before['declarations']
+    assert {k:v for k,v in repaired['mappings'][0].items() if k!='experiment_section_ids'} == {k:v for k,v in before['mappings'][0].items() if k!='experiment_section_ids'}
+    assert n.validate_structure(repaired, n.structure_context(facts, n.source_model(ir)), n.source_model(ir))
+    assert bad == before
+
+
+@pytest.mark.parametrize('ids', [[], ['unknown']])
+def test_structure_patch_experiment_list_still_requires_original_nonempty_known_descendants(ids):
+    ir, facts, original = fixture()
+    repaired = n.apply_structure_repair_patch(original, {'patches': [
+        {'op': 'replace', 'path': '/mappings/0/experiment_section_ids', 'value': ids}]})
+    with pytest.raises(n.ContractError):
+        n.validate_structure(repaired, n.structure_context(facts, n.source_model(ir)), n.source_model(ir))
