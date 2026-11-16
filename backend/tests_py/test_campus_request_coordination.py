@@ -1,9 +1,10 @@
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-from contextlib import ExitStack
+from contextlib import ExitStack, contextmanager
 import hashlib
 import importlib
 import json
 import multiprocessing
+import os
 import sqlite3
 import time
 from urllib.error import HTTPError
@@ -251,3 +252,175 @@ def test_qwen_and_detection_use_one_account_without_slowing_shared_request_pacin
     assert starts == pytest.approx([1000.0, 1000.0 + 2/3, 1000.0 + 4/3])
     with sqlite3.connect(path) as db:
         assert db.execute('SELECT count(*) FROM accounts').fetchone()[0] == 1
+
+
+def _paused_waiting_process(path, polled, resume, result):
+    """Pause after a real denied SQLite attempt, outside its transaction."""
+    gate = coordinator().CampusRequestCoordinator(path, max_concurrent=1, requests_per_minute=100)
+    connection = gate._connection
+    @contextmanager
+    def observe(timeout=30):
+        with connection(timeout=timeout) as db:
+            yield db
+        if not polled.is_set():
+            polled.set()
+            if not resume.wait(10):
+                raise RuntimeError('test did not resume waiter')
+    gate._connection = observe
+    try:
+        with gate.slot('same-account', timeout=10):
+            result.put('admitted')
+    except BaseException as error:
+        result.put(type(error).__name__)
+
+
+def test_new_process_cannot_overtake_registered_waiter(tmp_path):
+    path = tmp_path / 'fifo.sqlite'
+    gate = coordinator().CampusRequestCoordinator(path, max_concurrent=1, requests_per_minute=100)
+    context = multiprocessing.get_context('spawn')
+    polled, resume, result = context.Event(), context.Event(), context.Queue()
+    process = context.Process(target=_paused_waiting_process, args=(path, polled, resume, result))
+    try:
+        with gate.slot('same-account', timeout=10):
+            process.start()
+            assert polled.wait(5)
+            time.sleep(.65)  # The next RPM start is already due when capacity opens.
+        newcomer = coordinator().CampusRequestCoordinator(path, max_concurrent=1, requests_per_minute=100)
+        with newcomer.slot('other-account', timeout=1):
+            pass  # An unrelated account must not queue behind this waiter.
+        with pytest.raises(TimeoutError):
+            with newcomer.slot('same-account', timeout=.15):
+                pytest.fail('A new process overtook the already queued request')
+    finally:
+        resume.set()
+        if process.pid is not None:
+            process.join(5)
+            if process.is_alive():
+                process.terminate()
+                process.join(5)
+    assert process.exitcode == 0
+    assert result.get(timeout=1) == 'admitted'
+
+    with sqlite3.connect(path) as db:
+        assert db.execute('SELECT count(*) FROM waiters').fetchone()[0] == 0
+        assert db.execute('SELECT count(*) FROM leases').fetchone()[0] == 0
+
+
+def test_dead_waiting_process_does_not_block_the_queue(tmp_path):
+    path = tmp_path / 'dead-waiter.sqlite'
+    gate = coordinator().CampusRequestCoordinator(path, max_concurrent=1, requests_per_minute=100)
+    context = multiprocessing.get_context('spawn')
+    polled, resume, result = context.Event(), context.Event(), context.Queue()
+    process = context.Process(target=_paused_waiting_process, args=(path, polled, resume, result))
+    try:
+        with gate.slot('same-account', timeout=10):
+            process.start()
+            assert polled.wait(5)
+            with sqlite3.connect(path) as db:
+                assert db.execute('SELECT count(*) FROM waiters').fetchone()[0] == 1
+            process.terminate()
+            process.join(5)
+        with gate.slot('same-account', timeout=2):
+            pass
+        with sqlite3.connect(path) as db:
+            assert db.execute('SELECT count(*) FROM waiters').fetchone()[0] == 0
+    finally:
+        # A terminated process can leave multiprocessing.Event's lock held.
+        if process.pid is not None and process.is_alive():
+            process.terminate()
+            process.join(5)
+
+
+def test_expired_waiter_is_removed_before_admission(tmp_path, monkeypatch):
+    api, clock = fake_clock(monkeypatch)
+    path = tmp_path / 'expired-waiter.sqlite'
+    gate = api.CampusRequestCoordinator(path, max_concurrent=1, requests_per_minute=100)
+    with sqlite3.connect(path) as db:
+        db.execute('INSERT INTO waiters (id,account_id,pid,expires_at) VALUES (?,?,?,?)',
+                   ('expired', 'same', os.getpid(), clock.now - 1))
+    with gate.slot('same', timeout=.5):
+        pass
+    with sqlite3.connect(path) as db:
+        assert db.execute('SELECT count(*) FROM waiters').fetchone()[0] == 0
+
+
+def test_cancellation_while_queued_cleans_its_ticket(tmp_path, monkeypatch):
+    api, clock = fake_clock(monkeypatch)
+    path = tmp_path / 'cancelled-waiter.sqlite'
+    gate = api.CampusRequestCoordinator(path, max_concurrent=1, requests_per_minute=100)
+    def interrupt_sleep(value):
+        raise KeyboardInterrupt()
+    with gate.slot('same', timeout=10):
+        monkeypatch.setattr(clock, 'sleep', interrupt_sleep)
+        with pytest.raises(KeyboardInterrupt):
+            with gate.slot('same', timeout=2):
+                pytest.fail('A queued request cannot acquire an occupied slot')
+        with sqlite3.connect(path) as db:
+            assert db.execute('SELECT count(*) FROM waiters').fetchone()[0] == 0
+            assert db.execute('SELECT count(*) FROM leases').fetchone()[0] == 1
+
+
+def test_legacy_database_upgrade_preserves_existing_pacing_and_active_lease(tmp_path, monkeypatch):
+    api, clock = fake_clock(monkeypatch)
+    path = tmp_path / 'legacy.sqlite'
+    with sqlite3.connect(path) as db:
+        db.executescript('CREATE TABLE accounts (id TEXT PRIMARY KEY, next_at REAL NOT NULL, blocked_until REAL NOT NULL); '
+                         'CREATE TABLE leases (id TEXT PRIMARY KEY, account_id TEXT NOT NULL, pid INTEGER NOT NULL, expires_at REAL NOT NULL);')
+        db.execute('INSERT INTO accounts VALUES (?,?,?)', ('same', clock.now + 2, clock.now + 1))
+        db.execute('INSERT INTO leases VALUES (?,?,?,?)', ('legacy-active', 'same', os.getpid(), clock.now + 4))
+        old_accounts = db.execute('SELECT * FROM accounts').fetchall()
+        old_leases = db.execute('SELECT * FROM leases').fetchall()
+    for _ in range(2):
+        gate = api.CampusRequestCoordinator(path, max_concurrent=1, requests_per_minute=100)
+        with sqlite3.connect(path) as db:
+            assert db.execute('SELECT * FROM accounts').fetchall() == old_accounts
+            assert db.execute('SELECT * FROM leases').fetchall() == old_leases
+    with pytest.raises(TimeoutError):
+        with gate.slot('same', timeout=.5):
+            pytest.fail('An active pre-upgrade lease still occupies capacity')
+    with sqlite3.connect(path) as db:
+        assert db.execute('SELECT count(*) FROM waiters').fetchone()[0] == 0
+        assert db.execute('SELECT * FROM accounts').fetchall() == old_accounts
+        assert db.execute('SELECT * FROM leases').fetchall() == old_leases
+    clock.now += 4
+    with gate.slot('same', timeout=1):
+        pass
+
+
+def test_database_lock_wait_cannot_start_request_after_deadline(tmp_path, monkeypatch):
+    api, clock = fake_clock(monkeypatch)
+    path = tmp_path / 'deadline-lock.sqlite'
+    gate = api.CampusRequestCoordinator(path, max_concurrent=1, requests_per_minute=100)
+    connection = gate._connection
+    @contextmanager
+    def delayed_connection(timeout=30):
+        with connection(timeout=timeout) as db:
+            clock.now += 1
+            yield db
+    monkeypatch.setattr(gate, '_connection', delayed_connection)
+    with pytest.raises(TimeoutError):
+        with gate.slot('same', timeout=.5):
+            pytest.fail('Time spent acquiring the SQLite write lock exhausted this deadline')
+    with sqlite3.connect(path) as db:
+        assert db.execute('SELECT count(*) FROM waiters').fetchone()[0] == 0
+        assert db.execute('SELECT count(*) FROM leases').fetchone()[0] == 0
+
+
+def test_maximum_capacity_still_allows_32_requests_and_keeps_rpm_bounded(tmp_path, monkeypatch):
+    api, clock = fake_clock(monkeypatch)
+    path = tmp_path / 'maximum-capacity.sqlite'
+    gate = api.CampusRequestCoordinator(path, max_concurrent=32, requests_per_minute=100)
+    starts = []
+    with ExitStack() as slots:
+        for _ in range(32):
+            slots.enter_context(gate.slot('same', timeout=30))
+            starts.append(clock.now)
+        with sqlite3.connect(path) as db:
+            assert db.execute('SELECT count(*) FROM leases').fetchone()[0] == 32
+        with pytest.raises(TimeoutError):
+            with gate.slot('same', timeout=.2):
+                pytest.fail('The 33rd request must remain queued while all slots are occupied')
+    assert all(b - a >= .6 - .00001 for a, b in zip(starts, starts[1:]))
+    with sqlite3.connect(path) as db:
+        assert db.execute('SELECT count(*) FROM leases').fetchone()[0] == 0
+        assert db.execute('SELECT count(*) FROM waiters').fetchone()[0] == 0
