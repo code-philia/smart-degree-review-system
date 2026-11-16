@@ -645,3 +645,176 @@ def test_identifier_offset_proof_never_covers_a_distinct_unknown_real_quantity(n
     cleaned, audit = n.prune_non_numeric_declarations(resolved, context)
     assert [d['id'] for d in cleaned['declarations']] == ['d1', 'd2']
     assert audit == []
+
+
+
+def source_span_failure_structure():
+    abstract = '本文提出融合模型。首次定量评测通信竞争并作定性分类。GPU通信规模达到4 GB。优化应用性能，使26个应用在8节点下总完成时间缩短7.0%，共享网卡时缩短14.6%。'
+    ir, model, context, structure = source_structure(abstract)
+    structure['declarations'][0].update(number='4', unit='GB', metric='GPU通信规模', condition='')
+    for did, number in [('d2', '7.0'), ('d3', '14.6')]:
+        structure['declarations'].append({**copy.deepcopy(structure['declarations'][0]),
+            'id': did, 'abstract_span_id': 'a4', 'number': number, 'unit': '%', 'metric': '总完成时间缩短'})
+        structure['mappings'].append({**copy.deepcopy(structure['mappings'][0]), 'declaration_id': did})
+    return ir, model, context, n.resolve_structure(structure, context, model)
+
+
+def test_failure_diagnostics_locate_wrong_source_span_and_real_uncovered_conditions():
+    _, model, context, structure = source_span_failure_structure()
+    before = copy.deepcopy((structure, context, model))
+    diagnostics = n.structure_failure_diagnostics(structure, context, model)
+    wrong = next(d for d in diagnostics if d['kind'] == 'numeric_source_mismatch')
+    assert wrong['declaration_id'] == 'd1' and wrong['abstract_span_id'] == 'a2'
+    assert wrong['source_excerpt'] == '首次定量评测通信竞争并作定性分类。'
+    assert wrong['source_candidates'] == []
+    assert any(s['abstract_span_id'] == 'a3' and s['candidates'][0]['value'] == '4'
+               and '4 GB' in s['source_excerpt'] for s in wrong['other_source_candidates'])
+    missing = next(d for d in diagnostics if d['kind'] == 'uncovered_numeric_candidates' and d['abstract_span_id'] == 'a4')
+    assert {c['value'] for c in missing['candidates']} == {'26', '8'}
+    assert '26个应用在8节点' in missing['source_excerpt']
+    assert 'condition' in missing['coverage_constraint']
+    assert (structure, context, model) == before
+    with pytest.raises(n.ContractError, match='declaration has no numeric source'):
+        n.validate_structure(structure, context, model)
+
+
+def test_failure_diagnostics_report_missing_percentage_source_alongside_invalid_parent():
+    ir, _, structure = wrong_parent_structure()
+    model = n.source_model(ir)
+    context = n.structure_context({'chinese_abstract': '本文提出融合模型。平均延迟4ms。准确率90%。'}, model)
+    structure['contributions'] = [{'id': 'c1', 'abstract_span_id': 'a1'}]
+    structure['declarations'][0].update(abstract_span_id='a2', number='4', unit='ms', metric='平均延迟')
+    structure['declarations'][0].pop('text')
+    structure = n.resolve_structure(structure, context, model)
+    diagnostics = n.structure_failure_diagnostics(structure, context, model)
+    missing = next(d for d in diagnostics if d['kind'] == 'uncovered_numeric_candidates')
+    assert missing['abstract_span_id'] == 'a3'
+    assert [c['value'] for c in missing['candidates']] == ['90']
+    assert missing['source_excerpt'] == '准确率90%。'
+    assert any(d['kind'] == 'invalid_parent_mapping' for d in diagnostics)
+    with pytest.raises(n.ContractError, match='experiment is not a descendant'):
+        n.validate_structure(structure, context, model)
+
+
+def test_source_diagnostics_keep_valid_fields_and_grounded_conditions_unchanged():
+    _, model, context, structure = source_span_failure_structure()
+    structure['declarations'][0]['abstract_span_id'] = 'a3'
+    structure['declarations'][0]['text'] = 'GPU通信规模达到4 GB。'
+    structure['declarations'][1]['condition'] = '26个应用在8节点下'
+    before = copy.deepcopy((structure, context, model))
+    assert n.structure_failure_diagnostics(structure, context, model) == []
+    assert n.validate_structure(structure, context, model)
+    assert (structure, context, model) == before
+
+
+def test_source_diagnostic_context_is_bounded_without_changing_invalid_output():
+    import json
+    _, model, context, structure = source_span_failure_structure()
+    structure['declarations'] = [{**copy.deepcopy(structure['declarations'][0]), 'id': 'bad' + str(i)} for i in range(100)]
+    before = copy.deepcopy(structure)
+    diagnostics = n.structure_failure_diagnostics(structure, context, model)
+    assert len(json.dumps(diagnostics, ensure_ascii=False).encode('utf-8')) <= 6000
+    assert diagnostics[-1]['kind'] == 'diagnostics_truncated' and diagnostics[-1]['omitted'] > 0
+    assert structure == before
+
+
+def test_source_diagnostics_only_enrich_existing_single_repair_and_keep_first_error():
+    ir, _, context, structure = source_span_failure_structure()
+    calls = []
+    def request(messages):
+        calls.append(messages)
+        return copy.deepcopy(structure), {}
+    result = n.run_numeric(ir, {'chinese_abstract': context['abstract']}, request)
+    assert len(calls) == 2
+    assert result['execution_status'] == 'error'
+    assert result['params']['failure']['message'] == 'declaration has no numeric source'
+    assert result['params']['contract_repairs'][0]['errors'][0] == 'declaration has no numeric source'
+    assert 'numeric_source_mismatch' in calls[1][0]['content']
+    assert 'uncovered_numeric_candidates' in calls[1][0]['content']
+    assert not result['findings']
+
+
+
+def test_failed_experiment_diagnostic_lists_only_supported_descendants_of_current_chapter():
+    ir, facts, structure = unsupported_experiment()
+    for parent, sid, title in [('ch', 'same_chapter_exp', '3.2 实验评估'), ('other', 'other_chapter_exp', '4.1 实验评估')]:
+        next(node for node in ir['nodes'] if node['id'] == parent)['children'].append(sid)
+        ir['nodes'].extend([
+            {'id': sid, 'kind': 'Section', 'children': [sid + '_h'], 'attrs': {'level': 2}},
+            {'id': sid + '_h', 'kind': 'Heading', 'text': title, 'children': [], 'provenance': []},
+        ])
+    model = n.source_model(ir)
+    context = n.structure_context(facts, model)
+    original = copy.deepcopy(structure)
+    diagnostics = n.structure_failure_diagnostics(structure, context, model)
+    failed = next(d for d in diagnostics if d['kind'] == 'unsupported_experiment_mapping')
+    assert failed['experiment_title'] == 'Model architecture and implementation'
+    assert failed['chapter_id'] == 'S1'
+    assert [x['title'] for x in failed['same_chapter_supported_sections']] == ['3.2 实验评估']
+    for candidate in failed['same_chapter_supported_sections']:
+        native = context['section_aliases'][candidate['section_id']]
+        assert n.descendant(model, native, 'ch') and n.experimental_support(model, native)
+        assert candidate['source_excerpt']
+    assert structure == original
+    with pytest.raises(n.ContractError, match='mapped experiment classification lacks supporting source text'):
+        n.validate_structure(structure, context, model)
+
+
+
+@pytest.mark.parametrize('case', ['missing', 'null'])
+def test_precondition_metadata_failure_diagnostic_names_each_field_without_normalizing(case):
+    ir, facts, structure = fixture()
+    for condition in structure['preconditions']:
+        if case == 'missing':
+            condition.pop('suggestion')
+        else:
+            condition['suggestion'] = None
+    model = n.source_model(ir)
+    context = n.structure_context(facts, model)
+    before = copy.deepcopy(structure)
+    diagnostics = n.structure_failure_diagnostics(structure, context, model)
+    fields = [d for d in diagnostics if d['kind'] == 'invalid_precondition_field']
+    assert {d['precondition_id'] for d in fields} == n.CONDITIONS
+    assert all(d['field'] == 'suggestion' and d['actual_type'] == case and 'string' in d['expected'] for d in fields)
+    assert structure == before
+    with pytest.raises(n.ContractError, match='precondition suggestion must be text'):
+        n.validate_structure(structure, context, model)
+
+
+
+def test_valid_numeric_main_path_never_calls_failure_helper_or_adds_model_calls(monkeypatch):
+    from test_numeric_consistency import valid_output
+    ir, facts, structure = fixture()
+    model = n.source_model(ir)
+    candidates, _ = n.retrieve_candidates(structure['declarations'], structure['mappings'], model)
+    answer = valid_output(next(row for row in candidates if row['source_node_id'] == 'data'))
+    replies = iter([structure, answer]); calls = []
+    def request(messages):
+        calls.append(messages)
+        return copy.deepcopy(next(replies)), {}
+    def unexpected_helper(*args):
+        raise AssertionError('failure diagnostics called on valid main path')
+    monkeypatch.setattr(n, 'structure_failure_diagnostics', unexpected_helper)
+    result = n.run_numeric(ir, facts, request)
+    assert result['execution_status'] == 'completed' and result['outcome'] == 'issues_found'
+    assert len(calls) == 2 and 'contract_repairs' not in result['params']
+
+
+
+def test_experiment_diagnostic_excerpt_uses_support_page_for_cross_page_source_node():
+    ir, facts, structure = unsupported_experiment()
+    model = n.source_model(ir)
+    model['sections']['cross_page_exp'] = {'section_id': 'cross_page_exp', 'parent_id': 'ch',
+        'level': 2, 'title': '3.2 方法实现', 'heading_node_id': None, 'block_ids': []}
+    for page, text in [(1, '本节介绍方法实现涉及的参数。'), (2, '实验结果表明方法有效。')]:
+        model['blocks'].append({'block_id': 'same-paragraph:p' + str(page),
+            'source_node_id': 'same-paragraph', 'section_id': 'cross_page_exp',
+            'page': page, 'block_type': 'Paragraph', 'text': text, 'provenance': []})
+    context = n.structure_context(facts, model)
+    support = n.experimental_support(model, 'cross_page_exp')
+    assert len(support) == 1 and support[0]['page'] == 2
+    diagnostics = n.structure_failure_diagnostics(structure, context, model)
+    failed = next(d for d in diagnostics if d['kind'] == 'unsupported_experiment_mapping')
+    candidate = next(c for c in failed['same_chapter_supported_sections'] if c['title'] == '3.2 方法实现')
+    assert candidate['source_excerpt'] == '实验结果表明方法有效。'
+    assert '参数' not in candidate['source_excerpt']

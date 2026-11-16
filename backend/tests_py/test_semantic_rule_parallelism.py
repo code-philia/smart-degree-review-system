@@ -380,3 +380,192 @@ def test_private_typo_worker_cli_accepts_only_bounded_integers(monkeypatch):
         monkeypatch.setattr(sys,'argv',arguments+[invalid])
         with pytest.raises(SystemExit) as error: lint.parse_args()
         assert error.value.code == 2
+
+
+
+def _alignment_fixture(zh_count=2, en_count=3):
+    facts = {'chinese_abstract': ''.join('中文事实'+str(i)+'。' for i in range(1,zh_count+1)),
+             'english_abstract': ' '.join('English fact '+str(i)+'.' for i in range(1,en_count+1))}
+    alignment = {'from_chinese':[dict(source_id=i,target_ids=[1],status='matched') for i in range(1,zh_count+1)],
+                 'from_english':[dict(source_id=i,target_ids=[1],status='matched') for i in range(1,en_count+1)]}
+    return facts, alignment
+
+
+def test_alignment_contract_repair_receives_both_ranges_and_all_invalid_rows(monkeypatch):
+    import copy,json
+    lint=module();facts,valid=_alignment_fixture();bad=copy.deepcopy(valid)
+    bad['from_chinese'][0]['target_ids']=[0]
+    bad['from_chinese'][1]['target_ids']=[4]
+    bad['from_english'][0]['target_ids']=[3]
+    bad['from_english'][1]['target_ids']=[0]
+    original=copy.deepcopy(bad);calls=[]
+    def request(messages):
+        calls.append(copy.deepcopy(messages))
+        return (copy.deepcopy(bad),{'input_tokens':3,'output_tokens':5}) if len(calls)==1 else (copy.deepcopy(valid),{'input_tokens':7,'output_tokens':11})
+    monkeypatch.setattr(lint,'request_json',request)
+    result=lint._run_aligned_abstract({},facts)
+    assert len(calls)==2
+    assert calls[1][0]==calls[0][0]
+    assert json.loads(calls[1][1]['content'])==original
+    diagnostics=json.loads(calls[1][-1]['content'])
+    assert diagnostics['index_base']==1
+    assert diagnostics['directions']['from_chinese']=={'source_id_range':[1,2],'target_id_range':[1,3]}
+    assert diagnostics['directions']['from_english']=={'source_id_range':[1,3],'target_id_range':[1,2]}
+    assert {(e['direction'],e['row']) for e in diagnostics['errors']}=={('from_chinese',1),('from_chinese',2),('from_english',1),('from_english',2)}
+    assert result['model_usage']=={'input_tokens':10,'output_tokens':16}
+    assert result['params']['alignment_repair']['status']=='accepted'
+    assert result['params']['alignment']==valid
+    assert bad==original
+
+
+@pytest.mark.parametrize('drop', ['source','direction','duplicate','invalid_again'])
+def test_alignment_repair_still_rejects_incomplete_or_invalid_second_output(monkeypatch,drop):
+    import copy
+    lint=module();facts,valid=_alignment_fixture();bad=copy.deepcopy(valid)
+    bad['from_english'][2]['target_ids']=[3]
+    second=copy.deepcopy(valid)
+    if drop=='source': second['from_chinese'].pop()
+    elif drop=='direction': del second['from_english']
+    elif drop=='duplicate': second['from_chinese'][1]['source_id']=1
+    else: second=copy.deepcopy(bad)
+    calls=[]
+    def request(messages):
+        calls.append(messages)
+        return copy.deepcopy(bad if len(calls)==1 else second),{'input_tokens':1,'output_tokens':1}
+    monkeypatch.setattr(lint,'request_json',request)
+    with pytest.raises(ValueError) as error: lint._run_aligned_abstract({},facts)
+    assert len(calls)==2
+    assert error.value.alignment_repair['status']=='failed'
+    assert 'invalid abstract alignment target' in error.value.alignment_repair['initial_error']
+
+
+@pytest.mark.parametrize('failure',[TimeoutError('controlled timeout'),RuntimeError('HTTP 429'),ConnectionError('controlled disconnect')])
+def test_alignment_transport_failure_does_not_trigger_contract_repair(monkeypatch,failure):
+    lint=module();facts,_=_alignment_fixture();calls=[]
+    def request(messages): calls.append(messages);raise failure
+    monkeypatch.setattr(lint,'request_json',request)
+    with pytest.raises(type(failure)):lint._run_aligned_abstract({},facts)
+    assert len(calls)==1
+
+
+def test_alignment_repair_usage_includes_original_repair_and_existing_review(monkeypatch):
+    import copy
+    lint=module();facts,valid=_alignment_fixture(1,1);bad=copy.deepcopy(valid)
+    bad['from_english'][0]['target_ids']=[2]
+    valid['from_english'][0].update(status='partial',target_ids=[])
+    responses=iter([(bad,{'input_tokens':2,'output_tokens':3}),
+                    (valid,{'input_tokens':5,'output_tokens':7}),
+                    ({'reviews':[{'candidate_id':'from_english:1','verdict':'uncertain','reason':'证据不足'}]}, {'input_tokens':11,'output_tokens':13})])
+    calls=[]
+    def request(messages):calls.append(messages);return next(responses)
+    monkeypatch.setattr(lint,'request_json',request)
+    result=lint._run_aligned_abstract({},facts)
+    assert len(calls)==3
+    assert result['model_usage']=={'input_tokens':18,'output_tokens':23}
+    assert result['params']['candidate_reviews'][0]['verdict']=='uncertain'
+
+
+def test_alignment_repair_diagnostics_remain_bounded_and_explicitly_report_omissions():
+    import copy,json
+    lint=module();bad={'from_chinese':[{'source_id':i,'target_ids':[99999],'status':'matched'} for i in range(1,1000)],'from_english':'not an array'}
+    original=copy.deepcopy(bad)
+    diagnostics=lint._alignment_repair_diagnostics(bad,['甲。'],['A.'],'first failure')
+    assert len(json.dumps(diagnostics,ensure_ascii=False,separators=(',',':')).encode('utf-8'))<=6144
+    assert diagnostics['omitted_errors']>0 and diagnostics['total_errors']>len(diagnostics['errors'])
+    assert diagnostics['directions']['from_english']=={'source_id_range':[1,1],'target_id_range':[1,1]}
+    assert bad==original
+
+
+@pytest.mark.parametrize('zh_count,en_count,source_id,targets',[(40,53,50,[41]),(18,19,19,[19]),(17,18,18,[17,18])])
+def test_real_paper_sentence_bounds_require_model_repair_in_reverse_direction(monkeypatch,zh_count,en_count,source_id,targets):
+    import copy,json
+    lint=module();facts,valid=_alignment_fixture(zh_count,en_count);bad=copy.deepcopy(valid)
+    bad['from_english'][source_id-1]['target_ids']=targets
+    calls=[]
+    def request(messages):
+        calls.append(copy.deepcopy(messages))
+        return copy.deepcopy(bad if len(calls)==1 else valid),{'input_tokens':1,'output_tokens':1}
+    monkeypatch.setattr(lint,'request_json',request)
+    result=lint._run_aligned_abstract({},facts)
+    assert len(calls)==2 and result['execution_status']=='completed'
+    diagnostics=json.loads(calls[1][-1]['content'])
+    assert diagnostics['directions']['from_english']['target_id_range']==[1,zh_count]
+    assert any(e['direction']=='from_english' and e['row']==source_id for e in diagnostics['errors'])
+    assert result['params']['alignment']['from_english'][source_id-1]['target_ids']==[1]
+
+
+def test_failed_alignment_repair_remains_an_auditable_error_in_final_rule(monkeypatch):
+    import copy
+    lint=module();facts,valid=_alignment_fixture(1,1);bad=copy.deepcopy(valid);bad['from_english'][0]['target_ids']=[2]
+    monkeypatch.setattr(lint,'build_paper',lambda *_,**__: {})
+    monkeypatch.setattr(lint,'extract_bilingual_facts',lambda _:facts)
+    calls=[]
+    def request(messages):calls.append(messages);return copy.deepcopy(bad),{'input_tokens':1,'output_tokens':1}
+    monkeypatch.setattr(lint,'request_json',request)
+    result=lint.run(Path('input.pdf'),['bilingual_abstract_consistency_check'])
+    run=result['rule_runs'][0]
+    assert run['execution_status']=='error' and run['outcome']=='inconclusive'
+    assert run['params']['alignment_repair']['attempts']==1
+    assert run['params']['alignment_repair']['status']=='failed'
+    assert len(calls)==2
+
+
+
+@pytest.mark.parametrize('kind',['root','direction','row','source_bool','source_zero','status_list','target_bool','matched_null_target'])
+def test_alignment_repair_diagnostics_handle_every_validator_shape_failure(monkeypatch,kind):
+    import copy
+    lint=module();facts,valid=_alignment_fixture(1,1);bad=copy.deepcopy(valid)
+    if kind=='root':bad=[]
+    elif kind=='direction':bad['from_chinese']=None
+    elif kind=='row':bad['from_chinese']=['bad row']
+    elif kind=='source_bool':bad['from_chinese'][0]['source_id']=True
+    elif kind=='source_zero':bad['from_chinese'][0]['source_id']=0
+    elif kind=='status_list':bad['from_chinese'][0]['status']=[]
+    elif kind=='target_bool':bad['from_chinese'][0]['target_ids']=[True]
+    else:bad['from_chinese'][0]['target_ids']=None
+    calls=[]
+    def request(messages):calls.append(messages);return copy.deepcopy(bad if len(calls)==1 else valid),{'input_tokens':1,'output_tokens':1}
+    monkeypatch.setattr(lint,'request_json',request)
+    result=lint._run_aligned_abstract({},facts)
+    assert len(calls)==2 and result['execution_status']=='completed'
+    assert result['params']['alignment_repair']['status']=='accepted'
+
+
+def test_alignment_failed_repair_preserves_known_usage_without_an_extra_attempt(monkeypatch):
+    import copy
+    lint=module();facts,valid=_alignment_fixture(1,1);bad=copy.deepcopy(valid);bad['from_english'][0]['target_ids']=[2]
+    calls=[]
+    def request(messages):
+        calls.append(messages)
+        if len(calls)==2:raise TimeoutError('repair transport timed out')
+        return copy.deepcopy(bad),{'input_tokens':3,'output_tokens':5}
+    monkeypatch.setattr(lint,'request_json',request)
+    with pytest.raises(TimeoutError) as error:lint._run_aligned_abstract({},facts)
+    assert len(calls)==2
+    assert error.value.known_model_usage=={'input_tokens':3,'output_tokens':5}
+    assert error.value.alignment_repair['status']=='failed'
+
+
+
+@pytest.mark.parametrize('failure', ['transport', 'invalid_review', 'missing_review', 'unhashable_id'])
+def test_accepted_alignment_repair_audit_survives_a_later_review_failure(monkeypatch,failure):
+    import copy
+    lint=module();facts,valid=_alignment_fixture(1,1);bad=copy.deepcopy(valid)
+    bad['from_english'][0]['target_ids']=[2]
+    valid['from_english'][0].update(status='partial',target_ids=[])
+    calls=[]
+    def request(messages):
+        calls.append(messages)
+        if len(calls)==1:return copy.deepcopy(bad),{'input_tokens':2,'output_tokens':3}
+        if len(calls)==2:return copy.deepcopy(valid),{'input_tokens':5,'output_tokens':7}
+        if failure=='transport':raise TimeoutError('review transport timed out')
+        return ({'reviews':None} if failure=='invalid_review' else {'reviews':[{'candidate_id':[]}]} if failure=='unhashable_id' else {'reviews':[]}),{'input_tokens':11,'output_tokens':13}
+    monkeypatch.setattr(lint,'request_json',request)
+    monkeypatch.setattr(lint,'build_paper',lambda *_,**__: {})
+    monkeypatch.setattr(lint,'extract_bilingual_facts',lambda _:facts)
+    run=lint.run(Path('input.pdf'),['bilingual_abstract_consistency_check'])['rule_runs'][0]
+    assert run['execution_status']=='error' and run['outcome']=='inconclusive'
+    assert run['params']['alignment_repair']['status']=='accepted'
+    assert run['params']['alignment_repair']['attempts']==1
+    assert run['model_usage']==({'input_tokens':7,'output_tokens':10} if failure=='transport' else {'input_tokens':18,'output_tokens':23})
+    assert len(calls)==3

@@ -857,39 +857,7 @@ def _abstract_issue_anchors(ir, facts, row):
     return anchors, evidence
 
 
-def _run_aligned_abstract(ir, facts):
-    rule_id = 'bilingual_abstract_consistency_check'
-    chinese = _abstract_sentences(str(facts['chinese_abstract']))
-    english = _abstract_sentences(str(facts['english_abstract']))
-    context = ('中文摘要全文：\n' + _numbered_abstract(chinese)
-               + '\n英文摘要全文：\n' + _numbered_abstract(english))
-    policy = (
-        '按句级语义建立双向对应，允许一对多、多对一、拆句合句和跨顺序对应。'
-        '只有两侧实际表达了相同事实、仅翻译措辞或语序不同，才筛除为等价。'
-        '除明确矛盾、独立核心事实完全缺失外，也报告句组之间具体事实覆盖不完整。'
-        '一侧概括、一侧列出具体的技术组成、操作、条件、作用机制、结果或应用范围时，'
-        '若这些具体事实在概括侧全文中没有实际表达，应判partial_omission，不能仅按详略不同筛除。'
-        '完整句子被删除且其独立事实在另一摘要全文均未表达时，属于实质缺失；'
-        '同一事实的同义翻译不报警；概括表达不自动覆盖其未明确表达的具体事实。判断不清时不报警。'
-        '但主题相近不等于事实对应：同一处具体方法名称、算法、数值或结论对象不同，必须单独核对，'
-        '不得用整体主题相似掩盖局部方法替换。'
-        '独立贡献总结中的方法属性、应用对象或适用范围属于研究结论；'
-        '另一侧只说提出了系统或整体有效，不能据此认定这些属性或适用范围已经表达。')
-    alignment, usage = request_json([{'role': 'user', 'content': (
-        '你是双语句级对齐器，本阶段只核对句子的实际事实内容，不决定是否告警。'
-        '允许一对多、多对一、跨顺序对应。matched要求事实内容对应，不能只看主题相似。'
-        '同一主题中的方法名称或具体操作不相同须标conflict；任何未被对应句实际表达的独立事实标partial或missing，'
-        '即使你认为差异不重要，也必须交给下一阶段复核，不得在此省略候选。'
-        '\n为两侧每一个句子各返回一条记录，不得省略任何句子。'
-        'status 为 matched|partial|missing|conflict。matched 也必须填写对应句编号。'
-        '逐句检查具体方法名称和独立结论，不仅看句子主题；对应句组未覆盖独立事实时用partial。'
-        '方法名称或技术操作被不同概念替换时用conflict，即使其余句意相同。'
-        'partial、missing、conflict 仅是候选，不是最终告警。'
-        '只输出一个JSON对象，必须同时含有from_chinese和from_english两个数组。'
-        '每条记录只写source_id、target_ids、status，不写理由或原文。'
-        '以下为结构示例，实际必须覆盖两侧所有编号：'
-        '{"from_chinese":[{"source_id":1,"target_ids":[1],"status":"matched"}],'
-        '"from_english":[{"source_id":1,"target_ids":[1],"status":"matched"}]}。\n' + context)}])
+def _alignment_candidates(alignment, chinese, english):
     if not isinstance(alignment, dict):
         raise ValueError('abstract alignment must be an object')
     candidates = []
@@ -919,9 +887,147 @@ def _run_aligned_abstract(ir, facts):
                                    'target_sentences': [targets[i-1] for i in tids]})
         if sorted(ids) != list(range(1, len(sources)+1)):
             raise ValueError('abstract alignment has missing or duplicate sentence records: ' + name)
+    return candidates
+
+
+def _alignment_repair_diagnostics(alignment, chinese, english, initial_error):
+    """Collect both directions without changing any mapping; bound private feedback."""
+    errors = []
+    directions = (('from_chinese', chinese, english), ('from_english', english, chinese))
+    if not isinstance(alignment, dict):
+        errors.append({'scope': 'root', 'issues': ['alignment_must_be_object']})
+    else:
+        for name, sources, targets in directions:
+            records = alignment.get(name)
+            if not isinstance(records, list):
+                errors.append({'direction': name, 'issues': ['direction_must_be_array']})
+                continue
+            counts = {}
+            for index, row in enumerate(records, 1):
+                if not isinstance(row, dict):
+                    errors.append({'direction': name, 'row': index, 'issues': ['row_must_be_object']})
+                    continue
+                issues = []
+                sid, status, tids = row.get('source_id'), row.get('status'), row.get('target_ids')
+                if type(sid) is not int:
+                    issues.append('source_id_must_be_integer')
+                elif not 1 <= sid <= len(sources):
+                    issues.append('source_id_out_of_range')
+                else:
+                    counts[sid] = counts.get(sid, 0) + 1
+                if status not in ('matched', 'partial', 'missing', 'conflict'):
+                    issues.append('invalid_status')
+                if tids is None and status in ('partial', 'missing'):
+                    tids = []
+                if not isinstance(tids, list):
+                    issues.append('target_ids_must_be_array')
+                elif any(type(i) is not int or not 1 <= i <= len(targets) for i in tids):
+                    issues.append('target_id_out_of_range_or_noninteger')
+                if status in ('matched', 'conflict') and not tids:
+                    issues.append('status_requires_target')
+                if issues:
+                    errors.append({'direction': name, 'row': index, 'issues': issues})
+            missing = [i for i in range(1, len(sources) + 1) if i not in counts]
+            duplicate = [i for i, count in counts.items() if count > 1]
+            if missing or duplicate:
+                errors.append({'direction': name, 'scope': 'source_coverage',
+                    'missing_source_ids': missing[:80], 'missing_count': len(missing),
+                    'duplicate_source_ids': duplicate[:80], 'duplicate_count': len(duplicate)})
+    feedback = {
+        'task': '仅修复上一个双语alignment的结构或索引错误；必须依据原始两侧全文重新核对对应关系。',
+        'initial_error': str(initial_error)[:300], 'index_base': 1,
+        'directions': {name: {'source_id_range': [1, len(sources)], 'target_id_range': [1, len(targets)]}
+                       for name, sources, targets in directions},
+        'requirements': ['必须同时输出from_chinese与from_english；每侧真实source编号恰好各出现一次，不得丢弃原有效source。',
+                         '每条仅含source_id、target_ids、status；status仍为matched|partial|missing|conflict。',
+                         'matched与conflict必须有合法target；partial或missing可无target，但必须由原文事实支持。',
+                         '不得直接截断或删除越界target、置空映射或改成missing以规避校验；只能依据原始全文重新判断。',
+                         '仅返回完整修正JSON，不要解释。诊断未列尽时仍须检查原JSON的全部记录。'],
+        'total_errors': len(errors), 'omitted_errors': len(errors), 'errors': [],
+    }
+    for error in errors:
+        feedback['errors'].append(error)
+        feedback['omitted_errors'] = len(errors) - len(feedback['errors'])
+        if len(json.dumps(feedback, ensure_ascii=True, separators=(',', ':')).encode('utf-8')) > 6144:
+            feedback['errors'].pop()
+            feedback['omitted_errors'] = len(errors) - len(feedback['errors'])
+            break
+    return feedback
+
+
+def _alignment_audit_error(error, audit, usage):
+    if audit:
+        error.alignment_repair = dict(audit)
+        error.known_model_usage = dict(usage)
+    return error
+
+
+def _alignment_review_request(messages, audit, usage):
+    try:
+        return request_json(messages)
+    except Exception as error:
+        _alignment_audit_error(error, audit, usage)
+        raise
+
+
+def _run_aligned_abstract(ir, facts):
+    rule_id = 'bilingual_abstract_consistency_check'
+    chinese = _abstract_sentences(str(facts['chinese_abstract']))
+    english = _abstract_sentences(str(facts['english_abstract']))
+    context = ('中文摘要全文：\n' + _numbered_abstract(chinese)
+               + '\n英文摘要全文：\n' + _numbered_abstract(english))
+    policy = (
+        '按句级语义建立双向对应，允许一对多、多对一、拆句合句和跨顺序对应。'
+        '只有两侧实际表达了相同事实、仅翻译措辞或语序不同，才筛除为等价。'
+        '除明确矛盾、独立核心事实完全缺失外，也报告句组之间具体事实覆盖不完整。'
+        '一侧概括、一侧列出具体的技术组成、操作、条件、作用机制、结果或应用范围时，'
+        '若这些具体事实在概括侧全文中没有实际表达，应判partial_omission，不能仅按详略不同筛除。'
+        '完整句子被删除且其独立事实在另一摘要全文均未表达时，属于实质缺失；'
+        '同一事实的同义翻译不报警；概括表达不自动覆盖其未明确表达的具体事实。判断不清时不报警。'
+        '但主题相近不等于事实对应：同一处具体方法名称、算法、数值或结论对象不同，必须单独核对，'
+        '不得用整体主题相似掩盖局部方法替换。'
+        '独立贡献总结中的方法属性、应用对象或适用范围属于研究结论；'
+        '另一侧只说提出了系统或整体有效，不能据此认定这些属性或适用范围已经表达。')
+    alignment_messages = [{'role': 'user', 'content': (
+        '你是双语句级对齐器，本阶段只核对句子的实际事实内容，不决定是否告警。'
+        '允许一对多、多对一、跨顺序对应。matched要求事实内容对应，不能只看主题相似。'
+        '同一主题中的方法名称或具体操作不相同须标conflict；任何未被对应句实际表达的独立事实标partial或missing，'
+        '即使你认为差异不重要，也必须交给下一阶段复核，不得在此省略候选。'
+        '\n为两侧每一个句子各返回一条记录，不得省略任何句子。'
+        'status 为 matched|partial|missing|conflict。matched 也必须填写对应句编号。'
+        '逐句检查具体方法名称和独立结论，不仅看句子主题；对应句组未覆盖独立事实时用partial。'
+        '方法名称或技术操作被不同概念替换时用conflict，即使其余句意相同。'
+        'partial、missing、conflict 仅是候选，不是最终告警。'
+        '只输出一个JSON对象，必须同时含有from_chinese和from_english两个数组。'
+        '每条记录只写source_id、target_ids、status，不写理由或原文。'
+        '以下为结构示例，实际必须覆盖两侧所有编号：'
+        '{"from_chinese":[{"source_id":1,"target_ids":[1],"status":"matched"}],'
+        '"from_english":[{"source_id":1,"target_ids":[1],"status":"matched"}]}。\n' + context)}]
+    alignment, usage = request_json(alignment_messages)
+    alignment_repair = None
+    try:
+        candidates = _alignment_candidates(alignment, chinese, english)
+    except (ValueError, TypeError) as initial_error:
+        feedback = _alignment_repair_diagnostics(alignment, chinese, english, initial_error)
+        audit = {'attempts': 1, 'status': 'started', 'initial_error': str(initial_error)[:300],
+                 'total_errors': feedback['total_errors'], 'omitted_errors': feedback['omitted_errors']}
+        try:
+            repaired, used = request_json(alignment_messages + [
+                {'role': 'assistant', 'content': json.dumps(alignment, ensure_ascii=True)},
+                {'role': 'user', 'content': json.dumps(feedback, ensure_ascii=True, separators=(',', ':'))},
+            ])
+            for key in usage:
+                usage[key] += used[key]
+            candidates = _alignment_candidates(repaired, chinese, english)
+        except Exception as repair_error:
+            repair_error.alignment_repair = {**audit, 'status': 'failed'}
+            repair_error.known_model_usage = dict(usage)
+            raise
+        alignment = repaired
+        alignment_repair = {**audit, 'status': 'accepted'}
     reviews = []
     if candidates:
-        review, used = request_json([{'role':'user','content':(
+        review, used = _alignment_review_request([{'role':'user','content':(
             policy + '\n复核以下每个候选，重新搜索另一摘要全文中的等价表达。不得补造新候选。'
             'equivalent、detail_difference、uncertain 不报警；detail_difference仅限不损失事实的语言表达差异。'
             'partial_omission用于存在对应句组、但其中部分具体事实没有对应表达的情况。'
@@ -967,15 +1073,19 @@ def _run_aligned_abstract(ir, facts):
             '"fact_checks":[{"source_quote":"源句中的一项事实",'
             '"relation":"covered|missing|contradiction|uncertain","target_quote":"目标原文或空串"}],'
             '"target_ids":[1],"reason":"依据"}]}。\n'
-            + context + '\n候选：\n' + json.dumps(candidates, ensure_ascii=False))}])
+            + context + '\n候选：\n' + json.dumps(candidates, ensure_ascii=False))}], alignment_repair, usage)
         for key in usage:
             usage[key] += used[key]
         reviews = review.get('reviews') if isinstance(review, dict) else None
         expected = {r['candidate_id'] for r in candidates}
-        if not isinstance(reviews,list) or any(not isinstance(r,dict) for r in reviews):
-            raise ValueError('invalid abstract review')
-        if len(reviews) != len(expected) or {r.get('candidate_id') for r in reviews} != expected:
-            raise ValueError('abstract review has missing or duplicate candidates')
+        try:
+            if not isinstance(reviews,list) or any(not isinstance(r,dict) for r in reviews):
+                raise ValueError('invalid abstract review')
+            if len(reviews) != len(expected) or {r.get('candidate_id') for r in reviews} != expected:
+                raise ValueError('abstract review has missing or duplicate candidates')
+        except Exception as review_error:
+            _alignment_audit_error(review_error, alignment_repair, usage)
+            raise
     raw_reviews = json.loads(json.dumps(reviews, ensure_ascii=True))
     validation_diagnostics = []
     lookup = {r['candidate_id']:r for r in candidates}
@@ -1095,6 +1205,7 @@ def _run_aligned_abstract(ir, facts):
         message=('摘要对照已完成，部分候选的证据暂未核实。已保留核实通过的结果；可稍后重新检测。'
                  if validation_diagnostics else None),findings=findings,model_usage=usage,
         params=dict(comparison_mode='full_sentence_alignment_v5.3',alignment=alignment,
+                    **({'alignment_repair': alignment_repair} if alignment_repair else {}),
                     candidate_reviews=reviews,raw_candidate_reviews=raw_reviews,
                     validation_incomplete=bool(validation_diagnostics),
                     validation_diagnostics=validation_diagnostics,mismatches=mismatches[:3]))
@@ -1186,6 +1297,9 @@ def run(pdf: Path, rule_ids: list[str], run_id=None, on_rule_complete=None,
                     'params': {'technical_failure': str(error)[:300]},
                     'message': public_failure_message(error),
                 }
+                if hasattr(error, 'alignment_repair'):
+                    completed['params']['alignment_repair'] = error.alignment_repair
+                    completed['model_usage'] = error.known_model_usage
             runs[futures[future]] = completed
             if on_rule_complete:
                 on_rule_complete(completed)

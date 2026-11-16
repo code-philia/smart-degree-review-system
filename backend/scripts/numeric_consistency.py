@@ -865,24 +865,109 @@ def structure_prompt(context):
 
 
 def structure_failure_diagnostics(data, context, model):
-    """Collect independent known contract failures only after validation failed.
-
-    Never change the output, decide admission, or inspect untyped values as IDs.
-    The number syntax and parent/fallback predicates match validate_structure.
-    """
+    """Describe source constraints only after validation failed; never repair data."""
     if not isinstance(data, dict):
         return []
     diagnostics = []
+    conditions = data.get('preconditions')
+    for condition in conditions if isinstance(conditions, list) else []:
+        if isinstance(condition, dict) and not isinstance(condition.get('suggestion'), str):
+            value = condition.get('suggestion')
+            diagnostics.append({'kind': 'invalid_precondition_field',
+                'precondition_id': condition.get('id') if isinstance(condition.get('id'), str) else '<unknown>',
+                'field': 'suggestion', 'expected': 'string; keep the key with an empty string when no suggestion applies',
+                'actual_type': 'missing' if 'suggestion' not in condition else 'null' if value is None else type(value).__name__})
+    spans = {s['id']: s for s in context.get('abstract_spans', []) if isinstance(s, dict) and isinstance(s.get('id'), str)}
+    by_span = {}
+    for candidate in context.get('numeric_candidates', []):
+        by_span.setdefault(candidate['abstract_span_id'], []).append(candidate)
+
+    def source_entry(sid, candidates):
+        span = spans[sid]
+        chosen = candidates[:8]
+        center = max(0, chosen[0]['start'] - span['start']) if chosen else 0
+        start = max(0, center - 80)
+        text = span['text'][start:start + 320]
+        result = {'abstract_span_id': sid, 'source_excerpt': text,
+                  'source_excerpt_start': span['start'] + start,
+                  'candidates': [{k: c[k] for k in ('value', 'start', 'end', 'unit') if k in c} for c in chosen]}
+        if len(candidates) > len(chosen):
+            result['omitted_candidates'] = len(candidates) - len(chosen)
+        return result
+
+    covered, percentage_covered = {}, set()
+    legacy_wrong_value_spans, source_repair_context = set(), False
     declarations = data.get('declarations')
     for declaration in declarations if isinstance(declarations, list) else []:
         if not isinstance(declaration, dict):
             continue
         value = declaration.get('number')
-        if not (type(value) in (int, float, str) and re.search(r'\d', str(value)) is not None):
-            diagnostics.append({'kind': 'invalid_numeric_field', 'field': 'number',
-                'declaration_id': declaration.get('id') if isinstance(declaration.get('id'), str) else '<unknown>',
-                'abstract_span_id': declaration.get('abstract_span_id') if isinstance(declaration.get('abstract_span_id'), str) else None,
-                'error': 'invalid numeric value'})
+        number_valid = type(value) in (int, float, str) and re.search(r'\d', str(value)) is not None
+        sid = declaration.get('abstract_span_id')
+        if not isinstance(sid, str):
+            text = declaration.get('text')
+            sid = next((key for key, span in spans.items() if isinstance(text, str) and grounded_quote(text, span['text'])), None)
+        span = spans.get(sid)
+        did = declaration.get('id') if isinstance(declaration.get('id'), str) else '<unknown>'
+        if not number_valid:
+            item = {'kind': 'invalid_numeric_field', 'field': 'number', 'declaration_id': did,
+                    'abstract_span_id': sid, 'error': 'invalid numeric value'}
+            if span:
+                source = source_entry(sid, by_span.get(sid, []))
+                item.update(source_excerpt=source['source_excerpt'], source_candidates=source['candidates'])
+            diagnostics.append(item)
+            source_repair_context |= bool(span and not numeric_values(span['text']))
+        if not span or not number_valid:
+            continue
+        represented = numeric_values(str(value))
+        text = declaration.get('text')
+        if isinstance(text, str):
+            percentage_covered.update(percentage_values(text) & represented if declaration.get('abstract_span_id') else percentage_values(text))
+        local = by_span.get(sid, [])
+        local_values = {c['value'] for c in local}
+        if represented and (not represented <= numeric_values(span['text']) or
+                            ('numeric_candidates' in context and not represented <= local_values)):
+            source = source_entry(sid, local)
+            others = [source_entry(key, [c for c in rows if c['value'] in represented])
+                      for key, rows in by_span.items() if key != sid and key in spans
+                      and any(c['value'] in represented for c in rows)]
+            # Keep the existing self-contained wrong-number error unchanged.
+            # Extra context is useful for a missing/misbound source or a source
+            # token excluded from result candidates, not a new acceptance rule.
+            if numeric_values(span['text']) and not represented <= numeric_values(span['text']) and not others:
+                legacy_wrong_value_spans.add(sid)
+            else:
+                excluded = [dict(value=c['value'], reason=c['reason']) for c in context.get('excluded_numeric_tokens', [])
+                            if c['abstract_span_id'] == sid]
+                diagnostics.append({'kind': 'numeric_source_mismatch', 'declaration_id': did,
+                    'abstract_span_id': sid, 'declared_number': value,
+                    'source_excerpt': source['source_excerpt'], 'source_candidates': source['candidates'],
+                    'omitted_source_candidates': max(0, len(local) - 8),
+                    'excluded_source_tokens': excluded[:8], 'other_source_candidates': others[:3],
+                    'omitted_excluded_source_tokens': max(0, len(excluded) - 8),
+                    'omitted_other_source_spans': max(0, len(others) - 3),
+                    'source_constraint': 'Each number must be grounded in its own referenced source span and admitted candidates. Other spans are audit hints, not automatic remapping or proof of equivalent claims.'})
+                source_repair_context = True
+        text = declaration.get('text')
+        if (represented and represented <= local_values and isinstance(text, str)
+                and grounded_quote(text, span['text']) and represented <= numeric_values(text)):
+            covered.setdefault(sid, set()).update(represented)
+            condition = declaration.get('condition')
+            if isinstance(condition, str):
+                for match in re.finditer(r'(?<![A-Za-z0-9.])(\d+(?:\.\d+)?)\s*(?:个\s*)?(?:应用|节点|样本|数据集|设备|处理器|线程|进程)', condition):
+                    if grounded_quote(match.group(), span['text']):
+                        covered[sid].add(format(Decimal(match.group(1)).normalize(), 'f'))
+    conditions = data.get('preconditions')
+    if (isinstance(conditions, list) and len(conditions) == 3 and
+            all(isinstance(c, dict) and c.get('passed') is True for c in conditions)):
+        for sid, candidates in by_span.items():
+            missing = [c for c in candidates if sid not in legacy_wrong_value_spans and
+                ((c['value'] not in percentage_covered and re.match(r'\s*[%％]', context['abstract'][c['end']:]))
+                 or (source_repair_context and c['value'] not in covered.get(sid, set())))]
+            if missing and sid in spans:
+                diagnostics.append({'kind': 'uncovered_numeric_candidates', **source_entry(sid, missing),
+                    'coverage_constraint': 'These source candidates are not represented by source-grounded declaration numbers or condition phrases. Real population/scale quantities may be preserved in condition; they must not be deleted or invented as independent results.'})
+
     source_aliases = context.get('section_aliases')
     aliases = {native: alias for alias, native in source_aliases.items() if isinstance(native, str) and isinstance(alias, str)} if isinstance(source_aliases, dict) else {}
     sections = model['sections']
@@ -890,6 +975,7 @@ def structure_failure_diagnostics(data, context, model):
         if not isinstance(sid, str) or sid not in sections:
             return '<unknown>', ''
         return aliases.get(sid, sid), str(sections[sid].get('title') or '')[:120]
+    supported = {}
     mappings = data.get('mappings')
     for mapping in mappings if isinstance(mappings, list) else []:
         if not isinstance(mapping, dict):
@@ -902,6 +988,35 @@ def structure_failure_diagnostics(data, context, model):
             if (isinstance(experiment, str) and
                     ((experiment == chapter and mapping.get('mapping_mode') == 'single_contribution_fallback')
                      or descendant(model, experiment, chapter))):
+                if experimental_support(model, experiment):
+                    continue
+                if chapter not in supported:
+                    choices = []
+                    for sid, section in sections.items():
+                        if not descendant(model, sid, chapter):
+                            continue
+                        evidence = experimental_support(model, sid)
+                        if not evidence:
+                            continue
+                        signal = evidence[0]
+                        quote = signal.get('text')
+                        if quote is None:
+                            block = next((b for b in section_blocks(model, sid) if b['source_node_id'] == signal.get('source_node_id')
+                                          and b['page'] == signal.get('page')), {})
+                            quote = block.get('text', '')
+                            offset = quote.find(signal.get('matched_signal', ''))
+                            quote = quote[max(0, offset - 40):max(0, offset - 40) + 160]
+                        choices.append({'section_id': aliases.get(sid, sid), 'title': section['title'][:120], 'source_excerpt': quote[:160]})
+                    supported[chapter] = choices
+                chapter_id, chapter_title = identity(chapter)
+                experiment_id, experiment_title = identity(experiment)
+                diagnostics.append({'kind': 'unsupported_experiment_mapping',
+                    'declaration_id': mapping.get('declaration_id') if isinstance(mapping.get('declaration_id'), str) else '<unknown>',
+                    'chapter_id': chapter_id, 'chapter_title': chapter_title,
+                    'experiment_id': experiment_id, 'experiment_title': experiment_title,
+                    'same_chapter_supported_sections': supported[chapter][:4],
+                    'omitted_supported_sections': max(0, len(supported[chapter]) - 4),
+                    'source_constraint': 'Candidates pass the existing descendant and experimental_support predicates in the currently selected chapter only; they are not automatic or semantically equivalent remappings.'})
                 continue
             parent = sections.get(experiment, {}).get('parent_id') if isinstance(experiment, str) else None
             chapter_id, chapter_title = identity(chapter)
@@ -913,7 +1028,15 @@ def structure_failure_diagnostics(data, context, model):
                 'experiment_id': experiment_id, 'experiment_title': experiment_title,
                 'actual_parent_id': parent_id, 'actual_parent_title': parent_title,
                 'error': 'experiment is not a descendant of chapter'})
-    return diagnostics
+    # Bound repair-only context. Omitted diagnostics never change validation.
+    bounded = []
+    for index, item in enumerate(diagnostics):
+        marker = {'kind': 'diagnostics_truncated', 'omitted': len(diagnostics) - index}
+        if len(json.dumps(bounded + [item, marker], ensure_ascii=False).encode('utf-8')) > 5800:
+            bounded.append(marker)
+            break
+        bounded.append(item)
+    return bounded
 
 
 def validate_structure(data, context, model):
