@@ -358,3 +358,185 @@ def test_parent_diagnostic_uses_existing_one_repair_and_continued_failure_stays_
     assert result['execution_status'] == 'error'
     assert result['outcome'] == 'inconclusive'
     assert not result['findings']
+
+
+@pytest.mark.parametrize('unit', ['KB', 'MB', 'GB', 'TB', 'KiB', 'MiB', 'GiB', 'TiB', 'byte', 'bytes'])
+def test_source_explicit_data_size_units_are_numeric_candidates_with_exact_source_tokens(unit):
+    source = '通信消息规模达到4 ' + unit + '时出现变化。'
+    candidates, _ = n.numeric_candidates(source)
+    assert len(candidates) == 1
+    row = candidates[0]
+    assert row['value'] == '4' and row['unit'] == unit
+    assert source[row['start']:row['end']] == row['source_text'] == '4'
+
+
+@pytest.mark.parametrize('text', ['GPT-4版本。', 'GPT-4GB版本。', 'Pass@4GB版本。',
+                                 '消息大小4GBps。', '消息大小4GiBextra。'])
+def test_data_size_lexing_keeps_identifier_and_unit_boundaries(text):
+    assert n.numeric_candidates(text)[0] == []
+
+
+def test_real_four_gigabyte_declaration_stays_while_count_coverage_guard_remains_closed():
+    _, model, context, structure = source_structure('本文提出融合模型。通信消息规模达到4 GB时出现变化。空值额外指标。在26个应用和8节点上准确率7.0%，另一环境提升14.6%。')
+    structure['declarations'][0].update(number='4', metric='通信消息规模', unit='GB')
+    for did, span, number, unit in [('extra', 'a3', '', ''), ('d2', 'a4', '7.0', '%'), ('d3', 'a4', '14.6', '%')]:
+        structure['declarations'].append({**copy.deepcopy(structure['declarations'][0]), 'id': did,
+            'abstract_span_id': span, 'number': number, 'unit': unit, 'condition': ''})
+        structure['mappings'].append({**copy.deepcopy(structure['mappings'][0]), 'declaration_id': did})
+    resolved = n.resolve_structure(structure, context, model)
+    cleaned, audit = n.prune_non_numeric_declarations(resolved, context)
+    assert {row['value'] for row in context['numeric_candidates']} == {'4', '26', '8', '7', '14.6'}
+    assert not audit
+    assert [d['id'] for d in cleaned['declarations']] == ['d1', 'extra', 'd2', 'd3']
+    assert cleaned['declarations'][0]['unit'] == 'GB'
+
+
+def test_unrecognized_real_numeric_unit_is_never_deleted_as_qualitative_extra():
+    _, model, context, structure = source_structure('本文提出融合模型。通信消息规模达到4 PB时出现变化。准确率92.5%。')
+    structure['declarations'][0].update(number='4', metric='通信消息规模', unit='PB')
+    structure['declarations'].append({**copy.deepcopy(structure['declarations'][0]), 'id': 'd2',
+                                      'abstract_span_id': 'a3', 'number': '92.5', 'unit': '%'})
+    structure['mappings'].append({**copy.deepcopy(structure['mappings'][0]), 'declaration_id': 'd2'})
+    resolved = n.resolve_structure(structure, context, model)
+    cleaned, audit = n.prune_non_numeric_declarations(resolved, context)
+    assert any(d['id'] == 'd1' for d in cleaned['declarations'])
+    assert not any(d['declaration_id'] == 'd1' for d in audit)
+    with pytest.raises(n.ContractError):
+        n.validate_structure(cleaned, context, model)
+
+
+def multi_failure_structure():
+    ir, facts, structure = wrong_parent_structure()
+    for did in ['d2', 'd3']:
+        structure['declarations'].append({**copy.deepcopy(structure['declarations'][0]), 'id': did})
+        structure['mappings'].append({**copy.deepcopy(structure['mappings'][0]), 'declaration_id': did})
+    structure['declarations'][0]['number'] = ''
+    structure['declarations'][2]['number'] = None
+    return ir, facts, structure
+
+
+def test_failed_output_collects_all_invalid_number_fields_and_bad_parent_mappings():
+    ir, facts, structure = multi_failure_structure()
+    model = n.source_model(ir)
+    context = n.structure_context(facts, model)
+    original = copy.deepcopy(structure)
+    diagnostics = n.structure_failure_diagnostics(structure, context, model)
+    numeric = [d for d in diagnostics if d['kind'] == 'invalid_numeric_field']
+    parent = [d for d in diagnostics if d['kind'] == 'invalid_parent_mapping']
+    assert [d['declaration_id'] for d in numeric] == ['d1', 'd3']
+    assert all('abstract_span_id' in d for d in numeric)
+    assert [d['declaration_id'] for d in parent] == ['d1', 'd2', 'd3']
+    assert all(d['chapter_id'] == 'S1' and d['experiment_id'] == 'S4' and d['actual_parent_id'] == 'S3' for d in parent)
+    assert structure == original
+
+
+@pytest.mark.parametrize('data', [None, [], {'declarations': None, 'mappings': None},
+    {'declarations': [None, {'id': 'd1', 'number': {}}], 'mappings': [None, {'chapter_id': [], 'experiment_section_ids': None}]},
+    {'declarations': [], 'mappings': [{'chapter_id': 'ch', 'experiment_section_ids': [None, 'unknown', {}]}]}])
+def test_failure_diagnostic_collection_is_safe_for_malformed_output(data):
+    ir, facts, _ = fixture()
+    model = n.source_model(ir)
+    assert isinstance(n.structure_failure_diagnostics(data, n.structure_context(facts, model), model), list)
+
+
+def test_existing_single_repair_receives_all_failure_locations_without_changing_first_error():
+    ir, facts, structure = multi_failure_structure()
+    calls = []
+    def request(messages):
+        calls.append(messages)
+        return copy.deepcopy(structure), {}
+    result = n.run_numeric(ir, facts, request)
+    assert len(calls) == 2
+    assert result['execution_status'] == 'error' and result['outcome'] == 'inconclusive'
+    errors = result['params']['contract_repairs'][0]['errors']
+    assert errors[0] == 'invalid numeric value'
+    assert errors[1]['additional_diagnostics'] == result['params']['structure_failure_diagnostics']
+    assert 'invalid_numeric_field' in calls[1][0]['content'] and 'invalid_parent_mapping' in calls[1][0]['content']
+    assert not result['findings']
+
+
+def test_valid_structure_and_restricted_fallback_have_no_new_diagnostics():
+    from test_numeric_source_contract import independent_experiment
+    ir, facts, structure = fixture()
+    model = n.source_model(ir)
+    original = copy.deepcopy(structure)
+    assert n.structure_failure_diagnostics(structure, n.structure_context(facts, model), model) == []
+    assert structure == original
+    model, context, structure = independent_experiment()
+    assert n._single_contribution_fallback(structure, context, model)
+    assert n.structure_failure_diagnostics(structure, context, model) == []
+
+
+@pytest.mark.parametrize('identifier', ['Pass@1', 'GPT-4'])
+def test_real_number_prune_safety_keeps_existing_proven_identifier_only_extra_cleanup(identifier):
+    _, model, context, structure = source_structure('本文提出融合模型。准确率92.5%。模型在' + identifier + '上取得最优结果。')
+    structure['declarations'].append({**copy.deepcopy(structure['declarations'][0]), 'id': 'extra',
+                                      'abstract_span_id': 'a3', 'number': ''})
+    structure['mappings'].append({**copy.deepcopy(structure['mappings'][0]), 'declaration_id': 'extra'})
+    cleaned, audit = n.prune_non_numeric_declarations(n.resolve_structure(structure, context, model), context)
+    assert [d['declaration_id'] for d in audit] == ['extra']
+    assert n.validate_structure(cleaned, context, model)
+
+
+def test_unknown_real_size_stays_even_when_a_model_identifier_has_the_same_numeric_value():
+    _, model, context, structure = source_structure('本文提出融合模型。GPT-4模型通信消息规模达到4 PB时出现变化。准确率92.5%。')
+    structure['declarations'][0].update(number='4', metric='通信消息规模', unit='PB')
+    structure['declarations'].append({**copy.deepcopy(structure['declarations'][0]), 'id': 'd2',
+                                      'abstract_span_id': 'a3', 'number': '92.5', 'unit': '%'})
+    structure['mappings'].append({**copy.deepcopy(structure['mappings'][0]), 'declaration_id': 'd2'})
+    cleaned, audit = n.prune_non_numeric_declarations(n.resolve_structure(structure, context, model), context)
+    assert [d['id'] for d in cleaned['declarations']] == ['d1', 'd2']
+    assert not audit
+
+
+
+def test_unknown_signed_real_size_is_not_proven_to_be_an_identifier_suffix():
+    _, model, context, structure = source_structure('本文提出融合模型。通信消息规模达到-4 PB时出现变化。准确率92.5%。')
+    structure['declarations'][0].update(number='-4', metric='通信消息规模', unit='PB')
+    structure['declarations'].append({**copy.deepcopy(structure['declarations'][0]), 'id': 'd2',
+                                      'abstract_span_id': 'a3', 'number': '92.5', 'unit': '%'})
+    structure['mappings'].append({**copy.deepcopy(structure['mappings'][0]), 'declaration_id': 'd2'})
+    cleaned, audit = n.prune_non_numeric_declarations(n.resolve_structure(structure, context, model), context)
+    assert [d['id'] for d in cleaned['declarations']] == ['d1', 'd2']
+    assert not audit
+
+
+
+def test_source_deviation_and_rmsd_metrics_keep_real_angstrom_and_energy_values():
+    source = '其生成结构与DFT基准的均方\n根偏差（RMSD）仅为0.0978 Å，能量偏差控制在0.995 kcal/mol。'
+    candidates, _ = n.numeric_candidates(source)
+    assert {d['value'] for d in candidates} == {'0.0978', '0.995'}
+    assert all(source[d['start']:d['end']] == d['value'] for d in candidates)
+
+
+@pytest.mark.parametrize('metric', ['R²', '𝑅²', 'R2', '𝑅2', 'R\n2', '𝑅\n2', 'R ^ 2', '𝑅 \t2'])
+def test_r_squared_source_signal_keeps_result_and_excludes_metric_exponent(metric):
+    source = '在分布外配体测试中取得0.9124 的' + metric + '，验证了通用性。'
+    candidates, _ = n.numeric_candidates(source)
+    assert {d['value'] for d in candidates} == {'0.9124'}
+    assert source[candidates[0]['start']:candidates[0]['end']] == '0.9124'
+
+
+def test_source_speed_synonyms_keep_both_multiplier_results_in_their_own_span():
+    source = '总体性能提高2.8倍。模块运行速度分别\n加快约2.8× 与2.3×。'
+    candidates, _ = n.numeric_candidates(source)
+    assert {d['value'] for d in candidates if d['abstract_span_id'] == 'a2'} == {'2.8', '2.3'}
+
+
+@pytest.mark.parametrize('operand', ['10', 'x', '𝑥', '(x)', '10^3'])
+def test_new_speed_signal_does_not_turn_multiplication_into_multiplier_results(operand):
+    source = '模块运行速度加快约2.8×' + operand + '。'
+    assert n.numeric_candidates(source)[0] == []
+
+
+@pytest.mark.parametrize('text', ['模型R2D2输出0.9124。', '模型𝑅2D2输出0.9124。',
+                                 '模型RMSDNet输出0.0978Å。'])
+def test_metric_synonyms_do_not_match_longer_model_identifiers(text):
+    assert n.numeric_candidates(text)[0] == []
+
+
+def test_r_squared_exponent_cannot_be_used_as_the_declared_result():
+    _, model, context, structure = source_structure('本文提出融合模型。取得0.9124的𝑅2。')
+    structure['declarations'][0].update(number='2', metric='R2', unit='')
+    with pytest.raises(n.ContractError):
+        n.validate_structure(n.resolve_structure(structure, context, model), context, model)

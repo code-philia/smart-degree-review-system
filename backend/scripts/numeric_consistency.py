@@ -6,6 +6,7 @@ from decimal import Decimal, ROUND_HALF_UP
 import json
 import os
 import re
+import unicodedata
 from pathlib import Path
 from typing import Any
 
@@ -457,6 +458,8 @@ def percentage_values(text):
     return {format(Decimal(value).normalize(), 'f') for value in re.findall(r'(?<![\d.])(\d+(?:\.\d+)?)\s*[%％]', text)}
 
 
+_METRIC_EXTENSION = re.compile(r'偏差|速度|加快|(?<![A-Za-z0-9_])(?:RMSD|R\s*(?:\^\s*)?2)(?![A-Za-z0-9_.])', re.I)
+_DATA_SIZE_UNIT = re.compile(r'\s*([KMGT]i?B|bytes?)(?![A-Za-z0-9_])', re.I)
 _MEASURED_UNIT = re.compile(r'\s*(?:[%％]|毫秒|秒|分钟|小时|厘米|毫米|米|次|倍|ms\b|s\b|cm\b|mm\b|m\b)', re.I)
 _CHINESE_MULTIPLIER = re.compile(
     r'(?<![A-Za-z0-9零〇一二两三四五六七八九十百千万亿兆点分之负正第几多余半])'
@@ -503,12 +506,18 @@ def numeric_candidates(text):
     metric = re.compile(r'准确率|精度|误差|提升|降低|减少|增加|时延|延迟|耗时|吞吐|性能|距离|次数|加速|召回|得分|分数|比例|Pass@|accuracy|latency|speedup|error|score', re.I)
     for span in abstract_spans(text):
         source = span['text']
+        # Normalize metric glyphs only for recognition, never source or offsets.
+        metric_source = unicodedata.normalize('NFKC', source)
+        additional_metric = (_METRIC_EXTENSION.search(metric_source) and
+                             not re.search(r'×\s*[A-Za-z0-9_(]', metric_source))
         for match in re.finditer(r'\d+(?:\.\d+)?', source):
             before, after = source[:match.start()], source[match.end():]
             reason = None
+            data_unit = _DATA_SIZE_UNIT.match(after)
+            measured_unit = _MEASURED_UNIT.match(after) or data_unit
             # A signed measurement is not a model-name suffix. Keep the old
             # digit-only offsets/value and the negative sign in source text.
-            negative_measure = (before.endswith('-') and _MEASURED_UNIT.match(after)
+            negative_measure = (before.endswith('-') and measured_unit
                 and not re.search(r'[A-Za-z0-9@/_+\-=<>]-$', before)
                 and not re.search(r'[@/_]\s*-$', before)
                 and not re.search(r'(?:(?<![A-Za-z0-9_])[A-Za-z]|[=<>+*/^])\s*-$', before))
@@ -521,16 +530,21 @@ def numeric_candidates(text):
             elif (re.search(r'(?:^|[：:；;，,\n])\s*$', before)
                   and re.match(r'\s*[）)](?!\s*\d)', after)):
                 reason = 'citation_or_list_index'
+            elif (match.group() == '2' and re.search(r'(?<![A-Za-z0-9_])R\s*(?:\^\s*)?$',
+                    unicodedata.normalize('NFKC', before), re.I)):
+                reason = 'identifier_or_metric_index'
             elif (not negative_measure and (re.search(r'[A-Za-z@/_-]$', before) or re.match(r'\s*/\s*\d', after)
                   or (re.search(r'[A-Za-z]\s+$', before) and re.match(r'\s*-\s*\d+[A-Za-z]', after)))):
                 reason = 'identifier_or_metric_index'
-            elif not (_MEASURED_UNIT.match(after) or metric.search(source)):
+            elif not (measured_unit or metric.search(source) or additional_metric):
                 reason = 'no_measurable_result_context'
             row = {'abstract_span_id': span['id'], 'value': format(Decimal(match.group()).normalize(), 'f'),
                    'start': span['start'] + match.start(), 'end': span['start'] + match.end()}
             if reason:
                 excluded.append({**row, 'reason': reason})
             else:
+                if data_unit:
+                    row.update(source_text=match.group(), unit=data_unit.group(1))
                 candidates.append(row)
         for token in chinese_multiplier_tokens(source):
             candidates.append({**token, 'abstract_span_id': span['id'],
@@ -666,6 +680,17 @@ def prune_non_numeric_declarations(data, context):
             continue
         represented = numeric_values(str(d.get('number', '')))
         local = by_span.get(sid, set())
+        source_numbers = numeric_values(span['text'])
+        excluded_tokens = [token for token in context.get('excluded_numeric_tokens', [])
+                           if token['abstract_span_id'] == sid]
+        uncertain_minus = any(token['reason'] == 'identifier_or_metric_index' and
+            context['abstract'][:token['start']].endswith('-') and
+            not re.search(r'[A-Za-z0-9@/_]-$', context['abstract'][:token['start']])
+            for token in excluded_tokens)
+        source_proven_non_numeric = not source_numbers or (not uncertain_minus and
+            source_numbers <= {token['value'] for token in excluded_tokens} and
+            all(token['reason'] in {'year', 'section_or_ordinal', 'citation_or_list_index',
+                                   'identifier_or_metric_index'} for token in excluded_tokens))
         if represented and represented <= local and represented <= numeric_values(d['text']):
             covered_spans.add(sid)
             covered_values.setdefault(sid, set()).update(represented)
@@ -677,7 +702,7 @@ def prune_non_numeric_declarations(data, context):
                 for match in re.finditer(r'(?<![A-Za-z0-9.])(\d+(?:\.\d+)?)\s*(?:个\s*)?(?:应用|节点|样本|数据集|设备|处理器|线程|进程)', condition):
                     if grounded_quote(match.group(), span['text']):
                         covered_values[sid].add(format(Decimal(match.group(1)).normalize(), 'f'))
-        elif not local and not (represented & values):
+        elif not local and not (represented & values) and source_proven_non_numeric:
             removed.append({'declaration_id': d['id'], 'abstract_span_id': sid,
                             'reason': 'source_span_has_no_numeric_candidate',
                             'model_number': d.get('number'), 'source_text': span['text']})
@@ -819,6 +844,59 @@ def structure_prompt(context):
             '以下模板仅约束输出形状，其中示例数值和占位符不是论文事实，必须替换为输入中的真实信息；'
             '未找到贡献、声明或可信映射时相应数组为空并给出前置条件失败原因。\n输出模板：\n' +
             json.dumps(template, ensure_ascii=False) + '\n输入：\n' + json.dumps(structure_input(context), ensure_ascii=False, separators=(',', ':')))
+
+
+
+def structure_failure_diagnostics(data, context, model):
+    """Collect independent known contract failures only after validation failed.
+
+    Never change the output, decide admission, or inspect untyped values as IDs.
+    The number syntax and parent/fallback predicates match validate_structure.
+    """
+    if not isinstance(data, dict):
+        return []
+    diagnostics = []
+    declarations = data.get('declarations')
+    for declaration in declarations if isinstance(declarations, list) else []:
+        if not isinstance(declaration, dict):
+            continue
+        value = declaration.get('number')
+        if not (type(value) in (int, float, str) and re.search(r'\d', str(value)) is not None):
+            diagnostics.append({'kind': 'invalid_numeric_field', 'field': 'number',
+                'declaration_id': declaration.get('id') if isinstance(declaration.get('id'), str) else '<unknown>',
+                'abstract_span_id': declaration.get('abstract_span_id') if isinstance(declaration.get('abstract_span_id'), str) else None,
+                'error': 'invalid numeric value'})
+    source_aliases = context.get('section_aliases')
+    aliases = {native: alias for alias, native in source_aliases.items() if isinstance(native, str) and isinstance(alias, str)} if isinstance(source_aliases, dict) else {}
+    sections = model['sections']
+    def identity(sid):
+        if not isinstance(sid, str) or sid not in sections:
+            return '<unknown>', ''
+        return aliases.get(sid, sid), str(sections[sid].get('title') or '')[:120]
+    mappings = data.get('mappings')
+    for mapping in mappings if isinstance(mappings, list) else []:
+        if not isinstance(mapping, dict):
+            continue
+        chapter, experiments = mapping.get('chapter_id'), mapping.get('experiment_section_ids')
+        if (not isinstance(chapter, str) or chapter not in sections
+                or sections[chapter].get('parent_id') is not None or not isinstance(experiments, list)):
+            continue
+        for experiment in experiments:
+            if (isinstance(experiment, str) and
+                    ((experiment == chapter and mapping.get('mapping_mode') == 'single_contribution_fallback')
+                     or descendant(model, experiment, chapter))):
+                continue
+            parent = sections.get(experiment, {}).get('parent_id') if isinstance(experiment, str) else None
+            chapter_id, chapter_title = identity(chapter)
+            experiment_id, experiment_title = identity(experiment)
+            parent_id, parent_title = identity(parent)
+            diagnostics.append({'kind': 'invalid_parent_mapping',
+                'declaration_id': mapping.get('declaration_id') if isinstance(mapping.get('declaration_id'), str) else '<unknown>',
+                'chapter_id': chapter_id, 'chapter_title': chapter_title,
+                'experiment_id': experiment_id, 'experiment_title': experiment_title,
+                'actual_parent_id': parent_id, 'actual_parent_title': parent_title,
+                'error': 'experiment is not a descendant of chapter'})
+    return diagnostics
 
 
 def validate_structure(data, context, model):
@@ -1385,7 +1463,12 @@ def run_numeric(ir, facts, request, trace=None, verification_mode=None):
                     if fallback_used:
                         structure, passed = fallback, True
             if not fallback_used:
-                structure = repair(locator_prompt, structure, [str(exc)], 'structure_locator')
+                errors = [str(exc)]
+                diagnostics = structure_failure_diagnostics(structure, context, model)
+                if diagnostics:
+                    params['structure_failure_diagnostics'] = diagnostics
+                    errors.append({'additional_diagnostics': diagnostics})
+                structure = repair(locator_prompt, structure, errors, 'structure_locator')
             params['structure_output'] = structure
             if trace:
                 trace('structure_repaired_output', structure)
