@@ -334,3 +334,49 @@ def test_invalid_fact_evidence_is_isolated_without_losing_verified_findings(monk
     assert any('invalid source evidence' in d['reason'] for d in diagnostics)
     assert any('missing abstract fact cannot have target evidence' in d['reason'] for d in diagnostics)
     assert result['params']['raw_candidate_reviews'][0]['fact_checks'][0]['source_quote']=='模型改写出的不存在片段'
+
+
+
+@pytest.mark.parametrize('entrypoint', ['function', 'semantic_run'])
+def test_private_typo_worker_limit_keeps_two_requests_in_flight_and_preserves_usage(monkeypatch, entrypoint):
+    lint = module()
+    for name in ['SJTU_API_KEY','SJTU_API_BASE_URL','SJTU_API_MODEL']: monkeypatch.setenv(name,'controlled')
+    monkeypatch.setattr(lint, '_body_chunks', lambda *_, **__: [{'model_text':str(i)} for i in range(8)])
+    barrier = threading.Barrier(2, timeout=2)
+    lock = threading.Lock()
+    active = peak = 0
+    def request(messages, **_options):
+        nonlocal active, peak
+        with lock: active += 1; peak = max(peak,active)
+        barrier.wait()
+        with lock: active -= 1
+        return {'errors':[]},{'input_tokens':3,'output_tokens':2}
+    monkeypatch.setattr(lint, 'request_json', request)
+    if entrypoint == 'function':
+        result = lint.run_typo_rule_from_ir({}, max_workers=2)
+    else:
+        monkeypatch.setattr(lint, 'build_paper', lambda *_, **__: {})
+        result = lint.run(Path('input.pdf'), [lint.TYPO_RULE], typo_workers=2)['rule_runs'][0]
+    assert peak == 2
+    assert result['execution_status'] == 'completed'
+    assert result['params'] == {'chunk_count':8,'chunk_size':1200}
+    assert result['model_usage'] == {'input_tokens':24,'output_tokens':16}
+
+
+@pytest.mark.parametrize('workers', [0,-1,9,True,2.5,'2'])
+def test_private_typo_worker_limit_rejects_invalid_values_before_work(monkeypatch, workers):
+    lint = module()
+    monkeypatch.setattr(lint,'_body_chunks',lambda *_,**__: (_ for _ in ()).throw(AssertionError('must not start work')))
+    with pytest.raises(ValueError): lint.run_typo_rule_from_ir({},max_workers=workers)
+
+
+def test_private_typo_worker_cli_accepts_only_bounded_integers(monkeypatch):
+    import sys
+    lint = module()
+    arguments = ['lint','--pdf','input.pdf','--rule',lint.TYPO_RULE,'--typo-workers']
+    monkeypatch.setattr(sys,'argv',arguments+['2'])
+    assert lint.parse_args().typo_workers == 2
+    for invalid in ['0','9','-1','2.5','invalid']:
+        monkeypatch.setattr(sys,'argv',arguments+[invalid])
+        with pytest.raises(SystemExit) as error: lint.parse_args()
+        assert error.value.code == 2

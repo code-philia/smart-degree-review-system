@@ -205,11 +205,12 @@ function runBridge(args, timeoutMs = ENGINE_TIMEOUT_MS, signal) {
 }
 
 function runBilingualSemanticRules(pdfPath, ruleIds, timeoutMs = ENGINE_TIMEOUT_MS, signal, runId, onRuleComplete,
-  { allowIncompleteStructure = false, onWorkProgress } = {}) {
+  { allowIncompleteStructure = false, onWorkProgress, typoWorkers } = {}) {
   return runJsonScript(
     bilingualScript,
     ['--pdf', pdfPath, '--progress-jsonl', ...ruleIds.flatMap((ruleId) => ['--rule', ruleId]),
-      ...(runId ? ['--run-id', runId] : []), ...(allowIncompleteStructure ? ['--allow-incomplete-structure'] : [])],
+      ...(runId ? ['--run-id', runId] : []), ...(allowIncompleteStructure ? ['--allow-incomplete-structure'] : []),
+      ...(typoWorkers === undefined ? [] : ['--typo-workers', String(typoWorkers)])],
     {
       python: resolvePaperModelPython(),
       cwd: path.resolve(__dirname, '../..'),
@@ -460,6 +461,8 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
             : ENGINE_TIMEOUT_MS;
           tasks.push(runBilingualSemanticRules(pdfPath, bilingualRuleIds, bilingualTimeout, controller.signal, runId,
             run => reportProgress([run.rule_id], { rule_runs: [run] }), { allowIncompleteStructure: partialStructure,
+              ...(background && trustedBatchProgress === true && runId && bilingualRuleIds.includes('typo_detection_check')
+                ? { typoWorkers: 2 } : {}),
               ...(renewableTypo ? { onWorkProgress: () => runTimeout.progress() } : {}) })
             .then(async (part) => { parts.push(part); await reportProgress(bilingualRuleIds, part); })
             .catch(async (error) => {

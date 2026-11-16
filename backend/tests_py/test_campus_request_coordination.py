@@ -424,3 +424,84 @@ def test_maximum_capacity_still_allows_32_requests_and_keeps_rpm_bounded(tmp_pat
     with sqlite3.connect(path) as db:
         assert db.execute('SELECT count(*) FROM leases').fetchone()[0] == 0
         assert db.execute('SELECT count(*) FROM waiters').fetchone()[0] == 0
+
+
+def test_registered_follower_poll_cannot_hold_writer_ahead_of_ready_fifo_head(tmp_path, monkeypatch):
+    from threading import Event, Thread, current_thread
+    from types import SimpleNamespace
+    path = tmp_path / 'head-write-contention.sqlite'
+    api = coordinator()
+    follower = api.CampusRequestCoordinator(path, max_concurrent=32, requests_per_minute=80)
+    head = api.CampusRequestCoordinator(path, max_concurrent=32, requests_per_minute=80)
+    with sqlite3.connect(path) as db:
+        db.execute('INSERT INTO accounts VALUES (?,?,?)', ('same', time.time() - 1, 0))
+        db.execute('INSERT INTO waiters (id,account_id,pid,expires_at) VALUES (?,?,?,?)',
+                   ('older-head', 'same', os.getpid(), time.time() + 10))
+    monkeypatch.setattr(api.uuid, 'uuid4', lambda: SimpleNamespace(
+        hex='older-head' if current_thread().name == 'coordinator-head' else 'follower'))
+    paused, resume, admitted = Event(), Event(), Event()
+    observations, errors = [], []
+    connection = follower._connection
+    polls = 0
+
+    class Cursor:
+        def __init__(self, cursor, db):
+            self.cursor, self.db = cursor, db
+
+        def fetchone(self):
+            nonlocal polls
+            value = self.cursor.fetchone()
+            self.cursor.close()  # End a SELECT read lock before the controlled pause.
+            polls += 1
+            if polls == 2:
+                observations.append(self.db.in_transaction)
+                paused.set()
+                if not resume.wait(5):
+                    raise RuntimeError('test did not resume registered follower')
+            return value
+
+    class Connection:
+        def __init__(self, db):
+            self.db = db
+
+        def __getattr__(self, name):
+            return getattr(self.db, name)
+
+        def execute(self, sql, parameters=()):
+            cursor = self.db.execute(sql, parameters)
+            if sql.startswith('SELECT id') and 'FROM waiters WHERE account_id=' in sql:
+                return Cursor(cursor, self.db)
+            return cursor
+
+    @contextmanager
+    def observed_connection(timeout=30):
+        with connection(timeout=timeout) as db:
+            yield Connection(db)
+    follower._connection = observed_connection
+
+    def request(gate, entered=None):
+        try:
+            with gate.slot('same', timeout=3):
+                if entered:
+                    entered.set()
+        except BaseException as error:
+            errors.append(error)
+
+    queued = Thread(target=request, args=(follower,), name='coordinator-follower')
+    oldest = Thread(target=request, args=(head, admitted), name='coordinator-head')
+    queued.start()
+    try:
+        assert paused.wait(2), 'The registered follower did not poll'
+        oldest.start()
+        assert admitted.wait(.4), 'A non-head poll kept the ready FIFO head from acquiring a free slot'
+        assert observations == [False], 'A non-head poll must release all SQLite transaction locks'
+    finally:
+        resume.set()
+        queued.join(5)
+        if oldest.ident is not None:
+            oldest.join(5)
+    assert not queued.is_alive() and not oldest.is_alive()
+    assert not errors
+    with sqlite3.connect(path) as db:
+        assert db.execute('SELECT count(*) FROM waiters').fetchone()[0] == 0
+        assert db.execute('SELECT count(*) FROM leases').fetchone()[0] == 0

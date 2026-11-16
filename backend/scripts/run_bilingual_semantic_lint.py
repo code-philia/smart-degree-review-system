@@ -51,6 +51,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--progress-jsonl", action="store_true")
     parser.add_argument("--allow-incomplete-structure", action="store_true")
+    parser.add_argument("--typo-workers", type=int, choices=range(1, 9), default=None, help=argparse.SUPPRESS)
     return parser.parse_args()
 
 
@@ -534,7 +535,9 @@ def _single_cjk_replacement(original: str, corrected: str) -> tuple[str, str] | 
     return before, after
 
 
-def run_typo_rule_from_ir(ir: dict[str, Any], *, on_chunk_complete=None) -> dict[str, Any]:
+def run_typo_rule_from_ir(ir: dict[str, Any], *, on_chunk_complete=None, max_workers=None) -> dict[str, Any]:
+    if max_workers is not None and (type(max_workers) is not int or not 1 <= max_workers <= 8):
+        raise ValueError('typo workers must be an integer between 1 and 8')
     findings = []
     # The same Paper Model source span can be surfaced through more than one
     # layout node.  Never turn that extraction detail into duplicate findings.
@@ -548,8 +551,8 @@ def run_typo_rule_from_ir(ir: dict[str, Any], *, on_chunk_complete=None) -> dict
     chunks = _body_chunks(ir, size=1200)
     failure = None
     completed_chunks = 0
-    workers = 8 if all(os.environ.get(name, '').strip() for name in
-                       ('SJTU_API_KEY', 'SJTU_API_BASE_URL', 'SJTU_API_MODEL')) else 4
+    workers = max_workers if max_workers is not None else (8 if all(os.environ.get(name, '').strip() for name in
+                       ('SJTU_API_KEY', 'SJTU_API_BASE_URL', 'SJTU_API_MODEL')) else 4)
     with ThreadPoolExecutor(max_workers=workers) as pool:
         futures = [pool.submit(request_json, [{"role": "user", "content": typo_prompt(chunk["model_text"])}],
                                response_contract='typo-discovery') for chunk in chunks]
@@ -1097,10 +1100,14 @@ def _run_aligned_abstract(ir, facts):
                     validation_diagnostics=validation_diagnostics,mismatches=mismatches[:3]))
 
 
-def _run_semantic_rule(ir, facts, rule_id, run_id=None, on_chunk_complete=None):
+def _run_semantic_rule(ir, facts, rule_id, run_id=None, on_chunk_complete=None, typo_workers=None):
     if rule_id == TYPO_RULE:
-        return (run_typo_rule_from_ir(ir, on_chunk_complete=on_chunk_complete)
-                if on_chunk_complete else run_typo_rule_from_ir(ir))
+        options = {}
+        if on_chunk_complete:
+            options['on_chunk_complete'] = on_chunk_complete
+        if typo_workers is not None:
+            options['max_workers'] = typo_workers
+        return run_typo_rule_from_ir(ir, **options)
     if rule_id == NUMERIC_RULE:
         return run_numeric_consistency_rule(ir, run_id=run_id)
     if rule_id == 'bilingual_abstract_consistency_check' and facts.get('chinese_abstract') and facts.get('english_abstract'):
@@ -1157,13 +1164,14 @@ def _run_semantic_rule(ir, facts, rule_id, run_id=None, on_chunk_complete=None):
 
 
 def run(pdf: Path, rule_ids: list[str], run_id=None, on_rule_complete=None,
-        allow_incomplete_structure=False, on_work_progress=None) -> dict[str, Any]:
+        allow_incomplete_structure=False, on_work_progress=None, typo_workers=None) -> dict[str, Any]:
     ir = build_paper(pdf, include_citations=False,
                      allow_incomplete_structure=allow_incomplete_structure)
     facts = extract_bilingual_facts(ir) if any(rule in BILINGUAL_RULES for rule in rule_ids) else {}
     with ThreadPoolExecutor(max_workers=4) as pool:
         futures = {pool.submit(_run_semantic_rule, ir, facts, rule, run_id,
-                               *([on_work_progress] if rule == TYPO_RULE and on_work_progress else [])): index
+                               *([on_work_progress, typo_workers] if rule == TYPO_RULE
+                                 and (on_work_progress or typo_workers is not None) else [])): index
                    for index, rule in enumerate(rule_ids)}
         runs = [None] * len(rule_ids)
         for future in as_completed(futures):
@@ -1224,7 +1232,8 @@ def main() -> None:
     result = run(args.pdf, args.rule, run_id=args.run_id,
                  on_rule_complete=publish if args.progress_jsonl else None,
                  allow_incomplete_structure=args.allow_incomplete_structure,
-                 on_work_progress=work_progress if args.progress_jsonl and args.run_id else None)
+                 on_work_progress=work_progress if args.progress_jsonl and args.run_id else None,
+                 typo_workers=args.typo_workers)
     print(json.dumps(result, ensure_ascii=True), flush=True)
 
 

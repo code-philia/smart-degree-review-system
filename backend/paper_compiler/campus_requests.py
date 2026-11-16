@@ -59,16 +59,21 @@ class CampusRequestCoordinator:
             # Many queued threads share one process; inspect each PID only once.
             pids = db.execute('SELECT pid FROM leases UNION SELECT pid FROM waiters').fetchall()
             for (pid,) in pids:
-                try:
-                    state = Path('/proc', str(pid), 'stat').read_text().rsplit(') ', 1)[1].split()[0]
-                    alive = state != 'Z'
-                except FileNotFoundError:
-                    alive = False
-                except (OSError, IndexError):
-                    alive = True
-                if not alive:
+                if not self._process_alive(pid):
                     db.execute('DELETE FROM leases WHERE pid=?', (pid,))
                     db.execute('DELETE FROM waiters WHERE pid=?', (pid,))
+
+    @staticmethod
+    def _process_alive(pid):
+        if os.name != 'posix' or not Path('/proc').is_dir():
+            return True
+        try:
+            state = Path('/proc', str(pid), 'stat').read_text().rsplit(') ', 1)[1].split()[0]
+            return state != 'Z'
+        except FileNotFoundError:
+            return False
+        except (OSError, IndexError):
+            return True
 
     @contextmanager
     def slot(self, account, *, timeout):
@@ -77,6 +82,7 @@ class CampusRequestCoordinator:
             raise ValueError('campus request timeout must be positive and finite')
         deadline = time.monotonic() + timeout
         identity = uuid.uuid4().hex
+        registered = False
         try:
             while True:
                 remaining = deadline - time.monotonic()
@@ -85,31 +91,50 @@ class CampusRequestCoordinator:
                 wait = .05
                 try:
                     with self._connection(timeout=min(1, remaining)) as db:
-                        db.execute('BEGIN IMMEDIATE')
-                        remaining = deadline - time.monotonic()
-                        if remaining <= 0:
-                            raise TimeoutError('campus API request timed out waiting for a shared slot')
-                        now = time.time()
-                        self._reap(db, now)
-                        db.execute('INSERT OR IGNORE INTO accounts VALUES (?,0,0)', (account,))
-                        # Persist registration while waiting. Later chunks or workers
-                        # cannot repeatedly steal capacity from an older request.
-                        db.execute('INSERT OR IGNORE INTO waiters (id,account_id,pid,expires_at) VALUES (?,?,?,?)',
-                                   (identity, account, os.getpid(), now + remaining))
-                        first = db.execute('SELECT id FROM waiters WHERE account_id=? ORDER BY ticket LIMIT 1',
-                                           (account,)).fetchone()[0]
-                        next_at, blocked_until = db.execute('SELECT next_at,blocked_until FROM accounts WHERE id=?', (account,)).fetchone()
-                        count = db.execute('SELECT count(*) FROM leases WHERE account_id=?', (account,)).fetchone()[0]
-                        ready_at = max(next_at, blocked_until)
-                        if first == identity and count < self.max_concurrent and ready_at <= now:
-                            db.execute('DELETE FROM waiters WHERE id=?', (identity,))
-                            db.execute('INSERT INTO leases VALUES (?,?,?,?)', (identity, account, os.getpid(), now + remaining + 5))
-                            db.execute('UPDATE accounts SET next_at=? WHERE id=?', (now + self.interval, account))
+                        read_only_wait = False
+                        if registered:
+                            # Followers only observe a live head. Repeated writer
+                            # transactions here can starve the one eligible caller.
+                            now = time.time()
+                            first = db.execute('SELECT id,pid,expires_at FROM waiters WHERE account_id=? ORDER BY ticket LIMIT 1',
+                                               (account,)).fetchone()
+                            if (first and first[0] != identity and first[2] > now
+                                    and self._process_alive(first[1])):
+                                pacing = db.execute('SELECT next_at,blocked_until FROM accounts WHERE id=?',
+                                                    (account,)).fetchone()
+                                if pacing:
+                                    count = db.execute('SELECT count(*) FROM leases WHERE account_id=? AND expires_at>?',
+                                                       (account, now)).fetchone()[0]
+                                    if count < self.max_concurrent:
+                                        wait = max(.05, max(pacing) - now)
+                                    read_only_wait = True
+                        if not read_only_wait:
+                            db.execute('BEGIN IMMEDIATE')
+                            remaining = deadline - time.monotonic()
+                            if remaining <= 0:
+                                raise TimeoutError('campus API request timed out waiting for a shared slot')
+                            now = time.time()
+                            self._reap(db, now)
+                            db.execute('INSERT OR IGNORE INTO accounts VALUES (?,0,0)', (account,))
+                            # Persist registration while waiting. Later chunks or workers
+                            # cannot repeatedly steal capacity from an older request.
+                            db.execute('INSERT OR IGNORE INTO waiters (id,account_id,pid,expires_at) VALUES (?,?,?,?)',
+                                       (identity, account, os.getpid(), now + remaining))
+                            first = db.execute('SELECT id FROM waiters WHERE account_id=? ORDER BY ticket LIMIT 1',
+                                               (account,)).fetchone()[0]
+                            next_at, blocked_until = db.execute('SELECT next_at,blocked_until FROM accounts WHERE id=?', (account,)).fetchone()
+                            count = db.execute('SELECT count(*) FROM leases WHERE account_id=?', (account,)).fetchone()[0]
+                            ready_at = max(next_at, blocked_until)
+                            if first == identity and count < self.max_concurrent and ready_at <= now:
+                                db.execute('DELETE FROM waiters WHERE id=?', (identity,))
+                                db.execute('INSERT INTO leases VALUES (?,?,?,?)', (identity, account, os.getpid(), now + remaining + 5))
+                                db.execute('UPDATE accounts SET next_at=? WHERE id=?', (now + self.interval, account))
+                                db.commit()
+                                break
+                            if count < self.max_concurrent:
+                                wait = max(.001 if first == identity else .05, ready_at - now)
                             db.commit()
-                            break
-                        if count < self.max_concurrent:
-                            wait = max(.001 if first == identity else .05, ready_at - now)
-                        db.commit()
+                            registered = True
                 except sqlite3.OperationalError as error:
                     if 'locked' not in str(error).lower():
                         raise
