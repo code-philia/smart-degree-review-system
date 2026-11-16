@@ -875,7 +875,25 @@ def validate_structure(data, context, model):
             require(chapter in present, 'named method ' + method + ' not found in mapped chapter; source-backed chapter IDs: ' + ', '.join(present))
         experiments = mapping.get('experiment_section_ids')
         require(isinstance(experiments, list) and bool(experiments) and len(set(experiments)) == len(experiments), 'missing or duplicate experiment mapping')
-        require(all(isinstance(e, str) and ((e == chapter and mapping.get('mapping_mode') == 'single_contribution_fallback') or descendant(model, e, chapter)) for e in experiments), 'experiment is not a descendant of chapter')
+        bad_index = next((i for i, e in enumerate(experiments) if not
+            (isinstance(e, str) and ((e == chapter and mapping.get('mapping_mode') == 'single_contribution_fallback')
+             or descendant(model, e, chapter)))), None)
+        if bad_index is not None:
+            bad = experiments[bad_index]
+            aliases = {native: alias for alias, native in (context.get('section_aliases') or {}).items()}
+            def section_identity(sid):
+                if not isinstance(sid, str) or sid not in model['sections']:
+                    return '<unknown>', ''
+                section = model['sections'][sid]
+                return aliases.get(sid, sid), str(section.get('title') or '')[:120]
+            parent = model['sections'].get(bad, {}).get('parent_id') if isinstance(bad, str) else None
+            chapter_id, chapter_title = section_identity(chapter)
+            experiment_id, experiment_title = section_identity(bad)
+            parent_id, parent_title = section_identity(parent)
+            require(False, 'experiment is not a descendant of chapter: declaration_id=' + did +
+                    ', chapter_id=' + chapter_id + ', chapter_title=' + chapter_title +
+                    ', experiment_id=' + experiment_id + ', experiment_title=' + experiment_title +
+                    ', actual_parent_id=' + parent_id + ', actual_parent_title=' + parent_title)
         unsupported = next((e for e in experiments if not experimental_support(model, e)), None)
         if unsupported is not None:
             aliases = {native: alias for alias, native in context.get('section_aliases', {}).items()}

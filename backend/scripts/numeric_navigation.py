@@ -19,7 +19,7 @@ def title_key(text):
 
 
 _CHAPTER = re.compile(r'^(?:第\s*([一二三四五六七八九十百\d]+)\s*章|chapter\s+(\d+))\s*[:：.、]?\s*(.*)$', re.I)
-_SUBSECTION = re.compile(r'^(\d+(?:\.\d+){1,3})(?:\s+|(?=[\u3400-\u9fff]))(.*)$')
+_SUBSECTION = re.compile(r'^(\d+(?:\.\d+){1,3})(?:\s+|(?=[\u3400-\u9fff“‘「『\x22\x27]))(.*)$')
 _LEADER = re.compile(r'(?:\.\s*){3,}|…{2,}|⋯')
 _END_TITLE = re.compile(r'^(?:参考文献|致谢|附录(?:\s*[A-Z一二三四五六七八九十\d])?|Bibliography|References|Acknowledg(?:e)?ments|Appendix(?:\s+[A-Z])?)$', re.I)
 

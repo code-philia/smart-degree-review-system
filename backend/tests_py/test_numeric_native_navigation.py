@@ -167,3 +167,32 @@ def test_number_prefix_cannot_reopen_a_closed_native_chapter(monkeypatch):
     nav = ir['numeric_navigation']
     assert not any(s['title'].startswith('1.2') for s in nav['sections'])
     assert any(s['title'].startswith('1.2') for s in nav['unresolved'])
+
+
+
+@pytest.mark.parametrize('opening,closing', [('“', '”'), ('‘', '’'), ('「', '」'), ('『', '』'), ('"', '"'), ("'", "'")])
+def test_numbered_heading_without_space_before_opening_quote_keeps_following_siblings(monkeypatch, opening, closing):
+    title = '2.1' + opening + 'System 模型' + closing + '总体架构'
+    ir = native_ir(monkeypatch, chapters() + [row(3, title, y=220, size=14),
+                                             row(3, '2.2 流程设计', y=280, size=14),
+                                             row(3, '2.3 服务集成', y=340, size=14)])
+    original = copy.deepcopy(ir)
+    attach_navigation('unused.pdf', ir)
+    nav = ir['numeric_navigation']
+    recovered = [s for s in nav['sections'] if s['level'] == 2]
+    assert [s['title'] for s in recovered] == [title, '2.2 流程设计', '2.3 服务集成']
+    assert len({s['parent_id'] for s in recovered}) == 1
+    assert nav['unresolved'] == []
+    assert ir['nodes'] == original['nodes'] and ir['layout'] == original['layout']
+
+
+@pytest.mark.parametrize('noise', [
+    [row(3, '2.1“此处仅引用正文中的方法名称”', y=220, size=12, font='FandolSong-Regular')],
+    [row(3, '2.1"Accuracy"', y=220, size=14, right=180), row(3, '98.5', 190, y=220, size=14, right=230)],
+    [row(3, '2.82“倍性能提升”', y=220, size=14)],
+    [row(3, '2.1“x = y”', y=220, size=14)],
+])
+def test_opening_quote_support_does_not_admit_prose_table_decimal_or_formula(monkeypatch, noise):
+    ir = native_ir(monkeypatch, chapters() + noise)
+    attach_navigation('unused.pdf', ir)
+    assert len(ir['numeric_navigation']['sections']) == 2

@@ -250,3 +250,111 @@ def test_signed_chinese_multipliers_stay_out_of_unsigned_integer_grammar(sign, g
     structure['declarations'][0].update(number='2', metric='性能', unit='倍')
     with pytest.raises(n.ContractError):
         n.validate_structure(n.resolve_structure(structure, context, model), context, model)
+
+
+
+def wrong_parent_structure():
+    ir, facts, structure = fixture()
+    next(node for node in ir['nodes'] if node['id'] == 'other')['children'].append('other_exp')
+    ir['nodes'].extend([
+        {'id': 'other_exp', 'kind': 'Section', 'children': ['other_exp_heading'], 'attrs': {'level': 2}},
+        {'id': 'other_exp_heading', 'kind': 'Heading', 'text': '4.1 实验评估', 'children': [], 'provenance': []},
+    ])
+    structure['mappings'][0]['experiment_section_ids'] = ['other_exp']
+    return ir, facts, structure
+
+
+def test_cross_chapter_diagnostic_names_declaration_prompt_aliases_and_actual_parent():
+    ir, facts, structure = wrong_parent_structure()
+    model = n.source_model(ir)
+    original = copy.deepcopy(structure)
+    with pytest.raises(n.ContractError) as error:
+        n.validate_structure(structure, n.structure_context(facts, model), model)
+    message = str(error.value)
+    assert message.startswith('experiment is not a descendant of chapter')
+    for detail in ['declaration_id=d1', 'chapter_id=S1', 'chapter_title=第三章 融合模型',
+                   'experiment_id=S4', 'experiment_title=4.1 实验评估',
+                   'actual_parent_id=S3', 'actual_parent_title=第四章 无关方法']:
+        assert detail in message
+    assert structure == original
+
+
+def test_cross_chapter_diagnostic_without_aliases_uses_native_ids():
+    ir, facts, structure = wrong_parent_structure()
+    model = n.source_model(ir)
+    context = n.structure_context(facts, model)
+    context.pop('section_aliases')
+    with pytest.raises(n.ContractError) as error:
+        n.validate_structure(structure, context, model)
+    for detail in ['chapter_id=ch', 'experiment_id=other_exp', 'actual_parent_id=other']:
+        assert detail in str(error.value)
+
+
+@pytest.mark.parametrize('first_bad', [0, 1])
+def test_cross_chapter_diagnostic_locates_first_invalid_mapping_without_dropping_any_claim(first_bad):
+    ir, facts, structure = wrong_parent_structure()
+    structure['declarations'].append({**copy.deepcopy(structure['declarations'][0]), 'id': 'd2'})
+    structure['mappings'].append({**copy.deepcopy(structure['mappings'][0]), 'declaration_id': 'd2'})
+    if first_bad == 1:
+        structure['mappings'][0]['experiment_section_ids'] = ['exp']
+    original = copy.deepcopy(structure)
+    model = n.source_model(ir)
+    with pytest.raises(n.ContractError) as error:
+        n.validate_structure(structure, n.structure_context(facts, model), model)
+    assert 'declaration_id=d' + str(first_bad + 1) in str(error.value)
+    assert structure == original
+
+
+@pytest.mark.parametrize('invalid', [['unknown'], [None], None, 'other_exp', 5])
+def test_cross_chapter_bad_experiment_types_keep_contract_error(invalid):
+    ir, facts, structure = wrong_parent_structure()
+    structure['mappings'][0]['experiment_section_ids'] = invalid
+    model = n.source_model(ir)
+    with pytest.raises(n.ContractError):
+        n.validate_structure(structure, n.structure_context(facts, model), model)
+
+
+@pytest.mark.parametrize('invalid', [None, 'other_exp', 5])
+def test_cross_chapter_diagnostic_does_not_read_other_unvalidated_mapping_values(invalid):
+    ir, facts, structure = wrong_parent_structure()
+    structure['declarations'].append({**copy.deepcopy(structure['declarations'][0]), 'id': 'd2'})
+    structure['mappings'].append({**copy.deepcopy(structure['mappings'][0]),
+                                  'declaration_id': 'd2', 'experiment_section_ids': invalid})
+    model = n.source_model(ir)
+    with pytest.raises(n.ContractError) as error:
+        n.validate_structure(structure, n.structure_context(facts, model), model)
+    assert 'declaration_id=d1' in str(error.value)
+
+
+def test_parent_diagnostic_keeps_valid_descendant_output_unchanged():
+    ir, facts, structure = fixture()
+    model = n.source_model(ir)
+    original = copy.deepcopy(structure)
+    assert n.validate_structure(structure, n.structure_context(facts, model), model)
+    assert structure == original
+
+
+def test_parent_diagnostic_keeps_only_explicit_single_contribution_fallback_self_mapping():
+    from test_numeric_source_contract import independent_experiment
+    model, context, structure = independent_experiment()
+    assert n._single_contribution_fallback(structure, context, model)
+    assert n.validate_structure(structure, context, model)
+    assert structure['mappings'][0]['chapter_id'] in structure['mappings'][0]['experiment_section_ids']
+    next(row for row in structure['mappings'] if row['declaration_id'] == 'd1').pop('mapping_mode')
+    with pytest.raises(n.ContractError, match='experiment is not a descendant of chapter'):
+        n.validate_structure(structure, context, model)
+
+
+def test_parent_diagnostic_uses_existing_one_repair_and_continued_failure_stays_error():
+    ir, facts, structure = wrong_parent_structure()
+    calls = []
+    def request(messages):
+        calls.append(messages)
+        return copy.deepcopy(structure), {}
+    result = n.run_numeric(ir, facts, request)
+    assert len(calls) == 2
+    assert 'declaration_id=d1' in calls[1][0]['content']
+    assert 'actual_parent_id=S3' in calls[1][0]['content']
+    assert result['execution_status'] == 'error'
+    assert result['outcome'] == 'inconclusive'
+    assert not result['findings']
