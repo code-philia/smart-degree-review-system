@@ -1542,6 +1542,102 @@ def abstract_anchors(ir, quote, anchor_id):
     return anchors
 
 
+def source_proven_structure_cleanup(data, context, model):
+    """Propose only source-proven extras; adopt atomically via the original validator."""
+    import copy
+    try:
+        conditions = unique(rows(data, 'preconditions'))
+        require(set(conditions) == CONDITIONS and all(c.get('passed') is True and
+            isinstance(c.get('reason'), str) and c['reason'].strip() and isinstance(c.get('suggestion'), str)
+            for c in conditions.values()), 'cleanup requires complete true prerequisites')
+        contributions = unique(rows(data, 'contributions'))
+        declarations = unique(rows(data, 'declarations'))
+        mappings = unique(rows(data, 'mappings'), 'declaration_id')
+        require(set(mappings) == set(declarations), 'cleanup requires complete declaration mappings')
+        require(isinstance(context.get('numeric_candidates'), list) and isinstance(context.get('excluded_numeric_tokens'), list), 'cleanup requires full source inventories')
+        spans = unique(rows(context, 'abstract_spans'))
+        admitted = {c['value'] for c in context['numeric_candidates']}
+        require(admitted and isinstance(context.get('abstract_numeric_inventory'), list) and admitted == set(context['abstract_numeric_inventory']), 'incomplete cleanup numeric inventory')
+        for row in contributions.values():
+            require(isinstance(row.get('text'), str) and grounded_quote(row['text'], context['abstract']), 'ungrounded cleanup contribution')
+        for row in declarations.values():
+            require(row.get('contribution_id') in contributions and isinstance(row.get('text'), str)
+                and grounded_quote(row['text'], context['abstract']), 'ungrounded cleanup declaration')
+            require(all(isinstance(row.get(k), str) for k in ('metric','unit','comparison','condition'))
+                and row['metric'].strip() and type(row.get('number')) in (int,float,str), 'incomplete cleanup declaration')
+            values = numeric_values(str(row['number']))
+            require(values and values <= numeric_values(row['text']), 'ungrounded cleanup number')
+            if row.get('abstract_span_id') is not None:
+                require(row['abstract_span_id'] in spans and grounded_quote(row['text'], spans[row['abstract_span_id']]['text']), 'invalid cleanup source span')
+        for mapping in mappings.values():
+            chapter, ids = mapping.get('chapter_id'), mapping.get('experiment_section_ids')
+            require(isinstance(chapter,str) and chapter in model['sections'] and model['sections'][chapter]['parent_id'] is None
+                and isinstance(ids,list) and ids and len(set(ids)) == len(ids)
+                and all(isinstance(sid,str) and sid in model['sections'] and descendant(model,sid,chapter) for sid in ids)
+                and mapping.get('mapping_mode','standard') == 'standard', 'cleanup requires known same-chapter mappings')
+            evidence = rows(mapping, 'evidence')
+            require(evidence, 'cleanup requires original evidence')
+            for item in evidence:
+                require(type(item.get('page')) is int and isinstance(item.get('quote'),str) and normalized(item['quote'])
+                    and any(b['source_node_id'] == item.get('source_node_id') and b['page'] == item['page']
+                        and grounded_quote(item['quote'],b['text']) and (b['section_id'] == chapter or descendant(model,b['section_id'],chapter))
+                        for b in context['blocks']), 'invalid cleanup mapping evidence')
+        candidate, audit, removed = copy.deepcopy(data), [], set()
+        for did, row in declarations.items():
+            sid = row.get('abstract_span_id'); span = spans.get(sid)
+            values = numeric_values(str(row['number']))
+            if (not span or values & admitted or numeric_values(row['condition']) & admitted
+                    or not re.search(r'数据集|样本集|\bdataset\b|\bbenchmark\b|\bcollection\b', span['text'], re.I)
+                    or re.search(r'每\s*(?:秒|分钟|小时|毫秒)|(?:per|each)[-\s]+(?:second|minute|hour|millisecond)|\bthroughput\b|\brates?\b|速率|吞吐', span['text'], re.I)
+                    or re.search(r'每\s*(?:个|条|种|段|份|张|例|幅|次|一)|\b(?:per|each)[-\s]+(?:sample|prompt|video|image|model|item|instance)s?\b|\b(?:requires?|needs?|supports?|achieves?)\b|需要|要求|支持|(?:系统|方法|算法).{0,24}(?:使用|达到)', span['text'], re.I)):
+                continue
+            excluded = [t for t in context.get('excluded_numeric_tokens', []) if t['abstract_span_id'] == sid and t['value'] in values]
+            if not values <= {t['value'] for t in excluded}:
+                continue
+            proven = True
+            for token in excluded:
+                written = context['abstract'][token['start']:token['end']]
+                prefix = context['abstract'][span['start']:token['start']]
+                relations = list(re.finditer(r'(?:数据集|样本集)\s*(?:包含|含有|包括|由|基于)|\b(?:dataset|benchmark|collection)\s+(?:(?:is|was)\s+)?(?:contains?|includes?|comprises?|consists?\s+of|has|with|of|based\s+on|built\s+from|constructed\s+from)\b', prefix, re.I))
+                in_collection_role = bool(relations) and not re.search(r'[。；;!?！？]|\.(?:\s|$)', prefix[relations[-1].end():])
+                if in_collection_role:
+                    relation = relations[-1]
+                    role = prefix[relation.end():]
+                    if re.match(r'数据集|样本集', relation.group()):
+                        clauses = re.split(r'[，,]', role)[1:]
+                        construction = list(re.finditer(r'包含|含有|包括|基于|通过|生成|构建|收集|采集|组成|构成|由', prefix[relation.start():]))
+                        bound_tail = prefix[relation.start():][construction[-1].end():] if construction else ''
+                        in_collection_role = bool(construction) and all(re.match(r'\s*(?:通过|基于|由|生成|构建|收集|采集)', part) for part in clauses) and re.fullmatch(r'(?:\s|的|了|共|总共|合计|约|大约|近|超过|至少|最多)*', bound_tail) is not None
+                    else:
+                        in_collection_role = re.fullmatch(r'\s*(?:(?:a total of|about|approximately|around|over|at least|at most|more than|less than)\s+)?', role, re.I) is not None
+                tail = context['abstract'][token['end']:min(span['end'],token['end'] + 100)]
+                count = re.match(r'^\s*(?:个|种|段|份|幅|张|条|例)[A-Za-z\u3400-\u9fff\s]{0,24}?(?:样本|视频|提示|图像|模型)(?=[，,。；;！？!?、]|生成|构成|用于|的|$)', tail)
+                count = count or re.match(r'^\s+(?:samples?|videos?|prompts?|models?|images?|datasets?|instances?)\b', tail, re.I)
+                proven &= (in_collection_role and span['start'] <= token['start'] < token['end'] <= span['end'] and numeric_values(written) == {token['value']}
+                    and not re.search(r'[+\-−＋－负]\s*$', context['abstract'][span['start']:token['start']])
+                    and count is not None and not re.match(r'\s*(?:/|per\b|每|的)', tail[count.end():] if count else '', re.I))
+            if proven:
+                removed.add(did)
+                audit.append({'kind':'excluded_collection_declaration','declaration_id':did,'abstract_span_id':sid,
+                    'declared_values':sorted(values),'excluded_tokens':copy.deepcopy(excluded),'source_quote':row['text']})
+        candidate['declarations'] = [d for d in candidate['declarations'] if d['id'] not in removed]
+        candidate['mappings'] = [m for m in candidate['mappings'] if m['declaration_id'] not in removed]
+        for mapping in candidate['mappings']:
+            ids = mapping['experiment_section_ids']
+            supported = [sid for sid in ids if experimental_support(model,sid)]
+            rejected = [sid for sid in ids if not experimental_support(model,sid)]
+            if supported and rejected:
+                mapping['experiment_section_ids'] = supported
+                audit.append({'kind':'unsupported_selected_experiment','declaration_id':mapping['declaration_id'],
+                    'chapter_id':mapping['chapter_id'],'removed':[{'section_id':sid,'title':model['sections'][sid]['title'],
+                        'descendant':True,'experimental_support':False} for sid in rejected], 'retained_supported_ids':supported})
+        if audit and validate_structure(candidate,context,model) is True:
+            return candidate, audit
+    except Exception:
+        pass
+    return None, []
+
+
 def apply_structure_repair_patch(previous_output, response):
     """Apply explicit structure-only JSON Patch operations, never infer repairs."""
     if not isinstance(response, dict) or 'patches' not in response:
@@ -1731,6 +1827,7 @@ def run_numeric(ir, facts, request, trace=None, verification_mode=None):
         try:
             passed = validate_structure(structure, context, model)
         except ContractError as exc:
+            cleanup_used = False
             # A malformed standard parent/child experiment mapping is a
             # legitimate trigger for the narrow fallback.
             if 'experiment' in str(exc).lower():
@@ -1744,6 +1841,14 @@ def run_numeric(ir, facts, request, trace=None, verification_mode=None):
                     if fallback_used:
                         structure, passed = fallback, True
             if not fallback_used:
+                cleaned, cleanup_evidence = source_proven_structure_cleanup(structure, context, model)
+                cleanup_used = cleaned is not None
+                if cleanup_used:
+                    structure, passed = cleaned, True
+                    params['source_proven_structure_cleanup'] = cleanup_evidence
+                    if trace:
+                        trace('structure_source_proven_cleanup', {'actions': cleanup_evidence})
+            if not cleanup_used and not fallback_used:
                 errors = [str(exc)]
                 diagnostics = structure_failure_diagnostics(structure, context, model)
                 if diagnostics:
@@ -1752,7 +1857,7 @@ def run_numeric(ir, facts, request, trace=None, verification_mode=None):
                 structure = repair(locator_prompt, structure, errors, 'structure_locator')
             params['structure_output'] = structure
             if trace:
-                trace('structure_repaired_output', structure)
+                trace('structure_cleaned_output' if cleanup_used else 'structure_repaired_output', structure)
             structure = resolve_structure(structure, context, model)
             if trace:
                 trace('structure_resolved_output', structure)

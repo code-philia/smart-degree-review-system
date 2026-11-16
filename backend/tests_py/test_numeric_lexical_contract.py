@@ -1066,3 +1066,185 @@ def test_structure_patch_experiment_list_still_requires_original_nonempty_known_
         {'op': 'replace', 'path': '/mappings/0/experiment_section_ids', 'value': ids}]})
     with pytest.raises(n.ContractError):
         n.validate_structure(repaired, n.structure_context(facts, n.source_model(ir)), n.source_model(ir))
+
+
+
+def source_cleanup_fixture():
+    ir, facts, st = fixture()
+    next(node for node in ir['nodes'] if node['id'] == 'ch')['children'].append('noise')
+    ir['nodes'].extend([{'id': 'noise', 'kind': 'Section', 'children': ['noise_h'], 'attrs': {'level': 2}},
+        {'id': 'noise_h', 'kind': 'Heading', 'text': '3.3 方法介绍', 'children': [], 'provenance': []}])
+    model = n.source_model(ir); context = n.structure_context(facts, model)
+    st['mappings'][0]['experiment_section_ids'] = ['exp', 'noise']
+    return ir, facts, model, context, st
+
+
+def test_source_cleanup_removes_only_proven_unsupported_selected_extra_atomically():
+    _, _, model, context, st = source_cleanup_fixture(); before = copy.deepcopy(st)
+    fixed, audit = n.source_proven_structure_cleanup(st, context, model)
+    assert fixed is not None and fixed['mappings'][0]['experiment_section_ids'] == ['exp']
+    assert fixed['mappings'][0]['evidence'] == before['mappings'][0]['evidence']
+    assert fixed['declarations'] == before['declarations'] and fixed['preconditions'] == before['preconditions']
+    assert n.validate_structure(fixed, context, model) is True and audit and st == before
+
+
+@pytest.mark.parametrize('experiments', [['noise'], ['exp', 'unknown']])
+def test_source_cleanup_never_adds_new_support_or_removes_unknown_ids(experiments):
+    _, _, model, context, st = source_cleanup_fixture(); st['mappings'][0]['experiment_section_ids'] = experiments
+    before = copy.deepcopy(st); fixed, audit = n.source_proven_structure_cleanup(st, context, model)
+    assert fixed is None and audit == [] and st == before
+
+
+def test_source_cleanup_rejects_wrong_parent_and_false_preconditions():
+    ir, facts, st = wrong_parent_structure(); model = n.source_model(ir); context = n.structure_context(facts, model)
+    assert n.source_proven_structure_cleanup(st, context, model) == (None, [])
+    _, _, model, context, st = source_cleanup_fixture(); st['preconditions'][0]['passed'] = False
+    assert n.source_proven_structure_cleanup(st, context, model) == (None, [])
+
+
+def test_source_cleanup_discards_proposal_if_original_validator_still_rejects():
+    _, _, model, context, st = source_cleanup_fixture(); st['declarations'][0]['method'] = 'DOESNOTEXIST'
+    before = copy.deepcopy(st)
+    assert n.source_proven_structure_cleanup(st, context, model) == (None, []) and st == before
+
+
+@pytest.mark.parametrize('value', [False, None])
+def test_source_cleanup_requires_validator_exactly_true(monkeypatch, value):
+    _, _, model, context, st = source_cleanup_fixture()
+    monkeypatch.setattr(n, 'validate_structure', lambda *args: value)
+    assert n.source_proven_structure_cleanup(st, context, model) == (None, [])
+
+
+def count_cleanup_structure(source, number, condition=''):
+    _, model, context, st = source_structure('本文提出融合模型。准确率92.5%。' + source)
+    st['declarations'].append({**copy.deepcopy(st['declarations'][0]), 'id': 'extra',
+        'abstract_span_id': 'a3', 'number': number, 'condition': condition})
+    st['mappings'].append({**copy.deepcopy(st['mappings'][0]), 'declaration_id': 'extra'})
+    return model, context, n.resolve_structure(st, context, model)
+
+
+def test_source_cleanup_removes_only_explicit_dataset_cardinality_extra():
+    model, context, st = count_cleanup_structure('该数据集包含468个精心设计的文本提示生成的2808个AIGC视频。', '2808')
+    before = copy.deepcopy(st); fixed, audit = n.source_proven_structure_cleanup(st, context, model)
+    assert fixed is not None and [d['id'] for d in fixed['declarations']] == ['d1']
+    assert fixed['contributions'] == before['contributions'] and fixed['preconditions'] == before['preconditions']
+    assert n.validate_structure(fixed, context, model) is True and st == before
+    assert any(row['kind'] == 'excluded_collection_declaration' and row['excluded_tokens'] for row in audit)
+
+
+@pytest.mark.parametrize('source,number,condition', [
+    ('通信消息规模达到4 PB时出现变化。', '4', ''),
+    ('该数据集包含-4个视频。', '-4', ''),
+    ('该数据集包含468个提示。', '468', '准确率92.5%'),
+    ('26个应用在8节点下性能提升7.0%。', '26', ''),
+    ('该数据集包含92.5个样本。', '92.5', ''),
+])
+def test_source_cleanup_preserves_unknown_physical_quantities_conditions_and_admitted_values(source, number, condition):
+    model, context, st = count_cleanup_structure(source, number, condition); before = copy.deepcopy(st)
+    assert n.source_proven_structure_cleanup(st, context, model) == (None, []) and st == before
+
+
+def test_source_cleanup_does_not_hide_malformed_schema_or_mapping_evidence():
+    model, context, st = count_cleanup_structure('该数据集包含468个提示。', '468')
+    st['declarations'][1]['metric'] = ''
+    assert n.source_proven_structure_cleanup(st, context, model) == (None, [])
+    model, context, st = count_cleanup_structure('该数据集包含468个提示。', '468')
+    st['mappings'][1]['evidence'][0]['source_node_id'] = 'unknown'
+    assert n.source_proven_structure_cleanup(st, context, model) == (None, [])
+
+
+def test_source_cleanup_only_runs_after_failure_and_continues_original_numeric_verifier(monkeypatch):
+    from test_numeric_consistency import valid_output
+    ir, facts, model, _, st = source_cleanup_fixture(); good = copy.deepcopy(st)
+    good['mappings'][0]['experiment_section_ids'] = ['exp']
+    candidates, _ = n.retrieve_candidates(good['declarations'], good['mappings'], model)
+    answer = valid_output(next(c for c in candidates if c['source_node_id']=='data'))
+    replies = iter([st, answer]); calls=[]
+    def request(messages):calls.append(messages);return copy.deepcopy(next(replies)),{}
+    result = n.run_numeric(ir, facts, request)
+    assert len(calls)==2 and result['execution_status']=='completed' and result['outcome']=='issues_found'
+    assert result['params']['source_proven_structure_cleanup'] and 'contract_repairs' not in result['params']
+    assert result['params']['mapping_mode']=='standard'
+    monkeypatch.setattr(n, 'source_proven_structure_cleanup', lambda *args: (_ for _ in ()).throw(AssertionError('valid path entered cleanup')))
+    replies = iter([good,answer]);calls=[]
+    result=n.run_numeric(ir,facts,request)
+    assert result['execution_status']=='completed' and len(calls)==2
+
+
+
+@pytest.mark.parametrize('source', ['该数据集每秒生成4个视频。', 'The dataset generates 4 videos per second.',
+    'The dataset has per-second processing capacity of 4 videos.',
+    'The dataset pipeline has throughput of 4 videos.', '该数据集的处理速率为4个视频。'])
+def test_source_cleanup_never_removes_collection_shaped_physical_rates(source):
+    model, context, st = count_cleanup_structure(source, '4')
+    assert n.source_proven_structure_cleanup(st, context, model) == (None, [])
+
+
+def test_source_cleanup_requires_complete_inventory_and_unique_source_spans():
+    model, context, st = count_cleanup_structure('该数据集包含468个提示。', '468')
+    broken = copy.deepcopy(context); broken.pop('numeric_candidates')
+    assert n.source_proven_structure_cleanup(st, broken, model) == (None, [])
+    broken = copy.deepcopy(context); broken['abstract_spans'].append(copy.deepcopy(broken['abstract_spans'][0]))
+    assert n.source_proven_structure_cleanup(st, broken, model) == (None, [])
+
+
+def test_source_cleanup_accepts_direct_english_dataset_count_without_reclassifying_candidates():
+    model, context, st = count_cleanup_structure('The dataset contains 468 prompts.', '468')
+    before = copy.deepcopy(context); fixed, audit = n.source_proven_structure_cleanup(st, context, model)
+    assert fixed is not None and audit and n.validate_structure(fixed, context, model) is True
+    assert context == before
+
+
+def test_source_cleanup_validator_exception_discards_every_change(monkeypatch):
+    _, _, model, context, st = source_cleanup_fixture(); before = copy.deepcopy(st)
+    def reject(*args): raise RuntimeError('candidate validation failed')
+    monkeypatch.setattr(n, 'validate_structure', reject)
+    assert n.source_proven_structure_cleanup(st, context, model) == (None, []) and st == before
+
+
+def test_source_cleanup_rejected_candidate_keeps_original_single_repair_and_first_error():
+    ir, facts, _, _, st = source_cleanup_fixture(); st['declarations'][0]['method'] = 'DOESNOTEXIST'; before = copy.deepcopy(st); calls=[]
+    def request(messages):calls.append(messages);return copy.deepcopy(st),{}
+    result=n.run_numeric(ir,facts,request)
+    assert len(calls)==2 and result['execution_status']=='error'
+    assert result['params']['contract_repairs'][0]['errors'][0].startswith('named method DOESNOTEXIST')
+    assert 'source_proven_structure_cleanup' not in result['params'] and st == before
+
+
+
+def test_source_cleanup_does_not_intercept_original_successful_narrow_fallback(monkeypatch):
+    from test_numeric_consistency import valid_output
+    ir, facts, st = fixture()
+    next(row for row in ir['nodes'] if row['id']=='body')['children']=['ch','exp','other']
+    next(row for row in ir['nodes'] if row['id']=='ch')['children'].remove('exp')
+    model=n.source_model(ir); context=n.structure_context(facts,model); good=copy.deepcopy(st)
+    next(c for c in good['preconditions'] if c['id']=='experiment_subsection')['passed']=False
+    assert n._single_contribution_fallback(good,context,model)
+    candidates,_=n.retrieve_candidates(good['declarations'],good['mappings'],model)
+    answer=valid_output(next(c for c in candidates if c['source_node_id']=='data'))
+    responses=iter([st,answer]);calls=[]
+    def request(messages):calls.append(messages);return copy.deepcopy(next(responses)),{}
+    def unexpected_cleanup(*args):raise AssertionError('existing successful fallback was intercepted')
+    monkeypatch.setattr(n,'source_proven_structure_cleanup',unexpected_cleanup)
+    result=n.run_numeric(ir,facts,request)
+    assert result['execution_status']=='completed' and len(calls)==2
+    assert result['params']['mapping_mode']=='single_contribution_fallback'
+    assert 'source_proven_structure_cleanup' not in result['params']
+
+
+
+@pytest.mark.parametrize('source', [
+    'On this dataset, the optimized system requires 4 models.',
+    '该数据集上每个提示生成4个视频。',
+    '该数据集包含每个提示生成的4个视频。',
+    '该数据集包含468个提示，系统需要4个模型。',
+    'The dataset has a processing capacity of 4 videos.',
+    '该数据集包含处理能力为4个视频的系统。',
+    'The dataset contains 468 prompts, and the system uses 4 models.',
+    '该数据集包含468个提示，并发运行4个模型。',
+    '该数据集包含一个能生成4个视频的系统。',
+    '该数据集包含一个可生成4个视频的模型。',
+])
+def test_source_cleanup_requires_positive_collection_membership_not_system_or_per_item_results(source):
+    model, context, st = count_cleanup_structure(source, '4'); before=copy.deepcopy(st)
+    assert n.source_proven_structure_cleanup(st,context,model)==(None,[]) and st==before
