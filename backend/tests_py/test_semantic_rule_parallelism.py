@@ -25,7 +25,7 @@ def test_independent_semantic_rules_overlap_and_preserve_selected_order(monkeypa
         return {'rule_id': rule, 'execution_status': 'completed', 'findings': []}
     monkeypatch.setattr(lint, 'run_typo_rule_from_ir', lambda _: local(lint.TYPO_RULE))
     monkeypatch.setattr(lint, 'run_numeric_consistency_rule', lambda *a, **k: local(lint.NUMERIC_RULE))
-    def request(messages):
+    def request(messages, **_local_options):
         barrier.wait()
         return {'outcome': 'consistent'}, {'input_tokens': 1, 'output_tokens': 1}
     monkeypatch.setattr(lint, 'request_json', request)
@@ -41,7 +41,7 @@ def test_typo_chunks_overlap_without_changing_usage_totals(monkeypatch):
     barrier = threading.Barrier(4, timeout=1)
     chunks = [{'model_text': f'piece{i}'} for i in range(4)]
     monkeypatch.setattr(lint, '_body_chunks', lambda *_, **__: chunks)
-    def request(messages):
+    def request(messages, **_local_options):
         barrier.wait()
         return {'findings': []}, {'input_tokens': 3, 'output_tokens': 2}
     monkeypatch.setattr(lint, 'request_json', request)
@@ -58,7 +58,7 @@ def test_eight_typo_chunks_can_run_together(monkeypatch):
     barrier = threading.Barrier(8, timeout=2)
     chunks = [{'model_text': f'piece{i}'} for i in range(8)]
     monkeypatch.setattr(lint, '_body_chunks', lambda *_, **__: chunks)
-    def request(messages):
+    def request(messages, **_local_options):
         barrier.wait()
         return {'findings': []}, {'input_tokens': 3, 'output_tokens': 2}
     monkeypatch.setattr(lint, 'request_json', request)
@@ -70,7 +70,7 @@ def test_eight_typo_chunks_can_run_together(monkeypatch):
 def test_typo_capacity_failure_hides_sqlite_detail_but_keeps_it_for_diagnostics(monkeypatch):
     lint = module()
     monkeypatch.setattr(lint, '_body_chunks', lambda *_, **__: [{'model_text': '正文内容。'}])
-    monkeypatch.setattr(lint, 'request_json', lambda _: (_ for _ in ()).throw(RuntimeError('database is locked')))
+    monkeypatch.setattr(lint, 'request_json', lambda _, **_local_options: (_ for _ in ()).throw(RuntimeError('database is locked')))
     result = lint.run_typo_rule_from_ir({})
     assert result['execution_status'] == 'error'
     assert '当前系统使用人数较多' in result['message']

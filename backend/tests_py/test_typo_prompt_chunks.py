@@ -34,7 +34,7 @@ def test_prompt_is_the_strict_chinese_typo_schema():
 
 def test_only_exact_single_character_replacement_is_accepted(monkeypatch):
     ir = ir_for('剔 除，錯字。re-\nverse')
-    def fake_request(messages):
+    def fake_request(messages, **_options):
         if '候选复核器' in messages[0]['content']:
             if '候选原字：剔' in messages[0]['content']:
                 return {'accepted': False, 'reason': '同义替换'}, {'input_tokens': 1, 'output_tokens': 1}
@@ -53,7 +53,7 @@ def test_only_exact_single_character_replacement_is_accepted(monkeypatch):
 
 
 def test_one_changed_character_in_a_model_word_pair_is_reduced(monkeypatch):
-    def fake_request(messages):
+    def fake_request(messages, **_options):
         if '候选复核器' in messages[0]['content']:
             return {'accepted': True, 'reason': '确认'}, {'input_tokens': 1, 'output_tokens': 1}
         return {'errors': [
@@ -69,7 +69,7 @@ def test_word_pair_keeps_the_changed_character_location_not_an_earlier_same_char
     ir['nodes'][0]['children'].append('p2')
     ir['nodes'].append({'id': 'p2', 'kind': 'Paragraph', 'text': '系统尚未完成布署。',
         'provenance': [{'page_index': 0, 'bbox': [10, 50, 300, 70]}]})
-    def request(messages):
+    def request(messages, **_options):
         if '候选复核器' in messages[0]['content']:
             return {'accepted': True}, {'input_tokens': 0, 'output_tokens': 0}
         return {'errors': [{'original': '布署', 'corrected': '部署',
@@ -80,7 +80,7 @@ def test_word_pair_keeps_the_changed_character_location_not_an_earlier_same_char
 
 
 def test_ambiguous_single_character_context_cannot_highlight_a_correct_occurrence(monkeypatch):
-    def request(messages):
+    def request(messages, **_options):
         if '候选复核器' in messages[0]['content']:
             return {'accepted': True}, {'input_tokens': 0, 'output_tokens': 0}
         return {'errors': [{'original': '布', 'corrected': '部',
@@ -90,7 +90,7 @@ def test_ambiguous_single_character_context_cannot_highlight_a_correct_occurrenc
 
 
 def test_field_reviewer_can_repair_a_malformed_discovery_pair(monkeypatch):
-    def fake_request(messages):
+    def fake_request(messages, **_options):
         prompt = messages[0]['content']
         if '候选字段复核器' in prompt:
             return {'accepted': True, 'original': '名', 'corrected': '明', 'reason': '“表名”应为“表明”'}, {'input_tokens': 1, 'output_tokens': 1}
@@ -105,7 +105,7 @@ def test_field_reviewer_can_repair_a_malformed_discovery_pair(monkeypatch):
 
 
 def test_field_reviewer_cannot_invent_a_replacement(monkeypatch):
-    def fake_request(messages):
+    def fake_request(messages, **_options):
         prompt = messages[0]['content']
         if '候选字段复核器' in prompt:
             return {'accepted': True, 'original': '模', 'corrected': '模', 'reason': '字段仍不合法'}, {'input_tokens': 1, 'output_tokens': 1}
@@ -117,7 +117,7 @@ def test_field_reviewer_cannot_invent_a_replacement(monkeypatch):
 
 
 def test_context_must_match_target_chunk(monkeypatch):
-    monkeypatch.setattr(mod, 'request_json', lambda _messages: ({'errors': [
+    monkeypatch.setattr(mod, 'request_json', lambda _messages, **_options: ({'errors': [
         {'original': '布', 'corrected': '部', 'context': '不存在的上下文', 'reason': '固定词语'},
     ]}, {'input_tokens': 1, 'output_tokens': 1}))
     assert mod.run_typo_rule_from_ir(ir_for('系统尚未完成布署，因此暂不发布。'))['findings'] == []
@@ -128,7 +128,7 @@ def test_duplicate_source_span_is_reported_once(monkeypatch):
         {'original': '錯', 'corrected': '错', 'context': '正文包含錯字，需要修正。', 'reason': '字形错误'},
         {'original': '錯', 'corrected': '错', 'context': '正文包含錯字，需要修正。', 'reason': '重复返回'},
     ]}
-    def fake_request(messages):
+    def fake_request(messages, **_options):
         if '候选复核器' in messages[0]['content']:
             return {'accepted': True, 'reason': '确认'}, {'input_tokens': 1, 'output_tokens': 1}
         return response, {'input_tokens': 1, 'output_tokens': 1}
@@ -137,12 +137,12 @@ def test_duplicate_source_span_is_reported_once(monkeypatch):
 
 
 def test_no_hardcoded_typo_fallback_when_model_returns_empty(monkeypatch):
-    monkeypatch.setattr(mod, 'request_json', lambda _messages: ({'errors': []}, {'input_tokens': 1, 'output_tokens': 1}))
+    monkeypatch.setattr(mod, 'request_json', lambda _messages, **_options: ({'errors': []}, {'input_tokens': 1, 'output_tokens': 1}))
     assert mod.run_typo_rule_from_ir(ir_for('系统尚未完成布署。'))['findings'] == []
 
 
 def test_unconfirmed_candidate_is_not_reported(monkeypatch):
-    def fake_request(messages):
+    def fake_request(messages, **_options):
         if '候选复核器' in messages[0]['content']:
             return {'accepted': False, 'reason': '原文表达可成立'}, {'input_tokens': 1, 'output_tokens': 1}
         return {'errors': [
@@ -171,3 +171,70 @@ def test_nearby_technical_identifier_does_not_hide_chinese_candidate():
     text = '面向FPGA加速的研究中，在一次布署中的相应位置。后续PU3调用foo()。'
     position = text.index('布')
     assert mod._looks_like_code_context(text, position, position + 1) is False
+
+
+
+def test_successful_chunk_progress_preserves_complete_report_and_waits_for_verification(monkeypatch):
+    def request(messages, **_options):
+        if '候选复核器' in messages[0]['content']:
+            return {'accepted':True,'reason':'确认'}, {'input_tokens':2,'output_tokens':3}
+        return {'errors':[{'original':'錯','corrected':'错','context':'正文包含錯字。','reason':'字形错误'}]}, {'input_tokens':5,'output_tokens':7}
+    monkeypatch.setattr(mod, 'request_json', request)
+    ir = ir_for('正文包含錯字。')
+    expected = mod.run_typo_rule_from_ir(ir)
+    events = []
+    actual = mod.run_typo_rule_from_ir(ir, on_chunk_complete=events.append)
+    assert actual == expected
+    assert actual['model_usage'] == {'input_tokens':7,'output_tokens':10}
+    assert events == [{'chunk_index':0,'completed_chunks':1,'total_chunks':1}]
+
+
+def test_transport_failure_does_not_emit_successful_chunk_progress(monkeypatch):
+    def request(_messages, **_options): raise TimeoutError('controlled request deadline')
+    monkeypatch.setattr(mod, 'request_json', request)
+    events = []
+    result = mod.run_typo_rule_from_ir(ir_for('正文包含錯字。'), on_chunk_complete=events.append)
+    assert result['execution_status'] == 'error'
+    assert events == []
+
+
+def test_failed_verification_does_not_emit_successful_chunk_progress(monkeypatch):
+    def request(messages, **_options):
+        if '候选复核器' in messages[0]['content']: raise TimeoutError('controlled verification deadline')
+        return {'errors':[{'original':'錯','corrected':'错','context':'正文包含錯字。','reason':'字形错误'}]}, {'input_tokens':5,'output_tokens':7}
+    monkeypatch.setattr(mod, 'request_json', request)
+    events = []
+    result = mod.run_typo_rule_from_ir(ir_for('正文包含錯字。'), on_chunk_complete=events.append)
+    assert result['execution_status'] == 'error'
+    assert events == []
+
+
+
+def test_malformed_discovery_is_not_successful_progress(monkeypatch):
+    monkeypatch.setattr(mod, 'request_json', lambda _, **_options: ({'errors':'incomplete'}, {'input_tokens':1,'output_tokens':1}))
+    events = []
+    mod.run_typo_rule_from_ir(ir_for('正文包含錯字。'), on_chunk_complete=events.append)
+    assert events == []
+
+
+def test_malformed_verification_is_not_successful_progress(monkeypatch):
+    def request(messages, **_options):
+        if '候选复核器' in messages[0]['content']:
+            return {'accepted':'true'}, {'input_tokens':2,'output_tokens':3}
+        return {'errors':[{'original':'錯','corrected':'错','context':'正文包含錯字。','reason':'字形错误'}]}, {'input_tokens':5,'output_tokens':7}
+    monkeypatch.setattr(mod, 'request_json', request)
+    events = []
+    mod.run_typo_rule_from_ir(ir_for('正文包含錯字。'), on_chunk_complete=events.append)
+    assert events == []
+
+
+
+def test_field_repair_missing_replacement_cannot_emit_successful_progress(monkeypatch):
+    def request(messages, **_options):
+        if '候选字段复核器' in messages[0]['content']:
+            return {'accepted':True,'reason':'confirmation without required replacement'}, {'input_tokens':2,'output_tokens':3}
+        return {'errors':[{'original':'錯','corrected':'錯','context':'正文包含錯字。','reason':'字段错误'}]}, {'input_tokens':5,'output_tokens':7}
+    monkeypatch.setattr(mod, 'request_json', request)
+    events = []
+    mod.run_typo_rule_from_ir(ir_for('正文包含錯字。'), on_chunk_complete=events.append)
+    assert events == []

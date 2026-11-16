@@ -70,6 +70,9 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
           pdfBuffer, selectedRuleIds: pendingRuleIds, externalProcessingConsent: Boolean(job.external_consent),
           background: true,
           maxPdfBytes,
+          trustedBatchProgress: envelope?.operator_options?.start_requested === true
+            && Number.isSafeInteger(maxPdfBytes)
+            && maxPdfBytes >= defaultPaperLintService.MAX_PDF_BYTES && maxPdfBytes <= 256 * 1024 * 1024,
           runId: id,
           signal: controller.signal,
           onProgress: publishProgress,

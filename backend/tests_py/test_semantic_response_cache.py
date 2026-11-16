@@ -143,3 +143,49 @@ def test_semantic_transport_escapes_pdf_surrogates_for_unicode_only_provider(sem
     content.encode('utf-8', errors='strict')
     assert content == '中文 α∑𝛼 source \\ud8351 and \\udc00'
     assert messages == original
+
+
+@pytest.mark.parametrize('result', [
+    {'errors': []},
+    {'errors': [{'original':'布','corrected':'部','context':'尚未布署','reason':'固定词语'}]},
+    {'accepted': True, 'reason':'确认'}, {'accepted': False, 'reason':'证据不足'},
+    {'accepted': True, 'original':'布','corrected':'部','reason':'字段修复'},
+])
+def test_complete_typo_responses_are_reused_after_exact_request_validation(semantic, result):
+    module, calls, response, _ = semantic
+    response['choices'][0]['message']['content'] = json.dumps(result)
+    messages = [{'role':'user','content':'exact private source and existing prompt'}]
+    first, _ = module.request_json(messages)
+    second, usage = module.request_json(messages)
+    assert first == second == result
+    assert usage == {'input_tokens':0,'output_tokens':0}
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize('result', [
+    {'errors': None}, {'errors': [None]}, {'errors': [{'original':'布'}]},
+    {'errors': [], 'outcome':'inconclusive'}, {'accepted':'true'}, {'accepted':1},
+    {'accepted':True,'original':'布'}, {'accepted':True,'original':2,'corrected':'部'},
+    {'accepted':True,'reason':None}, {'errors':[],'error':'provider failure'},
+    {'accepted':True}, {'accepted':False}, {'accepted':True,'reason':''},
+    {'errors':[],'outcome':'consistent'}, {'accepted':'true','outcome':'consistent'},
+])
+def test_malformed_or_failed_typo_responses_are_never_cached(semantic, result):
+    module, calls, response, _ = semantic
+    response['choices'][0]['message']['content'] = json.dumps(result)
+    for _ in range(2): module.request_json([{'role':'user','content':'exact source'}])
+    assert len(calls) == 2
+
+
+@pytest.mark.parametrize('contract,result,expected_calls', [
+    ('typo-discovery', {'errors':[]}, 1),
+    ('typo-review', {'accepted':True,'reason':'确认'}, 1),
+    ('typo-fields', {'accepted':True,'reason':'缺字段'}, 2),
+    ('typo-fields', {'accepted':True,'reason':'确认','original':'布','corrected':'部'}, 1),
+    ('typo-fields', {'accepted':False,'reason':'不支持'}, 1),
+])
+def test_typo_cache_validates_the_specific_stage_schema_before_reuse(semantic, contract, result, expected_calls):
+    module, calls, response, _ = semantic
+    response['choices'][0]['message']['content'] = json.dumps(result)
+    for _ in range(2): module.request_json([{'role':'user','content':'identical exact source'}], response_contract=contract)
+    assert len(calls) == expected_calls

@@ -13,7 +13,7 @@ from typing import Any
 RULE = 'abstract_numeric_consistency_check'
 CONTEXT_VERSION = 'numeric-context/4.2'
 CONTRACT_VERSION = 'numeric-contract/3.0'
-RETRIEVAL_VERSION = 'numeric-lexical/1.4'
+RETRIEVAL_VERSION = 'numeric-lexical/1.5'
 TABLE_RECOVERY_VERSION = 'pymupdf-find-tables/1.0'
 CONDITIONS = {'abstract_numeric', 'contribution_mapping', 'experiment_subsection'}
 FIXED_PRECONDITION_SUGGESTIONS = {
@@ -515,6 +515,16 @@ def numeric_candidates(text):
             reason = None
             data_unit = _DATA_SIZE_UNIT.match(after)
             measured_unit = _MEASURED_UNIT.match(after) or data_unit
+            # A measured interval's right endpoint is not an identifier suffix.
+            # Require a source-admitted left endpoint, an explicit unit, and no
+            # identifier/formula prefix; keep original values and offsets.
+            interval_left = re.search(r'(?<![A-Za-z0-9@/_.+\-=<>])(\d+(?:\.\d+)?)\s*-\s*\Z', before)
+            interval_prefix = unicodedata.normalize('NFKC', before[:interval_left.start(1)]).rstrip() if interval_left else ''
+            invalid_interval_prefix = re.search(r'(?:[@/_+*^=<>.\-−×]|(?<![A-Za-z0-9_])[A-Za-z])\Z', interval_prefix)
+            interval_endpoint = bool(measured_unit and interval_left and not invalid_interval_prefix and any(
+                row['abstract_span_id'] == span['id'] and
+                row['start'] == span['start'] + interval_left.start(1)
+                for row in candidates))
             # A signed measurement is not a model-name suffix. Keep the old
             # digit-only offsets/value and the negative sign in source text.
             negative_measure = (before.endswith('-') and measured_unit
@@ -533,7 +543,7 @@ def numeric_candidates(text):
             elif (match.group() == '2' and re.search(r'(?<![A-Za-z0-9_])R\s*(?:\^\s*)?$',
                     unicodedata.normalize('NFKC', before), re.I)):
                 reason = 'identifier_or_metric_index'
-            elif (not negative_measure and (re.search(r'[A-Za-z@/_-]$', before) or re.match(r'\s*/\s*\d', after)
+            elif (not (negative_measure or interval_endpoint) and (re.search(r'[A-Za-z@/_-]$', before) or re.match(r'\s*/\s*\d', after)
                   or (re.search(r'[A-Za-z]\s+$', before) and re.match(r'\s*-\s*\d+[A-Za-z]', after)))):
                 reason = 'identifier_or_metric_index'
             elif not (measured_unit or metric.search(source) or additional_metric):

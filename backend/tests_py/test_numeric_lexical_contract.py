@@ -540,3 +540,81 @@ def test_r_squared_exponent_cannot_be_used_as_the_declared_result():
     structure['declarations'][0].update(number='2', metric='R2', unit='')
     with pytest.raises(n.ContractError):
         n.validate_structure(n.resolve_structure(structure, context, model), context, model)
+
+
+@pytest.mark.parametrize('source,values', [
+    ('端到端时延降低20-30%。', ['20', '30']),
+    ('端到端时延降低19-22%。', ['19', '22']),
+    ('时延降低11-15%，抖动降低25-28%，丢包率降低5-18%。', ['11', '15', '25', '28', '5', '18']),
+    ('追踪干扰降低3.5-12.2倍。', ['3.5', '12.2']),
+    ('可建模1-5% 的不可见空闲资源，并提升任务吞吐量。', ['1', '5']),
+    ('The latency decreased by 20-30%.', ['20', '30']),
+])
+def test_explicit_hyphen_interval_preserves_both_source_endpoints(source, values):
+    candidates, excluded = n.numeric_candidates(source)
+    assert [row['value'] for row in candidates] == values
+    assert not excluded
+    assert [source[row['start']:row['end']] for row in candidates] == values
+
+
+@pytest.mark.parametrize('gap', [' ', '\n', '\t'])
+def test_hyphen_interval_endpoint_allows_pdf_spacing_without_rewriting_offsets(gap):
+    source = '时延降低20' + gap + '-' + gap + '30%。'
+    candidates, excluded = n.numeric_candidates(source)
+    assert [row['value'] for row in candidates] == ['20', '30']
+    assert not excluded
+    assert source[candidates[1]['start']:candidates[1]['end']] == '30'
+
+
+@pytest.mark.parametrize('source,forbidden', [
+    ('GPT-4-5%版本提升准确率。', '5'),
+    ('Qwen-2.5-7%模型提升准确率。', '7'),
+    ('Pass@1-5%提升。', '5'),
+    ('Pass@1/3-5%提升。', '5'),
+    ('模型R2-5%提升。', '5'),
+    ('公式x=1-5%表示误差。', '5'),
+    ('公式x -1-5%表示误差。', '5'),
+    ('公式1e-3-5%表示误差。', '5'),
+    ('公式1E-3-5%表示误差。', '5'),
+    ('公式1e-5%表示误差。', '5'),
+    ('没有量纲的20-30变化。', '30'),
+])
+def test_interval_lexing_does_not_admit_identifier_formula_or_unmeasured_suffixes(source, forbidden):
+    candidates, _ = n.numeric_candidates(source)
+    assert forbidden not in {row['value'] for row in candidates}
+
+
+@pytest.mark.parametrize('number,unit,source', [
+    ('20-30', '%', '时延降低20-30%。'),
+    ('3.5-12.2', '倍', '追踪干扰降低3.5-12.2倍。'),
+])
+def test_hyphen_interval_passes_only_with_exact_source_values(number, unit, source):
+    _, model, context, structure = source_structure('本文提出融合模型。' + source)
+    structure['declarations'][0].update(number=number, unit=unit, metric='时延降低')
+    resolved = n.resolve_structure(structure, context, model)
+    assert n.validate_structure(resolved, context, model)
+    structure['declarations'][0]['number'] = '20-31' if unit == '%' else '3.5-12.3'
+    with pytest.raises(n.ContractError):
+        n.validate_structure(n.resolve_structure(structure, context, model), context, model)
+
+
+@pytest.mark.parametrize('source', [
+    '公式x = 1-5%表示误差。',
+    'Pass@ 1-5%提升。',
+    'Pass@1 / 3-5%提升。',
+    '公式1e- 3-5%表示误差。',
+    '误差在- 1-5%之间。',
+    '公式x^2-5%',
+    '公式x^2-5%表示误差。',
+])
+def test_interval_left_prefix_cannot_hide_formula_index_or_sign_behind_spacing(source):
+    candidates, _ = n.numeric_candidates(source)
+    assert '5' not in {row['value'] for row in candidates}
+
+
+@pytest.mark.parametrize('gap', [' ', '\n', '\t'])
+@pytest.mark.parametrize('prefix', ['x =', 'Pass@', 'Pass@1 /', '1e-', '-', '+', 'x^', '−', '－', '＋', 'x×'])
+def test_pdf_spacing_before_interval_left_preserves_formula_and_identifier_exclusion(prefix, gap):
+    source = '误差' + prefix + gap + '1-5%。'
+    candidates, _ = n.numeric_candidates(source)
+    assert '5' not in {row['value'] for row in candidates}

@@ -34,3 +34,33 @@ it('propagates asynchronous persistence failure without an unhandled rejection',
   } }) + '\n'));
   await expect(stream.finish()).rejects.toThrow('database unavailable');
 });
+
+
+it('renews only matching successful new typo chunks, and never treats work as a completed rule', async () => {
+  const received = [], work = [];
+  const stream = createRuleProgressStream(['typo_detection_check'], run => received.push(run), {
+    taskId: 'private-task', onWorkProgress: event => work.push(event.completed_chunks),
+  });
+  const valid = { type: 'paper_lint_chunk_complete', task_id: 'private-task', rule_id: 'typo_detection_check',
+    execution_status: 'completed', chunk_index: 0, completed_chunks: 1, total_chunks: 3 };
+  const send = event => stream.write(Buffer.from(JSON.stringify(event) + '\n'));
+  for (const event of [{ ...valid, task_id: 'other' }, { ...valid, execution_status: 'error' },
+    { ...valid, completed_chunks: 2 }, { ...valid, chunk_index: -1 }, { ...valid, total_chunks: 0 }]) send(event);
+  send(valid); send(valid);
+  send({ ...valid, chunk_index: 1, completed_chunks: 2, total_chunks: 4 });
+  send({ ...valid, chunk_index: 1, completed_chunks: 0 });
+  send({ ...valid, chunk_index: 1, completed_chunks: 2 });
+  send({ ...valid, chunk_index: 2, completed_chunks: 3 });
+  await stream.finish();
+  expect(work).toEqual([1, 2, 3]);
+  expect(received).toEqual([]);
+});
+
+it('ignores chunk work without the private callback and task identity', async () => {
+  const received = [];
+  const stream = createRuleProgressStream(['typo_detection_check'], run => received.push(run));
+  stream.write(Buffer.from(JSON.stringify({ type: 'paper_lint_chunk_complete', task_id: 'private-task',
+    rule_id: 'typo_detection_check', execution_status: 'completed', chunk_index: 0, completed_chunks: 1, total_chunks: 1 }) + '\n'));
+  await stream.finish();
+  expect(received).toEqual([]);
+});

@@ -8,7 +8,7 @@ const { getSixRules, isSixRuleId, runSixRules, SIX_RULE_TIMEOUT_MS } = require('
 
 const { getCompilerRules, isCompilerRuleId, runCompilerRules } = require('./paperCompilerService');
 const { runPaperLintRuleGroups, settleRuleTasks } = require('./paperLintRuleRunner');
-const { createRuleProgressStream } = require('./paperLintRuleProgress');
+const { createRuleProgressStream, createRunTimeout } = require('./paperLintRuleProgress');
 const { listRuleDefinitions } = require('../../rules/registry');
 const { assessPaperDocument, documentRejectionResult } = require('./paperDocumentAdmission');
 const { CORE_RULE_ID, coreStructureRun, mergeCoreRuns, attachCoreStructure, unavailableRuleRuns, dedupeCorePrerequisites } = require('./paperStructureChecks');
@@ -205,7 +205,7 @@ function runBridge(args, timeoutMs = ENGINE_TIMEOUT_MS, signal) {
 }
 
 function runBilingualSemanticRules(pdfPath, ruleIds, timeoutMs = ENGINE_TIMEOUT_MS, signal, runId, onRuleComplete,
-  { allowIncompleteStructure = false } = {}) {
+  { allowIncompleteStructure = false, onWorkProgress } = {}) {
   return runJsonScript(
     bilingualScript,
     ['--pdf', pdfPath, '--progress-jsonl', ...ruleIds.flatMap((ruleId) => ['--rule', ruleId]),
@@ -215,7 +215,7 @@ function runBilingualSemanticRules(pdfPath, ruleIds, timeoutMs = ENGINE_TIMEOUT_
       cwd: path.resolve(__dirname, '../..'),
       timeoutMs,
       signal,
-      progressStream: createRuleProgressStream(ruleIds, onRuleComplete),
+      progressStream: createRuleProgressStream(ruleIds, onRuleComplete, { taskId: runId, onWorkProgress }),
       unavailableMessage: '仓库 Paper Model 双语语义规则运行失败',
     },
   );
@@ -371,7 +371,7 @@ function mergePaperLintResults(existingResult, localResult, selectedRuleIds) {
   };
 }
 
-async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingConsent = false, background = false, onProgress, signal, runId, maxPdfBytes = MAX_PDF_BYTES }) {
+async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingConsent = false, background = false, onProgress, signal, runId, maxPdfBytes = MAX_PDF_BYTES, trustedBatchProgress = false }) {
   validatePdf(pdfBuffer, maxPdfBytes);
   // The deadline covers catalog loading, queueing, and both engines so a timed-out
   // browser request cannot later persist a seemingly successful report.
@@ -386,7 +386,14 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
   const onCancel = () => controller.abort();
   if (signal?.aborted) onCancel();
   else signal?.addEventListener('abort', onCancel, { once: true });
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  // Ordinary queued jobs retain their hard deadline. Only the durable,
+  // server-created operator marker enables progress renewal; HTTP JSON cannot.
+  const renewableTypo = background && trustedBatchProgress === true && Boolean(runId)
+    && Array.isArray(selectedRuleIds) && selectedRuleIds.includes('typo_detection_check')
+    && !(Number.isFinite(requestedTimeout) && requestedTimeout > 0);
+  const maximumRunMs = renewableTypo ? 2 * 60 * 60 * 1000 : timeoutMs;
+  const runTimeout = createRunTimeout({ timeoutMs, maximumMs: maximumRunMs,
+    signal: controller.signal, onTimeout: () => controller.abort() });
   try {
     const normalizedRuleIds = await normalizeSelectedRuleIds(selectedRuleIds, externalProcessingConsent);
     if (controller.signal.aborted) throw createHttpError(504, RUN_TIMEOUT_MESSAGE);
@@ -448,11 +455,12 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
           await reportProgress(unavailableRuleIds, part);
         }
         if (bilingualRuleIds.length) {
-          const bilingualTimeout = bilingualRuleIds.some(id => ['typo_detection_check', 'abstract_numeric_consistency_check'].includes(id))
+          const bilingualTimeout = renewableTypo ? maximumRunMs : bilingualRuleIds.some(id => ['typo_detection_check', 'abstract_numeric_consistency_check'].includes(id))
             ? SIX_RULE_TIMEOUT_MS
             : ENGINE_TIMEOUT_MS;
           tasks.push(runBilingualSemanticRules(pdfPath, bilingualRuleIds, bilingualTimeout, controller.signal, runId,
-            run => reportProgress([run.rule_id], { rule_runs: [run] }), { allowIncompleteStructure: partialStructure })
+            run => reportProgress([run.rule_id], { rule_runs: [run] }), { allowIncompleteStructure: partialStructure,
+              ...(renewableTypo ? { onWorkProgress: () => runTimeout.progress() } : {}) })
             .then(async (part) => { parts.push(part); await reportProgress(bilingualRuleIds, part); })
             .catch(async (error) => {
               if (controller.signal.aborted) throw error;
@@ -517,7 +525,7 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
     }
     throw timeout;
   } finally {
-    clearTimeout(timer);
+    runTimeout.clear();
     signal?.removeEventListener('abort', onCancel);
   }
 }

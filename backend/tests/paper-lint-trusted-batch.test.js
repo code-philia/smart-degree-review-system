@@ -240,3 +240,17 @@ it('keeps recovering other jobs when an old ordinary reuse payload is corrupt', 
   expect((await jobs.getForUser(broken, 'school_admin01')).status).toBe('failed');
   expect((await jobs.getForUser(normal, 'school_admin01')).status).toBe('completed');
 });
+
+
+it('enables progress renewal only from durable started operator metadata and keeps mail disabled', async () => {
+  const ordinary = await repository.createJob(input({ trustedBatchMaxPdfBytes:undefined, requestId:'ordinary-no-renewal',
+    reuse:{operator_options:{start_requested:true,trusted_batch_max_pdf_bytes:64*MiB}} }));
+  await jobs.resumeJobs(); await jobs.waitForIdle();
+  expect(engine.runPaperLint.mock.calls[0][0].trustedBatchProgress).toBe(false);
+  const trusted = await repository.createJob(input({requestId:'trusted-renewal'}));
+  await start(trusted).expect(202); await jobs.waitForIdle();
+  expect(engine.runPaperLint.mock.calls[1][0].trustedBatchProgress).toBe(true);
+  expect((await repository.getJob(ordinary)).notify_completion).toBe(0);
+  expect((await repository.getJob(trusted)).notify_completion).toBe(0);
+  expect(await all('SELECT * FROM report_email_outbox')).toHaveLength(0);
+});

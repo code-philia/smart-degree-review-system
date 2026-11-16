@@ -12,6 +12,7 @@ import time
 
 _LAST_REQUEST_AT = 0.0
 from pathlib import Path
+from threading import Lock
 from typing import Any
 
 from paper_model_bilingual_rules import extract_bilingual_facts, _json_object
@@ -72,7 +73,7 @@ def api_config() -> tuple[str, str, str, str]:
     return key, "https://api.deepseek.com", "deepseek-v4-flash", "deepseek"
 
 
-def request_json(messages: list[dict[str, str]], *, observer=None) -> tuple[dict[str, Any], dict[str, int]]:
+def request_json(messages: list[dict[str, str]], *, observer=None, response_contract=None) -> tuple[dict[str, Any], dict[str, int]]:
     global _LAST_REQUEST_AT
     key, base_url, model, _provider = api_config()
     if _provider != "sjtu":
@@ -104,7 +105,7 @@ def request_json(messages: list[dict[str, str]], *, observer=None) -> tuple[dict
     cache = None
     cache_root = os.environ.get('SJTU_API_RESPONSE_CACHE_DIR', '').strip()
     if _provider == 'sjtu' and observer is None and cache_root:
-        cache = SemanticResponseCache(cache_root, base_url, key, payload)
+        cache = SemanticResponseCache(cache_root, base_url, key, payload, response_contract=response_contract)
         cached = cache.read()
         if cached is not None:
             return cached, {'input_tokens': 0, 'output_tokens': 0}
@@ -533,7 +534,7 @@ def _single_cjk_replacement(original: str, corrected: str) -> tuple[str, str] | 
     return before, after
 
 
-def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
+def run_typo_rule_from_ir(ir: dict[str, Any], *, on_chunk_complete=None) -> dict[str, Any]:
     findings = []
     # The same Paper Model source span can be surfaced through more than one
     # layout node.  Never turn that extraction detail into duplicate findings.
@@ -546,11 +547,14 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
     # split across a sentence.
     chunks = _body_chunks(ir, size=1200)
     failure = None
+    completed_chunks = 0
     workers = 8 if all(os.environ.get(name, '').strip() for name in
                        ('SJTU_API_KEY', 'SJTU_API_BASE_URL', 'SJTU_API_MODEL')) else 4
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = [pool.submit(request_json, [{"role": "user", "content": typo_prompt(chunk["model_text"])}]) for chunk in chunks]
+        futures = [pool.submit(request_json, [{"role": "user", "content": typo_prompt(chunk["model_text"])}],
+                               response_contract='typo-discovery') for chunk in chunks]
         for index, chunk in enumerate(chunks):
+            chunk_failed = False
             try:
                 payload, usage = futures[index].result()
             except Exception as exc:
@@ -561,6 +565,10 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
                 continue
             usage_total["input_tokens"] += usage["input_tokens"]
             usage_total["output_tokens"] += usage["output_tokens"]
+            # Progress is stricter than the legacy report adapter: malformed
+            # provider envelopes cannot prolong a task's execution budget.
+            chunk_failed = not (isinstance(payload, dict) and 'errors' in payload
+                                and SemanticResponseCache.reusable(payload, 'typo-discovery'))
             rows = payload.get("errors") if isinstance(payload, dict) else []
             if not isinstance(rows, list):
                 rows = []
@@ -593,10 +601,13 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
                                 context=context,
                                 reason=str(row.get("reason") or ""),
                             ),
-                        }])
+                        }], response_contract='typo-fields')
                     except Exception as exc:
+                        chunk_failed = True
                         failure = failure or (str(exc)[:300] or type(exc).__name__)
                         continue
+                    chunk_failed = chunk_failed or not (isinstance(repaired, dict)
+                        and type(repaired.get('accepted')) is bool and SemanticResponseCache.reusable(repaired, 'typo-fields'))
                     usage_total["input_tokens"] += repaired_usage["input_tokens"]
                     usage_total["output_tokens"] += repaired_usage["output_tokens"]
                     if not isinstance(repaired, dict) or repaired.get("accepted") is not True:
@@ -648,10 +659,13 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
                             context=context,
                             reason=repaired_reason or str(row.get("reason") or ""),
                         ),
-                    }])
+                    }], response_contract='typo-review')
                 except Exception as exc:
+                    chunk_failed = True
                     failure = failure or (str(exc)[:300] or type(exc).__name__)
                     continue
+                chunk_failed = chunk_failed or not (isinstance(verification, dict)
+                    and type(verification.get('accepted')) is bool and SemanticResponseCache.reusable(verification, 'typo-review'))
                 usage_total["input_tokens"] += verification_usage["input_tokens"]
                 usage_total["output_tokens"] += verification_usage["output_tokens"]
                 if not isinstance(verification, dict) or verification.get("accepted") is not True:
@@ -704,6 +718,10 @@ def run_typo_rule_from_ir(ir: dict[str, Any]) -> dict[str, Any]:
                                   "provider": "repo-paper-model", "quote": context[:120]}],
                     "reason": (repaired_reason or str(row.get("reason") or ""))[:300],
                 })
+            if on_chunk_complete and not chunk_failed:
+                completed_chunks += 1
+                on_chunk_complete({'chunk_index': index, 'completed_chunks': completed_chunks,
+                                   'total_chunks': len(chunks)})
     return {"rule_run_id": f"run_{TYPO_RULE}", "rule_id": TYPO_RULE, "severity": "warning",
             "params": {"chunk_count": len(chunks), "chunk_size": 1200,
                        **({"technical_failure": failure} if failure else {})},
@@ -1079,9 +1097,10 @@ def _run_aligned_abstract(ir, facts):
                     validation_diagnostics=validation_diagnostics,mismatches=mismatches[:3]))
 
 
-def _run_semantic_rule(ir, facts, rule_id, run_id=None):
+def _run_semantic_rule(ir, facts, rule_id, run_id=None, on_chunk_complete=None):
     if rule_id == TYPO_RULE:
-        return run_typo_rule_from_ir(ir)
+        return (run_typo_rule_from_ir(ir, on_chunk_complete=on_chunk_complete)
+                if on_chunk_complete else run_typo_rule_from_ir(ir))
     if rule_id == NUMERIC_RULE:
         return run_numeric_consistency_rule(ir, run_id=run_id)
     if rule_id == 'bilingual_abstract_consistency_check' and facts.get('chinese_abstract') and facts.get('english_abstract'):
@@ -1138,12 +1157,13 @@ def _run_semantic_rule(ir, facts, rule_id, run_id=None):
 
 
 def run(pdf: Path, rule_ids: list[str], run_id=None, on_rule_complete=None,
-        allow_incomplete_structure=False) -> dict[str, Any]:
+        allow_incomplete_structure=False, on_work_progress=None) -> dict[str, Any]:
     ir = build_paper(pdf, include_citations=False,
                      allow_incomplete_structure=allow_incomplete_structure)
     facts = extract_bilingual_facts(ir) if any(rule in BILINGUAL_RULES for rule in rule_ids) else {}
     with ThreadPoolExecutor(max_workers=4) as pool:
-        futures = {pool.submit(_run_semantic_rule, ir, facts, rule, run_id): index
+        futures = {pool.submit(_run_semantic_rule, ir, facts, rule, run_id,
+                               *([on_work_progress] if rule == TYPO_RULE and on_work_progress else [])): index
                    for index, rule in enumerate(rule_ids)}
         runs = [None] * len(rule_ids)
         for future in as_completed(futures):
@@ -1192,12 +1212,19 @@ def main() -> None:
     unknown = [rule for rule in args.rule if rule not in BILINGUAL_RULES and rule not in {TYPO_RULE, NUMERIC_RULE}]
     if unknown:
         raise RuntimeError(f"未知双语语义规则：{unknown[0]}")
+    progress_lock = Lock()
+    def publish_event(event):
+        with progress_lock:
+            print(json.dumps(event, ensure_ascii=True), flush=True)
     def publish(completed):
-        print(json.dumps({'type': 'paper_lint_rule_complete', 'rule_run': completed},
-                         ensure_ascii=True), flush=True)
+        publish_event({'type': 'paper_lint_rule_complete', 'rule_run': completed})
+    def work_progress(completed):
+        publish_event({'type': 'paper_lint_chunk_complete', 'task_id': args.run_id,
+                       'rule_id': TYPO_RULE, 'execution_status': 'completed', **completed})
     result = run(args.pdf, args.rule, run_id=args.run_id,
                  on_rule_complete=publish if args.progress_jsonl else None,
-                 allow_incomplete_structure=args.allow_incomplete_structure)
+                 allow_incomplete_structure=args.allow_incomplete_structure,
+                 on_work_progress=work_progress if args.progress_jsonl and args.run_id else None)
     print(json.dumps(result, ensure_ascii=True), flush=True)
 
 
