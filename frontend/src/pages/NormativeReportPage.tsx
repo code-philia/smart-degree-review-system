@@ -267,7 +267,7 @@ function NormativeReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
             <AlertDialogTitle>{pendingDelete && pendingDelete.ids.length > 1 ? '删除选中的报告？' : '删除报告？'}</AlertDialogTitle>
           </AlertDialogHeader>
           <div className="report-delete-body">
-            <AlertDialogDescription>{pendingDelete && pendingDelete.ids.length > 1 ? '选中的报告及论文原文 将被永久删除，此操作无法撤销。' : '报告及论文原文 将被永久删除，此操作无法撤销。'}</AlertDialogDescription>
+            <AlertDialogDescription>{pendingDelete && pendingDelete.ids.length > 1 ? '选中的报告及论文原文将被永久删除，此操作无法撤销。' : '报告及论文原文将被永久删除，此操作无法撤销。'}</AlertDialogDescription>
             {pendingDelete?.batch ? <p className="report-delete-count"><RichMessage name="history-selected" count={pendingDelete.ids.length}>已选择 <strong>{pendingDelete.ids.length}</strong> 份报告</RichMessage></p>
               : <div className="report-delete-file"><FileText size={18} aria-hidden="true" /><p>{preserveText(pendingDelete?.filename || '')}</p></div>}
             {deleteError ? <p role="alert" className="report-delete-error">{deleteError}</p> : null}
