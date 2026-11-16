@@ -457,9 +457,44 @@ def percentage_values(text):
     return {format(Decimal(value).normalize(), 'f') for value in re.findall(r'(?<![\d.])(\d+(?:\.\d+)?)\s*[%％]', text)}
 
 
+_MEASURED_UNIT = re.compile(r'\s*(?:[%％]|毫秒|秒|分钟|小时|厘米|毫米|米|次|倍|ms\b|s\b|cm\b|mm\b|m\b)', re.I)
+_CHINESE_MULTIPLIER = re.compile(
+    r'(?<![A-Za-z0-9零〇一二两三四五六七八九十百千万亿兆点分之负正第几多余半])'
+    r'([一二两三四五六七八九]|十[一二三四五六七八九]?|[二三四五六七八九]十[一二三四五六七八九]?)'
+    r'\s*(?=倍(?![半体数率频]))')
+
+
+def chinese_multiplier_tokens(text):
+    """Normalize only explicit Chinese integers 1..99 immediately before 倍.
+
+    Keep the original numeral offsets; never rewrite source text or comparisons.
+    Unsupported fractions, signs, decimals and vague multipliers stay unparsed.
+    """
+    digits = dict(zip('一二三四五六七八九', range(1, 10))) | {'两': 2}
+    tokens = []
+    for match in _CHINESE_MULTIPLIER.finditer(text):
+        # Native PDF lines can split a sign, decimal, fraction or unit suffix.
+        # Inspect neighbors through whitespace without changing source offsets.
+        before, after = text[:match.start(1)].rstrip(), text[match.end() + 1:].lstrip()
+        if (re.search(r'[A-Za-z0-9零〇一二两三四五六七八九十百千万亿兆点分之负正第几多余半+\-−＋－]$', before)
+                or re.match(r'[半体数率频]', after)):
+            continue
+        written = match.group(1)
+        if '十' in written:
+            tens, ones = written.split('十')
+            value = digits.get(tens, 1) * 10 + digits.get(ones, 0)
+        else:
+            value = digits[written]
+        tokens.append({'value': str(value), 'start': match.start(1), 'end': match.end(1),
+                       'source_text': written, 'unit': '倍',
+                       'normalization': 'chinese-integer-multiplier/1.0'})
+    return tokens
+
+
 def numeric_values(text):
-    """Return explicit Arabic numeric tokens, including non-percentage claims."""
-    return {format(Decimal(value).normalize(), 'f') for value in re.findall(r'(?<![A-Za-z0-9])\d+(?:\.\d+)?', text)}
+    """Return existing Arabic tokens plus source-explicit Chinese multipliers."""
+    values = {format(Decimal(value).normalize(), 'f') for value in re.findall(r'(?<![A-Za-z0-9])\d+(?:\.\d+)?', text)}
+    return values | {token['value'] for token in chinese_multiplier_tokens(text)}
 
 
 def numeric_candidates(text):
@@ -471,6 +506,12 @@ def numeric_candidates(text):
         for match in re.finditer(r'\d+(?:\.\d+)?', source):
             before, after = source[:match.start()], source[match.end():]
             reason = None
+            # A signed measurement is not a model-name suffix. Keep the old
+            # digit-only offsets/value and the negative sign in source text.
+            negative_measure = (before.endswith('-') and _MEASURED_UNIT.match(after)
+                and not re.search(r'[A-Za-z0-9@/_+\-=<>]-$', before)
+                and not re.search(r'[@/_]\s*-$', before)
+                and not re.search(r'(?:(?<![A-Za-z0-9_])[A-Za-z]|[=<>+*/^])\s*-$', before))
             if re.match(r'\s*年', after):
                 reason = 'year'
             elif re.search(r'第\s*$', before) and re.match(r'\s*[章节部分项]', after):
@@ -480,10 +521,10 @@ def numeric_candidates(text):
             elif (re.search(r'(?:^|[：:；;，,\n])\s*$', before)
                   and re.match(r'\s*[）)](?!\s*\d)', after)):
                 reason = 'citation_or_list_index'
-            elif (re.search(r'[A-Za-z@/_-]$', before) or re.match(r'\s*/\s*\d', after)
-                  or (re.search(r'[A-Za-z]\s+$', before) and re.match(r'\s*-\s*\d+[A-Za-z]', after))):
+            elif (not negative_measure and (re.search(r'[A-Za-z@/_-]$', before) or re.match(r'\s*/\s*\d', after)
+                  or (re.search(r'[A-Za-z]\s+$', before) and re.match(r'\s*-\s*\d+[A-Za-z]', after)))):
                 reason = 'identifier_or_metric_index'
-            elif not (re.match(r'\s*(?:[%％]|毫秒|秒|分钟|小时|厘米|毫米|米|次|倍|ms\b|s\b|cm\b|mm\b|m\b)', after, re.I) or metric.search(source)):
+            elif not (_MEASURED_UNIT.match(after) or metric.search(source)):
                 reason = 'no_measurable_result_context'
             row = {'abstract_span_id': span['id'], 'value': format(Decimal(match.group()).normalize(), 'f'),
                    'start': span['start'] + match.start(), 'end': span['start'] + match.end()}
@@ -491,6 +532,11 @@ def numeric_candidates(text):
                 excluded.append({**row, 'reason': reason})
             else:
                 candidates.append(row)
+        for token in chinese_multiplier_tokens(source):
+            candidates.append({**token, 'abstract_span_id': span['id'],
+                               'start': span['start'] + token['start'],
+                               'end': span['start'] + token['end']})
+    candidates.sort(key=lambda row: row['start'])
     return candidates, excluded
 
 
@@ -806,9 +852,10 @@ def validate_structure(data, context, model):
             require(isinstance(d.get(key), str), f'invalid declaration {key}')
         require(bool(d['metric'].strip()), 'missing metric')
         require(type(d.get('number')) in (int, float, str) and re.search(r'\d', str(d['number'])) is not None, 'invalid numeric value')
-        require(re.search(r'\d', d['text']) is not None, 'declaration has no numeric source')
+        source_values = numeric_values(d['text'])
+        require(bool(source_values), 'declaration has no numeric source')
         represented = numeric_values(str(d['number']))
-        require(represented and represented <= numeric_values(d['text']), 'numeric value not grounded in declaration source')
+        require(represented and represented <= source_values, 'numeric value not grounded in declaration source')
         if d.get('abstract_span_id') and 'numeric_candidates' in context:
             source_values = {c['value'] for c in context['numeric_candidates']
                              if c['abstract_span_id'] == d['abstract_span_id']}
@@ -829,7 +876,15 @@ def validate_structure(data, context, model):
         experiments = mapping.get('experiment_section_ids')
         require(isinstance(experiments, list) and bool(experiments) and len(set(experiments)) == len(experiments), 'missing or duplicate experiment mapping')
         require(all(isinstance(e, str) and ((e == chapter and mapping.get('mapping_mode') == 'single_contribution_fallback') or descendant(model, e, chapter)) for e in experiments), 'experiment is not a descendant of chapter')
-        require(all(experimental_support(model, e) for e in experiments), 'mapped experiment classification lacks supporting source text')
+        unsupported = next((e for e in experiments if not experimental_support(model, e)), None)
+        if unsupported is not None:
+            aliases = {native: alias for alias, native in context.get('section_aliases', {}).items()}
+            affected = [key for key, value in mappings.items()
+                        if isinstance(value.get('experiment_section_ids'), list)
+                        and unsupported in value['experiment_section_ids']]
+            require(False, 'mapped experiment classification lacks supporting source text: section_id=' +
+                    aliases.get(unsupported, unsupported) + ', title=' + model['sections'][unsupported]['title'] +
+                    ', declaration_ids=' + ','.join(affected))
         evidence = rows(mapping, 'evidence')
         require(bool(evidence), 'mapping evidence required')
         for e in evidence:
@@ -854,6 +909,22 @@ def validate_structure(data, context, model):
         missing = (candidate_percentages if 'numeric_candidates' in context
                    else percentage_values(context['abstract'])) - covered
         require(not missing, 'missing abstract percentage declarations: ' + ', '.join(sorted(missing)))
+        # Only the newly recognized source-explicit Chinese syntax gets this
+        # coverage check; existing Arabic admission/coverage stays unchanged.
+        multiplier_missing = []
+        spans = {span['id']: span for span in context.get('abstract_spans', [])}
+        for candidate in context.get('numeric_candidates', []):
+            if candidate.get('normalization') != 'chinese-integer-multiplier/1.0':
+                continue
+            sid, value = candidate['abstract_span_id'], candidate['value']
+            covered_here = any(value in numeric_values(str(d['number'])) and
+                d.get('unit', '').strip().casefold() in {'倍', 'times', 'fold', 'x', '×'} and
+                (d.get('abstract_span_id') == sid or (not d.get('abstract_span_id') and
+                 grounded_quote(d['text'], spans.get(sid, {}).get('text', ''))))
+                for d in declarations.values())
+            if not covered_here:
+                multiplier_missing.append(sid + '=' + value)
+        require(not multiplier_missing, 'missing abstract multiplier declarations: ' + ', '.join(multiplier_missing))
     return passed
 
 
