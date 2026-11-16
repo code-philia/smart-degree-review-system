@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 const require = createRequire(import.meta.url);
+const originalJobConcurrency = process.env.PAPER_LINT_JOB_CONCURRENCY;
 const { createTestDatabaseHarness } = require('../src/database');
 const { run } = require('../src/database/db_runtime');
 const authRoutes = require('../src/auth/authRoutes');
@@ -26,6 +27,8 @@ let service;
 
 describe('durable MinerU paper-lint jobs', () => {
   beforeAll(async () => {
+    // These fixtures deliberately exercise a waiting job behind one occupied worker.
+    process.env.PAPER_LINT_JOB_CONCURRENCY = '1';
     directory = fs.mkdtempSync(path.join(os.tmpdir(), 'paper-lint-jobs-test-'));
     process.env.PAPER_LINT_JOBS_DIR = path.join(directory, 'jobs');
     process.env.PAPER_LINT_REPORTS_DIR = path.join(directory, 'reports');
@@ -54,6 +57,8 @@ describe('durable MinerU paper-lint jobs', () => {
   await run("UPDATE paper_lint_jobs SET created_at = ? WHERE status IN ('completed','failed')", [new Date(Date.now() - 86400000).toISOString()]);
 });
 afterAll(async () => {
+    if (originalJobConcurrency === undefined) delete process.env.PAPER_LINT_JOB_CONCURRENCY;
+    else process.env.PAPER_LINT_JOB_CONCURRENCY = originalJobConcurrency;
     await harness.cleanup();
     fs.rmSync(directory, { recursive: true, force: true });
     delete process.env.PAPER_LINT_JOBS_DIR;

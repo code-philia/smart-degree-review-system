@@ -4,9 +4,11 @@ const require=createRequire(import.meta.url);
 const {createTestDatabaseHarness,run}=require('../src/database');
 const jobs=require('../src/normative/paperLintJobRepository');
 let harness;const time=Date.parse('2026-11-07T05:00:00Z');
+const oldWorkers=process.env.PAPER_LINT_JOB_CONCURRENCY;
+const oldEngine=process.env.REVIEW_PILOT_MAX_CONCURRENT_RUNS;
 beforeAll(async()=>{harness=createTestDatabaseHarness({label:'eta',seedDefault:true});await harness.setup();});
-beforeEach(async()=>{vi.useFakeTimers({toFake:['Date']});vi.setSystemTime(time);await run('DELETE FROM paper_lint_jobs');});
-afterAll(async()=>{vi.useRealTimers();await harness.cleanup();});
+beforeEach(async()=>{process.env.PAPER_LINT_JOB_CONCURRENCY='1';vi.useFakeTimers({toFake:['Date']});vi.setSystemTime(time);await run('DELETE FROM paper_lint_jobs');});
+afterAll(async()=>{if(oldWorkers===undefined)delete process.env.PAPER_LINT_JOB_CONCURRENCY;else process.env.PAPER_LINT_JOB_CONCURRENCY=oldWorkers;if(oldEngine===undefined)delete process.env.REVIEW_PILOT_MAX_CONCURRENT_RUNS;else process.env.REVIEW_PILOT_MAX_CONCURRENT_RUNS=oldEngine;vi.useRealTimers();await harness.cleanup();});
 async function row(id,status='pending',started=null,rule='sjtu_rule_18'){
   await run(`INSERT INTO paper_lint_jobs(id,user_id,source_filename,source_pdf_path,selected_rule_ids_json,status,created_at,updated_at,started_at)
     VALUES (?,'student01','eta.pdf','unused',?,?,?,?,?)`,[id,JSON.stringify(Array.isArray(rule)?rule:[rule]),status,new Date(time).toISOString(),new Date(time).toISOString(),started]);
@@ -69,4 +71,10 @@ it('clears progress from a previous attempt before estimating a recovered task',
   const state=await jobs.getJobForUser('restart','student01');
   expect(state.progress).toBeNull();
   expect(state.eta).toMatchObject({status:'available',remaining_seconds:120});
+});
+it('estimates an eight-worker waiting job by available lanes instead of adding eight serial durations',async()=>{
+  process.env.REVIEW_PILOT_MAX_CONCURRENT_RUNS='8';process.env.PAPER_LINT_JOB_CONCURRENCY='8';
+  await history();for(let i=0;i<8;i++)await row('active-'+i,'running',new Date(time).toISOString());
+  await row('parallel-waiting');
+  expect((await jobs.getJobForUser('parallel-waiting','student01')).eta).toMatchObject({remaining_seconds:240,min_seconds:96,max_seconds:450});
 });

@@ -1,4 +1,5 @@
 const { all } = require('../database/db_runtime');
+const { jobConcurrency } = require('./paperLintConcurrency');
 const MODEL_RULES = new Set(['typo_detection_check','bilingual_abstract_consistency_check',
   'bilingual_keywords_correspondence_check','abstract_numeric_consistency_check','sjtu_rule_32']);
 function ids(row) {try {return JSON.parse(row.selected_rule_ids_json).filter(id=>typeof id==='string').sort();}catch{return [];}}
@@ -56,11 +57,17 @@ async function estimateJobEta(job, now=Date.now()) {
   let {min,max,remaining}=own;
   if(job.status==='pending'){
     const ahead=await all(`SELECT selected_rule_ids_json,status,started_at,created_at,updated_at,progress_json FROM paper_lint_jobs
-      WHERE id!=? AND cancelled_at IS NULL AND (status='running' OR (status='pending' AND rowid<(SELECT rowid FROM paper_lint_jobs WHERE id=?)))`,[job.id,job.id]);
+      WHERE id!=? AND cancelled_at IS NULL AND (status='running' OR (status='pending' AND rowid<(SELECT rowid FROM paper_lint_jobs WHERE id=?)))
+      ORDER BY CASE WHEN status='running' THEN 0 ELSE 1 END,rowid`,[job.id,job.id]);
+    const lanes=Array.from({length:jobConcurrency()},()=>({min:0,max:0,remaining:0}));
+    let occupied=0;
+    const earliest=()=>lanes.reduce((best,lane,index)=>lane.remaining<lanes[best].remaining?index:best,0);
     for(const queued of ahead){
       const wait=timing(queued);if(!wait)return {status:'estimating',sample_count:own.samples};
-      min+=wait.min;max+=wait.max;remaining+=wait.remaining;
+      const index=queued.status==='running'&&occupied<lanes.length?occupied++:earliest();
+      lanes[index].min+=wait.min;lanes[index].max+=wait.max;lanes[index].remaining+=wait.remaining;
     }
+    const wait=lanes[earliest()];min+=wait.min;max+=wait.max;remaining+=wait.remaining;
   }
   return {status:'available',remaining_seconds:Math.ceil(remaining),min_seconds:Math.floor(min),max_seconds:Math.ceil(max),sample_count:own.samples};
 }

@@ -4,15 +4,17 @@ const reportRepository = require('./paperLintReportRepository');
 const defaultPaperLintService = require('./reviewPilotPaperLintService');
 const { removeBrowserPdf } = require('./browserPdf');
 const { CORE_RULE_ID, mergeCoreRuns, dedupeCorePrerequisites } = require('./paperStructureChecks');
+const { jobConcurrency } = require('./paperLintConcurrency');
 
 function createPaperLintJobService(paperLintService = defaultPaperLintService) {
   const queue = [];
   const queued = new Set();
   const activeRuns = new Map();
-  let active = false;
+  const concurrency = jobConcurrency();
+  let active = 0;
 
   function add(id) {
-    if (queued.has(id)) return;
+    if (queued.has(id) || activeRuns.has(id)) return;
     queued.add(id);
     queue.push(id);
     queueMicrotask(() => { void drain(); });
@@ -123,18 +125,17 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
     return repository.getJobForUser(id, userId);
   }
 
-  async function drain() {
-    if (active) return;
-    active = true;
-    try {
-      while (queue.length) {
-        const id = queue.shift();
-        queued.delete(id);
-        await process(id);
-      }
-    } finally {
-      active = false;
-      if (queue.length) queueMicrotask(() => { void drain(); });
+  function drain() {
+    while (active < concurrency && queue.length) {
+      const id = queue.shift();
+      queued.delete(id);
+      active += 1;
+      void process(id)
+        .catch(error => { console.error('Paper-lint job worker failed:', id, error); })
+        .finally(() => {
+          active -= 1;
+          drain();
+        });
     }
   }
 

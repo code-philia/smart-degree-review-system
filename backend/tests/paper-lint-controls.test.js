@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 const require = createRequire(import.meta.url);
+const originalJobConcurrency = process.env.PAPER_LINT_JOB_CONCURRENCY;
 const { createTestDatabaseHarness } = require('../src/database');
 const authRoutes = require('../src/auth/authRoutes');
 const { createReviewPilotPaperLintRouter } = require('../src/normative/reviewPilotPaperLintRoutes');
@@ -28,6 +29,8 @@ const cancel = (id, name = 'student01') => request(app).post(`/api/normative/pap
 
 describe('PDF check cancellation and history deletion', () => {
   beforeAll(async () => {
+    // These fixtures deliberately exercise a waiting job behind one occupied worker.
+    process.env.PAPER_LINT_JOB_CONCURRENCY = '1';
     directory = fs.mkdtempSync(path.join(os.tmpdir(), 'paper-lint-controls-'));
     process.env.PAPER_LINT_JOBS_DIR = path.join(directory, 'jobs');
     process.env.PAPER_LINT_REPORTS_DIR = path.join(directory, 'reports');
@@ -49,6 +52,8 @@ describe('PDF check cancellation and history deletion', () => {
     }
   });
   afterAll(async () => {
+    if (originalJobConcurrency === undefined) delete process.env.PAPER_LINT_JOB_CONCURRENCY;
+    else process.env.PAPER_LINT_JOB_CONCURRENCY = originalJobConcurrency;
     await harness.cleanup();
     fs.rmSync(directory, { recursive: true, force: true });
     delete process.env.PAPER_LINT_JOBS_DIR;
