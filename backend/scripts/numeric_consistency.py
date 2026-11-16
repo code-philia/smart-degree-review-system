@@ -888,9 +888,16 @@ def structure_failure_diagnostics(data, context, model):
         center = max(0, chosen[0]['start'] - span['start']) if chosen else 0
         start = max(0, center - 80)
         text = span['text'][start:start + 320]
+        views = []
+        for candidate in chosen:
+            view = {k: candidate[k] for k in ('value', 'start', 'end', 'unit') if k in candidate}
+            percentage = re.match(r'\s*[%％]', context['abstract'][candidate['end']:])
+            count_phrase = re.match(r'\d+(?:\.\d+)?\s*(?:个\s*)?(?:应用|节点|样本|数据集|设备|处理器|线程|进程)',
+                                    normalized(context['abstract'][candidate['start']:candidate['end'] + 60]))
+            view['required_coverage'] = 'number_or_grounded_condition' if count_phrase and not percentage else 'number'
+            views.append(view)
         result = {'abstract_span_id': sid, 'source_excerpt': text,
-                  'source_excerpt_start': span['start'] + start,
-                  'candidates': [{k: c[k] for k in ('value', 'start', 'end', 'unit') if k in c} for c in chosen]}
+                  'source_excerpt_start': span['start'] + start, 'candidates': views}
         if len(candidates) > len(chosen):
             result['omitted_candidates'] = len(candidates) - len(chosen)
         return result
@@ -966,7 +973,7 @@ def structure_failure_diagnostics(data, context, model):
                  or (source_repair_context and c['value'] not in covered.get(sid, set())))]
             if missing and sid in spans:
                 diagnostics.append({'kind': 'uncovered_numeric_candidates', **source_entry(sid, missing),
-                    'coverage_constraint': 'These source candidates are not represented by source-grounded declaration numbers or condition phrases. Real population/scale quantities may be preserved in condition; they must not be deleted or invented as independent results.'})
+                    'coverage_constraint': 'number requires a source-backed declaration number; percentages cannot be covered only by condition. Only number_or_grounded_condition allows the existing grounded population/scale condition phrases. Do not discard real values or invent result claims.'})
 
     source_aliases = context.get('section_aliases')
     aliases = {native: alias for alias, native in source_aliases.items() if isinstance(native, str) and isinstance(alias, str)} if isinstance(source_aliases, dict) else {}
@@ -975,7 +982,9 @@ def structure_failure_diagnostics(data, context, model):
         if not isinstance(sid, str) or sid not in sections:
             return '<unknown>', ''
         return aliases.get(sid, sid), str(sections[sid].get('title') or '')[:120]
-    supported = {}
+    supported, title_supported = {}, set()
+    positions = {sid: index for index, sid in enumerate(sections)}
+    native_ids = source_aliases if isinstance(source_aliases, dict) else {}
     mappings = data.get('mappings')
     for mapping in mappings if isinstance(mappings, list) else []:
         if not isinstance(mapping, dict):
@@ -998,6 +1007,8 @@ def structure_failure_diagnostics(data, context, model):
                         evidence = experimental_support(model, sid)
                         if not evidence:
                             continue
+                        if any(item['kind'] == 'section_title' for item in evidence):
+                            title_supported.add(sid)
                         signal = evidence[0]
                         quote = signal.get('text')
                         if quote is None:
@@ -1008,14 +1019,31 @@ def structure_failure_diagnostics(data, context, model):
                             quote = quote[max(0, offset - 40):max(0, offset - 40) + 160]
                         choices.append({'section_id': aliases.get(sid, sid), 'title': section['title'][:120], 'source_excerpt': quote[:160]})
                     supported[chapter] = choices
+                def native_choice(choice):
+                    return native_ids.get(choice['section_id'], choice['section_id'])
+                eligible = {native_choice(choice) for choice in supported[chapter]}
+                ancestor = sections[experiment].get('parent_id')
+                nearest_ancestor = None
+                while isinstance(ancestor, str) and ancestor in sections and ancestor != chapter:
+                    if ancestor in eligible:
+                        nearest_ancestor = ancestor
+                        break
+                    ancestor = sections[ancestor].get('parent_id')
+                selected = {sid for sid in experiments if isinstance(sid, str) and sid in eligible}
+                def hint_priority(choice):
+                    sid = native_choice(choice)
+                    priority = (0 if sid == nearest_ancestor else 1 if sid in selected
+                                else 2 if sid in title_supported else 3)
+                    return priority, abs(positions[sid] - positions[experiment]), positions[sid]
+                choices = sorted(supported[chapter], key=hint_priority)
                 chapter_id, chapter_title = identity(chapter)
                 experiment_id, experiment_title = identity(experiment)
                 diagnostics.append({'kind': 'unsupported_experiment_mapping',
                     'declaration_id': mapping.get('declaration_id') if isinstance(mapping.get('declaration_id'), str) else '<unknown>',
                     'chapter_id': chapter_id, 'chapter_title': chapter_title,
                     'experiment_id': experiment_id, 'experiment_title': experiment_title,
-                    'same_chapter_supported_sections': supported[chapter][:4],
-                    'omitted_supported_sections': max(0, len(supported[chapter]) - 4),
+                    'same_chapter_supported_sections': choices[:4],
+                    'omitted_supported_sections': max(0, len(choices) - 4),
                     'source_constraint': 'Candidates pass the existing descendant and experimental_support predicates in the currently selected chapter only; they are not automatic or semantically equivalent remappings.'})
                 continue
             parent = sections.get(experiment, {}).get('parent_id') if isinstance(experiment, str) else None
@@ -1535,6 +1563,13 @@ def run_numeric(ir, facts, request, trace=None, verification_mode=None):
         if trace:
             trace('contract_repair', {'stage': stage, 'errors': errors})
         suffix = '\n上次输出未通过程序契约校验，只纠正以下错误并重新返回所需JSON。不得修改已经有效的其他项，不得编造原文。\n' + json.dumps({'previous_output': output, 'validation_errors': errors}, ensure_ascii=False)
+        if stage == 'structure_locator':
+            suffix += ('\n修复后请逐项自查全部 additional_diagnostics，并保留要求的JSON字段及已有效内容。'
+                       '标记为number的候选必须由原文支持的声明number覆盖，百分比不能只写进condition；'
+                       '仅number_or_grounded_condition允许既有原句支持的数量或规模condition覆盖。'
+                       '不能丢弃真实数值、移到无关片段或仅改章节绕过其余错误。'
+                       '章节提示仅供核对，必须重新确认所属研究章、原实验依据和前置条件；'
+                       '无法满足真实前置条件时如实返回false及原文理由，不编造数值或映射。')
         require(len(prompt + suffix) <= 100000, 'contract repair context exceeds budget')
         return call(prompt + suffix)
     try:

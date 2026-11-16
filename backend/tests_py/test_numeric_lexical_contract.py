@@ -671,6 +671,7 @@ def test_failure_diagnostics_locate_wrong_source_span_and_real_uncovered_conditi
                and '4 GB' in s['source_excerpt'] for s in wrong['other_source_candidates'])
     missing = next(d for d in diagnostics if d['kind'] == 'uncovered_numeric_candidates' and d['abstract_span_id'] == 'a4')
     assert {c['value'] for c in missing['candidates']} == {'26', '8'}
+    assert all(c['required_coverage'] == 'number_or_grounded_condition' for c in missing['candidates'])
     assert '26个应用在8节点' in missing['source_excerpt']
     assert 'condition' in missing['coverage_constraint']
     assert (structure, context, model) == before
@@ -690,6 +691,7 @@ def test_failure_diagnostics_report_missing_percentage_source_alongside_invalid_
     missing = next(d for d in diagnostics if d['kind'] == 'uncovered_numeric_candidates')
     assert missing['abstract_span_id'] == 'a3'
     assert [c['value'] for c in missing['candidates']] == ['90']
+    assert missing['candidates'][0]['required_coverage'] == 'number'
     assert missing['source_excerpt'] == '准确率90%。'
     assert any(d['kind'] == 'invalid_parent_mapping' for d in diagnostics)
     with pytest.raises(n.ContractError, match='experiment is not a descendant'):
@@ -731,6 +733,9 @@ def test_source_diagnostics_only_enrich_existing_single_repair_and_keep_first_er
     assert result['params']['contract_repairs'][0]['errors'][0] == 'declaration has no numeric source'
     assert 'numeric_source_mismatch' in calls[1][0]['content']
     assert 'uncovered_numeric_candidates' in calls[1][0]['content']
+    assert '修复后请逐项自查' in calls[1][0]['content']
+    assert '百分比' in calls[1][0]['content']
+    assert calls[0][0]['content'] == n.structure_prompt(context)
     assert not result['findings']
 
 
@@ -818,3 +823,55 @@ def test_experiment_diagnostic_excerpt_uses_support_page_for_cross_page_source_n
     candidate = next(c for c in failed['same_chapter_supported_sections'] if c['title'] == '3.2 方法实现')
     assert candidate['source_excerpt'] == '实验结果表明方法有效。'
     assert '参数' not in candidate['source_excerpt']
+
+
+
+@pytest.mark.parametrize('include_selected', [False, True])
+def test_experiment_hint_order_keeps_supported_ancestor_selected_and_nearby_real_evaluation(include_selected):
+    ir, facts, structure = unsupported_experiment()
+    model = n.source_model(ir)
+    def section(sid, parent, title, text=''):
+        model['sections'][sid] = {'section_id': sid, 'parent_id': parent, 'level': 2 if parent == 'ch' else 3,
+            'title': title, 'heading_node_id': None, 'block_ids': []}
+        if text:
+            model['blocks'].append({'block_id': sid + ':p1', 'source_node_id': sid + '_text',
+                'section_id': sid, 'page': 1, 'block_type': 'Paragraph', 'text': text, 'provenance': []})
+    for i in range(4):
+        section('broad' + str(i), 'ch', '3.' + str(i) + ' 背景设计', '本节讨论 performance 背景。')
+    section('evaluation', 'ch', '3.4 实验与性能评估')
+    section('setup', 'evaluation', '3.4.1 实验环境')
+    section('overhead', 'evaluation', '3.4.2 采集开销表现', '评估采集开销。')
+    section('accuracy', 'evaluation', '3.4.3 采集准确度表现', '评估采集准确度。')
+    bad = model['sections'].pop('exp'); bad['parent_id'] = 'evaluation'; model['sections']['exp'] = bad
+    if include_selected:
+        section('selected', 'ch', '3.5 已选方案', '实验验证已选方案。')
+        structure['mappings'][0]['experiment_section_ids'].append('selected')
+    assert n.experimental_support(model, 'broad0')
+    context = n.structure_context(facts, model); before = copy.deepcopy(structure)
+    diagnostics = n.structure_failure_diagnostics(structure, context, model)
+    failed = next(d for d in diagnostics if d['kind'] == 'unsupported_experiment_mapping' and d['declaration_id'] == 'd1')
+    choices = failed['same_chapter_supported_sections']
+    assert choices[0]['title'] == '3.4 实验与性能评估'
+    if include_selected:
+        assert choices[1]['title'] == '3.5 已选方案'
+    else:
+        assert {c['title'] for c in choices} == {'3.4 实验与性能评估', '3.4.1 实验环境', '3.4.2 采集开销表现', '3.4.3 采集准确度表现'}
+    for choice in choices:
+        sid = context['section_aliases'][choice['section_id']]
+        assert n.descendant(model, sid, 'ch') and n.experimental_support(model, sid)
+    assert structure == before
+
+
+def test_structural_self_check_instruction_is_not_added_to_numeric_verifier_repair():
+    from test_numeric_consistency import valid_output
+    ir, facts, structure = fixture()
+    candidates, _ = n.retrieve_candidates(structure['declarations'], structure['mappings'], n.source_model(ir))
+    answer = valid_output(next(row for row in candidates if row['source_node_id'] == 'data'))
+    answer['results'][0]['evidence'][0]['quote'] = '不存在的原句'
+    responses = iter([structure, answer, answer]); calls = []
+    def request(messages):
+        calls.append(messages)
+        return copy.deepcopy(next(responses)), {}
+    result = n.run_numeric(ir, facts, request)
+    assert len(calls) == 3 and result['execution_status'] == 'error'
+    assert '修复后请逐项自查' not in calls[2][0]['content']
