@@ -5,6 +5,14 @@ const { all, get, run, withTransaction } = require('../database/db_runtime');
 const { estimateJobEta } = require('./paperLintEta');
 const { notifyReportEmailReady } = require('../notifications/reportEmailWakeup');
 const { quotaAdmission, quotaExceeded } = require('./paperLintQuota');
+const { validatePdf } = require('./reviewPilotPaperLintService');
+
+async function requireTrustedBatchOwner(userId) {
+  const owner = await get('SELECT role FROM auth_users WHERE id = ?', [userId]);
+  if (!['SCHOOL_ADMIN', 'COLLEGE_ADMIN'].includes(owner?.role)) {
+    throw Object.assign(new Error('仅管理员可启动后台批测任务'), { status: 403 });
+  }
+}
 
 function jobsDirectory() {
   return path.resolve(process.env.PAPER_LINT_JOBS_DIR || path.join(process.cwd(), 'data', 'paper-lint-jobs'));
@@ -23,7 +31,15 @@ function publicJob(row) {
   };
 }
 
-async function createJob({ userId, sourceFilename, pdfBuffer, selectedRuleIds, externalProcessingConsent, requestId = null, reuse = null, notificationLocale = 'zh', notifyCompletion = true }) {
+async function createJob({ userId, sourceFilename, pdfBuffer, selectedRuleIds, externalProcessingConsent, requestId = null, reuse = null, notificationLocale = 'zh', notifyCompletion = true, trustedBatchMaxPdfBytes }) {
+  // Only this server-side argument can create durable operator options.
+  const envelope = reuse ? { ...reuse } : {};
+  delete envelope.operator_options;
+  if (trustedBatchMaxPdfBytes !== undefined) {
+    await requireTrustedBatchOwner(userId);
+    validatePdf(pdfBuffer, trustedBatchMaxPdfBytes);
+    envelope.operator_options = { trusted_batch_max_pdf_bytes: trustedBatchMaxPdfBytes, start_requested: false };
+  }
   if (requestId) {
     const existing = await get('SELECT id FROM paper_lint_jobs WHERE user_id = ? AND request_id = ?', [userId, requestId]);
     if (existing) return existing.id;
@@ -39,7 +55,7 @@ async function createJob({ userId, sourceFilename, pdfBuffer, selectedRuleIds, e
     const inserted = await run(`INSERT INTO paper_lint_jobs (id,user_id,source_filename,source_pdf_path,selected_rule_ids_json,external_consent,request_id,status,attempts,created_at,updated_at,reuse_json,notification_locale,notify_completion)
       SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,? WHERE (${guard.sql})`,
       [id, userId, sourceFilename, pdfPath, JSON.stringify(selectedRuleIds),
-        externalProcessingConsent ? 1 : 0, requestId, 'pending', 0, now, now, reuse ? JSON.stringify(reuse) : null,
+        externalProcessingConsent ? 1 : 0, requestId, 'pending', 0, now, now, Object.keys(envelope).length ? JSON.stringify(envelope) : null,
         notificationLocale === 'en' ? 'en' : 'zh', notifyCompletion === false ? 0 : 1, ...guard.params]);
     if (!inserted.changes) {
       await fs.promises.rm(pdfPath, { force: true });
@@ -58,6 +74,14 @@ async function createJob({ userId, sourceFilename, pdfBuffer, selectedRuleIds, e
     throw error;
   }
   return id;
+}
+
+async function markTrustedBatchStarted(id, userId, envelope) {
+  // Compare the validated envelope so concurrent starts cannot overwrite metadata.
+  const started = { ...envelope, operator_options: { ...envelope.operator_options, start_requested: true } };
+  const changed = await run("UPDATE paper_lint_jobs SET reuse_json = ?, updated_at = ? WHERE id = ? AND user_id = ? AND status = 'pending' AND cancelled_at IS NULL AND reuse_json = ?",
+    [JSON.stringify(started), new Date().toISOString(), id, userId, JSON.stringify(envelope)]);
+  return changed.changes > 0;
 }
 
 async function getJob(id) {
@@ -120,4 +144,4 @@ async function failJob(id, message) {
     [message, new Date().toISOString(), id]);
 }
 
-module.exports = { createJob, getJob, getJobForUser, recoverJobs, claimJob, updateProgress, completeJob, cancelJobForUser, failJob, publicJob };
+module.exports = { createJob, requireTrustedBatchOwner, markTrustedBatchStarted, getJob, getJobForUser, recoverJobs, claimJob, updateProgress, completeJob, cancelJobForUser, failJob, publicJob };

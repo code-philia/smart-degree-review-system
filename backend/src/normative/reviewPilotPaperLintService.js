@@ -288,11 +288,15 @@ async function getPaperLintCatalog({ refresh = false, mvpOnly = false } = {}) {
   return catalogPromise;
 }
 
-function validatePdf(pdfBuffer) {
+function validatePdf(pdfBuffer, maxPdfBytes = MAX_PDF_BYTES) {
+  if (!Number.isSafeInteger(maxPdfBytes) || maxPdfBytes < MAX_PDF_BYTES || maxPdfBytes > 256 * 1024 * 1024) {
+    throw createHttpError(400, '后台 PDF 大小上限必须在 50 至 256 MiB 之间');
+  }
   if (!Buffer.isBuffer(pdfBuffer) || pdfBuffer.length === 0) {
     throw createHttpError(400, '请选择要审查的 PDF 文件');
   }
-  if (pdfBuffer.length > MAX_PDF_BYTES) throw createHttpError(413, 'PDF 文件大小不能超过 50 MB');
+  if (pdfBuffer.length > maxPdfBytes) throw createHttpError(413, maxPdfBytes === MAX_PDF_BYTES
+    ? 'PDF 文件大小不能超过 50 MB' : 'PDF 文件大小超过后台批测上限');
   if (pdfBuffer.subarray(0, 5).toString('ascii') !== '%PDF-') {
     throw createHttpError(400, '上传内容不是有效的 PDF 文件');
   }
@@ -367,8 +371,8 @@ function mergePaperLintResults(existingResult, localResult, selectedRuleIds) {
   };
 }
 
-async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingConsent = false, background = false, onProgress, signal, runId }) {
-  validatePdf(pdfBuffer);
+async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingConsent = false, background = false, onProgress, signal, runId, maxPdfBytes = MAX_PDF_BYTES }) {
+  validatePdf(pdfBuffer, maxPdfBytes);
   // The deadline covers catalog loading, queueing, and both engines so a timed-out
   // browser request cannot later persist a seemingly successful report.
   const includesSixRules = Array.isArray(selectedRuleIds) &&

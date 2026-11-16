@@ -38,7 +38,10 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
       } else {
         const pdfBuffer = await fs.promises.readFile(job.source_pdf_path);
         const selectedRuleIds = JSON.parse(job.selected_rule_ids_json);
-        const reuse = job.reuse_json ? JSON.parse(job.reuse_json) : null;
+        const envelope = job.reuse_json ? JSON.parse(job.reuse_json) : null;
+        // Operator-only metadata must never become incremental report input.
+        const reuse = envelope?.result ? envelope : null;
+        const maxPdfBytes = envelope?.operator_options?.trusted_batch_max_pdf_bytes;
         const reusedRuns = reuse?.result?.rule_runs || [];
         const reusedIds = reusedRuns.map(run => run.rule_id);
         const pendingRuleIds = selectedRuleIds.filter(id => !reusedIds.includes(id));
@@ -66,6 +69,7 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
         const checked = await paperLintService.runPaperLint({
           pdfBuffer, selectedRuleIds: pendingRuleIds, externalProcessingConsent: Boolean(job.external_consent),
           background: true,
+          maxPdfBytes,
           runId: id,
           signal: controller.signal,
           onProgress: publishProgress,
@@ -173,9 +177,56 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
     });
   }
 
+  async function startTrustedForUser(id, userId) {
+    await repository.requireTrustedBatchOwner(userId);
+    const job = await repository.getJob(id);
+    if (!job || job.user_id !== userId) return null;
+    const envelope = job.reuse_json ? JSON.parse(job.reuse_json) : null;
+    const options = envelope?.operator_options;
+    if (!options || !Number.isSafeInteger(options.trusted_batch_max_pdf_bytes)
+      || options.trusted_batch_max_pdf_bytes < defaultPaperLintService.MAX_PDF_BYTES
+      || options.trusted_batch_max_pdf_bytes > 256 * 1024 * 1024) {
+      throw Object.assign(new Error('该任务不是已预留的后台批测任务'), { status: 409 });
+    }
+    if (job.cancelled_at || !['pending', 'running', 'completed'].includes(job.status)) {
+      throw Object.assign(new Error('该任务已结束，不能重新启动'), { status: 409 });
+    }
+    if (job.status === 'pending') {
+      if (!options.start_requested) {
+        let pdfBuffer;
+        try { pdfBuffer = await fs.promises.readFile(job.source_pdf_path); }
+        catch (error) {
+          if (error.code === 'ENOENT') throw Object.assign(new Error('原 PDF 已不可用，无法启动'), { status: 410 });
+          throw error;
+        }
+        paperLintService.validatePdf(pdfBuffer, options.trusted_batch_max_pdf_bytes);
+        const ids = JSON.parse(job.selected_rule_ids_json);
+        await paperLintService.normalizeSelectedRuleIds(ids, Boolean(job.external_consent));
+        if (!(await repository.markTrustedBatchStarted(id, userId, envelope))) {
+          const current = await repository.getJob(id);
+          if (!current || current.cancelled_at || !['pending', 'running', 'completed'].includes(current.status)) {
+            throw Object.assign(new Error('该任务已结束，不能重新启动'), { status: 409 });
+          }
+        }
+      }
+      add(id);
+    }
+    return repository.getJobForUser(id, userId);
+  }
+
   async function resumeJobs() {
     const rows = await repository.recoverJobs();
-    for (const row of rows) add(row.id);
+    for (const row of rows) {
+      const job = await repository.getJob(row.id);
+      let options;
+      try { options = job?.reuse_json ? JSON.parse(job.reuse_json)?.operator_options : null; }
+      catch {
+        // Let the existing worker mark this one corrupt job failed.
+        add(row.id);
+        continue;
+      }
+      if (!options || options.start_requested === true) add(row.id);
+    }
   }
 
   async function waitForIdle() {
@@ -198,7 +249,7 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
     }
   }
 
-  return { enqueue, enqueueIncremental, getForUser: repository.getJobForUser, getPdfForUser, cancelForUser, resumeJobs, waitForIdle };
+  return { enqueue, enqueueIncremental, startTrustedForUser, getForUser: repository.getJobForUser, getPdfForUser, cancelForUser, resumeJobs, waitForIdle };
 }
 
 const defaultJobService = createPaperLintJobService();

@@ -192,6 +192,16 @@ function createReviewPilotPaperLintRouter(service = defaultService, exampleServi
       return sendError(error, res, next);
     }
   });
+  router.post('/jobs/:jobId/start', requireAuth({ allowedRoles: managementRoles }), express.json({ limit: '4kb' }), async (req, res, next) => {
+    if (!req.is('application/json') || !req.body || Array.isArray(req.body) || typeof req.body !== 'object' || Object.keys(req.body).length) {
+      return res.status(400).json({ code: 400, message: '启动后台批测任务不接受输入参数' });
+    }
+    try {
+      const job = await jobService.startTrustedForUser(req.params.jobId, req.user.id);
+      if (!job) return res.status(404).json({ code: 404, message: '未找到该检查任务' });
+      return res.status(202).json(job);
+    } catch (error) { return sendError(error, res, next); }
+  });
   router.post('/jobs/:jobId/cancel', requireAuth({ allowedRoles }), async (req, res, next) => {
     try {
       const job = await jobService.cancelForUser(req.params.jobId, req.user.id);
