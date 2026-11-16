@@ -5,7 +5,7 @@ from statistics import median
 
 _NUMBER = re.compile(r'^(?:第\s*[一二三四五六七八九十百\d\s]+[章篇节]|chapter\s*\d+|[ivxlcdm]+\.\s*|\d+(?:[.．]\d+)*[.．、]?)[\s:：-]*', re.I)
 _INTRO = re.compile(r'^(?:绪论|绪言|引言|引论|简介|introduction(?:\s+and\s+contextualization)?)$', re.I)
-_CONCLUSION = re.compile(r'^(?:(?:课题|全文|研究|工作|论文)?(?:总结|结论)(?:[与和及](?:未来)?(?:展望|工作|建议|讨论))?|总结展望|结论及建议|结语|结束语|conclusions?(?:\s+and\s+(?:future\s+(?:work|directions|research)|discussion|outlook))?|concluding\s+remarks|summary(?:\s+and\s+(?:future\s+work|outlook|conclusions?))?)$', re.I)
+_CONCLUSION = re.compile(r'^(?:(?:课题|全文|研究|工作|论文)?(?:总结|结论)(?:[与和及](?:未来)?(?:展望|工作|建议|讨论))?|总结展望|结论及建议|结语|结束语|conclusions?(?:\s+and\s+(?:future\s+(?:work|directions|research|prospects)|discussion|outlook))?|concluding\s+remarks|summary(?:\s+and\s+(?:future\s+(?:work|prospects)|outlook|conclusions?))?)$', re.I)
 _BODY = re.compile(r'^(?:相关工作|研究方法|方法|实验(?:评估|结果|分析)?|结果(?:与讨论)?|背景|related\s+work|background|methods?|methodology|experiments?(?:\s+and\s+evaluation)?|evaluation|results?(?:\s+and\s+discussion)?|discussion)$', re.I)
 _LEADER = re.compile(r'(?:\.\s*){3,}|…|·{3,}')
 _BARE_CHAPTER = re.compile(r'^(?:第\s*[一二三四五六七八九十百\d\s]+章|chapter\s*\d+)$', re.I)

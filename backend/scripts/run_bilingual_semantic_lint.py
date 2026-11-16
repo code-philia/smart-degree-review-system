@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from paper_model_bilingual_rules import extract_bilingual_facts, _json_object
+from pdf_evidence_locations import quote_rects as _quote_rects, quote_location, evidence_document
 from paper_compiler.frontend import build_paper
 from paper_compiler.campus_requests import campus_request
 from paper_compiler.semantic_cache import SemanticResponseCache
@@ -774,21 +775,27 @@ def _location(value: Any) -> dict[str, Any] | None:
             "text_excerpt": str(value.get("text_excerpt") or "")[:500]}
 
 
-def _anchors_and_evidence(facts: dict[str, Any], kind: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def _anchors_and_evidence(facts: dict[str, Any], kind: str, ir=None) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     locations = facts.get("locations") or {}
     labels = (("chinese_abstract", "中文摘要"), ("english_abstract", "英文摘要")) if kind == "abstract" else (("chinese_keywords", "中文关键词"), ("english_keywords", "英文关键词"))
     anchors = []
     evidence = []
-    for index, (key, label) in enumerate(labels, 1):
-        loc = _location(locations.get(key))
-        if not loc:
-            continue
-        anchors.append({"anchor_id": f"{kind}-{index}", "role": "source_span",
-                        "label": label, "description": label, "location": loc})
-        value = facts.get(key)
-        quote = str(value.get("text") if isinstance(value, dict) else value or "").strip()
-        evidence.append({"id": f"{kind}-{index}", "kind": "source_span",
-                         "provider": "repo-paper-model", "quote": quote[:2000]})
+    source = next((a.get('path') for a in (ir or {}).get('source_artifacts', [])
+                   if a.get('kind') == 'pdf'), None)
+    with evidence_document(source) as doc:
+        for index, (key, label) in enumerate(labels, 1):
+            loc = _location(locations.get(key))
+            if not loc:
+                continue
+            value = facts.get(key)
+            quote = str(value.get("text") if isinstance(value, dict) else value or "").strip()
+            if doc and quote:
+                loc = quote_location(doc, loc['page_number'], quote,
+                                     page_count=1 if kind == 'keywords' else 3) or loc
+            anchors.append({"anchor_id": f"{kind}-{index}", "role": "source_span",
+                            "label": label, "description": label, "location": loc})
+            evidence.append({"id": f"{kind}-{index}", "kind": "source_span",
+                             "provider": "repo-paper-model", "quote": quote[:2000]})
     return anchors, evidence
 
 
@@ -801,50 +808,12 @@ def _chinese_summary(value: Any, abstract: bool) -> str:
             "中英文关键词存在语义不对应，请结合两侧关键词原文逐项核对。")
 
 
-def _quote_rects(doc, start, quote):
-    """Match normalized characters while retaining every original character bbox."""
-    import unicodedata
-    def normalize(text):
-        return ''.join(c for c in unicodedata.normalize('NFKC', text).casefold()
-                       if not c.isspace() and c not in '-\u00ad\u2010\u2011')
-    target = normalize(quote)
-    if not target:
-        return []
-    chars, positions = [], []
-    for page_index in range(start, min(start + 3, len(doc))):
-        page = doc[page_index]
-        for block_index, block in enumerate(page.get_text('rawdict')['blocks']):
-            for line_index, line in enumerate(block.get('lines', [])):
-                for span in line.get('spans', []):
-                    for char in span.get('chars', []):
-                        for value in normalize(char['c']):
-                            chars.append(value)
-                            positions.append((page_index, block_index, line_index, char['bbox']))
-    text = ''.join(chars)
-    offset = text.find(target)
-    if offset < 0 or text.find(target, offset + 1) >= 0:
-        return []  # Ambiguous or absent text must not acquire invented coordinates.
-    groups = {}
-    for page_index, block_index, line_index, box in positions[offset:offset + len(target)]:
-        key = (page_index, block_index, line_index)
-        if key not in groups:
-            groups[key] = list(box)
-        else:
-            b = groups[key]
-            b[:] = [min(b[0],box[0]),min(b[1],box[1]),max(b[2],box[2]),max(b[3],box[3])]
-    return [dict(x1=b[0], y1=b[1], x2=b[2], y2=b[3],
-                 width=doc[key[0]].rect.width, height=doc[key[0]].rect.height,
-                 page_number=key[0]+1) for key,b in groups.items()]
-
-
 def _abstract_issue_anchors(ir, facts, row):
     """Locate only quoted, existing text; a missing translation has no bbox."""
-    import fitz
     anchors, evidence = [], []
     source = next((a.get('path') for a in ir.get('source_artifacts', [])
                    if a.get('kind') == 'pdf'), None)
-    doc = fitz.open(source) if source else None
-    try:
+    with evidence_document(source) as doc:
         for field, label in (("chinese_claim", "中文摘要原句"),
                              ("english_claim", "英文摘要原句")):
             quote = str(row.get(field) or '').strip()
@@ -857,44 +826,13 @@ def _abstract_issue_anchors(ir, facts, row):
                 continue
             loc['text_excerpt'] = quote
             if doc:
-                # Search the abstract pages, never a similar sentence in the body.
-                start = loc['page_number'] - 1
-                for page_index in range(start, min(start + 3, len(doc))):
-                    page = doc[page_index]
-                    boxes = page.search_for(quote)
-                    if not boxes:
-                        continue
-                    rects = [dict(x1=b.x0, y1=b.y0, x2=b.x1, y2=b.y1,
-                                  width=page.rect.width, height=page.rect.height,
-                                  page_number=page_index + 1) for b in boxes]
-                    bounds = fitz.Rect(boxes[0])
-                    for box in boxes[1:]:
-                        bounds |= box
-                    loc = dict(type='pdf_bbox', page_number=page_index + 1,
-                               text_excerpt=quote, rects=rects,
-                               bounding_rect=dict(x1=bounds.x0, y1=bounds.y0,
-                                   x2=bounds.x1, y2=bounds.y1, width=page.rect.width,
-                                   height=page.rect.height, page_number=page_index + 1))
-                    break
-                if loc['type'] != 'pdf_bbox':
-                    rects = _quote_rects(doc, start, quote)
-                    if rects:
-                        first_page = rects[0]['page_number']
-                        first = [r for r in rects if r['page_number'] == first_page]
-                        loc = dict(type='pdf_bbox', page_number=first_page,
-                                   text_excerpt=quote, rects=rects,
-                                   bounding_rect={**first[0],
-                                       'x1': min(r['x1'] for r in first),
-                                       'y1': min(r['y1'] for r in first),
-                                       'x2': max(r['x2'] for r in first),
-                                       'y2': max(r['y2'] for r in first)})
+                # The supplied page is the abstract start; the claim can occur
+                # on its following pages, including reinserted text fragments.
+                loc = quote_location(doc, loc['page_number'], quote) or loc
             anchors.append(dict(anchor_id=field, role='source_span', label=label,
                                 description=label, location=loc))
             evidence.append(dict(id=field, kind='source_span',
                                  provider='repo-paper-model', quote=quote))
-    finally:
-        if doc:
-            doc.close()
     return anchors, evidence
 
 
@@ -1168,7 +1106,7 @@ def _run_semantic_rule(ir, facts, rule_id, run_id=None):
     findings = []
     if outcome == "inconsistent":
         abstract = rule_id.endswith("abstract_consistency_check")
-        anchors, evidence = _anchors_and_evidence(facts, "abstract" if abstract else "keywords")
+        anchors, evidence = _anchors_and_evidence(facts, "abstract" if abstract else "keywords", ir)
         primary_location = anchors[0]["location"] if anchors else None
         findings.append({
             "finding_id": f"{rule_id}_1",

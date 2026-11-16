@@ -316,3 +316,60 @@ def test_real_contents_leaders_without_title_remain_recognizable(tmp_path, posit
         doc.save(path)
     assert assess_pdf(path)['status'] == 'accepted'
     assert build_paper(path,include_citations=False)['metadata']['document_admission']['stage']=='complete'
+
+
+def english_terminal_thesis(tmp_path, title, *, placement='chapter', split=False):
+    path = tmp_path / 'english-terminal-chapter.pdf'
+    prose = 'We study a reproducible analysis method and evaluate its experimental results. ' * 14
+    with pymupdf.open() as doc:
+        for heading in ['Abstract', 'Contents', 'CHAPTER 1 Introduction', 'CHAPTER 2 Methods']:
+            page = doc.new_page()
+            page.insert_text((50, 100), heading, fontsize=16)
+            page.insert_textbox((50, 150, 550, 600), prose, fontsize=11)
+            if heading == 'Abstract':
+                page.insert_text((50, 650), 'Keywords: analysis; evaluation; reproducibility', fontsize=11)
+            if heading == 'Contents' and placement == 'contents':
+                page.insert_text((50, 680), 'CHAPTER 7 ' + title + ' .......... 90', fontsize=11)
+            if heading == 'CHAPTER 2 Methods' and placement == 'subsection':
+                page.insert_text((50, 650), '2.4 ' + title, fontsize=16)
+        page = doc.new_page()
+        if placement == 'chapter':
+            if split:
+                # Native extraction can split chapter number and title on one baseline.
+                page.insert_text((50, 100), 'CHAPTER 7', fontsize=16)
+                page.insert_text((160, 100), title, fontsize=16)
+            else:
+                page.insert_text((50, 100), 'CHAPTER 7: ' + title, fontsize=16)
+            page.insert_text((50, 140), '7.1 Summary', fontsize=14)
+            page.insert_textbox((50, 180, 550, 600), prose, fontsize=11)
+            page.insert_text((50, 650), '7.2 Future Prospects', fontsize=14)
+        else:
+            page.insert_text((200, 40), title, fontsize=10)
+            page.insert_textbox((50, 150, 550, 600), prose, fontsize=11)
+        page = doc.new_page()
+        page.insert_text((50, 100), 'References', fontsize=16)
+        page.insert_text((50, 150), 'Smith. A reproducible analysis method. 2025.', fontsize=11)
+        doc.save(path)
+    return path
+
+
+@pytest.mark.parametrize('title', ['Summary and Future Prospects',
+                                  'Conclusion and Future Prospects',
+                                  'Conclusions and Future Prospects'])
+@pytest.mark.parametrize('split', [False, True])
+def test_english_future_prospects_terminal_chapter_compiles(tmp_path, title, split):
+    path = english_terminal_thesis(tmp_path, title, split=split)
+    assessment = assess_pdf(path)
+    assert assessment['structure']['missing_sections'] == []
+    assert assessment['status'] == 'accepted'
+    assert build_paper(path, include_citations=False)['metadata']['document_admission']['stage'] == 'complete'
+
+
+@pytest.mark.parametrize('placement', ['contents', 'subsection', 'running-header'])
+def test_english_future_prospects_mention_cannot_replace_terminal_chapter(tmp_path, placement):
+    path = english_terminal_thesis(tmp_path, 'Summary and Future Prospects', placement=placement)
+    assessment = assess_pdf(path)
+    assert assessment['missing_sections'] == ['结论']
+    assert assessment['status'] == 'rejected'
+    with pytest.raises(ValueError, match='编译|结构'):
+        build_paper(path, include_citations=False)

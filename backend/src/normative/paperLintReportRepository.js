@@ -4,6 +4,7 @@ const path = require('path');
 const { all, get, run } = require('../database');
 const { withTransaction } = require('../database/db_runtime');
 const { removeBrowserPdf } = require('./browserPdf');
+const { hydratePaperLintEvidenceLocations } = require('./paperLintEvidenceLocations');
 const presentation = import('../../../shared/paper-lint-presentation.mjs');
 
 function reportsDirectory() {
@@ -13,6 +14,7 @@ function reportsDirectory() {
 async function toReport(row, { includeResult = true } = {}) {
   if (!row) return null;
   const parsedResult = JSON.parse(row.result_json);
+  if (includeResult) await hydratePaperLintEvidenceLocations(parsedResult, row.source_pdf_path);
   // A missing section has no original sentence or precise PDF location.
   for (const rule of parsedResult.rule_runs || []) {
     if (rule.rule_id === 'required_section_completeness_check') {
