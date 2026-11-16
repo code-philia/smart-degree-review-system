@@ -2,6 +2,8 @@ const {get}=require('../database/db_runtime');
 const {ADMIN_ROLES}=require('../auth/loginPolicy');
 const {TRIAL_ACCOUNTS,trialUserAllowed}=require('../auth/trialLoginPolicy');
 const DAILY_REPORT_LIMIT=3;
+// Deployment-scoped exceptions use immutable IDs, never display names or roles.
+const exemptUserIds=()=>[...new Set((process.env.PAPER_LINT_QUOTA_EXEMPT_USER_IDS||'').split(',').map(id=>id.trim()).filter(Boolean))];
 // Keep the existing internal API names to avoid changing callers.
 // The allowance is now lifetime, starting at the one-time persisted cutover.
 async function getDailyQuota(userId,at=new Date()) {
@@ -13,7 +15,7 @@ async function getDailyQuota(userId,at=new Date()) {
       AND j.created_at>=p.starts_at AND j.cancelled_at IS NULL
     WHERE u.id=? AND p.id=1 GROUP BY u.id`,[userId]);
   if(!row)throw Object.assign(new Error('未找到当前用户'),{status:404});
-  const limited=!ADMIN_ROLES.includes(row.role)&&!trialUserAllowed(row);
+  const limited=!ADMIN_ROLES.includes(row.role)&&!trialUserAllowed(row)&&!exemptUserIds().includes(row.id);
   const used=limited?Number(row.used||0):0,reserved=limited?Number(row.reserved||0):0;
   return {limited,limit:DAILY_REPORT_LIMIT,used,reserved,remaining:limited?Math.max(0,DAILY_REPORT_LIMIT-used-reserved):null,
     period:'lifetime',starts_at:row.starts_at,day:null,resets_at:null,server_time:new Date(at).toISOString(),timezone:'Asia/Shanghai'};
@@ -24,11 +26,14 @@ async function getDailyQuota(userId,at=new Date()) {
 function quotaAdmission(userId,at=new Date()) {
 
   const trialIdentities=Object.entries(TRIAL_ACCOUNTS);
-  return {sql:`EXISTS (SELECT 1 FROM auth_users WHERE id=? AND (role IN (${ADMIN_ROLES.map(()=>'?').join(',')})
-      OR (id COLLATE BINARY=username COLLATE BINARY AND (${trialIdentities.map(()=>'(username COLLATE BINARY=? AND role=?)').join(' OR ')}))))
+  const exemptIds=exemptUserIds();
+  return {sql:`EXISTS (SELECT 1 FROM auth_users WHERE id=? AND (
+      role IN (${ADMIN_ROLES.map(()=>'?').join(',')})
+      OR (id COLLATE BINARY=username COLLATE BINARY AND (${trialIdentities.map(()=>'(username COLLATE BINARY=? AND role=?)').join(' OR ')}))
+      OR ${exemptIds.length?`id COLLATE BINARY IN (${exemptIds.map(()=>'?').join(',')})`:'0'}))
     OR (SELECT COUNT(*) FROM paper_lint_jobs WHERE user_id=? AND created_at>=(SELECT starts_at FROM paper_lint_quota_policy WHERE id=1)
       AND cancelled_at IS NULL AND status IN ('pending','running','completed')) < ?`,
-    params:[userId,...ADMIN_ROLES,...trialIdentities.flat(),userId,DAILY_REPORT_LIMIT]};
+    params:[userId,...ADMIN_ROLES,...trialIdentities.flat(),...exemptIds,userId,DAILY_REPORT_LIMIT]};
 }
 
 async function quotaExceeded(userId) {

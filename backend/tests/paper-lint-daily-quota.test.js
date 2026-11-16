@@ -7,6 +7,7 @@ const {createTestDatabaseHarness,run,get,all}=require('../src/database');
 const jobs=require('../src/normative/paperLintJobRepository');
 const reports=require('../src/normative/paperLintReportRepository');
 let harness,directory;
+const originalExemptIds=process.env.PAPER_LINT_QUOTA_EXEMPT_USER_IDS;
 const pdf=Buffer.from('%PDF-1.7\nquota fixture');
 const args=(userId='quota-student',requestId=null)=>({userId,sourceFilename:'论文.pdf',pdfBuffer:pdf,selectedRuleIds:[],requestId});
 const quota=(userId='quota-student',now)=>require('../src/normative/paperLintQuota').getDailyQuota(userId,now);
@@ -16,6 +17,7 @@ async function completed(userId='quota-student',requestId=null){
  expect(await jobs.completeJob(id,id)).toBe(true);return id;
 }
 beforeEach(async()=>{
+ delete process.env.PAPER_LINT_QUOTA_EXEMPT_USER_IDS;
  vi.useFakeTimers({toFake:['Date']});vi.setSystemTime(new Date('2026-11-12T02:00:00.000Z'));
  directory=await fs.mkdtemp(path.join(os.tmpdir(),'daily-quota-'));
  process.env.PAPER_LINT_JOBS_DIR=path.join(directory,'jobs');process.env.PAPER_LINT_REPORTS_DIR=path.join(directory,'reports');
@@ -23,7 +25,7 @@ beforeEach(async()=>{
  for(const [id,role] of [['quota-student','STUDENT'],['quota-supervisor','SUPERVISOR'],['quota-admin','SCHOOL_ADMIN'],['quota-college','COLLEGE_ADMIN']])
   await run("INSERT INTO auth_users(id,username,password_hash,role,scope) VALUES (?,?,'test',?,'COLLEGE')",[id,id,role]);
 });
-afterEach(async()=>{await harness.cleanup();await fs.rm(directory,{recursive:true,force:true});delete process.env.PAPER_LINT_JOBS_DIR;delete process.env.PAPER_LINT_REPORTS_DIR;vi.useRealTimers();});
+afterEach(async()=>{if(originalExemptIds===undefined)delete process.env.PAPER_LINT_QUOTA_EXEMPT_USER_IDS;else process.env.PAPER_LINT_QUOTA_EXEMPT_USER_IDS=originalExemptIds;await harness.cleanup();await fs.rm(directory,{recursive:true,force:true});delete process.env.PAPER_LINT_JOBS_DIR;delete process.env.PAPER_LINT_REPORTS_DIR;vi.useRealTimers();});
 
 it('rejects the fourth ordinary-user report after three saved reports',async()=>{
  for(let n=0;n<3;n++)await completed();
@@ -152,4 +154,23 @@ it('returns unlimited status over HTTP and admits a fourth test-account job',asy
  const app=express();app.use('/api/normative/paper-lint',createReviewPilotPaperLintRouter(engine,{},service,{}));
  await request(app).get('/api/normative/paper-lint/quota').set('Cookie',cookie).expect(200).expect(({body})=>expect(body).toMatchObject({limited:false,remaining:null}));
  await request(app).post('/api/normative/paper-lint/run').set('Cookie',cookie).set('Content-Type','application/pdf').set('X-Paper-Lint-Rule-Ids','sjtu_rule_22').send(pdf).expect(202);
+});
+
+it.each(['campus-exempt-one','campus-exempt-two'])('exempts only configured immutable user ID %s from both reading and admission',async(id)=>{
+ process.env.PAPER_LINT_QUOTA_EXEMPT_USER_IDS=' campus-exempt-one, campus-exempt-two, campus-exempt-one ';
+ await run("INSERT INTO auth_users(id,username,password_hash,role,scope) VALUES (?,?,'test','STUDENT','COLLEGE')",[id,'jaccount:'+id]);
+ for(let n=0;n<4;n++)await completed(id);
+ expect(await quota(id)).toMatchObject({limited:false,remaining:null,used:0,reserved:0});
+ expect((await get('SELECT role FROM auth_users WHERE id=?',[id])).role).toBe('STUDENT');
+ for(let n=0;n<3;n++)await completed();
+ await expect(jobs.createJob(args())).rejects.toMatchObject({status:429});
+});
+it('does not exempt a matching username, ID case variant or an unconfigured account',async()=>{
+ process.env.PAPER_LINT_QUOTA_EXEMPT_USER_IDS='campus-exempt';
+ for(const [id,name]of [['other-id','campus-exempt'],['CAMPUS-EXEMPT','other-name'],['other-student','other-student']]){
+  await run("INSERT INTO auth_users(id,username,password_hash,role,scope) VALUES (?,?,'test','STUDENT','COLLEGE')",[id,name]);
+  for(let n=0;n<3;n++)await completed(id);
+  expect(await quota(id)).toMatchObject({limited:true,remaining:0,used:3});
+  await expect(jobs.createJob(args(id))).rejects.toMatchObject({status:429});
+ }
 });
