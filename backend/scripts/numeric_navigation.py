@@ -8,7 +8,7 @@ from collections import Counter, defaultdict
 import re
 
 
-VERSION = 'numeric-navigation/1.2'
+VERSION = 'numeric-navigation/1.3'
 
 
 def title_key(text):
@@ -85,7 +85,11 @@ def _heading_row(row, body_size):
     if any(not -1 <= b['bbox'][0] - a['bbox'][2] <= size * 2.2 for a, b in zip(lines, lines[1:])):
         return False
     fonts = [c.get('font', '') for l in lines for c in l.get('chars', []) if c.get('text', '').strip()]
-    bold = bool(fonts) and sum(bool(re.search('bold|black|heavy', f, re.I)) for f in fonts) >= len(fonts) * .8
+    # Native Chinese black typefaces often omit an English weight suffix.
+    # Match explicit family names (plus PDF subset prefixes), not arbitrary Hei.
+    black_family = r'(?:^|\+)(?:SimHei|STHeiti(?:SC|TC)?|Heiti\s*(?:SC|TC)?|黑体)(?:$|[-,_ ])'
+    bold = bool(fonts) and sum(bool(re.search('bold|black|heavy', f, re.I) or
+                                  re.search(black_family, f, re.I)) for f in fonts) >= len(fonts) * .8
     return size >= body_size + .8 or (size >= body_size - .3 and bold)
 
 

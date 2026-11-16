@@ -618,3 +618,30 @@ def test_pdf_spacing_before_interval_left_preserves_formula_and_identifier_exclu
     source = '误差' + prefix + gap + '1-5%。'
     candidates, _ = n.numeric_candidates(source)
     assert '5' not in {row['value'] for row in candidates}
+
+
+@pytest.mark.parametrize('identifier', ['Qwen2.5', 'Qwen2.5-Instruct', 'Qwen2.5和GPT-4'])
+def test_complete_identifier_token_proof_can_prune_only_a_non_numeric_extra(identifier):
+    _, model, context, structure = source_structure('本文提出融合模型。准确率92.5%。模型在' + identifier + '上保持优势。')
+    structure['declarations'].append({**copy.deepcopy(structure['declarations'][0]), 'id': 'extra',
+                                      'abstract_span_id': 'a3', 'number': ''})
+    structure['mappings'].append({**copy.deepcopy(structure['mappings'][0]), 'declaration_id': 'extra'})
+    resolved = n.resolve_structure(structure, context, model)
+    original = copy.deepcopy(resolved)
+    cleaned, audit = n.prune_non_numeric_declarations(resolved, context)
+    assert [d['declaration_id'] for d in audit] == ['extra']
+    assert n.validate_structure(cleaned, context, model)
+    assert resolved == original
+
+
+@pytest.mark.parametrize('number', ['4', '2.5', '.5'])
+def test_identifier_offset_proof_never_covers_a_distinct_unknown_real_quantity(number):
+    _, model, context, structure = source_structure('本文提出融合模型。Qwen2.5模型通信消息规模达到' + number + ' PB时出现变化。准确率92.5%。')
+    structure['declarations'][0].update(number=number, metric='通信消息规模', unit='PB')
+    structure['declarations'].append({**copy.deepcopy(structure['declarations'][0]), 'id': 'd2',
+                                      'abstract_span_id': 'a3', 'number': '92.5', 'unit': '%'})
+    structure['mappings'].append({**copy.deepcopy(structure['mappings'][0]), 'declaration_id': 'd2'})
+    resolved = n.resolve_structure(structure, context, model)
+    cleaned, audit = n.prune_non_numeric_declarations(resolved, context)
+    assert [d['id'] for d in cleaned['declarations']] == ['d1', 'd2']
+    assert audit == []

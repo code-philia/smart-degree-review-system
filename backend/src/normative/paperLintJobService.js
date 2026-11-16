@@ -84,7 +84,10 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
           ...(reuse ? { incremental: { source_report_id: reuse.source_report_id,
             reused_rule_ids: [], rerun_rule_ids: [], skipped_rule_ids: selectedRuleIds } } : {}),
         } : reuse ? {
-          ...defaultPaperLintService.mergePaperLintResults(reuse.result, checked.result, selectedRuleIds),
+          ...defaultPaperLintService.mergePaperLintResults(
+            reuse.source_report_id === null && typeof reuse.source_job_id === 'string'
+              ? { ...checked.result, ...reuse.result } : reuse.result,
+            checked.result, selectedRuleIds),
           incremental: { source_report_id: reuse.source_report_id, reused_rule_ids: reusedIds, rerun_rule_ids: pendingRuleIds },
         } : checked.result;
         await reportRepository.createPaperLintReport({

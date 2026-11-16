@@ -196,3 +196,37 @@ def test_opening_quote_support_does_not_admit_prose_table_decimal_or_formula(mon
     ir = native_ir(monkeypatch, chapters() + noise)
     attach_navigation('unused.pdf', ir)
     assert len(ir['numeric_navigation']['sections']) == 2
+
+
+@pytest.mark.parametrize('font', ['SimHei', 'ABCDEF+SimHei', 'STHeiti', 'Heiti SC', '黑体'])
+def test_explicit_chinese_black_font_recovers_body_sized_nested_native_heading(monkeypatch, font):
+    rows = chapters() + [row(3, '2.1 定位误差', y=220, size=14),
+                         row(3, '2.1.1 实验总结', y=593, size=12, font=font)]
+    ir = native_ir(monkeypatch, rows); original = copy.deepcopy(ir)
+    attach_navigation('unused.pdf', ir)
+    sections = ir['numeric_navigation']['sections']
+    parent = next(s for s in sections if s['title'] == '2.1 定位误差')
+    nested = next(s for s in sections if s['title'] == '2.1.1 实验总结')
+    assert nested['level'] == 3 and nested['parent_id'] == parent['section_id']
+    assert ir['nodes'] == original['nodes'] and ir['layout'] == original['layout']
+
+
+@pytest.mark.parametrize('font', ['SimSun', 'MicrosoftYaHei', 'NotSimHei', 'SimHeiFake'])
+def test_chinese_black_family_recognition_does_not_accept_other_body_fonts(monkeypatch, font):
+    ir = native_ir(monkeypatch, chapters() + [row(3, '2.1 实验总结', y=220, size=12, font=font)])
+    attach_navigation('unused.pdf', ir)
+    assert len(ir['numeric_navigation']['sections']) == 2
+
+
+@pytest.mark.parametrize('noise', [
+    [row(1, '2.1 实验总结...........................46', y=220, size=12, font='SimHei')],
+    [row(3, '2.1 实验总结', y=74, size=12, font='SimHei')],
+    [row(3, '2.82 倍的性能提升', y=220, size=12, font='SimHei')],
+    [row(3, '2.1', y=220, size=12, right=103, font='SimHei'), row(3, 'Accuracy', x=117, y=220, size=12, right=180, font='SimHei'), row(3, '98.5', x=190, y=220, size=12, right=230, font='SimHei')],
+    [row(3, '2.1 x = y', y=220, size=12, font='SimHei')],
+    [row(3, '2.1.1 实验总结', y=220, size=12, font='SimHei')],
+])
+def test_chinese_black_heading_keeps_toc_header_table_formula_and_parent_guards(monkeypatch, noise):
+    ir = native_ir(monkeypatch, chapters() + noise)
+    attach_navigation('unused.pdf', ir)
+    assert len(ir['numeric_navigation']['sections']) == 2

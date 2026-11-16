@@ -697,10 +697,17 @@ def prune_non_numeric_declarations(data, context):
             context['abstract'][:token['start']].endswith('-') and
             not re.search(r'[A-Za-z0-9@/_]-$', context['abstract'][:token['start']])
             for token in excluded_tokens)
+        # Prove exclusions with complete source tokens and offsets. A helper
+        # may see the decimal tail in Qwen2.5 as 5, but the recorded identifier
+        # exclusion covers only the full original 2.5 token. A distinct real
+        # quantity, including one sharing that value, must never be covered.
+        raw_source_tokens = list(re.finditer(r'\d+(?:\.\d+)?', span['text']))
+        proven_excluded_offsets = {(token['start'], token['end']) for token in excluded_tokens
+            if token['reason'] in {'year', 'section_or_ordinal', 'citation_or_list_index',
+                                   'identifier_or_metric_index'}}
         source_proven_non_numeric = not source_numbers or (not uncertain_minus and
-            source_numbers <= {token['value'] for token in excluded_tokens} and
-            all(token['reason'] in {'year', 'section_or_ordinal', 'citation_or_list_index',
-                                   'identifier_or_metric_index'} for token in excluded_tokens))
+            bool(raw_source_tokens) and all((span['start'] + token.start(), span['start'] + token.end())
+                in proven_excluded_offsets for token in raw_source_tokens))
         if represented and represented <= local and represented <= numeric_values(d['text']):
             covered_spans.add(sid)
             covered_values.setdefault(sid, set()).update(represented)

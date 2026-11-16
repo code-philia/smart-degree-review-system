@@ -327,4 +327,47 @@ afterAll(async () => {
     expect(saved.result.rule_runs.find(r=>r.rule_id===coreId).findings.map(f=>f.message))
       .toEqual(['缺少中文摘要', '缺少结论']);
   });
+
+  it.each([false, true])('fills only progress-only metadata from the checked result (%s)', async completeReport => {
+    const reports = require('../src/normative/paperLintReportRepository');
+    const { get } = require('../src/database/db_runtime');
+    const kept = { rule_id:'sjtu_rule_18',rule_run_id:'kept-progress',severity:'warning',
+      execution_status:'completed',outcome:'passed',findings:[] };
+    const typo = { ...kept,rule_id:'typo_detection_check',rule_run_id:'fresh-typo' };
+    const selected = [kept.rule_id, typo.rule_id];
+    const checked = { ...result,paper_title:'Fresh checked title',local_metadata:{source:'checked'},
+      rule_runs:[typo],document_validation:{status:'accepted',stage:'complete'} };
+    const original = completeReport ? await reports.createPaperLintReport({
+      userId:'student01',sourceFilename:'same.pdf',pdfBuffer:pdf,selectedRuleIds:selected,
+      result:{...result,paper_title:'Existing verified title',source_metadata:{source:'old'},rule_runs:[kept]},
+    }) : null;
+    const oldBytes = original ? (await get('SELECT result_json FROM paper_lint_reports WHERE id=?',[original.id])).result_json : null;
+    const reuseResult = original ? {...original.result,rule_runs:[kept]} :
+      {rule_runs:[kept],document_validation:{status:'accepted',stage:'complete'}};
+    const id = await jobRepository.createJob({userId:'student01',sourceFilename:'same.pdf',pdfBuffer:pdf,
+      selectedRuleIds:selected,externalProcessingConsent:true,notifyCompletion:false,
+      reuse:{source_report_id:original?.id||null,source_job_id:'same-batch-source-job',result:reuseResult}});
+    service.runPaperLint.mockImplementationOnce(async ({selectedRuleIds}) => {
+      expect(selectedRuleIds).toEqual([typo.rule_id]);
+      return {selectedRuleIds,result:checked};
+    });
+    const resumed = createPaperLintJobService(service);
+    await resumed.resumeJobs();await resumed.waitForIdle();
+    const saved = await reports.findPaperLintReportByIdForUser(id,'student01');
+    expect(saved.result.type).toBe('paper_lint');
+    expect(saved.result.paper_title).toBe(completeReport?'Existing verified title':'Fresh checked title');
+    expect(saved.result.rule_runs).toEqual([kept,typo]);
+    expect(saved.result.incremental.source_report_id).toBe(original?.id||null);
+    expect(saved.result.incremental.reused_rule_ids).toEqual([kept.rule_id]);
+    expect(saved.result.incremental.rerun_rule_ids).toEqual([typo.rule_id]);
+    if (completeReport) {
+      expect(saved.result.local_metadata).toBeUndefined();
+      expect(saved.result.source_metadata).toEqual({source:'old'});
+      expect((await get('SELECT result_json FROM paper_lint_reports WHERE id=?',[original.id])).result_json).toBe(oldBytes);
+    } else {
+      expect(saved.result.local_metadata).toEqual({source:'checked'});
+      expect(saved.result.incremental.source_report_id).toBeNull();
+    }
+  });
+
 });
