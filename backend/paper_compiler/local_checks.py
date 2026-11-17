@@ -416,6 +416,79 @@ def punctuation_literals(text):
     return ranges
 
 
+def _display_math_periods(ir):
+    """Only proven native display-math terminal dots, never whole paragraphs."""
+    pages = {p['page_index']: p for p in ir['layout']['pages']}
+    native = {(p['page_index'], line['id']): line for p in pages.values()
+              for line in p.get('lines', []) if line.get('id')}
+    by_page = {}
+    for node in ir['nodes']:
+        if not node['text'] or node['kind'] not in {'Paragraph', 'Equation', 'MathExpression'}:
+            continue
+        for span in node['provenance']:
+            if span.get('kind') != 'source' or (span.get('page_index'), span.get('line_id')) not in native:
+                continue
+            start, end = span.get('node_text_start', 0), span.get('node_text_end', len(node['text']))
+            text = node['text'][start:end]
+            if (not text.strip() or len(text.strip().splitlines()) != 1
+                    or 'bbox' not in span or span['bbox'][3] <= span['bbox'][1]):
+                continue
+            by_page.setdefault(span['page_index'], []).append((span['bbox'], text.strip(), node['id'],
+                start + text.rfind('.'), span.get('line_id', '').rsplit('-l', 1)[0]))
+    relation = re.compile(r'[=≡∼≈≤≥]')
+    math_prefix = re.compile(r'^[\U0001d400-\U0001d7ffα-ωΑ-Ω]|^[A-Za-z]\s*[=≡∼≈≤≥]')
+    operand = r'(?:[\u3400-\u9fff]{1,12}|[A-Za-zα-ωΑ-Ω\U0001d400-\U0001d7ff]{1,12})'
+    infix_expression = re.compile(operand + r'(?:\s*[≡−]\s*' + operand + r')+[.]')
+    equation_number = re.compile(r'^[（(]\s*\d{1,3}(?:[.．-]\d{1,3}){0,3}\s*[)）]$')
+    result = set()
+    for page, lines in by_page.items():
+        width = pages[page]['width']
+        for box, text, node_id, dot, block in lines:
+            if (not text.endswith('.') or re.search(r'[。！？!?]|\.(?!\d)', text[:-1])):
+                continue
+            # Ascents differ across native CJK/math fonts. Require actual
+            # vertical intersection, not an expanded neighboring-line window.
+            band = [row for row in lines if min(row[0][3], box[3]) > max(row[0][1], box[1])]
+            tags = [row for row in band if equation_number.fullmatch(row[1])
+                    and row[0][0] >= width * .72 and row[0][0] >= box[2]]
+            left = [row for row in band if row[0][2] <= box[0]
+                    and box[0] - row[0][2] <= 5 * (box[3] - box[1])]
+            branch = any(re.fullmatch(r'[-+−]?\d+(?:\.\d+)?\s*[,;]?', row[1])
+                         and any(relation.search(seed[1]) and not re.search(r'[\u3400-\u9fff]', seed[1])
+                                 and 0 <= row[0][0] - seed[0][2] <= 2 * (box[3] - box[1])
+                                 for seed in band)
+                         for row in left)
+            left_relation = any(relation.search(row[1]) and row[0][0] <= box[0] for row in band)
+            # A piecewise condition needs its numeric branch on the left and
+            # an equation relation, not a neighboring column's numbered formula.
+            condition = re.fullmatch(r'[\u3400-\u9fff\s]{1,12}[.]', text)
+            if tags and condition and branch and left_relation:
+                result.add((node_id, dot))
+                continue
+            # Standalone equivalences / fraction denominators have a short
+            # centered expression and a tag from their own native block.
+            infix = (infix_expression.fullmatch(text)
+                     and box[2] - box[0] <= width * .55
+                     and abs((box[0] + box[2]) / 2 - width / 2) <= width * .08)
+            if infix and left_relation and any(row[4] == block for row in tags):
+                result.add((node_id, dot))
+                continue
+            # Unnumbered definitions need a same-block pure-math left fragment,
+            # a math-leading annotation, and a short centered display band.
+            if not math_prefix.search(text) or re.search(r'[，；：;:]', text):
+                continue
+            for other_box, other_text, _, _, other_block in left:
+                x0, x1 = other_box[0], box[2]
+                if (block == other_block and relation.search(other_text)
+                        and not re.search(r'[\u3400-\u9fff]', other_text)
+                        and box[0] - other_box[2] <= 3 * (box[3] - box[1])
+                        and x1 - x0 <= width * .55
+                        and abs((x0 + x1) / 2 - width / 2) <= width * .08):
+                    result.add((node_id, dot))
+                    break
+    return result
+
+
 def _keyword_terms(text):
     """Join wrapped continuations then split on keyword delimiters."""
     m = _KEYWORD_LABEL.search(text or '')
@@ -535,6 +608,62 @@ def chapter_labels(ir):
                                   - (box[3] - box[1])) <= 1.5}
             if len(peer_pages) >= 2:
                 running_headers.add((page, node['id'], tuple(box)))
+    # Some templates use body-size running text. Size alone cannot distinguish
+    # that furniture from genuine carry-over prose: require two separated,
+    # recurring fields, one matching a prominent chapter title in the live IR.
+    prominent_titles = {compact(text) for _, box, text, node in visual
+                        if node['kind'] == 'Heading' and body
+                        and box[3] - box[1] >= body * _HEADING_SCALE
+                        and (_CHAPTER_LABEL.fullmatch(text.strip())
+                             or _NUMBERED_CHAPTER_LABEL.fullmatch(text.strip()))
+                        and not _LEADER_LINE.search(text)}
+    full_size = {}
+    for page, box, text, node in visual:
+        height = page_height.get(page, 0)
+        if (body and height and box[1] < height * _TOP_MARGIN
+                and 0 < box[3] - box[1] <= body * 1.05
+                and node['kind'] not in {'TableCell', 'Caption'}
+                and len(compact(text)) <= 60
+                and not re.search(r'[，。；：！？,;:!?]|[.]\s*$', text)
+                and horizontal(node, box)):
+            full_size.setdefault(compact(text), []).append((page, box, node))
+    corroborated = {}
+    widths = {page['page_index']: page['width'] for page in ir['layout']['pages']}
+    for text, candidates in full_size.items():
+        for page, box, node in candidates:
+            peers = {p for p, b, _ in candidates
+                     if abs(b[1] / page_height[p] - box[1] / page_height[page]) <= .003
+                     and abs((b[3] - b[1]) - (box[3] - box[1])) <= 1.5
+                     and abs(b[0] / widths[p] - box[0] / widths[page]) <= .01
+                     and abs(b[2] / widths[p] - box[2] / widths[page]) <= .01}
+            if len(peers) >= 2:
+                corroborated.setdefault(page, []).append((box, text, node))
+    for page, candidates in corroborated.items():
+        for box, text, node in candidates:
+            if text not in prominent_titles:
+                continue
+            for other_box, _, other_node in candidates:
+                separated = max(other_box[0] - box[2], box[0] - other_box[2])
+                if (separated >= max(widths[page] * .10, body * 4)
+                        and abs(other_box[1] - box[1]) <= 2
+                        and abs(other_box[3] - box[3]) <= 2):
+                    running_headers.add((page, node['id'], tuple(box)))
+                    running_headers.add((page, other_node['id'], tuple(other_box)))
+            # Native row joining can concatenate the two fields when a chapter
+            # title is long. Recover that case only if the prefix also recurs
+            # independently at the same physical header position and size.
+        for box, text, node in candidates:
+            for title in prominent_titles:
+                if not text.endswith(title) or text == title:
+                    continue
+                prefix = text[:-len(title)]
+                if any(other_text == prefix and other_page != page
+                       and abs(other_box[0] / widths[other_page] - box[0] / widths[page]) <= .01
+                       and abs(other_box[1] / page_height[other_page] - box[1] / page_height[page]) <= .003
+                       and abs((other_box[3] - other_box[1]) - (box[3] - box[1])) <= 1.5
+                       for other_page, others in corroborated.items()
+                       for other_box, other_text, _ in others):
+                    running_headers.add((page, node['id'], tuple(box)))
     profile = ir.get('metadata', {}).get('document_admission', {}).get('structure', {}).get('profile')
     native_headings = [(source['page_index'], source['bbox'])
                        for node in ir['nodes'] if node['kind'] == 'Heading'
@@ -727,6 +856,7 @@ def detect_ir(ir, selected_rules=RULES):
             for part, present in parts.items() if present is False and part in checked]
     if 35 in selected_rules:
         pages = {page['page_index']: page for page in ir['layout']['pages']}
+        math_periods = _display_math_periods(ir)
         for node in prose_nodes(ir):
             if not punctuation_prose(node, pages):
                 continue
@@ -737,6 +867,8 @@ def detect_ir(ir, selected_rules=RULES):
             if english_prose(text):
                 matches.extend((match, True) for match in _EN_PUNCT.finditer(text))
             for match, english in matches:
+                if match.group(1) == '.' and (node['id'], match.start(1)) in math_periods:
+                    continue
                 # A standalone label (e.g. Q： or a model name) is data, not an English clause.
                 if english and match.group(1) == '：' and re.fullmatch(r'\s*[A-Za-z][\w-]*', text[:match.start(1)]):
                     continue

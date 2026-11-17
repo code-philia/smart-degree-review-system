@@ -5,7 +5,7 @@ from statistics import median
 
 _NUMBER = re.compile(r'^(?:第\s*[一二三四五六七八九十百\d\s]+[章篇节]|chapter\s*\d+|[ivxlcdm]+\.\s*|\d+(?:[.．]\d+)*[.．、]?)[\s:：-]*', re.I)
 _INTRO = re.compile(r'^(?:绪论|绪言|引言|引论|简介|introduction(?:\s+and\s+contextualization)?)$', re.I)
-_CONCLUSION = re.compile(r'^(?:(?:课题|全文|研究|工作|论文)?(?:总结|结论)(?:[与和及](?:未来)?(?:展望|工作|建议|讨论))?|总结展望|结论及建议|结语|结束语|conclusions?(?:\s+and\s+(?:future\s+(?:work|directions|research|prospects)|discussion|outlook))?|concluding\s+remarks|summary(?:\s+and\s+(?:future\s+(?:work|prospects)|outlook|conclusions?))?)$', re.I)
+_CONCLUSION = re.compile(r'^(?:(?:课题|全文|研究|工作|论文)?(?:总结|结论)(?:[与和及](?:(?:未来)?(?:展望|工作|建议|讨论)|研究展望))?|总结展望|结论及建议|结语|结束语|conclusions?(?:\s+and\s+(?:future\s+(?:work|directions|research|prospects)|discussion|outlook))?|concluding\s+remarks|summary(?:\s+and\s+(?:future\s+(?:work|prospects)|outlook|conclusions?))?)$', re.I)
 _BODY = re.compile(r'^(?:相关工作|研究方法|方法|实验(?:评估|结果|分析)?|结果(?:与讨论)?|背景|related\s+work|background|methods?|methodology|experiments?(?:\s+and\s+evaluation)?|evaluation|results?(?:\s+and\s+discussion)?|discussion)$', re.I)
 _LEADER = re.compile(r'(?:\.\s*){3,}|…|·{3,}')
 _BARE_CHAPTER = re.compile(r'^(?:第\s*[一二三四五六七八九十百\d\s]+章|chapter\s*\d+)$', re.I)
@@ -364,6 +364,41 @@ def assess_structure(pages, identity):
         return not (key and intro_key and (key[0] != intro_key[0] or key[2] != intro_key[2]))
     conclusion = [(order, text) for order, index, text, heading in headings
                   if order > first_body and _CONCLUSION.fullmatch(heading) and core_conclusion(index, text)]
+    # A stale Contents running label must not hide an independently prominent
+    # final chapter. Keep the original contents classification (and all other
+    # section scopes) intact; recover only proven top-level conclusion evidence.
+    def has_right_page_reference(index, row):
+        box = row.get('bbox')
+        return bool(box and any(re.fullmatch(r'\d{1,4}|[ivxlcdm]{1,8}', other['text'], re.I)
+                    and (other_box := other.get('bbox')) and other_box[0] >= box[2]
+                    and other_box[0] >= pages[index].get('width', 595) * .65
+                    and abs(other_box[1] - box[1]) <= max(3, (box[3] - box[1]) * .3)
+                    for other in page_rows[index]))
+    recovery_intro = min((order for order, (index, text) in enumerate(rows)
+                          if _INTRO.fullmatch(heading_text(text))
+                          and (key := _section_key(text)) and key[2] == 1
+                          and normal_sizes[index] and styles.get((index, text), (0, False))[0] > normal_sizes[index] * 1.15
+                          and any(row['text'] == text and not has_right_page_reference(index, row)
+                                  for row in page_rows[index])), default=None)
+    for index in sorted(contents_pages):
+        values = page_rows[index]
+        if (_contents_page({**pages[index], 'lines': values})
+                or any(_LEADER.search(row['text']) for row in values)):
+            continue
+        for position, row in enumerate(values):
+            text = row['text']
+            key = _section_key(text)
+            size, _ = styles.get((index, text), (0, False))
+            if (not key or key[2] != 1 or not _CONCLUSION.fullmatch(heading_text(text))
+                    or not normal_sizes[index] or size <= normal_sizes[index] * 1.15
+                    or not core_conclusion(index, text) or has_right_page_reference(index, row)):
+                continue
+            following = '\n'.join(item['text'] for item in values[position + 1:])
+            order = next(order for order, pair in enumerate(rows) if pair == (index, text))
+            if (recovery_intro is not None and order > recovery_intro
+                    and len(re.findall(r'[\u3400-\u9fffA-Za-z]', following)) >= 80
+                    and re.search(r'[。！？]|[.!?](?:\s|$)', following)):
+                conclusion.append((order, text))
     body_end = min((order for order, _ in conclusion + references if order > first_body), default=len(rows))
     def body_heading(index, text, heading):
         if re.search(r'[。；;]|[.!?]$', heading):
