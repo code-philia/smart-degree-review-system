@@ -41,6 +41,50 @@ def test_request_starts_are_spaced_across_coordinator_instances(tmp_path, monkey
     assert all(b - a >= 60 / 90 - .00001 for a, b in zip(starts, starts[1:]))
 
 
+@pytest.mark.parametrize('legacy_rate', [None, '20', '80', '90', '100'])
+def test_deployed_policy_uses_one_hundred_despite_legacy_site_allocations(tmp_path, monkeypatch, legacy_rate):
+    api, clock = fake_clock(monkeypatch)
+    monkeypatch.setenv('SJTU_API_COORDINATOR_DB', str(tmp_path / 'migrated-rate.sqlite'))
+    monkeypatch.delenv('SJTU_API_REQUESTS_PER_MINUTE_OVERRIDE', raising=False)
+    if legacy_rate is None:
+        monkeypatch.delenv('SJTU_API_REQUESTS_PER_MINUTE', raising=False)
+    else:
+        monkeypatch.setenv('SJTU_API_REQUESTS_PER_MINUTE', legacy_rate)
+    starts = []
+    for _ in range(3):
+        with api.campus_request_slot('https://models.sjtu.edu.cn/api/v1/chat/completions',
+                                    {'Authorization': 'Bearer migration-test'}, 10):
+            starts.append(clock.now)
+    assert starts == pytest.approx([1000.0, 1000.6, 1001.2])
+    assert os.environ.get('SJTU_API_REQUESTS_PER_MINUTE') == legacy_rate
+
+
+@pytest.mark.parametrize('rate', ['5', '37', '100'])
+def test_new_explicit_rate_override_retains_operational_control(tmp_path, monkeypatch, rate):
+    api, clock = fake_clock(monkeypatch)
+    monkeypatch.setenv('SJTU_API_COORDINATOR_DB', str(tmp_path / 'explicit-rate.sqlite'))
+    monkeypatch.setenv('SJTU_API_REQUESTS_PER_MINUTE', '20')
+    monkeypatch.setenv('SJTU_API_REQUESTS_PER_MINUTE_OVERRIDE', rate)
+    starts = []
+    for _ in range(2):
+        with api.campus_request_slot('https://models.sjtu.edu.cn/api/v1/chat/completions', {}, 20):
+            starts.append(clock.now)
+    assert starts == pytest.approx([1000.0, 1000.0 + 60 / int(rate)])
+
+
+@pytest.mark.parametrize('rate', ['0', '101', '-1', 'invalid', '1.5'])
+def test_invalid_explicit_rate_override_uses_bounded_default(tmp_path, monkeypatch, rate):
+    api, clock = fake_clock(monkeypatch)
+    monkeypatch.setenv('SJTU_API_COORDINATOR_DB', str(tmp_path / 'invalid-rate.sqlite'))
+    monkeypatch.setenv('SJTU_API_REQUESTS_PER_MINUTE', '20')
+    monkeypatch.setenv('SJTU_API_REQUESTS_PER_MINUTE_OVERRIDE', rate)
+    starts = []
+    for _ in range(2):
+        with api.campus_request_slot('https://models.sjtu.edu.cn/api/v1/chat/completions', {}, 10):
+            starts.append(clock.now)
+    assert starts == pytest.approx([1000.0, 1000.6])
+
+
 @pytest.mark.parametrize('transport', [False, True])
 def test_default_capacity_allows_sixteen_inflight_requests_then_waits(tmp_path, monkeypatch, transport):
     api, clock = fake_clock(monkeypatch)
@@ -233,7 +277,7 @@ def test_qwen_and_detection_use_one_account_without_slowing_shared_request_pacin
     api, clock = fake_clock(monkeypatch)
     path = tmp_path / 'shared-model-rate.sqlite'
     monkeypatch.setenv('SJTU_API_COORDINATOR_DB', str(path))
-    monkeypatch.setenv('SJTU_API_REQUESTS_PER_MINUTE', '90')
+    monkeypatch.setenv('SJTU_API_REQUESTS_PER_MINUTE_OVERRIDE', '90')
     monkeypatch.setenv('SJTU_API_MODEL', 'deepseek-chat')
     monkeypatch.delenv('REPORT_TRANSLATION_MODEL', raising=False)
     script = Path(__file__).parents[1] / 'scripts' / 'report_translation.py'

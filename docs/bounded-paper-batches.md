@@ -4,7 +4,15 @@ Paper submissions continue to use the existing authenticated PDF endpoint and du
 
 `REVIEW_PILOT_MAX_CONCURRENT_RUNS` determines the paper engine capacity (default 2). `PAPER_LINT_JOB_CONCURRENCY` optionally selects a smaller positive integer worker count. The queue never exceeds the engine capacity or 32 workers. Set both to 8 for an eight-paper deployment; jobs beyond capacity remain queued. These are paper counts, not API request rates.
 
-The existing model coordinator remains responsible for per-process/shared-provider pacing. Its `SJTU_API_MAX_CONCURRENCY` and `SJTU_API_REQUESTS_PER_MINUTE` settings are separate from paper concurrency. A coordinator database is local to its host: deployments sharing a provider quota must reserve a combined request budget rather than each assuming the full provider allowance. Increasing paper workers does not increase provider quotas.
+The existing model coordinator remains responsible for request pacing across worker processes. Model request concurrency (`SJTU_API_MAX_CONCURRENCY`) is separate from paper concurrency and requests/minute.
+
+## Versioned campus request rate
+
+Deployments default independently to **100 campus requests/minute**. Upgrading the source and restarting the service applies this policy even when a server retains the retired `SJTU_API_REQUESTS_PER_MINUTE=20`, `80` or `90` setting in a private environment file. The retired variable is no longer used for rate resolution; changing only a fallback default would not migrate those servers.
+
+For a deliberate later operating override, set `SJTU_API_REQUESTS_PER_MINUTE_OVERRIDE` to an integer from1 through100 and restart the service. Missing or invalid overrides use100. Do not set this override when deploying the requested100RPM policy. `campus_requests_per_minute()` reports the effective setting without making a request or modifying coordination state.
+
+The coordinator database remains local to each host. Models using the same API account share that host's pacing and concurrent slots. This development policy allows each host100RPM independently; it does not create a cross-host100RPM limit or increase the provider's shared quota. Existing provider429 cooldown and bounded retries remain unchanged. Maximum model concurrency, paper workers, FIFO fairness, request deadlines, API payloads and detector rules are not changed by this policy.
 
 Workers preserve atomic quota admission, idempotent request IDs, cancellation, per-job progress, report ownership, failure visibility and completion transactions. A repeated submission for an active request does not replace the running task's cancellation controller. One failed task releases its slot and does not stop the remaining queue.
 

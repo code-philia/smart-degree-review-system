@@ -20,8 +20,18 @@ def _setting(name, default, maximum):
         return default
 
 
+def campus_requests_per_minute():
+    """Versioned per-host default, independent of retired site allocations.
+
+    Legacy SJTU_API_REQUESTS_PER_MINUTE values (such as20/80) must not keep
+    upgraded deployments on the old allocation. Operators can deliberately
+    select a different1..100 limit through the explicitly named override.
+    """
+    return _setting('SJTU_API_REQUESTS_PER_MINUTE_OVERRIDE', 100, 100)
+
+
 class CampusRequestCoordinator:
-    def __init__(self, path, *, max_concurrent=16, requests_per_minute=90):
+    def __init__(self, path, *, max_concurrent=16, requests_per_minute=100):
         if not 1 <= max_concurrent <= 32 or not 1 <= requests_per_minute <= 100:
             raise ValueError('invalid campus request concurrency or rate')
         self.path = Path(path)
@@ -179,7 +189,7 @@ def campus_request_slot(url, headers, timeout):
     authorization = headers.get('Authorization', headers.get('authorization', ''))
     account = hashlib.sha256((target.netloc + '\0' + authorization).encode()).hexdigest()
     gate = _coordinator(path, _setting('SJTU_API_MAX_CONCURRENCY', 16, 32),
-                        _setting('SJTU_API_REQUESTS_PER_MINUTE', 90, 100))
+                        campus_requests_per_minute())
     with gate.slot(account, timeout=timeout) as remaining:
         yield remaining
 
