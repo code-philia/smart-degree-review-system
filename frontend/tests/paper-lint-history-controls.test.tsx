@@ -35,7 +35,7 @@ it('opens an in-app confirmation before a single deletion and removes only the c
   expect(screen.queryByText('论文规范性检测', { exact: true })).not.toBeInTheDocument();
   await deleteFirst();
   expect(dialog()).toHaveAccessibleName('删除报告？');
-  expect(dialog()).toHaveAccessibleDescription('报告及论文原文将被永久删除，此操作无法撤销。');
+  expect(dialog()).toHaveAccessibleDescription('报告及上传论文将被永久删除，此操作无法撤销。');
   expect(within(dialog()).getByText('first.pdf')).toBeInTheDocument();
   expect(deletePaperLintReport).not.toHaveBeenCalled();
   expect(window.confirm).not.toHaveBeenCalled();
@@ -63,7 +63,7 @@ it('confirms a batch in the same in-app dialog while preserving selection on can
   fireEvent.click(screen.getByRole('checkbox', { name: '全选报告' }));
   await user.click(screen.getByRole('button', { name: '删除选中（2）' }));
   expect(dialog()).toHaveAccessibleName('删除选中的报告？');
-  expect(dialog()).toHaveAccessibleDescription('选中的报告及论文原文将被永久删除，此操作无法撤销。');
+  expect(dialog()).toHaveAccessibleDescription('选中的报告及上传论文将被永久删除，此操作无法撤销。');
   await user.click(within(dialog()).getByRole('button',{name:'取消',exact:true}));
   expect(screen.getByRole('checkbox',{name:'全选报告'})).toBeChecked();
   expect(deletePaperLintReports).not.toHaveBeenCalled();
@@ -108,7 +108,7 @@ it('keeps original filenames intact in the English confirmation', async () => {
   expect(dialog()).toHaveAccessibleName('Delete report?');
   expect(within(dialog()).getByText(filename)).toBeInTheDocument();
   expect(within(dialog()).getByRole('button',{name:'Cancel',exact:true})).toBeInTheDocument();
-  expect(within(dialog()).getByText('The report and the original thesis will be permanently deleted. This cannot be undone.')).toBeInTheDocument();
+  expect(within(dialog()).getByText('The report and the uploaded thesis will be permanently deleted. This cannot be undone.')).toBeInTheDocument();
 });
 
 it('shows newly saved reports containing all fifteen enabled rules, including external references', async () => {
@@ -131,7 +131,7 @@ it('uses plural English wording for a multi-report deletion', async()=>{
   fireEvent.click(screen.getByRole('checkbox',{name:'Select all reports',exact:true}));
   await user.click(screen.getByRole('button',{name:/Delete selected/}));
   expect(dialog()).toHaveAccessibleName('Delete selected reports?');
-  expect(within(dialog()).getByText('The selected reports and their original theses will be permanently deleted. This cannot be undone.')).toBeInTheDocument();
+  expect(within(dialog()).getByText('The selected reports and their uploaded theses will be permanently deleted. This cannot be undone.')).toBeInTheDocument();
 });
 
 it('returns focus to the remaining history view after the last report is removed',async()=>{

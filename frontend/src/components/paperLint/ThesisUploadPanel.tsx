@@ -485,7 +485,7 @@ export function ThesisUploadPanel(props: Props) {
       <aside data-appearance-review-note="" aria-label="检测说明" className="rounded-2xl border border-[#e0e8f5] bg-[#edf3fc] px-4 py-3.5 text-sm leading-7 text-[#52647e] sm:px-[22px] sm:py-4">
         <h2 className="mb-1 text-sm font-semibold leading-6 text-brand-800">检测说明</h2>
         <p>
-          聚焦公式引用、文献引用与目录页码等可定位问题。上传论文后，您可自主选择已开放规则，逐项查看检测结果，并联动定位到论文原文位置。受算力资源限制，每位用户累计检测次数不超过
+          聚焦公式引用、文献引用目录页码及语言规范等可定位问题。上传论文后，您可自主选择已开放规则，逐项查看检测结果，并联动定位到论文原文位置。受算力资源限制，每位用户累计检测次数不超过
           3 次，请提前确认论文版本、合理勾选检测规则。检测结果仅供参考，系统尚在测试中，欢迎通过“使用反馈”提出建议。
         </p>
       </aside>

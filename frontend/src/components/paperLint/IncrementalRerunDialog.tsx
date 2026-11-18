@@ -50,7 +50,7 @@ export function IncrementalRerunDialog({ report, rules, initiallyOpen = false }:
     <DialogTrigger asChild><Button variant="outline" size="sm"><RotateCw className="size-4" />增量补跑</Button></DialogTrigger>
     <DialogContent data-i18n-rerun="" className="top-[50dvh] left-[50vw] max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl">
       <DialogHeader><DialogTitle>基于历史报告增量补跑</DialogTitle><DialogDescription>
-        复用原 PDF 和已完成结果，只补跑新增、失败或未能判定的规则。生成新报告，原报告保持不变。
+        复用原上传论文和已完成结果，只补跑新增、失败或未能判定的规则。生成新报告，原报告保持不变。
       </DialogDescription></DialogHeader>
       <p className="break-all rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700">{preserveText(report.source_filename)}</p>
       <div className="max-h-80 space-y-2 overflow-y-auto">
