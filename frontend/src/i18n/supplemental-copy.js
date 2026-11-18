@@ -1,5 +1,6 @@
 // Real workflow labels and errors absent from the offline review fixture.
 export const SUPPLEMENTAL_COPY={
+ '请按国标要求对参考文献列表进行编号，确认内容完整且可读取后重新检测。':'Number the reference list according to the national standard. Ensure its contents are complete and readable, then run the review again.',
  '删除报告？':'Delete report?','删除选中的报告？':'Delete selected reports?',
  '报告及上传论文将被永久删除，此操作无法撤销。':'The report and the uploaded thesis will be permanently deleted. This cannot be undone.',
  '选中的报告及上传论文将被永久删除，此操作无法撤销。':'The selected reports and their uploaded theses will be permanently deleted. This cannot be undone.',

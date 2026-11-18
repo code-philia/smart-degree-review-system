@@ -128,7 +128,9 @@ export function genericExecutionWarnings(runs: PaperLintRuleRun[] = []): RuleExe
         feedbackTarget: warningFeedbackItem(run, executionWarningFeedbackTargets(run)[0].findingId, 0),
         title,
         reason,
-        suggestion: chapterPrerequisiteSuggestion(run) || '请稍后重试；如问题持续，请检查运行记录。',
+        suggestion: ['sjtu_rule_22', 'sjtu_rule_24'].includes(run.rule_id) && reason.includes('未可靠识别编号参考文献表')
+          ? '请按国标要求对参考文献列表进行编号，确认内容完整且可读取后重新检测。'
+          : chapterPrerequisiteSuggestion(run) || '请稍后重试；如问题持续，请检查运行记录。',
       };
     });
 }
