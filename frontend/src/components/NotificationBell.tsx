@@ -30,7 +30,7 @@ const copy = {
     unreadLabel: '通知，有未读消息',
     readAll: '全部已读',
     empty: '暂无通知',
-    emptyNote: '报告完成和邮件发送后，会在这里提醒你。',
+    emptyNote: '报告完成和邮件发送后，将在此处提醒您！',
     loading: '正在加载通知…',
     error: '通知暂时无法加载',
     readError: '已读状态未保存，请重试。',
