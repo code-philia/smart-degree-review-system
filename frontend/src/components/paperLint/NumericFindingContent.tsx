@@ -8,7 +8,6 @@ import type { PaperLintFindingItem } from './model';
 import type { PdfPageLabels } from './pageLabels';
 import { Button } from '../ui';
 import { objects, text, object, proseText, compositeClaim, claimSummary, assessmentClaim, readableTable, evidencePresentation, evidenceSources } from './numericFindingPresentation';
-import { analysisEvidenceDescriptions } from './analysisEvidence';
 
 // This is an extract from the saved explanation, never a new verdict or calculation.
 function explanationExcerpt(value: string, status: string) {
@@ -120,10 +119,6 @@ export function NumericFindingContent({ item, sourceLiterals = [], pageLabels = 
   const locale = getLocale();
   const excerpt = explanationExcerpt(analysis, status);
   const { anchors, storedAbstract, abstractAnchor, evidence } = evidenceSources(item.finding, row);
-  const hasSavedEvidence = evidence.some(entry => text(entry.quote));
-  const describedEvidence = hasSavedEvidence ? [] : analysisEvidenceDescriptions(analysis);
-  const hasUntranslatedDescriptions = !hasSavedEvidence && !describedEvidence.length
-    && locale === 'en' && analysisEvidenceDescriptions(item.finding.message).length > 0;
   const abstractText = text(declaration.text) || text(abstractAnchor?.location.text_excerpt) || text(storedAbstract?.quote);
   const metric = text(declaration.metric), number = text(declaration.number), unit = text(declaration.unit);
   const value = number ? `${number}${unit ? unit === '%' ? unit : ` ${unit}` : ''}` : '';
@@ -132,7 +127,7 @@ export function NumericFindingContent({ item, sourceLiterals = [], pageLabels = 
   const composite = compositeClaim(rows,row);
   const primaryEvidenceAnchor = evidence.map(entry => anchors.find(anchor => anchor !== abstractAnchor
     && anchor.anchor_id === text(entry.candidate_id || entry.id))).find(usableSourceAnchor);
-  const usedAnchorIds = new Set(hasSavedEvidence ? evidence.map(entry => text(entry.candidate_id || entry.id)) : []);
+  const usedAnchorIds = new Set(evidence.map(entry => text(entry.candidate_id || entry.id)));
   const extraAnchors = anchors.filter(anchor => anchor !== abstractAnchor && !usedAnchorIds.has(anchor.anchor_id));
   const note = status === 'inconsistent' ? '不一致' : status === 'inconclusive' ? '论据不足' : '原判定说明';
   const contrast = status === 'inconsistent' ? savedContrast(analysis, value, metric) : null;
@@ -157,7 +152,7 @@ export function NumericFindingContent({ item, sourceLiterals = [], pageLabels = 
     <section aria-label="论据" className="min-w-0">
       <h4 className="text-sm font-semibold text-slate-800">论据</h4>
       <div className="mt-2.5 rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-3">
-      {hasSavedEvidence ? <div className="space-y-3.5">{evidence.map((entry, index) => {
+      {evidence.length ? <div className="space-y-3.5">{evidence.map((entry, index) => {
         const quote = text(entry.quote);
         const anchorId = text(entry.candidate_id || entry.id);
         const anchor = anchors.find(candidate => candidate.anchor_id === anchorId && candidate !== abstractAnchor);
@@ -178,15 +173,7 @@ export function NumericFindingContent({ item, sourceLiterals = [], pageLabels = 
           : <p className="mt-2 whitespace-normal break-words text-sm leading-6 text-slate-600">{preserveText(proseText(visibleQuote))}</p>}
           </SourceRegion>
         </div>;
-      })}</div> : describedEvidence.length ? <div className="space-y-3.5">{describedEvidence.map((description, index) =>
-        <SourceRegion key={index} {...linkProps} name="" className="min-w-0 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0">
-          <div data-testid="analysis-evidence">
-            <p className="text-xs font-normal text-slate-500">{locale === 'en' ? `Evidence ${index + 1}` : `论据 ${index + 1}`}</p>
-            <p className="mt-2 whitespace-normal break-words text-sm leading-6 text-slate-600">{preserveText(proseText(description))}</p>
-          </div>
-        </SourceRegion>)}</div> : hasUntranslatedDescriptions ? <p className="mt-2 text-sm leading-6 text-slate-500">{analysis === 'English translation is not ready yet.'
-          ? preserveText(analysis) : '请展开完整分析查看相关论据说明。'}</p>
-        : <p className="mt-2 text-sm leading-6 text-slate-500">当前报告未保存可展示的论据摘录。</p>}
+      })}</div> : <p className="mt-2 text-sm leading-6 text-slate-500">当前报告未保存可展示的论据摘录。</p>}
       {extraAnchors.length ? <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1"><span className="text-xs text-slate-400">其他已存定位</span>{extraAnchors.map((anchor,index) => <SourceLink key={anchor.anchor_id} {...linkProps} anchor={anchor} name={locale === 'en' ? `View additional evidence source ${index + 1}` : `查看其他论据定位 ${index + 1}`} />)}</div> : null}
       </div>
     </section>
