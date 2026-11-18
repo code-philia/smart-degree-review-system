@@ -56,7 +56,7 @@ export const RULE_ENGLISH = [
   },
   {
     id:'required_section_completeness_check', title:'Required thesis sections',
-    description:'Check the required thesis sections against national standards, allowing for spaces between heading characters and headings split across text fragments.',
+    description:'Check the required thesis sections with national standards',
     titles:['核心章节完整性'],
     descriptions:['按国标检查论文必备组成部分，兼容空格与拆字标题。','核对学位论文的必备组成部分，按内容而非字面标题识别。'],
   },
