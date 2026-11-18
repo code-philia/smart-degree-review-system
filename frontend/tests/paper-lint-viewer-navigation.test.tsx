@@ -85,4 +85,58 @@ describe('PDF viewer startup navigation', () => {
     act(() => bus.dispatch('pagechanging', { pageNumber: 19 }));
     expect(next).toHaveBeenCalledTimes(1);
   });
+
+  it('waits for the text layer and paints only the clicked numeric value', async () => {
+    const focused: PaperLintPdfAnnotation = { ...annotation, ruleId: 'abstract_numeric_consistency_check',
+      anchorId: 'd1:t1', focusTerms: ['3.57'] };
+    const ref = createRef<PdfViewerHandle>();
+    const { getByTestId, unmount } = render(<PdfViewer ref={ref}
+      pdfDocument={{ numPages: 120 } as PDFDocumentProxy} scale="page-width"
+      annotationsByPage={new Map([[99, [focused]]])} activeFindingKey="finding-99" activeAnchorId="d1:t1"
+      density="focus" onFindingClick={vi.fn()} onAnchorClick={vi.fn()} />);
+    await waitFor(() => expect(viewerEvents.at(-1)?.listenerCount('pagesinit')).toBe(1));
+    const bus = viewerEvents.at(-1)!;
+    const container = getByTestId('paper-lint-pdf-viewer');
+    const page = document.createElement('div');
+    page.className = 'page'; page.dataset.pageNumber = '99';
+    Object.defineProperties(page, { clientWidth: { value: 595 }, clientHeight: { value: 842 } });
+    page.getBoundingClientRect = () => ({ left: 0, top: 0, width: 595, height: 842, right: 595,
+      bottom: 842, x: 0, y: 0, toJSON() {} });
+    container.querySelector('.pdfViewer')!.append(page);
+    const scroll = vi.fn(); container.scrollTo = scroll;
+    act(() => bus.dispatch('pagesinit'));
+    act(() => bus.dispatch('pagerendered', { pageNumber: 99 }));
+    expect(page.querySelectorAll('.paper-lint-overlay-host rect')).toHaveLength(0);
+    ref.current?.scrollToAnnotation(focused);
+    act(() => bus.dispatch('pagerendered', { pageNumber: 99 }));
+    expect(scroll).not.toHaveBeenCalled();
+    const original = Object.getOwnPropertyDescriptor(Range.prototype, 'getClientRects');
+    Object.defineProperty(Range.prototype, 'getClientRects', { configurable: true, value: () =>
+      [{ left: 120, top: 250, right: 142, bottom: 262, width: 22, height: 12 }] });
+    try {
+      const text = document.createElement('div'); text.className = 'textLayer';
+      text.innerHTML = '<span>平均误差为3.57 m。后面还有其他不相关的段落。</span>'; page.append(text);
+      act(() => bus.dispatch('textlayerrendered', { pageNumber: 99 }));
+      await waitFor(() => expect(page.querySelectorAll('.paper-lint-overlay-host rect')).toHaveLength(1));
+      expect(page.querySelector('.paper-lint-overlay-host rect')).toHaveAttribute('width', '22');
+      expect(scroll).toHaveBeenCalledTimes(1);
+      // PDF.js can replace a page's children while recycling a distant page.
+      page.querySelector('.paper-lint-overlay-host')!.remove();
+      act(() => bus.dispatch('textlayerrendered', { pageNumber: 99 }));
+      act(() => bus.dispatch('pagerendered', { pageNumber: 99 }));
+      await waitFor(() => expect(page.querySelectorAll('.paper-lint-overlay-host rect')).toHaveLength(1));
+      text.remove();
+      ref.current?.scrollToAnnotation(focused);
+      act(() => bus.dispatch('pagerendered', { pageNumber: 99 }));
+      expect(scroll).toHaveBeenCalledTimes(1);
+      const freshText = text.cloneNode(true); page.append(freshText);
+      act(() => bus.dispatch('textlayerrendered', { pageNumber: 99 }));
+      expect(scroll).toHaveBeenCalledTimes(2);
+      unmount();
+      expect(bus.listenerCount('textlayerrendered')).toBe(0);
+    } finally {
+      if (original) Object.defineProperty(Range.prototype, 'getClientRects', original);
+      else delete (Range.prototype as any).getClientRects;
+    }
+  });
 });

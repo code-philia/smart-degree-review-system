@@ -1,5 +1,6 @@
 import { memo, useState, type KeyboardEvent } from 'react';
 import type { PaperLintPdfAnnotation } from './geometry';
+import { annotationIsActive } from './numericHighlight';
 
 export type HighlightDensity = 'hidden' | 'focus' | 'all';
 
@@ -45,8 +46,8 @@ export const PdfOverlay = memo(function PdfOverlay({
     >
       <title>{`第 ${pageNumber} 页审查高亮`}</title>
       {annotations.map((annotation) => {
-        const active =
-          annotation.findingKey === activeFindingKey && (!activeAnchorId || annotation.anchorId === activeAnchorId);
+        const active = annotationIsActive(annotation,activeFindingKey,activeAnchorId);
+        if(annotation.ruleId==='abstract_numeric_consistency_check' && density==='focus' && !active) return null;
         const hover = annotation.findingKey === hovered;
         const showRects = density === 'all' || active || hover;
         const tone = colors[annotation.severity];

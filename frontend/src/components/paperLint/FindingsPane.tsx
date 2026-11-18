@@ -10,6 +10,7 @@ import type { FindingFeedback, SuggestionFeedback } from '../../api/feedback';
 import { Button, StatusBadge } from '../ui';
 import { documentCheckId, documentCheckTitle, isDocumentBlocked, comparePaperLintRuleIds, findingPageLabel, referenceReviewMessage, type PaperLintFindingItem } from './model';
 import { FeedbackControls } from './FeedbackControls';
+import { NumericFindingContent } from './NumericFindingContent';
 import { displayFindingPages, type PdfPageLabels } from './pageLabels';
 import type { RuleExecutionWarning } from './model';
 import { isRuleVisible, RuleFilter, type RuleFilterLevel, type RuleFilterOption, type RuleSeverityCounts } from './RuleFilter';
@@ -301,13 +302,14 @@ export function FindingsPane({
                 key={`finding-${item.key}`}
                 data-finding-key={item.key}
                 className={`cursor-pointer rounded-lg border border-l-4 p-3 transition ${
-                  active ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-100' : 'border-slate-200 hover:bg-slate-50'
+                  active ? numeric ? 'border-brand-300 bg-white ring-1 ring-brand-100' : 'border-brand-500 bg-brand-50 ring-1 ring-brand-100' : 'border-slate-200 hover:bg-slate-50'
                 }`}
                 role="button"
                 tabIndex={0}
                 aria-current={active || undefined}
                 onClick={() => onFindingClick(item.key)}
                 onKeyDown={(event) => {
+                  if (event.target !== event.currentTarget) return;
                   if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault();
                     onFindingClick(item.key);
@@ -351,7 +353,8 @@ export function FindingsPane({
                     </Button>
                   </div>
                 </div>
-                <p className="mt-2 break-words text-sm leading-6 text-slate-700"><ReportProse text={item.finding.message} sourceLiterals={sourceLiterals} /></p>
+                {numeric ? <NumericFindingContent item={item} sourceLiterals={sourceLiterals} pageLabels={pageLabels} onAnchorClick={onAnchorClick} />
+                  : <p className="mt-2 break-words text-sm leading-6 text-slate-700"><ReportProse text={item.finding.message} sourceLiterals={sourceLiterals} /></p>}
                 {referenceExcerpt ? <blockquote className="mt-3 rounded-lg bg-slate-50 p-3 text-xs leading-6 text-slate-700"><p className="font-semibold">参考文献原文</p><p className="mt-1 whitespace-pre-wrap break-words">{preserveText(referenceExcerpt)}</p></blockquote> : null}
                 {reference ? <p className="mt-2 text-xs leading-6 text-blue-700"><ReportProse text={item.finding.suggestion || '请人工复核该条引用及其原始来源。'} sourceLiterals={sourceLiterals} /></p> : null}
                 {onFindingFeedback ? <FeedbackControls
@@ -362,7 +365,7 @@ export function FindingsPane({
                   onReason={onFindingFeedbackReason ? (code, text) => onFindingFeedbackReason(item, code, text) : undefined}
                   onCancel={() => onFindingFeedbackCancel?.(item)}
                 /> : null}
-                {page ? (
+                {page && (!numeric || !item.finding.anchors?.length) ? (
                   <Button
                     size="sm"
                     variant="ghost"
@@ -377,7 +380,7 @@ export function FindingsPane({
                   </Button>
                 ) : null}
                 {active && item.finding.source_kind === 'synthetic' ? <p className="mt-2 text-xs text-slate-600">该处来自变异内容，未标记为原始 PDF 中的文本。</p> : null}
-                {!reference && (numeric || active) && item.finding.suggestion && (!repairEnabled || (!onLoadRepairSuggestion && !onGenerateRepairSuggestion)) ? (
+                {!numeric && !reference && active && item.finding.suggestion && (!repairEnabled || (!onLoadRepairSuggestion && !onGenerateRepairSuggestion)) ? (
                   <div className={`mt-3 rounded-lg bg-white p-3 text-slate-600 ${numeric ? 'text-sm leading-6' : 'text-xs leading-5'}`}>
                     <strong className="text-slate-800">修改建议：</strong>
                     {suggestionText}
@@ -446,7 +449,7 @@ export function FindingsPane({
                 {handledKeys.includes(item.key) ? (
                   <p className="mt-2 text-xs font-semibold text-success-600">已标记为本次已处理</p>
                 ) : null}
-                {active && item.finding.anchors?.length ? (
+                {active && !numeric && item.finding.anchors?.length ? (
                   <div className="mt-2 flex flex-wrap gap-1">
                     {item.finding.anchors.map((anchor, index) => (
                       <Button

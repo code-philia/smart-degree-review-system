@@ -1,12 +1,14 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PaperLintFindingItem } from '../src/components/paperLint/model';
 import { PdfPane } from '../src/components/paperLint/PdfPane';
 import { PaperLintWorkspace } from '../src/components/paperLint/Workspace';
+import { addTranslations, clearTranslations, setLocale } from '../src/i18n/locale';
 
-const { scrollToAnnotation, getDocumentOptions } = vi.hoisted(() => ({
+const { scrollToAnnotation, getDocumentOptions, viewerProps } = vi.hoisted(() => ({
   scrollToAnnotation: vi.fn(),
   getDocumentOptions: vi.fn(),
+  viewerProps: vi.fn(),
 }));
 
 vi.mock('pdfjs-dist/legacy/build/pdf.mjs', () => ({
@@ -22,6 +24,7 @@ vi.mock('../src/components/paperLint/PdfViewer', async () => {
   return {
     preloadPdfViewer: async () => {},
     PdfViewer: React.forwardRef((_props: unknown, ref) => {
+      viewerProps(_props);
       React.useImperativeHandle(ref, () => ({
         scrollToAnnotation,
         scrollToPage: vi.fn(),
@@ -61,9 +64,34 @@ afterEach(() => {
   vi.unstubAllGlobals();
   scrollToAnnotation.mockClear();
   getDocumentOptions.mockClear();
+  viewerProps.mockClear();
+  setLocale('zh'); clearTranslations();
 });
 
 describe('PDF pane navigation', () => {
+  it('updates source highlights with the card language and arriving translation without reloading or jumping', async () => {
+    const rule = 'abstract_numeric_consistency_check';
+    const reason = '实验结果证据1提到FP-Exp加速6.17倍。';
+    const quote = 'FP-Recip加速2.77倍。FP-Exp加速6.17倍。';
+    const numeric: PaperLintFindingItem = { ...finding, key: 'numeric',
+      finding: { ...finding.finding, finding_id: `${rule}_d1`, message: reason,
+        anchors: [{ anchor_id: 'd1:t1', role: 'source_span', location: finding.finding.location! }] },
+      ruleRun: { ...finding.ruleRun, rule_id: rule, params: { numeric_results: [{ declaration_id: 'd1', reason,
+        declaration: { number: '2.77', unit: '×', metric: '加速比' }, evidence: [{ candidate_id: 'd1:t1', quote }] }] } } };
+    const focus = () => viewerProps.mock.calls.at(-1)![0].annotationsByPage.get(99).find((a: any) => a.anchorId === 'd1:t1').focusTerms;
+    render(<PdfPane file={file} findings={[numeric]} activeFindingKey="numeric" activeAnchorId="d1:t1"
+      onFindingClick={vi.fn()} onAnchorClick={vi.fn()} />);
+    await waitFor(() => expect(viewerProps).toHaveBeenCalled());
+    expect(focus()).toEqual(['6.17']);
+    await waitFor(() => expect(scrollToAnnotation).toHaveBeenCalled());
+    scrollToAnnotation.mockClear();
+    act(() => setLocale('en'));
+    expect(focus()).toEqual(['2.77']);
+    act(() => addTranslations({ [reason]: 'Evidence 1 reports FP-Exp speedup of 6.17 times.' }));
+    expect(focus()).toEqual(['6.17']);
+    expect(getDocumentOptions).toHaveBeenCalledTimes(1);
+    expect(scrollToAnnotation).not.toHaveBeenCalled();
+  });
   it('loads archived and uploaded PDFs with Chinese font CMaps', async () => {
     const remoteFile = { name: 'archive.pdf', url: '/api/archive.pdf' };
     const props = {

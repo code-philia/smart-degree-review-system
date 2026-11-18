@@ -3,7 +3,8 @@ import { ChevronDown, ChevronLeft, ChevronRight, Eye, EyeOff, Highlighter, Link2
 import type { PDFDocumentLoadingTask, PDFDocumentProxy } from 'pdfjs-dist';
 import { loadPdfJs, pdfResourceOptions } from '../../pdfRuntime';
 
-import { type FormEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { getPresentationRevision, subscribe } from '../../i18n/locale';
 import { Button, buttonClassName } from '../ui';
 import type { PaperLintFindingItem } from './model';
 import { buildAnnotations, findingTarget, groupAnnotationsByPage } from './geometry';
@@ -70,6 +71,7 @@ export function PdfPane({
   activeSupplementalAnnotationId = null,
   onSupplementalAnnotationClick,
 }: Props) {
+  const presentationRevision = useSyncExternalStore(subscribe, getPresentationRevision, getPresentationRevision);
   const [document, setDocument] = useState<PDFDocumentProxy | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -176,7 +178,7 @@ export function PdfPane({
     };
   }, [sourceUrl, sourceFile, attempt]);
 
-  const annotationsByPage = useMemo(() => groupAnnotationsByPage(buildAnnotations(findings)), [findings]);
+  const annotationsByPage = useMemo(() => groupAnnotationsByPage(buildAnnotations(findings)), [findings, presentationRevision]);
   const labelPageKey = [...new Set([
     ...findings.flatMap(item => findingPageLabel(item)?.split('、').map(Number) || []),
     ...supplementalAnnotations.map(item => item.pageNumber),
@@ -193,7 +195,7 @@ export function PdfPane({
     () => findings.find((item) => item.key === activeFindingKey) || null,
     [activeFindingKey, findings],
   );
-  const target = useMemo(() => findingTarget(activeItem, activeAnchorId), [activeAnchorId, activeItem]);
+  const target = useMemo(() => findingTarget(activeItem, activeAnchorId), [activeAnchorId, activeItem, presentationRevision]);
   const pageNumber =
     target.type === 'bbox' ? target.annotation.pageNumber : target.type === 'page' ? target.pageNumber : null;
   const fullPdfUrl = openPdfUrl || sourceUrl || (uploadedPdf?.file === sourceFile ? uploadedPdf?.url : null);

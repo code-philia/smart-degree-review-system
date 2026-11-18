@@ -1,5 +1,6 @@
 import type { PaperLintFindingAnchor, PdfBBoxLocation, PdfRect } from '../../api/paperLint';
 import type { PaperLintFindingItem } from './model';
+import { numericHighlightTerms } from './numericHighlight';
 
 export type PaperLintPdfAnnotation = {
   findingKey: string;
@@ -12,6 +13,7 @@ export type PaperLintPdfAnnotation = {
   anchorId?: string;
   anchorRole?: string;
   anchorLabel?: string | null;
+  focusTerms?: string[];
 };
 
 export type PaperLintPdfTarget =
@@ -69,6 +71,7 @@ function locationAnnotations(item: PaperLintFindingItem, location: PdfBBoxLocati
           anchorId: anchor?.anchor_id,
           anchorRole: anchor?.role,
           anchorLabel: anchor?.label,
+          focusTerms: numericHighlightTerms(item, anchor),
         }) satisfies PaperLintPdfAnnotation,
     );
 }

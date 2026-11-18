@@ -6,6 +6,7 @@ import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo,
 import { createPortal } from 'react-dom';
 import { getPdfRectCenter, pageSize, type PaperLintPdfAnnotation } from './geometry';
 import { PdfOverlay, type HighlightDensity } from './PdfOverlay';
+import { refineNumericAnnotations } from './numericHighlight';
 
 type ViewerModule = typeof import('pdfjs-dist/legacy/web/pdf_viewer.mjs');
 type PdfJsModule = typeof import('pdfjs-dist/legacy/build/pdf.mjs');
@@ -195,9 +196,11 @@ export const PdfViewer = memo(
     const pendingRef = useRef<PaperLintPdfAnnotation | null>(null);
     const pendingPageRef = useRef<number | null>(null);
     const pagesReadyRef = useRef(false);
+    const textReadyRef = useRef(new WeakSet<Element>());
     const annotationsRef = useRef(annotationsByPage);
     const scaleRef = useRef(scale);
     const [hosts, setHosts] = useState<OverlayHost[]>([]);
+    const [textLayerRevision, setTextLayerRevision] = useState(0);
     const onPageChangeRef = useRef(onPageChange);
 
     useEffect(() => {
@@ -236,8 +239,14 @@ export const PdfViewer = memo(
       if (!annotation || !container) return;
       const element = pageElement(container, annotation.pageNumber);
       if (!element || !element.clientWidth || !element.clientHeight) return;
+      const focused = refineNumericAnnotations(element, [annotation])[0];
+      const textLayer = element.querySelector('.textLayer');
+      if (annotation.focusTerms && !focused.rects.length
+        && (!textLayer || !textReadyRef.current.has(textLayer))) return;
       pendingRef.current = null;
-      scrollToRect(container, element, annotation);
+      // If the source has no uniquely measurable text, keep page navigation but
+      // never substitute the old paragraph-sized highlight.
+      scrollToRect(container, element, focused);
     }, []);
 
     const scrollToPage = useCallback((pageNumber: number) => {
@@ -307,7 +316,20 @@ export const PdfViewer = memo(
           viewer.scrollPageIntoView({ pageNumber });
         }
       };
-      const onScaleChanging = () => window.requestAnimationFrame(syncHosts);
+      const onTextLayerRendered = (event: { pageNumber?: number } = {}) => {
+        if (disposed || !Number.isSafeInteger(event.pageNumber) || (event.pageNumber || 0) < 1) return;
+        const textLayer = pageElement(container, event.pageNumber!)?.querySelector('.textLayer');
+        if (textLayer) textReadyRef.current.add(textLayer);
+        syncHosts();
+        setTextLayerRevision(revision => revision + 1);
+        flushPending();
+      };
+      const onScaleChanging = () => window.requestAnimationFrame(() => {
+        if (disposed) return;
+        syncHosts();
+        setTextLayerRevision(revision => revision + 1);
+        flushPending();
+      });
 
       void preloadPdfViewer().then(({ EventBus, PDFLinkService, PDFViewer }) => {
         if (disposed) return;
@@ -325,8 +347,10 @@ export const PdfViewer = memo(
         });
         stateRef.current = { eventBus, linkService, viewer };
         pagesReadyRef.current = false;
+        textReadyRef.current = new WeakSet();
         eventBus.on('pagesinit', onPagesInit);
         eventBus.on('pagerendered', onPageRendered);
+        eventBus.on('textlayerrendered', onTextLayerRendered);
         eventBus.on('scalechanging', onScaleChanging);
         eventBus.on('pagechanging', onPageChanging);
         linkService.setViewer(viewer);
@@ -338,10 +362,12 @@ export const PdfViewer = memo(
         cleanup = () => {
           eventBus.off('pagesinit', onPagesInit);
           eventBus.off('pagerendered', onPageRendered);
+          eventBus.off('textlayerrendered', onTextLayerRendered);
           eventBus.off('scalechanging', onScaleChanging);
           eventBus.off('pagechanging', onPageChanging);
           container.removeEventListener('scroll', syncHosts);
           pagesReadyRef.current = false;
+          textReadyRef.current = new WeakSet();
           viewer.cleanup();
         };
       }).catch((error: unknown) => { if (!disposed) onError?.(error); });
@@ -405,7 +431,9 @@ export const PdfViewer = memo(
     const portals = useMemo(
       () =>
         hosts.flatMap(({ pageNumber, host }) => {
-          const annotations = annotationsByPage.get(pageNumber) || [];
+          const page = host.parentElement;
+          if (!page) return [];
+          const annotations = refineNumericAnnotations(page, annotationsByPage.get(pageNumber) || []);
           const supplemental = supplementalAnnotations.filter((annotation) => annotation.pageNumber === pageNumber);
           const firstSupplemental = supplemental[0]?.boundingRect;
           const size =
@@ -453,6 +481,7 @@ export const PdfViewer = memo(
         onFindingClick,
         onSupplementalAnnotationClick,
         supplementalAnnotations,
+        textLayerRevision,
       ],
     );
 

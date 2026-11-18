@@ -19,14 +19,23 @@ function completeEnglish(value: string, sources: readonly string[]) {
 
 // Verify translated prose rather than treating every mapping as completed English.
 // Only proven original quotations/targets may retain their original language.
-export function ReportProse({ text, sourceLiterals = [] }: { text?: string | null; sourceLiterals?: readonly string[] }) {
+export function useReportProseText({ text, sourceLiterals = [] }: { text?: string | null; sourceLiterals?: readonly string[] }) {
   useSyncExternalStore(subscribe, getPresentationRevision, getPresentationRevision);
-  if (!text) return null;
-  if (getLocale() !== 'en') return preserveText(text);
+  return resolveReportProseText({ text, sourceLiterals });
+}
+
+export function resolveReportProseText({ text, sourceLiterals = [] }: { text?: string | null; sourceLiterals?: readonly string[] }) {
+  if (!text) return '';
+  if (getLocale() !== 'en') return text;
   const sources = sourceLiteralsFor(text, sourceLiterals);
   const approved = translate(text);
-  if (completeEnglish(approved, sources)) return preserveText(approved);
+  if (completeEnglish(approved, sources)) return approved;
   const mapped = getTranslation(text);
-  if (typeof mapped === 'string' && completeEnglish(mapped, sources)) return preserveText(mapped);
-  return <span>English translation is not ready yet.</span>;
+  if (typeof mapped === 'string' && completeEnglish(mapped, sources)) return mapped;
+  return 'English translation is not ready yet.';
+}
+
+export function ReportProse(props: { text?: string | null; sourceLiterals?: readonly string[] }) {
+  const text = useReportProseText(props);
+  return text ? preserveText(text) : null;
 }
