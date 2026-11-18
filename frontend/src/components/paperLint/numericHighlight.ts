@@ -1,7 +1,7 @@
 import type { PaperLintFindingAnchor, PdfRect } from '../../api/paperLint';
 import type { PaperLintFindingItem } from './model';
 import type { PaperLintPdfAnnotation } from './geometry';
-import { assessmentClaim, claimSummary, compositeClaim, evidencePresentation, object, objects, text } from './numericFindingPresentation';
+import { assessmentClaim, claimSummary, compositeClaim, evidencePresentation, evidenceSources, object, objects, text } from './numericFindingPresentation';
 import { resolveReportProseText } from '../../i18n/ReportProse';
 import { getLocale } from '../../i18n/locale';
 
@@ -21,11 +21,15 @@ function numbers(value:string) {
 }
 
 export function numericHighlightTerms(item:PaperLintFindingItem,anchor?:PaperLintFindingAnchor) {
+  return numericHighlightFocus(item,anchor)?.terms;
+}
+
+export function numericHighlightFocus(item:PaperLintFindingItem,anchor?:PaperLintFindingAnchor) {
   if(item.ruleRun.rule_id!==RULE) return undefined;
   const rows=objects(item.ruleRun.params?.numeric_results);
   const row=rows.find(candidate=>item.finding.finding_id===`${RULE}_${text(candidate.declaration_id)}`);
-  if(!row) return [];
-  const reason=text(row.reason), declaration=object(row.declaration);
+  const reason=text(row?.reason), declaration=object(row?.declaration);
+  const { evidence }=evidenceSources(item.finding,row);
   const sourceLiterals=[item.finding.location?.text_excerpt,
     ...(item.finding.anchors||[]).map(anchor=>anchor.location?.text_excerpt),
     ...(item.finding.evidence||[]).map(evidence=>evidence.quote),
@@ -33,7 +37,7 @@ export function numericHighlightTerms(item:PaperLintFindingItem,anchor?:PaperLin
   let analysis=resolveReportProseText({text:item.finding.message || reason,sourceLiterals});
   const composite=compositeClaim(rows,row);
   const abstract=!anchor || anchor.anchor_id.startsWith('abstract-') || /摘要|abstract/i.test(anchor.label||'');
-  let relevant='';
+  let relevant='', region=false;
   if(abstract) {
     const abstractAnchor=item.finding.anchors?.find(anchor=>anchor.anchor_id.startsWith('abstract-')||/摘要/.test(anchor.label||''));
     const original=text(declaration.text)||text(abstractAnchor?.location.text_excerpt)
@@ -43,17 +47,18 @@ export function numericHighlightTerms(item:PaperLintFindingItem,anchor?:PaperLin
     const point=assessmentClaim(getLocale()==='en' ? analysis : reason)||claimSummary(original,metric,value);
     relevant=composite ? composite.values.flat().join(' ') : `${point||`${metric} ${value}`} ${text(declaration.condition)}`;
   } else {
-    const evidence=objects(row.evidence).filter(entry=>text(entry.quote));
     const index=evidence.findIndex(entry=>text(entry.candidate_id || entry.id)===anchor.anchor_id);
-    if(index<0) return [];
+    if(index<0) return {terms:[],region:false};
     evidence.forEach((entry,index)=>{
       const id=text(entry.candidate_id || entry.id);
       if(id) analysis=analysis.split(id).join(`实验结果证据${index+1}`);
     });
-    relevant=evidencePresentation(text(evidence[index].quote),text(declaration.metric),text(declaration.method),reason,
-      Boolean(composite),analysis,index).focusText;
+    const content=evidencePresentation(text(evidence[index].quote),text(declaration.metric),text(declaration.method),reason,
+      Boolean(composite),analysis,index);
+    relevant=content.focusText;
+    region=!content.focusedTable && !content.values && !content.cell && Boolean(content.unclear || content.largeTable);
   }
-  return [...new Set(numbers(relevant))].filter(value=>value.length<=30);
+  return {terms:[...new Set(numbers(relevant))].filter(value=>value.length<=30),region};
 }
 
 export function annotationIsActive(annotation:PaperLintPdfAnnotation,findingKey:string|null,anchorId:string|null) {
@@ -102,6 +107,8 @@ export function refineNumericAnnotations(page:HTMLElement,annotations:PaperLintP
   const pageRect=page.getBoundingClientRect();
   return annotations.map(annotation=>{
     if(annotation.ruleId!==RULE) return annotation;
+    // Figures have a saved source region but may have no readable native text.
+    if(annotation.focusRegion) return {...annotation,rects:[annotation.boundingRect]};
     const rects:PdfRect[]=[];
     if(pageRect.width>0 && pageRect.height>0) {
       const width=annotation.boundingRect.width,height=annotation.boundingRect.height;

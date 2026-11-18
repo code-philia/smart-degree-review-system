@@ -1,6 +1,6 @@
 import type { PaperLintFindingAnchor, PdfBBoxLocation, PdfRect } from '../../api/paperLint';
 import type { PaperLintFindingItem } from './model';
-import { numericHighlightTerms } from './numericHighlight';
+import { numericHighlightFocus } from './numericHighlight';
 
 export type PaperLintPdfAnnotation = {
   findingKey: string;
@@ -14,6 +14,7 @@ export type PaperLintPdfAnnotation = {
   anchorRole?: string;
   anchorLabel?: string | null;
   focusTerms?: string[];
+  focusRegion?: boolean;
 };
 
 export type PaperLintPdfTarget =
@@ -50,6 +51,7 @@ function unionPdfRects(rects: PdfRect[]): PdfRect {
 }
 
 function locationAnnotations(item: PaperLintFindingItem, location: PdfBBoxLocation, anchor?: PaperLintFindingAnchor) {
+  const focus = numericHighlightFocus(item, anchor);
   const grouped = new Map<number, PdfRect[]>();
   const sourceRects = location.rects.length > 0 ? location.rects : [location.bounding_rect];
   for (const rect of sourceRects) {
@@ -71,7 +73,8 @@ function locationAnnotations(item: PaperLintFindingItem, location: PdfBBoxLocati
           anchorId: anchor?.anchor_id,
           anchorRole: anchor?.role,
           anchorLabel: anchor?.label,
-          focusTerms: numericHighlightTerms(item, anchor),
+          focusTerms: focus?.terms,
+          focusRegion: focus?.region,
         }) satisfies PaperLintPdfAnnotation,
     );
 }

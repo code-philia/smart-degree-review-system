@@ -7,7 +7,7 @@ import type { PaperLintFindingAnchor } from '../../api/paperLint';
 import type { PaperLintFindingItem } from './model';
 import type { PdfPageLabels } from './pageLabels';
 import { Button } from '../ui';
-import { objects, text, object, proseText, compositeClaim, claimSummary, assessmentClaim, readableTable, evidencePresentation, type Row } from './numericFindingPresentation';
+import { objects, text, object, proseText, compositeClaim, claimSummary, assessmentClaim, readableTable, evidencePresentation, evidenceSources } from './numericFindingPresentation';
 
 // This is an extract from the saved explanation, never a new verdict or calculation.
 function explanationExcerpt(value: string, status: string) {
@@ -118,23 +118,13 @@ export function NumericFindingContent({ item, sourceLiterals = [], pageLabels = 
   const analysis = useReportProseText({ text: item.finding.message, sourceLiterals });
   const locale = getLocale();
   const excerpt = explanationExcerpt(analysis, status);
-  const anchors = item.finding.anchors || [];
-  const storedEvidence = objects(item.finding.evidence);
-  const storedAbstract = storedEvidence.find(entry => text(entry.id).startsWith('abstract-'));
-  const abstractAnchor = anchors.find(anchor => anchor.anchor_id.startsWith('abstract-') || /摘要/.test(anchor.label || ''));
+  const { anchors, storedAbstract, abstractAnchor, evidence } = evidenceSources(item.finding, row);
   const abstractText = text(declaration.text) || text(abstractAnchor?.location.text_excerpt) || text(storedAbstract?.quote);
   const metric = text(declaration.metric), number = text(declaration.number), unit = text(declaration.unit);
   const value = number ? `${number}${unit ? unit === '%' ? unit : ` ${unit}` : ''}` : '';
   const condition = text(declaration.condition);
   const point = assessmentClaim(locale === 'en' ? analysis : text(row?.reason)) || claimSummary(abstractText, metric, value);
   const composite = compositeClaim(rows,row);
-  const candidates = objects(row?.evidence).filter(evidence => text(evidence.quote));
-  const storedQuotes = storedEvidence.filter(entry => entry !== storedAbstract && text(entry.quote));
-  const legacyEvidence = anchors.filter(anchor => anchor !== abstractAnchor)
-    .map(anchor => ({ quote: anchor.location.text_excerpt || '', candidate_id: anchor.anchor_id }));
-  const matchingQuoteAnchor = anchors.find(anchor => anchor !== abstractAnchor && text(anchor.location.text_excerpt) === text(row?.evidence_quote));
-  const evidence: Row[] = candidates.length ? candidates : text(row?.evidence_quote)
-    ? [{ quote: row!.evidence_quote, candidate_id: matchingQuoteAnchor?.anchor_id || '' }] : storedQuotes.length ? storedQuotes : legacyEvidence;
   const primaryEvidenceAnchor = evidence.map(entry => anchors.find(anchor => anchor !== abstractAnchor
     && anchor.anchor_id === text(entry.candidate_id || entry.id))).find(usableSourceAnchor);
   const usedAnchorIds = new Set(evidence.map(entry => text(entry.candidate_id || entry.id)));

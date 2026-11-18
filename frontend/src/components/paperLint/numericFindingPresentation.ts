@@ -1,3 +1,5 @@
+import type { PaperLintFinding } from '../../api/paperLint';
+
 export type Row = Record<string, unknown>;
 export function objects(value: unknown): Row[] {
   return Array.isArray(value) ? value.filter((v): v is Row => Boolean(v && typeof v === 'object' && !Array.isArray(v))) : [];
@@ -5,6 +7,21 @@ export function objects(value: unknown): Row[] {
 export function text(value: unknown) { return typeof value === 'string' ? value.trim() : typeof value === 'number' && Number.isFinite(value) ? String(value) : ''; }
 export function object(value: unknown): Row { return value && typeof value === 'object' && !Array.isArray(value) ? value as Row : {}; }
 export function proseText(value: string) { return value.replace(/([\p{Script=Han}])[ \t]*\r?\n[ \t]*(?=\p{Script=Han})/gu, '$1'); }
+
+export function evidenceSources(finding: PaperLintFinding, row?: Row) {
+  const anchors = finding.anchors || [];
+  const storedEvidence = objects(finding.evidence);
+  const storedAbstract = storedEvidence.find(entry => text(entry.id).startsWith('abstract-'));
+  const abstractAnchor = anchors.find(anchor => anchor.anchor_id.startsWith('abstract-') || /摘要/.test(anchor.label || ''));
+  const candidates = objects(row?.evidence).filter(entry => text(entry.quote));
+  const storedQuotes = storedEvidence.filter(entry => entry !== storedAbstract && text(entry.quote));
+  const legacyEvidence = anchors.filter(anchor => anchor !== abstractAnchor)
+    .map(anchor => ({ quote: anchor.location.text_excerpt || '', candidate_id: anchor.anchor_id }));
+  const matchingQuoteAnchor = anchors.find(anchor => anchor !== abstractAnchor && text(anchor.location.text_excerpt) === text(row?.evidence_quote));
+  const evidence: Row[] = candidates.length ? candidates : text(row?.evidence_quote)
+    ? [{ quote: row!.evidence_quote, candidate_id: matchingQuoteAnchor?.anchor_id || '' }] : storedQuotes.length ? storedQuotes : legacyEvidence;
+  return { anchors, storedAbstract, abstractAnchor, evidence };
+}
 
 
 export function evidenceSummary(analysis: string, index: number, quote: string, metric: string) {

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { numericHighlightTerms, refineNumericAnnotations } from '../src/components/paperLint/numericHighlight';
+import { numericHighlightFocus, numericHighlightTerms, refineNumericAnnotations } from '../src/components/paperLint/numericHighlight';
 import { PdfOverlay } from '../src/components/paperLint/PdfOverlay';
 import type { PaperLintPdfAnnotation } from '../src/components/paperLint/geometry';
 import type { PaperLintFindingItem } from '../src/components/paperLint/model';
@@ -116,6 +116,27 @@ it('keeps PDF coordinates correct after zoom',()=>{
 it('does not paint broad source regions while the text layer is unavailable',()=>{
   const element=document.createElement('div');
   expect(refineNumericAnnotations(element,[annotation()])[0].rects).toEqual([]);
+});
+it('keeps the saved figure region highlighted even without extractable text',()=>{
+  const source={...annotation([]),focusRegion:true};
+  const result=refineNumericAnnotations(document.createElement('div'),[source])[0];
+  expect(result.rects).toEqual([source.boundingRect]);
+});
+it('uses region highlighting only for evidence displayed as a graph or unreadable table',()=>{
+  const finding=item(), row=(finding.ruleRun.params!.numeric_results as any[])[0];
+  const anchor={anchor_id:'d1:t1',location:{page_number:53}} as any;
+  row.evidence=[{candidate_id:'d1:t1',quote:'Text Tasks | | | | | | | | |'}];
+  expect(numericHighlightFocus(finding,anchor)).toEqual({terms:[],region:true});
+  row.evidence[0].quote='本方法的误差为3.57 m。';
+  expect(numericHighlightFocus(finding,anchor)?.region).toBe(false);
+  expect(numericHighlightFocus(finding,{...anchor,anchor_id:'abstract-d1'})?.region).toBe(false);
+});
+it('also highlights a legacy graph recovered from the saved finding evidence',()=>{
+  const finding=item(); finding.ruleRun.params={};
+  const quote='Figure data | | | | | | |';
+  finding.finding.anchors=[{anchor_id:'d1:t1',role:'source_span',location:{type:'pdf_page',page_number:53,text_excerpt:quote}}];
+  finding.finding.evidence=[{id:'d1:t1',kind:'source_span',quote}];
+  expect(numericHighlightFocus(finding,finding.finding.anchors[0])).toEqual({terms:[],region:true});
 });
 it('preserves other rules and their existing geometry',()=>{
   const other={...annotation(),ruleId:'sjtu_rule_24'};

@@ -14,6 +14,8 @@ The renderer does not change finding counts, filters, report JSON, source anchor
 
 The claim content and each evidence content region are clickable and keyboard accessible, using their exact existing source anchors. Keep the labelled source buttons alongside them. Numeric highlights use the same presentation content and selected-language analysis as the card, measured against PDF.js native text glyphs. Never replace an unresolved or ambiguous value with a paragraph-sized fill. Recycled text layers are measured again; translation updates refresh highlights without resetting the reader.
 
+When the evidence card directs the reader to an unreadable figure or table, highlight its saved source region with a light tint and border, including when the figure has no native text. This exception applies only to those visual evidence entries; text evidence keeps precise value highlights.
+
 ## Design basis
 
 Use short, decision-relevant facts and progressive disclosure for secondary analysis, following [NN/g](https://www.nngroup.com/articles/progressive-disclosure/) and [GOV.UK](https://design-system.service.gov.uk/components/details/). Evidence entries themselves remain visible as requested.
