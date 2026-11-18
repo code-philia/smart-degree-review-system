@@ -60,7 +60,7 @@ export function BatchReportExportDialog({reports, disabled, onBusyChange}: Props
         </button>)}</div>
       {pending ? <div className="rounded-xl border border-brand-100 bg-brand-50/60 px-3 py-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p role="status" className="flex items-center gap-2 text-sm text-brand-700"><LoaderCircle className="size-4 animate-spin"/>正在打包报告：{completed} / {reports.length}</p>
+          <p role="status" className="flex items-center gap-2 text-sm text-brand-700"><LoaderCircle className="size-4 animate-spin"/>{`正在打包报告：${completed} / ${reports.length}`}</p>
           <Button type="button" size="sm" variant="ghost" onClick={cancel}>取消导出</Button>
         </div>
         <progress aria-label="报告导出进度" value={completed} max={reports.length} className="mt-2 h-1.5 w-full accent-brand-600"/>

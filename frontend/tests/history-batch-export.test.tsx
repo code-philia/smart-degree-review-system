@@ -38,9 +38,19 @@ it('cancels without downloading and keeps the chosen export language after switc
   let resolve!:(value:any)=>void;vi.mocked(createBatchReportFile).mockReturnValue(new Promise(r=>{resolve=r;}));
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('button',{name:'导出 PDF'}));
   act(()=>setLocale('en'));
+  expect(within(screen.getByRole('dialog')).getByRole('status')).toHaveTextContent('Packaging reports: 0 / 8');
   const options=vi.mocked(createBatchReportFile).mock.calls[0][2];expect(options?.locale).toBe('zh');
   fireEvent.click(screen.getByRole('button',{name:'Cancel export'}));
   expect(options?.signal?.aborted).toBe(true);
   await act(async()=>resolve({filename:'cancelled.zip',blob:new Blob()}));
   expect(downloadReportFile).not.toHaveBeenCalled();
+});
+it('localizes the complete English selection and export flow while preserving thesis filenames',()=>{
+  setLocale('en');render(<History/>);
+  fireEvent.click(screen.getByRole('button',{name:'Manage records',exact:true}));
+  fireEvent.click(screen.getByRole('button',{name:'Select all reports',exact:true}));
+  fireEvent.click(screen.getByRole('button',{name:'Export selected (8)',exact:true}));
+  const dialog=screen.getByRole('dialog',{name:'Export selected reports'});
+  expect(within(dialog).getByText('8 reports selected')).toBeVisible();
+  expect(within(dialog).getByRole('button',{name:'Export Text'})).toBeEnabled();
 });

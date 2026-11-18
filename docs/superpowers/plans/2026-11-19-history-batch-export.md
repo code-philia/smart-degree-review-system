@@ -16,7 +16,7 @@ Reuse the six single-report export formats and their saved-report model. Fetch t
 - [x] Add failing ZIP tests: unique names, saved contents, sequential calls, saved suggestions, failure, cancellation and size bound.
 - [x] Implement selection controls, shared format choices, a batch dialog, and bounded ZIP utility.
 - [x] Verify bilingual UI, cancellation, stable language and existing selection/deletion/export tests; build production.
-- [ ] Obtain a fresh independent whole-change review; fix substantive findings and rerun affected tests.
+- [x] Obtain a fresh independent whole-change review; fix substantive findings and rerun affected tests.
 - [ ] Merge/push main, standard check/prepare/deploy, preserve existing DB/PDF/config/WIP state, and verify public resources plus real history selection/download without running detection.
 
 ## Ledger
@@ -25,3 +25,5 @@ Reuse the six single-report export formats and their saved-report model. Fetch t
 - Implementation choice: ZIP of individual exports, preserving existing format and language behavior. Fail the batch visibly instead of silently excluding reports.
 
 - Verification: 9 new behavior tests failed before implementation, then passed. Related 15 suites / 125 tests passed. Production build passed. Targeted typecheck exposed one new locale annotation error, corrected; the existing model.ts and layout.ts diagnostics are outside this change and retained.
+
+- Review: independent whole-branch review found zero Critical/Important findings and one minor English progress issue. Added a failing assertion, fixed the split text, then 15 suites / 126 tests passed, including a complete English selection/export flow.
