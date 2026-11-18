@@ -13,7 +13,10 @@ function History(){const [selected,setSelected]=useState<string[]>([]);return <M
 beforeEach(()=>{setLocale('zh');vi.clearAllMocks();vi.mocked(createBatchReportFile).mockResolvedValue({filename:'reports.zip',blob:new Blob(['zip'])});});
 function show(){render(<History/>);fireEvent.click(screen.getByRole('button',{name:'批量管理',exact:true}));}
 it('distinguishes page selection from all-report selection and keeps the latter across pages',()=>{
-  show();fireEvent.click(screen.getByRole('button',{name:'全选本页',exact:true}));
+  show();
+  expect(screen.queryByRole('button',{name:'全选本页',exact:true})).not.toBeInTheDocument();
+  expect(screen.getAllByRole('button',{name:'完成管理',exact:true})).toHaveLength(1);
+  fireEvent.click(screen.getByRole('checkbox',{name:'全选报告',exact:true}));
   expect(screen.getByRole('button',{name:'导出选中（5）'})).toBeEnabled();
   fireEvent.click(screen.getByRole('button',{name:'全选全部报告',exact:true}));
   expect(screen.getByRole('button',{name:'导出选中（8）'})).toBeEnabled();

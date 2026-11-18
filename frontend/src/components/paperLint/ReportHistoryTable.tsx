@@ -12,6 +12,7 @@ import {BatchReportExportDialog} from './BatchReportExportDialog';
 const pageControlClassName = 'inline-flex size-9 shrink-0 items-center justify-center rounded-lg border text-sm font-medium tabular-nums transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none';
 
 const rowActionClassName = 'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-2 text-sm font-normal leading-6 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
+const batchSecondaryClassName = 'inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg px-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed disabled:text-slate-300 motion-reduce:transition-none';
 
 
 type ReportHistoryTableProps = {
@@ -128,25 +129,28 @@ export function ReportHistoryTable({
           onClick={() => managing ? finishManaging() : setManaging(true)}
           className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 aria-expanded:border-brand-200 aria-expanded:bg-brand-50 aria-expanded:text-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
         >
-          <ListChecks aria-hidden="true" className="size-4" />批量管理
+          {managing ? <Check aria-hidden="true" className="size-4" /> : <ListChecks aria-hidden="true" className="size-4" />}
+          {managing ? '完成管理' : '批量管理'}
         </button>
       </div>
       {managing ? (
-        <div role="region" aria-label="批量管理" className="mx-5 mb-4 mt-4 flex animate-in flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-100 bg-brand-50/60 px-4 py-3 duration-200 fade-in-0 slide-in-from-top-2 motion-reduce:animate-none">
-          <p className="text-sm text-slate-600" aria-live="polite"><RichMessage name="history-selected" count={selectedReportIds.length}>已选择 <span className="font-semibold text-slate-900">{selectedReportIds.length}</span> 份报告</RichMessage></p>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" variant="ghost" disabled={deleting || !visibleIds.length} onClick={() => selectPage(true)}>全选本页</Button>
-            <Button size="sm" variant="ghost" disabled={deleting || !filteredReports.length}
-              aria-pressed={filteredReports.length > 0 && filteredReports.every(record => selectedReportIds.includes(record.id))}
+        <div role="region" aria-label="批量管理" className="mx-6 mb-5 flex animate-in flex-col gap-3 rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 duration-200 fade-in-0 motion-reduce:animate-none sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+            <button type="button" className={batchSecondaryClassName} disabled={deleting || !filteredReports.length}
               onClick={() => onSelectionChange([...new Set([...selectedReportIds, ...filteredReports.map(record => record.id)])])}>
+              <ListChecks aria-hidden="true" className="size-4" />
               {filtering ? '全选搜索结果' : '全选全部报告'}
-            </Button>
-            <Button size="sm" variant="ghost" disabled={deleting || !selectedReportIds.length} onClick={() => onSelectionChange([])}>清空选择</Button>
+            </button>
+            <span aria-hidden="true" className="h-4 w-px bg-slate-200" />
+            <p className="whitespace-nowrap text-sm tabular-nums text-slate-500" aria-live="polite"><RichMessage name="history-selected" count={selectedReportIds.length}>已选择 <span className="font-semibold text-slate-900">{selectedReportIds.length}</span> 份报告</RichMessage></p>
+            {selectedReportIds.length ? <button type="button" className={batchSecondaryClassName} disabled={deleting} onClick={() => onSelectionChange([])}>清空选择</button> : null}
+          </div>
+          <div className="flex items-center gap-2 sm:ml-auto sm:shrink-0">
             <BatchReportExportDialog reports={reports.filter(record => selectedReportIds.includes(record.id))} disabled={deletingReports} onBusyChange={setExporting}/>
-            <Button size="sm" variant="ghost" disabled={deleting} onClick={finishManaging}><Check className="size-3.5" />完成管理</Button>
-            <Button size="sm" variant="danger" disabled={deleting || !selectedReportIds.length} onClick={() => onDelete(selectedReportIds, true)}>
-              <Trash2 className="size-3.5" />删除选中（{selectedReportIds.length}）
-            </Button>
+            <button type="button" aria-label={`删除选中（${selectedReportIds.length}）`} disabled={deleting || !selectedReportIds.length} onClick={() => onDelete(selectedReportIds, true)}
+              className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 text-sm font-medium text-red-600 transition-colors hover:border-red-200 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500 disabled:cursor-not-allowed disabled:bg-white disabled:text-slate-300 sm:flex-none">
+              <Trash2 aria-hidden="true" className="size-4" />删除选中
+            </button>
           </div>
         </div>
       ) : null}

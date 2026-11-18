@@ -41,8 +41,9 @@ export function BatchReportExportDialog({reports, disabled, onBusyChange}: Props
     if (active.current && !next) return;
     setOpen(next); setError(null); setSuccess(null);
   }}>
-    <DialogTrigger asChild><Button size="sm" disabled={disabled || !reports.length}>
-      <Download className="size-3.5"/>导出选中（{reports.length}）
+    <DialogTrigger asChild><Button size="sm" disabled={disabled || !reports.length} aria-label={`导出选中（${reports.length}）`}
+      className="h-9 flex-1 gap-2 rounded-lg border border-transparent bg-brand-600 px-3.5 text-sm font-medium text-white shadow-none hover:bg-brand-700 disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:opacity-100 sm:flex-none">
+      <Download aria-hidden="true" className="size-4"/>导出选中
     </Button></DialogTrigger>
     <DialogContent data-i18n-export="" className="top-[50dvh] left-[50vw] max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl"
       onEscapeKeyDown={event => {if (active.current) event.preventDefault();}}

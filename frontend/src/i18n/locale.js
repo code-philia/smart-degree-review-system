@@ -7,7 +7,7 @@ import {RULE_COPY} from './rule-copy';
 export const COPY={...SUPPLEMENTAL_COPY,...exportLabels,...legacy,
  '论点':'Claim','论据':'Evidence','不一致处':'Discrepancy',
  '全选全部报告':'Select all reports','全选搜索结果':'Select search results','清空选择':'Clear selection',
- '批量导出报告':'Export selected reports','报告导出进度':'Report export progress',
+ '批量导出报告':'Export selected reports','报告导出进度':'Report export progress','导出选中':'Export selected','删除选中':'Delete selected',
  '选择导出格式，所有选中报告将打包为一个 ZIP 文件。':'Choose a format. All selected reports will be downloaded together in one ZIP file.',
  '本次核验字段':'Fields checked','其他已存定位':'Other saved source locations',
  '原文数据':'Source values',
