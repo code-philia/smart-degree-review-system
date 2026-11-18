@@ -18,6 +18,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthSession } from '../auth/AuthSessionProvider';
 import { Avatar, AvatarFallback } from '../components/shadcn/avatar';
 import { Badge } from '../components/shadcn/badge';
+import { Button } from '../components/shadcn/button';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -124,10 +125,9 @@ function NavigationGroup({
   );
 }
 
-function AccountMenu({ onLogout, onOpenSettings }: { onLogout: () => Promise<void>; onOpenSettings: (mobile: boolean, trigger: HTMLButtonElement | null) => void }) {
+function AccountMenu({ onLogout }: { onLogout: () => Promise<void> }) {
   const { status, user } = useAuthSession();
   const { setOpenMobile, isMobile } = useSidebar();
-  const accountTriggerRef = useRef<HTMLButtonElement>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   async function handleLogout() {
@@ -174,7 +174,7 @@ function AccountMenu({ onLogout, onOpenSettings }: { onLogout: () => Promise<voi
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <SidebarMenuButton ref={accountTriggerRef} size="lg" tooltip="账户菜单" className="data-open:bg-sidebar-accent">
+            <SidebarMenuButton size="lg" tooltip="账户菜单" className="data-open:bg-sidebar-accent">
               <Avatar className="size-8 border border-sidebar-border">
                 <AvatarFallback className="bg-sidebar-primary font-semibold text-sidebar-primary-foreground">
                   {preserveText(userInitial)}
@@ -190,10 +190,6 @@ function AccountMenu({ onLogout, onOpenSettings }: { onLogout: () => Promise<voi
             <DropdownMenuLabel className="space-y-1 px-2.5 py-2.5">
               <span className="block truncate text-sm font-semibold text-popover-foreground">{preserveText(displayName)}</span>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator className="mx-1" />
-            <DropdownMenuItem onSelect={() => { setOpenMobile(false); onOpenSettings(isMobile, accountTriggerRef.current); }} className="account-menu-settings gap-2.5 rounded-lg px-2.5 py-2.5">
-              <Settings2 aria-hidden="true" />设置
-            </DropdownMenuItem>
             <DropdownMenuSeparator className="mx-1" />
             <DropdownMenuItem
               variant="destructive"
@@ -213,7 +209,7 @@ function AccountMenu({ onLogout, onOpenSettings }: { onLogout: () => Promise<voi
 
 function AppShell() {
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const settingsReturnFocusRef = useRef<HTMLElement | null>(null);
+  const settingsTriggerRef = useRef<HTMLButtonElement>(null);
   const navigationTriggerRef = useRef<HTMLButtonElement>(null);
   const { user, logout } = useAuthSession();
   const location = useLocation();
@@ -306,10 +302,7 @@ function AppShell() {
 
         <SidebarSeparator />
         <SidebarFooter className="p-2.5">
-          <AccountMenu onLogout={handleLogout} onOpenSettings={(mobile, trigger) => {
-            settingsReturnFocusRef.current = mobile ? navigationTriggerRef.current : trigger;
-            setSettingsOpen(true);
-          }} />
+          <AccountMenu onLogout={handleLogout} />
         </SidebarFooter>
         <SidebarRail aria-label="收起或展开主导航" title="收起或展开主导航" />
       </Sidebar>
@@ -344,6 +337,10 @@ function AppShell() {
               </Badge>
             </span>
             {user ? <NotificationBell userId={user.id} /> : null}
+            {user ? <Button ref={settingsTriggerRef} variant="ghost" size="sm" className="shrink-0"
+              aria-label="设置" title="设置" aria-haspopup="dialog" aria-expanded={settingsOpen} onClick={() => setSettingsOpen(true)}>
+              <Settings2 aria-hidden="true" className="size-4" /><span className="hidden sm:inline">设置</span>
+            </Button> : null}
             {user ? <SystemFeedbackDialog /> : null}
           </div>
         </header>
@@ -355,8 +352,7 @@ function AppShell() {
         </main>
       </SidebarInset>
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} onCloseAutoFocus={(event) => {
-        const trigger = settingsReturnFocusRef.current?.isConnected
-          ? settingsReturnFocusRef.current : navigationTriggerRef.current;
+        const trigger = settingsTriggerRef.current;
         if (trigger) {
           event.preventDefault();
           trigger.focus();

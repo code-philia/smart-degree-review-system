@@ -6,6 +6,16 @@ const numericRule = 'abstract_numeric_consistency_check';
 const run = (value: Partial<PaperLintRuleRun>): PaperLintRuleRun => ({ rule_id: numericRule, rule_run_id: 'run', severity: 'warning', execution_status: 'completed', outcome: 'not_applicable', findings: [], ...value });
 
 describe('execution warning feedback identities', () => {
+  it.each(['sjtu_rule_22', 'sjtu_rule_24'])('gives actionable numbering guidance when %s cannot read the reference list', rule_id => {
+    const input = run({ rule_id, execution_status: 'unsupported', outcome: 'inconclusive', message: '未可靠识别编号参考文献表' });
+    expect(genericExecutionWarnings([input])[0]).toMatchObject({
+      reason: '未可靠识别编号参考文献表',
+      suggestion: '请按国标要求对参考文献列表进行编号，确认内容完整且可读取后重新检测。',
+    });
+    expect(genericExecutionWarnings([run({ ...input, message: '检测服务超时' })])[0].suggestion)
+      .toBe('请稍后重试；如问题持续，请检查运行记录。');
+  });
+
   it('adapts each visible numeric warning to a stable, collision-free feedback target', () => {
     const rawId = `execution-warning:${numericRule}:precondition:abstract_numeric`;
     const input = run({ execution_status: 'error', findings: [{ finding_id: rawId, rule_id: numericRule, message: 'raw' }], params: { preconditions: [

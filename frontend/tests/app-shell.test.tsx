@@ -97,16 +97,21 @@ describe('AppShell shadcn layout', () => {
 });
 
 
-it('opens preferences from the account menu and restores focus after closing', async () => {
+it('opens preferences between notifications and feedback and restores focus after closing', async () => {
   const user = userEvent.setup();
   const { container } = renderShell();
   expect(container.querySelector('.app-topbar .i18n-languages')).toBeNull();
-  const account = screen.getByRole('button', { name: /student01/ });
-  await user.click(account);
-  await user.click(screen.getByRole('menuitem', { name: '设置', exact: true }));
+  const settings = screen.getByRole('button', { name: '设置', exact: true });
+  const topbar = container.querySelector('.app-topbar')!;
+  expect(topbar).toContainElement(settings);
+  const actions = [...topbar.querySelectorAll('button')].slice(-3);
+  expect(actions[0]).toHaveAccessibleName(/通知/);
+  expect(actions[1]).toBe(settings);
+  expect(actions[2]).toHaveAccessibleName('使用反馈');
+  await user.click(settings);
   expect(screen.getByRole('dialog', { name: '设置', exact: true })).toBeInTheDocument();
   await user.keyboard('{Escape}');
   await waitFor(() => expect(screen.queryByRole('dialog', { name: '设置', exact: true })).not.toBeInTheDocument());
-  await waitFor(() => expect(account).toHaveFocus());
+  await waitFor(() => expect(settings).toHaveFocus());
   expect(screen.getByRole('heading', { name: 'PDF 检测内容' })).toBeInTheDocument();
 });
