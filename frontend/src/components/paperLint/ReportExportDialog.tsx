@@ -1,7 +1,7 @@
 import { preserveText } from "../../i18n/jsx-runtime";
 import { getLocale } from '../../i18n/locale.js';
 import { useEffect, useRef, useState } from 'react';
-import { Braces, Check, Download, FileImage, FileText, FileType2, FileDown, LoaderCircle } from 'lucide-react';
+import { Check, Download, LoaderCircle } from 'lucide-react';
 import type { PaperLintDocumentMetrics, PaperLintRule, PaperLintRunResponse } from '../../api/paperLint';
 import { fetchPaperLintRepairSuggestionHistory, type RepairSuggestion } from '../../api/repairSuggestions';
 import { Button } from '../shadcn/button';
@@ -9,29 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { buildExportReport } from '../../utils/reportExport/model';
 import { createReportFile, downloadReportFile, type ReportExportFormat } from '../../utils/reportExport/formats';
 
-const formats = [
-  { id: 'pdf', label: 'PDF', icon: FileDown, color: 'text-rose-600 bg-rose-50' },
-  {
-    id: 'markdown',
-    label: 'Markdown',
-    icon: FileType2,
-    color: 'text-indigo-600 bg-indigo-50',
-  },
-  { id: 'text', label: '文本', icon: FileText, color: 'text-amber-600 bg-amber-50' },
-  {
-    id: 'docx',
-    label: 'Docx',
-    icon: FileText,
-    color: 'text-blue-600 bg-blue-50',
-  },
-  {
-    id: 'image',
-    label: '图片',
-    icon: FileImage,
-    color: 'text-emerald-600 bg-emerald-50',
-  },
-  { id: 'json', label: 'Json', icon: Braces, color: 'text-orange-600 bg-orange-50' },
-] as const;
+import {REPORT_EXPORT_FORMATS} from './reportExportFormats';
 
 type Props = {
   report: PaperLintRunResponse;
@@ -131,7 +109,7 @@ export function ReportExportDialog({ report, rules, metrics, repairs = {} }: Pro
           <p className="break-all text-center text-sm font-medium text-slate-800">{preserveText(report.source_filename)}</p>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {formats.map(({ id, label, icon: Icon, color }) => (
+          {REPORT_EXPORT_FORMATS.map(({ id, label, icon: Icon, color }) => (
             <button
               key={id}
               type="button"

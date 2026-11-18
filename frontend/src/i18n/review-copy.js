@@ -147,6 +147,10 @@ export const REVIEW_COPY={
 };
 const noun=(n,s,p=s+'s')=>Number(n)===1?s:p;
 export function reviewPatterns(t){return [
+ [/^导出选中（(\d+)）$/,(_,n)=>`Export selected (${n})`],
+ [/^已选择 (\d+) 份报告$/,(_,n)=>`${n} ${noun(n,'report')} selected`],
+ [/^已打包 (\d+) 份报告$/,(_,n)=>`${n} ${noun(n,'report')} packaged`],
+ [/^正在打包报告：(\d+) \/ (\d+)$/,(_,n,total)=>`Packaging reports: ${n} / ${total}`],
  [/^剩余 (\d+) \/ (\d+) 次$/,(_,n,limit)=>`${n} / ${limit} remaining`],
  [/^论文编译校验未通过，所选 (\d+) 条论文规则全部未执行。$/,(_,n)=>`The document failed validation. No thesis checks were run (${n} selected).`],
  [/^请输入 1–(\d+) 范围内的整数页码。$/,(_,n)=>`Enter a whole-number page from 1 to ${n}.`],

@@ -138,7 +138,7 @@ it('preserves selection across pages and selects or clears only the current page
   fireEvent.click(screen.getByRole('checkbox', { name: '选择报告：论文-01.pdf' }));
   fireEvent.click(screen.getByRole('button', { name: '下一页' }));
   const selectPage = screen.getByRole('checkbox', { name: '全选报告' });
-  expect(screen.getByText('全选本页')).toBeInTheDocument();
+  expect(screen.getByRole('button', {name:'全选本页', exact:true})).toBeInTheDocument();
   expect(selectPage).not.toBeChecked();
   fireEvent.click(selectPage);
   expect(screen.getByRole('button', { name: '删除选中（11）' })).toBeEnabled();

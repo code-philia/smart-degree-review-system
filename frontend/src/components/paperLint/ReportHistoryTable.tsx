@@ -7,6 +7,7 @@ import { ArrowUpRight, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Rotate
 import type { PaperLintReportListItem } from '../../api/paperLint';
 import { formatChinaDateTime } from '../../utils/dateTime';
 import { Button } from '../ui';
+import {BatchReportExportDialog} from './BatchReportExportDialog';
 
 const pageControlClassName = 'inline-flex size-9 shrink-0 items-center justify-center rounded-lg border text-sm font-medium tabular-nums transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none';
 
@@ -27,9 +28,11 @@ export function ReportHistoryTable({
   historyPath,
   selectedReportIds,
   onSelectionChange,
-  deleting,
+  deleting: deletingReports,
   onDelete,
 }: ReportHistoryTableProps) {
+  const [exporting, setExporting] = useState(false);
+  const deleting = deletingReports || exporting;
   const titleId = useId();
   const managementTriggerRef = useRef<HTMLButtonElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -131,7 +134,15 @@ export function ReportHistoryTable({
       {managing ? (
         <div role="region" aria-label="批量管理" className="mx-5 mb-4 mt-4 flex animate-in flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-100 bg-brand-50/60 px-4 py-3 duration-200 fade-in-0 slide-in-from-top-2 motion-reduce:animate-none">
           <p className="text-sm text-slate-600" aria-live="polite"><RichMessage name="history-selected" count={selectedReportIds.length}>已选择 <span className="font-semibold text-slate-900">{selectedReportIds.length}</span> 份报告</RichMessage></p>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" variant="ghost" disabled={deleting || !visibleIds.length} onClick={() => selectPage(true)}>全选本页</Button>
+            <Button size="sm" variant="ghost" disabled={deleting || !filteredReports.length}
+              aria-pressed={filteredReports.length > 0 && filteredReports.every(record => selectedReportIds.includes(record.id))}
+              onClick={() => onSelectionChange([...new Set([...selectedReportIds, ...filteredReports.map(record => record.id)])])}>
+              {filtering ? '全选搜索结果' : '全选全部报告'}
+            </Button>
+            <Button size="sm" variant="ghost" disabled={deleting || !selectedReportIds.length} onClick={() => onSelectionChange([])}>清空选择</Button>
+            <BatchReportExportDialog reports={reports.filter(record => selectedReportIds.includes(record.id))} disabled={deletingReports} onBusyChange={setExporting}/>
             <Button size="sm" variant="ghost" disabled={deleting} onClick={finishManaging}><Check className="size-3.5" />完成管理</Button>
             <Button size="sm" variant="danger" disabled={deleting || !selectedReportIds.length} onClick={() => onDelete(selectedReportIds, true)}>
               <Trash2 className="size-3.5" />删除选中（{selectedReportIds.length}）
