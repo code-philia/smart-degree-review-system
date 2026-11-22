@@ -980,10 +980,10 @@ def detect_ir(ir, selected_rules=RULES):
             if not markers and not alternate_style and not re.search(r'[\[［](?:硕士|博士|学位).{0,4}论文[\]］]', text) and _YEAR.search(re.sub(r'https?://\S+', '', text)) and len(compact(text)) >= 25:
                 reason = '缺少完整的方括号文献类型标记'
             elif markers and not any(m.group(1).upper() in _CODES and (not m.group(2) or m.group(2).upper() in _MEDIA) for m in markers):
-                reason = '文献类型或载体标记不在国标代码表中'
+                reason = '按最新参考文献标准GB/T 7714-2025，文献类型或载体标记不在国标代码表中'
             if reason:
                 results['31']['findings'].append(_finding(ir, 31, node, reason, '文献类型标记',
-                    '请按实际著录资源核对并补齐类型标记；期刊用[J]、会议论文用[C]等，不能仅凭访问网址改变资源类型。'))
+                    '可按最新国家标准根据实际著录资源核对并补齐类型标记，所有参考文献标准统一用GB/T 7714-2025或GB/T 7714-2015，该检测项为质量优化建议，不属于强制校验红线，后续学校模版会做同步更新'))
     if 36 in selected_rules:
         body_start = _body_start_page(ir)
         keyword_blocks = 0

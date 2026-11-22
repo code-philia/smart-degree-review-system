@@ -17,6 +17,18 @@ async function toReport(row, { includeResult = true } = {}) {
   if (includeResult) await hydratePaperLintEvidenceLocations(parsedResult, row.source_pdf_path);
   // A missing section has no original sentence or precise PDF location.
   for (const rule of parsedResult.rule_runs || []) {
+    // Update legacy default copy in responses only; stored findings, source
+    // locations and user-specific suggestions retain their original values.
+    if (rule.rule_id === 'sjtu_rule_31') {
+      for (const finding of rule.findings || []) {
+        if (finding.message === '文献类型或载体标记不在国标代码表中') {
+          finding.message = '按最新参考文献标准GB/T 7714-2025，文献类型或载体标记不在国标代码表中';
+        }
+        if (finding.suggestion === '请按实际著录资源核对并补齐类型标记；期刊用[J]、会议论文用[C]等，不能仅凭访问网址改变资源类型。') {
+          finding.suggestion = '可按最新国家标准根据实际著录资源核对并补齐类型标记，所有参考文献标准统一用GB/T 7714-2025或GB/T 7714-2015，该检测项为质量优化建议，不属于强制校验红线，后续学校模版会做同步更新';
+        }
+      }
+    }
     if (rule.rule_id === 'required_section_completeness_check') {
       for (const finding of rule.findings || []) { finding.location = null; finding.anchors = []; }
     }
