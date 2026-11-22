@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -21,6 +21,7 @@ vi.mock('../src/auth/AuthSessionProvider', () => ({
 }));
 
 import AppShell from '../src/layout/AppShell';
+import { setLocale } from '../src/i18n/locale';
 
 function renderShell(path = '/paper-upload') {
   return render(
@@ -97,16 +98,43 @@ describe('AppShell shadcn layout', () => {
 });
 
 
-it('opens preferences from the account menu and restores focus after closing', async () => {
+it('opens settings between notifications and feedback and returns keyboard focus to its trigger', async () => {
   const user = userEvent.setup();
   const { container } = renderShell();
-  expect(container.querySelector('.app-topbar .i18n-languages')).toBeNull();
-  const account = screen.getByRole('button', { name: /student01/ });
-  await user.click(account);
-  await user.click(screen.getByRole('menuitem', { name: '设置', exact: true }));
+  const topbar = container.querySelector('.app-topbar') as HTMLElement;
+  const settings = within(topbar).getByRole('button', { name: '设置', exact: true });
+  const notifications = within(topbar).getByRole('button', { name: /通知/ });
+  const feedback = within(topbar).getByRole('button', { name: '使用反馈' });
+  expect(notifications.compareDocumentPosition(settings) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(settings.compareDocumentPosition(feedback) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(settings).toHaveAttribute('aria-haspopup', 'dialog');
+  settings.focus();
+  await user.keyboard('{Enter}');
   expect(screen.getByRole('dialog', { name: '设置', exact: true })).toBeInTheDocument();
+  expect(settings).toHaveAttribute('aria-expanded', 'true');
   await user.keyboard('{Escape}');
-  await waitFor(() => expect(screen.queryByRole('dialog', { name: '设置', exact: true })).not.toBeInTheDocument());
-  await waitFor(() => expect(account).toHaveFocus());
-  expect(screen.getByRole('heading', { name: 'PDF 检测内容' })).toBeInTheDocument();
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  await waitFor(() => expect(settings).toHaveFocus());
+  await user.click(screen.getByRole('button', { name: /student01/ }));
+  expect(screen.queryByRole('menuitem', { name: '设置', exact: true })).not.toBeInTheDocument();
+});
+
+it('keeps the topbar settings trigger localized and restores focus after changing language', async () => {
+  setLocale('zh');
+  const user = userEvent.setup();
+  try {
+    const { container } = renderShell();
+    const topbar = container.querySelector('.app-topbar') as HTMLElement;
+    const settings = within(topbar).getByRole('button', { name: '设置', exact: true });
+    await user.click(settings);
+    await user.click(screen.getByRole('button', { name: 'English', exact: true }));
+    expect(settings).toHaveAttribute('title', 'Settings');
+    expect(settings).toHaveAttribute('aria-label', 'Settings');
+    expect(screen.getByRole('dialog', { name: 'Settings', exact: true })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Done', exact: true }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() => expect(settings).toHaveFocus());
+    expect(within(topbar).getByRole('button', { name: /Notifications/ })).toBeInTheDocument();
+    expect(within(topbar).getByRole('button', { name: 'Feedback', exact: true })).toBeInTheDocument();
+  } finally { act(() => setLocale('zh')); }
 });
