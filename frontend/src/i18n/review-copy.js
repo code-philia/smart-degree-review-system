@@ -1,5 +1,7 @@
 /* Reviewed student-facing English. Chinese source copy remains unchanged. */
 export const REVIEW_COPY={
+ '缺少学术论文和科研成果目录：未在论文正文中识别到该章节。':'The list of academic publications and research achievements is missing: no matching section was identified in the thesis text.',
+ '请补齐或核对学术论文和科研成果目录；依据学校学位论文模板规范。':'Add or check the list of academic publications and research achievements, following the university thesis template requirements.',
  '中文关键词数量':'Chinese keyword count',
  '英文关键词数量':'English keyword count',
  '请将关键词调整为 3—8 个，并用分号分隔；依据 GB/T 7713.1—2025 附录 A、表 A.1。':'Consider adjusting this keyword list to 3–8 entries, separated by semicolons, following Appendix A, Table A.1 of GB/T 7713.1—2025.',

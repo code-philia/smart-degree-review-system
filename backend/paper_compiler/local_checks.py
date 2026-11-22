@@ -7,6 +7,13 @@ RULES = (31, 34, 35, 36, 37, 38)  # execution keys only; public titles have no r
 _CHAPTER = re.compile(r'^(?:第[一二三四五六七八九十百0-9]+[章篇]|chapter\d+|\d+(?:[.．]\d+)*[.．、]?)(?:[:：]|[-–—])?', re.I)
 _INTRO = re.compile(r'^(?:绪论|绪言|引言|引论|简介|introduction(?:andcontextualization)?)$', re.I)
 _CONCLUSION = re.compile(r'^(?:(?:课题|全文|研究|工作|论文)?(?:总结|结论)(?:[与和及](?:未来)?(?:展望|工作|建议|讨论))?|总结|结论|总结[与和及](?:未来)?展望|结论[与和及](?:未来)?展望|总结[与和及]未来工作|研究结论|全文总结|研究总结|研究成果总结|总结展望|结论及建议|结语|结束语|conclusions?(?:andfuturework)?|summary(?:and(?:futurework|outlook))?)$', re.I)
+_ACHIEVEMENTS = re.compile(
+    r'^(?:(?:学术)?论文[和与及]科研成果(?:目录|清单)?|'
+    r'发表论文[和与及]参加科研情况说明|'
+    r'(?:作者简介及)?(?:攻读(?:硕士|博士)?(?:学位)?期间|作者在学期间)'
+    r'(?:(?:已|所)?发表(?:的|或录用的)?(?:学术)?论文(?:目录|清单)?|'
+    r'(?:学术)?论文[和与及]科研成果(?:目录|清单)?|(?:取得的|的)?(?:研究|科研|学术)成果(?:目录|清单)?)|'
+    r'(?:listof)?(?:(?:academic|research)?publications(?:and(?:research)?achievements)?|(?:research)?achievements))$', re.I)
 _TYPE = re.compile(r'[\[［]\s*([A-Za-z]{1,3})(?:\s*/\s*([A-Za-z]{1,2}))?\s*[\]］]')
 _CODES = set('M J N C D R S P EB A CM DS PP G GI CP DB Z'.split())
 _MEDIA = {'MT', 'DK', 'CD', 'OL', 'MM'}
@@ -314,6 +321,60 @@ def current_abstract_sections(ir, visual_rows=None):
     return abstract_sections([visible_pages[index] for index in sorted(visible_pages)], profile)
 
 
+def _achievement_directory(ir, visual_rows):
+    """Require a live native heading, excluding contents and citation subtrees."""
+    by_id = {node['id']: node for node in ir['nodes']}
+    def descendants(kinds):
+        pending = [node['id'] for node in ir['nodes'] if node['kind'] in kinds]
+        excluded = set()
+        while pending:
+            nid = pending.pop()
+            if nid not in excluded:
+                excluded.add(nid)
+                pending.extend(by_id[nid]['children'])
+        return excluded
+    blocked = descendants({'ToC', 'ToCEntry', 'UnknownBlock', 'Figure', 'Table',
+                           'Caption', 'Equation', 'MathExpression'})
+    excluded = blocked | descendants({'BibliographyEntry'})
+    if any(node['id'] not in excluded and node['kind'] == 'Heading'
+           and _ACHIEVEMENTS.fullmatch(compact(text))
+           for _, _, text, node in visual_rows):
+        return True
+    # An unfamiliar back heading can remain inside a bibliography entry in the
+    # shared IR. Recover only its live, independently displayed native title;
+    # do not change bibliography boundaries or any other detector's view.
+    pages = {page['page_index']: page for page in ir['layout']['pages']}
+    sizes = [line['font_size'] for page in pages.values() for line in page.get('lines', [])
+             if len(compact(line['text'])) >= 20 and not _ACHIEVEMENTS.fullmatch(compact(line['text']))]
+    normal = median(sizes) if sizes else 0
+    if not normal:
+        return False
+    for node in ir['nodes']:
+        if node['kind'] not in {'Paragraph', 'BibliographyEntry'} or not node['text']:
+            continue
+        # Bibliography entries are eligible only for this geometric recovery;
+        # a contents/table/header ancestor is never eligible.
+        if node['id'] in blocked:
+            continue
+        for span in node['provenance']:
+            if span.get('kind') != 'source':
+                continue
+            text = node['text'][span.get('node_text_start', 0):span.get('node_text_end', len(node['text']))]
+            if not _ACHIEVEMENTS.fullmatch(compact(text)):
+                continue
+            page = pages[span['page_index']]
+            lines = page.get('lines', [])
+            position = next((i for i, line in enumerate(lines) if line.get('id') == span.get('line_id')), None)
+            if position is None:
+                continue
+            line = lines[position]
+            if (compact(line['text']) == compact(text) and line['font_size'] >= normal * 1.22
+                    and page['height'] * .09 <= line['bbox'][1] < page['height'] * .9
+                    and (position == 0 or line['bbox'][1] - lines[position-1]['bbox'][3] >= normal * .8)):
+                return True
+    return False
+
+
 def core_parts(ir, *, abstracts=None):
     visual_rows = rows(ir)
     abstracts = current_abstract_sections(ir, visual_rows) if abstracts is None else abstracts
@@ -342,6 +403,7 @@ def core_parts(ir, *, abstracts=None):
                         for child in (by_id[nid] for nid in node['children'])) for node in ir['nodes']),
         '结论': any(_CONCLUSION.fullmatch(text) for text in headings),
         '参考文献': 'Bibliography' in kinds,
+        '学术论文和科研成果目录': profile == 'research-article' or _achievement_directory(ir, visual_rows),
     }
 
 
@@ -862,13 +924,14 @@ def detect_ir(ir, selected_rules=RULES):
         parts = core_parts(ir, abstracts=abstracts)
         profile = ir.get('metadata', {}).get('document_admission', {}).get('structure', {}).get('profile', 'chinese-thesis')
         checked = [part for part, present in parts.items() if present is True or complete
-                   or (core_complete and part not in {'原创性声明', '使用授权说明'})]
+                   or (core_complete and part not in {'原创性声明', '使用授权说明', '学术论文和科研成果目录'})]
         results['34']['checked_parts'] = checked
         results['34']['findings'] = [_finding(ir, 34, anchor,
             f'{section_display_name(part, profile)}不完整：' + '；'.join(abstracts[part]['issues']) + '。'
             if abstracts.get(part, {}).get('status') == 'incomplete'
             else f'缺少{section_display_name(part, profile)}：未在论文正文中识别到该章节。', part,
-            f'请补齐或核对{section_display_name(part, profile)}；依据 GB/T 7713.1—2025 附录 A、表 A.1。')
+            f'请补齐或核对{part}；依据学校学位论文模板规范。' if part == '学术论文和科研成果目录'
+            else f'请补齐或核对{section_display_name(part, profile)}；依据 GB/T 7713.1—2025 附录 A、表 A.1。')
             for part, present in parts.items() if present is False and part in checked]
     if 35 in selected_rules:
         pages = {page['page_index']: page for page in ir['layout']['pages']}

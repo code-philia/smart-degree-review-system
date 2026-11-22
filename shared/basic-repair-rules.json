@@ -97,7 +97,7 @@
   {
     "rule_id": "required_section_completeness_check",
     "title": "核心章节完整性",
-    "description": "检查摘要、关键词、目录和参考文献等核心章节。"
+    "description": "按国标和学校规范检查论文必备组成部分，兼容空格与拆字标题。"
   },
   {
     "rule_id": "page_number_sequence_check",

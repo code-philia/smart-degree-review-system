@@ -56,9 +56,9 @@ export const RULE_ENGLISH = [
   },
   {
     id:'required_section_completeness_check', title:'Required thesis sections',
-    description:'Check the required thesis sections with national standards',
+    description:'Check the required thesis sections against national and university standards, allowing for spaced and split-character headings.',
     titles:['核心章节完整性'],
-    descriptions:['按国标检查论文必备组成部分，兼容空格与拆字标题。','核对学位论文的必备组成部分，按内容而非字面标题识别。'],
+    descriptions:['按国标和学校规范检查论文必备组成部分，兼容空格与拆字标题。','按国标检查论文必备组成部分，兼容空格与拆字标题。','核对学位论文的必备组成部分，按内容而非字面标题识别。','检查摘要、关键词、目录和参考文献等核心章节。'],
   },
   {
     id:'chinese_english_symbol_mix_check', title:'Chinese/English punctuation',

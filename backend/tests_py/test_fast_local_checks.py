@@ -36,6 +36,7 @@ def sample_ir():
     add('bibliography', 'Bibliography', None, 7)
     add('bib-heading', 'Heading', '参考文献', 7, parent='bibliography')
     add('ref1', 'BibliographyEntry', '[1] WANG A. A useful paper[J]. Journal of Tests, 2020, 3: 1-9.', 7, 140, parent='bibliography')
+    add('achievements-heading', 'Heading', '学术论文和科研成果目录', 7, 240)
     return {'nodes': nodes, 'layout': {'pages': [{'page_index': i, 'width': 600, 'height': 800} for i in range(8)]},
             'coverage': {'pages': {'status': 'complete'}}, 'metadata': {}}
 
