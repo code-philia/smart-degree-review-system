@@ -13,7 +13,9 @@ _MEDIA = {'MT', 'DK', 'CD', 'OL', 'MM'}
 _YEAR = re.compile(r'(?<!\d)(?:1[5-9]|20)\d{2}(?!\d)')
 _PUNCT = re.compile(r'(?<=[\u4e00-\u9fff])\s*([,;:!?])\s*(?=[\u4e00-\u9fff])')
 _ZH_PERIOD = re.compile(r'(?<=[\u4e00-\u9fff])\s*(\.)(?!\s*\.)(?=[\u4e00-\u9fff\s”’"）)]|$)')
-_KEYWORD_LABEL = re.compile(r'(?:关键词|关键字)\s*[:：]\s*(.*)', re.I | re.S)
+_KEYWORD_LABEL = re.compile(r'(?:(?:关键词|关键字)\s*[:：]|(?:^|[\r\n])\s*(?:key\s*words?|index\s+terms)\b(?:\s*[:：—–]|[ \t]+-[ \t]+|[ \t]*[\r\n]))\s*(.*)', re.I | re.S)
+_EN_KEYWORD_HEADING = re.compile(r'^\s*(?:key\s*words?|index\s+terms)\b\s*[:：—–-]?\s*$', re.I)
+_EN_KEYWORD_START = re.compile(r'^\s*(?:key\s*words?|index\s+terms)\b', re.I)
 _TERM_SPLIT = re.compile(r'[；;，,、]')
 _FRONT_TEXT = {'摘要', '中文摘要', 'abstract', '目录', '目次', 'contents', 'tableofcontents'}
 _ABSTRACT_HEADING = {'摘要', '中文摘要', '英文摘要', 'abstract'}
@@ -494,8 +496,13 @@ def _keyword_terms(text):
     m = _KEYWORD_LABEL.search(text or '')
     if not m:
         return None
-    merged = re.sub(r'[\r\n]+', '', m.group(1))
+    merged = re.sub(r'[\r\n]+', ' ' if _EN_KEYWORD_START.match(m.group(0).lstrip()) else '', m.group(1))
     return [t for t in (x.strip(' \t。.；;，,、:：') for x in _TERM_SPLIT.split(merged)) if t]
+
+
+def _english_keyword_block(text):
+    label = _KEYWORD_LABEL.search(text or '')
+    return bool(_EN_KEYWORD_START.match(label.group(0).lstrip() if label else (text or '')))
 
 
 def _keyword_block(ir, node):
@@ -511,14 +518,19 @@ def _keyword_block(ir, node):
                        and (_source(other['provenance'][0]) or {}).get('bbox', [0, -1])[1] >= box[3] - 1),
                        key=lambda item: (item[0][1], item[0][0]))
     text = node['text']
+    english = _english_keyword_block(text)
     for next_box, other in following:
         if (other['kind'] != 'Paragraph' or next_box[1] - box[3] > (box[3] - box[1]) * 1.5
                 or next_box[0] < sources[0]['bbox'][0] - 2
-                or re.search(r'[。!?！？:：]|\.\s*$', other['text'])):
+                or _KEYWORD_LABEL.search(other['text']) or _EN_KEYWORD_HEADING.fullmatch(other['text'])
+                or re.search(r'[。!?！？:：]', other['text'])
+                or (not english and re.search(r'\.\s*$', other['text']))):
             break
         text += '\n' + other['text']
         box = max((_source(span)['bbox'] for span in other['provenance'] if _source(span)),
                   key=lambda value: value[3])
+        if english and re.search(r'\.\s*$', other['text']):
+            break
     return {**node, 'text': text}
 
 
@@ -909,16 +921,18 @@ def detect_ir(ir, selected_rules=RULES):
         body_start = _body_start_page(ir)
         keyword_blocks = 0
         for node in ir['nodes']:
-            if not _KEYWORD_LABEL.search(node.get('text') or ''):
+            if not (_KEYWORD_LABEL.search(node.get('text') or '') or _EN_KEYWORD_HEADING.fullmatch(node.get('text') or '')):
                 continue
             if body_start and _node_page_index(node) >= body_start:
                 continue
             keyword_blocks += 1
             node = _keyword_block(ir, node)
             terms = _keyword_terms(node['text'])
+            if terms is None:
+                terms = []
             if not 3 <= len(terms) <= 8:
                 results['36']['findings'].append(_finding(ir, 36, node,
-                    f'关键词共 {len(terms)} 个，国标要求 3—8 个。', '关键词数量',
+                    f'关键词共{len(terms)}个，按最新国标要求关键词为3-8个，该范围为质量优化建议，不属于强制校验红线，后续学校模版会做同步更新。', '关键词数量',
                     '请将关键词调整为 3—8 个，并用分号分隔；依据 GB/T 7713.1—2025 附录 A、表 A.1。'))
         if not keyword_blocks:
             results['36'].update(status='unsupported', reason='未能检测：未可靠识别摘要中的关键词，无法检查关键词数量。')

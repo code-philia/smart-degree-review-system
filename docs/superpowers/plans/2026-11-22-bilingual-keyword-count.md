@@ -1,0 +1,11 @@
+# Bilingual keyword count
+
+Implement the existing keyword_count_check for Chinese and English lists separately; preserve the public title and the 3-8 inclusive bounds. English multiword terms remain one keyword. Recognize native keyword labels and wrapped lists before the body, stop at another label/heading, and retain source locations. Do not change other detector rules or shared PDF compilation.
+
+Use the exact requested Chinese description and finding text, including the advisory/non-mandatory wording and future school-template update. Supply deterministic English UI translations for descriptions and dynamic numeric findings so this fixed text does not require model translation. Keep old report data unchanged; do not rewrite historical reports.
+
+Validate with failing-first native PDF and translation regressions, then full related suites. Read the server's original100 archived PDFs, hash them before and after, compile IR in an isolated private cache, compare baseline/candidate local results, and manually inspect extracted English lists and any changed counts. Use only offline native parsing, no OCR/model/email calls. Add controlled keyword-count mutations of real archive IR where useful to prove under/over/boundary cases. Obtain independent review, then push main and use the unchanged external publisher with exact source and data/config preservation. Campus deployment is outside this request.
+
+Validation evidence: all100 original PDFs/10770 pages yielded100 Chinese and100 English lists, each within3-8; candidate findings0, baseline findings0, other five local rule results identical, PDF hashes unchanged. Ten in-memory mutations of real archive IR (both languages,0/2/3/8/9) passed; original result restored. Real English PDF pages were rendered and checked for wrapped multiword terms and keyword-level prose. The latter exposed an overly broad hyphen label, reproduced in a failing regression and fixed before release.
+
+Related frontend61 tests and production build passed. Native116 tests/26 subtests and backend48 tests passed after excluding existing admission-fixture failures reproduced on the exact base: one English introductory-heading case (three subtests) and one API sample-PDF case. Those fixtures and admission logic remain unchanged; this is not a claim that every repository test passes.

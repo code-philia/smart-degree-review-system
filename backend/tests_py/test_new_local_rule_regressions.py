@@ -51,7 +51,7 @@ class NewLocalRulePdfRegressions(unittest.TestCase):
     def test_too_few_wrapped_keywords_count_the_complete_list(self):
         found = self.findings(self.paper(keywords=('关键词：检测；', '论文')), 36)
         self.assertEqual(len(found), 1)
-        self.assertIn('2 个', found[0]['message'])
+        self.assertIn('关键词共2个', found[0]['message'])
 
     def test_keyword_continuations_follow_reading_order_across_indents(self):
         ir = self.paper(keywords=('关键词：检测；论文；', '规则；', '方法'),
@@ -65,7 +65,7 @@ class NewLocalRulePdfRegressions(unittest.TestCase):
     def test_too_many_wrapped_keywords_count_the_complete_list(self):
         found = self.findings(self.paper(keywords=('关键词：甲；乙；丙；丁；', '戊；己；庚；辛；壬')), 36)
         self.assertEqual(len(found), 1)
-        self.assertIn('9 个', found[0]['message'])
+        self.assertIn('关键词共9个', found[0]['message'])
 
     def test_abstract_continuation_is_checked_and_located(self):
         found = self.findings(self.paper(continuation='本文方法如图3-1所示，效果良好。'), 37)

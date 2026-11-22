@@ -1,5 +1,6 @@
 /* Reviewed student-facing English. Chinese source copy remains unchanged. */
 export const REVIEW_COPY={
+ '请将关键词调整为 3—8 个，并用分号分隔；依据 GB/T 7713.1—2025 附录 A、表 A.1。':'Consider adjusting this keyword list to 3–8 entries, separated by semicolons, following Appendix A, Table A.1 of GB/T 7713.1—2025.',
  '检测次数已用完':'Limit reached',
  '可用次数已暂占':'Slots reserved',
  '检测额度说明':'About the review allowance',
@@ -147,6 +148,7 @@ export const REVIEW_COPY={
 };
 const noun=(n,s,p=s+'s')=>Number(n)===1?s:p;
 export function reviewPatterns(t){return [
+ [/^关键词共(\d+)个，按最新国标要求关键词为3-8个，该范围为质量优化建议，不属于强制校验红线，后续学校模版会做同步更新。$/,(_,n)=>`The list contains ${n} ${noun(n,'keyword')}. The latest national standard recommends 3–8 keywords. This range is a recommendation to improve quality, not a mandatory validation requirement. The university thesis template will be updated accordingly.`],
  [/^导出选中（(\d+)）$/,(_,n)=>`Export selected (${n})`],
  [/^已选择 (\d+) 份报告$/,(_,n)=>`${n} ${noun(n,'report')} selected`],
  [/^已打包 (\d+) 份报告$/,(_,n)=>`${n} ${noun(n,'report')} packaged`],

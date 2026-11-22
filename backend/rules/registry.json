@@ -270,7 +270,7 @@
       "rule_id": "keyword_count_check",
       "number": 36,
       "title": "关键词数量",
-      "description": "检查中文关键词是否少于3个或多于8个",
+      "description": "按最新国标要求检查中英文关键词是否少于3个或多于8个。",
       "family": "local_pdf",
       "runner": "fast_local_detector",
       "execution_mode": "deterministic",

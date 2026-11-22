@@ -195,20 +195,20 @@ class FastLocalChecksTests(unittest.TestCase):
         self._keyword_node()['text'] = '关键词：a；b'
         findings = self.check(self.ir, [36])['36']['findings']
         self.assertEqual(len(findings), 1)
-        self.assertIn('2 个', findings[0]['message'])
+        self.assertIn('关键词共2个', findings[0]['message'])
 
     def test_nine_keywords_fail(self):
         self._keyword_node()['text'] = '关键词：a；b；c；d；e；f；g；h；i'
         findings = self.check(self.ir, [36])['36']['findings']
         self.assertEqual(len(findings), 1)
-        self.assertIn('9 个', findings[0]['message'])
+        self.assertIn('关键词共9个', findings[0]['message'])
 
     def test_wrapped_keyword_line_is_joined(self):
         # A wrapped line split mid-term must not split "规则检测" into two terms.
         self._keyword_node()['text'] = '关键词：规则检测\n论文；方法'
         findings = self.check(self.ir, [36])['36']['findings']
         self.assertEqual(len(findings), 1)
-        self.assertIn('2 个', findings[0]['message'])
+        self.assertIn('关键词共2个', findings[0]['message'])
 
     def test_no_keyword_block_is_not_a_finding(self):
         self._keyword_node()['text'] = None

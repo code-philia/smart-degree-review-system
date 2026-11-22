@@ -67,10 +67,10 @@ export const RULE_ENGLISH = [
     descriptions:['检查中英文正文中错误使用标点符号的情况。','检查中英文语境内错误使用标点符号的情况。'],
   },
   {
-    id:'keyword_count_check', title:'Chinese keyword count',
-    description:'Check that the Chinese keyword list contains 3–8 keywords.',
+    id:'keyword_count_check', title:'Keyword count',
+    description:'Check whether the Chinese or English keyword list contains fewer than 3 or more than 8 keywords, following the latest national standard.',
     titles:['关键词数量'],
-    descriptions:['检查中文关键词是否少于3个或多于8个','检查论文关键词是否少于3个或多于8个'],
+    descriptions:['按最新国标要求检查中英文关键词是否少于3个或多于8个。','检查中文关键词是否少于3个或多于8个','检查论文关键词是否少于3个或多于8个'],
   },
   {
     id:'abstract_object_number_check', title:'Abstract cross-references',
