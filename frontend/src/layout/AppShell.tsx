@@ -329,8 +329,8 @@ function AppShell() {
             </Breadcrumb>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="hidden shrink-0 sm:inline-flex">
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="hidden h-9 shrink-0 items-center sm:inline-flex">
               <Badge variant="outline" className="border-primary/20 bg-primary/5 text-primary">
                 <ShieldCheck aria-hidden="true" />
                 试点验证版

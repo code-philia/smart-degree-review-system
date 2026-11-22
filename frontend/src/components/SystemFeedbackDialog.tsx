@@ -82,9 +82,9 @@ export function SystemFeedbackDialog() {
   return (
     <Dialog open={open} onOpenChange={close}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm" className="shrink-0">
-          <MessageSquare className="size-4" />
-          使用反馈
+        <Button variant="ghost" size="lg" className="shrink-0 gap-2 rounded-xl text-foreground/80">
+          <MessageSquare className="size-[18px]" strokeWidth={1.8} aria-hidden="true" />
+          <span className="leading-5">使用反馈</span>
         </Button>
       </DialogTrigger>
       <DialogContent data-i18n-system-feedback="" className="max-h-[calc(100dvh-2rem)] gap-6 overflow-y-auto p-6 sm:max-w-xl">

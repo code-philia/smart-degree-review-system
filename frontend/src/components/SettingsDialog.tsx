@@ -1,6 +1,6 @@
 import { useSyncExternalStore, type ComponentProps } from 'react';
 import { useTheme } from 'next-themes';
-import { Check, CheckCircle2, Languages, Monitor, Moon, Settings2, Sun, X } from 'lucide-react';
+import { Check, CheckCircle2, Languages, Monitor, Moon, Settings, Sun, X } from 'lucide-react';
 import { getLocale, setLocale, subscribe } from '../i18n/locale';
 import { preserveText } from '../i18n/jsx-runtime';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './shadcn/dialog';
@@ -19,7 +19,7 @@ export function SettingsDialog({open,onOpenChange,onCloseAutoFocus}:{open:boolea
     <DialogContent showCloseButton={false} onCloseAutoFocus={onCloseAutoFocus} className="preferences-dialog flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[520px]">
       <DialogClose asChild><Button type="button" variant="ghost" size="icon-sm" className="absolute top-3 right-3" aria-label="关闭"><X size={16} aria-hidden="true"/></Button></DialogClose>
       <DialogHeader className="preferences-header">
-        <span className="preferences-heading-icon" aria-hidden="true"><Settings2 size={21}/></span>
+        <span className="preferences-heading-icon" aria-hidden="true"><Settings size={21} strokeWidth={1.8}/></span>
         <div><DialogTitle className="preferences-title">设置</DialogTitle>
           <DialogDescription className="preferences-description">界面偏好</DialogDescription></div>
       </DialogHeader>
