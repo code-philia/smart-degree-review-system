@@ -1,5 +1,7 @@
 /* Reviewed student-facing English. Chinese source copy remains unchanged. */
 export const REVIEW_COPY={
+ '请按国标要求对参考文献列表进行编号，确认内容完整且可读取后重新检测。':'Number the reference list according to the national standard. Make sure the content is complete and readable, then run the review again.',
+ '未可靠识别编号参考文献表':'A numbered reference list could not be reliably identified.',
  '按最新参考文献标准GB/T 7714-2025，文献类型或载体标记不在国标代码表中':'Under the latest reference standard, GB/T 7714-2025, the document type or medium code is not listed in the national standard’s code table.',
  '可按最新国家标准根据实际著录资源核对并补齐类型标记，所有参考文献标准统一用GB/T 7714-2025或GB/T 7714-2015，该检测项为质量优化建议，不属于强制校验红线，后续学校模版会做同步更新':'Check and complete the type code according to the resource actually cited and the latest national standard. Use either GB/T 7714-2025 or GB/T 7714-2015 consistently throughout the reference list. This check is a recommendation to improve quality, not a mandatory validation requirement. The university thesis template will be updated accordingly.',
  '缺少学术论文和科研成果目录：未在论文正文中识别到该章节。':'The list of academic publications and research achievements is missing: no matching section was identified in the thesis text.',

@@ -86,6 +86,10 @@ export function executionWarningFeedbackTargets(run) {
 
 export function chapterPrerequisiteSuggestion(run) {
   const reason = String(run.message || '');
+  if ((referenceRules.has(run.rule_id) || ['sjtu_rule_22', 'sjtu_rule_24'].includes(run.rule_id))
+      && /^未可靠识别编号参考文献表[。.!！]?$/.test(reason.trim()) && !referenceResourcesUnavailable(run)) {
+    return '请按国标要求对参考文献列表进行编号，确认内容完整且可读取后重新检测。';
+  }
   // The rule's target can mention both abstracts even when only one is absent.
   const prerequisite = reason.split(/[，,。；;]/, 1)[0];
   const names = ['摘要', '英文摘要', '关键词', '目录', '引言', '主体', '结论', '参考文献'];
