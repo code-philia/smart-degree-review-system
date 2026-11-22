@@ -87,7 +87,7 @@ def test_dash_heading_with_a_list_on_the_next_line(tmp_path,label):
     assert findings(paper(tmp_path,english=(label, 'machine learning; document analysis; review')))==[]
 
 
-@pytest.mark.parametrize('chinese_count,english_count',[(3,2),(2,3),(2,2),(3,3)])
+@pytest.mark.parametrize('chinese_count,english_count',[(3,2),(2,3),(2,2),(3,3),(0,3),(0,2),(3,0),(0,0)])
 def test_both_languages_in_one_native_paragraph_are_counted_separately(tmp_path,chinese_count,english_count):
     zh='关键词：'+'；'.join(['软件','分析','检测'][:chinese_count])
     en='Keywords: '+'; '.join(['software','analysis','review'][:english_count])

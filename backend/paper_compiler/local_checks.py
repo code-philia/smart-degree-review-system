@@ -13,7 +13,7 @@ _MEDIA = {'MT', 'DK', 'CD', 'OL', 'MM'}
 _YEAR = re.compile(r'(?<!\d)(?:1[5-9]|20)\d{2}(?!\d)')
 _PUNCT = re.compile(r'(?<=[\u4e00-\u9fff])\s*([,;:!?])\s*(?=[\u4e00-\u9fff])')
 _ZH_PERIOD = re.compile(r'(?<=[\u4e00-\u9fff])\s*(\.)(?!\s*\.)(?=[\u4e00-\u9fff\s”’"）)]|$)')
-_KEYWORD_MARKER = re.compile(r'(?:(?:关键词|关键字)\s*[:：]|(?:^|[\r\n])\s*(?:key\s*words?|index\s+terms)\b(?:\s*[:：—–]|[ \t]+-[ \t]+|[ \t]*-[ \t]*(?=[\r\n])|[ \t]*[\r\n]))\s*', re.I)
+_KEYWORD_MARKER = re.compile(r'(?:(?:关键词|关键字)\s*[:：]|(?:^|(?<=[\r\n]))[ \t]*(?:key\s*words?|index\s+terms)\b(?:\s*[:：—–]|[ \t]+-[ \t]+|[ \t]*-[ \t]*(?=[\r\n])|[ \t]*[\r\n]))[ \t]*', re.I)
 _KEYWORD_LABEL = re.compile(_KEYWORD_MARKER.pattern + r'(.*)', re.I | re.S)
 _EN_KEYWORD_HEADING = re.compile(r'^\s*(?:key\s*words?|index\s+terms)\b\s*[:：—–-]?\s*$', re.I)
 _EN_KEYWORD_START = re.compile(r'^\s*(?:key\s*words?|index\s+terms)\b', re.I)
