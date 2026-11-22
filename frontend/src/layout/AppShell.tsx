@@ -307,8 +307,8 @@ function AppShell() {
         <SidebarRail aria-label="收起或展开主导航" title="收起或展开主导航" />
       </Sidebar>
 
-      <SidebarInset className="min-w-0 bg-background">
-        <header className="app-topbar sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between gap-4 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6">
+      <SidebarInset className="min-h-0 min-w-0 bg-background">
+        <header className="app-topbar sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between gap-4 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:pl-6">
           <div className="flex min-w-0 items-center gap-3">
             <SidebarTrigger ref={navigationTriggerRef} aria-label="切换主导航" className="shrink-0" />
             <Separator orientation="vertical" className="h-5" />
