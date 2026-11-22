@@ -1,0 +1,5 @@
+# Language-specific keyword findings
+
+Prefix each new keyword-count finding with the language identified from its own existing marker span: 中文关键词共N个 or 英文关键词共N个. Keep count bounds, labels, locations, severity and the full advisory explanation unchanged. Use the saved explicit language prefix for per-finding Chinese/English titles in the report card and exports; retain the umbrella catalog rule and legacy findings without a language prefix. Supply deterministic English titles and full messages.
+
+Validate failing-first native PDF messages, actual report-card headings, exports, English translation, and related regressions. Recheck language assignment using isolated in-memory mutations of real archived Paper IR. Refresh the private local preview from actual candidate checker output. Obtain independent review, fast-forward main, and publish through the existing external publisher with source/data/config integrity checks. No online re-detection or stored report rewrite; campus deployment remains outside scope.

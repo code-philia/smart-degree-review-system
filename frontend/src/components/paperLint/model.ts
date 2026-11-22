@@ -9,6 +9,12 @@ export type PaperLintFindingItem = {
   index: number;
 };
 
+export function findingTitle(item: PaperLintFindingItem, fallback: string): string {
+  if (item.ruleRun.rule_id !== 'keyword_count_check') return fallback;
+  const language = item.finding.message.match(/^(中文|英文)关键词共\d+个，/)?.[1];
+  return language ? `${language}关键词数量` : fallback;
+}
+
 export type RuleExecutionWarning = {
   feedbackTarget?: PaperLintFindingItem;
   ruleId?: string;

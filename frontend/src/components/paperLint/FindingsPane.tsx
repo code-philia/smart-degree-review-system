@@ -8,7 +8,7 @@ import type { PaperLintRule, PaperLintRuleRun } from '../../api/paperLint';
 import type { RepairSuggestion } from '../../api/repairSuggestions';
 import type { FindingFeedback, SuggestionFeedback } from '../../api/feedback';
 import { Button, StatusBadge } from '../ui';
-import { documentCheckId, documentCheckTitle, isDocumentBlocked, comparePaperLintRuleIds, findingPageLabel, referenceReviewMessage, type PaperLintFindingItem } from './model';
+import { documentCheckId, documentCheckTitle, isDocumentBlocked, comparePaperLintRuleIds, findingPageLabel, findingTitle, referenceReviewMessage, type PaperLintFindingItem } from './model';
 import { FeedbackControls } from './FeedbackControls';
 import { NumericFindingContent } from './NumericFindingContent';
 import { displayFindingPages, type PdfPageLabels } from './pageLabels';
@@ -322,7 +322,7 @@ export function FindingsPane({
                       {severityLabels[item.ruleRun.severity]}
                     </StatusBadge>
                     <h3 className="mt-2 text-sm font-bold text-slate-900">
-                      {ruleNames.get(item.ruleRun.rule_id) || item.ruleRun.rule_id}
+                      {findingTitle(item, ruleNames.get(item.ruleRun.rule_id) || item.ruleRun.rule_id)}
                     </h3>
                   </div>
                   <div className="flex items-center gap-1">

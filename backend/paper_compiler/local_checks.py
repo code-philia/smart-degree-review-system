@@ -936,8 +936,9 @@ def detect_ir(ir, selected_rules=RULES):
                 offset = marker.start() if marker else 0
                 terms = _keyword_terms(node['text'][offset:]) or []
                 if not 3 <= len(terms) <= 8:
+                    language = '英文' if _english_keyword_block(node['text'][offset:]) else '中文'
                     results['36']['findings'].append(_finding(ir, 36, node,
-                        f'关键词共{len(terms)}个，按最新国标要求关键词为3-8个，该范围为质量优化建议，不属于强制校验红线，后续学校模版会做同步更新。', '关键词数量',
+                        f'{language}关键词共{len(terms)}个，按最新国标要求关键词为3-8个，该范围为质量优化建议，不属于强制校验红线，后续学校模版会做同步更新。', '关键词数量',
                         '请将关键词调整为 3—8 个，并用分号分隔；依据 GB/T 7713.1—2025 附录 A、表 A.1。',
                         offset=offset + len(node['text'][offset:]) - len(node['text'][offset:].lstrip())))
         if not keyword_blocks:

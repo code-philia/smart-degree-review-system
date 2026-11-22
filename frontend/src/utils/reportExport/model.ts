@@ -13,6 +13,7 @@ import {
   compilerPublicationLabel,
   compilerPublicationSummary,
   flattenPaperLintFindings,
+  findingTitle,
   paperLintPresentation,
   numericExecutionWarnings,
   genericExecutionWarnings,
@@ -211,7 +212,8 @@ export function buildExportReport(
         finding_count: findingItems.filter((item) => item.ruleRun.rule_id === run.rule_id).length,
         details: numericReportBlocks(run),
       })),
-      findings: findingItems.map(({ key, finding, ruleRun, executionWarning }, index) => {
+      findings: findingItems.map((item, index) => {
+        const { key, finding, ruleRun, executionWarning } = item;
         const locations: ExportFinding['locations'] = [];
         const add = (location: typeof finding.location, label: string) => {
           if (!location) return;
@@ -258,7 +260,7 @@ export function buildExportReport(
             number: index + 1,
             id: finding.finding_id,
             rule_id: ruleRun.rule_id,
-            rule_title: title(ruleRun.rule_id),
+            rule_title: findingTitle(item, title(ruleRun.rule_id)),
             severity: executionWarning ? '规则未实现警告' : severity[ruleRun.severity] || ruleRun.severity,
             message: finding.message,
             locations,
