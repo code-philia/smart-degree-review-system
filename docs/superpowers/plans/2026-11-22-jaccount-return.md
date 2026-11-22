@@ -1,0 +1,11 @@
+# jAccount successful-return routing and independent attempts
+
+Requirement: after successful campus authentication, enter the upload homepage immediately; preserve validated report deep links. The user explicitly requested proceeding without a real campus account, using automated reproduction and verification.
+
+Confirmed frontend defect: SignInRoute rendered AuthPage while the shared session was loading or already authenticated. Eight routing regressions first failed 7/8. Add a loading guard and authenticated Navigate to the validated return destination or upload homepage; preserve genuine anonymous errors and locale behavior.
+
+Confirmed backend defect: a real HTTP cookie jar reproduced two starts overwriting the fixed state cookie, an invalid callback clearing another pending attempt, and reverse-order callbacks losing their report destination. The new initial suite failed 4/7 against fdfe8bb. Issue an independent HttpOnly/SameSite=Lax cookie per random state (hash-qualified name), select and clear only that attempt on return. Accept the old fixed cookie for already-in-flight upgrades, never prefer it over a present per-attempt cookie. Keep the existing 10-minute expiry, constant-time equality, atomic single-use DB state claim, role restrictions, OAuth scope and server-only token exchange unchanged. No schema migration or changes to detector, reports, credentials or provider configuration.
+
+Verification: six related frontend suites passed 58 tests; four backend suites passed 133 tests in an isolated checkout with temporary test databases and mocked provider APIs. Coverage includes first success, concurrent/reversed flows, declined and expired flows, cross-browser rejection, cookie mismatch, legacy compatibility, sequential and simultaneous replay rejection, safe deep links and language. Independent review and production build precede main integration and standard external deployment with data/config preservation.
+
+Limits: no real jAccount sign-in was completed, and these confirmed defects are not claimed to establish the exact trigger of the user's historical incident. No campus/VPN SSH or deployment has been performed at this checkpoint. Backend state validation must never be weakened or bypassed to remove an error banner.

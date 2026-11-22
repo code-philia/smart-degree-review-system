@@ -13,7 +13,8 @@ const envNames = ['ARC_AUTH_MODE', 'ARC_ADMIN_PORT', 'JACCOUNT_CLIENT_ID', 'JACC
 let harness, privateServer, priorEnv, privatePort;
 
 function cookie(response, name = 'arc_session') {
-  return response.headers['set-cookie']?.find(value => value.startsWith(name + '='))?.split(';')[0];
+  return response.headers['set-cookie']?.find(value => name === 'arc_jaccount_state'
+    ? /^arc_jaccount_state_[a-f0-9]{32}=/.test(value) : value.startsWith(name + '='))?.split(';')[0];
 }
 function campusProvider(profile) {
   vi.stubGlobal('fetch', vi.fn(async url => {

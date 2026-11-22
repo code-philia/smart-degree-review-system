@@ -74,7 +74,7 @@ router.get('/jaccount', async (req, res) => {
   res.set('Cache-Control', 'no-store');
   try {
     const result = await jaccount.beginLogin(req.query.return_to);
-    res.cookie(jaccount.STATE_COOKIE_NAME, result.state, { ...campusCookieOptions, maxAge: jaccount.STATE_TTL_MS });
+    res.cookie(jaccount.stateCookieName(result.state), result.state, { ...campusCookieOptions, maxAge: jaccount.STATE_TTL_MS });
     res.redirect(result.url);
   } catch (error) {
     res.redirect(`/auth?jaccount_error=${error.jaccountCode || 'unavailable'}`);
@@ -84,10 +84,18 @@ router.get('/jaccount', async (req, res) => {
 router.get('/jaccount/callback', async (req, res) => {
   res.set('Cache-Control', 'no-store');
   const cookies = parseCookies(req.headers.cookie || '');
-  res.clearCookie(jaccount.STATE_COOKIE_NAME, campusCookieOptions);
+  const stateCookieName = jaccount.stateCookieName(req.query.state);
+  // Parallel attempts must not overwrite or clear one another. Accept the old
+  // fixed cookie only for a login already in flight when this version arrived.
+  const browserState = stateCookieName && cookies[stateCookieName] !== undefined
+    ? cookies[stateCookieName] : cookies[jaccount.STATE_COOKIE_NAME];
+  if (stateCookieName) res.clearCookie(stateCookieName, campusCookieOptions);
+  if (stateCookieName && cookies[jaccount.STATE_COOKIE_NAME] === req.query.state) {
+    res.clearCookie(jaccount.STATE_COOKIE_NAME, campusCookieOptions);
+  }
   try {
     const result = await jaccount.completeLogin({ state: req.query.state,
-      browserState: cookies[jaccount.STATE_COOKIE_NAME], code: req.query.code, providerError: req.query.error });
+      browserState, code: req.query.code, providerError: req.query.error });
     res.cookie(SESSION_COOKIE_NAME, result.sessionId, { ...cookieOptions, maxAge: SESSION_TTL_MS });
     res.redirect(result.returnTo || '/paper-upload');
   } catch (error) {

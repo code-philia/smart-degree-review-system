@@ -32,6 +32,11 @@ function hashState(state) {
   return crypto.createHash('sha256').update(state).digest('hex');
 }
 
+function stateCookieName(state) {
+  if (typeof state !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(state)) return null;
+  return `${STATE_COOKIE_NAME}_${hashState(state).slice(0, 32)}`;
+}
+
 function reportReturnPath(value) {
   return typeof value==='string' && /^\/reports\/pdf\/[A-Za-z0-9-]{1,128}(?:\?lang=(?:zh|en))?$/.test(value) ? value : null;
 }
@@ -97,4 +102,4 @@ async function completeLogin({ state, browserState, code, providerError }) {
   return {...await createUserSession(user),returnTo:reportReturnPath(claimed.return_path)};
 }
 
-module.exports = { STATE_COOKIE_NAME, STATE_TTL_MS, isConfigured: () => Boolean(config()), beginLogin, completeLogin };
+module.exports = { STATE_COOKIE_NAME, STATE_TTL_MS, stateCookieName, isConfigured: () => Boolean(config()), beginLogin, completeLogin };

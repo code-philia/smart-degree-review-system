@@ -14,7 +14,8 @@ let harness;
 let oldEnv;
 
 function cookie(response, name) {
-  return response.headers['set-cookie']?.find((value) => value.startsWith(name + '='))?.split(';')[0];
+  return response.headers['set-cookie']?.find((value) => name === 'arc_jaccount_state'
+    ? /^arc_jaccount_state_[a-f0-9]{32}=/.test(value) : value.startsWith(name + '='))?.split(';')[0];
 }
 
 async function start() {
@@ -74,7 +75,8 @@ describe('campus authorization-code sign-in', () => {
     expect(url.searchParams.get('response_type')).toBe('code');
     expect(url.searchParams.get('redirect_uri')).toBe(callback);
     expect(login.state.length).toBeGreaterThanOrEqual(32);
-    expect(login.browserCookie).toBe('arc_jaccount_state=' + login.state);
+    expect(login.browserCookie).toMatch(/^arc_jaccount_state_[a-f0-9]{32}=/);
+    expect(login.browserCookie.split('=')[1]).toBe(login.state);
     expect(login.response.headers['set-cookie'].join(';')).toMatch(/HttpOnly/);
     expect(login.response.headers['set-cookie'].join(';')).toMatch(/SameSite=Lax/);
     expect(login.response.headers.location).not.toContain('test-campus-secret');

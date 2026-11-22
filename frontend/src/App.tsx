@@ -10,6 +10,8 @@ import NotFoundPage from './pages/NotFoundPage';
 import NormativeCheckPage from './pages/NormativeCheckPage';
 import NormativeReportPage from './pages/NormativeReportPage';
 import PaperLintReportPage from './pages/PaperLintReportPage';
+import { useAuthSession } from './auth/AuthSessionProvider';
+import { LoadingState } from './components/ui';
 
 function LegacyReviewRedirect() {
   const location = useLocation();
@@ -18,7 +20,13 @@ function LegacyReviewRedirect() {
 }
 function SignInRoute(){
   const location=useLocation();
-  return <AuthPage returnTo={requestedReturnTo(location.state, location.search)}/>;
+  const { status, user }=useAuthSession();
+  const returnTo=requestedReturnTo(location.state, location.search);
+  if(status==='loading'){
+    return <main className="session-loading"><LoadingState label="正在加载登录状态…"/></main>;
+  }
+  if(user) return <Navigate replace to={returnTo || REVIEW_ROUTES.upload}/>;
+  return <AuthPage returnTo={returnTo}/>;
 }
 
 function App() {
