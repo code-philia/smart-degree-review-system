@@ -352,7 +352,7 @@ export function ThesisUploadPanel(props: Props) {
                       <div className="credit-group-heading flex items-center justify-between gap-2">
                         <div className="flex min-w-0 items-center gap-1">
                           <h3 className="whitespace-nowrap text-sm font-semibold leading-5 text-slate-800">{group}</h3>
-                          {group === '论文逻辑审查' ? <span className="inline-flex h-5 shrink-0 items-center whitespace-nowrap rounded-md bg-violet-50 px-1.5 text-[10px] font-medium leading-none text-violet-700">实验型功能</span> : null}
+                          {group === '论文逻辑审查' ? <span className="inline-flex h-5 shrink-0 items-center gap-1 whitespace-nowrap rounded-md bg-violet-50 px-1.5 text-[10px] font-medium leading-none text-violet-700"><FlaskConical aria-hidden="true" className="size-3" />实验型功能</span> : null}
                         </div>
                         <div className="flex shrink-0 items-center rounded-lg bg-white/80 p-0.5 ring-1 ring-slate-200/70">
                           <button
