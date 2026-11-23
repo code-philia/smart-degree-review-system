@@ -41,9 +41,9 @@ export function LivePaperLintReport({ file, rules, runs, selectedRuleIds }: Prop
             ['严重错误数', findings.filter(item => item.ruleRun.severity === 'error').length],
             ['警告错误数', findings.filter(item => item.ruleRun.severity === 'warning').length],
             ['提示错误数', findings.filter(item => item.ruleRun.severity === 'info').length],
-            ['规则未实现警告数', executionWarningCount],
-          ].map(([label, count]) => <div key={label} className={`rounded-xl border p-3 ${label === '规则未实现警告数' ? 'border-violet-100 bg-violet-50/50' : 'border-slate-100 bg-slate-50/70'}`}>
-            <dt className={`text-xs ${label === '规则未实现警告数' ? 'text-violet-700' : 'text-slate-500'}`}>{label}</dt><dd className={`mt-1 text-2xl font-bold tabular-nums ${label === '规则未实现警告数' ? 'text-violet-700' : 'text-slate-900'}`}>{count}</dd>
+            ['检测异常提醒数', executionWarningCount],
+          ].map(([label, count]) => <div key={label} className={`rounded-xl border p-3 ${label === '检测异常提醒数' ? 'border-violet-100 bg-violet-50/50' : 'border-slate-100 bg-slate-50/70'}`}>
+            <dt className={`text-xs ${label === '检测异常提醒数' ? 'text-violet-700' : 'text-slate-500'}`}>{label}</dt><dd className={`mt-1 text-2xl font-bold tabular-nums ${label === '检测异常提醒数' ? 'text-violet-700' : 'text-slate-900'}`}>{count}</dd>
           </div>)}
         </dl>
         <p role="status" className="mt-3 h-12 overflow-y-auto text-xs leading-6 text-slate-500">

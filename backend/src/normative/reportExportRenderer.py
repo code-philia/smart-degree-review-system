@@ -85,7 +85,7 @@ for index,report in enumerate(model['reports']):
     parts.append(r'{\parskip=3pt\noindent '+esc(L('完成时间：','Completed: ')+when+' (UTC+08:00)'+(' · '+', '.join(stats) if stats else ''))+r'\par}')
     parts.append(r'\chapterhead{1}{'+L('检测综述','Review summary')+'}')
     paragraph(report['conclusion'])
-    paragraph(L(f"本次记录 {s.get('finding_count',0)} 项检测结果：严重 {s.get('error_finding_count',0)}、警告 {s.get('warning_finding_count',0)}、规则未实现警告 {s.get('execution_warning_count',0)}、提示 {s.get('info_finding_count',0)}。",f"This review records {s.get('finding_count',0)} results: Critical: {s.get('error_finding_count',0)}; Warnings: {s.get('warning_finding_count',0)}; Unverified: {s.get('execution_warning_count',0)}; Info: {s.get('info_finding_count',0)}."))
+    paragraph(L(f"本次记录 {s.get('finding_count',0)} 项检测结果：严重 {s.get('error_finding_count',0)}、警告 {s.get('warning_finding_count',0)}、检测异常提醒 {s.get('execution_warning_count',0)}、提示 {s.get('info_finding_count',0)}。",f"This review records {s.get('finding_count',0)} results: Critical: {s.get('error_finding_count',0)}; Warnings: {s.get('warning_finding_count',0)}; Review alerts: {s.get('execution_warning_count',0)}; Info: {s.get('info_finding_count',0)}."))
     paragraph(L('请结合原文复核下列问题与建议。以下页码均为 PDF 文件页码；检测范围及执行情况见第三节。','Review the findings against the thesis text. Page references use physical PDF page numbers. Section 3 lists the review scope and execution status.'))
     parts.append(r'\chapterhead{2}{'+L('检测发现与修改建议','Findings and suggested actions')+'}')
     if not report['findings']:paragraph(L('未发现问题条目；请同时核对检测结论及未完成的规则。','No findings were reported. Also review the conclusion and any incomplete checks.'))

@@ -117,7 +117,7 @@ it.each([false, true])('keeps the execution-warning statistic regardless of expe
   show();
   await screen.findByRole('heading', { name: '实际上传文件.pdf' });
   if (selected) {
-    expect(screen.getByText('规则未实现警告数').closest('div')).toHaveTextContent('1');
+    expect(screen.getByText('检测异常提醒数').closest('div')).toHaveTextContent('1');
     expect(screen.getByText('错误总数').closest('div')).toHaveTextContent('7');
-  } else expect(screen.getByText('规则未实现警告数').closest('div')).toHaveTextContent('0');
+  } else expect(screen.getByText('检测异常提醒数').closest('div')).toHaveTextContent('0');
 });

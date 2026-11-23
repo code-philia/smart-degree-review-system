@@ -30,7 +30,7 @@ it.each([false, true])('keeps searched results blue and resource-blocked entries
   expect(paperLintPresentation(result)).toEqual(result);
   expect(buildExportReport({ ...fixture, result }, rules, null).summary).toMatchObject({ info_finding_count: 2, execution_warning_count: 1 });
   render(<FindingsPane {...props} running={running} ruleRuns={[run]} findings={flattenPaperLintFindings(result)} executionWarnings={genericExecutionWarnings([run])} />);
-  for (const category of ['全部', '提示 2', '规则未实现警告 1']) {
+  for (const category of ['全部', '提示 2', '检测异常提醒 1']) {
     fireEvent.click(screen.getByRole('button', { name: category, exact: true }));
     const trigger = screen.getByRole('combobox');
     expect(trigger).not.toHaveTextContent('待核查');

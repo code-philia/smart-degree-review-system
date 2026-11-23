@@ -153,7 +153,8 @@ export function localizeExportReport(
             严重: 'Critical',
             严重错误: 'Critical',
             警告: 'Warnings',
-            规则未实现警告: 'Unverified',
+            检测异常提醒: 'Review alerts',
+            规则未实现警告: 'Review alerts',
             提示: 'Info',
           } as Record<string, string>
         )[item.severity] ?? t(item.severity),

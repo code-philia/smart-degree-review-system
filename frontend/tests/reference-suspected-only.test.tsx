@@ -109,7 +109,7 @@ it('counts four warnings plus one prerequisite notice consistently in live and e
   expect(buildExportReport({ ...fixture, result }, [], null).summary.finding_count).toBe(5);
   render(<LivePaperLintReport file={{ name: 'paper.pdf', url: '/paper.pdf' }} rules={rules} runs={[numeric, warning]} />);
   expect(screen.getByText('错误总数').closest('div')).toHaveTextContent('5');
-  for (const label of ['严重 0', '警告 4', '提示 0', '规则未实现警告 1', '全部']) {
+  for (const label of ['严重 0', '警告 4', '提示 0', '检测异常提醒 1', '全部']) {
     fireEvent.click(screen.getByRole('button', { name: label, exact: true }));
     expect(screen.getByText('5 项问题')).toBeInTheDocument();
   }

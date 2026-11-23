@@ -47,7 +47,7 @@ describe('clear report rule selector', () => {
       { id: 'prerequisite', title: '前置条件未满足的规则', count: 1, counts: { error: 0, warning: 1, info: 0 }, status: 'execution_warning' },
     ];
     render(<RuleFilter options={options} value={value} onValueChange={vi.fn()} totalCount={5} severity="execution" />);
-    expect(within(screen.getByRole('combobox')).getByTitle('规则未实现警告 1 项')).toHaveTextContent(/^1$/);
+    expect(within(screen.getByRole('combobox')).getByTitle('检测异常提醒 1 项')).toHaveTextContent(/^1$/);
     expect(within(screen.getByRole('combobox')).queryByTitle(/警告 \d+ 处/)).not.toBeInTheDocument();
     const list = await openMenu();
     expect(within(list).queryByText('有警告的规则')).not.toBeInTheDocument();
@@ -77,7 +77,7 @@ describe('clear report rule selector', () => {
     const reviewOption = within(list).getByRole('option', { name: '引用上下文与文献不相关，未完成检测' });
     reviewOption.focus(); fireEvent.keyDown(reviewOption, { key: 'Enter' });
     expect(screen.getByText('等待核查引用身份')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '规则未实现警告 1', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: '检测异常提醒 1', exact: true }));
     expect(screen.getByRole('combobox')).toHaveTextContent('全部检查项');
     list = await openMenu();
     expect(within(list).getAllByRole('option').map(row => row.textContent?.split('，')[0])).toEqual(['全部检查项', '论点论据一致性检测']);
@@ -213,11 +213,11 @@ describe('clear report rule selector', () => {
       findings={flattenPaperLintFindings({ rule_runs: [issues, zero, numeric] })} ruleRuns={[issues, zero, numeric]} />);
     const list = await openMenu();
     expect(within(list).getAllByRole('option').map(row => row.textContent?.split('，')[0])).toEqual(['全部检查项', '正文公式引用目标缺失', '论点论据一致性检测', '章标题另起一页']);
-    const option = within(list).getByRole('option', { name: '论点论据一致性检测，规则未实现警告' });
+    const option = within(list).getByRole('option', { name: '论点论据一致性检测，检测异常提醒' });
     expect(option).not.toHaveTextContent('不适用');
     option.focus(); fireEvent.keyDown(option, { key: 'Enter' });
-    expect(within(screen.getByRole('combobox')).getByTitle('规则未实现警告 1 项')).toHaveTextContent(/^1$/);
-    expect(screen.getByText('规则未实现警告', { selector: 'p' })).toBeInTheDocument();
+    expect(within(screen.getByRole('combobox')).getByTitle('检测异常提醒 1 项')).toHaveTextContent(/^1$/);
+    expect(screen.getByText('检测异常提醒', { selector: 'p' })).toBeInTheDocument();
     expect(screen.getByText(numeric.message)).toBeInTheDocument();
     expect(screen.queryByTestId('rule-empty-icon')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '严重 0', exact: true }));

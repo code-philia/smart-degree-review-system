@@ -56,7 +56,7 @@ it.each([false, true])('orders All cards by severity, dropdown rule order and PD
 
 it('keeps the instruction in the dedicated execution category and restores the ordered All list', () => {
   const { container } = render(<FindingsPane {...props} onFindingClick={vi.fn()} />);
-  fireEvent.click(screen.getByRole('button', { name: '规则未实现警告 4', exact: true }));
+  fireEvent.click(screen.getByRole('button', { name: '检测异常提醒 4', exact: true }));
   expect(screen.getByText(intro)).toBeInTheDocument();
   expect(container.querySelectorAll('article')).toHaveLength(4);
   expect(container.querySelector('[data-finding-key]')).not.toBeInTheDocument();

@@ -75,7 +75,7 @@ it('shows document rejection without experimental statistics, claimed checks or 
         warning_finding_count: 0, info_finding_count: 0 } } });
   show();
   expect(await screen.findByText('论文编译校验未通过，所选 2 条论文规则全部未执行。')).toBeInTheDocument();
-  expect(screen.queryByText('规则未实现警告数')).not.toBeInTheDocument();
+  expect(screen.queryByText('检测异常提醒数')).not.toBeInTheDocument();
   expect(screen.queryByText('本次检测范围')).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: '增量补跑' })).not.toBeInTheDocument();
 });

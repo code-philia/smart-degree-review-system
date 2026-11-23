@@ -261,7 +261,7 @@ export function buildExportReport(
             id: finding.finding_id,
             rule_id: ruleRun.rule_id,
             rule_title: findingTitle(item, title(ruleRun.rule_id)),
-            severity: executionWarning ? '规则未实现警告' : severity[ruleRun.severity] || ruleRun.severity,
+            severity: executionWarning ? '检测异常提醒' : severity[ruleRun.severity] || ruleRun.severity,
             message: finding.message,
             locations,
             suggestions: [...new Set(suggestions)],
@@ -361,8 +361,8 @@ export function reportBlocks(model: ExportReport): ReportBlock[] {
     {
       kind: 'text',
       text: L(
-        `本次记录 ${s.finding_count} 项检测结果：严重 ${s.error_finding_count}、警告 ${s.warning_finding_count}、规则未实现警告 ${s.execution_warning_count ?? 0}、提示 ${s.info_finding_count}。`,
-        `This review records ${s.finding_count} ${s.finding_count === 1 ? 'result' : 'results'}: Critical: ${s.error_finding_count}; Warnings: ${s.warning_finding_count}; Unverified: ${s.execution_warning_count ?? 0}; Info: ${s.info_finding_count}.`,
+        `本次记录 ${s.finding_count} 项检测结果：严重 ${s.error_finding_count}、警告 ${s.warning_finding_count}、检测异常提醒 ${s.execution_warning_count ?? 0}、提示 ${s.info_finding_count}。`,
+        `This review records ${s.finding_count} ${s.finding_count === 1 ? 'result' : 'results'}: Critical: ${s.error_finding_count}; Warnings: ${s.warning_finding_count}; Review alerts: ${s.execution_warning_count ?? 0}; Info: ${s.info_finding_count}.`,
       ),
     },
     { kind: 'text', text: model.conclusion },

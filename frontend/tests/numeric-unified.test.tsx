@@ -44,7 +44,7 @@ describe('numeric results in the unified report', () => {
     expect(screen.queryByTestId('rule-empty-icon')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '警告 1', exact: true }));
     expect(screen.queryByText('符合要求的示例：')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /规则未实现警告/ }));
+    fireEvent.click(screen.getByRole('button', { name: /检测异常提醒/ }));
     expect(screen.getByText('符合要求的示例：')).toBeInTheDocument();
   });
   it('shows warning and info findings, hides consistent and failed checks, and uses inline suggestions', () => {
@@ -67,7 +67,7 @@ describe('numeric results in the unified report', () => {
     render(<FindingsPane findings={[]} rules={[]} executionWarnings={warnings} activeFindingKey={null} activeAnchorId={null} onFindingClick={() => {}} onAnchorClick={() => {}} />);
     expect(screen.getByText('2 项问题')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '警告 0', exact: true })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /规则未实现警告/ }));
+    fireEvent.click(screen.getByRole('button', { name: /检测异常提醒/ }));
     expect(screen.getByText('研究贡献下不存在明确的实验章节')).toBeTruthy();
     expect(screen.getByText(/请稍后重试/)).toBeTruthy();
   });

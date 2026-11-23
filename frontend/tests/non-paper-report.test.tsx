@@ -61,7 +61,7 @@ it.each([false, true])('shows only the severe document failure with no passing o
 it('stops live loading after document rejection while retaining zero warning statistics', () => {
   render(<LivePaperLintReport file={{ name: 'form.pdf', url: '/form.pdf' }} rules={rules} runs={[blocked]}
     selectedRuleIds={rules.map(rule => rule.rule_id)} />);
-  expect(screen.getByText('规则未实现警告数').closest('div')).toHaveTextContent('0');
+  expect(screen.getByText('检测异常提醒数').closest('div')).toHaveTextContent('0');
   expect(screen.getByRole('status')).toHaveTextContent('所有论文规则均未检测');
   expect(screen.queryByText(/检测进行中/)).not.toBeInTheDocument();
 });

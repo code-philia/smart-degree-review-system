@@ -13,9 +13,9 @@ const base = { rules: [{ rule_id: run.rule_id, title: '检查规则' }], selecte
   onFindingClick: vi.fn(), onAnchorClick: vi.fn() };
 it.each([false, true])('shows a green zero summary and the shared empty layout for execution with findings in other tiers (live=%s)', running => {
   const { container } = render(<FindingsPane {...base} running={running} />);
-  fireEvent.click(screen.getByRole('button', { name: '规则未实现警告 0', exact: true }));
+  fireEvent.click(screen.getByRole('button', { name: '检测异常提醒 0', exact: true }));
   expect(within(screen.getByRole('combobox')).getByText('0', { exact: true })).toBeInTheDocument();
-  expect(screen.getByText('当前筛选未发现规则未实现警告')).toBeInTheDocument();
+  expect(screen.getByText('当前筛选未发现检测异常提醒')).toBeInTheDocument();
   expect(screen.getByText('当前报告共发现 3 处问题，分布在其他级别。')).toBeInTheDocument();
   expect(container.querySelectorAll('article')).toHaveLength(0);
   fireEvent.click(screen.getByRole('button', { name: '查看全部级别' }));
@@ -32,7 +32,7 @@ it.each(['all', 'execution'])('keeps warning feedback usable under %s without se
     findingFeedbackByKey={{ [target.key]: { id: 'saved', feedback_value: 'negative', reason_code: null,
       reason_text: null, created_at: '', updated_at: '' } }}
     onFindingFeedback={onValue} onFindingFeedbackReason={onReason} onFindingFeedbackCancel={onCancel} />);
-  if (level === 'execution') fireEvent.click(screen.getByRole('button', { name: '规则未实现警告 1', exact: true }));
+  if (level === 'execution') fireEvent.click(screen.getByRole('button', { name: '检测异常提醒 1', exact: true }));
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: '有帮助' }));
   expect(onValue).toHaveBeenCalledWith(target, 'positive');

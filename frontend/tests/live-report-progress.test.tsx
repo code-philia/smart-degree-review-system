@@ -20,13 +20,13 @@ it.each([0, 1])('shows an explicit execution-warning statistic when the experime
   const numeric = { ...finished, rule_id: numericId, findings: [], params: { preconditions: [{ id: 'abstract_numeric', passed: false, status: 'failed' }] } };
   render(<LivePaperLintReport file={{ name: 'paper.pdf', url: '/paper.pdf' }} rules={rules}
     selectedRuleIds={['sjtu_rule_18', numericId]} runs={count ? [finished, numeric] : [finished]} />);
-  expect(screen.getByText('规则未实现警告数').closest('div')).toHaveTextContent(String(count));
+  expect(screen.getByText('检测异常提醒数').closest('div')).toHaveTextContent(String(count));
   expect(screen.getByText('错误总数').closest('div')).toHaveTextContent(String(1 + count));
 });
 
 it('keeps a zero execution-warning statistic without an experimental selection', () => {
   render(<LivePaperLintReport file={{ name: 'paper.pdf', url: '/paper.pdf' }} rules={rules} selectedRuleIds={['sjtu_rule_18']} runs={[finished]} />);
-  expect(screen.getByText('规则未实现警告数').closest('div')).toHaveTextContent('0');
+  expect(screen.getByText('检测异常提醒数').closest('div')).toHaveTextContent('0');
 });
 
 it.each(['全部', '严重 0', '警告 1', '提示 0'])('keeps every pending rule available alongside matching findings in a live filter (%s)', async level => {

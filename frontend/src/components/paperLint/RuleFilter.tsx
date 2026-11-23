@@ -24,7 +24,7 @@ export function isRuleVisible(option: RuleFilterOption, level: RuleFilterLevel) 
     && ['error', 'needs_review', 'not_applicable'].includes(option.status);
 }
 
-const labels = { running: '正在检测', error: '检测失败', needs_review: '未完成检测', not_applicable: '不适用', execution_warning: '规则未实现警告' };
+const labels = { running: '正在检测', error: '检测失败', needs_review: '未完成检测', not_applicable: '不适用', execution_warning: '检测异常提醒' };
 const levels = ['error', 'warning', 'info'] as const;
 const levelLabels = { error: '严重', warning: '警告', info: '提示' };
 
@@ -52,8 +52,8 @@ function showsWarningBadge(option: RuleFilterOption, severity: RuleFilterLevel) 
 
 function statusLabel(option: RuleFilterOption, severity: RuleFilterLevel) {
   if (option.status === 'running') return labels.running;
-  if (showsWarningBadge(option, severity)) return `${severity !== 'execution' && option.count ? `已发现 ${option.count} 处问题，` : ''}${option.status === 'error' ? '检测失败，' : ''}规则未实现警告`;
-  if (severity === 'execution') return `${option.status === 'error' ? '检测失败，' : ''}规则未实现警告`;
+  if (showsWarningBadge(option, severity)) return `${severity !== 'execution' && option.count ? `已发现 ${option.count} 处问题，` : ''}${option.status === 'error' ? '检测失败，' : ''}检测异常提醒`;
+  if (severity === 'execution') return `${option.status === 'error' ? '检测失败，' : ''}检测异常提醒`;
   if (option.status === 'completed') return `问题总数 ${option.count} 处${levels.filter(level => (severity === 'all' || severity === level) && option.counts[level]).map(level => `，${levelLabels[level]} ${option.counts[level]} 处`).join('')}`;
   return `${option.count ? `已发现 ${option.count} 处问题，` : ''}${labels[option.status]}`;
 }
@@ -89,7 +89,7 @@ function RuleBadges({ option, severity, summaryOptions, compact = false }: { opt
   };
   return <span className="flex min-w-0 flex-wrap items-center justify-end gap-1.5">
     {visibleLevels.filter(level => level !== 'info').map(renderSeverityBadge)}
-    {showsExecutionWarning ? <span data-severity="execution" title={compact ? `规则未实现警告 ${executionCount} 项` : '规则未实现警告'} className={`${compact ? countBadgeClassName : 'inline-flex min-w-10 shrink-0 items-center justify-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-medium'} bg-violet-50 text-violet-700`}><ShieldAlert className="size-3.5" />{compact ? executionCount : '规则未实现警告'}</span> : null}
+    {showsExecutionWarning ? <span data-severity="execution" title={compact ? `检测异常提醒 ${executionCount} 项` : '检测异常提醒'} className={`${compact ? countBadgeClassName : 'inline-flex min-w-10 shrink-0 items-center justify-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-medium'} bg-violet-50 text-violet-700`}><ShieldAlert className="size-3.5" />{compact ? executionCount : '检测异常提醒'}</span> : null}
     {visibleLevels.includes('info') ? renderSeverityBadge('info') : null}
     {incompleteStatuses.map(status => {
       // Aggregate exactly the badges shown on rule rows, including deduplication.

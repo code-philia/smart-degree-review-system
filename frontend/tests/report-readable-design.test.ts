@@ -12,7 +12,7 @@ it('puts actionable findings before the full rule catalog without dropping sourc
     before = JSON.stringify(model);
   const text = reportText(model);
   expect(text.indexOf('2 检测发现与修改建议')).toBeLessThan(text.indexOf('3 检测范围与执行情况'));
-  expect(text).toContain('规则未实现警告');
+  expect(text).toContain('检测异常提醒');
   expect(reportBlocks(model).some((b) => b.role === 'advice')).toBe(true);
   for (const value of ['原文证据', '第二处证据', '已有本地建议', '引用证据']) expect(text).toContain(value);
   expect(JSON.stringify(model)).toBe(before);

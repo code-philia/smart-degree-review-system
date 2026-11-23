@@ -98,7 +98,7 @@ export function numericExecutionWarnings(run?: PaperLintRuleRun): RuleExecutionW
     };
   });
   if (run.execution_status === 'error' || params.failure || (Array.isArray(params.validation_errors) && params.validation_errors.length)) {
-    warnings.push({ title: '论点论据一致性检测未完成', reason: '当前系统使用人数较多，API 调用暂时繁忙，部分核验未完成。已完成的有效结果仍予以保留。', suggestion: '请稍后重试；若持续失败，请联系管理员检查运行记录。' });
+    warnings.push({ title: '论点论据一致性检测未完成', reason: '当前系统使用人数较多，API 调用暂时繁忙，部分核验未完成。已完成的有效结果仍予以保留。', suggestion: '请稍后重试；若持续失败，请联系管理员检查运行记录，联系邮箱：j82279240@gmail.com' });
   }
   return warnings.map((warning, index) => ({ ...warning, ruleId: numericRule,
     feedbackTarget: warningFeedbackItem(run, targets[index].findingId, index) }));
@@ -134,7 +134,7 @@ export function genericExecutionWarnings(runs: PaperLintRuleRun[] = []): RuleExe
         feedbackTarget: warningFeedbackItem(run, executionWarningFeedbackTargets(run)[0].findingId, 0),
         title,
         reason,
-        suggestion: chapterPrerequisiteSuggestion(run) || '请稍后重试；如问题持续，请检查运行记录。',
+        suggestion: chapterPrerequisiteSuggestion(run) || '请稍后重试；若持续失败，请联系管理员检查运行记录，联系邮箱：j82279240@gmail.com',
       };
     });
 }

@@ -20,8 +20,8 @@ async function menu() {
 
 it.each([false, true])('keeps the execution-warning filter selectable with zero warnings (live=%s)', running => {
   render(<FindingsPane {...props} running={running} ruleRuns={[completed]} />);
-  fireEvent.click(screen.getByRole('button', { name: '规则未实现警告 0', exact: true }));
-  expect(screen.getByRole('button', { name: '规则未实现警告 0', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  fireEvent.click(screen.getByRole('button', { name: '检测异常提醒 0', exact: true }));
+  expect(screen.getByRole('button', { name: '检测异常提醒 0', exact: true })).toHaveAttribute('aria-pressed', 'true');
 });
 
 it.each([false, true])('places blue information and review after warnings and before pending or clean rules (live=%s)', async running => {
@@ -44,7 +44,7 @@ it.each([0, 1])('keeps pending rules selectable and labelled as running in the e
   const run = { ...completed, execution_status: warningCount ? 'unsupported' as const : 'completed' as const,
     outcome: warningCount ? 'inconclusive' as const : 'passed' as const, message: '缺少检测前置条件' };
   const { rerender } = render(<FindingsPane {...props} running ruleRuns={[run]} executionWarnings={genericExecutionWarnings([run])} />);
-  fireEvent.click(screen.getByRole('button', { name: `规则未实现警告 ${warningCount}`, exact: true }));
+  fireEvent.click(screen.getByRole('button', { name: `检测异常提醒 ${warningCount}`, exact: true }));
   expect(screen.getByRole('combobox')).toHaveTextContent('正在检测 1');
   const list = await menu();
   expect(within(list).getAllByRole('option')).toHaveLength(warningCount + 2);
@@ -52,12 +52,12 @@ it.each([0, 1])('keeps pending rules selectable and labelled as running in the e
   expect(pending).toHaveTextContent('正在检测');
   act(() => { pending.focus(); fireEvent.keyDown(pending, { key: 'Enter' }); });
   expect(screen.getByText('正在检测相关问题')).toBeInTheDocument();
-  expect(screen.queryByText('当前筛选未发现规则未实现警告')).not.toBeInTheDocument();
+  expect(screen.queryByText('当前筛选未发现检测异常提醒')).not.toBeInTheDocument();
   rerender(<FindingsPane {...props} running ruleRuns={[run, { ...completed, rule_id: 'typo_detection_check' }]}
     executionWarnings={genericExecutionWarnings([run])} />);
   expect(screen.getByRole('combobox')).toHaveTextContent('全部检查项');
   expect(screen.queryByText('正在检测相关问题')).not.toBeInTheDocument();
-  if (!warningCount) expect(screen.getByText('当前筛选未发现规则未实现警告')).toBeInTheDocument();
+  if (!warningCount) expect(screen.getByText('当前筛选未发现检测异常提醒')).toBeInTheDocument();
   const doneMenu = await menu();
   expect(within(doneMenu).queryByRole('option', { name: /^待完成检查，/ })).not.toBeInTheDocument();
 });

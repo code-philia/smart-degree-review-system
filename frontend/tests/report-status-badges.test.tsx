@@ -35,9 +35,9 @@ async function menu() {
 
 it.each(['all','execution'])('counts the summary while keeping individual purple badges unnumbered (%s)',category=>{
   render(pane([completed,numeric,reference],true));
-  if(category==='execution') fireEvent.click(screen.getByRole('button',{name:'规则未实现警告 4',exact:true}));
+  if(category==='execution') fireEvent.click(screen.getByRole('button',{name:'检测异常提醒 4',exact:true}));
   const trigger=screen.getByRole('combobox');
-  const badge=within(trigger).getByTitle('规则未实现警告 4 项');
+  const badge=within(trigger).getByTitle('检测异常提醒 4 项');
   expect(badge).toHaveTextContent(/^4$/);
   expect(trigger).not.toHaveTextContent('待核查');
   expect(trigger).toHaveTextContent('正在检测 1');
@@ -46,35 +46,35 @@ it.each(['all','execution'])('counts the summary while keeping individual purple
 it.each(['inconclusive','passed','issues_found'] as const)('shows one plain purple badge for a reference warning (%s)',async outcome=>{
   const findings=outcome==='issues_found'?[{finding_id:'ref',rule_id:referenceId,message:'有依据的引用疑点'}]:[];
   render(pane([{...reference,outcome,findings}],false));
-  fireEvent.click(screen.getByRole('button',{name:'规则未实现警告 1',exact:true}));
+  fireEvent.click(screen.getByRole('button',{name:'检测异常提醒 1',exact:true}));
   const list=await menu();
   const option=within(list).getByRole('option',{name:/^引用核验，/});
-  const badge=within(option).getByTitle('规则未实现警告');
-  expect(badge).toHaveTextContent('规则未实现警告');
+  const badge=within(option).getByTitle('检测异常提醒');
+  expect(badge).toHaveTextContent('检测异常提醒');
   expect(badge).not.toHaveTextContent(/\d/);
   expect(within(option).queryByText('待核查',{exact:true})).not.toBeInTheDocument();
   act(()=>{option.focus();fireEvent.keyDown(option,{key:'Enter'});});
   const trigger=screen.getByRole('combobox');
-  expect(within(trigger).getByTitle('规则未实现警告 1 项')).toHaveTextContent(/^1$/);
+  expect(within(trigger).getByTitle('检测异常提醒 1 项')).toHaveTextContent(/^1$/);
   expect(within(trigger).queryByText('待核查',{exact:true})).not.toBeInTheDocument();
   expect(within(trigger).queryByText('0')).not.toBeInTheDocument();
 });
 
 it('keeps multiple warning entries in the category total while using one plain rule badge',async()=>{
   render(pane([numeric],false));
-  fireEvent.click(screen.getByRole('button',{name:'规则未实现警告 3',exact:true}));
+  fireEvent.click(screen.getByRole('button',{name:'检测异常提醒 3',exact:true}));
   const list=await menu();
   const option=within(list).getByRole('option',{name:/^数值核验，/});
-  expect(within(option).getAllByTitle('规则未实现警告')).toHaveLength(1);
-  expect(within(option).getByTitle('规则未实现警告')).not.toHaveTextContent(/\d/);
+  expect(within(option).getAllByTitle('检测异常提醒')).toHaveLength(1);
+  expect(within(option).getByTitle('检测异常提醒')).not.toHaveTextContent(/\d/);
 });
 
 it('removes warning and running badges once all corresponding rules complete',()=>{
   const {rerender}=render(pane([completed,numeric,reference],true));
   const trigger=screen.getByRole('combobox');
-  expect(within(trigger).getByTitle('规则未实现警告 4 项')).toBeInTheDocument();
+  expect(within(trigger).getByTitle('检测异常提醒 4 项')).toBeInTheDocument();
   rerender(pane(rules.map(rule=>({...completed,rule_id:rule.rule_id})),false));
-  expect(within(trigger).queryByTitle(/规则未实现警告/)).not.toBeInTheDocument();
+  expect(within(trigger).queryByTitle(/检测异常提醒/)).not.toBeInTheDocument();
   expect(trigger).not.toHaveTextContent('待核查');
   expect(trigger).not.toHaveTextContent('正在检测');
   expect(within(trigger).getByText('0')).toBeInTheDocument();
@@ -87,14 +87,14 @@ it('uses only execution warnings for incomplete rule badges',async()=>{
   ];
   render(<RuleFilter options={options} value="all" onValueChange={vi.fn()} totalCount={3}/>);
   const trigger=screen.getByRole('combobox');
-  expect(within(trigger).getByTitle('规则未实现警告 3 项')).toHaveTextContent(/^3$/);
+  expect(within(trigger).getByTitle('检测异常提醒 3 项')).toHaveTextContent(/^3$/);
   expect(trigger).not.toHaveTextContent('待核查');
   const list=await menu();
   expect(within(list).getAllByRole('option').map(row=>row.textContent?.split('，')[0])).toEqual(['全部检查项','未完成核验规则','未完成检测']);
   const warning=within(list).getByRole('option',{name:/^未完成检测，/});
-  expect(within(warning).getByTitle('规则未实现警告')).toBeInTheDocument();
+  expect(within(warning).getByTitle('检测异常提醒')).toBeInTheDocument();
   expect(within(warning).queryByText('待核查',{exact:true})).not.toBeInTheDocument();
-  expect(within(within(list).getByRole('option',{name:/^未完成核验规则，/})).getByTitle('规则未实现警告')).toBeInTheDocument();
+  expect(within(within(list).getByRole('option',{name:/^未完成核验规则，/})).getByTitle('检测异常提醒')).toBeInTheDocument();
 });
 
 

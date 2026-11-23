@@ -101,7 +101,7 @@ it('retains long scope descriptions, raw execution state, all warning results an
   const model = buildExportReport(report, [{ rule_id: 'sjtu_rule_15', title: '完整规则', description } as any], null);
   expect(model.scope[0].description).toBe(description);
   expect(model.rules[1]).toMatchObject({ execution_status: 'unsupported', outcome: 'inconclusive' });
-  expect(model.findings.some((finding) => finding.severity === '规则未实现警告')).toBe(true);
+  expect(model.findings.some((finding) => finding.severity === '检测异常提醒')).toBe(true);
   expect(JSON.parse(JSON.stringify(model)).findings[0].source_basis_indices).toEqual([0]);
   const blocks = reportBlocks(model);
   expect(blocks.find((block) => block.kind === 'subheading')?.text).toContain('(警告)');
@@ -139,7 +139,7 @@ it('uses the same displayed numeric findings and execution warnings for every re
   const unfinished = buildExportReport(report, [], null);
   expect(unfinished.summary.finding_count).toBe(unfinished.findings.length);
   expect(unfinished.summary.execution_warning_count).toBe(
-    unfinished.findings.filter((finding) => finding.severity === '规则未实现警告').length,
+    unfinished.findings.filter((finding) => finding.severity === '检测异常提醒').length,
   );
   expect(unfinished.rules[0].finding_count).toBe(unfinished.findings.length);
 });

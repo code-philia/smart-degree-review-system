@@ -204,11 +204,11 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
             ['严重错误数', summary.error_finding_count],
             ['警告错误数', summary.warning_finding_count],
             ['提示错误数', summary.info_finding_count],
-            ['规则未实现警告数', summary.execution_warning_count ?? 0],
+            ['检测异常提醒数', summary.execution_warning_count ?? 0],
           ].map(([label, value]) => (
-            <div key={String(label)} className={`rounded-lg border p-3 ${label === '规则未实现警告数' ? 'border-violet-100 bg-violet-50/50' : 'border-slate-200 bg-slate-50'}`}>
-              <p className={`text-xs ${label === '规则未实现警告数' ? 'text-violet-700' : 'text-slate-500'}`}>{label}</p>
-              <p className={`mt-1 text-2xl font-black ${label === '规则未实现警告数' ? 'text-violet-700' : 'text-slate-900'}`}>{value}</p>
+            <div key={String(label)} className={`rounded-lg border p-3 ${label === '检测异常提醒数' ? 'border-violet-100 bg-violet-50/50' : 'border-slate-200 bg-slate-50'}`}>
+              <p className={`text-xs ${label === '检测异常提醒数' ? 'text-violet-700' : 'text-slate-500'}`}>{label}</p>
+              <p className={`mt-1 text-2xl font-black ${label === '检测异常提醒数' ? 'text-violet-700' : 'text-slate-900'}`}>{value}</p>
             </div>
           ))}
         </div>

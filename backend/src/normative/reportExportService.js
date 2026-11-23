@@ -8,7 +8,7 @@ const MAX_MODEL_BYTES = 4 * 1024 * 1024;
 let active = 0;
 const users = new Set();
 function failure(status, message) { return Object.assign(new Error(message), {status}); }
-const categories=new Map(Object.entries({'严重错误':'Critical','严重':'Critical',error:'Critical',Critical:'Critical','警告':'Warnings',warning:'Warnings',Warnings:'Warnings','规则未实现警告':'Unverified',Unverified:'Unverified','提示':'Info',info:'Info',Info:'Info'}));
+const categories=new Map(Object.entries({'严重错误':'Critical','严重':'Critical',error:'Critical',Critical:'Critical','警告':'Warnings',warning:'Warnings',Warnings:'Warnings','检测异常提醒':'Unverified','Review alerts':'Unverified','规则未实现警告':'Unverified',Unverified:'Unverified','提示':'Info',info:'Info',Info:'Info'}));
 function severity(value) { return categories.get(value); }
 const statuses=new Map(Object.entries({'通过':'passed',Passed:'passed','发现问题':'issues', 'Issues found':'issues','无法判定':'inconclusive',Inconclusive:'inconclusive','不适用':'not_applicable','Not applicable':'not_applicable','执行失败':'error',Failed:'error','未能检测':'unsupported','Not completed':'unsupported','待人工复核':'manual','Manual review needed':'manual','未触发告警':'no_alert','No confirmed alerts':'no_alert','发现问题（部分未检测）':'partial','Issues found (partially checked)':'partial','Findings available; some checks incomplete':'partial'}));
 function validateExportModel(model, reportId) {

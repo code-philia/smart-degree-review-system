@@ -152,16 +152,16 @@ export function FindingsPane({
     : visibleRuleOptions.some(option => option.status !== 'completed');
   const severityEmpty = !pending && !incomplete && filter !== 'all';
   const emptyTitle = pending ? '正在检测相关问题'
-    : severityEmpty ? filter === 'execution' ? '当前筛选未发现规则未实现警告' : `当前筛选未发现${severityLabels[filter as keyof typeof severityLabels]}级别的问题`
+    : severityEmpty ? filter === 'execution' ? '当前筛选未发现检测异常提醒' : `当前筛选未发现${severityLabels[filter as keyof typeof severityLabels]}级别的问题`
     : selectedOption?.status === 'error' ? '本规则检测失败'
     : selectedOption?.status === 'needs_review' ? '本规则暂无法判定'
-    : selectedOption?.status === 'execution_warning' ? '规则未实现警告'
+    : selectedOption?.status === 'execution_warning' ? '检测异常提醒'
     : selectedOption?.status === 'not_applicable' ? '本规则不适用'
     : incomplete ? '部分规则未完成有效检测'
     : selectedRun?.rule_id === 'sjtu_rule_32' ? '未发现疑似不存在的引用'
     : selectedOption ? '本规则未检测出问题' : '未检测出问题';
   const emptyDescription = pending ? <RichMessage name="pending-description">检测完成后自动更新，您可以先查看其他已完成规则的结果。</RichMessage>
-    : severityEmpty ? selectedTotal > 0 ? `${selectedOption ? '该规则' : '当前报告'}共发现 ${selectedTotal} ${!selectedOption && executionWarnings.length ? '项问题，分布在其他级别或规则未实现警告' : '处问题，分布在其他级别'}。` : '当前筛选下暂无该级别的问题。'
+    : severityEmpty ? selectedTotal > 0 ? `${selectedOption ? '该规则' : '当前报告'}共发现 ${selectedTotal} ${!selectedOption && executionWarnings.length ? '项问题，分布在其他级别或检测异常提醒' : '处问题，分布在其他级别'}。` : '当前筛选下暂无该级别的问题。'
     : incomplete ? referenceReviewMessage(selectedRun) || selectedRun?.message || '请在规则下拉框查看检测状态；证据不足或检测失败不代表没有问题。'
     : selectedRun?.rule_id === 'sjtu_rule_32' ? '检测结果仅供参考。'
     : <><span className="block">基于当前规范性检测规则，证据不足的内容仍可能无法判定。</span><span className="block">检测结果仅供参考。</span></>;
@@ -209,7 +209,7 @@ export function FindingsPane({
               {value === 'all' ? '全部' : <>{severityLabels[value]} <span className="tabular-nums">{severityTotals[value]}</span></>}
             </button>
           ))}
-          <Button size="sm" variant={filter === 'execution' ? 'secondary' : 'ghost'} aria-pressed={filter === 'execution'} onClick={() => changeFilter('execution')}><RichMessage name="verification-filter" count={executionWarnings.length}>规则未实现警告 {executionWarnings.length}</RichMessage></Button>
+          <Button size="sm" variant={filter === 'execution' ? 'secondary' : 'ghost'} aria-pressed={filter === 'execution'} onClick={() => changeFilter('execution')}><RichMessage name="verification-filter" count={executionWarnings.length}>检测异常提醒 {executionWarnings.length}</RichMessage></Button>
         </div>
         {ruleIds.length > 0 ? (
           <RuleFilter options={ruleOptions} value={effectiveRuleFilter} onValueChange={setRuleFilter} totalCount={issueTotal} severity={filter} />
