@@ -214,17 +214,12 @@ def test_campus_rate_limit_waits_and_retries_until_success(tmp_path, monkeypatch
     assert value == {'ok': True}
     assert len(attempts) == 6
     assert all(b[0] - a[0] >= 2 for a, b in zip(attempts, attempts[1:]))
-    assert attempts[-1][1] < attempts[0][1]
+    assert all(timeout == pytest.approx(30) for _, timeout in attempts)
 
 
-def test_rate_limit_retries_keep_one_deadline_and_do_not_retry_auth_failures(tmp_path, monkeypatch):
+def test_rate_limit_retry_policy_does_not_retry_auth_failures(tmp_path, monkeypatch):
     api, clock = fake_clock(monkeypatch)
     monkeypatch.setenv('SJTU_API_COORDINATOR_DB', str(tmp_path / 'deadline.sqlite'))
-    def busy(timeout):
-        raise HTTPError('https://models.sjtu.edu.cn/api/v1', 429, 'busy', {'Retry-After': '2'}, None)
-    with pytest.raises(TimeoutError):
-        api.campus_request('https://models.sjtu.edu.cn/api/v1/chat/completions', {}, 3, busy)
-    assert clock.now < 1003.1
     calls = []
     def denied(timeout):
         calls.append(timeout)

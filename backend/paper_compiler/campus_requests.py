@@ -86,21 +86,32 @@ class CampusRequestCoordinator:
             return True
 
     @contextmanager
-    def slot(self, account, *, timeout):
+    def slot(self, account, *, timeout, wait_for_capacity=False, remaining_time=None):
         timeout = float(timeout)
         if not math.isfinite(timeout) or timeout <= 0:
             raise ValueError('campus request timeout must be positive and finite')
-        deadline = time.monotonic() + timeout
+        deadline = None if wait_for_capacity else time.monotonic() + timeout
+        ticket_lifetime = max(30.0, timeout)
+        renew_at = 0.0
         identity = uuid.uuid4().hex
         registered = False
         try:
             while True:
-                remaining = deadline - time.monotonic()
+                if remaining_time is not None:
+                    remaining_time()
+                remaining = timeout if deadline is None else deadline - time.monotonic()
                 if remaining <= 0:
                     raise TimeoutError('campus API request timed out waiting for a shared slot')
                 wait = .05
                 try:
                     with self._connection(timeout=min(1, remaining)) as db:
+                        now = time.time()
+                        if registered and deadline is None and now >= renew_at:
+                            # Keep the same FIFO ticket alive during a long wait.
+                            # Renew infrequently so followers do not starve the head.
+                            db.execute('UPDATE waiters SET expires_at=? WHERE id=?',
+                                       (now + ticket_lifetime, identity))
+                            renew_at = now + ticket_lifetime / 3
                         read_only_wait = False
                         if registered:
                             # Followers only observe a live head. Repeated writer
@@ -120,7 +131,7 @@ class CampusRequestCoordinator:
                                     read_only_wait = True
                         if not read_only_wait:
                             db.execute('BEGIN IMMEDIATE')
-                            remaining = deadline - time.monotonic()
+                            remaining = timeout if deadline is None else deadline - time.monotonic()
                             if remaining <= 0:
                                 raise TimeoutError('campus API request timed out waiting for a shared slot')
                             now = time.time()
@@ -129,7 +140,9 @@ class CampusRequestCoordinator:
                             # Persist registration while waiting. Later chunks or workers
                             # cannot repeatedly steal capacity from an older request.
                             db.execute('INSERT OR IGNORE INTO waiters (id,account_id,pid,expires_at) VALUES (?,?,?,?)',
-                                       (identity, account, os.getpid(), now + remaining))
+                                       (identity, account, os.getpid(), now + (ticket_lifetime if deadline is None else remaining)))
+                            if deadline is None and not registered:
+                                renew_at = now + ticket_lifetime / 3
                             first = db.execute('SELECT id FROM waiters WHERE account_id=? ORDER BY ticket LIMIT 1',
                                                (account,)).fetchone()[0]
                             next_at, blocked_until = db.execute('SELECT next_at,blocked_until FROM accounts WHERE id=?', (account,)).fetchone()
@@ -148,9 +161,13 @@ class CampusRequestCoordinator:
                 except sqlite3.OperationalError as error:
                     if 'locked' not in str(error).lower():
                         raise
-                time.sleep(min(wait, .25, max(0, deadline - time.monotonic())))
+                remaining = timeout if deadline is None else max(0, deadline - time.monotonic())
+                time.sleep(min(wait, .25, remaining))
             try:
-                yield max(.001, deadline - time.monotonic())
+                available = timeout if deadline is None else max(.001, deadline - time.monotonic())
+                if remaining_time is not None:
+                    available = min(available, remaining_time())
+                yield available
             except Exception as error:
                 if getattr(error, 'code', getattr(error, 'status', None)) == 429:
                     retry = getattr(error, 'retry_after', None)
@@ -177,7 +194,7 @@ def _coordinator(path, concurrency, rpm):
 
 
 @contextmanager
-def campus_request_slot(url, headers, timeout):
+def campus_request_slot(url, headers, timeout, *, wait_for_capacity=False, remaining_time=None):
     target = urlsplit(url)
     if target.scheme != 'https' or target.hostname != 'models.sjtu.edu.cn':
         yield timeout
@@ -190,22 +207,20 @@ def campus_request_slot(url, headers, timeout):
     account = hashlib.sha256((target.netloc + '\0' + authorization).encode()).hexdigest()
     gate = _coordinator(path, _setting('SJTU_API_MAX_CONCURRENCY', 16, 32),
                         campus_requests_per_minute())
-    with gate.slot(account, timeout=timeout) as remaining:
+    with gate.slot(account, timeout=timeout, wait_for_capacity=wait_for_capacity,
+                   remaining_time=remaining_time) as remaining:
         yield remaining
 
 
-def campus_request(url, headers, timeout, send):
-    """Wait for campus capacity and retry 429s within one overall deadline."""
+def campus_request(url, headers, timeout, send, *, remaining_time=None):
+    """Queue campus limits and retry 429s; timeout bounds each real transport."""
     target = urlsplit(url)
     if target.scheme != 'https' or target.hostname != 'models.sjtu.edu.cn':
         return send(timeout)
-    deadline = time.monotonic() + float(timeout)
     while True:
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            raise TimeoutError('campus API request timed out waiting for capacity')
         try:
-            with campus_request_slot(url, headers, remaining) as available:
+            with campus_request_slot(url, headers, timeout, wait_for_capacity=True,
+                                     remaining_time=remaining_time) as available:
                 return send(available)
         except Exception as error:
             if getattr(error, 'code', getattr(error, 'status', None)) != 429:

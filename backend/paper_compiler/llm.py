@@ -89,9 +89,11 @@ def load_config(path):
     return config
 
 
-def _http(url, headers, payload, timeout):
+def _http(url, headers, payload, timeout, *, request_limits=None):
     from .campus_requests import campus_request
-    return campus_request(url, headers, timeout, lambda remaining: _http_request(url, headers, payload, remaining))
+    return campus_request(url, headers, timeout,
+                          lambda remaining: _http_request(url, headers, payload, remaining),
+                          remaining_time=request_limits.remaining if request_limits is not None else None)
 
 
 def _http_request(url, headers, payload, timeout):
@@ -314,7 +316,9 @@ class MaasClient:
                 try:
                     limits = getattr(self, '_request_limits', None)
                     timeout = self.timeout if limits is None else min(float(self.timeout), limits.remaining())
-                    response = self.transport(self.config['MAAS_BASE_URL'].rstrip('/') + '/chat/completions', headers, payload, timeout)
+                    transport_options = {'request_limits': limits} if self.transport is _http else {}
+                    response = self.transport(self.config['MAAS_BASE_URL'].rstrip('/') + '/chat/completions', headers, payload, timeout,
+                                              **transport_options)
                 except BaseException as error:
                     last_error = error
                     if not isinstance(error, Exception):
