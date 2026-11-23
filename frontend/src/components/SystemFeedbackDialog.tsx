@@ -89,18 +89,20 @@ export function SystemFeedbackDialog() {
       </DialogTrigger>
       <DialogContent data-i18n-system-feedback="" className="max-h-[calc(100dvh-2rem)] gap-6 overflow-y-auto p-6 sm:max-w-xl">
         <DialogHeader className="gap-3 pr-5">
-          <DialogTitle className="text-xl font-semibold tracking-tight">使用反馈</DialogTitle>
+          <div className="flex flex-wrap items-center gap-3">
+            <DialogTitle className="text-xl font-semibold tracking-tight">使用反馈</DialogTitle>
+            <a
+              href="https://feedback-chat-5d9.pages.dev/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-xs transition-colors hover:bg-primary/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
+            >
+              吐槽微信群
+            </a>
+          </div>
           <DialogDescription className="leading-relaxed">
             您的反馈将帮助我们优化论文规范性检测和 AI 修复建议
           </DialogDescription>
-          <a
-            href="https://feedback-chat-5d9.pages.dev/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex min-h-9 items-center self-start rounded-lg border border-primary/20 bg-primary/5 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:border-primary/30 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
-          >
-            吐槽微信群
-          </a>
         </DialogHeader>
         {message ? (
           <div
