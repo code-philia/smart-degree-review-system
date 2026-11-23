@@ -1,4 +1,4 @@
-import { CreditBalance, CreditEstimate, CreditPrice, CreditAbout, creditAllowsRules } from './PaperLintCredit';
+import { CreditBalance, CreditEstimate, CreditPrice, CreditAbout, CreditInsufficientNotice, creditAllowsRules, isCreditInsufficient } from './PaperLintCredit';
 import { preserveText } from "../../i18n/jsx-runtime";
 import { ArrowRight, Check, ChevronDown, FileText, FlaskConical, LoaderCircle, ShieldCheck, Square, Upload, X } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
@@ -187,7 +187,9 @@ export function ThesisUploadPanel(props: Props) {
     return () => cancelAnimationFrame(frame);
   }, [running]);
   const ruleRegion = useId();
+  const creditNoticeId = useId();
   const busy = running || stopping;
+  const creditBlocked = !busy && !props.quotaRetryAllowed && isCreditInsufficient(props.credit, selectedRuleIds, props.creditUnavailable);
   const available = rules.filter((rule) => rule.available);
   const selected = new Set(selectedRuleIds);
   const unavailableSelection = selectedRuleIds.some((id) => !available.some((rule) => rule.rule_id === id));
@@ -434,6 +436,7 @@ export function ThesisUploadPanel(props: Props) {
         </section>
 
         <div data-i18n-upload-footer="" className="border-t border-slate-100 bg-[#fbfcfe] px-[18px] py-4 sm:px-6">
+          {creditBlocked ? <CreditInsufficientNotice id={creditNoticeId}/> : null}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="flex items-center gap-1.5 text-xs text-slate-500">
               <ShieldCheck className="size-4 text-brand-500" />
@@ -454,6 +457,7 @@ export function ThesisUploadPanel(props: Props) {
               ) : null}
               <Button
                 className="min-w-32 rounded-xl px-6"
+                aria-describedby={creditBlocked ? creditNoticeId : undefined}
                 disabled={
                   !file ||
                   !catalogReady ||

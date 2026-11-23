@@ -6,7 +6,7 @@ import { TranslationStatus } from '../i18n/TranslationStatus';
 import { reportDetailPath } from '../nav/reviewRoutes';
 import axios from 'axios';
 import { FileCheck2, FileText, LoaderCircle, Play, Square, Upload, X } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type DragEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthSession } from '../auth/AuthSessionProvider';
 import {
@@ -26,7 +26,7 @@ import { ThesisUploadPanel } from '../components/paperLint/ThesisUploadPanel';
 import { LivePaperLintReport } from '../components/paperLint/LivePaperLintReport';
 import { compilerPublicationLabel, compilerPublicationSummary, flattenPaperLintFindings, paperLintFeedbackItems, paperLintPresentation } from '../components/paperLint/model';
 import { usePaperLintCredit } from '../hooks/usePaperLintCredit';
-import { CreditBalance, CreditEstimate, creditAllowsRules } from '../components/paperLint/PaperLintCredit';
+import { CreditBalance, CreditEstimate, CreditInsufficientNotice, creditAllowsRules, isCreditInsufficient } from '../components/paperLint/PaperLintCredit';
 import { usePaperLintRepairSuggestions } from '../hooks/usePaperLintRepairSuggestions';
 import {
   deleteFindingFeedback,
@@ -160,6 +160,9 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   const requestIdRef = useRef<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const accountCredit = usePaperLintCredit(user?.id, Boolean(activeJobId || running), `${activeJobId ?? ''}:${running}:${stopping}`);
+  const creditNoticeId = useId();
+  const creditBlocked = !running && !stopping && !(recoverableRequestId && recoverableRequestId === requestIdRef.current)
+    && isCreditInsufficient(accountCredit.credit, selectedRuleIds, accountCredit.error);
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const [activeFilename, setActiveFilename] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<'pending' | 'running' | null>(null);
@@ -892,6 +895,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
                 </span>
               </label>
             ) : null}
+            {creditBlocked ? <div className="mt-4"><CreditInsufficientNotice id={creditNoticeId}/></div> : null}
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
               <p className="text-sm text-slate-600">
                 已选择 <strong className="text-slate-900">{selectedRuleIds.length}</strong> 条规则
@@ -906,6 +910,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
                 </Button>
               ) : null}
               <Button
+                aria-describedby={creditBlocked ? creditNoticeId : undefined}
                 disabled={
                   !file ||
                   !catalog ||

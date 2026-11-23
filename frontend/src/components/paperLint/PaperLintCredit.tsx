@@ -14,6 +14,18 @@ export const hasPaidSelection=(ids:string[])=>ids.some(id=>Object.prototype.hasO
 export function creditAllowsRules(credit:PaperLintCredit|null|undefined,ids:string[],unavailable=false){
   return !hasPaidSelection(ids)||Boolean(credit&&!unavailable&&Number(credit.available_cny)>0);
 }
+export function isCreditInsufficient(credit:PaperLintCredit|null|undefined,ids:string[],unavailable=false){
+  return Boolean(credit&&!unavailable&&hasPaidSelection(ids)&&Number(credit.available_cny)<=0);
+}
+export function CreditInsufficientNotice({id}:{id:string}){
+  const en=useEnglish();
+  return <div id={id} className="credit-insufficient-notice" role="status">
+    <Wallet size={16} strokeWidth={1.8} aria-hidden="true"/>
+    <div><strong>{en?'Insufficient credit':'额度不足'}</strong>
+      <p>{en?'Deselect checks that use credit to continue with free checks.':'取消需要额度的规则后，仍可使用免费规则进行检测。'}</p>
+    </div>
+  </div>;
+}
 function CreditRing({percent}:{percent:number}){
   const value=Math.max(0,Math.min(100,percent));
   return <svg className="credit-balance-ring" viewBox="0 0 36 36" aria-hidden="true" focusable="false">

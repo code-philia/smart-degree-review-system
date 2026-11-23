@@ -68,10 +68,23 @@ it('allows a free selection at zero credit but disables a new paid selection',()
     credit:sample('alice',{available_cny:'0.000000000',remaining_percent:0})};
   const view=render(<ThesisUploadPanel {...props}/>);
   expect(screen.getByRole('button',{name:'开始检测',exact:true})).toBeEnabled();
+  expect(screen.queryByText('额度不足')).not.toBeInTheDocument();
   view.rerender(<ThesisUploadPanel {...props} selectedRuleIds={['typo_detection_check']}/>);
   expect(screen.getByRole('button',{name:'开始检测',exact:true})).toBeDisabled();
+  expect(screen.getByText('额度不足')).toBeVisible();
+  expect(screen.getByRole('status')).toHaveTextContent('取消需要额度的规则后，仍可使用免费规则进行检测。');
+  expect(screen.getByRole('button',{name:'开始检测',exact:true})).toHaveAccessibleDescription(/取消需要额度的规则/);
+  view.rerender(<ThesisUploadPanel {...props} selectedRuleIds={['typo_detection_check']} credit={null}/>);
+  expect(screen.queryByText('额度不足')).not.toBeInTheDocument();
+  view.rerender(<ThesisUploadPanel {...props} selectedRuleIds={['typo_detection_check']} creditUnavailable/>);
+  expect(screen.queryByText('额度不足')).not.toBeInTheDocument();
   view.rerender(<ThesisUploadPanel {...props} selectedRuleIds={['typo_detection_check']} quotaRetryAllowed/>);
   expect(screen.getByRole('button',{name:'开始检测',exact:true})).toBeEnabled();
+  expect(screen.queryByText('额度不足')).not.toBeInTheDocument();
+  act(()=>setLocale('en'));
+  view.rerender(<ThesisUploadPanel {...props} selectedRuleIds={['typo_detection_check']}/>);
+  expect(screen.getByText('Insufficient credit')).toBeVisible();
+  expect(screen.getByRole('status')).toHaveTextContent('Deselect checks that use credit to continue with free checks.');
 });
 it('polls an active account balance and stops polling after unmount',async()=>{
   vi.useFakeTimers();
