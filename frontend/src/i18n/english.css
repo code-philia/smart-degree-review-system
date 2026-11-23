@@ -37,8 +37,8 @@ html[lang=en] .app-topbar nav{min-width:0}
 html[lang=en] .app-topbar [data-slot=breadcrumb-list]{font-size:14px;line-height:20px;color:#52627b}
 html[lang=en] .app-topbar [data-slot=breadcrumb-page]{font-size:14px}
 html[lang=en] .app-topbar>div:last-child{flex-shrink:0}
-html[lang=en] [data-ui-key="论文上传与检测设置"] section[data-ui-key$="检测规则"]>div:first-child{flex-direction:row;flex-wrap:wrap;align-items:center;gap:8px 12px}
-html[lang=en] [data-ui-key="论文上传与检测设置"] section[data-ui-key$="检测规则"]>div:first-child>div:first-child{min-width:0;flex:1 1 auto;flex-wrap:wrap;gap:7px}
+html[lang=en] [data-ui-key="论文上传与检测设置"] section[data-ui-key$="检测规则"]>div:first-child{flex-direction:row;flex-wrap:nowrap;align-items:center;gap:8px 12px}
+html[lang=en] [data-ui-key="论文上传与检测设置"] section[data-ui-key$="检测规则"]>div:first-child>div:first-child{min-width:0;flex:1 1 0%;flex-wrap:wrap;gap:7px}
 html[lang=en] [data-ui-key="论文上传与检测设置"] section[data-ui-key$="检测规则"]>div:first-child>div:last-child{flex:0 0 auto;margin-left:auto}
 html[lang=en] [data-ui-key="论文上传与检测设置"] section[data-ui-key$="检测规则"] h3{white-space:normal;font-size:14px;line-height:1.5;text-wrap:balance}
 html[lang=en] [data-ui-key="论文上传与检测设置"] label span{overflow-wrap:break-word}
@@ -140,7 +140,6 @@ html[lang=en] .i18n-languages button{font-size:13px}
 @container login-card (max-width:320px){html[lang=en] .campus-signin .login-button svg{display:none}html[lang=en] .campus-signin .login-button{padding-inline:12px;letter-spacing:0}}
 @container finding-feedback (max-width:280px){html[lang=en] [data-i18n-feedback-control]>div:first-child{grid-template-columns:minmax(0,1fr) auto auto}html[lang=en] [data-i18n-feedback-control]>div:first-child>button:nth-of-type(3){grid-column:1 / -1;justify-self:end}}
 @container history-controls (max-width:560px){html[lang=en] [data-i18n-history-header]{grid-template-columns:minmax(0,1fr);padding-inline:18px;gap:12px}html[lang=en] [data-i18n-history-header]>div:nth-child(2){grid-column:1;order:0}html[lang=en] [data-i18n-history-header]>button{justify-self:start}html[lang=en] [data-i18n-history-header] h2{white-space:nowrap}}
-@media(min-width:1280px){html[lang=en] [data-ui-key="论文上传与检测设置"] section[data-ui-key$="检测规则"]>div:first-child{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(26px,auto) auto;align-items:start;gap:8px}html[lang=en] [data-ui-key="论文上传与检测设置"] section[data-ui-key$="检测规则"]>div:first-child>div:first-child{grid-row:1;align-self:start}html[lang=en] [data-ui-key="论文上传与检测设置"] section[data-ui-key$="检测规则"]>div:first-child>div:last-child{grid-row:2;justify-self:end;align-self:end}}
 @media(max-width:1100px){html[lang=en] .app-topbar [data-slot=breadcrumb-item]:first-child{display:none}html[lang=en] .app-topbar [data-slot=breadcrumb-separator]{display:none}html[lang=en] .app-topbar>div:last-child>span{display:none}}
 @media(max-width:360px){html[lang=en] .campus-signin .login-button{padding-inline:28px}html[lang=en] .campus-signin .login-button svg{width:16px;height:16px;right:12px}}
 @media(min-width:1760px){html[lang=en] .campus-signin .signin h2{letter-spacing:-.05em}}

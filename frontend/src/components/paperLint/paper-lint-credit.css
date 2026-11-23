@@ -48,7 +48,7 @@
 .credit-rule-option:hover{background:#f6f8fc!important}
 .credit-rule-option>input{margin-top:3px}
 .credit-rule-copy{flex:1;display:block;min-width:0}
-.credit-rule-heading{display:flex;align-items:center;gap:7px;min-height:22px;line-height:22px}
+.credit-rule-heading{display:flex;align-items:center;gap:7px;min-height:24px;line-height:22px}
 .credit-rule-name{min-width:0;color:#24364e;font-size:13px;font-weight:500;line-height:22px}
 .credit-rule-description{display:block;margin-top:4px;color:#7d8ba0;font-size:12px;line-height:20px}
 .credit-rule-price{margin-left:auto;gap:2px;padding:1px 6px;border:1px solid #d5e7e2;border-radius:6px;background:#f3f9f7;font-size:13px;line-height:20px;font-weight:500;color:#397e75}
@@ -68,6 +68,14 @@
 .credit-balance .credit-currency{font-size:13px;margin-right:2px}
 .credit-balance>.lucide-chevron-down{width:12px;margin-left:4px;color:#8a9d97}
 @media(min-width:1100px){.credit-rule-grid{grid-template-columns:minmax(0,1.04fr) minmax(0,1fr);grid-template-rows:auto 1fr;gap:16px 18px}.credit-rule-group:nth-child(1){grid-column:1;grid-row:1/span 2}.credit-rule-group:nth-child(2){grid-column:2;grid-row:1}.credit-rule-group:nth-child(3){grid-column:2;grid-row:2}}
+@supports(grid-template-rows:subgrid){@media(min-width:1100px){
+ .credit-rule-grid{grid-template-rows:repeat(var(--rule-grid-rows),auto);row-gap:0}
+ .credit-rule-group:nth-child(1),.credit-rule-group:nth-child(2){display:grid;grid-template-rows:subgrid;align-self:stretch}
+ .credit-rule-group:nth-child(1){grid-row:1/span var(--rule-format-rows)}
+ .credit-rule-group:nth-child(2){grid-row:1/span var(--rule-content-rows)}
+ .credit-rule-group:nth-child(-n+2)>.credit-group-rows{display:grid;grid-template-rows:subgrid;grid-row:2/-1}
+ .credit-rule-group:nth-child(3){grid-row:calc(var(--rule-content-rows) + 1)/span var(--rule-logic-rows);align-self:start;margin-top:16px}
+}}
 @media(max-width:620px){.credit-balance{align-self:flex-start}.credit-rule-grid{gap:14px}.credit-group-heading{padding:11px 13px;min-height:52px}.credit-rule-option{padding:13px}.credit-rule-heading{gap:6px}.credit-rule-name{font-size:12px}.credit-rule-price{font-size:12px}.credit-rule-price svg{width:13px;height:13px}.credit-rule-description{font-size:11px;line-height:19px}.credit-estimate{align-items:flex-start;margin-right:auto}.credit-estimate-note{display:block}}
 .dark .credit-rule-group{background:var(--card);border-color:var(--border)}
 .dark .credit-group-heading{background:var(--secondary);border-color:var(--border)}

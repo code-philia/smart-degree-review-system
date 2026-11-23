@@ -201,7 +201,8 @@ export function ThesisUploadPanel(props: Props) {
     : `已选择 ${selectedRuleIds.length} 项检测规则`;
   const noSelection = catalogReady && !catalogLoading && !selectedRuleIds.length;
   const filename = file?.name || (busy ? props.activeFilename : null);
-  const groupRowCount = Math.max(1, ...GROUPS.map(group => rules.filter(rule => ruleGroup(rule.rule_id) === group).length));
+  const groupTracks = GROUPS.map(group => Math.max(1, rules.filter(rule => ruleGroup(rule.rule_id) === group).length) + 1);
+  const groupRowCount = Math.max(groupTracks[0], groupTracks[1] + groupTracks[2]);
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-5">
@@ -340,7 +341,7 @@ export function ThesisUploadPanel(props: Props) {
                 </Button>
               </div>
               <div className="credit-rule-grid"
-                style={{ '--rule-grid-rows': groupRowCount + 1, '--rule-content-rows': groupRowCount } as CSSProperties}>
+                style={{ '--rule-grid-rows': groupRowCount, '--rule-format-rows': groupTracks[0], '--rule-content-rows': groupTracks[1], '--rule-logic-rows': groupTracks[2] } as CSSProperties}>
                 {GROUPS.map((group) => {
                   const groupRules = rules.filter((rule) => ruleGroup(rule.rule_id) === group);
                   if (group === '内容规范') groupRules.sort((a, b) => CONTENT_ORDER.indexOf(a.rule_id) - CONTENT_ORDER.indexOf(b.rule_id));
