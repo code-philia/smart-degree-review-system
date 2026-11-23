@@ -631,7 +631,7 @@ def run_typo_rule_from_ir(ir: dict[str, Any], *, on_chunk_complete=None, max_wor
         return {'rule_run_id': f'run_{TYPO_RULE}', 'rule_id': TYPO_RULE, 'severity':'warning',
                 'params':{'chunk_count':0,'chunk_size':1200,'native_text_scope':scope},
                 'execution_status':'completed','evidence_mode':'unsupported','outcome':'inconclusive',
-                'message':'未识别到可检测的原生正文；扫描页不参与错别字检测，且不使用OCR。',
+                'message':None,
                 'findings':[],'model_usage':usage_total}
     failure = None
     completed_chunks = 0

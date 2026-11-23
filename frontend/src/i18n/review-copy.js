@@ -1,6 +1,5 @@
 /* Reviewed student-facing English. Chinese source copy remains unchanged. */
 export const REVIEW_COPY={
- '未识别到可检测的原生正文；扫描页不参与错别字检测，且不使用OCR。':'No readable native body text was found for this check. Scanned pages are excluded from character-error checks, and OCR is not used.',
  '暂无可展示的检测结果。':'No review results are available to display.',
  '该审查规则已下线，请刷新报告后重试。':'This check has been retired. Refresh the report and try again.',
  '请稍后重试；若持续失败，请联系管理员检查运行记录，联系邮箱：j82279240@gmail.com':'Try again later. If the problem persists, contact the administrator to check the run logs. Contact email: j82279240@gmail.com',
