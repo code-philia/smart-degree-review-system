@@ -17,6 +17,7 @@ _MAXIMUM = re.compile(r'最高|最大|\bmaximum\b', re.I)
 _EXPLICIT_MAXIMUM = re.compile(r'最高|最大|最多|\b(?:maximum|maximal|up to)\b', re.I)
 _RELATIVE = re.compile(r'relaimpr|relative\s*(?:improv|gain)|相对(?:提升|增益|改善)', re.I)
 _IMPROVEMENT_ROW = re.compile(r'^(?:%?\s*improv(?:ement)?\.?|提升比例|相对提升(?:比例)?)$', re.I)
+_COLLECTIVE_BASELINE = re.compile(r'(?:多种|多个|各(?:种|个)?|所有|全部)(?:主流|推荐|深度|基线|代表性|的)*(?:模型|方法)')
 _NATIVE_MAXIMUM = re.compile(r'最高|最大|最多|高达|\b(?:maximum|maximal|up to|as high as)\b', re.I)
 _NON_EXACT_PROSE_VALUE = re.compile(
     r'(?:不(?:超过|高于|低于|少于|多于|到|足|达(?:到)?|是|为)|未(?:达(?:到)?|超过)|没有达到|'
@@ -214,17 +215,17 @@ def _headers(table):
     return [' / '.join(str(part) for part in path if part is not None) if isinstance(path, list) else '' for path in paths]
 
 
-def _caption_metric_view(table, model, declaration):
+def _native_caption_sources(table, model):
     """Bind native caption continuation only below its actual source caption."""
     box = table.get('bbox')
     primary = [b for b in model.get('blocks') or [] if b.get('source_node_id') in (table.get('source_node_ids') or [])
                and b.get('page') == table.get('page') and b.get('section_id') == table.get('section_id')
                and _key(table.get('caption')) in _key(b.get('text'))]
     if not primary or not isinstance(box, list) or len(box) != 4:
-        return table
+        return []
     starts = [p['bbox'][1] for b in primary for p in b.get('provenance') or [] if isinstance(p.get('bbox'), list) and len(p['bbox']) == 4]
     if not starts or not 0 <= box[1] - min(starts) <= 180:
-        return table
+        return []
     sources = []
     for block in model.get('blocks') or []:
         if (not block.get('block_id') or not block.get('source_node_id')
@@ -244,6 +245,11 @@ def _caption_metric_view(table, model, declaration):
                                 'block_text_start': cursor, 'block_text_end': cursor+length,
                                 'provenance': [source]})
             cursor += length + 1
+    return sources
+
+
+def _caption_metric_view(table, model, declaration):
+    sources = _native_caption_sources(table, model)
     context = '\n'.join(source['quote'] for source in sources)
     if not _metric_match(context, declaration):
         return table
@@ -349,6 +355,10 @@ def _row_scope(table, row_index, declaration, support=None):
             if not _scope_value_matches(expected, explicit):
                 return False
             continue
+        collective = (support or {}).get('_collective_scope', {}).get(field)
+        if (collective and support.get(field) == expected
+                and _cell(table, row_index, collective['column']) in collective['members']):
+            continue
         if not columns:
             if field == 'condition' and re.fullmatch(
                     r'该(?:方案|方法|系统)|本(?:方案|方法|系统)|(?:this|our|the proposed)\s+(?:method|scheme|system)', expected.strip(), re.I):
@@ -396,6 +406,53 @@ def _measurement(value, header, declaration):
         return result if result.is_finite() else None
     except DecimalException:
         return None
+
+
+def _collective_table_scope(table, declaration, mapping, model):
+    """Bind framework/host-model roles and counted dataset sets to native cells."""
+    headers = _headers(table)
+    datasets, hosts = _scope_columns(headers, 'dataset'), _scope_columns(headers, 'method')
+    columns = _metric_columns(table, declaration)
+    if (not _safe_table(table) or len(datasets) != 1 or len(hosts) != 1 or not columns
+            or not all(re.match(r'(?:本方法|our method)\s*/', headers[i], re.I) for i in columns)
+            or not any(re.match(r'(?:基线|baseline)\s*/', header, re.I) for header in headers)):
+        return {}, []
+    members = {field: {_cell(table, i, column) for i in range(_header_count(table), len(table['matrix']))}
+               for field, column in [('dataset', datasets[0]), ('method', hosts[0])]}
+    if any(None in values or len(values) < 2 for values in members.values()):
+        return {}, []
+    caption_sources = _native_caption_sources(table, model)
+    caption = ' '.join(source['quote'] for source in caption_sources)
+    count_pattern = r'(\d+|[一二两三四五六七八九十])\s*(?:个\s*公开数据集|\s+public\s+data\s*sets?)'
+    counted = re.fullmatch(count_pattern, declaration.get('dataset') or '', re.I)
+    native_count = re.search(count_pattern, caption, re.I)
+    count = lambda value: int(value) if value.isdecimal() else '一二三四五六七八九十'.find(value.replace('两', '二')) + 1
+    support, roles = {}, {}
+    if counted and native_count and count(counted[1]) == count(native_count[1]) == len(members['dataset']):
+        support['dataset'] = declaration['dataset']
+        roles['dataset'] = {'column': datasets[0], 'members': sorted(members['dataset'])}
+    identity = re.compile(r'(?:表|\bTable\s*)\s*(\d+\s*[.\-]\s*\d+)', re.I)
+    table_number = identity.search(table.get('caption') or '')
+    comparisons = [b for b in model.get('blocks') or [] if b.get('provenance')
+                   and any(_under(model, b.get('section_id'), sid) for sid in mapping['experiment_section_ids'])
+                   and table_number and any(_key(m[1]) == _key(table_number[1]) for m in identity.finditer(b['text']))
+                   and re.search(r'本方法|our method', b['text'], re.I)
+                   and re.search(r'基准模型|基线模型|baseline', b['text'], re.I)
+                   and re.search(r'对比|比较|compar', b['text'], re.I)]
+    method, context = declaration.get('method') or '', declaration.get('source_context') or ''
+    native_pages = [page for page, value in model.get('pages', {}).items() if context
+                    and _key(context) in _key(''.join(line.get('text') or '' for line in value.get('lines') or []))]
+    if (comparisons and native_pages and re.fullmatch(r'[\u3400-\u9fff]{4,}(?:框架|方法|方案|系统|机制)', method)
+            and re.search(r'(?:所提出的|本文提出的|本研究提出的)' + re.escape(_key(method)), _key(context))):
+        support['method'] = method
+        roles['method'] = {'column': hosts[0], 'members': sorted(members['method'])}
+    if _COLLECTIVE_BASELINE.fullmatch(declaration.get('baseline') or ''):
+        support['baseline'] = declaration['baseline']
+        roles['baseline'] = {'column': hosts[0], 'members': sorted(members['method'])}
+    support['_collective_scope'] = roles
+    return support, [{'kind': 'native_table_collective_scope', 'column_roles': roles,
+                      'caption_sources': caption_sources, 'method_source_pages': native_pages,
+                      'method_source_quote': context, 'comparison_block_ids': [b['block_id'] for b in comparisons]}] if roles else []
 
 
 def _table_scope_support(table, declaration, mapping, model):
@@ -462,7 +519,9 @@ def _table_scope_support(table, declaration, mapping, model):
         labels = {str(row[0]) for index, row in enumerate(table['matrix']) if index >= start and index not in _improvement_rows(table, declaration) and row and row[0]}
         if len(labels) >= 2:
             support['baseline'] = declaration['baseline']
-    return support, sources
+    collective, collective_sources = _collective_table_scope(table, declaration, mapping, model)
+    support.update(collective)
+    return support, sources + collective_sources
 
 
 def _condition_in_prose(expected, clause, context):
@@ -704,7 +763,8 @@ def _maximum_support(row, model, mapping):
             reference_sources.setdefault(native_table['table_id'], []).append(block['block_id'])
     references = {ref['table_id'] for ref in mapping.get('table_reference_scope') or []}
     excluded_scope, views = [], []
-    broad_baseline = bool(re.fullmatch(r'(?:代表性|各|所有|全部)?基线(?:方法|模型)?', declaration.get('baseline') or ''))
+    broad_baseline = bool(re.fullmatch(r'(?:代表性|各|所有|全部)?基线(?:方法|模型)?', declaration.get('baseline') or '')
+                          or _COLLECTIVE_BASELINE.fullmatch(declaration.get('baseline') or ''))
     ablation = re.compile(r'消融实验|消融分析|\bablation\b', re.I)
     for table in model.get('tables') or []:
         current, seen, boundary = table.get('section_id'), set(), None
