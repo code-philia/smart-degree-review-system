@@ -315,11 +315,12 @@ export function ThesisUploadPanel(props: Props) {
               id={ruleRegion}
               className="mt-5 animate-in fade-in slide-in-from-top-1 duration-200 motion-reduce:animate-none"
             >
-              <div className="mb-3 flex justify-end gap-1">
+              <div className="mb-3 flex flex-wrap justify-end gap-2">
                 <Button
                   aria-label="全选全部检测规则"
                   size="sm"
-                  variant="ghost"
+                  variant="secondary"
+                  className="min-w-20 shadow-xs"
                   disabled={busy}
                   onClick={() => onSelectionChange(available.map((rule) => rule.rule_id))}
                 >
@@ -328,7 +329,8 @@ export function ThesisUploadPanel(props: Props) {
                 <Button
                   aria-label="清空全部检测规则"
                   size="sm"
-                  variant="ghost"
+                  variant="secondary"
+                  className="min-w-20 shadow-xs"
                   disabled={busy}
                   onClick={() => onSelectionChange([])}
                 >
@@ -350,7 +352,7 @@ export function ThesisUploadPanel(props: Props) {
                       <div className="flex min-h-16 items-center justify-between gap-2 border-b border-slate-100 px-3 py-3">
                         <div className="flex min-w-0 items-center gap-1">
                           <h3 className="whitespace-nowrap text-sm font-semibold leading-5 text-slate-800">{group}</h3>
-                          {group === '论文逻辑审查' ? <span className="inline-flex h-[18px] shrink-0 items-center whitespace-nowrap rounded-md bg-violet-50 px-1 text-[9px] font-medium leading-none text-violet-700">实验型功能</span> : null}
+                          {group === '论文逻辑审查' ? <span className="inline-flex h-5 shrink-0 items-center whitespace-nowrap rounded-md bg-violet-50 px-1.5 text-[10px] font-medium leading-none text-violet-700">实验型功能</span> : null}
                         </div>
                         <div className="flex shrink-0 items-center rounded-lg bg-white/80 p-0.5 ring-1 ring-slate-200/70">
                           <button
