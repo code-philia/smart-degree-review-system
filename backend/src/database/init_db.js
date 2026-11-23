@@ -38,6 +38,7 @@ function getDb() {
   if (!db) {
     ensureDbDirectory(currentDbPath);
     db = new sqlite3.Database(currentDbPath);
+    db.configure('busyTimeout', 15000);
   }
   return db;
 }
@@ -354,6 +355,7 @@ async function initializeDatabase(options = {}) {
     );`);
     await runStatement(database, `INSERT OR IGNORE INTO paper_lint_quota_policy(id,starts_at)
       VALUES (1,'${new Date().toISOString()}');`);
+    await new Promise((resolve,reject)=>database.exec(fs.readFileSync(path.join(__dirname,'credit_schema.sql'),'utf8'),error=>error?reject(error):resolve()));
     await runStatement(database, `CREATE TABLE IF NOT EXISTS report_email_outbox (
       job_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, report_id TEXT NOT NULL,
       recipient TEXT, status TEXT NOT NULL DEFAULT 'pending'

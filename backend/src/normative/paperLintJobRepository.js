@@ -53,7 +53,7 @@ async function createJob({ userId, sourceFilename, pdfBuffer, selectedRuleIds, e
   await fs.promises.writeFile(pdfPath, pdfBuffer, { flag: 'wx', mode: 0o600 });
   try {
     const now = new Date().toISOString();
-    const guard = quotaAdmission(userId, now);
+    const guard = quotaAdmission(userId, now, selectedRuleIds.filter(ruleId=>!envelope.result?.rule_runs?.some(run=>run.rule_id===ruleId)));
     const inserted = await run(`INSERT INTO paper_lint_jobs (id,user_id,source_filename,source_pdf_path,selected_rule_ids_json,external_consent,request_id,status,attempts,created_at,updated_at,reuse_json,notification_locale,notify_completion)
       SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,? WHERE (${guard.sql})`,
       [id, userId, sourceFilename, pdfPath, JSON.stringify(selectedRuleIds),

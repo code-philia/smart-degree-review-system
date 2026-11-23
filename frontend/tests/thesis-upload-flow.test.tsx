@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom';
 import { beforeEach, expect, it, vi } from 'vitest';
 import NormativeCheckPage from '../src/pages/NormativeCheckPage';
 import {
-  fetchPaperLintDailyQuota,
+  fetchPaperLintCredit,
   fetchPaperLintJob,
   fetchPaperLintReport,
   fetchReviewPilotPaperLintRules,
@@ -20,7 +20,7 @@ vi.mock('../src/api/paperLint', async () => ({
   ...(await vi.importActual('../src/api/paperLint')),
   fetchReviewPilotPaperLintRules: vi.fn(),
   runReviewPilotPaperLint: vi.fn(),
-  fetchPaperLintDailyQuota: vi.fn(),
+  fetchPaperLintCredit: vi.fn(),
   fetchPaperLintJob: vi.fn(),
   fetchPaperLintReport: vi.fn(),
 }));
@@ -49,6 +49,7 @@ const rules: PaperLintRule[] = [
   uses_external_model: false,
 }));
 const catalog = { engine: 'sjtu-local', mode: 'pdf_lint', semantic_model: 'deepseek-v4-flash', rules } as const;
+const credit = (extra = {}) => ({user_id:'upload-student',currency:'CNY',policy_version:'test',granted_cny:'100.000000000',spent_cny:'0.000000000',reserved_cny:'0.000000000',available_cny:'100.000000000',remaining_percent:100,estimated_cny:{},server_time:'now',...extra});
 const pendingJob = {
   job_id: 'upload-job',
   status: 'pending',
@@ -78,7 +79,7 @@ async function choosePdf() {
 beforeEach(() => {
   localStorage.clear();
   vi.clearAllMocks();
-  vi.mocked(fetchPaperLintDailyQuota).mockResolvedValue({limited:true,limit:3,used:1,reserved:0,remaining:2,day:"2026-11-12",resets_at:"2026-11-12T16:00:00Z",server_time:"2026-11-12T02:00:00Z",timezone:"Asia/Shanghai"});
+  vi.mocked(fetchPaperLintCredit).mockResolvedValue(credit());
   vi.mocked(fetchReviewPilotPaperLintRules).mockResolvedValue(catalog as never);
   vi.mocked(runReviewPilotPaperLint).mockResolvedValue(pendingJob);
   vi.mocked(fetchPaperLintJob).mockImplementation(() => new Promise(() => {}));
@@ -416,8 +417,8 @@ it('keeps the original content group order and puts external references last', a
   expect(within(screen.getByRole('region', { name: '内容规范检测规则' })).getAllByRole('checkbox').map(input => input.closest('label')?.textContent)).toEqual([
     expect.stringContaining('typo_detection_check'),
     expect.stringContaining('bilingual_abstract_consistency_check'),
-    expect.stringContaining('chinese_english_symbol_mix_check'),
     expect.stringContaining('bilingual_keywords_correspondence_check'),
+    expect.stringContaining('chinese_english_symbol_mix_check'),
     expect.stringContaining('sjtu_rule_32'),
   ]);
 });
@@ -432,32 +433,32 @@ it('shows the real queue position without suggesting another upload', async () =
   expect(runReviewPilotPaperLint).toHaveBeenCalledTimes(1);
 });
 
-it('blocks a fourth new review while leaving the Detection notes unchanged', async () => {
-  vi.mocked(fetchPaperLintDailyQuota).mockResolvedValue({limited:true,limit:3,used:3,reserved:0,remaining:0,day:'2026-11-12',resets_at:'2026-11-12T16:00:00Z',server_time:'2026-11-12T02:00:00Z',timezone:'Asia/Shanghai'});
+it('blocks paid selection at zero balance and changes only the allowance clause in Detection notes', async () => {
+  vi.mocked(fetchPaperLintCredit).mockResolvedValue(credit({spent_cny:'100.000000000',available_cny:'0.000000000',remaining_percent:0}));
   showUpload(); await choosePdf();
-  expect(await screen.findByText('检测次数已用完')).toBeVisible();
+  await waitFor(()=>expect(screen.getByRole('button',{name:/可用额度 0.00 元/})).toBeVisible());
   expect(screen.getByRole('button',{name:'开始检测',exact:true})).toBeDisabled();
-  expect(screen.getByLabelText('检测说明').textContent?.replace(/\s+/g,' ')).toBe('检测说明聚焦公式引用、文献引用目录页码及语言规范等可定位问题。上传论文后，您可自主选择已开放规则，逐项查看检测结果，并联动定位到论文原文位置。受算力资源限制，每位用户累计检测次数不超过 3 次，请提前确认论文版本、合理勾选检测规则。检测结果仅供参考，系统尚在测试中，欢迎通过“使用反馈”提出建议。');
+  expect(screen.getByLabelText('检测说明').textContent?.replace(/\s+/g,' ')).toBe('检测说明聚焦公式引用、文献引用目录页码及语言规范等可定位问题。上传论文后，您可自主选择已开放规则，逐项查看检测结果，并联动定位到论文原文位置。受算力资源限制，每位用户初始检测额度为 ¥100，请提前确认论文版本、合理勾选检测规则。检测结果仅供参考，系统尚在测试中，欢迎通过“使用反馈”提出建议。');
 });
 it('can recover the final reserved slot with the same request after a lost submission response', async () => {
   const unknown = Object.assign(new Error('Network Error'),{isAxiosError:true});
   vi.mocked(runReviewPilotPaperLint).mockImplementationOnce(async()=>{
-    vi.mocked(fetchPaperLintDailyQuota).mockResolvedValue({limited:true,limit:3,used:2,reserved:1,remaining:0,day:'2026-11-12',resets_at:'2026-11-12T16:00:00Z',server_time:'2026-11-12T02:00:00Z',timezone:'Asia/Shanghai'});
+    vi.mocked(fetchPaperLintCredit).mockResolvedValue(credit({reserved_cny:'100.000000000',available_cny:'0.000000000',remaining_percent:0}));
     throw unknown;
   });
   showUpload(); await choosePdf();
   const start = screen.getByRole('button',{name:'开始检测',exact:true});fireEvent.click(start);
-  expect(await screen.findByText('可用次数已暂占')).toBeVisible();
+  await waitFor(()=>expect(screen.getByRole('button',{name:/可用额度 0.00 元/})).toBeVisible());
   await waitFor(()=>expect(start).toBeEnabled());fireEvent.click(start);
   await waitFor(()=>expect(runReviewPilotPaperLint).toHaveBeenCalledTimes(2));
   expect(vi.mocked(runReviewPilotPaperLint).mock.calls[1][3]).toBe(vi.mocked(runReviewPilotPaperLint).mock.calls[0][3]);
 });
 
 it('recovers an unconfirmed final-slot submission after reloading and reselecting the same PDF', async () => {
- vi.mocked(fetchPaperLintDailyQuota).mockResolvedValue({limited:true,limit:3,used:2,reserved:1,remaining:0,day:'2026-11-12',resets_at:'2026-11-12T16:00:00Z',server_time:'2026-11-12T02:00:00Z',timezone:'Asia/Shanghai'});
+ vi.mocked(fetchPaperLintCredit).mockResolvedValue(credit({reserved_cny:'100.000000000',available_cny:'0.000000000',remaining_percent:0}));
  localStorage.setItem('paper-lint-active-job:upload-student',JSON.stringify({jobId:null,requestId:'unconfirmed-original',filename:'论文.pdf',selectedRuleIds:rules.filter(r=>r.available).map(r=>r.rule_id),canRecover:true}));
  showUpload();await choosePdf();
- expect(await screen.findByText('可用次数已暂占')).toBeVisible();
+ await waitFor(()=>expect(screen.getByRole('button',{name:/可用额度 0.00 元/})).toBeVisible());
  const start=screen.getByRole('button',{name:'开始检测',exact:true});expect(start).toBeEnabled();fireEvent.click(start);
  await waitFor(()=>expect(runReviewPilotPaperLint).toHaveBeenCalledTimes(1));
  expect(vi.mocked(runReviewPilotPaperLint).mock.calls[0][3]).toBe('unconfirmed-original');

@@ -1,6 +1,14 @@
 import apiClient from './index';
 import { getLocale } from '../i18n/locale';
 
+export type PaperLintCredit = {
+  user_id:string; currency:string; policy_version:string; granted_cny:string; spent_cny:string;
+  reserved_cny:string; available_cny:string; remaining_percent:number; estimated_cny:Record<string,string>; server_time:string;
+};
+export async function fetchPaperLintCredit():Promise<PaperLintCredit>{
+  return (await apiClient.get('/normative/paper-lint/credit')).data;
+}
+
 export type PaperLintDailyQuota = {
   limited: boolean; limit: number; used: number; reserved: number; remaining: number | null;
   period?: 'lifetime'; starts_at?: string; day: string | null; resets_at: string | null; server_time: string; timezone: string;

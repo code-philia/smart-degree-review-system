@@ -1,19 +1,19 @@
+import { CreditBalance, CreditEstimate, CreditPrice, CreditAbout, creditAllowsRules } from './PaperLintCredit';
 import { preserveText } from "../../i18n/jsx-runtime";
 import { ArrowRight, Check, ChevronDown, FileText, FlaskConical, LoaderCircle, ShieldCheck, Square, Upload, X } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
 import { DetectionPageHeader } from './DetectionPageHeader';
 import type { PaperLintRule } from '../../api/paperLint';
 import { Button } from '../ui';
-import { DailyQuotaHint } from './DailyQuotaHint';
-import type { PaperLintDailyQuota } from '../../api/paperLint';
+import type { PaperLintCredit } from '../../api/paperLint';
 import {DetectionWaitNotice} from './DetectionWaitNotice';
 import type {PaperLintEta} from '../../api/paperLint';
 
 type Props = {
-  quota?: PaperLintDailyQuota | null;
+  credit?: PaperLintCredit | null;
   quotaRetryAllowed?: boolean;
-  quotaUnavailable?: boolean;
-  onRefreshQuota?: () => void;
+  creditUnavailable?: boolean;
+  onRefreshCredit?: () => void;
   eta?:PaperLintEta|null;
   rules: PaperLintRule[];
   selectedRuleIds: string[];
@@ -41,7 +41,7 @@ type Props = {
 const NUMERIC_RULE = 'abstract_numeric_consistency_check';
 const GROUPS = ['格式规范', '内容规范', '论文逻辑审查'] as const;
 const CONTENT_ORDER = ['typo_detection_check', 'bilingual_abstract_consistency_check',
-  'chinese_english_symbol_mix_check', 'bilingual_keywords_correspondence_check', 'sjtu_rule_32'];
+  'bilingual_keywords_correspondence_check', 'chinese_english_symbol_mix_check', 'sjtu_rule_32'];
 function ruleGroup(id: string) {
   if (id === NUMERIC_RULE) return '论文逻辑审查';
   if (['typo_detection_check', 'bilingual_abstract_consistency_check', 'sjtu_rule_32',
@@ -203,7 +203,7 @@ export function ThesisUploadPanel(props: Props) {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-5">
-      <DetectionPageHeader title="论文上传" description="上传 PDF 论文，选择检测规则并生成报告。" showEyebrow={false} />
+      <div className="credit-page-heading"><DetectionPageHeader title="论文上传" description="上传 PDF 论文，选择检测规则并生成报告。" showEyebrow={false} /><CreditBalance credit={props.credit ?? null} unavailable={props.creditUnavailable} onRetry={props.onRefreshCredit} /></div>
 
       <section
         aria-label="论文上传与检测设置"
@@ -337,7 +337,7 @@ export function ThesisUploadPanel(props: Props) {
                   清空
                 </Button>
               </div>
-              <div className="grid gap-3 xl:grid-cols-3 xl:gap-y-0"
+              <div className="credit-rule-grid"
                 style={{ '--rule-grid-rows': groupRowCount + 1, '--rule-content-rows': groupRowCount } as CSSProperties}>
                 {GROUPS.map((group) => {
                   const groupRules = rules.filter((rule) => ruleGroup(rule.rule_id) === group);
@@ -347,9 +347,9 @@ export function ThesisUploadPanel(props: Props) {
                     <section
                       key={group}
                       aria-label={`${group}检测规则`}
-                      className="rounded-2xl border border-slate-200 bg-slate-50/40 xl:row-span-[var(--rule-grid-rows)] xl:grid xl:grid-rows-subgrid"
+                      className="credit-rule-group"
                     >
-                      <div className="flex min-h-16 items-center justify-between gap-2 border-b border-slate-100 px-3 py-3">
+                      <div className="credit-group-heading flex items-center justify-between gap-2">
                         <div className="flex min-w-0 items-center gap-1">
                           <h3 className="whitespace-nowrap text-sm font-semibold leading-5 text-slate-800">{group}</h3>
                           {group === '论文逻辑审查' ? <span className="inline-flex h-5 shrink-0 items-center whitespace-nowrap rounded-md bg-violet-50 px-1.5 text-[10px] font-medium leading-none text-violet-700">实验型功能</span> : null}
@@ -375,12 +375,12 @@ export function ThesisUploadPanel(props: Props) {
                           </button>
                         </div>
                       </div>
-                      <div className="space-y-1 p-2 xl:row-span-[var(--rule-content-rows)] xl:grid xl:grid-rows-subgrid xl:gap-y-1 xl:space-y-0">
+                      <div className="credit-group-rows">
                         {groupRules.length ? (
                           groupRules.map((rule) => (
                             <label
                               key={rule.rule_id}
-                              className={`flex items-start gap-2.5 rounded-xl p-2.5 transition ${!rule.available ? 'cursor-not-allowed opacity-60' : busy ? '' : 'cursor-pointer hover:bg-white'} ${selected.has(rule.rule_id) ? 'bg-white' : ''}`}
+                              className={`credit-rule-option flex items-start gap-2.5 transition ${!rule.available ? 'cursor-not-allowed opacity-60' : busy ? '' : 'cursor-pointer hover:bg-white'} ${selected.has(rule.rule_id) ? 'bg-white' : ''}`}
                             >
                               <input
                                 type="checkbox"
@@ -395,11 +395,12 @@ export function ThesisUploadPanel(props: Props) {
                                   )
                                 }
                               />
-                              <span className="min-w-0">
-                                <span className="flex min-h-5 flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-medium leading-5 text-slate-800"><span>{rule.rule_id === NUMERIC_RULE ? '论点论据一致性检测' : rule.title}</span>
+                              <span className="credit-rule-copy min-w-0">
+                                <span className="credit-rule-heading"><span className="credit-rule-name">{rule.rule_id === NUMERIC_RULE ? '论点论据一致性检测' : rule.title}</span>
                                   {rule.rule_id === NUMERIC_RULE ? <span className="inline-flex h-5 items-center gap-1 rounded-md bg-violet-50 px-1.5 text-[10px] font-medium leading-none text-violet-700"><FlaskConical aria-hidden="true" className="size-3" />实验性</span> : null}
+                                  <CreditPrice ruleId={rule.rule_id} />
                                 </span>
-                                <span className="mt-1 block text-[11px] leading-5 text-slate-500">
+                                <span className="credit-rule-description">
                                   {rule.description}
                                 </span>
                                 {!rule.available ? (
@@ -439,7 +440,7 @@ export function ThesisUploadPanel(props: Props) {
               请确认论文版本及本次检测范围
             </p>
             <div data-i18n-upload-actions="" className="flex w-full flex-wrap items-center justify-end gap-x-2 gap-y-2 sm:w-auto sm:gap-x-4">
-              <DailyQuotaHint quota={props.quota ?? null} unavailable={props.quotaUnavailable} onRetry={props.onRefreshQuota} />
+              <CreditEstimate selectedRuleIds={selectedRuleIds} />
               {busy ? (
                 <Button
                   variant="ghost"
@@ -459,7 +460,7 @@ export function ThesisUploadPanel(props: Props) {
                   catalogLoading ||
                   noSelection ||
                   unavailableSelection ||
-                  (props.quota?.limited && props.quota.remaining === 0 && !props.quotaRetryAllowed) ||
+                  (!creditAllowsRules(props.credit, selectedRuleIds, props.creditUnavailable) && !props.quotaRetryAllowed) ||
                   busy
                 }
                 onClick={onStart}
@@ -486,10 +487,7 @@ export function ThesisUploadPanel(props: Props) {
       ) : null}
       <aside data-appearance-review-note="" aria-label="检测说明" className="rounded-2xl border border-[#e0e8f5] bg-[#edf3fc] px-4 py-3.5 text-sm leading-7 text-[#52647e] sm:px-[22px] sm:py-4">
         <h2 className="mb-1 text-sm font-semibold leading-6 text-brand-800">检测说明</h2>
-        <p>
-          聚焦公式引用、文献引用目录页码及语言规范等可定位问题。上传论文后，您可自主选择已开放规则，逐项查看检测结果，并联动定位到论文原文位置。受算力资源限制，每位用户累计检测次数不超过
-          3 次，请提前确认论文版本、合理勾选检测规则。检测结果仅供参考，系统尚在测试中，欢迎通过“使用反馈”提出建议。
-        </p>
+        <CreditAbout />
       </aside>
       {running ? <div ref={progressRef}><DetectionProgress {...props}/></div> : null}
     </div>

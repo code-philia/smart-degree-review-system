@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextvars import copy_context
 import json
 import os
 import re
@@ -22,6 +23,7 @@ from paper_compiler.frontend import build_paper
 from paper_compiler.campus_requests import campus_request
 from paper_compiler.semantic_cache import SemanticResponseCache
 from paper_compiler.storage import json_bytes
+from paper_compiler.account_credit import bill_model_request, billing_rule
 
 
 BILINGUAL_RULES = {
@@ -36,6 +38,8 @@ RULE_RETRY_MESSAGE = "当前规则暂时无法完成，请稍后重试。"
 
 def public_failure_message(error: object) -> str:
     """Keep transport, SQLite and provider internals out of user reports."""
+    if str(error).startswith('可用额度不足'):
+        return '可用额度不足，无法继续模型检测；您仍可使用不消耗额度的规则。'
     detail = str(error or "").lower()
     capacity_markers = (
         "database is locked", "locked", "timeout", "timed out", "http 429",
@@ -130,17 +134,21 @@ def request_json(messages: list[dict[str, str]], *, observer=None, response_cont
         request_timeout = 300.0
     attempts = 0
     def send(remaining):
-        nonlocal attempts
-        attempts += 1
-        if observer:
-            observer('request_attempt', {'attempt': attempts})
-        try:
-            with opener.open(request, timeout=remaining) as response:
-                return response.read(8 * 1024 * 1024 + 1)
-        except urllib.error.HTTPError as error:
+        def transport():
+            nonlocal attempts
+            attempts += 1
             if observer:
-                observer('http_error', {'attempt': attempts, 'status': error.code})
-            raise
+                observer('request_attempt', {'attempt': attempts})
+            try:
+                with opener.open(request, timeout=remaining) as response:
+                    return response.read(8 * 1024 * 1024 + 1)
+            except urllib.error.HTTPError as error:
+                if observer:
+                    observer('http_error', {'attempt': attempts, 'status': error.code})
+                raise
+        # The queue can wait without holding funds. Each actual attempt has one
+        # receipt; valid usage settles before answer decoding or validation.
+        return bill_model_request(payload, transport)
     try:
         raw = campus_request(request.full_url, dict(request.header_items()), request_timeout, send)
     except urllib.error.HTTPError as error:
@@ -638,7 +646,7 @@ def run_typo_rule_from_ir(ir: dict[str, Any], *, on_chunk_complete=None, max_wor
     workers = max_workers if max_workers is not None else (8 if all(os.environ.get(name, '').strip() for name in
                        ('SJTU_API_KEY', 'SJTU_API_BASE_URL', 'SJTU_API_MODEL')) else 4)
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = [pool.submit(request_json, [{"role": "user", "content": typo_prompt(chunk["model_text"])}],
+        futures = [pool.submit(copy_context().run, request_json, [{"role": "user", "content": typo_prompt(chunk["model_text"])}],
                                response_contract='typo-discovery') for chunk in chunks]
         for index, chunk in enumerate(chunks):
             chunk_failed = False
@@ -1302,6 +1310,11 @@ def _run_aligned_abstract(ir, facts):
 
 
 def _run_semantic_rule(ir, facts, rule_id, run_id=None, on_chunk_complete=None, typo_workers=None):
+    with billing_rule(rule_id):
+        return _run_semantic_rule_impl(ir, facts, rule_id, run_id, on_chunk_complete, typo_workers)
+
+
+def _run_semantic_rule_impl(ir, facts, rule_id, run_id=None, on_chunk_complete=None, typo_workers=None):
     if rule_id == TYPO_RULE:
         options = {}
         if on_chunk_complete:

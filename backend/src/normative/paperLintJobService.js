@@ -5,6 +5,7 @@ const defaultPaperLintService = require('./reviewPilotPaperLintService');
 const { removeBrowserPdf } = require('./browserPdf');
 const { CORE_RULE_ID, mergeCoreRuns, dedupeCorePrerequisites } = require('./paperStructureChecks');
 const { jobConcurrency } = require('./paperLintConcurrency');
+const {BILLABLE_RULE_IDS,beginCreditOperation,finishCreditOperation,recoverCreditOperations}=require('./paperLintCredit');
 
 function createPaperLintJobService(paperLintService = defaultPaperLintService) {
   const queue = [];
@@ -26,6 +27,7 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
     const finished = new Promise(resolve => { finish = resolve; });
     activeRuns.set(id, { controller, finished });
     let job;
+    let creditContext;
     try {
       if (!(await repository.claimJob(id))) return;
       job = await repository.getJob(id);
@@ -66,9 +68,11 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
             rule_runs: progress.document_validation?.status === 'rejected' ? progress.rule_runs : visibleRuns,
           });
         };
+        if(pendingRuleIds.some(ruleId=>BILLABLE_RULE_IDS.has(ruleId)))creditContext=await beginCreditOperation(id);
         const checked = await paperLintService.runPaperLint({
           pdfBuffer, selectedRuleIds: pendingRuleIds, externalProcessingConsent: Boolean(job.external_consent),
           background: true,
+          creditContext,
           maxPdfBytes,
           trustedBatchProgress: envelope?.operator_options?.start_requested === true
             && Number.isSafeInteger(maxPdfBytes)
@@ -108,6 +112,7 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
       await repository.failJob(id, message);
     } finally {
       try {
+        if(creditContext)await finishCreditOperation(creditContext.operation_id);
         if (job) {
           await fs.promises.rm(job.source_pdf_path, { force: true });
           await removeBrowserPdf(job.source_pdf_path);
@@ -221,6 +226,7 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
   }
 
   async function resumeJobs() {
+    await recoverCreditOperations();
     const rows = await repository.recoverJobs();
     for (const row of rows) {
       const job = await repository.getJob(row.id);

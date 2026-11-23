@@ -1,0 +1,97 @@
+.credit-page-heading{display:flex;align-items:center;justify-content:space-between;gap:24px}
+.credit-balance{display:flex;align-items:center;gap:12px;flex-shrink:0;padding:10px 14px;border:1px solid #dce5f2;border-radius:14px;background:#ffffffd9;color:#60718a;box-shadow:0 3px 12px #10264704;text-align:left;transition:border-color .18s,box-shadow .18s}
+.credit-balance:hover{border-color:#b6c9e9;box-shadow:0 4px 16px #10264708}
+.credit-balance-icon{display:grid;place-items:center;width:38px;height:38px;flex-shrink:0;border:1px solid #dceee7;border-radius:11px;background:#f0faf7;color:#268879}
+.credit-balance-copy{display:flex;flex-direction:column;gap:2px;min-width:90px}
+.credit-balance-copy>span{font-size:11px;line-height:16px;color:#728297}
+.credit-balance strong{font-size:21px;line-height:25px;letter-spacing:-.025em;font-weight:650;color:#24364e;font-variant-numeric:tabular-nums}
+.credit-currency{font-size:15px;font-weight:500;margin-right:3px}
+.credit-balance>.lucide-chevron-down{margin-left:2px;color:#8f9bb0}
+.credit-rule-price{display:inline-flex;align-items:center;flex-shrink:0;gap:2px;white-space:nowrap;border:1px solid #dceee7;border-radius:6px;padding:1px 6px;background:#f0faf7;color:#397e75;font-size:13px;line-height:22px;font-weight:500;font-variant-numeric:tabular-nums}
+.credit-rule-price svg{color:inherit;flex-shrink:0}
+.credit-estimate{display:flex;align-items:baseline;justify-content:flex-end;gap:6px;flex-wrap:wrap;color:#62738c;font-size:12px;line-height:20px}
+.credit-estimate strong{font-size:17px;line-height:22px;font-weight:650;color:#24364e;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.credit-estimate-note{font-size:10px;color:#8996a8;margin-left:3px;white-space:nowrap}
+.credit-free-note{display:flex;align-items:center;gap:6px;font-size:11px;line-height:18px;color:#72829b}
+.credit-free-note svg{color:#708ca9;flex-shrink:0}
+.credit-popover{width:276px;border-color:#dce5f2;border-radius:14px;padding:18px;background:#fff;box-shadow:0 10px 35px #1d35591a}
+.credit-popover-title{display:flex;align-items:center;gap:7px;color:#253e60;font-weight:600;font-size:13px;line-height:20px;margin-bottom:15px}
+.credit-popover-title svg{color:#268879}
+.credit-popover dl{display:grid;gap:10px;margin:0;font-size:12px;color:#75849a}
+.credit-popover dl>div{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.credit-popover dd{font-variant-numeric:tabular-nums;color:#334b68;font-weight:500}
+.credit-popover p{margin-top:15px;padding-top:13px;border-top:1px solid #edf1f8;font-size:11px;line-height:1.8;color:#7c899f}
+.credit-preview-footer{max-width:1152px;margin:15px auto 0;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 4px;font-size:11px;line-height:20px;color:#91a0b5}
+.credit-preview-footer>span{display:flex;align-items:center;gap:5px}
+.credit-preview-footer nav{display:flex;gap:9px;align-items:center}
+.credit-preview-footer a{color:#7b8ea9;text-decoration:none}
+.credit-preview-footer a[aria-current=page]{color:#4268a5;font-weight:500}
+.credit-balance:focus-visible,.credit-preview-footer a:focus-visible{outline:2px solid #8ea8e6;outline-offset:3px}
+.dark .credit-balance{background:var(--card);border-color:var(--border)}
+.dark .credit-balance-icon{background:var(--secondary);border-color:#31574e;color:#a9ddd2}
+.dark .credit-balance strong,.dark .credit-estimate strong{color:#a9ddd2}
+.dark .credit-rule-price{background:var(--secondary);border-color:#31574e;color:#a9ddd2}
+.dark .credit-popover{background:var(--popover);border-color:var(--border)}
+.dark .credit-popover-title,.dark .credit-popover dd{color:var(--foreground)}
+@media(max-width:620px){.credit-page-heading{align-items:stretch;flex-direction:column;gap:16px}.credit-balance{gap:11px;padding:10px 13px;align-self:stretch}.credit-balance-copy{flex:1}.credit-balance-copy>span{font-size:11px}.credit-balance strong{font-size:21px}.credit-rule-price{font-size:12px}.credit-estimate{justify-content:flex-start}.credit-estimate-note{display:none}.credit-preview-footer{align-items:flex-start;font-size:10px;gap:8px}}
+
+.dark .credit-balance-copy>span,.dark .credit-rule-price svg{color:#90cfc1}
+
+/* Local visual study v2: New API pricing alignment and OpenRouter hierarchy. */
+.credit-rule-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;align-items:start}
+.credit-rule-group{min-width:0;overflow:hidden;border:1px solid #e2e7ef;border-radius:12px;background:#fff}
+.credit-group-heading{min-height:54px;padding:12px 15px;border-bottom:1px solid #edf0f5;background:#fafbfd}
+.credit-group-heading h3{font-size:13px;font-weight:600;color:#27384f}
+.credit-group-rows{padding:0 14px}
+.credit-rule-option{margin:0;padding:14px 0;border-radius:0;background:transparent!important}
+.credit-rule-option+.credit-rule-option{border-top:1px solid #f0f2f6}
+.credit-rule-option:hover{background:linear-gradient(90deg,#f9fbfe00,#f6f8fcaa,#f9fbfe00)!important}
+.credit-rule-option>input{margin-top:3px}
+.credit-rule-copy{flex:1;display:block;min-width:0}
+.credit-rule-heading{display:flex;align-items:center;gap:7px;min-height:22px;line-height:22px}
+.credit-rule-name{min-width:0;color:#24364e;font-size:13px;font-weight:500;line-height:22px}
+.credit-rule-description{display:block;margin-top:4px;color:#7d8ba0;font-size:12px;line-height:20px}
+.credit-rule-price{margin-left:auto;gap:2px;padding:1px 6px;border:1px solid #d5e7e2;border-radius:6px;background:#f3f9f7;font-size:13px;line-height:20px;font-weight:500;color:#397e75}
+.credit-rule-price svg{display:block;width:14px;height:14px;color:inherit}
+.credit-rule-heading>span:has(.lucide-flask-conical){flex-shrink:0}
+.credit-estimate{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:2px;margin-right:3px;line-height:20px}
+.credit-estimate-main{display:flex;align-items:baseline;gap:9px;white-space:nowrap}
+.credit-estimate-main>span{color:#748198;font-size:12px;line-height:20px}
+.credit-estimate-main>strong{color:#24364e;font-size:18px;line-height:22px;font-weight:600;letter-spacing:0;font-variant-numeric:tabular-nums}
+.credit-estimate-note{display:block;margin:0;color:#8895a8;font-size:11px;line-height:17px}
+.credit-balance{min-height:40px;gap:8px;padding:8px 10px;border-color:#dce6e3;border-radius:9px;background:#ffffffd9;box-shadow:none}
+.credit-balance:hover{background:#fff;border-color:#bed4cd;box-shadow:none}
+.credit-balance-icon{width:32px;height:32px;border:1px solid #dceee7;border-radius:9px;background:#f0faf7}
+.credit-balance-copy{min-width:0;flex-direction:row;align-items:baseline;gap:8px}
+.credit-balance-copy>span{font-size:12px;line-height:22px}
+.credit-balance strong{font-size:16px;line-height:22px;font-weight:600;letter-spacing:0}
+.credit-balance .credit-currency{font-size:13px;margin-right:2px}
+.credit-balance>.lucide-chevron-down{width:12px;margin-left:4px;color:#8a9d97}
+@media(min-width:1100px){.credit-rule-grid{grid-template-columns:minmax(0,1.04fr) minmax(0,1fr);grid-template-rows:auto 1fr;gap:16px 18px}.credit-rule-group:nth-child(1){grid-column:1;grid-row:1/span 2}.credit-rule-group:nth-child(2){grid-column:2;grid-row:1}.credit-rule-group:nth-child(3){grid-column:2;grid-row:2}}
+@media(max-width:620px){.credit-balance{align-self:flex-start}.credit-rule-grid{gap:14px}.credit-group-heading{padding:11px 13px;min-height:52px}.credit-group-rows{padding:0 13px}.credit-rule-option{padding:13px 0}.credit-rule-heading{gap:6px}.credit-rule-name{font-size:12px}.credit-rule-price{font-size:12px}.credit-rule-price svg{width:13px;height:13px}.credit-rule-description{font-size:11px;line-height:19px}.credit-estimate{align-items:flex-start;margin-right:auto}.credit-estimate-note{display:block}}
+.dark .credit-rule-group{background:var(--card);border-color:var(--border)}
+.dark .credit-group-heading{background:var(--secondary);border-color:var(--border)}
+.dark .credit-group-heading h3,.dark .credit-rule-name{color:var(--foreground)}
+.dark .credit-rule-option+.credit-rule-option{border-color:var(--border)}
+.dark .credit-rule-option:hover{background:var(--secondary)!important}
+.dark .credit-rule-price{color:#90cfc1;background:#193a32;border-color:#31574e}.dark .credit-balance strong,.dark .credit-estimate-main>strong{color:#e4eeeb}
+.dark .credit-balance{background:var(--card);border-color:var(--border)}
+.dark .credit-balance-icon{background:#193a32;border-color:#31574e;color:#90cfc1}
+
+/* Remaining-credit ring, scoped to the account balance preview. */
+.credit-balance-ring{display:block;width:20px;height:20px;flex-shrink:0;overflow:visible;color:#53867b}
+.credit-ring-track,.credit-ring-progress{fill:none;stroke-width:2.8}
+.credit-ring-track{stroke:#e3eeea}
+.credit-ring-progress{stroke:currentColor;stroke-linecap:round;transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke-dashoffset .25s ease}
+.dark .credit-balance-ring{color:#90cfc1}
+.dark .credit-ring-track{stroke:#29463d}
+@media(prefers-reduced-motion:reduce){.credit-ring-progress{transition:none}}
+
+.credit-detail-track{height:4px;margin-top:11px;border-radius:99px;overflow:hidden;background:#e7efec}
+.credit-detail-track>span{display:block;height:100%;background:#53867b;border-radius:inherit}
+.dark .credit-balance:hover{background:var(--secondary);border-color:var(--border)}
+.dark .credit-balance-copy>span{color:var(--muted-foreground)}
+.dark .credit-detail-track{background:#29463d}
+.dark .credit-detail-track>span{background:#90cfc1}
+
+.credit-retry{margin-top:10px;color:#397e75;font-size:12px;text-decoration:underline;text-underline-offset:3px}

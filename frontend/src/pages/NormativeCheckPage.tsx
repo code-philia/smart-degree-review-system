@@ -25,8 +25,8 @@ import { PaperLintWorkspace } from '../components/paperLint/Workspace';
 import { ThesisUploadPanel } from '../components/paperLint/ThesisUploadPanel';
 import { LivePaperLintReport } from '../components/paperLint/LivePaperLintReport';
 import { compilerPublicationLabel, compilerPublicationSummary, flattenPaperLintFindings, paperLintFeedbackItems, paperLintPresentation } from '../components/paperLint/model';
-import { usePaperLintDailyQuota } from '../hooks/usePaperLintDailyQuota';
-import { DailyQuotaHint } from '../components/paperLint/DailyQuotaHint';
+import { usePaperLintCredit } from '../hooks/usePaperLintCredit';
+import { CreditBalance, CreditEstimate, creditAllowsRules } from '../components/paperLint/PaperLintCredit';
 import { usePaperLintRepairSuggestions } from '../hooks/usePaperLintRepairSuggestions';
 import {
   deleteFindingFeedback,
@@ -159,7 +159,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   const [runError, setRunError] = useState<string | null>(null);
   const requestIdRef = useRef<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
-  const dailyQuota = usePaperLintDailyQuota(user?.id, `${activeJobId ?? ''}:${running}:${stopping}`);
+  const accountCredit = usePaperLintCredit(user?.id, Boolean(activeJobId || running), `${activeJobId ?? ''}:${running}:${stopping}`);
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const [activeFilename, setActiveFilename] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<'pending' | 'running' | null>(null);
@@ -596,7 +596,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
         setRecoverableRequestId(uncertain ? requestId : null);
         if (!submissionAccepted && !uncertain) savePendingRequest(requestId, file.name, selectedRuleIds, false);
       }
-      void dailyQuota.refresh();
+      void accountCredit.refresh();
     } finally {
       if (generation === runGenerationRef.current) {
         setUploadPercent(null);
@@ -656,7 +656,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
 
   if (isThirty) return <div className="space-y-6">{completedStopNotice}<ThesisUploadPanel
     quotaRetryAllowed={Boolean(recoverableRequestId && recoverableRequestId === requestIdRef.current)}
-    quota={dailyQuota.quota} quotaUnavailable={dailyQuota.error} onRefreshQuota={() => void dailyQuota.refresh()}
+    credit={accountCredit.credit} creditUnavailable={accountCredit.error} onRefreshCredit={() => void accountCredit.refresh()}
     eta={eta}
     rules={visibleRules}
     selectedRuleIds={selectedRuleIds}
@@ -897,7 +897,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
                 已选择 <strong className="text-slate-900">{selectedRuleIds.length}</strong> 条规则
               </p>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <DailyQuotaHint quota={dailyQuota.quota} unavailable={dailyQuota.error} onRetry={() => void dailyQuota.refresh()} />
+              <CreditBalance credit={accountCredit.credit} unavailable={accountCredit.error} onRetry={() => void accountCredit.refresh()} /><CreditEstimate selectedRuleIds={selectedRuleIds} />
               {running || stopping ? (
                 <Button variant="danger" disabled={!activeJobId || stopping}
                   title={!activeJobId ? '上传完成后可停止检查' : undefined} onClick={() => void stopReview()}>
@@ -910,7 +910,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
                   !file ||
                   !catalog ||
                   selectedRuleIds.length === 0 ||
-                  (dailyQuota.quota?.limited && dailyQuota.quota.remaining === 0 && !(recoverableRequestId && recoverableRequestId === requestIdRef.current)) ||
+                  (!creditAllowsRules(accountCredit.credit, selectedRuleIds, accountCredit.error) && !(recoverableRequestId && recoverableRequestId === requestIdRef.current)) ||
                   running ||
                   stopping ||
                   (selectedExternalRule && !externalConsent)

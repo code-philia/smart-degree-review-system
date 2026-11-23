@@ -5,6 +5,8 @@ import {REVIEW_COPY,reviewPatterns} from './review-copy';
 import { SUPPLEMENTAL_COPY } from './supplemental-copy';
 import {RULE_COPY} from './rule-copy';
 export const COPY={...SUPPLEMENTAL_COPY,...exportLabels,...legacy,
+ '可用额度不足，无法开始模型检测；您仍可使用不消耗额度的规则。':'Insufficient credit to start model-based checks. You can still use checks that do not consume credit.',
+ '可用额度不足，无法继续模型检测；您仍可使用不消耗额度的规则。':'Insufficient credit to continue model-based checks. You can still use checks that do not consume credit.',
  '论点':'Claim','论据':'Evidence','不一致处':'Discrepancy',
  '全选全部报告':'Select all reports','全选搜索结果':'Select search results','清空选择':'Clear selection',
  '批量导出报告':'Export selected reports','报告导出进度':'Report export progress','导出选中':'Export selected','删除选中':'Delete selected',
@@ -41,7 +43,7 @@ export const COPY={...SUPPLEMENTAL_COPY,...exportLabels,...legacy,
  '仅展示经规范与原文复核确认的告警。':'Show only alerts confirmed against the requirements and source text.',
  '请确认论文版本及本次检测范围':'Confirm the thesis version and review scope',
  '检测说明':'About this review',
- '聚焦公式引用、文献引用目录页码及语言规范等可定位问题。上传论文后，您可自主选择已开放规则，逐项查看检测结果，并联动定位到论文原文位置。受算力资源限制，每位用户累计检测次数不超过 3 次，请提前确认论文版本、合理勾选检测规则。检测结果仅供参考，系统尚在测试中，欢迎通过“使用反馈”提出建议。':'The review focuses on issues that can be located in the thesis, such as equation references, citations, contents page numbers and language conventions. After uploading your thesis, select the available checks, view each finding and locate it in the thesis. Due to limited computing resources, each user may run up to 3 reviews in total. Confirm your thesis version and select the relevant checks before starting. Results are advisory. The system is in pilot testing; please share suggestions through Feedback.',
+ '聚焦公式引用、文献引用目录页码及语言规范等可定位问题。上传论文后，您可自主选择已开放规则，逐项查看检测结果，并联动定位到论文原文位置。受算力资源限制，每位用户初始检测额度为 ¥100，请提前确认论文版本、合理勾选检测规则。检测结果仅供参考，系统尚在测试中，欢迎通过“使用反馈”提出建议。':'The review focuses on issues that can be located in the thesis, such as equation references, citations, contents page numbers and language conventions. After uploading your thesis, select the available checks, view each finding and locate it in the thesis. Due to limited computing resources, each user receives an initial review allowance of ¥100. Confirm your thesis version and select the relevant checks before starting. Results are advisory. The system is in pilot testing; please share suggestions through Feedback.',
  '暂无检测记录':'No reports yet','规范性检测完成之后，检测报告将展示在这里。':'Your completed compliance reports will appear here.',
  '需要改进':'Needs improvement','跳到':'Go to ','已标记为本次已处理':'Marked as resolved for this session',
  '请稍后重试；如问题持续，请检查运行记录。':'Try again later. If the issue persists, check the run logs.',

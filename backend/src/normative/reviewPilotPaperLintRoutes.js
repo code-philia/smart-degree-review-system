@@ -8,6 +8,7 @@ const { sendPrivatePdf } = require('./privatePdfResponse');
 const defaultJobService = require('./paperLintJobService');
 const defaultCompilerService = require('./paperCompilerService');
 const { getDailyQuota } = require('./paperLintQuota');
+const { getAccountCredit } = require('./paperLintCredit');
 const { getEnabledMvpRuleIds } = require('../../rules/registry');
 
 const allowedRoles = ['STUDENT', 'SUPERVISOR', 'SCHOOL_ADMIN', 'COLLEGE_ADMIN'];
@@ -26,7 +27,7 @@ function sendError(error, res, next) {
     if (error.quota && error.quota.used < error.quota.limit) {
       res.set('Retry-After', '30');
     }
-    res.status(error.status).json({ code: error.status, message: error.message, ...(error.quota ? { error_code: error.code, quota: error.quota } : {}) });
+    res.status(error.status).json({ code: error.status, message: error.message, ...(error.quota ? { error_code: error.code, quota: error.quota } : {}), ...(error.credit ? {error_code:error.code,credit:error.credit}: {}) });
   } else {
     next(error);
   }
@@ -86,6 +87,11 @@ function createReviewPilotPaperLintRouter(service = defaultService, exampleServi
       res.set('Cache-Control', 'private, no-store');
       return res.json(await getDailyQuota(req.user.id));
     } catch (error) { return sendError(error, res, next); }
+  });
+
+  router.get('/credit', requireAuth({allowedRoles}), async(req,res,next)=>{
+    try{res.set('Cache-Control','private, no-store');return res.json(await getAccountCredit(req.user.id));}
+    catch(error){return sendError(error,res,next);}
   });
 
   router.get('/rules', requireAuth({ allowedRoles }), async (_req, res, next) => {

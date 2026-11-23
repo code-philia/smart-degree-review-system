@@ -70,8 +70,11 @@ function assertEngineAvailable(backendDir) {
   }
 }
 
-function childEnvironment() {
+function childEnvironment(creditContext) {
   const env = { ...process.env };
+  // Billing identity is per job, never inherited by free/translation workers.
+  delete env.PAPER_LINT_CREDIT_CONTEXT;
+  if (creditContext) env.PAPER_LINT_CREDIT_CONTEXT = JSON.stringify(creditContext);
   for (const key of [
     'ALL_PROXY',
     'all_proxy',
@@ -125,13 +128,14 @@ function runJsonScript(script, args, {
   timeoutMs = ENGINE_TIMEOUT_MS,
   signal,
   progressStream,
+  creditContext,
   unavailableMessage = '规则脚本无法启动',
 } = {}) {
   if (signal?.aborted) return Promise.reject(createHttpError(504, RUN_TIMEOUT_MESSAGE));
   return new Promise((resolve, reject) => {
     const child = spawn(python, [script, ...args], {
       cwd,
-      env: childEnvironment(),
+      env: childEnvironment(creditContext),
       shell: false,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -206,7 +210,7 @@ function runBridge(args, timeoutMs = ENGINE_TIMEOUT_MS, signal) {
 }
 
 function runBilingualSemanticRules(pdfPath, ruleIds, timeoutMs = ENGINE_TIMEOUT_MS, signal, runId, onRuleComplete,
-  { allowIncompleteStructure = false, onWorkProgress, typoWorkers } = {}) {
+  { allowIncompleteStructure = false, onWorkProgress, typoWorkers, creditContext } = {}) {
   return runJsonScript(
     bilingualScript,
     ['--pdf', pdfPath, '--progress-jsonl', ...ruleIds.flatMap((ruleId) => ['--rule', ruleId]),
@@ -217,6 +221,7 @@ function runBilingualSemanticRules(pdfPath, ruleIds, timeoutMs = ENGINE_TIMEOUT_
       cwd: path.resolve(__dirname, '../..'),
       timeoutMs,
       signal,
+      creditContext,
       progressStream: createRuleProgressStream(ruleIds, onRuleComplete, { taskId: runId, onWorkProgress }),
       unavailableMessage: '仓库 Paper Model 双语语义规则运行失败',
     },
@@ -375,7 +380,7 @@ function mergePaperLintResults(existingResult, localResult, selectedRuleIds) {
   };
 }
 
-async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingConsent = false, background = false, onProgress, signal, runId, maxPdfBytes = MAX_PDF_BYTES, trustedBatchProgress = false }) {
+async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingConsent = false, background = false, onProgress, signal, runId, maxPdfBytes = MAX_PDF_BYTES, trustedBatchProgress = false, creditContext }) {
   validatePdf(pdfBuffer, maxPdfBytes);
   // The deadline covers catalog loading, queueing, and both engines so a timed-out
   // browser request cannot later persist a seemingly successful report.
@@ -463,7 +468,7 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
             ? SIX_RULE_TIMEOUT_MS
             : ENGINE_TIMEOUT_MS;
           tasks.push(runBilingualSemanticRules(pdfPath, bilingualRuleIds, bilingualTimeout, controller.signal, runId,
-            run => reportProgress([run.rule_id], { rule_runs: [run] }), { allowIncompleteStructure: partialStructure,
+            run => reportProgress([run.rule_id], { rule_runs: [run] }), { allowIncompleteStructure: partialStructure, creditContext,
               ...(background && trustedBatchProgress === true && runId && bilingualRuleIds.includes('typo_detection_check')
                 ? { typoWorkers: 2 } : {}),
               ...(renewableTypo ? { onWorkProgress: () => runTimeout.progress() } : {}) })
