@@ -3,6 +3,9 @@ from pathlib import Path
 
 spec = importlib.util.spec_from_file_location('typo', Path(__file__).parents[1] / 'scripts' / 'run_bilingual_semantic_lint.py')
 mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+# These lexical/unit fixtures intentionally represent an already verified native
+# body. Actual PDF provenance/no-OCR behavior has separate unmocked integration tests.
+mod._native_typo_input = lambda ir: (ir, None)
 
 
 def ir_for(text):

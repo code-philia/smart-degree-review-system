@@ -11,7 +11,7 @@ from paper_compiler.frontend import build_paper
 
 _CJK = re.compile(r"[\u3400-\u9fff]")
 _KEYWORDS = re.compile(r"^\s*(关键词|关键字|key\s*words?|keywords?)\s*[:：]\s*(.*)$", re.I)
-_SEPARATOR = re.compile(r"\s*(?:[,，;；、]|\s+and\s+)\s*", re.I)
+_SEPARATOR = re.compile(r"\s*[,，;；、]\s*")
 
 
 def _keyword_match_values(values: list[str]) -> list[str]:
@@ -144,6 +144,7 @@ def extract_bilingual_facts(ir):
             numbered = bool(box and previous_box and box[3] - box[1] >
                             (previous_box[3] - previous_box[1]) * 1.2)
         return (value in {"目录", "目次", "contents", "tableofcontents", "摘要", "abstract"}
+                or value in {'introduction','绪论','引言','references','bibliography','参考文献','acknowledgements','致谢'}
                 or metadata(text) or numbered
                 or bool(re.match(r"^(?:第[一二三四五六七八九十百\d]+章|chapter\s+\d+)",
                                  text, re.I)))
@@ -177,6 +178,21 @@ def extract_bilingual_facts(ir):
         box = line.get("bbox")
         return float(line.get("font_size") or (box[3] - box[1] if box else 0))
 
+    def corroborated_running_row(index):
+        page, line = flat[index]
+        if line.get('id') in ignored_ids:
+            return True
+        box = line.get('bbox')
+        if not box or not noise(index):
+            return False
+        return any(other.get('bbox') and compact(str(other.get('text', ''))) == compact(text_at(index))
+                   and 0 < page.get('page_index', 0) - earlier.get('page_index', 0) <= 3
+                   and (abs(other['bbox'][0] - box[0]) <= 4
+                        or abs(other['bbox'][0] - (float(page.get('width') or 600) - box[2])) <= 4)
+                   and abs(other['bbox'][1] - box[1]) <= 4
+                   and abs(line_size(other) - line_size(line)) <= 1
+                   for earlier, other in flat[:index])
+
     def keyword_continuation_header(index, keyword_index):
         """Corroborate a small repeated header against the keyword source page.
 
@@ -191,10 +207,12 @@ def extract_bilingual_facts(ir):
         size = line_size(line)
         original_page = flat[keyword_index][0].get("page_index")
         earlier = [other for page, other in flat[:keyword_index]
-                   if page.get("page_index") == original_page
+                   if 0 <= original_page - page.get("page_index", original_page) <= 3
                    and compact(str(other.get("text", ""))) == compact(text_at(index))]
         return (any(line_size(other) > size * 1.15 for other in earlier)
-                and any(other.get("bbox") and abs(other["bbox"][0] - box[0]) <= 3
+                and any(other.get("bbox")
+                        and (abs(other['bbox'][0] - box[0]) <= 3
+                             or abs(other['bbox'][0] - (float(flat[index][0].get('width') or 600) - box[2])) <= 3)
                         and abs(other["bbox"][1] - box[1]) <= 3
                         and abs(line_size(other) - size) <= 1 for other in earlier))
 
@@ -213,12 +231,16 @@ def extract_bilingual_facts(ir):
             wrapped = bool(re.search(r"[A-Za-z]-$", parts[-1].rstrip()))
             next_page = following_page.get("page_index")
             crossing_page = next_page != previous_page
-            if crossing_page and not (wrapped and previous_page == page.get("page_index")
-                                      and next_page == previous_page + 1):
-                break
+            if crossing_page:
+                if not (previous_page == page.get('page_index') and next_page == previous_page + 1):
+                    break
+                source_box = previous.get('bbox')
+                if not wrapped and (not source_box or source_box[3] < float(page.get('height') or 840) * .6):
+                    break
             # A split word may continue on the adjacent page. Ignore only
             # corroborated small headers/footers, never a new full-size title.
-            if wrapped and noise(following_index):
+            near_page_end = bool(previous.get('bbox') and previous['bbox'][3] >= float(page.get('height') or 840) * .6)
+            if (wrapped or crossing_page or near_page_end) and noise(following_index):
                 boundary = section_boundary(following) or compact(following) in {"摘", "要", "中文摘要", "英文摘要"}
                 furniture = (keyword_continuation_header(following_index, index) if boundary
                              else line_size(following_line) <= line_size(previous) * 1.15)
@@ -227,10 +249,20 @@ def extract_bilingual_facts(ir):
             if _overlapping_keyword_fragment(previous.get("bbox"), following_line.get("bbox"),
                                              str(previous.get("text", "")), following) and not crossing_page:
                 continue
-            if locator(following) or _KEYWORDS.match(following) or section_boundary(following):
+            if locator(following) or _KEYWORDS.match(following) or section_boundary(following, following_index, index):
                 break
-            if crossing_page and not re.match(r"^[a-z]", following):
-                break
+            if crossing_page:
+                if wrapped and not re.match(r'^[a-z]', following):
+                    break
+                if not wrapped:
+                    box = following_line.get('bbox')
+                    pending_separator = bool(re.search(r'[,，;；、]\s*$', parts[-1]))
+                    list_tail = bool(_SEPARATOR.search(following))
+                    if (not box or line_size(following_line) > line_size(previous) * 1.2
+                            or box[1] > float(following_page.get('height') or 840) * .4
+                            or not (pending_separator or list_tail)
+                            or len(following) > 250 or re.search(r'[。！？.!?:：]', following)):
+                        break
             previous_box, box = previous.get("bbox"), following_line.get("bbox")
             if previous_box and box and not crossing_page:
                 line_height = max(previous_box[3] - previous_box[1], box[3] - box[1], 1)
@@ -332,6 +364,9 @@ def extract_bilingual_facts(ir):
                         continue
                     break
                 if section_boundary(text, cursor, previous_body):
+                    if corroborated_running_row(cursor):
+                        cursor += 1
+                        continue
                     break
                 if not noise(cursor):
                     body.append(text)

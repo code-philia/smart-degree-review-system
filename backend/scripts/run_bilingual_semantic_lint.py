@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import os
 import re
+import unicodedata
 import urllib.request
 import urllib.error
 import time
@@ -187,14 +188,17 @@ def prompt_for(rule_id: str, facts: dict[str, Any]) -> str | None:
         "仅返回 JSON，键为：outcome (consistent|inconsistent|inconclusive), "
         "summary, pairs (array of objects with chinese, english, match, reason), "
         "missing_chinese (array), missing_english (array)。\n"
-        "中文关键词：" + json.dumps(left.get("match_values", left.get("values", [])), ensure_ascii=False) +
-        "\n英文关键词：" + json.dumps(right.get("match_values", right.get("values", [])), ensure_ascii=False)
+        "关键词以逗号或分号等原文分隔符分项，and连接的短语仍是一项。保留原文连字符；"
+        "不要因换行或同义译法、单复数、词性及修饰词细节直接认定概念冲突。\n"
+        "中文关键词：" + json.dumps(left.get("values", []), ensure_ascii=False) +
+        "\n英文关键词：" + json.dumps(right.get("values", []), ensure_ascii=False) +
+        _terminology_prompt(facts)
     )
 
 
 def _abstract_sentences(text: str) -> list[str]:
     normalized = _model_piece(text)
-    sentences = re.split(r"(?<=[。！？；])\s*|(?<=[.!?])\s+(?=[A-Z0-9(])", normalized)
+    sentences = re.split(r"(?<=[。！？；])\s*|(?<=[.!?])\s+(?=(?:[•●▪]\s*)?[A-Z0-9(])", normalized)
     return [sentence.strip() for sentence in sentences if sentence.strip()]
 
 
@@ -204,6 +208,73 @@ def _numbered_abstract(sentences: list[str]) -> str:
 
 def _compact_claim(value: Any) -> str:
     return re.sub(r"\s+", "", str(value or "")).replace("-", "").lower()
+
+
+def _terminology_prompt(facts):
+    context = facts.get('terminology_context') or []
+    return ('\n正文术语依据（只用于澄清本篇概念和命名；不能代替另一摘要未表达的研究事实，'
+            '不能把正文含有某个结果当成摘要已有该结果）：\n'
+            + json.dumps(context, ensure_ascii=False)) if context else ''
+
+
+def _review_keyword_mismatch(facts):
+    prompt = prompt_for('bilingual_keywords_correspondence_check', facts)
+    payload, usage = request_json([{'role':'user','content':(
+        '独立复核中英文关键词，不沿用初审结论。只报告有证据的概念缺失或实质概念冲突。'
+        '更地道的译法、连字符版式、名词词性或没有证明对象改变的宽窄措辞不是实质冲突。'
+        '结合两侧摘要及正文定义识别同一研究对象；名称不同不自动等于方法不同。'
+        '逐项完整覆盖两侧列表，pairs.chinese/english必须逐字取自对应原列表，match必须为布尔值。'
+        '确无对应项时在missing_english列出缺少英文对应的中文原项，'
+        'missing_chinese列出缺少中文对应的英文原项。每个不匹配必须说明实际不同的概念。\n'
+        + str(prompt) + '\n中文摘要（辅助术语理解）：\n' + str(facts.get('chinese_abstract') or '')
+        + '\n英文摘要（辅助术语理解）：\n' + str(facts.get('english_abstract') or ''))}])
+    if not isinstance(payload, dict):
+        raise ValueError('invalid keyword review')
+    def source_term(value):
+        return re.sub(r'\s+', ' ', unicodedata.normalize('NFKC', str(value or ''))).strip().casefold()
+    left_values = facts['chinese_keywords'].get('values') or []
+    right_values = facts['english_keywords'].get('values') or []
+    zh = {source_term(v) for v in left_values}
+    en = {source_term(v) for v in right_values}
+    covered_zh, covered_en = set(), set()
+    differences, invalid = False, not zh or not en
+    pairs = payload.get('pairs')
+    if not isinstance(pairs, list):
+        pairs = []; invalid = True
+    for pair in pairs:
+        if not isinstance(pair, dict):
+            invalid = True; continue
+        left, right = source_term(pair.get('chinese')), source_term(pair.get('english'))
+        missing_left = payload.get('missing_english')
+        missing_right = payload.get('missing_chinese')
+        reason = pair.get('reason')
+        if (type(pair.get('match')) is bool and pair['match'] is False
+                and isinstance(reason, str) and reason.strip()):
+            if (left in zh and not right and isinstance(missing_left,list)
+                    and left in {source_term(v) for v in missing_left}):
+                covered_zh.add(left); differences = True; continue
+            if (right in en and not left and isinstance(missing_right,list)
+                    and right in {source_term(v) for v in missing_right}):
+                covered_en.add(right); differences = True; continue
+        if (left not in zh or right not in en or type(pair.get('match')) is not bool
+                or not isinstance(reason, str) or not reason.strip()):
+            invalid = True; continue
+        covered_zh.add(left); covered_en.add(right)
+        differences |= pair['match'] is False
+    for key, known, covered in [('missing_english',zh,covered_zh),('missing_chinese',en,covered_en)]:
+        missing = payload.get(key)
+        if not isinstance(missing,list):
+            invalid = True; continue
+        for value in missing:
+            term = source_term(value)
+            if term not in known:
+                invalid = True; continue
+            covered.add(term); differences = True
+    complete = covered_zh == zh and covered_en == en
+    declared = str(payload.get('outcome') or '').strip().casefold()
+    outcome = ('inconclusive' if invalid or not complete or declared not in {'consistent','inconsistent'}
+               else 'inconsistent' if differences else 'consistent')
+    return {**payload, 'outcome':outcome}, usage
 
 
 def _dismisses_mismatch(reason: str) -> bool:
@@ -535,9 +606,16 @@ def _single_cjk_replacement(original: str, corrected: str) -> tuple[str, str] | 
     return before, after
 
 
+def _native_typo_input(ir):
+    from native_typo_scope import filter_native_typo_ir
+    source = next((a.get('path') for a in ir.get('source_artifacts', []) if a.get('kind') == 'pdf'), None)
+    return filter_native_typo_ir(Path(source) if source else None, ir)
+
+
 def run_typo_rule_from_ir(ir: dict[str, Any], *, on_chunk_complete=None, max_workers=None) -> dict[str, Any]:
     if max_workers is not None and (type(max_workers) is not int or not 1 <= max_workers <= 8):
         raise ValueError('typo workers must be an integer between 1 and 8')
+    ir, scope = _native_typo_input(ir)
     findings = []
     # The same Paper Model source span can be surfaced through more than one
     # layout node.  Never turn that extraction detail into duplicate findings.
@@ -549,6 +627,12 @@ def run_typo_rule_from_ir(ir: dict[str, Any], *, on_chunk_complete=None, max_wor
     # _body_chunks still prefers punctuation, so this is not a blind character
     # split across a sentence.
     chunks = _body_chunks(ir, size=1200)
+    if not chunks and scope is not None:
+        return {'rule_run_id': f'run_{TYPO_RULE}', 'rule_id': TYPO_RULE, 'severity':'warning',
+                'params':{'chunk_count':0,'chunk_size':1200,'native_text_scope':scope},
+                'execution_status':'completed','evidence_mode':'unsupported','outcome':'inconclusive',
+                'message':'未识别到可检测的原生正文；扫描页不参与错别字检测，且不使用OCR。',
+                'findings':[],'model_usage':usage_total}
     failure = None
     completed_chunks = 0
     workers = max_workers if max_workers is not None else (8 if all(os.environ.get(name, '').strip() for name in
@@ -727,6 +811,7 @@ def run_typo_rule_from_ir(ir: dict[str, Any], *, on_chunk_complete=None, max_wor
                                    'total_chunks': len(chunks)})
     return {"rule_run_id": f"run_{TYPO_RULE}", "rule_id": TYPO_RULE, "severity": "warning",
             "params": {"chunk_count": len(chunks), "chunk_size": 1200,
+                       **({'native_text_scope':scope} if scope is not None else {}),
                        **({"technical_failure": failure} if failure else {})},
             "execution_status": "error" if failure else "completed", "evidence_mode": "derived",
             "outcome": "inconclusive" if failure else ("issues_found" if findings else "passed"),
@@ -975,7 +1060,8 @@ def _run_aligned_abstract(ir, facts):
     chinese = _abstract_sentences(str(facts['chinese_abstract']))
     english = _abstract_sentences(str(facts['english_abstract']))
     context = ('中文摘要全文：\n' + _numbered_abstract(chinese)
-               + '\n英文摘要全文：\n' + _numbered_abstract(english))
+               + '\n英文摘要全文：\n' + _numbered_abstract(english)
+               + _terminology_prompt(facts))
     policy = (
         '按句级语义建立双向对应，允许一对多、多对一、拆句合句和跨顺序对应。'
         '只有两侧实际表达了相同事实、仅翻译措辞或语序不同，才筛除为等价。'
@@ -988,10 +1074,14 @@ def _run_aligned_abstract(ir, facts):
         '不得用整体主题相似掩盖局部方法替换。'
         '独立贡献总结中的方法属性、应用对象或适用范围属于研究结论；'
         '另一侧只说提出了系统或整体有效，不能据此认定这些属性或适用范围已经表达。')
+    policy += ('方法名称或术语译法不同只构成待核对候选，不能直接证明事实矛盾。'
+               '须依据操作、研究对象、条件、数值或方向的互不兼容断言确认contradiction；'
+               '正文定义若证实为同一机制的不同命名，不得按词面差异判矛盾。'
+               '正文仅可澄清术语，绝不能补齐摘要中真正缺少的独立事实。')
     alignment_messages = [{'role': 'user', 'content': (
         '你是双语句级对齐器，本阶段只核对句子的实际事实内容，不决定是否告警。'
         '允许一对多、多对一、跨顺序对应。matched要求事实内容对应，不能只看主题相似。'
-        '同一主题中的方法名称或具体操作不相同须标conflict；任何未被对应句实际表达的独立事实标partial或missing，'
+        '同一主题中的方法名称或具体操作不相同时先核对实际含义，只有不兼容的事实断言才标conflict；任何未被对应句实际表达的独立事实标partial或missing，'
         '即使你认为差异不重要，也必须交给下一阶段复核，不得在此省略候选。'
         '\n为两侧每一个句子各返回一条记录，不得省略任何句子。'
         'status 为 matched|partial|missing|conflict。matched 也必须填写对应句编号。'
@@ -1240,6 +1330,13 @@ def _run_semantic_rule(ir, facts, rule_id, run_id=None, on_chunk_complete=None, 
     usage = {"input_tokens": 0, "output_tokens": 0}
     payload, usage = request_json([{"role": "user", "content": prompt}])
     outcome = str(payload.get("outcome", "inconclusive")).lower()
+    if rule_id == 'bilingual_keywords_correspondence_check' and outcome == 'inconsistent':
+        initial = payload
+        payload, used = _review_keyword_mismatch(facts)
+        usage = {key: usage.get(key, 0) + used.get(key, 0) for key in ('input_tokens','output_tokens')}
+        params = {'comparison_mode':'keyword_evidence_review_v1','initial_assessment':initial,
+                  'review':payload,'terminology_context':facts.get('terminology_context') or []}
+        outcome = payload['outcome']
     findings = []
     if outcome == "inconsistent":
         abstract = rule_id.endswith("abstract_consistency_check")
@@ -1279,6 +1376,9 @@ def run(pdf: Path, rule_ids: list[str], run_id=None, on_rule_complete=None,
     ir = build_paper(pdf, include_citations=False,
                      allow_incomplete_structure=allow_incomplete_structure)
     facts = extract_bilingual_facts(ir) if any(rule in BILINGUAL_RULES for rule in rule_ids) else {}
+    if facts:
+        from bilingual_terminology_context import retrieve_terminology_context
+        facts['terminology_context'] = retrieve_terminology_context(ir, facts)
     with ThreadPoolExecutor(max_workers=4) as pool:
         futures = {pool.submit(_run_semantic_rule, ir, facts, rule, run_id,
                                *([on_work_progress, typo_workers] if rule == TYPO_RULE

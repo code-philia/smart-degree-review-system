@@ -9,6 +9,8 @@ def module():
     spec = importlib.util.spec_from_file_location('parallel_semantic_test', path)
     result = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(result)
+    # Concurrency fixtures supply synthetic chunks, after the native-input gate.
+    result._native_typo_input = lambda ir: (ir, None)
     return result
 
 

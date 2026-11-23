@@ -718,6 +718,38 @@ def _diagram_dimension_lines(body: list[Line]) -> set[Line]:
     return result
 
 
+def _period_citation_numbers(line: Line, labels: set[int]) -> set[int]:
+    """Recover existing references from a clearly citation-like period-space list.
+
+    This only supplies rule24 evidence. Periods remain outside the ordinary
+    citation grammar, so decimal/section syntax cannot create rule22 findings.
+    """
+    found = set()
+    for match in re.finditer(r'[\[［]([1-9]\d*(?:\.[^\S\r\n]+[1-9]\d*)+)[\]］]', line.text):
+        numbers = [int(part.strip()) for part in match.group(1).split('.')]
+        if not set(numbers) <= labels or len(set(numbers)) != len(numbers):
+            continue
+        before, after = line.text[:match.start()], line.text[match.end():]
+        # Positive context is required even when every integer is a reference
+        # label: standalone vectors and section identifiers can share them.
+        explicit = re.search(r'(?:文献|参见|引用|另见|\b(?:references?|refs?\.?))\s*$', before, re.I)
+        caption = (re.match(r'^\s*(?:fig(?:ure)?\.?|table|图|表)\s*\d+(?:[.．-]\d+)*'
+                            r'\s*[:：]?\s*[A-Za-z\u4e00-\u9fff]', before, re.I)
+                   and re.fullmatch(r'\s*[.。;；]?\s*', after))
+        if not explicit and not caption:
+            continue
+        if re.search(r'(?:\b(?:vectors?|arrays?|matri(?:x|ces)|tensors?|shapes?|dimensions?|'
+                     r'ranges?|intervals?|data|values?|sections?|chapters?)\b|'
+                     r'向量|数组|矩阵|张量|维度|维数|尺寸|形状|范围|区间|取值|数值|章节|小节|[=∈∉←{}])',
+                     before, re.I) or re.match(r'\s*[=∈∉←]', after):
+            continue
+        if _numeric_bracket_is_data(line.text, match, numbers, max(labels),
+                                    _marker_size_ratio(line, match), None):
+            continue
+        found.update(numbers)
+    return found
+
+
 def _rules_22_24(body: list[Line], entries: list[tuple[int, Line]]) -> tuple[dict, dict]:
     if len(entries) < 2:
         reason = '未可靠识别编号参考文献表'
@@ -751,6 +783,9 @@ def _rules_22_24(body: list[Line], entries: list[tuple[int, Line]]) -> tuple[dic
                 finding['text_excerpt'] = ' '.join(part.text for part in parts)[:220]
                 finding['location']['text_excerpt'] = finding['text_excerpt']
             missing_targets.append(finding)
+    for line in body:
+        if line not in dimension_lines:
+            citations.update(_period_citation_numbers(line, labels))
     uncited = [_finding(24, line, f'参考文献 [{number}] 未在全文引用', token=str(number))
                for number, line in entries if number not in citations]
     return _result(missing_targets), _result(uncited)

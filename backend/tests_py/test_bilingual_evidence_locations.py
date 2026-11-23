@@ -14,6 +14,14 @@ def lint_module():
     return result
 
 
+def keyword_review(facts):
+    left=facts['chinese_keywords']['values']
+    right=facts['english_keywords']['values']
+    return {'outcome':'inconsistent','summary':'关键词不对应。',
+            'pairs':[{'chinese':left[0],'english':right[0],'match':False,'reason':'原列表两项表达不同研究对象'}],
+            'missing_english':left[1:],'missing_chinese':right[1:]}, {}
+
+
 def test_abstract_quote_follows_visual_order_after_a_line_was_reinserted(tmp_path):
     lint = lint_module()
     path = tmp_path / 'edited-abstract.pdf'
@@ -66,7 +74,9 @@ def test_keywords_have_exact_rectangles_for_the_complete_evidence_quote(tmp_path
         'english_keywords': {'text': quote if language == 'english' else 'Keywords'},
         'locations': {language + '_keywords': {'page_number': 1, 'text_excerpt': label + quote.split(', Dataflow')[0]}},
     }
-    monkeypatch.setattr(lint, 'request_json', lambda _: ({'outcome': 'inconsistent', 'summary': '关键词不对应。'}, {}))
+    for item in (facts['chinese_keywords'],facts['english_keywords']):
+        item['values']=[item['text']]
+    monkeypatch.setattr(lint, 'request_json', lambda _: keyword_review(facts))
     run = lint._run_semantic_rule({'source_artifacts': [{'kind': 'pdf', 'path': str(path)}]},
                                   facts, 'bilingual_keywords_correspondence_check')
     finding = run['findings'][0]
@@ -112,7 +122,9 @@ def test_optional_geometry_failure_preserves_the_semantic_evidence(tmp_path, mon
     if kind == 'keywords':
         facts = {'chinese_keywords': {'text': '测试方法'}, 'english_keywords': {'text': quote},
                  'locations': {'english_keywords': {'page_number': 1, 'text_excerpt': quote}}}
-        monkeypatch.setattr(lint, 'request_json', lambda _: ({'outcome': 'inconsistent', 'summary': '关键词不对应。'}, {}))
+        for item in (facts['chinese_keywords'],facts['english_keywords']):
+            item['values']=[item['text']]
+        monkeypatch.setattr(lint, 'request_json', lambda _: keyword_review(facts))
         run = lint._run_semantic_rule(ir, facts, 'bilingual_keywords_correspondence_check')
         assert run['execution_status'] == 'completed'
         assert run['outcome'] == 'issues_found'
