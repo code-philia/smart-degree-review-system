@@ -9,6 +9,8 @@ from types import SimpleNamespace
 
 
 _CAPTION = re.compile(r'^(?:表\s*\d|Table\s+\d)', re.I)
+_TABLE_LABEL = re.compile(r'^(?:表\s*|Table\s*)\d+(?:\s*[.\-]\s*\d+)*\s*[:：.]?$', re.I)
+_ANY_CAPTION = re.compile(r'^(?:(?:表|图)\s*\d|(?:Table|Figure|Fig[.]?)\s*\d)', re.I)
 _NUMBER = re.compile(r'^[\d\s.,%+\-−±×*<>=≤≥~()]+$')
 
 
@@ -38,6 +40,33 @@ def _inside(inner, outer, tolerance=1.5):
 def _overlap_x(left, right):
     width = min(left[2], right[2]) - max(left[0], right[0])
     return max(0, width) / max(1, min(left[2] - left[0], right[2] - right[0]))
+
+
+def _wide_caption_box(text, box, fragments, table_box):
+    """A contiguous, centred title row may extend beyond a narrow ruled table."""
+    if not _TABLE_LABEL.fullmatch(text.strip()):
+        return None
+    height, baseline = max(1, box[3] - box[1]), (box[1] + box[3]) / 2
+    if not -1.5 <= table_box[1] - box[3] <= max(36, min(80, height * 6)):
+        return None
+    adjacent = [f for f in fragments if f['bbox'][0] >= box[2] - 1
+                and abs((f['bbox'][1] + f['bbox'][3]) / 2 - baseline) <= max(
+                    2, min(height, f['bbox'][3] - f['bbox'][1]) * .25)
+                and min(box[3], f['bbox'][3]) - max(box[1], f['bbox'][1]) >= min(
+                    height, f['bbox'][3] - f['bbox'][1]) * .6]
+    boxes, right = [box], box[2]
+    for fragment in sorted(adjacent, key=lambda f: (f['bbox'][0], f['bbox'][2])):
+        if (not -1 <= fragment['bbox'][0] - right <= max(12, height * 1.6)
+                or _ANY_CAPTION.match(fragment['text'].strip())):
+            break
+        boxes.append(fragment['bbox'])
+        right = fragment['bbox'][2]
+    extent = _union(boxes)
+    if (len(boxes) > 1 and _overlap_x(extent, table_box) >= .3
+            and abs((extent[0] + extent[2] - table_box[0] - table_box[2]) / 2)
+                <= max(12, (table_box[2] - table_box[0]) * .15)):
+        return extent
+    return None
 
 
 def _fragments(page):
@@ -224,6 +253,10 @@ def _native_grid(bbox, full_rules, fragments, vertical, horizontal):
     inside = [f for f in fragments if _inside(f['bbox'], bbox)]
     physical = _physical_rows(inside)
     data = [r for r in physical if sum(_numeric(f) for f in r['fragments']) >= 2]
+    single_metric = len(data) < 2
+    if single_metric:
+        data = [r for r in physical if len(r['fragments']) == 2
+                and not _numeric(r['fragments'][0]) and _numeric(r['fragments'][1])]
     if len(data) < 2:
         return None
     first_data = data[0]['center']
@@ -231,7 +264,7 @@ def _native_grid(bbox, full_rules, fragments, vertical, horizontal):
     header_rows = [r for r in physical if r['center'] < header_end]
     body = [f for f in inside if (f['bbox'][1] + f['bbox'][3]) / 2 > header_end]
     columns = _columns(body)
-    if not 2 <= len(columns) <= 40:
+    if not 2 <= len(columns) <= 40 or (single_metric and len(columns) != 2):
         return None
     # Rows require aligned native result cells. Isolated group labels remain spans.
     body_rows = [r for r in physical if r['center'] > header_end
@@ -317,7 +350,9 @@ def _bind_source(structure, model, fragments):
         text = str(block.get('text') or '').strip()
         for provenance in block.get('provenance') or []:
             box = _rect(provenance.get('bbox'))
-            if not box or not -8 <= bbox[1] - box[3] <= 180 or _overlap_x(box, bbox) < .3:
+            if not box or not -8 <= bbox[1] - box[3] <= 180:
+                continue
+            if _overlap_x(box, bbox) < .3 and not _wide_caption_box(text, box, fragments, bbox):
                 continue
             native = ' '.join(f['text'] for f in fragments if _inside(f['bbox'], box))
             if re.sub(r'\s+', '', text) not in re.sub(r'\s+', '', native):
@@ -325,7 +360,9 @@ def _bind_source(structure, model, fragments):
             is_caption = bool(_CAPTION.search(text)) or block.get('block_type') == 'Caption'
             # A nearer native caption is an identity boundary, even if the IR lacks it.
             if any(_CAPTION.search(f['text']) and box[3] + 2 < f['bbox'][1] < bbox[1]
-                   and _overlap_x(f['bbox'], bbox) >= .3 for f in fragments):
+                   and (_overlap_x(f['bbox'], bbox) >= .3
+                        or _wide_caption_box(f['text'], f['bbox'], fragments, bbox))
+                   for f in fragments):
                 continue
             candidates.append((not is_caption, abs(bbox[1] - box[3]), block))
     if candidates:
@@ -414,6 +451,7 @@ def native_caption_context(table, model):
                 blocks.append((projected, source_box, [source_box]))
     anchors = [(block, box, boxes) for block, box, boxes in blocks
                if block['source_node_id'] in identities and table_prefix.match(block['text'].strip())]
+    caption_fragments = [{'text': block['text'], 'bbox': box} for block, box, _ in blocks]
     result, seen = [], set()
 
     def emit(block):
@@ -423,8 +461,13 @@ def native_caption_context(table, model):
 
     for anchor, box, _ in sorted(anchors, key=lambda entry: (entry[1][1], entry[1][0])):
         height = max(1, box[3] - box[1])
+        caption_box = box
+        if _overlap_x(box, table_box) < .3:
+            caption_box = _wide_caption_box(anchor['text'], box,
+                [{'text': other['text'], 'bbox': other_box} for other, other_box, _ in blocks
+                 if other.get('section_id') == anchor.get('section_id')], table_box)
         if (not -1.5 <= table_box[1] - box[3] <= max(36, min(80, height * 6))
-                or _overlap_x(box, table_box) < .3):
+                or not caption_box):
             continue
         identity = re.sub(r'\s+', '', table_prefix.match(anchor['text'].strip())[1]).replace('-', '.')
         # A different intervening caption is an identity boundary. The same
@@ -434,7 +477,8 @@ def native_caption_context(table, model):
             caption = any_caption.match(other['text'].strip())
             if (other['block_id'] == anchor['block_id'] or not caption
                     or not box[3] + 2 < other_box[1] < table_box[1]
-                    or _overlap_x(other_box, table_box) < .3):
+                    or (_overlap_x(other_box, table_box) < .3
+                        and not _wide_caption_box(other['text'], other_box, caption_fragments, table_box))):
                 continue
             same_table = table_prefix.match(other['text'].strip())
             if (not same_table or re.sub(r'\s+', '', same_table[1]).replace('-', '.') != identity):
@@ -453,8 +497,8 @@ def native_caption_context(table, model):
                     or (other.get('section_id') != anchor.get('section_id')
                         and not any_caption.match(other['text'].strip()))
                     or other_box[0] < box[2] - 1
-                    or other_box[0] < table_box[0] - padding
-                    or other_box[2] > table_box[2] + padding
+                    or other_box[0] < min(table_box[0], caption_box[0]) - padding
+                    or other_box[2] > max(table_box[2], caption_box[2]) + padding
                     or other_box[3] > table_box[1] + 1):
                 continue
             if all(abs((b[1] + b[3]) / 2 - baseline) <= max(2, min(height, b[3] - b[1]) * .25)

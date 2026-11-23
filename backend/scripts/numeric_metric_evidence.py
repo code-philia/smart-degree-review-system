@@ -285,6 +285,34 @@ def metric_context(declaration, mapping, model, *, max_items=8, max_chars=6000):
     return items
 
 
+def experimental_context(mapping, model, *, max_items=8, max_chars=6000):
+    """Keep exact setup paragraphs shared by the mapped experimental branch."""
+    sections = model.get('sections') or {}
+    chapter = mapping.get('chapter_id')
+    experiments = mapping.get('experiment_section_ids') or []
+    if chapter not in sections or not experiments:
+        return []
+    ancestors = {s['section_id'] for sid in experiments for s in _path(sections, sid)}
+    setup_title = re.compile(r'实验(?:环境|设置|配置|平台)|测试环境|数据集(?:介绍|描述)?$|'
+                             r'experimental?\s+(?:setup|settings|environment)|implementation details|datasets?$', re.I)
+    selected, remaining = [], max_chars
+    for block in model.get('blocks') or []:
+        path = _path(sections, block.get('section_id'))
+        setup = next((s for s in path if setup_title.search(str(s.get('title') or '').strip())), None)
+        text = block.get('text')
+        if (not setup or not _under(sections, block.get('section_id'), chapter)
+                or (setup['section_id'] not in ancestors and setup.get('parent_id') not in ancestors)
+                or block.get('block_type') != 'Paragraph' or not isinstance(text, str) or len(text) < 30):
+            continue
+        if len(selected) >= max_items or remaining <= 0:
+            break
+        item = _quote(block, 0, min(len(text), remaining), ['experimental_setup'], 'mapped_experiment_setup', [])
+        if item:
+            selected.append(item)
+            remaining -= len(item['text'])
+    return selected
+
+
 def _decimal(value):
     if isinstance(value, bool) or not isinstance(value, (str, int, float, Decimal)):
         raise ValueError('arithmetic inputs must be numeric scalars')

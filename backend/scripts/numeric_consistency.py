@@ -852,6 +852,7 @@ def structure_prompt(context):
             'numeric_candidates中normalization=chinese-integer-multiplier/1.0表示有精确原文范围的中文倍数；'
             '保留该原文对应的数值number和倍数unit，不能因原文使用中文数字而遗漏。'
             'declarations还可提供dataset、method、baseline字符串，便于本地检索。只使用给定真实section_id和source_node_id。每项声明必须关联贡献、正文主要研究章节和其下级实验子章节；'
+            'condition只填写区分实验数值的具体设置，如硬件、数据、负载或工作模式；一般设计目标或方法性质不单独作为实验条件，没有具体设置时填空字符串，原文限定仍保留在摘要上下文中。'
             '输出前逐项核对declarations的每个id在mappings中恰好出现一次；新增或保留声明时不得漏掉其映射。'
             'chapter_id必须从main_chapter_ids选择，即parent_id为null的章；禁止用3.3、4.3等设计与实现小节作为chapter_id。各小节main_chapter_id给出了所属章。experiment_section_ids必须选该章下真正的实验小节，可包含实验设置和实验结果两个并列小节，避免只选设置而遗漏结果。'
             'chapter_id表示实际承载核验实验的主章，不一定是方法设计主章。若论文把多个方法的实验放在独立评估章，须核对评估正文确实包含该方法与目标条件，并选择该评估主章；禁止把方法章ID与另一评估章的实验子节混配。'
@@ -1347,13 +1348,18 @@ def retrieve_candidates(declarations, mappings, model, top_k=6):
             candidates.append({**b, 'candidate_id': cid, 'declaration_id': d['id'], 'context': neighbors,
                                'retrieval_score': score, 'matched_signals': signals,
                                'retrieval_rank': rank, 'is_primary': index in {r[1] for r in selected}})
-        from numeric_metric_evidence import metric_context
+        from numeric_metric_evidence import metric_context, experimental_context
         definitions = metric_context(d, mapping, model)
         for context_index, definition in enumerate(definitions, 1):
             candidates.append({**definition, 'candidate_id':d['id']+':m'+str(context_index),
                 'declaration_id':d['id'],'block_type':'MetricDefinition','evidence_role':'metric_definition',
                 'is_primary':False,'retrieval_rank':None,'retrieval_score':0,'context':[]})
             selected_ids.append(definition['block_id'])
+        for context_index, setup in enumerate(experimental_context(mapping, model), 1):
+            candidates.append({**setup, 'candidate_id': d['id'] + ':s' + str(context_index),
+                'declaration_id': d['id'], 'block_type': 'ExperimentalContext', 'evidence_role': 'experiment_context',
+                'is_primary': False, 'retrieval_rank': None, 'retrieval_score': 0, 'context': []})
+            selected_ids.append(setup['block_id'])
         traces.append({'declaration_id': d['id'], 'scope': experiment_ids, 'fallback': fallback,
                        'top_k': top_k, 'scope_block_ids': [b['block_id'] for b in scoped],
                        'selected_block_ids': selected_ids,
@@ -1507,6 +1513,7 @@ def verifier_prompt(structure, candidates):
             '分组row_indices采用原始表格行号，matrix各行对应original_row_indices；不能按缩略行的位置对应分组。'
             'rows_truncated或cells_truncated为true表示展示不完整，不能据此认证完整范围的最高值或均值。'
             'evidence_role=metric_definition仅提供指标定义或公式上下文，不能单独证明实验数值；数值结论还必须引用实验结果证据。'
+            'evidence_role=experiment_context提供同一实验分支的原生环境、数据集与配置说明，用于核对硬件和场景条件，不单独证明实验数值；按这些原文说明对应条件，不凭数据集名称不同自行认定场景不同。'
             '论文明确给出指标定义或公式时必须使用该口径，不得擅自改用另一种常见相对增幅公式。'
             '表中已直接列出目标统计指标时优先核对该列及完整范围；需要计算时保留原始数值精度和运算定义，不自行补齐不明公式。'
             '最高值、均值、范围等声明必须检查候选中的全部相关实验设置，不能只用一个子实验推断整体。若其他设置提供了更大值，应引用该反例；仅见部分设置或两个数据集，不能据此断言论文没有更多数据集。'
@@ -1577,7 +1584,7 @@ def validated_results(payload, declarations, candidates):
                 else:
                     valid.append({**e, 'source_node_id': candidate['source_node_id'], 'section_id': candidate['section_id'], 'block_id': candidate['block_id'], 'provenance': candidate['provenance'],
                                   **({'evidence_role':candidate['evidence_role']} if candidate.get('evidence_role') else {})})
-            result_evidence = [e for e in valid if e.get('evidence_role') != 'metric_definition']
+            result_evidence = [e for e in valid if e.get('evidence_role') not in {'metric_definition', 'experiment_context'}]
             if entry.get('status') in ('consistent', 'inconsistent') and not result_evidence:
                 problems.append('supporting_evidence_required')
             if not problems:

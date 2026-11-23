@@ -798,6 +798,69 @@ def _maximum_support(row, model, mapping):
             'out_of_comparison_scope_tables': excluded_scope}
 
 
+def _derived_ratio_support(row, model, mapping):
+    """Recheck an explicit labeled latency ratio against one cited native row."""
+    declaration = row['declaration']
+    expected, method = _expected(declaration), declaration.get('method') or ''
+    if (not mapping or expected is None or not method
+            or declaration.get('unit') not in ('倍', '×', 'x', 'times', 'fold')
+            or not re.search(r'加速|speedup|acceleration', declaration.get('metric') or '', re.I)):
+        return None
+    selected = {(e.get('block_id'), e.get('page')): e for e in row.get('evidence') or []}
+    for table in model.get('tables') or []:
+        evidence = selected.get((table.get('table_id'), table.get('page')))
+        if (not evidence or not _safe_table(table)
+                or not any(_under(model, table.get('section_id'), sid) for sid in mapping['experiment_section_ids'])):
+            continue
+        view = _caption_metric_view(table, model, {'metric': 'latency'})
+        caption = re.sub(r'(?<=[A-Za-z])-\s*(?=[A-Za-z])', '',
+                         (view.get('_native_metric_caption') or '') + ' ' + (table.get('caption') or ''))
+        if (not re.search(r'latency|runtime|execution time|时延|延迟|耗时', caption, re.I)
+                or re.search(r'memory|accuracy|precision|recall|显存|内存|精度|准确率|召回', caption, re.I)):
+            continue
+        if re.search(r'attention|注意力', declaration.get('metric') or '', re.I) and not re.search(r'attention|注意力', caption, re.I):
+            continue
+        headers = _headers(table)
+        denominators = [i for i, header in enumerate(headers) if _key(header) == _key(method)]
+        if len(denominators) != 1 or headers.count(headers[denominators[0]]) != 1:
+            continue
+        denominator = denominators[0]
+        for numerator, header in enumerate(headers):
+            if (numerator == denominator or numerator == 0 or denominator == 0
+                    or headers.count(header) != 1
+                    or declaration.get('baseline') and _key(header) != _key(declaration['baseline'])):
+                continue
+            label = lambda text: re.escape(text).replace(r'\ ', r'\s*')
+            expression = re.search(r'(?<![A-Za-z0-9_-])' + label(header) + r'\s*/\s*' + label(headers[denominator])
+                                   + r'\s*[=＝]\s*(' + _NUMBER.pattern + r')\s*/\s*(' + _NUMBER.pattern
+                                   + r')\s*(?:≈|≃|~|=)\s*(' + _NUMBER.pattern + r')(?![\d.])', row['reason'], re.I)
+            if not expression:
+                continue
+            operands = [Decimal(expression[i].replace('−', '-')) for i in (1, 2, 3)]
+            if any(abs(value.adjusted()) > 100 for value in operands):
+                continue
+            for index in range(_header_count(table), len(table['matrix'])):
+                cells = [_cell(table, index, column) for column in (numerator, denominator)]
+                row_label = _cell(table, index, 0)
+                if (not row_label or not _named(declaration.get('condition') or declaration.get('text') or '', row_label)
+                        or any(not value or not _NUMBER.fullmatch(value) for value in cells)
+                        or [Decimal(value) for value in cells] != operands[:2]
+                        or any(value <= 0 for value in operands[:2])
+                        or any(value not in evidence.get('quote', '') for value in cells)):
+                    continue
+                with localcontext() as context:
+                    context.prec = 120
+                    value = operands[0] / operands[1]
+                if not _rounded(value, operands[2]) or not _rounded(value, expected):
+                    continue
+                return {'kind': 'native_same_row_latency_ratio', 'table_id': table['table_id'], 'page': table['page'],
+                        'numerator': {'row': index, 'column': numerator, 'header': header, 'value': cells[0]},
+                        'denominator': {'row': index, 'column': denominator, 'header': headers[denominator], 'value': cells[1]},
+                        'derived_value': str(value), 'declared_precision': expected.as_tuple().exponent,
+                        'metric_caption': caption, 'metric_caption_sources': view.get('_native_metric_caption_sources') or []}
+    return None
+
+
 def conservative_guard(results, *, model=None, mappings=None):
     """Preserve legacy output absent context; admit only grounded semantics/coverage."""
     limitations = []
@@ -814,14 +877,18 @@ def conservative_guard(results, *, model=None, mappings=None):
                     Decimal(match.group().replace('−', '-')) == expected for match in _NUMBER.finditer(part))]
                 if target_clauses:
                     declaration = ' '.join(target_clauses) + ' ' + str(row['declaration'].get('metric') or '')
-        source = '\n'.join(e['quote'] for e in row['evidence'])
+        source = '\n'.join(e['quote'] for e in row['evidence'] if e.get('evidence_role') != 'experiment_context')
         gap = None
+        mapping = _mapping(row, model, mappings)
         if status == 'consistent' and re.search(r'近似|舍入|四舍五入|概数|approximately|rounding', reason, re.I):
             values = [Decimal(v) for v in re.findall(r'\d+(?:\.\d+)?', str(row['declaration'].get('number', '')))]
             observed = [Decimal(v) for v in re.findall(r'(?<![\d.])\d+(?:\.\d+)?(?![\d.])', source)]
             if values and not all(any(v.quantize(Decimal(1).scaleb(expected.as_tuple().exponent), rounding=ROUND_HALF_UP) == expected for v in observed) for expected in values):
-                gap = _ROUNDING_GAP
-        mapping = _mapping(row, model, mappings)
+                proof = _derived_ratio_support(row, model, mapping)
+                if proof:
+                    row.setdefault('statistical_evidence', []).append(proof)
+                else:
+                    gap = _ROUNDING_GAP
         if gap:
             pass
         elif status == 'consistent' and _AVERAGE.search(declaration) and not _AVERAGE.search(source):
