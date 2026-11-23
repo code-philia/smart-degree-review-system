@@ -2,6 +2,7 @@ import { useId, useRef, useState, type Ref } from 'react';
 import { CheckCircle2, LoaderCircle, MessageSquare, Star } from 'lucide-react';
 import { submitSystemFeedback } from '../api/feedback';
 import { Button } from './shadcn/button';
+import { WeChatIcon } from './icons/WeChatIcon';
 import {
   Dialog,
   DialogContent,
@@ -89,14 +90,15 @@ export function SystemFeedbackDialog({ triggerRef }: { triggerRef?: Ref<HTMLButt
       </DialogTrigger>
       <DialogContent data-i18n-system-feedback="" className="max-h-[calc(100dvh-2rem)] gap-6 overflow-y-auto p-6 sm:max-w-xl">
         <DialogHeader className="gap-3 pr-5">
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <DialogTitle className="text-xl font-semibold tracking-tight">使用反馈</DialogTitle>
             <a
               href="https://feedback-chat-5d9.pages.dev/"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-xs transition-colors hover:bg-primary/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
+              className="inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-[13px] font-medium leading-5 text-[#168447] transition-colors hover:bg-[#edf8f1] hover:text-[#116a39] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#07c160]/40 focus-visible:ring-offset-2 dark:text-[#79dca2] dark:hover:bg-[#07c160]/10 dark:hover:text-[#a0edbd]"
             >
+              <WeChatIcon className="size-5 shrink-0 text-[#07c160] dark:text-[#50ce8b]" />
               吐槽微信群
             </a>
           </div>
