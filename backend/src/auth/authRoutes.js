@@ -7,6 +7,7 @@ const { trialUserAllowed, trialLoginRequest, trialAttempts } = require('./trialL
 const { normalizeEmail, notificationEmail, fixedNotificationEmail, campusIdentity } = require('../notifications/emailPolicy');
 const { mailConfig } = require('../notifications/mailConfig');
 const { run } = require('../database');
+const { claimFeedbackAnnouncement } = require('./announcementService');
 
 const router = express.Router();
 
@@ -20,6 +21,22 @@ const cookieOptions = {
 };
 
 const campusCookieOptions = { ...cookieOptions, path: '/api/auth/jaccount' };
+
+router.post('/announcements/feedback/claim', requireAuth(), async (req, res, next) => {
+  res.set('Cache-Control', 'private, no-store');
+  const requestId = req.body?.request_id;
+  if (typeof requestId !== 'string' || !/^[A-Za-z0-9_-]{16,80}$/.test(requestId)) {
+    return res.status(400).json({ code: 400, message: 'Invalid announcement request' });
+  }
+  // A shared session cookie can change in another tab before this request.
+  // The supplied ID is only a precondition; writes always use req.user.id.
+  if (req.body?.expected_user_id !== req.user.id) {
+    return res.status(409).json({ code: 409, message: 'Announcement account changed' });
+  }
+  try {
+    return res.json(await claimFeedbackAnnouncement(req.user.id, requestId));
+  } catch (error) { return next(error); }
+});
 
 function notificationSettings(user) {
   return { email: notificationEmail(user), fixed: fixedNotificationEmail(user)||campusIdentity(user), delivery_available: Boolean(mailConfig()) };

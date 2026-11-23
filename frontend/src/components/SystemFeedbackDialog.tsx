@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react';
+import { useId, useRef, useState, type Ref } from 'react';
 import { CheckCircle2, LoaderCircle, MessageSquare, Star } from 'lucide-react';
 import { submitSystemFeedback } from '../api/feedback';
 import { Button } from './shadcn/button';
@@ -29,7 +29,7 @@ function newFeedbackRequestId() {
   return `feedback-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-export function SystemFeedbackDialog() {
+export function SystemFeedbackDialog({ triggerRef }: { triggerRef?: Ref<HTMLButtonElement> } = {}) {
   const id = useId();
   const [open, setOpen] = useState(false);
   const [score, setScore] = useState(0);
@@ -82,7 +82,7 @@ export function SystemFeedbackDialog() {
   return (
     <Dialog open={open} onOpenChange={close}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="lg" className="shrink-0 gap-2 rounded-xl text-foreground/80">
+        <Button ref={triggerRef} variant="ghost" size="lg" className="shrink-0 gap-2 rounded-xl text-foreground/80">
           <MessageSquare className="size-[18px]" strokeWidth={1.8} aria-hidden="true" />
           <span className="leading-5">使用反馈</span>
         </Button>

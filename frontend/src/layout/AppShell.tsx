@@ -27,6 +27,7 @@ import {
   BreadcrumbSeparator,
 } from '../components/shadcn/breadcrumb';
 import { SystemFeedbackDialog } from '../components/SystemFeedbackDialog';
+import { AccountAnnouncement } from '../components/AccountAnnouncement';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../components/shadcn/collapsible';
 import {
   DropdownMenu,
@@ -210,6 +211,7 @@ function AccountMenu({ onLogout }: { onLogout: () => Promise<void> }) {
 function AppShell() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsTriggerRef = useRef<HTMLButtonElement>(null);
+  const feedbackTriggerRef = useRef<HTMLButtonElement>(null);
   const navigationTriggerRef = useRef<HTMLButtonElement>(null);
   const { user, logout } = useAuthSession();
   const location = useLocation();
@@ -353,7 +355,7 @@ function AppShell() {
                 <Settings className="size-[18px]" strokeWidth={1.8} aria-hidden="true" />
               </Button>
             ) : null}
-            {user ? <SystemFeedbackDialog /> : null}
+            {user ? <SystemFeedbackDialog triggerRef={feedbackTriggerRef} /> : null}
           </div>
         </header>
 
@@ -363,6 +365,7 @@ function AppShell() {
           </div>
         </main>
       </SidebarInset>
+      {user ? <AccountAnnouncement userId={user.id} feedbackTarget={feedbackTriggerRef} /> : null}
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} onCloseAutoFocus={(event) => {
         const trigger = settingsTriggerRef.current?.isConnected
           ? settingsTriggerRef.current : navigationTriggerRef.current;

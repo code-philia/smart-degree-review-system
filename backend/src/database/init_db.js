@@ -123,6 +123,15 @@ async function initializeDatabase(options = {}) {
       );`,
     );
 
+    await runStatement(database, `CREATE TABLE IF NOT EXISTS user_announcement_receipts (
+      user_id TEXT NOT NULL,
+      announcement_id TEXT NOT NULL,
+      request_id TEXT NOT NULL,
+      shown_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (user_id, announcement_id),
+      FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE
+    );`);
+
     await runStatement(
       database,
       `CREATE TABLE IF NOT EXISTS normative_rule_overrides (
