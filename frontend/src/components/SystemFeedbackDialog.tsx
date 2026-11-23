@@ -93,6 +93,14 @@ export function SystemFeedbackDialog() {
           <DialogDescription className="leading-relaxed">
             您的反馈将帮助我们优化论文规范性检测和 AI 修复建议
           </DialogDescription>
+          <a
+            href="https://feedback-chat-5d9.pages.dev/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex min-h-9 items-center self-start rounded-lg border border-primary/20 bg-primary/5 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:border-primary/30 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
+          >
+            吐槽微信群
+          </a>
         </DialogHeader>
         {message ? (
           <div
