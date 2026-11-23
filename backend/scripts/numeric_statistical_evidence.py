@@ -812,6 +812,10 @@ def _derived_ratio_support(row, model, mapping):
         if (not evidence or not _safe_table(table)
                 or not any(_under(model, table.get('section_id'), sid) for sid in mapping['experiment_section_ids'])):
             continue
+        if any(declaration.get(field) and isinstance(table.get(field), str) and table[field].strip()
+               and not _scope_value_matches(declaration[field], table[field])
+               for field in ('dataset', 'method', 'baseline', 'condition')):
+            continue
         view = _caption_metric_view(table, model, {'metric': 'latency'})
         caption = re.sub(r'(?<=[A-Za-z])-\s*(?=[A-Za-z])', '',
                          (view.get('_native_metric_caption') or '') + ' ' + (table.get('caption') or ''))

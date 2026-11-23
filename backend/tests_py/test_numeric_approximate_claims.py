@@ -41,7 +41,7 @@ def test_native_same_row_ratio_prevents_false_rounding_veto():
 
 @pytest.mark.parametrize('mutation', [
     'cross_row', 'wrong_method', 'wrong_baseline', 'wrong_metric', 'wrong_caption',
-    'other_phase', 'prefill_vs_decoding', 'conflicting_dataset', 'fake_operand', 'fake_quotient', 'fake_intermediate',
+    'other_phase', 'prefill_vs_decoding', 'conflicting_dataset', 'unknown_dataset_conflicting_condition', 'fake_operand', 'fake_quotient', 'fake_intermediate',
     'incomplete_table', 'outside_scope', 'uncited_table',
 ])
 def test_unproven_ratio_preserves_rounding_warning(mutation):
@@ -64,6 +64,9 @@ def test_unproven_ratio_preserves_rounding_warning(mutation):
     elif mutation == 'conflicting_dataset':
         row['declaration']['dataset'] = 'DataA'
         source['tables'][0]['dataset'] = 'DataB'
+    elif mutation == 'unknown_dataset_conflicting_condition':
+        row['declaration']['dataset'] = 'DataA'
+        source['tables'][0]['condition'] = '32K prefill'
     elif mutation == 'fake_operand':
         row['reason'] = 'Dense/Lens=1.15/0.22≈5.23，可舍入到5。'
     elif mutation == 'fake_quotient':
