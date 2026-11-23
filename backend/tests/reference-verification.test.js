@@ -33,14 +33,14 @@ describe('reference verification coverage', () => {
     expect(run.message).toContain('检索资源暂不可用');
     expect(run.params.reference_resources_unavailable).toBe(true);
   });
-  it('keeps the multisource rule available after SerpAPI quota exhaustion', () => {
+  it('keeps the retired rule unavailable even with a configured package and quota status', () => {
     const old = Object.fromEntries(['PAPER_COMPILER_ENABLED','PAPER_COMPILER_PACKAGE_ROOT','PAPER_COMPILER_REFERENCE_LIBRARY'].map(k => [k,process.env[k]]));
     const dir = fs.mkdtempSync(path.join(os.tmpdir(),'reference-availability-'));
     try {
       fs.mkdirSync(path.join(dir,'32')); fs.writeFileSync(path.join(dir,'32/manifest.json'),'{}');
       fs.writeFileSync(path.join(dir,'serpapi-status.json'),JSON.stringify({schema_version:'serpapi-quota-status/1.0',status:'exhausted'}));
       process.env.PAPER_COMPILER_ENABLED='1'; process.env.PAPER_COMPILER_PACKAGE_ROOT=dir; process.env.PAPER_COMPILER_REFERENCE_LIBRARY=dir;
-      expect(getCompilerRules().find(r=>r.rule_id==='sjtu_rule_32').available).toBe(true);
+      expect(getCompilerRules().find(r=>r.rule_id==='sjtu_rule_32')).toBeUndefined();
     } finally {
       for (const [k,v] of Object.entries(old)) { if (v===undefined) delete process.env[k]; else process.env[k]=v; }
       fs.rmSync(dir,{recursive:true,force:true});

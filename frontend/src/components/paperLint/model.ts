@@ -1,4 +1,5 @@
 import type { PaperLintFinding, PaperLintResult, PaperLintRuleRun } from '../../api/paperLint';
+import { visiblePaperLintResult } from '../../../../shared/paper-lint-presentation.mjs';
 import { numericDisplayFindings as sharedNumericDisplayFindings, displayedReportSummary, executionWarningFeedbackTargets, isGenericExecutionWarning, chapterPrerequisiteSuggestion, referenceResourcesUnavailable, referenceResourceMessage, referenceInfoFindings } from '../../../../shared/paper-lint-presentation.mjs';
 export { referenceResourcesUnavailable } from '../../../../shared/paper-lint-presentation.mjs';
 
@@ -188,6 +189,7 @@ export function referencePresentationRun(run: PaperLintRuleRun): PaperLintRuleRu
 }
 
 export function paperLintPresentation(result: PaperLintResult): PaperLintResult {
+  result = visiblePaperLintResult(result);
   const rule_runs = result.rule_runs.map(referencePresentationRun);
   return { ...result, rule_runs, summary: displayedReportSummary({ ...result, rule_runs }) };
 }

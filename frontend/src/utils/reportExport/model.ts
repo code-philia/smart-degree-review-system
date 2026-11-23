@@ -23,6 +23,7 @@ import {
 } from '../../components/paperLint/model';
 import { formatChinaDateTime } from '../dateTime';
 import { numericReportBlocks } from './numericDetails';
+import { isRetiredPaperLintRule } from '../../../../shared/paper-lint-rule-policy.mjs';
 
 export const EXPORT_NOTICE = '检测结果仅供参考，请结合论文原文和学校要求人工复核。';
 export type DetectionScopeItem = { id: string; title: string; description: string };
@@ -37,7 +38,7 @@ export function buildDetectionScope(report: PaperLintRunResponse, rules: PaperLi
     .map((run) => run.rule_id);
   const ids = [...selectedIds, ...automaticIds];
   const catalog = new Map(rules.map((rule) => [rule.rule_id, rule]));
-  return [...new Set(ids)].map((id) => {
+  return [...new Set(ids)].filter(id => !isRetiredPaperLintRule(id)).map((id) => {
     const rule = catalog.get(id);
     const description = automaticIds.includes(id)
       ? '系统自动执行核心章节结构检查，不受前端勾选影响。'
@@ -127,7 +128,7 @@ export function buildExportReport(
         !(r.rule_id === 'sjtu_rule_32' && r.execution_status === 'completed' && !referenceResourcesUnavailable(r)) &&
         compilerPublicationLabel(r) !== '未触发告警',
     );
-  const conclusion = isDocumentBlocked(result.rule_runs)
+  const conclusion = !result.rule_runs.length ? '暂无可展示的检测结果。' : isDocumentBlocked(result.rule_runs)
     ? 'Paper Model 编译失败。所有论文规则均未检测，请查看严重级别的具体原因。'
     : summary.finding_count > (summary.execution_warning_count ?? 0)
       ? `发现 ${summary.finding_count} 项问题，请逐项核对。`

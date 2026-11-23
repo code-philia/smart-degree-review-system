@@ -44,10 +44,9 @@ it.each([false, true])('aligns saved detail and history counts without rewriting
       ['saved', 'owner', 'saved.pdf', 'unused.pdf', '["sjtu_rule_32"]', original, new Date().toISOString()]);
     const [history] = await repository.listPaperLintReportsByUser('owner');
     const detail = await repository.findPaperLintReportByIdForUser('saved', 'owner');
-    expect(history.summary).toMatchObject({ finding_count: 3, info_finding_count: 2, execution_warning_count: 1 });
+    expect(history.summary).toMatchObject({ finding_count: 0, info_finding_count: 0, execution_warning_count: 0 });
     expect(detail.summary).toEqual(history.summary);
-    if (legacy) expect(detail.result.rule_runs[0].message).toContain('额度');
-    else expect(detail.result.rule_runs[0].message).toBe(run.message);
+    expect(detail.result.rule_runs).toEqual([]);
     expect((await db.get('SELECT result_json FROM paper_lint_reports WHERE id=?', ['saved'])).result_json).toBe(original);
   } finally { await harness.cleanup(); }
 });

@@ -30,7 +30,7 @@ describe('four local rules in the existing basic-check flow', () => {
       'abstract_object_number_check',
       'chapter_new_page_check',
       'sjtu_rule_11', 'sjtu_rule_13', 'sjtu_rule_14', 'sjtu_rule_15', 'sjtu_rule_16', 'sjtu_rule_29',
-      'sjtu_rule_32', 'sjtu_rule_33',
+      'sjtu_rule_33',
       'typo_detection_check',
       'bilingual_keywords_correspondence_check', 'bilingual_abstract_consistency_check',
       'abstract_numeric_consistency_check',

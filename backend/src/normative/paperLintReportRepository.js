@@ -6,6 +6,7 @@ const { withTransaction } = require('../database/db_runtime');
 const { removeBrowserPdf } = require('./browserPdf');
 const { hydratePaperLintEvidenceLocations } = require('./paperLintEvidenceLocations');
 const presentation = import('../../../shared/paper-lint-presentation.mjs');
+const { isRetiredPaperLintRule } = require('../../../shared/paper-lint-rule-policy.mjs');
 
 function reportsDirectory() {
   return path.resolve(process.env.PAPER_LINT_REPORTS_DIR || path.join(process.cwd(), 'data', 'paper-lint-reports'));
@@ -13,7 +14,8 @@ function reportsDirectory() {
 
 async function toReport(row, { includeResult = true } = {}) {
   if (!row) return null;
-  const parsedResult = JSON.parse(row.result_json);
+  const { visiblePaperLintResult } = await presentation;
+  const parsedResult = visiblePaperLintResult(JSON.parse(row.result_json));
   if (includeResult) await hydratePaperLintEvidenceLocations(parsedResult, row.source_pdf_path);
   // A missing section has no original sentence or precise PDF location.
   for (const rule of parsedResult.rule_runs || []) {
@@ -53,7 +55,8 @@ async function toReport(row, { includeResult = true } = {}) {
   return {
     id: row.id,
     source_filename: row.source_filename,
-    selected_rule_ids: JSON.parse(row.selected_rule_ids_json || '[]'),
+    // History classification uses original selections; detail/rerun scope excludes retired checks.
+    selected_rule_ids: JSON.parse(row.selected_rule_ids_json || '[]').filter(id => !includeResult || !isRetiredPaperLintRule(id)),
     ...(includeResult ? { result: parsedResult } : {}),
     summary: {
       finding_count: summary.finding_count || 0,

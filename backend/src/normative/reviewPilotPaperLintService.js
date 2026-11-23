@@ -10,6 +10,7 @@ const { getCompilerRules, isCompilerRuleId, runCompilerRules } = require('./pape
 const { runPaperLintRuleGroups, settleRuleTasks } = require('./paperLintRuleRunner');
 const { createRuleProgressStream, createRunTimeout } = require('./paperLintRuleProgress');
 const { listRuleDefinitions } = require('../../rules/registry');
+const { isRetiredPaperLintRule } = require('../../../shared/paper-lint-rule-policy.mjs');
 const { assessPaperDocument, documentRejectionResult } = require('./paperDocumentAdmission');
 const { CORE_RULE_ID, coreStructureRun, mergeCoreRuns, attachCoreStructure, unavailableRuleRuns, dedupeCorePrerequisites } = require('./paperStructureChecks');
 
@@ -273,7 +274,7 @@ async function getPaperLintCatalog({ refresh = false, mvpOnly = false } = {}) {
           mode: 'pdf_lint',
           semantic_model: process.env.SJTU_API_MODEL || 'deepseek-v4-flash',
           rules: [...localRules, ...getSixRules(), ...getCompilerRules(), ...enabledLegacyCatalogRules()]
-            .filter((rule) => !RETIRED_RULE_IDS.has(rule.rule_id)),
+            .filter((rule) => !RETIRED_RULE_IDS.has(rule.rule_id) && !isRetiredPaperLintRule(rule.rule_id)),
         };
       } catch {
         // A temporary bridge failure must not hide the existing rule catalog indefinitely.
@@ -281,7 +282,8 @@ async function getPaperLintCatalog({ refresh = false, mvpOnly = false } = {}) {
         const localAvailable = await getLocalRuleAvailability({ refresh });
         return {
           engine: 'sjtu-local', mode: 'pdf_lint', semantic_model: 'deepseek-v4-flash',
-          rules: LOCAL_RULES.map((rule) => ({ ...rule, available: localAvailable })).concat(getSixRules(), getCompilerRules(), enabledLegacyCatalogRules()),
+          rules: LOCAL_RULES.map((rule) => ({ ...rule, available: localAvailable })).concat(getSixRules(), getCompilerRules(), enabledLegacyCatalogRules())
+            .filter(rule => !isRetiredPaperLintRule(rule.rule_id)),
         };
       }
     })();
@@ -309,6 +311,7 @@ function validateSelectedRuleIds(catalog, selectedRuleIds) {
     new Set((selectedRuleIds || []).map((ruleId) => String(ruleId).trim()).filter(Boolean)),
   );
   if (normalized.length === 0) throw createHttpError(400, '请至少选择一条审查规则');
+  if (normalized.some(isRetiredPaperLintRule)) throw createHttpError(400, '该审查规则已下线，请刷新报告后重试。');
   const retired = normalized.find((ruleId) => RETIRED_RULE_IDS.has(ruleId));
   if (retired) throw createHttpError(400, `该审查规则已下线：${retired}`);
   const unknown = normalized.find((ruleId) => !knownIds.has(ruleId));

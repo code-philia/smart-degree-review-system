@@ -1,5 +1,6 @@
 import { preserveText } from "../../i18n/jsx-runtime";
 import { useMemo } from 'react';
+import { isRetiredPaperLintRule } from '../../../../shared/paper-lint-rule-policy.mjs';
 import type { PaperLintRule, PaperLintRuleRun } from '../../api/paperLint';
 import { StatusBadge } from '../ui';
 import { documentCheckId, isDocumentBlocked, flattenPaperLintFindings, numericExecutionWarnings, genericExecutionWarnings, referenceResourcesUnavailable, referencePresentationRun } from './model';
@@ -14,7 +15,7 @@ type Props = {
 };
 
 export function LivePaperLintReport({ file, rules, runs, selectedRuleIds }: Props) {
-  const reportRuns = useMemo(() => runs.map(referencePresentationRun), [runs]);
+  const reportRuns = useMemo(() => runs.filter(run => !isRetiredPaperLintRule(run.rule_id)).map(referencePresentationRun), [runs]);
   const findings = useMemo(() => flattenPaperLintFindings({ rule_runs: reportRuns }), [reportRuns]);
   const numericRun = runs.find(run => run.rule_id === 'abstract_numeric_consistency_check');
   const documentBlocked = isDocumentBlocked(reportRuns);
@@ -52,7 +53,7 @@ export function LivePaperLintReport({ file, rules, runs, selectedRuleIds }: Prop
             : '检测进行中，新发现的问题将自动更新到报告中。完成后自动保存至历史报告。'}
         </p>
       </div>
-      <PaperLintWorkspace file={file} findings={findings} rules={rules} selectedRuleIds={documentBlocked ? [documentCheckId] : selectedRuleIds} ruleRuns={reportRuns} numericReviewRun={numericRun} running={!documentBlocked} />
+      <PaperLintWorkspace file={file} findings={findings} rules={rules.filter(rule => !isRetiredPaperLintRule(rule.rule_id))} selectedRuleIds={documentBlocked ? [documentCheckId] : selectedRuleIds?.filter(id => !isRetiredPaperLintRule(id))} ruleRuns={reportRuns} numericReviewRun={numericRun} running={!documentBlocked} />
     </section>
   );
 }

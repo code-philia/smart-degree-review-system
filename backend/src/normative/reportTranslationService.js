@@ -5,6 +5,7 @@ const path = require('path');
 // synchronous require, keeping extraction the same synchronous public API.
 const { numericDisplayFindings, referenceInfoFindings, referenceResourceMessage } =
   require('../../../shared/paper-lint-presentation.mjs');
+const { isRetiredPaperLintRule } = require('../../../shared/paper-lint-rule-policy.mjs');
 
 const PROMPT_VERSION = 'report-presentation-en-v2';
 const MODEL = 'qwen';
@@ -38,6 +39,7 @@ function extractTexts(result, repairs = []) {
   };
   prose(result?.document_validation);
   for (const rule of rows(result?.rule_runs)) {
+    if (isRetiredPaperLintRule(rule?.rule_id)) continue;
     prose(rule);
     const derivedFindings = rule?.rule_id === 'abstract_numeric_consistency_check'
       ? numericDisplayFindings(rule)
@@ -59,8 +61,9 @@ function extractTexts(result, repairs = []) {
       }
     }
   }
-  for (const review of rows(result?.finding_reviews)) add(review?.reason);
+  for (const review of rows(result?.finding_reviews)) if (!isRetiredPaperLintRule(review?.rule_id)) add(review?.reason);
   for (const record of rows(repairs)) {
+    if (isRetiredPaperLintRule(record?.rule_id)) continue;
     const response = record?.response;
     prose(response);
     for (const action of rows(response?.actions)) add(action?.instruction);

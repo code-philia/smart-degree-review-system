@@ -2,6 +2,7 @@ const { createHash, randomUUID } = require('crypto');
 const fs = require('fs/promises');
 const db = require('../database/db_runtime');
 const reportRepository = require('./paperLintReportRepository');
+const { isRetiredPaperLintRule } = require('../../../shared/paper-lint-rule-policy.mjs');
 const { RULE_TEXT, BASIC_REPAIR_RULE_IDS, buildPaperLintReportRepairRequest } = require('./legacyRepairAdapter');
 const { appendExtractedContext, extractPdfContext } = require('./repairEvidenceService');
 const { supportsRepairSurface } = require('../../rules/registry');
@@ -98,7 +99,7 @@ async function listPaperLintRepairSuggestionRecords({ reportId, userId }) {
       ORDER BY rule_id, finding_id, generation ASC, created_at ASC`,
     [reportId, userId],
   );
-  return rows.map((row) => ({
+  return rows.filter(row => !isRetiredPaperLintRule(row.rule_id)).map((row) => ({
     id: row.id,
     rule_id: row.rule_id,
     finding_id: row.finding_id,

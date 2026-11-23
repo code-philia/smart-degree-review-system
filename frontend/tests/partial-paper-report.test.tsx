@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
 import { LivePaperLintReport } from '../src/components/paperLint/LivePaperLintReport';
-import { compilerPublicationLabel, paperLintPresentation } from '../src/components/paperLint/model';
+import { paperLintPresentation } from '../src/components/paperLint/model';
 import { buildExportReport } from '../src/utils/reportExport/model';
 import { fixture } from './fixtures/reportExport';
 import type { PaperLintRuleRun } from '../src/api/paperLint';
@@ -16,55 +16,53 @@ it.each([
   unavailable,
   { ...unavailable, execution_status: 'completed' as const, evidence_mode: 'native' as const,
     message: '检索资源暂不可用：请稍后重试。这不表示引用存在问题。' },
-])('keeps unavailable runs distinct from passes in live, saved and exported reports ($execution_status)', run => {
+])('hides retired unavailable runs in live, saved and exported reports ($execution_status)', run => {
   render(<LivePaperLintReport file={{ name: 'paper.pdf', url: '/paper.pdf' }} rules={[]}
     runs={[run]} selectedRuleIds={[id]} />);
-  expect(screen.getByText('错误总数').closest('div')).toHaveTextContent('1');
-  expect(screen.getAllByText(run.message! as string).length).toBeGreaterThan(0);
+  expect(screen.getByText('错误总数').closest('div')).toHaveTextContent('0');
+  expect(screen.queryByText(run.message! as string)).not.toBeInTheDocument();
   expect(screen.queryByText('未检测出问题')).not.toBeInTheDocument();
   expect(screen.queryByText('未发现疑似不存在的引用')).not.toBeInTheDocument();
   const report = { ...fixture, result: { ...fixture.result, rule_runs: [run] } };
   const presented = paperLintPresentation(report.result);
   expect(paperLintPresentation(presented)).toEqual(presented);
-  expect(presented.summary).toMatchObject({ finding_count: 1, execution_warning_count: 1 });
+  expect(presented.summary).toMatchObject({ finding_count: 0, execution_warning_count: 0 });
   const exported = buildExportReport(report, [], null);
-  expect(exported.summary.finding_count).toBe(1);
-  expect(exported.rules[0].message).toBe(run.message);
-  expect(exported.rules[0].status).toBe('未能检测');
-  expect(compilerPublicationLabel(presented.rule_runs[0])).not.toBe('未触发告警');
+  expect(exported.summary.finding_count).toBe(0);
+  expect(exported.rules).toEqual([]);
+  expect(exported.conclusion).toBe('暂无可展示的检测结果。');
 });
 
-it('retains the resource warning when a reference run also has valid findings', () => {
+it('hides both resource warnings and findings for the retired reference rule', () => {
   const run = { ...unavailable, execution_status: 'completed' as const, outcome: 'issues_found' as const,
     params: { reference_resources_unavailable: true, reference_verification: { unavailable: 1 } },
     message: '发现 1 条疑似不存在的引用。检索资源暂不可用：另有 1 条未完成核验。',
     findings: [{ finding_id: 'confirmed-ref', rule_id: id, message: '已有证据的引用疑点' }] };
   const result = paperLintPresentation({ ...fixture.result, rule_runs: [run] });
-  expect(result.summary).toMatchObject({ finding_count: 2, execution_warning_count: 1, info_finding_count: 1 });
-  expect(result.rule_runs[0].message).toContain('检索资源暂不可用');
+  expect(result.summary).toMatchObject({ finding_count: 0, execution_warning_count: 0, info_finding_count: 0 });
+  expect(result.rule_runs).toEqual([]);
   expect(paperLintPresentation(result)).toEqual(result);
   render(<LivePaperLintReport file={{ name: 'paper.pdf', url: '/paper.pdf' }} rules={[]}
     runs={[run]} selectedRuleIds={[id]} />);
-  expect(screen.getByText('错误总数').closest('div')).toHaveTextContent('2');
-  expect(screen.getAllByText(/检索资源暂不可用/).length).toBeGreaterThan(0);
+  expect(screen.getByText('错误总数').closest('div')).toHaveTextContent('0');
+  expect(screen.queryByText(/检索资源暂不可用/)).not.toBeInTheDocument();
 });
 
-it('keeps quota-blocked entries only in execution warnings consistently in live, saved and export views', () => {
+it('removes retired quota-blocked entries consistently from live, saved and export views', () => {
   const run: PaperLintRuleRun = { ...unavailable, execution_status: 'completed', evidence_mode: 'native',
     params: { reference_resources_unavailable: true, reference_verification: { total: 1, verified: 0, unresolved: 1, unavailable: 1 } },
     message: '检索资源暂不可用：SerpAPI 额度已用尽，1 条参考文献未完成核验。请稍后重试。这不表示引用存在问题。',
     compiler_diagnostics: [{ node_id: 'ref-1', check_id: 'work_existence', status: 'UNKNOWN',
       reasons: ['reference_lookup_unavailable: SerpApiError: SERPAPI_QUOTA_EXHAUSTED'], evidence: [] }] };
   const result = paperLintPresentation({ ...fixture.result, rule_runs: [run] });
-  expect(result.rule_runs[0].outcome).toBe('inconclusive');
-  expect(result.summary).toMatchObject({ info_finding_count: 0, warning_finding_count: 0, execution_warning_count: 1 });
+  expect(result.rule_runs).toEqual([]);
+  expect(result.summary).toMatchObject({ info_finding_count: 0, warning_finding_count: 0, execution_warning_count: 0 });
   expect(paperLintPresentation(result)).toEqual(result);
   render(<LivePaperLintReport file={{ name: 'synthetic.pdf', url: '/synthetic.pdf' }} rules={[]} runs={[run]} selectedRuleIds={[id]} />);
-  expect(screen.getAllByText(/SerpAPI 额度已用尽/).length).toBeGreaterThan(0);
+  expect(screen.queryByText(/SerpAPI 额度已用尽/)).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: '提示 0', exact: true })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: '警告 0', exact: true })).toBeInTheDocument();
   const exported = buildExportReport({ ...fixture, result }, [], null);
   expect(exported.summary.info_finding_count).toBe(0);
-  expect(exported.rules[0].message).toContain('SerpAPI 额度已用尽');
-  expect(exported.rules[0].status).toBe('未能检测');
+  expect(exported.rules).toEqual([]);
 });

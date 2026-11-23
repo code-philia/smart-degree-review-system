@@ -87,7 +87,7 @@ it.each([
     info_finding_count:want.info,execution_warning_count:want.execution});
   const presentation=paperLintPresentation(result);
   const warnings=numericExecutionWarnings(run).length+genericExecutionWarnings([run]).length;
-  expect(flattenPaperLintFindings(presentation).length+warnings).toBe(want.total);
+  expect(flattenPaperLintFindings(presentation).length+warnings).toBe(run.rule_id==='sjtu_rule_32'?0:want.total);
   expect(paperLintPresentation(presentation)).toEqual(presentation);
 });
 

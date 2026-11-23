@@ -6,6 +6,8 @@ const { estimateJobEta } = require('./paperLintEta');
 const { notifyReportEmailReady } = require('../notifications/reportEmailWakeup');
 const { quotaAdmission, quotaExceeded } = require('./paperLintQuota');
 const { validatePdf } = require('./reviewPilotPaperLintService');
+const { visiblePaperLintResult } = require('../../../shared/paper-lint-presentation.mjs');
+const { isRetiredPaperLintRule } = require('../../../shared/paper-lint-rule-policy.mjs');
 
 async function requireTrustedBatchOwner(userId) {
   const owner = await get('SELECT role FROM auth_users WHERE id = ?', [userId]);
@@ -25,9 +27,9 @@ function publicJob(row) {
     error_message: row.error_message || null, created_at: row.created_at,
     updated_at: row.updated_at,
     user_id: row.user_id, source_filename: row.source_filename,
-    selected_rule_ids: JSON.parse(row.selected_rule_ids_json || '[]'),
+    selected_rule_ids: JSON.parse(row.selected_rule_ids_json || '[]').filter(id => !isRetiredPaperLintRule(id)),
     queue_position: row.status === 'pending' && !row.cancelled_at ? Number(row.queue_position || 1) : 0,
-    progress: row.progress_json ? (() => { try { return JSON.parse(row.progress_json); } catch { return null; } })() : null,
+    progress: row.progress_json ? (() => { try { return visiblePaperLintResult(JSON.parse(row.progress_json)); } catch { return null; } })() : null,
   };
 }
 

@@ -151,7 +151,8 @@ export function FindingsPane({
   const incomplete = selectedOption ? ['error', 'needs_review', 'not_applicable', 'execution_warning'].includes(selectedOption.status)
     : visibleRuleOptions.some(option => option.status !== 'completed');
   const severityEmpty = !pending && !incomplete && filter !== 'all';
-  const emptyTitle = pending ? '正在检测相关问题'
+  const noResults = ruleRuns?.length === 0 && selectedRuleIds?.length === 0;
+  const emptyTitle = noResults ? '暂无可展示的检测结果。' : pending ? '正在检测相关问题'
     : severityEmpty ? filter === 'execution' ? '当前筛选未发现检测异常提醒' : `当前筛选未发现${severityLabels[filter as keyof typeof severityLabels]}级别的问题`
     : selectedOption?.status === 'error' ? '本规则检测失败'
     : selectedOption?.status === 'needs_review' ? '本规则暂无法判定'
@@ -165,7 +166,7 @@ export function FindingsPane({
     : incomplete ? referenceReviewMessage(selectedRun) || selectedRun?.message || '请在规则下拉框查看检测状态；证据不足或检测失败不代表没有问题。'
     : selectedRun?.rule_id === 'sjtu_rule_32' ? '检测结果仅供参考。'
     : <><span className="block">基于当前规范性检测规则，证据不足的内容仍可能无法判定。</span><span className="block">检测结果仅供参考。</span></>;
-  const EmptyIcon = pending ? LoaderCircle : severityEmpty ? ListFilter : selectedOption?.status === 'error' ? CircleAlert : incomplete ? CircleHelp : CheckCircle2;
+  const EmptyIcon = pending ? LoaderCircle : severityEmpty ? ListFilter : selectedOption?.status === 'error' ? CircleAlert : incomplete || noResults ? CircleHelp : CheckCircle2;
   const filtered = findings.filter(
     (item) =>
       (filter === 'all' || item.ruleRun.severity === filter) &&

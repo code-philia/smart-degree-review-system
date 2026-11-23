@@ -4,6 +4,7 @@ export function referenceResourcesUnavailable(run: PaperLintRuleRun): boolean;
 export function isGenericExecutionWarning(run: PaperLintRuleRun): boolean;
 export function chapterPrerequisiteSuggestion(run: PaperLintRuleRun): string | null;
 export function displayedReportSummary(result: Pick<PaperLintResult, 'rule_runs' | 'summary'>): PaperLintSummary;
+export function visiblePaperLintResult<T>(result: T): T;
 
 export type ExecutionWarningFeedbackTarget = { findingId: string; kind: 'precondition' | 'failure' | 'generic'; preconditionIndex?: number };
 export function executionWarningFeedbackTargets(run: PaperLintRuleRun): ExecutionWarningFeedbackTarget[];

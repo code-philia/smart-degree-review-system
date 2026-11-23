@@ -3,6 +3,7 @@ const os = require('node:os');
 const path = require('node:path');
 const {execFile} = require('node:child_process');
 const {promisify} = require('node:util');
+const { isRetiredPaperLintRule } = require('../../../shared/paper-lint-rule-policy.mjs');
 const execute = promisify(execFile);
 const MAX_MODEL_BYTES = 4 * 1024 * 1024;
 let active = 0;
@@ -14,6 +15,10 @@ const statuses=new Map(Object.entries({'通过':'passed',Passed:'passed','发现
 function validateExportModel(model, reportId) {
   const invalid = () => { throw failure(400, '导出报告内容无效，请刷新报告后重试。'); };
   if (!model || model.schema_version !== 1 || !Array.isArray(model.reports) || model.reports.length !== 1) invalid();
+  if (model.reports.some(report => ['scope','rules','findings'].some(key => Array.isArray(report?.[key]) &&
+    report[key].some(item => isRetiredPaperLintRule(item?.rule_id || item?.id))))) {
+    throw failure(400, '该审查规则已下线，请刷新报告后重试。');
+  }
   if (Buffer.byteLength(JSON.stringify(model), 'utf8') > MAX_MODEL_BYTES) throw failure(413, '报告内容过大，请联系系统管理员。');
   function object(value) { if (!value || typeof value!=='object' || Array.isArray(value)) invalid(); }
   function text(value, max = 100000) { if (typeof value !== 'string' || value.length > max) invalid(); }

@@ -1,3 +1,4 @@
+import { isRetiredPaperLintRule } from './paper-lint-rule-policy.mjs';
 const numericRule = 'abstract_numeric_consistency_check';
 const referenceRules = new Set(['sjtu_rule_31', 'sjtu_rule_32', 'sjtu_rule_33']);
 const array = value => Array.isArray(value) ? value : [];
@@ -160,6 +161,39 @@ export function displayedReportSummary(result) {
     execution_warning_count: warningCount, error_finding_count: severity.error,
     warning_finding_count: severity.warning, info_finding_count: severity.info, issue_rule_count: issues.size,
   };
+}
+
+/** Response-only retirement projection; canonical result data is never changed. */
+export function visiblePaperLintResult(result) {
+  if (!result) return result;
+  const originalRuns = array(result.rule_runs);
+  const runs = originalRuns.filter(run => !isRetiredPaperLintRule(run.rule_id));
+  const metadataIds = [
+    ...array(result.finding_reviews).map(item => item.rule_id),
+    ...array(result.completed_rule_ids), ...array(result.total_rule_ids),
+    ...array(result.document_validation?.skipped_rule_ids),
+    ...Object.entries(result.incremental || {}).flatMap(([key, value]) => key.endsWith('_rule_ids') ? array(value) : []),
+  ];
+  if (runs.length === originalRuns.length && !metadataIds.some(isRetiredPaperLintRule)) return result;
+  const next = { ...result, rule_runs: runs };
+  const summary = { ...result.summary,
+    rule_count: runs.length,
+    completed_rule_count: runs.filter(run => run.execution_status === 'completed').length,
+    unsupported_rule_count: runs.filter(run => run.execution_status === 'unsupported').length,
+    error_rule_count: runs.filter(run => run.execution_status === 'error').length,
+    derived_rule_count: runs.filter(run => run.evidence_mode === 'derived').length,
+  };
+  // Metadata-only cleanup must not turn document admission into a completed thesis check.
+  if (runs.length !== originalRuns.length) next.summary = displayedReportSummary({ ...next, summary });
+  if (Array.isArray(result.finding_reviews)) next.finding_reviews = result.finding_reviews.filter(item => !isRetiredPaperLintRule(item.rule_id));
+  for (const field of ['completed_rule_ids', 'total_rule_ids']) {
+    if (Array.isArray(result[field])) next[field] = result[field].filter(id => !isRetiredPaperLintRule(id));
+  }
+  if (result.document_validation?.skipped_rule_ids) next.document_validation = { ...result.document_validation,
+    skipped_rule_ids: result.document_validation.skipped_rule_ids.filter(id => !isRetiredPaperLintRule(id)) };
+  if (result.incremental) next.incremental = Object.fromEntries(Object.entries(result.incremental).map(([key, value]) =>
+    [key, key.endsWith('_rule_ids') && Array.isArray(value) ? value.filter(id => !isRetiredPaperLintRule(id)) : value]));
+  return next;
 }
 
 /** Shared numeric presentation derivation; canonical result data is never changed. */

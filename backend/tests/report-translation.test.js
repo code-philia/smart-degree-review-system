@@ -199,12 +199,11 @@ it.each([
   expect(response.status).toBe('ready');expect(response.translations).toHaveProperty(expected);
   expect(JSON.stringify(value)).toBe(before);
 });
-it('collects shared derived reference notices for raw live job progress',()=>{
+it('does not collect retired reference notices for raw live job progress',()=>{
   const result={rule_runs:[{rule_id:'sjtu_rule_32',findings:[],compiler_diagnostics:[
     {status:'UNKNOWN',check_id:'reference_lookup',node_id:'entry1',reasons:['NO_MATCH'],evidence:[]}
   ]}]};
-  expect(service.extractTexts(result)).toContain('引用核验证据不足，请人工核查。');
-  expect(service.extractTexts(result)).toContain('请核对参考文献的题名、作者、年份和 DOI；未检索到充分证据不表示文献不存在。');
+  expect(service.extractTexts(result)).toEqual([]);
 });
 
 it.each(['疑似错字：','疑似错别字：','疑似错别字:'])('preserves the entire explicit typo source after %s including multiline context',prefix=>{

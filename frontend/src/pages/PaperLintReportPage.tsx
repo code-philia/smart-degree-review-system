@@ -185,8 +185,8 @@ function PaperLintReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
         <div className="my-4 flex flex-wrap items-center justify-between gap-2">
           <h2 id="report-conclusion-title" className="font-bold text-slate-900">检测结论</h2>
           {summary.finding_count === (summary.execution_warning_count ?? 0) ? (
-            <StatusBadge tone={hasInconclusiveRules || summary.error_rule_count ? 'neutral' : 'success'}>
-              {summary.error_rule_count
+            <StatusBadge tone={!report.result.rule_runs.length || hasInconclusiveRules || summary.error_rule_count ? 'neutral' : 'success'}>
+              {!report.result.rule_runs.length ? '暂无可展示的检测结果。' : summary.error_rule_count
                 ? '部分规则执行失败'
                 : hasInconclusiveRules
                   ? '部分规则无法判定'

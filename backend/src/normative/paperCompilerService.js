@@ -4,6 +4,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { summarizeRuleRuns } = require('./localFiveRulePaperLintService');
 const { listRuleDefinitions } = require('../../rules/registry');
+const { isRetiredPaperLintRule } = require('../../../shared/paper-lint-rule-policy.mjs');
 const SCRIPT = path.resolve(__dirname, '../../scripts/paper_compiler_cli.py');
 const DEFINITIONS = listRuleDefinitions({ family: 'compiler' });
 const IDS = new Set(DEFINITIONS.map((rule) => rule.rule_id));
@@ -18,7 +19,7 @@ function packagePath(number) { return path.join(packageRoot(), String(number)); 
 function getCompilerRules() {
   const baseAvailable = process.env.PAPER_COMPILER_ENABLED === '1' &&
     Boolean(process.env.PAPER_COMPILER_PACKAGE_ROOT);
-  return DEFINITIONS.map((rule) => {
+  return DEFINITIONS.filter(rule => !isRetiredPaperLintRule(rule.rule_id)).map((rule) => {
     const packageAvailable = baseAvailable &&
       fs.existsSync(path.join(packagePath(rule.number), 'manifest.json'));
     const unavailableReason = !packageAvailable ? '规则包尚未配置。' : null;
@@ -192,6 +193,7 @@ function compilerBudget(name) {
   return value;
 }
 async function runCompilerRules(pdfPath,selectedRuleIds,options={}) {
+  if(selectedRuleIds.some(isRetiredPaperLintRule))throw failure(400,'COMPILER_RETIRED_RULE','该审查规则已下线，请刷新报告后重试。');
   const catalog=getCompilerRules();
   if(!selectedRuleIds.length || new Set(selectedRuleIds).size!==selectedRuleIds.length || selectedRuleIds.some(id=>!IDS.has(id)))throw failure(400,'COMPILER_UNKNOWN_RULE','请选择有效编译规则');
   if(selectedRuleIds.some(id=>!catalog.find(r=>r.rule_id===id).available))throw failure(503,'COMPILER_UNAVAILABLE','引用规则尚未启用或规则包未配置');

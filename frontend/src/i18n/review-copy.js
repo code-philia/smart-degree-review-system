@@ -1,5 +1,7 @@
 /* Reviewed student-facing English. Chinese source copy remains unchanged. */
 export const REVIEW_COPY={
+ '暂无可展示的检测结果。':'No review results are available to display.',
+ '该审查规则已下线，请刷新报告后重试。':'This check has been retired. Refresh the report and try again.',
  '请稍后重试；若持续失败，请联系管理员检查运行记录，联系邮箱：j82279240@gmail.com':'Try again later. If the problem persists, contact the administrator to check the run logs. Contact email: j82279240@gmail.com',
  '请按国标要求对参考文献列表进行编号，确认内容完整且可读取后重新检测。':'Number the reference list according to the national standard. Make sure the content is complete and readable, then run the review again.',
  '未可靠识别编号参考文献表':'A numbered reference list could not be reliably identified.',

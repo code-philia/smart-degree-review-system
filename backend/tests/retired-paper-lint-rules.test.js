@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 const require = createRequire(import.meta.url);
 const service = require('../src/normative/reviewPilotPaperLintService');
 const itWithEngine = fs.existsSync(path.join(service.resolveEngineBackendDir(), 'novref/domain/paper_lint')) ? it : it.skip;
-const retiredIds = ['claim_evidence_inconsistency_check', 'strong_claim_without_evidence_check'];
+const retiredIds = ['claim_evidence_inconsistency_check', 'strong_claim_without_evidence_check', 'sjtu_rule_32'];
 
 describe('retired normative checks', () => {
   itWithEngine('omits the retired checks from the real engine catalog and retains bilingual and citation checks', async () => {
@@ -15,7 +15,7 @@ describe('retired normative checks', () => {
     const ids = catalog.rules.map(rule => rule.rule_id);
     for (const id of retiredIds) expect(ids).not.toContain(id);
     expect(ids).toEqual(expect.arrayContaining([
-      'bilingual_abstract_consistency_check', 'sjtu_rule_31', 'sjtu_rule_32', 'sjtu_rule_33',
+      'bilingual_abstract_consistency_check', 'sjtu_rule_31', 'sjtu_rule_33',
     ]));
   }, 40000);
 
