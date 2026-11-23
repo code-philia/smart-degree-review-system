@@ -39,6 +39,21 @@ def test_native_same_row_ratio_prevents_false_rounding_veto():
     assert source == before
 
 
+def test_ratio_with_native_labels_in_prose_keeps_the_same_source_binding():
+    row, source = ratio_case()
+    row['reason'] = '表中Dense为1.20ms，Lens为0.22ms，计算1.20/0.22≈5.45，可按声明精度舍入。'
+    assert conservative_guard([row], model=source, mappings=[MAPPING]) == []
+    assert row['statistical_evidence'][0]['numerator']['header'] == 'Dense'
+    assert row['statistical_evidence'][0]['denominator']['header'] == 'Lens'
+
+
+def test_explicit_wrong_formula_labels_cannot_fall_back_to_unlabeled_ratio():
+    row, source = ratio_case()
+    row['reason'] = '表中Lens有数据，但Dense/Other=1.20/0.22≈5.45，可按声明精度舍入。'
+    assert conservative_guard([row], model=source, mappings=[MAPPING])
+    assert row['status'] == 'inconclusive'
+
+
 @pytest.mark.parametrize('mutation', [
     'cross_row', 'wrong_method', 'wrong_baseline', 'wrong_metric', 'wrong_caption',
     'other_phase', 'prefill_vs_decoding', 'conflicting_dataset', 'unknown_dataset_conflicting_condition', 'fake_operand', 'fake_quotient', 'fake_intermediate',

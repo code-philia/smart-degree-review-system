@@ -840,10 +840,15 @@ def _derived_ratio_support(row, model, mapping):
                     or declaration.get('baseline') and _key(header) != _key(declaration['baseline'])):
                 continue
             label = lambda text: re.escape(text).replace(r'\ ', r'\s*')
-            expression = re.search(r'(?<![A-Za-z0-9_-])' + label(header) + r'\s*/\s*' + label(headers[denominator])
-                                   + r'\s*[=＝]\s*(' + _NUMBER.pattern + r')\s*/\s*(' + _NUMBER.pattern
+            expression = re.search(r'(?<![\d.])(' + _NUMBER.pattern + r')\s*/\s*(' + _NUMBER.pattern
                                    + r')\s*(?:≈|≃|~|=)\s*(' + _NUMBER.pattern + r')(?![\d.])', row['reason'], re.I)
             if not expression:
+                continue
+            prefix = row['reason'][:expression.start()]
+            labels = re.search(r'(?<![A-Za-z0-9_-])' + label(header) + r'\s*/\s*'
+                               + label(headers[denominator]) + r'\s*[=＝]\s*$', prefix, re.I)
+            if not labels and (re.search(r'[A-Za-z][A-Za-z0-9_ -]*/\s*[A-Za-z][A-Za-z0-9_ -]*\s*[=＝]\s*$', prefix)
+                               or not (_named(row['reason'], header) and _named(row['reason'], headers[denominator]))):
                 continue
             operands = [Decimal(expression[i].replace('−', '-')) for i in (1, 2, 3)]
             if any(abs(value.adjusted()) > 100 for value in operands):
