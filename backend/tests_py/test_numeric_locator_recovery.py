@@ -55,3 +55,13 @@ def test_native_heading_recovery_cannot_authorize_an_unrelated_method_chapter():
     result=n.resolve_structure(fixed,context,model)
     with pytest.raises(n.ContractError,match='named method'):
         n.validate_structure(result,context,model)
+
+
+def test_locator_prompt_admits_a_source_supported_separate_evaluation_chapter():
+    fixed, context, model = repaired_case()
+    resolved = n.resolve_structure(fixed, context, model)
+    assert n.validate_structure(resolved, context, model)
+    prompt = n.structure_prompt(context)
+    assert '选择该评估主章' in prompt
+    assert '不能使用独立统一实验章' not in prompt
+    assert '实验子章节必须属于对应研究章节' in prompt
