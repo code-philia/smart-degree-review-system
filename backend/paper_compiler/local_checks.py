@@ -368,7 +368,17 @@ def _achievement_directory(ir, visual_rows):
             if position is None:
                 continue
             line = lines[position]
-            if (compact(line['text']) == compact(text) and line['font_size'] >= normal * 1.22
+            # Some English publication lists use body-size or modestly enlarged
+            # bold titles. Recover these only with independent native layout
+            # and list evidence; never relax the shared heading/bibliography IR.
+            chars = [char for char in line.get('chars', []) if char.get('text', '').strip()]
+            bold = bool(chars) and all(char.get('flags', 0) & 16 for char in chars)
+            first_body = not any(previous['bbox'][1] >= page['height'] * .09 for previous in lines[:position])
+            following = compact(lines[position+1]['text']) if position+1 < len(lines) else ''
+            publication_list = re.match(r'^(?:(?:as)?(?:first|co[-‐‑–]?)authors?[:：]?$|\[\d+\]|\d+[.)、])', following)
+            understated_title = (line['font_size'] >= normal and bold and first_body and publication_list
+                                 and abs((line['bbox'][0]+line['bbox'][2])/2-page['width']/2) <= page['width']*.1)
+            if (compact(line['text']) == compact(text) and (line['font_size'] >= normal * 1.22 or understated_title)
                     and page['height'] * .09 <= line['bbox'][1] < page['height'] * .9
                     and (position == 0 or line['bbox'][1] - lines[position-1]['bbox'][3] >= normal * .8)):
                 return True
