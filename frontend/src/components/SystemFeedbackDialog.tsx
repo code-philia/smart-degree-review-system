@@ -90,7 +90,7 @@ export function SystemFeedbackDialog({ triggerRef }: { triggerRef?: Ref<HTMLButt
       </DialogTrigger>
       <DialogContent data-i18n-system-feedback="" className="max-h-[calc(100dvh-2rem)] gap-6 overflow-y-auto p-6 sm:max-w-xl">
         <DialogHeader className="gap-3 pr-5">
-          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <DialogTitle className="text-xl font-semibold tracking-tight">使用反馈</DialogTitle>
             <a
               href="https://feedback-chat-5d9.pages.dev/"
