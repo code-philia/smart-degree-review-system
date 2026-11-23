@@ -44,7 +44,12 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
         // Operator-only metadata must never become incremental report input.
         const reuse = envelope?.result ? envelope : null;
         const maxPdfBytes = envelope?.operator_options?.trusted_batch_max_pdf_bytes;
-        const reusedRuns = reuse?.result?.rule_runs || [];
+        // A restart must not rerun (and bill) a rule whose result was durably published.
+        const recovered = job.attempts > 1 && job.progress_json ? JSON.parse(job.progress_json) : null;
+        const recoveredIds = new Set(recovered?.completed_rule_ids || []);
+        const recoveredRuns = (recovered?.rule_runs || []).filter(run => recoveredIds.has(run.rule_id));
+        const reusedRuns = [...new Map([...(reuse?.result?.rule_runs || []), ...recoveredRuns]
+          .map(run => [run.rule_id, run])).values()];
         const reusedIds = reusedRuns.map(run => run.rule_id);
         const pendingRuleIds = selectedRuleIds.filter(id => !reusedIds.includes(id));
         const publishProgress = progress => {
@@ -69,7 +74,7 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
           });
         };
         if(pendingRuleIds.some(ruleId=>BILLABLE_RULE_IDS.has(ruleId)))creditContext=await beginCreditOperation(id);
-        const checked = await paperLintService.runPaperLint({
+        const checked = pendingRuleIds.length ? await paperLintService.runPaperLint({
           pdfBuffer, selectedRuleIds: pendingRuleIds, externalProcessingConsent: Boolean(job.external_consent),
           background: true,
           creditContext,
@@ -80,7 +85,7 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
           runId: id,
           signal: controller.signal,
           onProgress: publishProgress,
-        });
+        }) : {result: {type:'paper_lint',paper_title:'上传论文',rule_runs:[],summary:{finding_count:0}}};
         if (controller.signal.aborted) return;
         const result = checked.result.document_validation?.status === 'rejected' ? {
           ...checked.result,
@@ -89,11 +94,15 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
             reused_rule_ids: [], rerun_rule_ids: [], skipped_rule_ids: selectedRuleIds } } : {}),
         } : reuse ? {
           ...defaultPaperLintService.mergePaperLintResults(
-            reuse.source_report_id === null && typeof reuse.source_job_id === 'string'
-              ? { ...checked.result, ...reuse.result } : reuse.result,
+            { ...(reuse.source_report_id === null && typeof reuse.source_job_id === 'string'
+              ? { ...checked.result, ...reuse.result } : reuse.result), rule_runs: reusedRuns },
             checked.result, selectedRuleIds),
           incremental: { source_report_id: reuse.source_report_id, reused_rule_ids: reusedIds, rerun_rule_ids: pendingRuleIds },
-        } : checked.result;
+        } : recoveredRuns.length
+          ? defaultPaperLintService.mergePaperLintResults({...checked.result,
+            document_validation: checked.result.document_validation || recovered.document_validation,
+            rule_runs: recoveredRuns}, checked.result, selectedRuleIds)
+          : checked.result;
         await reportRepository.createPaperLintReport({
           userId: job.user_id, sourceFilename: job.source_filename, pdfBuffer,
           selectedRuleIds, result, reportId: id,

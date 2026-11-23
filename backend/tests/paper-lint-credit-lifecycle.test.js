@@ -43,3 +43,32 @@ it('closes credit after a cancelled worker has stopped',async()=>{
   expect((await db.get('SELECT state FROM paper_lint_credit_operations WHERE job_id=?',[job.job_id])).state).toBe('closed');
   expect((await credit.getAccountCredit('lifecycle')).available_cny).toBe('100.000000000');
 });
+it('reuses completed progress after restart and dispatches only unfinished paid rules',async()=>{
+  const numeric='abstract_numeric_consistency_check';
+  const repository=require('../src/normative/paperLintJobRepository');
+  const id=await repository.createJob(input([numeric,rule]));await repository.claimJob(id);
+  const completed={rule_id:numeric,execution_status:'completed',findings:[],model_usage:{input_tokens:100,output_tokens:10}};
+  await repository.updateProgress(id,{completed_rule_ids:[numeric],total_rule_ids:[numeric,rule],rule_runs:[completed]});
+  await db.run("UPDATE paper_lint_credit_accounts SET spent_nano=140000 WHERE user_id='lifecycle'");
+  let received;
+  const service=createPaperLintJobService({runPaperLint:async args=>{received=args;return {...checked,result:{...checked.result,rule_runs:[{rule_id:rule,execution_status:'completed',findings:[]}]}};}});
+  await service.resumeJobs();await service.waitForIdle();
+  expect(received.selectedRuleIds).toEqual([rule]);
+  expect((await credit.getAccountCredit('lifecycle')).spent_cny).toBe('0.000140000');
+  const report=await db.get('SELECT result_json FROM paper_lint_reports WHERE id=?',[id]);
+  const result=JSON.parse(report.result_json);
+  expect(result.rule_runs.map(run=>run.rule_id).sort()).toEqual([numeric,rule].sort());
+  expect(result).toMatchObject({type:'paper_lint',paper_title:'test'});
+});
+it('finishes from durable completed results without starting another model operation',async()=>{
+  const repository=require('../src/normative/paperLintJobRepository');
+  const id=await repository.createJob(input());await repository.claimJob(id);
+  await repository.updateProgress(id,{completed_rule_ids:[rule],total_rule_ids:[rule],rule_runs:[{rule_id:rule,execution_status:'completed',findings:[]}],document_validation:{status:'accepted'}});
+  let calls=0;const service=createPaperLintJobService({runPaperLint:async()=>{calls++;throw new Error('must not run');}});
+  await service.resumeJobs();await service.waitForIdle();
+  expect(calls).toBe(0);
+  expect((await service.getForUser(id,'lifecycle')).status).toBe('completed');
+  expect((await db.get('SELECT count(*) AS n FROM paper_lint_credit_operations')).n).toBe(0);
+  expect(JSON.parse((await db.get('SELECT result_json FROM paper_lint_reports WHERE id=?',[id])).result_json))
+    .toMatchObject({type:'paper_lint',paper_title:'上传论文',document_validation:{status:'accepted'}});
+});
