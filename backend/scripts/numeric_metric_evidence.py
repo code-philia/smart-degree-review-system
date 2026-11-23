@@ -285,7 +285,7 @@ def metric_context(declaration, mapping, model, *, max_items=8, max_chars=6000):
     return items
 
 
-def experimental_context(mapping, model, *, max_items=8, max_chars=6000):
+def experimental_context(declaration, mapping, model, *, max_items=8, max_chars=6000):
     """Keep exact setup paragraphs shared by the mapped experimental branch."""
     sections = model.get('sections') or {}
     chapter = mapping.get('chapter_id')
@@ -303,6 +303,8 @@ def experimental_context(mapping, model, *, max_items=8, max_chars=6000):
         if (not setup or not _under(sections, block.get('section_id'), chapter)
                 or (setup['section_id'] not in ancestors and setup.get('parent_id') not in ancestors)
                 or block.get('block_type') != 'Paragraph' or not isinstance(text, str) or len(text) < 30):
+            continue
+        if _conflict(declaration, block, path[:path.index(setup) + 1]):
             continue
         if len(selected) >= max_items or remaining <= 0:
             break

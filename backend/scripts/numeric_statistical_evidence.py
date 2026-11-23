@@ -820,6 +820,11 @@ def _derived_ratio_support(row, model, mapping):
             continue
         if re.search(r'attention|注意力', declaration.get('metric') or '', re.I) and not re.search(r'attention|注意力', caption, re.I):
             continue
+        condition = declaration.get('condition') or ''
+        phases = (r'prefill|预填充', r'decod(?:e|ing)|解码')
+        if any(re.search(phase, condition, re.I) and re.search(other, caption, re.I)
+               for phase, other in (phases, phases[::-1])):
+            continue
         headers = _headers(table)
         denominators = [i for i, header in enumerate(headers) if _key(header) == _key(method)]
         if len(denominators) != 1 or headers.count(headers[denominators[0]]) != 1:
@@ -840,6 +845,8 @@ def _derived_ratio_support(row, model, mapping):
             if any(abs(value.adjusted()) > 100 for value in operands):
                 continue
             for index in range(_header_count(table), len(table['matrix'])):
+                if _row_scope(table, index, declaration) is False:
+                    continue
                 cells = [_cell(table, index, column) for column in (numerator, denominator)]
                 row_label = _cell(table, index, 0)
                 if (not row_label or not _named(declaration.get('condition') or declaration.get('text') or '', row_label)

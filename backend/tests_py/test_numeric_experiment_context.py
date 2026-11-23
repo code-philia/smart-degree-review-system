@@ -52,6 +52,16 @@ def test_setup_alone_cannot_validate_a_numeric_result():
     assert 'supporting_evidence_required' in errors[0]['errors']
 
 
+def test_direct_sibling_setup_with_another_named_method_is_excluded():
+    _, source = setup_case()
+    source['sections']['setup']['title'] = '5.1 OtherModel Experimental setup'
+    source['blocks'][0] = block('setup', 'setup', 'OtherModel uses DeviceB and DatasetB for its measurements.')
+    declaration = decl()
+    declaration['method'] = 'ProposedModel'
+    candidates, _ = n.retrieve_candidates([declaration], [MAPPING], source)
+    assert not any(c.get('evidence_role') == 'experiment_context' for c in candidates)
+
+
 def test_setup_average_input_length_cannot_establish_mean_metric_semantics():
     row = average_row(metric='平均SSE')
     row['evidence'][0]['quote'] = 'ProposedModel SSE 5.3934'

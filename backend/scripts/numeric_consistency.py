@@ -1355,7 +1355,7 @@ def retrieve_candidates(declarations, mappings, model, top_k=6):
                 'declaration_id':d['id'],'block_type':'MetricDefinition','evidence_role':'metric_definition',
                 'is_primary':False,'retrieval_rank':None,'retrieval_score':0,'context':[]})
             selected_ids.append(definition['block_id'])
-        for context_index, setup in enumerate(experimental_context(mapping, model), 1):
+        for context_index, setup in enumerate(experimental_context(d, mapping, model), 1):
             candidates.append({**setup, 'candidate_id': d['id'] + ':s' + str(context_index),
                 'declaration_id': d['id'], 'block_type': 'ExperimentalContext', 'evidence_role': 'experiment_context',
                 'is_primary': False, 'retrieval_rank': None, 'retrieval_score': 0, 'context': []})
