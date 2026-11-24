@@ -43,3 +43,4 @@
 .campus-signin.auth-split .signin{max-width:560px}
 html[lang=en] .campus-signin.auth-split .signin h2{white-space:nowrap;text-wrap:nowrap;max-width:100%;font-size:clamp(12.5px,5.2cqw,25px);letter-spacing:-.02em}
 html[lang=en] .campus-signin.auth-split .signin h2 .i18n-brand-phrase,html[lang=en] .campus-signin.auth-split .signin h2 .i18n-brand-separator{display:inline}
+@media(min-width:761px){.campus-signin.auth-split .auth-illustration{transform:translateX(clamp(-64px,-4vw,-24px))}}
