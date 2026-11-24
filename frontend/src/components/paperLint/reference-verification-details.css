@@ -59,7 +59,12 @@
   font-size: 11px;
   margin-bottom: 4px;
 }
-.reference-verification-original p,
+.reference-verification-original p {
+  overflow-wrap: anywhere;
+  word-break: normal;
+  white-space: normal;
+  line-height: 1.8;
+}
 .reference-verification-field dd span {
   overflow-wrap: anywhere;
   white-space: pre-wrap;
@@ -98,6 +103,7 @@
 }
 .reference-verification-details summary:focus-visible,
 .reference-verification-verified > summary:focus-visible,
+.reference-verification-jump:focus-visible,
 .reference-verification-sources a:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 3px;
@@ -177,18 +183,19 @@
   color: var(--muted-foreground);
   font-size: 11px;
 }
-.reference-verification-coverage {
-  display: flex;
-  align-items: flex-start;
+.reference-verification-jump {
+  display: inline-flex;
+  align-items: center;
   gap: 5px;
-  margin-top: 9px;
-  color: var(--muted-foreground);
-  font-size: 11px;
-  line-height: 1.7;
+  min-height: 34px;
+  margin-top: 8px;
+  color: var(--primary);
+  font-size: 12px;
+  cursor: pointer;
 }
-.reference-verification-coverage svg {
-  flex: none;
-  margin-top: 3px;
+.reference-verification-jump:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .reference-verification-overview {
   min-width: 0;

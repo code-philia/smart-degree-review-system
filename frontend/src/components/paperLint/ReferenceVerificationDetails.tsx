@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { useId, useSyncExternalStore } from 'react';
-import { ArrowUpRight, CheckCircle2, ChevronRight, CircleHelp } from 'lucide-react';
+import { ArrowUpRight, CheckCircle2, ChevronRight, MapPin } from 'lucide-react';
 import { getLocale, subscribe } from '../../i18n/locale';
 import type {
   ReferenceVerificationCategory,
@@ -43,13 +43,12 @@ const copy = {
     matched: '数据库记录',
     sources: '核验来源',
     fields: (n: number) => `字段比较（${n}）`,
-    unavailable: '部分数据源不可用，核验覆盖不完整。',
     noSources: '暂无可展示的数据库来源。',
     summary: '参考文献核验概览',
     processed: (n: number) => `已处理 ${n} 条`,
     verifiedEntries: (n: number) => `已核验条目（${n}）`,
     native: '基于 PDF 原生文字提取',
-    partial: '部分条目或数据源覆盖不足，请结合原文复核。',
+    jumpToPage: (page: number) => `跳到 PDF 第 ${page} 页`,
     advice: {
       verified: '标识符或文献元数据已得到来源支持。',
       suspected: '公开检索未找到充分匹配，不代表文献一定不存在，请对照原始来源人工复核。',
@@ -97,13 +96,12 @@ const copy = {
     matched: 'Database record',
     sources: 'Verification sources',
     fields: (n: number) => `Compare fields (${n})`,
-    unavailable: 'Some sources were unavailable; verification coverage is incomplete.',
     noSources: 'No database sources are available to display.',
     summary: 'Reference verification summary',
     processed: (n: number) => `${n} ${n === 1 ? 'reference' : 'references'} processed`,
     verifiedEntries: (n: number) => `Verified references (${n})`,
     native: 'Extracted from native PDF text',
-    partial: 'Some entries or sources have incomplete coverage. Review against the original publication.',
+    jumpToPage: (page: number) => `Jump to PDF page ${page}`,
     advice: {
       verified: 'The identifier or reference metadata is supported by the sources.',
       suspected:
@@ -153,6 +151,7 @@ const sourceHosts = new Set([
   'api.openalex.org',
   'crossref.org',
   'api.crossref.org',
+  'api.datacite.org',
   'doi.org',
   'dx.doi.org',
   'arxiv.org',
@@ -189,7 +188,7 @@ function useCopy() {
   return { text: copy[language], tags: labels[language] };
 }
 
-export function ReferenceVerificationDetails({ check }: { check: ReferenceVerificationEntry }) {
+export function ReferenceVerificationDetails({ check, onNavigate }: { check: ReferenceVerificationEntry; onNavigate?: () => void }) {
   const { text, tags } = useCopy();
   const category = categories.includes(check.category) ? check.category : 'unverified';
   const reason = text.reason[check.reason_code as keyof typeof text.reason] || text.advice[category];
@@ -199,11 +198,12 @@ export function ReferenceVerificationDetails({ check }: { check: ReferenceVerifi
       (check.sources || []).map((source) => [`${source.provider}:${source.url}:${source.status}`, source]),
     ).values(),
   ];
-  const original =
+  const original = (
     check.entry?.text ||
     [check.entry?.title, check.entry?.authors?.join('; '), check.entry?.year, check.entry?.doi || check.entry?.arxiv_id]
       .filter(Boolean)
-      .join(' · ');
+      .join(' · ')).replace(/\s+/g, ' ').trim();
+  const page = check.entry?.location?.page_number;
   return (
     <div className="reference-verification-details" data-reference-category={category}>
       <div className="reference-verification-heading">
@@ -250,7 +250,7 @@ export function ReferenceVerificationDetails({ check }: { check: ReferenceVerifi
             {sources.map((source, index) => {
               const href = publicSourceUrl(source.url);
               const provider =
-                { openalex: 'OpenAlex', crossref: 'Crossref', arxiv: 'arXiv', serpapi: 'Google Scholar / SerpAPI' }[
+                { openalex: 'OpenAlex', crossref: 'Crossref', datacite: 'DataCite', arxiv: 'arXiv', serpapi: 'Google Scholar / SerpAPI' }[
                   source.provider
                 ] || source.provider;
               return (
@@ -272,11 +272,11 @@ export function ReferenceVerificationDetails({ check }: { check: ReferenceVerifi
           <p>{text.noSources}</p>
         )}
       </div>
-      {check.coverage?.complete === false && check.coverage.providers_unavailable?.length ? (
-        <p className="reference-verification-coverage">
-          <CircleHelp size={13} aria-hidden="true" />
-          {text.unavailable}
-        </p>
+      {onNavigate && typeof page === 'number' && Number.isInteger(page) && page >= 1 ? (
+        <button type="button" className="reference-verification-jump" onClick={onNavigate}>
+          <MapPin size={13} aria-hidden="true" />
+          {text.jumpToPage(page)}
+        </button>
       ) : null}
     </div>
   );
@@ -293,7 +293,10 @@ export function referenceVerificationSummary(value: unknown): ReferenceVerificat
   };
 }
 
-export function ReferenceVerificationOverview({ summary }: { summary: ReferenceVerificationSummary }) {
+export function ReferenceVerificationOverview({ summary, onSelectEntry }: {
+  summary: ReferenceVerificationSummary;
+  onSelectEntry?: (check: ReferenceVerificationEntry, index: number) => void;
+}) {
   const { text, tags } = useCopy();
   const id = useId();
   // An extraction-failure diagnostic is not a processed bibliography entry.
@@ -301,7 +304,7 @@ export function ReferenceVerificationOverview({ summary }: { summary: ReferenceV
   const counts = Object.fromEntries(
     categories.map((category) => [category, entries.filter((entry) => entry.category === category).length]),
   );
-  const verified = entries.filter((entry) => entry.category === 'verified');
+  const verified = summary.entries.map((check, index) => ({ check, index })).filter(({ check }) => check.category === 'verified');
   return (
     <section className="reference-verification-overview" aria-labelledby={`${id}-title`}>
       <div className="reference-verification-overview-title">
@@ -318,12 +321,6 @@ export function ReferenceVerificationOverview({ summary }: { summary: ReferenceV
         ))}
       </dl>
       {summary.native_only ? <p className="reference-verification-native">{text.native}</p> : null}
-      {summary.coverage_complete === false ? (
-        <p className="reference-verification-coverage">
-          <CircleHelp size={13} aria-hidden="true" />
-          {text.partial}
-        </p>
-      ) : null}
       {verified.length ? (
         <details className="reference-verification-verified">
           <summary>
@@ -331,8 +328,9 @@ export function ReferenceVerificationOverview({ summary }: { summary: ReferenceV
             {text.verifiedEntries(verified.length)}
           </summary>
           <div>
-            {verified.map((check, index) => (
-              <ReferenceVerificationDetails key={check.entry.id || index} check={check} />
+            {verified.map(({ check, index }) => (
+              <ReferenceVerificationDetails key={`${check.entry.id || 'reference'}-${index}`} check={check}
+                onNavigate={onSelectEntry ? () => onSelectEntry(check, index) : undefined} />
             ))}
           </div>
         </details>

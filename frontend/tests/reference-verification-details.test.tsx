@@ -76,8 +76,27 @@ it('shows field comparisons and escaped original metadata with keyboard-accessib
   expect(screen.getByText('2023', { exact: true })).toBeVisible();
 });
 
-it('links only allowlisted public HTTP(S) sources and explains unavailable coverage', () => {
+it('flows PDF citation line breaks into one readable paragraph without changing the stored evidence', () => {
   setLocale('en');
+  const check = row('verified');
+  const doi = `https://doi.org/10.1234/${'long-doi-segment-'.repeat(12)}`;
+  const original = `[19]\nSmith J, Wang M.\nA complete publication title. 2023.\n${doi}`;
+  check.entry.text = original;
+  const { container } = render(<ReferenceVerificationDetails check={check} />);
+  const paragraph = container.querySelector('.reference-verification-original p');
+  expect(paragraph?.textContent).toBe(`[19] Smith J, Wang M. A complete publication title. 2023. ${doi}`);
+  expect(check.entry.text).toBe(original);
+});
+
+it('shows the authoritative DataCite provider and its public DOI link', () => {
+  const check = row('verified');
+  check.sources = [{ provider: 'datacite', url: 'https://api.datacite.org/dois/10.5281/zenodo.12345', status: 'success' }];
+  render(<ReferenceVerificationDetails check={check} />);
+  expect(screen.getByRole('link', { name: 'DataCite' })).toHaveAttribute('href', 'https://api.datacite.org/dois/10.5281/zenodo.12345');
+});
+
+it.each(['zh', 'en'])('keeps unavailable reasons and provider statuses without the generic coverage banner (%s)', (locale) => {
+  setLocale(locale);
   const entry = row('unverified');
   entry.reason_code = 'provider_unavailable';
   entry.coverage = { complete: false, providers_unavailable: ['openalex'] };
@@ -99,8 +118,10 @@ it('links only allowlisted public HTTP(S) sources and explains unavailable cover
     expect(link).toHaveAttribute('target', '_blank');
     expect(link).toHaveAttribute('rel', 'noopener noreferrer');
   }
-  expect(screen.getByText(/Some sources were unavailable/)).toBeInTheDocument();
-  expect(screen.getByText(/does not establish a citation error/)).toBeInTheDocument();
+  expect(screen.queryByText(locale === 'en' ? 'Some sources were unavailable; verification coverage is incomplete.' : '部分数据源不可用，核验覆盖不完整。')).not.toBeInTheDocument();
+  expect(screen.getByText(locale === 'en' ? 'Source temporarily unavailable' : '数据源暂不可用', { exact: true })).toBeInTheDocument();
+  expect(screen.getByText(locale === 'en' ? 'Timed out' : '超时', { exact: true })).toBeInTheDocument();
+  expect(screen.getByText(locale === 'en' ? /does not establish a citation error/ : /未核验不表示引用存在问题/)).toBeInTheDocument();
 });
 
 const callbacks = { onFindingClick: vi.fn(), onAnchorClick: vi.fn(), activeFindingKey: null, activeAnchorId: null };
@@ -203,5 +224,6 @@ it('reports zero processed references for an extraction failure placeholder', ()
   );
   expect(screen.getByText('0 references processed', { exact: true })).toBeInTheDocument();
   expect(screen.queryByText('1 reference processed', { exact: true })).not.toBeInTheDocument();
-  expect(screen.getByText(/Some entries or sources have incomplete coverage/)).toBeInTheDocument();
+  expect(screen.queryByText(/Some entries or sources have incomplete coverage/)).not.toBeInTheDocument();
+  expect(screen.getByText('Unverified', { exact: true })).toBeInTheDocument();
 });

@@ -31,9 +31,10 @@ function fixture({ openalex = [], crossref = [], arxiv, handler } = {}) {
       return json({ status: 'ok', message: { items: crossref } });
     }
     if (url.hostname === 'export.arxiv.org') return arxiv ? arxiv() : new Response('<feed xmlns="http://www.w3.org/2005/Atom"></feed>');
+    if (url.hostname === 'api.datacite.org') return url.pathname === '/dois' ? json({ data: [] }) : json({}, 404);
     throw new Error('Unexpected outbound destination');
   };
-  return { fetchImpl, requests, personalKey: 'fixture-personal-openalex' };
+  return { fetchImpl, requests, personalKey: 'fixture-personal-openalex', crossrefScheduler: require('../src/normative/referenceVerificationCore').createCrossrefScheduler() };
 }
 afterEach(() => vi.useRealTimers());
 
@@ -214,7 +215,7 @@ describe('database reference verification', () => {
     const value = await verifyReference(entry(), fixture());
     expect(value.category).toBe('suspected');
     expect(value.reason_code).toBe('not_found_in_checked_databases');
-    expect(value.coverage).toMatchObject({ complete: true, advisory: true, providers_succeeded: ['openalex', 'crossref'] });
+    expect(value.coverage).toMatchObject({ complete: true, advisory: true, providers_succeeded: ['openalex', 'crossref', 'datacite'] });
   });
 
   it.each([
@@ -312,7 +313,7 @@ describe('database reference verification', () => {
     const f = fixture({ handler: url => url.hostname === 'api.openalex.org' ? json({ reason: 'requests_per_second' }, 429, { 'retry-after': '60' }) : undefined });
     const first = verifyReference(entry(), f);
     const second = verifyReference(entry({ title: 'Another meaningful scholarly reference title' }), f);
-    await vi.advanceTimersByTimeAsync(100);
+    await vi.advanceTimersByTimeAsync(1000);
     expect((await first).category).toBe('unverified');
     expect((await second).category).toBe('unverified');
     expect(f.requests.filter(r => r.url.hostname === 'api.openalex.org')).toHaveLength(1);

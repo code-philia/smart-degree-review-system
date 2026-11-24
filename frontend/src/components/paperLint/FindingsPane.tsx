@@ -4,7 +4,7 @@ import { RichMessage } from '../../i18n/jsx-runtime';
 import { Bot, Check, CheckCircle2, CircleAlert, CircleHelp, ListFilter, LoaderCircle, MapPin } from 'lucide-react';
 import { useMemo, useState, useSyncExternalStore } from 'react';
 import { getLocale, getPresentationRevision, subscribe } from '../../i18n/locale';
-import type { PaperLintRule, PaperLintRuleRun } from '../../api/paperLint';
+import type { PaperLintRule, PaperLintRuleRun, ReferenceVerificationEntry } from '../../api/paperLint';
 import type { RepairSuggestion } from '../../api/repairSuggestions';
 import type { FindingFeedback, SuggestionFeedback } from '../../api/feedback';
 import { Button, StatusBadge } from '../ui';
@@ -28,6 +28,7 @@ type Props = {
   activeAnchorId: string | null;
   onFindingClick: (key: string) => void;
   onAnchorClick: (key: string, anchorId: string) => void;
+  onReferenceEntryClick?: (run: PaperLintRuleRun, check: ReferenceVerificationEntry, index: number) => void;
   pageLabels?: PdfPageLabels;
   repairSuggestionByFindingKey?: Record<string, RepairSuggestion | undefined>;
   repairSuggestionLoadingKey?: string | null;
@@ -89,6 +90,7 @@ export function FindingsPane({
   activeAnchorId,
   onFindingClick,
   onAnchorClick,
+  onReferenceEntryClick,
   pageLabels = {},
   repairSuggestionByFindingKey = {},
   repairSuggestionLoadingKey = null,
@@ -222,7 +224,8 @@ export function FindingsPane({
         ) : null}
       </div>
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-3">
-        {filter !== 'execution' && referenceOverview ? <ReferenceVerificationOverview summary={referenceOverview}/> : null}
+        {filter !== 'execution' && referenceOverview ? <ReferenceVerificationOverview summary={referenceOverview}
+          onSelectEntry={selectedRun && onReferenceEntryClick ? (check, index) => onReferenceEntryClick(selectedRun, check, index) : undefined}/> : null}
         {filter !== 'execution' ? [...runById.values()].filter(run =>
           run.rule_id === 'bilingual_abstract_consistency_check' && run.params?.validation_incomplete === true
           && (effectiveRuleFilter === 'all' || effectiveRuleFilter === run.rule_id)

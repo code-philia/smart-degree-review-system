@@ -4,6 +4,9 @@ import json
 from pathlib import Path
 import re
 import sys
+from collections import defaultdict
+from statistics import median
+from urllib.parse import unquote
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from paper_compiler.frontend import _build_source_tree, _observe
@@ -12,7 +15,7 @@ from fast_local_detector import native_coverage
 
 LABEL = re.compile(r'^\s*(?:\[\d{1,4}\]|\d{1,4}[.、])\s*')
 TYPE = re.compile(r'\[([A-Za-z]{1,3})(?:/[A-Za-z]{1,2})?\]')
-DOI = re.compile(r'(?:https?://(?:dx\.)?doi\.org/|doi\s*:\s*)?(10\.\d{4,9}/[^\s<>"，；]+)', re.I)
+DOI = re.compile(r'(?:https?://(?:dx\.)?doi\.org/|doi\s*:\s*)?(10\.\d{4,9}/[^\s"，；]+)', re.I)
 YEAR = re.compile(r'(?<!\d)((?:19|20)\d{2})(?!\d)')
 ARXIV = re.compile(r'(?:arxiv\s*:\s*|arxiv\.org/(?:abs|pdf)/)(\d{4}\.\d{4,5}(?:v\d+)?|[a-z-]+/\d{7}(?:v\d+)?)', re.I)
 INITIAL_NAME = r"(?:[A-Z](?:[.\-]*[A-Z])*\.\s*)+[A-Z\u00c0-\u00de][\w\u2019'\-]+(?:\s+[A-Z\u00c0-\u00de][\w\u2019'\-]+){0,3}"
@@ -35,10 +38,29 @@ def _authors(value):
     return names[:60]
 
 
+def _doi_values(source):
+    # A PDF can wrap the explicit DOI even when the hyperlink has its complete
+    # value. Join only identifier-shaped continuations, never a following title.
+    value = re.sub(r'(10\.\d{4,9}/[^\s<>"，；]*[\w%\\/_-])\r?\n[ \t]*'
+                   r'((?:\d|[-_/])[^\s<>"，；]{3,})',
+                   lambda match: match.group(0) if YEAR.fullmatch(match.group(2).rstrip('.,'))
+                   or re.fullmatch(r'\d{1,5}[-–:]\d{1,5}[.,]?', match.group(2))
+                   else match.group(1) + match.group(2), source, flags=re.I)
+    values = []
+    for match in DOI.finditer(value):
+        doi = unquote(match.group(1)).replace('\\_', '_').rstrip('.,;:。')
+        for end, start in [(')', '('), (']', '['), ('}', '{'), ('>', '<')]:
+            while doi.endswith(end) and doi.count(end) > doi.count(start):
+                doi = doi[:-1]
+        values.append(doi.lower())
+    return list(dict.fromkeys(values))
+
+
 def parse_entry(text):
     source = str(text)
     value = re.sub(r'\s+', ' ', LABEL.sub('', source)).strip()
-    doi_match = DOI.search(value)
+    doi_values = _doi_values(source)
+    doi = doi_values[0] if len(doi_values) == 1 else None
     arxiv_match = ARXIV.search(value)
     type_match = TYPE.search(value)
     year_scope = value[type_match.end():] if type_match else value
@@ -82,21 +104,32 @@ def parse_entry(text):
         year_scope = value[boundary.start():boundary.end()]
     # Do not invent a title from a whole unparsed entry. DOI/arXiv still provide
     # useful exact discovery keys while uncertain fields remain explicitly empty.
+    if type_match and type_match.group(1).upper() == 'M' and not quoted:
+        # A trailing GB/T book-volume field is not part of the work's title.
+        title = re.sub(r'\s*:\s*vol(?:ume)?\.?\s*\d+(?:[-–]\d+)?$', '', title, flags=re.I)
     if len(title) > 500 or re.search(r'\[\d+\]', title):
         title, confidence = '', 'partial'
-    multiple_dois = len({m.group(1).rstrip('.,;:)]}。').lower() for m in DOI.finditer(value)}) > 1
-    if multiple_dois:
-        doi_match, confidence = None, 'partial'
+    if len(doi_values) > 1:
+        confidence = 'partial'
     years = YEAR.findall(DOI.sub('', year_scope))
-    arxiv_doi = re.fullmatch(r'10\.48550/arxiv\.(.+)',doi_match.group(1).rstrip('.,;:)]}。'),re.I) if doi_match else None
-    return {
+    arxiv_doi = re.fullmatch(r'10\.48550/arxiv\.(.+)', doi, re.I) if doi else None
+    result = {
         'text': source, 'title': title, 'authors': authors,
         'year': int(years[0]) if years else None,
-        'doi': doi_match.group(1).rstrip('.,;:)]}。').lower() if doi_match else None,
+        'doi': doi,
         'arxiv_id': arxiv_match.group(1) if arxiv_match else arxiv_doi.group(1) if arxiv_doi else None,
         'type_code': type_match.group(1).upper() if type_match else None,
         'extraction_confidence': confidence,
     }
+    folded_source = re.sub(r'(?<=[A-Za-z])-\r?\n[ \t]*(?=[a-z])', '', source)
+    if folded_source != source and title:
+        folded = parse_entry(folded_source)
+        variant = folded['title']
+        letters = lambda value: ''.join(char.casefold() for char in value if char.isalnum())
+        if (variant and variant != title and letters(variant) == letters(title)
+                and folded['authors'] == authors and folded['year'] == result['year']):
+            result['title_search_variants'] = [variant]
+    return result
 
 
 def _reading_order(pages):
@@ -132,6 +165,43 @@ def _reading_order(pages):
     return pages
 
 
+def _without_running_margins(pages):
+    """Remove corroborated running furniture only in this rule's private input.
+
+    Repeated small text near the page edge is separate from a larger section
+    heading. Body continuations near the top remain available for entry joining.
+    """
+    sizes = [line['font_size'] for page in pages for line in page['lines']
+             if page['height'] * .12 < line['bbox'][1] < page['height'] * .88]
+    normal = median(sizes) if sizes else 11
+    seen = defaultdict(set)
+    local_sizes = {page['page_index']: [line['font_size'] for line in page['lines']
+                   if page['height'] * .12 < line['bbox'][1] < page['height'] * .88] for page in pages}
+    local_normal = {index: min(normal, median(values)) if values else normal for index, values in local_sizes.items()}
+    def signature(page, line):
+        top = line['bbox'][3] <= page['height'] * .12
+        bottom = line['bbox'][1] >= page['height'] * .88
+        if (not top and not bottom) or line['font_size'] > local_normal[page['page_index']] * .95 or LABEL.match(line['text']):
+            return None
+        return ('top' if top else 'bottom', re.sub(r'\s+', '', line['text']).casefold())
+    for page in pages:
+        for line in page['lines']:
+            key = signature(page, line)
+            if key:
+                seen[key].add(page['page_index'])
+    for page in pages:
+        def furniture(line):
+            key = signature(page, line)
+            if key and len(seen[key]) >= 2:
+                return True
+            box = line['bbox']
+            centered = .4 * page['width'] <= (box[0] + box[2]) / 2 <= .6 * page['width']
+            return (box[1] >= page['height'] * .88 and centered and line['font_size'] <= normal
+                    and bool(re.fullmatch(r'\s*[-–—]?\s*(?:\d{1,5}|[ivxlcdmIVXLCDM]{1,10})\s*[-–—]?\s*', line['text'])))
+        page['lines'] = [line for line in page['lines'] if not furniture(line)]
+    return pages
+
+
 def _split_author_year(node):
     text = node.get('text') or ''
     back = re.search(r'(?im)^(?:List\s+of\s+(?:Publications|Achievements)|Publications\s+and\s+(?:research\s+)?Achievements|学术论文[和与及]科研成果目录)\s*$',text)
@@ -156,7 +226,7 @@ def _split_author_year(node):
 
 
 def extract(pdf):
-    pages = _reading_order(_observe(Path(pdf)))
+    pages = _reading_order(_without_running_margins(_observe(Path(pdf))))
     ir = native_coverage(_build_source_tree(Path(pdf), include_citations=False, pages=pages))
     entries = []
     pages = {p['page_index']: p for p in ir['layout']['pages']}

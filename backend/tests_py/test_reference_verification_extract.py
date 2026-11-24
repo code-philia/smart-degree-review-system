@@ -133,6 +133,114 @@ def test_ambiguous_multiple_dois_do_not_verify_the_wrong_work():
     assert entry['extraction_confidence'] == 'partial'
 
 
+def test_equivalent_escaped_doi_repetitions_keep_reliable_metadata():
+    text = ('[5] BERKHOLZ C, GROHE M. Limitations of Algebraic Approaches to Graph Isomorphism Testing\n'
+            '[C/OL]//Lecture Notes in Computer Science, 2015: 155-166.\n'
+            'https://doi.org/10.1007/978-3-662-47672-7%5C_13. DOI: 10.1007/978-3-662-47672-7\\_13.')
+    entry = parse_entry(text)
+    assert entry['doi'] == '10.1007/978-3-662-47672-7_13'
+    assert entry['extraction_confidence'] == 'high'
+    assert entry['text'] == text
+
+
+def test_wrapped_repeated_doi_is_not_a_second_identifier():
+    entry = parse_entry('[13] OTTO M. Bounded Variable Logics and Counting[M/OL]. Cambridge, 2017.\n'
+                        'https://doi.org/10.1017/9781316716878. DOI: 10.1017/978\n1316716878.')
+    assert entry['doi'] == '10.1017/9781316716878'
+    assert entry['extraction_confidence'] == 'high'
+
+
+def test_a_following_publication_year_is_not_joined_to_a_complete_doi():
+    entry = parse_entry('[1] SMITH J. A reliable reference[J]. Journal, 2023.\nDOI: 10.1234/source.1\n2024')
+    assert entry['doi'] == '10.1234/source.1'
+
+
+def test_wrapped_hyphenated_doi_and_equivalent_url_agree():
+    entry = parse_entry('[20] DAWAR A, RICHERBY D. Counting Logics on Finite Structures[C/OL]. Springer, 2007. '
+                        'https://doi.org/10.1007/978-3-540-74915-8%5C_10. DOI: 10.1007/978-3\n-540-74915-8\\_10.')
+    assert entry['doi'] == '10.1007/978-3-540-74915-8_10'
+    assert entry['extraction_confidence'] == 'high'
+
+
+def test_native_legacy_sici_doi_preserves_registered_suffix_characters():
+    doi = '10.1002/1097-0118(200011)35:3<222::aid-jgt7>3.0.co;2-e'
+    entry = parse_entry(f'[1] SMITH J. A legacy graph theory article[J]. Journal, 2000. DOI: {doi}.')
+    assert entry['doi'] == doi
+
+
+def test_angle_wrapped_doi_does_not_keep_the_outer_bracket():
+    entry = parse_entry('[1] SMITH J. A reliable scholarly article[J]. Journal, 2024. <https://doi.org/10.1234/source.1>')
+    assert entry['doi'] == '10.1234/source.1'
+
+
+def test_numeric_pagination_after_doi_is_not_an_identifier_continuation():
+    entry = parse_entry('[1] SMITH J. A reliable scholarly article[J]. Journal, 2024. DOI: 10.1234/source.1\n1-9.')
+    assert entry['doi'] == '10.1234/source.1'
+
+
+def test_book_volume_qualifier_is_not_part_of_the_title():
+    text = '[13] OTTO M. Bounded Variable Logics and Counting: A Study in Finite Models: vol. 9[M/OL]. Cambridge, 2017. DOI:10.1017/9781316716878.'
+    entry = parse_entry(text)
+    assert entry['title'] == 'Bounded Variable Logics and Counting: A Study in Finite Models'
+    assert entry['text'] == text
+
+
+def test_search_variants_require_a_physical_soft_wrap_and_preserve_source():
+    text = '[7] ATSERIAS A, MANCINSKA L. Quantum and non-signalling graph iso-\nmorphisms[J]. Journal, 2019.'
+    entry = parse_entry(text)
+    assert entry['title'] == 'Quantum and non-signalling graph iso- morphisms'
+    assert entry['title_search_variants'] == ['Quantum and non-signalling graph isomorphisms']
+    assert entry['text'] == text
+    unwrapped = parse_entry(text.replace('-\n', '- '))
+    assert not unwrapped.get('title_search_variants')
+
+
+def test_smaller_repeated_bibliography_continuations_keep_year_doi_and_location(tmp_path):
+    pdf = tmp_path / 'smaller-reference-body.pdf'
+    document = pymupdf.open()
+    page = document.new_page(width=600, height=800)
+    for y in range(100, 500, 20):
+        page.insert_text((60, y), 'A normal main text paragraph.', fontsize=12)
+    page.insert_text((60, 600), 'References', fontsize=18)
+    page.insert_text((60, 720), '[1] SMITH J. First scholarly reference[J].', fontsize=10)
+    for index in range(2):
+        page = document.new_page(width=600, height=800)
+        page.insert_text((60, 70), 'Journal of Testing, 2024, 1: 1-9.', fontsize=10)
+        page.insert_text((60, 90), f'doi:10.1234/source.{index+1}', fontsize=10)
+        if index == 0:
+            page.insert_text((60, 680), '[2] DOE J. Second scholarly reference[J].', fontsize=10)
+    document.save(pdf); document.close()
+    entries = extract(pdf)['entries']
+    assert len(entries) == 2
+    assert [entry['year'] for entry in entries] == [2024, 2024]
+    assert [entry['doi'] for entry in entries] == ['10.1234/source.1', '10.1234/source.2']
+    assert any(rect['page_number'] == 2 and rect['y1'] < 70 for rect in entries[0]['location']['rects'])
+
+
+def test_repeated_running_margins_are_not_reference_text_or_locations(tmp_path):
+    pdf = tmp_path / 'running-margins.pdf'
+    document = pymupdf.open()
+    for index in range(2):
+        page = document.new_page(width=600, height=800)
+        page.insert_text((60, 70), 'References', fontsize=9)
+        page.insert_text((400, 70), 'University thesis', fontsize=9)
+        if index == 0:
+            page.insert_text((60, 130), 'References', fontsize=18)
+            page.insert_text((60, 670), '[1] SMITH J. A robust scholarly reference[J].', fontsize=11)
+            page.insert_text((60, 690), 'Journal of Testing, 2023, 1: 1-9.', fontsize=11)
+        else:
+            page.insert_text((60, 130), '[2] DOE J. An independent scholarly reference[J].', fontsize=11)
+            page.insert_text((60, 150), 'Journal of Testing, 2024, 2: 10-19.', fontsize=11)
+        page.insert_text((295, 750), str(43+index), fontsize=9)
+    document.save(pdf); document.close()
+    entries = extract(pdf)['entries']
+    assert len(entries) == 2
+    assert 'University thesis' not in entries[0]['text']
+    assert '\n43' not in entries[0]['text']
+    assert {r['page_number'] for r in entries[0]['location']['rects']} == {1}
+    assert all(r['y1'] > 100 and r['y2'] < 730 for entry in entries for r in entry['location']['rects'])
+
+
 def test_author_year_entries_starting_on_next_page_remain_separate(tmp_path):
     pdf=tmp_path/'apa-pages.pdf'
     document=pymupdf.open()

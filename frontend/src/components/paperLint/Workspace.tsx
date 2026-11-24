@@ -7,6 +7,30 @@ import { genericExecutionWarnings, numericExecutionWarnings } from './model';
 import type { PaperLintFindingItem } from './model';
 import { PdfPane } from './PdfPane';
 import type { PdfPageLabels } from './pageLabels';
+import { referenceVerificationSummary } from './ReferenceVerificationDetails';
+
+function referencePdfFindingKey(run: PaperLintRuleRun, index: number) {
+  return `reference-verified:${run.rule_run_id}:${index}`;
+}
+
+function referencePdfFindings(runs: PaperLintRuleRun[]): PaperLintFindingItem[] {
+  return runs.flatMap(run => {
+    if (run.rule_id !== 'reference_verification_check') return [];
+    const summary = referenceVerificationSummary(run.params?.reference_verification);
+    return (summary?.entries || []).flatMap((check, index) => {
+      if (check.category !== 'verified' || !check.entry.location) return [];
+      const key = referencePdfFindingKey(run, index);
+      // Display-only navigation targets. These never enter report findings,
+      // issue counts, feedback, exports or persisted results.
+      return [{ key, index, ruleRun: run, finding: {
+        finding_id: key, rule_id: run.rule_id,
+        message: check.entry.text || check.entry.title || '',
+        location: check.entry.location, reference_check: check, source_kind: 'source',
+        anchors: [{ anchor_id: 'verified-reference', role: 'source', label: '已核验 / Verified', location: check.entry.location }],
+      } }];
+    });
+  });
+}
 
 function numericPdfFindings(run: PaperLintRuleRun | undefined): PaperLintFindingItem[] {
   if (!run || run.rule_id !== 'abstract_numeric_consistency_check') return [];
@@ -90,9 +114,10 @@ export function PaperLintWorkspace({
 }: Props) {
   const [pageLabels, setPageLabels] = useState<PdfPageLabels>({});
   const pdfFindings = (() => {
-    if (!numericReviewRun) return findings;
     const byKey = new Map(findings.map((item) => [item.key, item]));
-    for (const item of numericPdfFindings(numericReviewRun)) if (!byKey.has(item.key)) byKey.set(item.key, item);
+    for (const item of [...numericPdfFindings(numericReviewRun), ...referencePdfFindings(ruleRuns || [])]) {
+      if (!byKey.has(item.key)) byKey.set(item.key, item);
+    }
     return Array.from(byKey.values());
   })();
   const [activeFindingKey, setActiveFindingKey] = useState<string | null>(findings[0]?.key || null);
@@ -143,6 +168,7 @@ export function PaperLintWorkspace({
         activeAnchorId={activeAnchorId}
         onFindingClick={selectFinding}
         onAnchorClick={selectAnchor}
+        onReferenceEntryClick={(run, _check, index) => selectFinding(referencePdfFindingKey(run, index))}
         repairSuggestionByFindingKey={repairSuggestionByFindingKey}
         repairSuggestionLoadingKey={repairSuggestionLoadingKey}
         repairSuggestionLoadingByFindingKey={repairSuggestionLoadingByFindingKey}
