@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const sessionRepository = require('./sessionRepository');
 const { TRIAL_SESSION_PREFIX, trialUserAllowed } = require('./trialLoginPolicy');
+const { SUPERVISION_SESSION_PREFIX, isSupervisionAccount } = require('./supervisionPolicy');
 
 const SESSION_COOKIE_NAME = 'arc_session';
 const SESSION_TTL_MS = 1000 * 60 * 60 * 8;
@@ -21,6 +22,7 @@ function serializeUser(row) {
     collegeId: row.collegeId || null,
     supervisorId: row.supervisorId || null,
     scope: row.scope,
+    ...(isSupervisionAccount({ ...row, id: row.userId || row.id }) ? { accessMode: 'supervision' } : {}),
   };
 }
 
@@ -41,7 +43,9 @@ async function login(username, password, { allowedRoles, allowedUser, sessionKin
 
 async function createUserSession(user, { kind } = {}) {
   if (kind === 'trial' && !trialUserAllowed(user)) throw new Error('Invalid trial identity');
-  const sessionId = (kind === 'trial' ? TRIAL_SESSION_PREFIX : '') + crypto.randomUUID();
+  if (kind === 'supervision' && !isSupervisionAccount(user)) throw new Error('Invalid supervision identity');
+  const prefix = kind === 'supervision' ? SUPERVISION_SESSION_PREFIX : kind === 'trial' ? TRIAL_SESSION_PREFIX : '';
+  const sessionId = prefix + crypto.randomUUID();
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
   await sessionRepository.createSession(sessionId, user.id, expiresAt);
 

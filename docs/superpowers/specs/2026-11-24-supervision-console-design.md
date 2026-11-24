@@ -1,0 +1,11 @@
+# Owner supervision console
+
+The owner requested account `admin`, using the same password as the four existing local accounts, and a Chinese-only regulatory interface. Deploy the implementation from main to both campus and external services; keep the independent formal-login preview untouched.
+
+Use an independent `/admin/login` and `/admin` workspace with a restrained navy sidebar, overview counters, searchable report and feedback tables, pagination, readable detail panels, and the existing PDF/finding viewer. Show all saved user reports and all three feedback categories: usage feedback, finding votes, and repair-suggestion votes. Retain both positive and negative feedback, reasons, timestamps, owner identity, source filename and report links. Chinese is fixed for the administrator workspace; existing bilingual student pages retain their behavior.
+
+This is a read-only supervisor identity, not an expansion of existing local or campus administrator permissions. Preserve the database's existing role constraint by giving the exact `admin` identity SCHOOL_ADMIN/SCHOOL and a separately prefixed supervision session. A dedicated same-origin, bounded-attempt login is the only public password path for this identity. Existing jAccount, four trial accounts and loopback administrator behavior remain intact. Other users cannot access supervision endpoints. Supervision sessions cannot call ordinary upload, delete, rerun, feedback mutation or model-generation APIs; logout is allowed.
+
+Read reports through dedicated authorized endpoints and the existing presentation/PDF helpers. Keep each student's existing owner checks unchanged. Paginate and parameterize search/filter queries. Return no password hashes, sessions, local PDF paths or provider configuration. Use no new model calls.
+
+Provision the new account once on each server, copying the existing shared local-account bcrypt hash after verifying all four local hashes agree. Do not seed/reset databases or commit a password. Abort on an unexpected pre-existing `admin` identity. Preserve all existing users, report JSON and feedback. Test authorization, read-only boundaries, search/pagination, malformed inputs, PDF access, UI routing, feedback details and unchanged ordinary login before publishing.

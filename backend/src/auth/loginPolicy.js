@@ -1,5 +1,6 @@
 const ADMIN_ROLES = Object.freeze(['SCHOOL_ADMIN', 'COLLEGE_ADMIN']);
 const { trialSessionAllowed } = require('./trialLoginPolicy');
+const { supervisionSessionAllowed } = require('./supervisionPolicy');
 const LOOPBACK_ADDRESSES = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]']);
 
@@ -45,6 +46,7 @@ function campusUserAllowed(user) {
 
 function sessionAllowed(req, user, sessionId) {
   if (!user) return false;
+  if (supervisionSessionAllowed(user, sessionId)) return true;
   if (!campusOnlyAuth()) return true;
   if (privateAdminRequest(req)) return ADMIN_ROLES.includes(user.role);
   if (trialSessionAllowed(user, sessionId)) return true;

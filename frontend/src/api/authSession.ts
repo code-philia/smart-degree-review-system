@@ -11,6 +11,7 @@ export type AuthenticatedUser = {
   collegeId: string | null;
   supervisorId: string | null;
   scope: 'COLLEGE' | 'SCHOOL';
+  accessMode?: 'supervision';
 };
 
 export type LoginRequest = {
@@ -30,6 +31,10 @@ export async function loginWithLocalAccount(payload: LoginRequest): Promise<Sess
 export async function loginWithTrialAccount(payload: LoginRequest): Promise<SessionResponse> {
   const response = await apiClient.post<SessionResponse>('/auth/trial-login', payload);
   return response.data;
+}
+
+export async function loginWithSupervisionAccount(payload: LoginRequest): Promise<SessionResponse> {
+  return (await apiClient.post<SessionResponse>('/auth/supervision-login', payload)).data;
 }
 
 export async function fetchCurrentSession(): Promise<SessionResponse> {

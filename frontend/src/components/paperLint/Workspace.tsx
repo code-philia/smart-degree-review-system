@@ -41,6 +41,7 @@ type Props = {
   openPdfUrl?: string;
   numericReviewRun?: PaperLintRuleRun;
   running?: boolean;
+  readOnly?: boolean;
   repairSuggestionByFindingKey?: Record<string, RepairSuggestion | undefined>;
   repairSuggestionLoadingKey?: string | null;
   repairSuggestionLoadingByFindingKey?: Record<string, boolean>;
@@ -69,6 +70,7 @@ export function PaperLintWorkspace({
   openPdfUrl,
   numericReviewRun,
   running = false,
+  readOnly = false,
   repairSuggestionByFindingKey = {},
   repairSuggestionLoadingKey = null,
   repairSuggestionLoadingByFindingKey = {},
@@ -126,6 +128,7 @@ export function PaperLintWorkspace({
       />
       <div className="flex min-h-0 max-h-[var(--report-height)] flex-col gap-3 [&>section]:flex-1">
       <FindingsPane
+        readOnly={readOnly}
         executionWarnings={[
           ...numericExecutionWarnings(numericReviewRun),
           ...genericExecutionWarnings(ruleRuns || []),

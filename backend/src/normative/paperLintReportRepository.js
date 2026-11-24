@@ -149,6 +149,7 @@ async function deletePaperLintReportForUser(id, userId) {
 }
 
 module.exports = {
+  toPaperLintReport: toReport,
   createPaperLintReport,
   findPaperLintReportByIdForUser,
   listPaperLintReportsByUser,

@@ -4,6 +4,7 @@ const { parseCookies, requireAuth } = require('./authMiddleware');
 const jaccount = require('./jaccountService');
 const { ADMIN_ROLES, campusOnlyAuth, privateAdminRequest, sessionAllowed } = require('./loginPolicy');
 const { trialUserAllowed, trialLoginRequest, trialAttempts } = require('./trialLoginPolicy');
+const { isSupervisionAccount, supervisionLoginRequest, supervisionAttempts } = require('./supervisionPolicy');
 const { normalizeEmail, notificationEmail, fixedNotificationEmail, campusIdentity } = require('../notifications/emailPolicy');
 const { mailConfig } = require('../notifications/mailConfig');
 const { run } = require('../database');
@@ -21,6 +22,25 @@ const cookieOptions = {
 };
 
 const campusCookieOptions = { ...cookieOptions, path: '/api/auth/jaccount' };
+
+router.post('/supervision-login', async (req, res, next) => {
+  res.set('Cache-Control', 'private, no-store');
+  try {
+    if (!supervisionLoginRequest(req)) return res.status(403).json({ code: 403, message: '请从本站管理员登录页登录' });
+    const retryAfter = supervisionAttempts.consume(req);
+    if (retryAfter) {
+      res.set('Retry-After', String(retryAfter));
+      return res.status(429).json({ code: 429, message: '尝试次数过多，请稍后再试' });
+    }
+    const { username, password } = req.body || {};
+    const result = typeof username === 'string' && username.length <= 128
+      && typeof password === 'string' && password.length <= 256
+      ? await login(username, password, { allowedUser: isSupervisionAccount, sessionKind: 'supervision' }) : null;
+    if (!result) return res.status(401).json({ code: 401, message: '账号或密码错误' });
+    res.cookie(SESSION_COOKIE_NAME, result.sessionId, { ...cookieOptions, maxAge: SESSION_TTL_MS });
+    return res.json({ user: result.user });
+  } catch (error) { return next(error); }
+});
 
 router.post('/announcements/feedback/claim', requireAuth(), async (req, res, next) => {
   res.set('Cache-Control', 'private, no-store');
@@ -127,7 +147,7 @@ router.post('/login', async (req, res, next) => {
       return;
     }
     const result = await login(req.body?.username, req.body?.password,
-      { allowedRoles: campusOnlyAuth() ? ADMIN_ROLES : undefined });
+      { allowedRoles: campusOnlyAuth() ? ADMIN_ROLES : undefined, allowedUser: user => !isSupervisionAccount(user) });
     if (!result) {
       res.status(401).json({ code: 401, message: 'Invalid username or password' });
       return;
@@ -157,7 +177,7 @@ router.get('/me', async (req, res, next) => {
   }
 });
 
-router.post('/logout', requireAuth(), async (req, res, next) => {
+router.post('/logout', requireAuth({ allowSupervision: true }), async (req, res, next) => {
   try {
     const cookies = parseCookies(req.headers.cookie || '');
     await logout(cookies[SESSION_COOKIE_NAME]);

@@ -1,5 +1,6 @@
 const { SESSION_COOKIE_NAME, loadSession } = require('./sessionService');
 const { sessionAllowed } = require('./loginPolicy');
+const { isSupervisionAccount } = require('./supervisionPolicy');
 
 function parseCookies(cookieHeader = '') {
   return cookieHeader.split(';').reduce((cookies, pair) => {
@@ -41,6 +42,11 @@ function requireAuth(options = {}) {
 
     if (!isRoleAllowed(user, options.allowedRoles) || !hasDataScope(user, options.scope)) {
       res.status(403).json({ code: 403, message: 'Forbidden' });
+      return;
+    }
+
+    if (isSupervisionAccount(user) && !options.allowSupervision) {
+      res.status(403).json({ code: 403, message: '监管账号仅可查看监管数据' });
       return;
     }
 

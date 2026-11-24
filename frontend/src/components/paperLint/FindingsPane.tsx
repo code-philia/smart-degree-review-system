@@ -19,6 +19,7 @@ type Props = {
   executionWarnings?: RuleExecutionWarning[];
   findings: PaperLintFindingItem[];
   running?: boolean;
+  readOnly?: boolean;
   rules: PaperLintRule[];
   selectedRuleIds?: string[];
   ruleRuns?: PaperLintRuleRun[];
@@ -79,6 +80,7 @@ export function FindingsPane({
   executionWarnings = [],
   findings,
   running = false,
+  readOnly = false,
   rules,
   selectedRuleIds,
   ruleRuns,
@@ -335,7 +337,7 @@ export function FindingsPane({
                     ) : (
                       <span className="text-xs text-slate-400">暂无精确定位</span>
                     )}
-                    <Button
+                    {!readOnly && <Button
                       size="sm"
                       variant={handledKeys.includes(item.key) ? 'secondary' : 'ghost'}
                       className="px-2"
@@ -351,7 +353,7 @@ export function FindingsPane({
                       }}
                     >
                       <Check className="size-3.5" />
-                    </Button>
+                    </Button>}
                   </div>
                 </div>
                 {numeric ? <NumericFindingContent item={item} sourceLiterals={sourceLiterals} pageLabels={pageLabels} onAnchorClick={onAnchorClick} />

@@ -88,4 +88,6 @@ async function refreshFeedbackArchiveSafely() {
   try { return await refreshFeedbackArchive(); }
   catch (error) { console.error('Feedback archive refresh failed:', error.code || error.name); return null; }
 }
-module.exports = { refreshFeedbackArchive, refreshFeedbackArchiveSafely };
+module.exports = { refreshFeedbackArchive, refreshFeedbackArchiveSafely,
+  feedbackRowsSql: SQL.replace(/ ORDER BY created_at,id$/, ''), feedbackReasonLabels: REASONS,
+  feedbackAreaLabels: AREAS, feedbackTypeLabels: TYPES };
