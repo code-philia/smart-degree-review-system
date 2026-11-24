@@ -1,4 +1,4 @@
-import { markFindingSources, markRulesetPresentation, reportLocale, reportTranslator } from './presentation';
+import { markFindingSources, markRulesetPresentation, reportLocale, reportTranslator, markReferenceTranslation } from './presentation';
 import type {
   PaperLintDocumentMetrics,
   PaperLintRule,
@@ -23,6 +23,7 @@ import {
 } from '../../components/paperLint/model';
 import { formatChinaDateTime } from '../dateTime';
 import { numericReportBlocks } from './numericDetails';
+import { referenceReportBlocks } from './referenceDetails';
 import { isRetiredPaperLintRule } from '../../../../shared/paper-lint-rule-policy.mjs';
 
 export const EXPORT_NOTICE = '检测结果仅供参考，请结合论文原文和学校要求人工复核。';
@@ -211,7 +212,7 @@ export function buildExportReport(
                 ]),
         message: run.message || '',
         finding_count: findingItems.filter((item) => item.ruleRun.rule_id === run.rule_id).length,
-        details: numericReportBlocks(run),
+        details: [...numericReportBlocks(run),...referenceReportBlocks(run)],
       })),
       findings: findingItems.map((item, index) => {
         const { key, finding, ruleRun, executionWarning } = item;
@@ -256,7 +257,7 @@ export function buildExportReport(
             );
           if (repair.rationale) suggestions.push(repair.rationale);
         }
-        return markFindingSources(
+        return markReferenceTranslation(markFindingSources(
           {
             number: index + 1,
             id: finding.finding_id,
@@ -277,7 +278,7 @@ export function buildExportReport(
           // The typo detector's original suggestion is replacement source text;
           // later repair actions remain presentation instructions.
           ruleRun.rule_id === 'typo_detection_check' && finding.suggestion ? [0] : [],
-        );
+        ),ruleRun.rule_id==='reference_verification_check'?finding:undefined);
       }),
       notice: EXPORT_NOTICE,
     },

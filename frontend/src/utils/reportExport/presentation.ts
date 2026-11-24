@@ -4,6 +4,10 @@ import type { ExportFinding, ExportReport, ReportBlock } from './model';
 type Translator = ((value: string) => string) & { has?: (value: string) => boolean };
 const blockPresentation = Symbol('export block presentation');
 const reportPresentation = Symbol('export report presentation');
+const referenceTranslation = Symbol('reference translation');
+export function markReferenceTranslation(finding: ExportFinding, value?: {message_en?:string;suggestion_en?:string}) {
+  return value?.message_en ? {...finding,[referenceTranslation]:value} : finding;
+}
 const rulesetPresentation = Symbol('export generated ruleset presentation');
 type RulesetDescriptor = { id: string; name: string; version_number: number; version_label: string };
 type GeneratedRuleset = { compilerVersionSource: string | null };
@@ -158,8 +162,10 @@ export function localizeExportReport(
             提示: 'Info',
           } as Record<string, string>
         )[item.severity] ?? t(item.severity),
-      message: t(item.message),
-      suggestions: item.suggestions.map((text, index) => (sourceSuggestion(item, index) ? text : t(text))),
+      message: (item as ExportFinding & {[referenceTranslation]?:{message_en?:string}})[referenceTranslation]?.message_en || t(item.message),
+      suggestions: (item as ExportFinding & {[referenceTranslation]?:{suggestion_en?:string}})[referenceTranslation]?.suggestion_en
+        ? [(item as any)[referenceTranslation].suggestion_en]
+        : item.suggestions.map((text, index) => (sourceSuggestion(item, index) ? text : t(text))),
       basis: item.basis.map((text, index) => (sourceBasis(item, index) ? text : t(text))),
       locations: item.locations.map((location) => ({ ...location, label: t(location.label) })),
     })),

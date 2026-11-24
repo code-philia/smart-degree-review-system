@@ -6,6 +6,8 @@ import { MemoryRouter, useNavigate } from 'react-router-dom';
 import { SettingsDialog } from '../src/components/SettingsDialog';
 import { getLocale, setLocale } from '../src/i18n/locale';
 
+vi.mock('../src/api',()=>({default:{get:vi.fn(async()=>({data:{configured:false,key_hint:null,storage_available:true}}))}}));
+
 let systemDark = false;
 const mediaListeners = new Set<(event: MediaQueryListEvent) => void>();
 const media = {
@@ -54,6 +56,19 @@ it('switches the mounted settings language and persists the chosen locale', asyn
   await user.click(screen.getByRole('button', { name: '简体中文', exact: true }));
   expect(screen.getByRole('heading', { name: '设置' })).toBeInTheDocument();
   expect(getLocale()).toBe('zh');
+});
+
+it('clears an unsaved key on close and labels autosave as interface preferences only', async () => {
+  const user=userEvent.setup();
+  const settings=(open:boolean)=><MemoryRouter><AppearanceProvider><SettingsDialog open={open} userId="account-a" onOpenChange={()=>undefined}/></AppearanceProvider></MemoryRouter>;
+  const view=render(settings(true));
+  await user.type(await screen.findByLabelText('个人 API Key'),'unsaved-personal-key');
+  await user.type(screen.getByLabelText('SerpAPI 个人密钥'),'unsaved-serp-key');
+  expect(screen.getByText('界面偏好自动保存')).toBeInTheDocument();
+  view.rerender(settings(false));
+  view.rerender(settings(true));
+  expect(await screen.findByLabelText('个人 API Key')).toHaveValue('');
+  expect(screen.getByLabelText('SerpAPI 个人密钥')).toHaveValue('');
 });
 
 it('defaults to Light and restores Dark from persisted storage after remounting', async () => {

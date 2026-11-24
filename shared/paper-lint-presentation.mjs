@@ -48,6 +48,8 @@ export function referenceResourceMessage(run) {
 }
 
 export function isGenericExecutionWarning(run) {
+  if (run.rule_id === 'reference_verification_check' && run.execution_status === 'completed'
+      && run.params?.reference_verification) return false;
   if (run.rule_id === 'bilingual_abstract_consistency_check'
       && run.execution_status === 'completed' && run.params?.validation_incomplete === true) return false;
   if (run.rule_id === numericRule) return false;

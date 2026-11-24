@@ -1,10 +1,11 @@
-import { useSyncExternalStore, type ComponentProps } from 'react';
+import { useRef, useSyncExternalStore, type ComponentProps } from 'react';
 import { useTheme } from 'next-themes';
-import { Check, CheckCircle2, Languages, Monitor, Moon, Settings, Sun, X } from 'lucide-react';
+import { Check, CheckCircle2, Languages, Monitor, Moon, RotateCcw, Settings, Sun, X } from 'lucide-react';
 import { getLocale, setLocale, subscribe } from '../i18n/locale';
 import { preserveText } from '../i18n/jsx-runtime';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './shadcn/dialog';
 import { Button } from './shadcn/button';
+import { ReferenceSettings } from './ReferenceSettings';
 
 const appearances = [
   {value:'light', label:'浅色', Icon:Sun},
@@ -12,11 +13,14 @@ const appearances = [
   {value:'system', label:'跟随系统', Icon:Monitor},
 ] as const;
 
-export function SettingsDialog({open,onOpenChange,onCloseAutoFocus}:{open:boolean;onOpenChange:(open:boolean)=>void;onCloseAutoFocus?:ComponentProps<typeof DialogContent>['onCloseAutoFocus']}) {
+export function SettingsDialog({open,onOpenChange,onCloseAutoFocus,userId,initialSection,onReplayGuide}:{open:boolean;onOpenChange:(open:boolean)=>void;onCloseAutoFocus?:ComponentProps<typeof DialogContent>['onCloseAutoFocus'];userId?:string;initialSection?:'reference';onReplayGuide?:()=>void}) {
   const locale=useSyncExternalStore(subscribe,getLocale,getLocale);
   const {theme,setTheme}=useTheme();
+  const referenceHeadingRef=useRef<HTMLHeadingElement>(null);
   return <Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent showCloseButton={false} onCloseAutoFocus={onCloseAutoFocus} className="preferences-dialog flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[520px]">
+    <DialogContent showCloseButton={false} onCloseAutoFocus={onCloseAutoFocus} onOpenAutoFocus={event=>{
+      if(initialSection==='reference'&&referenceHeadingRef.current){event.preventDefault();referenceHeadingRef.current.focus();referenceHeadingRef.current.scrollIntoView?.({block:'nearest'});}
+    }} className="preferences-dialog flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[520px]">
       <DialogClose asChild><Button type="button" variant="ghost" size="icon-sm" className="absolute top-3 right-3" aria-label="关闭"><X size={16} aria-hidden="true"/></Button></DialogClose>
       <DialogHeader className="preferences-header">
         <span className="preferences-heading-icon" aria-hidden="true"><Settings size={21} strokeWidth={1.8}/></span>
@@ -44,8 +48,10 @@ export function SettingsDialog({open,onOpenChange,onCloseAutoFocus}:{open:boolea
             </button>)}
           </div>
         </section>
+        {open&&userId?<ReferenceSettings userId={userId} headingRef={referenceHeadingRef}/>:null}
+        {onReplayGuide?<button type="button" className="reference-settings-replay" onClick={onReplayGuide}><RotateCcw size={14} aria-hidden="true"/>{preserveText(locale==='en'?'Replay introduction':'重新查看使用引导')}</button>:null}
       </div>
-      <div className="preferences-footer"><p><CheckCircle2 size={15} aria-hidden="true"/>自动保存</p><Button type="button" onClick={()=>onOpenChange(false)}>完成</Button></div>
+      <div className="preferences-footer"><p><CheckCircle2 size={15} aria-hidden="true"/>{preserveText(locale==='en'?'Interface preferences save automatically':'界面偏好自动保存')}</p><Button type="button" onClick={()=>onOpenChange(false)}>完成</Button></div>
     </DialogContent>
   </Dialog>;
 }

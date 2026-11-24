@@ -70,6 +70,27 @@ export type PdfPageLocation = {
 
 export type PaperLintLocation = PdfBBoxLocation | PdfPageLocation;
 
+export type ReferenceVerificationCategory = 'verified' | 'suspected' | 'mismatch' | 'upgrade' | 'incomplete' | 'unverified';
+export type ReferenceVerificationEntry = {
+  category: ReferenceVerificationCategory;
+  reason_code: string;
+  entry: {
+    id?: string; text?: string; title?: string; authors?: string[]; year?: number | null;
+    doi?: string | null; arxiv_id?: string | null; location?: PaperLintLocation | null;
+  };
+  matched?: { title?: string; authors?: string[]; year?: number | null; doi?: string | null; arxiv_id?: string | null; url?: string | null; provider?: string } | null;
+  comparisons?: Array<{ field: string; cited: unknown; matched: unknown; status: string }>;
+  sources?: Array<{ provider: string; url?: string | null; status: string }>;
+  coverage?: { complete?: boolean; providers_attempted?: string[]; providers_succeeded?: string[]; providers_unavailable?: string[]; extraction?: string; advisory?: boolean };
+};
+
+export type ReferenceVerificationSummary = {
+  counts?: Partial<Record<ReferenceVerificationCategory, number>>;
+  entries: ReferenceVerificationEntry[];
+  native_only?: boolean;
+  coverage_complete?: boolean;
+};
+
 export type PaperLintFindingAnchor = {
   anchor_id: string;
   role: string;
@@ -86,7 +107,10 @@ export type PaperLintFinding = {
   finding_id: string;
   rule_id: string;
   message: string;
+  message_en?: string;
   suggestion?: string | null;
+  suggestion_en?: string | null;
+  reference_check?: ReferenceVerificationEntry;
   location?: PaperLintLocation | null;
   anchors?: PaperLintFindingAnchor[];
   evidence?: PaperLintEvidence[];

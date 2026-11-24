@@ -11,7 +11,7 @@ describe('rule registry', () => {
       'bilingual_keywords_correspondence_check', 'bilingual_abstract_consistency_check',
       'required_section_completeness_check', 'chinese_english_symbol_mix_check',
       'keyword_count_check', 'abstract_object_number_check', 'chapter_new_page_check',
-      'abstract_numeric_consistency_check',
+      'reference_verification_check', 'abstract_numeric_consistency_check',
     ]);
     for (const ruleId of registry.listRuleDefinitions({ family: 'local_pdf', enabledInMvp: true }).map(rule => rule.rule_id)) {
       expect(registry.getRuleDefinition(ruleId)).toMatchObject({

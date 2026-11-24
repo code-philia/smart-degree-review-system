@@ -41,10 +41,10 @@ type Props = {
 const NUMERIC_RULE = 'abstract_numeric_consistency_check';
 const GROUPS = ['格式规范', '内容规范', '论文逻辑审查'] as const;
 const CONTENT_ORDER = ['typo_detection_check', 'bilingual_abstract_consistency_check',
-  'bilingual_keywords_correspondence_check', 'chinese_english_symbol_mix_check', 'sjtu_rule_32'];
+  'bilingual_keywords_correspondence_check', 'chinese_english_symbol_mix_check', 'reference_verification_check', 'sjtu_rule_32'];
 function ruleGroup(id: string) {
   if (id === NUMERIC_RULE) return '论文逻辑审查';
-  if (['typo_detection_check', 'bilingual_abstract_consistency_check', 'sjtu_rule_32',
+  if (['typo_detection_check', 'bilingual_abstract_consistency_check', 'reference_verification_check', 'sjtu_rule_32',
     'chinese_english_symbol_mix_check', 'bilingual_keywords_correspondence_check'].includes(id)) return '内容规范';
   return '格式规范';
 }

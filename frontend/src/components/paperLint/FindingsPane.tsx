@@ -11,6 +11,7 @@ import { Button, StatusBadge } from '../ui';
 import { documentCheckId, documentCheckTitle, isDocumentBlocked, comparePaperLintRuleIds, findingPageLabel, findingTitle, referenceReviewMessage, type PaperLintFindingItem } from './model';
 import { FeedbackControls } from './FeedbackControls';
 import { NumericFindingContent } from './NumericFindingContent';
+import { ReferenceVerificationDetails, ReferenceVerificationOverview, referenceVerificationSummary } from './ReferenceVerificationDetails';
 import { displayFindingPages, type PdfPageLabels } from './pageLabels';
 import type { RuleExecutionWarning } from './model';
 import { isRuleVisible, RuleFilter, type RuleFilterLevel, type RuleFilterOption, type RuleSeverityCounts } from './RuleFilter';
@@ -148,6 +149,8 @@ export function FindingsPane({
   };
   const selectedOption = ruleOptions.find(option => option.id === effectiveRuleFilter);
   const selectedRun = runById.get(effectiveRuleFilter);
+  const referenceOverview = selectedRun?.rule_id === 'reference_verification_check'
+    ? referenceVerificationSummary(selectedRun.params?.reference_verification) : null;
   const selectedTotal = selectedOption?.count ?? issueTotal;
   const pending = selectedOption ? selectedOption.status === 'running' : running && visibleRuleOptions.some(option => option.status === 'running');
   const incomplete = selectedOption ? ['error', 'needs_review', 'not_applicable', 'execution_warning'].includes(selectedOption.status)
@@ -219,6 +222,7 @@ export function FindingsPane({
         ) : null}
       </div>
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-3">
+        {filter !== 'execution' && referenceOverview ? <ReferenceVerificationOverview summary={referenceOverview}/> : null}
         {filter !== 'execution' ? [...runById.values()].filter(run =>
           run.rule_id === 'bilingual_abstract_consistency_check' && run.params?.validation_incomplete === true
           && (effectiveRuleFilter === 'all' || effectiveRuleFilter === run.rule_id)
@@ -227,7 +231,7 @@ export function FindingsPane({
         </p>) : null}
         {filter !== 'execution' && filtered.length > 0 && incomplete && selectedRun?.rule_id === 'sjtu_rule_32' ? <p role="status" className="rounded-xl bg-amber-50 p-3 text-xs leading-6 text-amber-800"><ReportProse text={referenceReviewMessage(selectedRun)} /></p> : null}
         {filter === 'execution' && visibleWarnings.length > 0 ? <p className="rounded-lg bg-slate-50 p-3 text-sm leading-6 text-slate-600">如需使用以下规则，请按建议内容调整；如无需使用，请忽略以下内容</p> : null}
-        {cards.length > 0 ? null : (
+        {cards.length > 0 || (filter === 'all' && referenceOverview) ? null : (
           <div data-i18n-report-empty="" className="flex h-full min-h-60 flex-col items-center justify-center text-center">
             <EmptyIcon data-testid={!pending && !incomplete && !severityEmpty ? 'rule-empty-icon' : undefined} className={`size-8 ${pending ? 'animate-spin text-brand-600 motion-reduce:animate-none' : severityEmpty ? 'text-slate-400' : incomplete ? 'text-amber-600' : 'text-success-600'}`} />
             <p className="mt-3 text-sm font-bold text-slate-900">{emptyTitle}</p>
@@ -288,6 +292,7 @@ export function FindingsPane({
             const generating = repairSuggestionLoadingByFindingKey[item.key] || repairSuggestionLoadingKey === item.key;
             const numeric = item.ruleRun.rule_id === 'abstract_numeric_consistency_check';
             const reference = item.ruleRun.rule_id === 'sjtu_rule_32';
+            const referenceVerification = item.ruleRun.rule_id === 'reference_verification_check';
             const sourceCorrection = item.finding.rule_id === 'typo_detection_check' || item.ruleRun.rule_id === 'typo_detection_check';
             const sourceLiterals = [
               item.finding.location?.text_excerpt,
@@ -296,7 +301,7 @@ export function FindingsPane({
             ].filter((value): value is string => typeof value === 'string' && Boolean(value.trim()));
             const suggestionText = sourceCorrection ? preserveText(item.finding.suggestion) : <ReportProse text={item.finding.suggestion} sourceLiterals={sourceLiterals} />;
             const referenceExcerpt = reference ? item.finding.evidence?.filter(e => e.kind === 'source_span' && e.quote).at(-1)?.quote || item.finding.location?.text_excerpt : null;
-            const repairEnabled = !documentBlocked && !numeric && !reference && supportsRepairSuggestion(item);
+            const repairEnabled = !documentBlocked && !numeric && !reference && !referenceVerification && supportsRepairSuggestion(item);
             const findingFeedback = findingFeedbackByKey[item.key];
             const suggestionFeedback = suggestionFeedbackByFindingKey[item.key];
             const showRepairSuggestion = Boolean(onGenerateRepairSuggestion || repair || generating || repairError);
@@ -357,7 +362,8 @@ export function FindingsPane({
                     </Button>}
                   </div>
                 </div>
-                {numeric ? <NumericFindingContent item={item} sourceLiterals={sourceLiterals} pageLabels={pageLabels} onAnchorClick={onAnchorClick} />
+                {referenceVerification && item.finding.reference_check ? <ReferenceVerificationDetails check={item.finding.reference_check}/>
+                  : numeric ? <NumericFindingContent item={item} sourceLiterals={sourceLiterals} pageLabels={pageLabels} onAnchorClick={onAnchorClick} />
                   : <p className="mt-2 break-words text-sm leading-6 text-slate-700"><ReportProse text={item.finding.message} sourceLiterals={sourceLiterals} /></p>}
                 {referenceExcerpt ? <blockquote className="mt-3 rounded-lg bg-slate-50 p-3 text-xs leading-6 text-slate-700"><p className="font-semibold">参考文献原文</p><p className="mt-1 whitespace-pre-wrap break-words">{preserveText(referenceExcerpt)}</p></blockquote> : null}
                 {reference ? <p className="mt-2 text-xs leading-6 text-blue-700"><ReportProse text={item.finding.suggestion || '请人工复核该条引用及其原始来源。'} sourceLiterals={sourceLiterals} /></p> : null}
@@ -384,7 +390,7 @@ export function FindingsPane({
                   </Button>
                 ) : null}
                 {active && item.finding.source_kind === 'synthetic' ? <p className="mt-2 text-xs text-slate-600">该处来自变异内容，未标记为原始 PDF 中的文本。</p> : null}
-                {!numeric && !reference && active && item.finding.suggestion && (!repairEnabled || (!onLoadRepairSuggestion && !onGenerateRepairSuggestion)) ? (
+                {!numeric && !reference && !referenceVerification && active && item.finding.suggestion && (!repairEnabled || (!onLoadRepairSuggestion && !onGenerateRepairSuggestion)) ? (
                   <div className={`mt-3 rounded-lg bg-white p-3 text-slate-600 ${numeric ? 'text-sm leading-6' : 'text-xs leading-5'}`}>
                     <strong className="text-slate-800">修改建议：</strong>
                     {suggestionText}

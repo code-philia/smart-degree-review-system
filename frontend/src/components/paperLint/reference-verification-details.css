@@ -1,0 +1,291 @@
+.reference-verification-details {
+  min-width: 0;
+  margin-top: 13px;
+  font-size: 12px;
+  line-height: 1.75;
+  color: var(--foreground);
+}
+.reference-verification-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 9px;
+}
+.reference-verification-category {
+  display: inline-flex;
+  padding: 2px 8px;
+  border: 1px solid;
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.65;
+  font-weight: 600;
+}
+.reference-category-verified {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #065f46;
+}
+.reference-category-suspected,
+.reference-category-mismatch {
+  background: #fffbeb;
+  border-color: #fcd34d;
+  color: #92400e;
+}
+.reference-category-upgrade,
+.reference-category-incomplete {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1e40af;
+}
+.reference-category-unverified {
+  background: var(--muted);
+  border-color: var(--border);
+  color: var(--muted-foreground);
+}
+.reference-verification-reason {
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.reference-verification-original {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--muted);
+}
+.reference-verification-label {
+  display: block;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+.reference-verification-original p,
+.reference-verification-field dd span {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.reference-verification-advice {
+  margin-top: 8px;
+  color: var(--muted-foreground);
+}
+.reference-verification-comparison {
+  margin-top: 12px;
+  border-block: 1px solid var(--border);
+}
+.reference-verification-details summary,
+.reference-verification-verified > summary {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 38px;
+  list-style: none;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.reference-verification-details summary::-webkit-details-marker,
+.reference-verification-verified > summary::-webkit-details-marker {
+  display: none;
+}
+.reference-verification-details summary > svg,
+.reference-verification-verified > summary > svg {
+  flex: none;
+  transition: transform 0.15s;
+}
+.reference-verification-details details[open] > summary > svg,
+.reference-verification-verified[open] > summary > svg {
+  transform: rotate(90deg);
+}
+.reference-verification-details summary:focus-visible,
+.reference-verification-verified > summary:focus-visible,
+.reference-verification-sources a:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+.reference-verification-column-labels,
+.reference-verification-field dd {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.reference-verification-column-labels {
+  padding: 5px 0;
+  color: var(--muted-foreground);
+  font-size: 10px;
+}
+.reference-verification-field {
+  padding: 9px 0 11px;
+  border-top: 1px solid var(--border);
+}
+.reference-verification-field dt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.reference-field-status {
+  font-weight: 400;
+  color: var(--muted-foreground);
+}
+.reference-field-different {
+  color: #b45309;
+}
+.reference-verification-sources {
+  margin-top: 12px;
+}
+.reference-verification-sources h4 {
+  color: var(--muted-foreground);
+  font-size: 11px;
+  margin-bottom: 5px;
+}
+.reference-verification-sources ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  padding: 0;
+}
+.reference-verification-sources li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 7px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 10px;
+}
+.reference-verification-sources li > span:last-child {
+  color: var(--muted-foreground);
+}
+.reference-verification-sources a {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--primary);
+}
+.reference-verification-sources a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.reference-verification-sources > p,
+.reference-verification-native {
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.reference-verification-coverage {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  margin-top: 9px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  line-height: 1.7;
+}
+.reference-verification-coverage svg {
+  flex: none;
+  margin-top: 3px;
+}
+.reference-verification-overview {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--background);
+  color: var(--foreground);
+}
+.reference-verification-overview-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.reference-verification-overview-title > svg {
+  color: var(--primary);
+  flex: none;
+}
+.reference-verification-overview-title h3 {
+  font-size: 13px;
+  font-weight: 600;
+}
+.reference-verification-overview-title > span {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.reference-verification-counts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  margin: 13px 0 10px;
+}
+.reference-verification-counts > div {
+  padding: 8px 9px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--muted);
+}
+.reference-verification-counts dt {
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+  overflow-wrap: anywhere;
+}
+.reference-verification-counts dd {
+  margin-top: 3px;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+.reference-verification-verified {
+  margin-top: 9px;
+  border-top: 1px solid var(--border);
+}
+.reference-verification-verified > div > .reference-verification-details {
+  padding-bottom: 15px;
+  border-bottom: 1px solid var(--border);
+}
+.reference-verification-verified > div > .reference-verification-details:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+.dark .reference-category-verified {
+  background: #16362d;
+  border-color: #285b47;
+  color: #a7f3d0;
+}
+.dark .reference-category-suspected,
+.dark .reference-category-mismatch {
+  background: #382f1d;
+  border-color: #6b5122;
+  color: #fcd68a;
+}
+.dark .reference-category-upgrade,
+.dark .reference-category-incomplete {
+  background: #20314d;
+  border-color: #364f74;
+  color: #b8d3ff;
+}
+.dark .reference-field-different {
+  color: #fcd68a;
+}
+@container report (max-width:360px) {
+  .reference-verification-counts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .reference-verification-column-labels,
+  .reference-verification-field dd {
+    gap: 8px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reference-verification-details summary > svg,
+  .reference-verification-verified > summary > svg {
+    transition: none;
+  }
+}

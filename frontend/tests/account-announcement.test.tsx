@@ -29,7 +29,9 @@ describe('real authenticated shell announcement',()=>{
     expect(link).toHaveAttribute('target','_blank');expect(link).toHaveAttribute('rel','noopener noreferrer');
     expect(dialog).not.toHaveTextContent('Share feedback');expect(dialog).not.toHaveTextContent('Get started');
     expect(dialog).not.toHaveTextContent('仅展示一次');expect(dialog).not.toHaveTextContent('直接交流');
-    await user.click(screen.getByRole('button',{name:'开始使用',exact:true}));
+    await user.click(screen.getByRole('button',{name:/下一步/}));
+    expect(screen.getByRole('dialog',{name:/参考文献核验/})).toHaveTextContent('Personal OpenAlex key → platform OpenAlex key → Crossref');
+    await user.click(screen.getByRole('button',{name:/暂时跳过/}));
     await waitFor(()=>expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     await waitFor(()=>expect(screen.getByRole('button',{name:'使用反馈',exact:true})).toHaveFocus());
     await user.click(screen.getByRole('button',{name:'使用反馈',exact:true}));
@@ -40,6 +42,36 @@ describe('real authenticated shell announcement',()=>{
     render(<Shell/>);await waitFor(()=>expect(mocks.post).toHaveBeenCalled());
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByRole('heading',{name:'已登录主页'})).toBeInTheDocument();
+  });
+  it('replays both steps from settings without another claim and opens the API section with keyboard focus',async()=>{
+    mocks.post.mockResolvedValue({data:{announcement_id:'feedback-reference-api-2026-11-25',show:false}});
+    const user=userEvent.setup();render(<Shell/>);
+    await waitFor(()=>expect(mocks.post).toHaveBeenCalledTimes(1));
+    await user.click(screen.getByRole('button',{name:'设置',exact:true}));
+    await user.click(screen.getByRole('button',{name:'重新查看使用引导',exact:true}));
+    expect(await screen.findByRole('dialog',{name:'欢迎反馈'})).toBeInTheDocument();
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    await user.click(screen.getByRole('button',{name:/下一步/}));
+    await user.click(screen.getByRole('button',{name:/打开 API 设置/}));
+    const settings=await screen.findByRole('dialog',{name:'设置'});
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    expect(settings).toHaveTextContent('参考文献 API');
+    await waitFor(()=>expect(screen.getByRole('heading',{name:'参考文献 API',exact:true})).toHaveFocus());
+    expect(mocks.post).toHaveBeenCalledTimes(1);
+    await user.keyboard('{Escape}');
+    await waitFor(()=>expect(screen.getByRole('button',{name:'设置',exact:true})).toHaveFocus());
+  });
+  it('opens English API settings from the bilingual second step and keeps raw inputs empty',async()=>{
+    setLocale('en');
+    const user=userEvent.setup();render(<Shell/>);
+    await screen.findByRole('dialog',{name:'欢迎反馈'});
+    await user.keyboard('{Enter}');
+    expect(screen.getByRole('dialog',{name:/Reference verification/})).toHaveTextContent('your own SerpAPI quota');
+    await user.click(screen.getByRole('button',{name:/Open API settings/}));
+    expect(await screen.findByRole('dialog',{name:'Settings'})).toBeInTheDocument();
+    expect(screen.getByLabelText('Personal API key')).toHaveValue('');
+    expect(screen.getByLabelText('Personal SerpAPI key')).toHaveValue('');
+    expect(screen.getByRole('button',{name:'Replay introduction',exact:true})).toBeInTheDocument();
   });
   it('does not lose the first grant or issue duplicate requests in React StrictMode',async()=>{
     render(<StrictMode><Shell/></StrictMode>);

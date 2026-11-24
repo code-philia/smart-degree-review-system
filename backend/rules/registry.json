@@ -309,6 +309,20 @@
       "repair_surfaces": ["paper_lint"]
     },
     {
+      "rule_id": "reference_verification_check",
+      "number": 40,
+      "title": "参考文献真实性核验",
+      "description": "通过多个数据库核对参考文献及题名、作者、年份和标识符，未核验项保留人工复核。",
+      "family": "reference_database",
+      "runner": "reference_database",
+      "execution_mode": "deterministic",
+      "uses_external_model": false,
+      "enabled_in_mvp": true,
+      "default_selected": false,
+      "availability_probe": "pymupdf",
+      "repair_surfaces": []
+    },
+    {
       "rule_id": "abstract_numeric_consistency_check",
       "number": 39,
       "title": "摘要数值声明与实验结果一致性",

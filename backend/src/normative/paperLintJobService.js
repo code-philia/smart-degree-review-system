@@ -75,6 +75,7 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
         };
         if(pendingRuleIds.some(ruleId=>BILLABLE_RULE_IDS.has(ruleId)))creditContext=await beginCreditOperation(id);
         const checked = pendingRuleIds.length ? await paperLintService.runPaperLint({
+          userId: job.user_id,
           pdfBuffer, selectedRuleIds: pendingRuleIds, externalProcessingConsent: Boolean(job.external_consent),
           background: true,
           creditContext,

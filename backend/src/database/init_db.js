@@ -133,6 +133,16 @@ async function initializeDatabase(options = {}) {
       FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE
     );`);
 
+    await runStatement(database, `CREATE TABLE IF NOT EXISTS user_reference_settings (
+      user_id TEXT NOT NULL,
+      provider TEXT NOT NULL DEFAULT 'openalex' CHECK (provider IN ('openalex', 'serpapi')),
+      encrypted_api_key TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (user_id, provider),
+      FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE
+    );`);
+
     await runStatement(
       database,
       `CREATE TABLE IF NOT EXISTS normative_rule_overrides (

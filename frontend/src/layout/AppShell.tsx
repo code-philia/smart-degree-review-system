@@ -210,10 +210,15 @@ function AccountMenu({ onLogout }: { onLogout: () => Promise<void> }) {
 
 function AppShell() {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState<'reference' | undefined>();
+  const replayAfterSettingsClose = useRef(false);
   const settingsTriggerRef = useRef<HTMLButtonElement>(null);
   const feedbackTriggerRef = useRef<HTMLButtonElement>(null);
   const navigationTriggerRef = useRef<HTMLButtonElement>(null);
   const { user, logout } = useAuthSession();
+  const currentUserId = useRef(user?.id);
+  currentUserId.current = user?.id;
+  useEffect(() => { setSettingsOpen(false); replayAfterSettingsClose.current=false; }, [user?.id]);
   const location = useLocation();
   const navigate = useNavigate();
   const role = user?.role ?? null;
@@ -350,7 +355,7 @@ function AppShell() {
                 title="设置"
                 aria-haspopup="dialog"
                 aria-expanded={settingsOpen}
-                onClick={() => setSettingsOpen(true)}
+                onClick={() => { setSettingsSection(undefined); setSettingsOpen(true); }}
               >
                 <Settings className="size-[18px]" strokeWidth={1.8} aria-hidden="true" />
               </Button>
@@ -365,8 +370,19 @@ function AppShell() {
           </div>
         </main>
       </SidebarInset>
-      {user ? <AccountAnnouncement userId={user.id} feedbackTarget={feedbackTriggerRef} /> : null}
-      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} onCloseAutoFocus={(event) => {
+      {user ? <AccountAnnouncement userId={user.id} feedbackTarget={feedbackTriggerRef} onOpenReferenceSettings={() => {
+        if(currentUserId.current!==user.id)return;
+        setSettingsSection('reference');setSettingsOpen(true);
+      }} /> : null}
+      <SettingsDialog open={settingsOpen} userId={user?.id} initialSection={settingsSection} onOpenChange={setSettingsOpen} onReplayGuide={() => {
+        replayAfterSettingsClose.current=true;setSettingsOpen(false);
+      }} onCloseAutoFocus={(event) => {
+        if(replayAfterSettingsClose.current){
+          replayAfterSettingsClose.current=false;event.preventDefault();
+          const accountId=user?.id;
+          requestAnimationFrame(()=>{if(accountId&&currentUserId.current===accountId)window.dispatchEvent(new Event('smart-degree:replay-guide'));});
+          return;
+        }
         const trigger = settingsTriggerRef.current?.isConnected
           ? settingsTriggerRef.current : navigationTriggerRef.current;
         if (trigger) {

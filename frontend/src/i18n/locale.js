@@ -5,6 +5,8 @@ import {REVIEW_COPY,reviewPatterns} from './review-copy';
 import { SUPPLEMENTAL_COPY } from './supplemental-copy';
 import {RULE_COPY} from './rule-copy';
 export const COPY={...SUPPLEMENTAL_COPY,...exportLabels,...legacy,
+ '参考文献核验已完成，请查看逐条结果及数据源覆盖情况。':'Reference verification is complete. Review the individual results and source coverage.',
+ '多源参考文献核验':'Multi-source reference verification',
  '可用额度不足，无法开始模型检测；您仍可使用不消耗额度的规则。':'Insufficient credit to start model-based checks. You can still use checks that do not consume credit.',
  '可用额度不足，无法继续模型检测；您仍可使用不消耗额度的规则。':'Insufficient credit to continue model-based checks. You can still use checks that do not consume credit.',
  '论点':'Claim','论据':'Evidence','不一致处':'Discrepancy',

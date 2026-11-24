@@ -1,6 +1,6 @@
 const { withTransaction } = require('../database');
 
-const FEEDBACK_ANNOUNCEMENT_ID = 'feedback-2026-11-24';
+const FEEDBACK_ANNOUNCEMENT_ID = 'feedback-reference-api-2026-11-25';
 
 async function claimFeedbackAnnouncement(userId, requestId) {
   return withTransaction(async ({ get, run }) => {

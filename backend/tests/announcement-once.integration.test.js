@@ -38,6 +38,16 @@ describe('account-scoped feedback announcement', () => {
     expect(await get("SELECT count(*) AS n FROM user_announcement_receipts WHERE user_id='student01'")).toEqual({n:1});
   });
 
+  it('grants the updated guide even when the account saw the previous feedback notice', async () => {
+    await run('INSERT INTO user_announcement_receipts(user_id,announcement_id,request_id) VALUES(?,?,?)', ['student01','feedback-2026-11-24','previous-notice-token']);
+    const cookie = await login();
+    const first = await claim(cookie).expect(200);
+    expect(first.body.show).toBe(true);
+    expect(first.body.announcement_id).not.toBe('feedback-2026-11-24');
+    expect((await claim(cookie).expect(200)).body.show).toBe(false);
+    expect(await all("SELECT announcement_id FROM user_announcement_receipts WHERE user_id='student01'")).toHaveLength(2);
+  });
+
   it('covers newly created accounts and jAccount identities with the same receipt policy', async () => {
     for (const id of ['new-announcement-user','jaccount:announcement-campus-person']) {
       await run("INSERT OR IGNORE INTO auth_users(id,username,password_hash,role,scope) VALUES(?,?,?,'STUDENT','SCHOOL')",[id,id,'unused-local-test-hash']);

@@ -7,6 +7,7 @@ const { LOCAL_RULES, getLocalRuleAvailability, isLocalRuleId, runLocalFiveRules,
 const { getSixRules, isSixRuleId, runSixRules, SIX_RULE_TIMEOUT_MS } = require('./sixRulePaperLintService');
 
 const { getCompilerRules, isCompilerRuleId, runCompilerRules } = require('./paperCompilerService');
+const { RULE_ID: REFERENCE_RULE_ID, referenceVerificationRule, runReferenceVerification } = require('./referenceVerificationService');
 const { runPaperLintRuleGroups, settleRuleTasks } = require('./paperLintRuleRunner');
 const { createRuleProgressStream, createRunTimeout } = require('./paperLintRuleProgress');
 const { listRuleDefinitions } = require('../../rules/registry');
@@ -278,7 +279,7 @@ async function getPaperLintCatalog({ refresh = false, mvpOnly = false } = {}) {
           engine: 'sjtu-local',
           mode: 'pdf_lint',
           semantic_model: process.env.SJTU_API_MODEL || 'deepseek-v4-flash',
-          rules: [...localRules, ...getSixRules(), ...getCompilerRules(), ...enabledLegacyCatalogRules()]
+          rules: [...localRules, ...getSixRules(), ...getCompilerRules(), ...enabledLegacyCatalogRules(), {...referenceVerificationRule,available:localAvailable}]
             .filter((rule) => !RETIRED_RULE_IDS.has(rule.rule_id) && !isRetiredPaperLintRule(rule.rule_id)),
         };
       } catch {
@@ -287,7 +288,7 @@ async function getPaperLintCatalog({ refresh = false, mvpOnly = false } = {}) {
         const localAvailable = await getLocalRuleAvailability({ refresh });
         return {
           engine: 'sjtu-local', mode: 'pdf_lint', semantic_model: 'deepseek-v4-flash',
-          rules: LOCAL_RULES.map((rule) => ({ ...rule, available: localAvailable })).concat(getSixRules(), getCompilerRules(), enabledLegacyCatalogRules())
+          rules: LOCAL_RULES.map((rule) => ({ ...rule, available: localAvailable })).concat(getSixRules(), getCompilerRules(), enabledLegacyCatalogRules(), {...referenceVerificationRule,available:localAvailable})
             .filter(rule => !isRetiredPaperLintRule(rule.rule_id)),
         };
       }
@@ -380,12 +381,12 @@ function mergePaperLintResults(existingResult, localResult, selectedRuleIds) {
   };
 }
 
-async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingConsent = false, background = false, onProgress, signal, runId, maxPdfBytes = MAX_PDF_BYTES, trustedBatchProgress = false, creditContext }) {
+async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingConsent = false, background = false, onProgress, signal, runId, maxPdfBytes = MAX_PDF_BYTES, trustedBatchProgress = false, creditContext, userId }) {
   validatePdf(pdfBuffer, maxPdfBytes);
   // The deadline covers catalog loading, queueing, and both engines so a timed-out
   // browser request cannot later persist a seemingly successful report.
   const includesSixRules = Array.isArray(selectedRuleIds) &&
-    selectedRuleIds.some(ruleId => (isSixRuleId(String(ruleId).trim()) || isCompilerRuleId(String(ruleId).trim())));
+    selectedRuleIds.some(ruleId => (isSixRuleId(String(ruleId).trim()) || isCompilerRuleId(String(ruleId).trim()) || String(ruleId).trim()===REFERENCE_RULE_ID));
   const includesLongLlmRule = Array.isArray(selectedRuleIds) && selectedRuleIds.some(ruleId => ['typo_detection_check', 'abstract_numeric_consistency_check'].includes(String(ruleId).trim()));
   const maximumTimeout = background || includesSixRules || includesLongLlmRule ? SIX_RULE_TIMEOUT_MS : ENGINE_TIMEOUT_MS;
   const requestedTimeout = Number(process.env.PAPER_LINT_RUN_TIMEOUT_MS);
@@ -497,6 +498,7 @@ async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingCons
             signal: controller.signal,
             onGroupComplete: async ({ ruleIds, result }) => reportProgress(ruleIds, result),
             runners: {
+              reference_database: (file, _ruleIds, options) => runReferenceVerification(file, {...options,userId}),
               local_pdf: (file, ruleIds, options) => runLocalFiveRules(file, ruleIds,
                 { ...options, allowIncompleteStructure: partialStructure }),
               six_pdf: (file, ruleIds, options) => runSixRules(file, ruleIds, options),

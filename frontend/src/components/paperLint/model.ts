@@ -112,6 +112,7 @@ const executionRuleTitles: Record<string, string> = {
   sjtu_rule_28: '目录中的核心内容页码系统性错位',
   sjtu_rule_31: '引用格式错误',
   sjtu_rule_32: '引用的外部文献不存在',
+  reference_verification_check: '参考文献真实性核验',
   sjtu_rule_33: '引用文献完整性检查',
   typo_detection_check: '正文错别字检测',
   bilingual_abstract_consistency_check: '中英文摘要内容一致性',

@@ -31,6 +31,7 @@ app.get('/api/health', (req, res) => {
   res.json({ code: 200, message: 'Backend Ready' });
 });
 app.use('/api/internal', internalReadinessRoutes);
+app.use('/api/auth/reference-settings', require('./auth/referenceSettingsRoutes'));
 app.use('/api/auth', bodyParser.json({ limit: '16kb' }), authRoutes);
 app.use('/api/supervision', require('./supervision/supervisionRoutes'));
 app.use('/api/notifications', require('./notifications/notificationRoutes'));
