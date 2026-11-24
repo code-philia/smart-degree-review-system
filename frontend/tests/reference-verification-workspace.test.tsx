@@ -64,7 +64,7 @@ it.each(['zh', 'en'])('makes all 22 stored references navigable while keeping 17
   await user.click(within(overview).getByText(locale === 'en' ? 'Verified references (5)' : '已核验条目（5）', { exact: true }));
   expect(findings).toHaveLength(17);
   expect(screen.getAllByText(locale === 'en' ? 'Source temporarily unavailable' : '数据源暂不可用', { exact: true })).toHaveLength(17);
-  expect(screen.getAllByText(locale === 'en' ? 'Timed out' : '超时', { exact: true })).toHaveLength(17);
+  expect(screen.queryByText(locale === 'en' ? 'Verification sources' : '核验来源', { exact: true })).not.toBeInTheDocument();
   expect(screen.getAllByText(/^\[\d+\] Original reference \d+$/, { exact: true })).toHaveLength(22);
   expect(preview.current?.findings).toHaveLength(22);
   const verified = [{ id: 1, page: 10 }, { id: 4, page: 13 }, { id: 9, page: 18 }, { id: 15, page: 24 }, { id: 22, page: 31 }];

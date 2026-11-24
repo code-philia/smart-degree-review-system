@@ -44,6 +44,10 @@ const copy = {
     sources: '核验来源',
     fields: (n: number) => `字段比较（${n}）`,
     noSources: '暂无可展示的数据库来源。',
+    openDoi: '打开 DOI',
+    baiduScholar: '百度学术',
+    relatedLinks: '文献检索',
+    fieldLabel: '字段',
     summary: '参考文献核验概览',
     processed: (n: number) => `已处理 ${n} 条`,
     verifiedEntries: (n: number) => `已核验条目（${n}）`,
@@ -97,6 +101,10 @@ const copy = {
     sources: 'Verification sources',
     fields: (n: number) => `Compare fields (${n})`,
     noSources: 'No database sources are available to display.',
+    openDoi: 'Open DOI',
+    baiduScholar: 'Baidu Scholar',
+    relatedLinks: 'Reference links',
+    fieldLabel: 'Field',
     summary: 'Reference verification summary',
     processed: (n: number) => `${n} ${n === 1 ? 'reference' : 'references'} processed`,
     verifiedEntries: (n: number) => `Verified references (${n})`,
@@ -146,41 +154,18 @@ const copy = {
   },
 };
 
-const sourceHosts = new Set([
-  'openalex.org',
-  'api.openalex.org',
-  'crossref.org',
-  'api.crossref.org',
-  'api.datacite.org',
-  'doi.org',
-  'dx.doi.org',
-  'arxiv.org',
-  'export.arxiv.org',
-  'scholar.google.com',
-]);
-function publicSourceUrl(value?: string | null) {
-  if (!value) return null;
-  try {
-    const url = new URL(value);
-    if (
-      !['http:', 'https:'].includes(url.protocol) ||
-      !sourceHosts.has(url.hostname) ||
-      url.username ||
-      url.password ||
-      url.port
-    )
-      return null;
-    if ([...url.searchParams.keys()].some((key) => /^(?:api[_-]?key|key|token|access[_-]?token|secret)$/i.test(key)))
-      return null;
-    return url.toString();
-  } catch {
-    return null;
-  }
-}
 function valueText(value: unknown): string {
   if (Array.isArray(value))
     return value.filter((part) => typeof part === 'string' || typeof part === 'number').join('; ') || '—';
   return (typeof value === 'string' && value.trim()) || typeof value === 'number' ? String(value) : '—';
+}
+function doiLink(value?: string | null) {
+  if (typeof value !== 'string') return null;
+  try {
+    const doi = decodeURIComponent(value.trim().replace(/^(?:doi:\s*|https?:\/\/(?:dx\.)?doi\.org\/)/i, ''));
+    if (!/^10\.\d{4,9}\/[^\s"\\]+$/i.test(doi) || doi.length > 512) return null;
+    return `https://doi.org/${doi.split('/').map(encodeURIComponent).join('/')}`;
+  } catch { return null; }
 }
 function useCopy() {
   const locale = useSyncExternalStore(subscribe, getLocale, getLocale);
@@ -193,85 +178,61 @@ export function ReferenceVerificationDetails({ check, onNavigate }: { check: Ref
   const category = categories.includes(check.category) ? check.category : 'unverified';
   const reason = text.reason[check.reason_code as keyof typeof text.reason] || text.advice[category];
   const comparisons = Array.isArray(check.comparisons) ? check.comparisons : [];
-  const sources = [
-    ...new Map(
-      (check.sources || []).map((source) => [`${source.provider}:${source.url}:${source.status}`, source]),
-    ).values(),
-  ];
   const original = (
     check.entry?.text ||
     [check.entry?.title, check.entry?.authors?.join('; '), check.entry?.year, check.entry?.doi || check.entry?.arxiv_id]
       .filter(Boolean)
       .join(' · ')).replace(/\s+/g, ' ').trim();
   const page = check.entry?.location?.page_number;
+  const doi = category === 'upgrade'
+    ? doiLink(check.matched?.doi) || doiLink(check.entry?.doi)
+    : doiLink(check.entry?.doi) || doiLink(check.matched?.doi);
+  const query = (check.entry?.title || check.matched?.title || original.replace(/^\s*\[\d+\]\s*/, '')).replace(/\s+/g, ' ').trim();
+  const scholar = new URL('https://scholar.google.com/scholar');
+  const baidu = new URL('https://xueshu.baidu.com/s');
+  scholar.searchParams.set('q', query); baidu.searchParams.set('wd', query);
   return (
     <div className="reference-verification-details" data-reference-category={category}>
       <div className="reference-verification-heading">
         <span className={`reference-verification-category reference-category-${category}`}>{tags[category]}</span>
         <span className="reference-verification-reason">{reason}</span>
       </div>
-      <blockquote className="reference-verification-original">
-        <span className="reference-verification-label">{text.original}</span>
-        <p>{original || text.noText}</p>
-      </blockquote>
-      <p className="reference-verification-advice">{text.advice[category]}</p>
+      <div className="reference-verification-original">
+        <h4>{original || text.noText}</h4>
+      </div>
+      {category !== 'verified' ? <p className="reference-verification-advice">{text.advice[category]}</p> : null}
       {comparisons.length ? (
-        <details className="reference-verification-comparison">
+        <details className="reference-verification-comparison" open>
           <summary>
             <ChevronRight size={14} aria-hidden="true" />
             {text.fields(comparisons.length)}
           </summary>
-          <div className="reference-verification-column-labels">
-            <span>{text.cited}</span>
-            <span>{text.matched}</span>
-          </div>
-          <dl>
+          <table>
+            <thead><tr><th scope="col"><span className="sr-only">{text.fieldLabel}</span></th><th scope="col">{text.cited}</th><th scope="col">{text.matched}</th></tr></thead>
+            <tbody>
             {comparisons.map((comparison, index) => (
-              <div className="reference-verification-field" key={`${comparison.field}-${index}`}>
-                <dt>
-                  <span>{text.field[comparison.field as keyof typeof text.field] || comparison.field}</span>
-                  <span className={`reference-field-status reference-field-${comparison.status}`}>
-                    {text.status[comparison.status as keyof typeof text.status] || text.status.unknown}
-                  </span>
-                </dt>
-                <dd>
-                  <span>{valueText(comparison.cited)}</span>
+              <tr key={`${comparison.field}-${index}`}>
+                <th scope="row">{text.field[comparison.field as keyof typeof text.field] || comparison.field}</th>
+                <td>{valueText(comparison.cited)}</td>
+                <td className={`reference-cell-${comparison.status}`} title={text.status[comparison.status as keyof typeof text.status] || text.status.unknown}>
                   <span>{valueText(comparison.matched)}</span>
-                </dd>
-              </div>
+                  <small className={comparison.status === 'match' && valueText(comparison.cited) === valueText(comparison.matched) ? 'sr-only' : 'reference-field-status'}>
+                    {text.status[comparison.status as keyof typeof text.status] || text.status.unknown}
+                  </small>
+                </td>
+              </tr>
             ))}
-          </dl>
+            </tbody>
+          </table>
         </details>
       ) : null}
-      <div className="reference-verification-sources">
-        <h4>{text.sources}</h4>
-        {sources.length ? (
-          <ul>
-            {sources.map((source, index) => {
-              const href = publicSourceUrl(source.url);
-              const provider =
-                { openalex: 'OpenAlex', crossref: 'Crossref', datacite: 'DataCite', arxiv: 'arXiv', serpapi: 'Google Scholar / SerpAPI' }[
-                  source.provider
-                ] || source.provider;
-              return (
-                <li key={`${source.provider}-${index}`}>
-                  {href ? (
-                    <a href={href} target="_blank" rel="noopener noreferrer">
-                      {provider}
-                      <ArrowUpRight size={12} aria-hidden="true" />
-                    </a>
-                  ) : (
-                    <span>{provider}</span>
-                  )}
-                  <span>{text.status[source.status as keyof typeof text.status] || text.status.unknown}</span>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <p>{text.noSources}</p>
-        )}
-      </div>
+      {(doi || query) ? <nav className="reference-verification-links" aria-label={text.relatedLinks}>
+        {doi ? <a href={doi} target="_blank" rel="noopener noreferrer" onClick={event => event.stopPropagation()}>{text.openDoi}<ArrowUpRight size={13} aria-hidden="true" /></a> : null}
+        {query ? <>
+          <a href={scholar.toString()} target="_blank" rel="noopener noreferrer" onClick={event => event.stopPropagation()}>Google Scholar<ArrowUpRight size={13} aria-hidden="true" /></a>
+          <a href={baidu.toString()} target="_blank" rel="noopener noreferrer" onClick={event => event.stopPropagation()}>{text.baiduScholar}<ArrowUpRight size={13} aria-hidden="true" /></a>
+        </> : null}
+      </nav> : null}
       {onNavigate && typeof page === 'number' && Number.isInteger(page) && page >= 1 ? (
         <button type="button" className="reference-verification-jump" onClick={onNavigate}>
           <MapPin size={13} aria-hidden="true" />

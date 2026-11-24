@@ -63,9 +63,12 @@ it('shows field comparisons and escaped original metadata with keyboard-accessib
   expect(screen.getByText('<img src=x onerror=alert(1)> 语言', { exact: true })).toBeInTheDocument();
   expect(screen.queryByRole('img')).not.toBeInTheDocument();
   const summary = screen.getByText('Compare fields (2)', { exact: true });
+  expect(summary.closest('details')).toHaveAttribute('open');
   summary.focus();
   expect(summary).toHaveFocus();
   // user-event does not synthesize native Enter activation for <summary>.
+  await user.click(summary);
+  expect(summary.closest('details')).not.toHaveAttribute('open');
   await user.click(summary);
   expect(summary.closest('details')).toHaveAttribute('open');
   expect(screen.getByText('Original citation', { exact: true })).toBeVisible();
@@ -83,19 +86,22 @@ it('flows PDF citation line breaks into one readable paragraph without changing 
   const original = `[19]\nSmith J, Wang M.\nA complete publication title. 2023.\n${doi}`;
   check.entry.text = original;
   const { container } = render(<ReferenceVerificationDetails check={check} />);
-  const paragraph = container.querySelector('.reference-verification-original p');
+  const paragraph = container.querySelector('.reference-verification-original h4');
   expect(paragraph?.textContent).toBe(`[19] Smith J, Wang M. A complete publication title. 2023. ${doi}`);
   expect(check.entry.text).toBe(original);
 });
 
-it('shows the authoritative DataCite provider and its public DOI link', () => {
+it('opens the authoritative DOI without showing technical provider links', () => {
   const check = row('verified');
+  check.entry.doi = null;
+  check.matched!.doi = '10.5281/zenodo.12345';
   check.sources = [{ provider: 'datacite', url: 'https://api.datacite.org/dois/10.5281/zenodo.12345', status: 'success' }];
   render(<ReferenceVerificationDetails check={check} />);
-  expect(screen.getByRole('link', { name: 'DataCite' })).toHaveAttribute('href', 'https://api.datacite.org/dois/10.5281/zenodo.12345');
+  expect(screen.getByRole('link', { name: '打开 DOI' })).toHaveAttribute('href', 'https://doi.org/10.5281/zenodo.12345');
+  expect(screen.queryByRole('link', { name: 'DataCite' })).not.toBeInTheDocument();
 });
 
-it.each(['zh', 'en'])('keeps unavailable reasons and provider statuses without the generic coverage banner (%s)', (locale) => {
+it.each(['zh', 'en'])('keeps unavailable reasons while omitting the requested technical sources section (%s)', (locale) => {
   setLocale(locale);
   const entry = row('unverified');
   entry.reason_code = 'provider_unavailable';
@@ -113,14 +119,14 @@ it.each(['zh', 'en'])('keeps unavailable reasons and provider statuses without t
   ];
   render(<ReferenceVerificationDetails check={entry} />);
   const links = screen.getAllByRole('link');
-  expect(links).toHaveLength(2);
+  expect(links).toHaveLength(3);
   for (const link of links) {
     expect(link).toHaveAttribute('target', '_blank');
     expect(link).toHaveAttribute('rel', 'noopener noreferrer');
   }
   expect(screen.queryByText(locale === 'en' ? 'Some sources were unavailable; verification coverage is incomplete.' : '部分数据源不可用，核验覆盖不完整。')).not.toBeInTheDocument();
   expect(screen.getByText(locale === 'en' ? 'Source temporarily unavailable' : '数据源暂不可用', { exact: true })).toBeInTheDocument();
-  expect(screen.getByText(locale === 'en' ? 'Timed out' : '超时', { exact: true })).toBeInTheDocument();
+  expect(screen.queryByText(locale === 'en' ? 'Verification sources' : '核验来源', { exact: true })).not.toBeInTheDocument();
   expect(screen.getByText(locale === 'en' ? /does not establish a citation error/ : /未核验不表示引用存在问题/)).toBeInTheDocument();
 });
 
