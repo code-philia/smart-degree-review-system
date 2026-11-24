@@ -16,44 +16,40 @@ const copy = {
   zh: {
     title: '参考文献 API',
     optional: '可选',
-    description: '添加个人 OpenAlex API Key，用于参考文献核验。',
-    fallback: '个人 OpenAlex 密钥 → 平台 OpenAlex 密钥 → Crossref。未配置也可使用；数据源不可用时会尝试后续来源。',
-    link: '获取 OpenAlex API Key',
-    label: '个人 API Key',
+    description: '添加个人 {provider} 密钥，用于参考文献核验。',
+    link: '获取 {provider} 密钥',
+    label: '{provider} 个人密钥',
     placeholder: '粘贴密钥以保存或替换',
-    secure: '密钥按账户加密保存在服务器，仅显示掩码。',
+    secure: '密钥按账户加密保存在服务器。',
     configured: '已配置',
     unconfigured: '未配置个人密钥',
     loading: '正在读取配置…',
     unavailable: '安全密钥存储暂不可用。',
-    secureTransport: '请通过 HTTPS 安全连接填写 API Key。',
+    secureTransport: '请通过 HTTPS 安全连接填写密钥。',
     loadError: '配置读取失败，请重试。',
     error: '操作失败，请重试。',
     retry: '重试',
     save: '保存密钥',
-    replace: '替换密钥',
     remove: '移除密钥',
     saving: '正在保存…',
+    verifying: '正在验证…',
+    invalidOpenAlex: 'OpenAlex 密钥无效，请核对后重试。',
+    invalidSerpapi: 'SerpAPI 密钥无效，请核对后重试。',
+    verificationOpenAlex: '暂时无法验证 OpenAlex 密钥，请稍后重试。',
+    verificationSerpapi: '暂时无法验证 SerpAPI 密钥，请稍后重试。',
     removing: '正在移除…',
     saved: '密钥已保存',
     removed: '密钥已移除',
-    serpDescription: '数据库未能核验时，可选用 SerpAPI 补充搜索，消耗您自己的 SerpAPI 配额。',
-    serpLink: '注册 SerpAPI 并获取密钥',
-    serpLabel: 'SerpAPI 个人密钥',
-    serpSave: '保存 SerpAPI 密钥',
-    serpReplace: '替换 SerpAPI 密钥',
     serpRemove: '移除 SerpAPI 密钥',
   },
   en: {
     title: 'Reference API',
     optional: 'Optional',
-    description: 'Add a personal OpenAlex API key for reference verification.',
-    fallback:
-      'Personal OpenAlex key → platform OpenAlex key → Crossref. You can continue without a key; unavailable sources fall back to the next provider.',
-    link: 'Get an OpenAlex API key',
-    label: 'Personal API key',
+    description: 'Add a personal {provider} API key for reference verification.',
+    link: 'Get {provider} API key',
+    label: '{provider} API key',
     placeholder: 'Paste a key to save or replace it',
-    secure: 'Encrypted on the server for your account. Only a masked hint is shown.',
+    secure: 'Encrypted on the server for your account.',
     configured: 'Configured',
     unconfigured: 'No personal key',
     loading: 'Loading settings…',
@@ -63,18 +59,16 @@ const copy = {
     error: 'Could not update settings. Please retry.',
     retry: 'Retry',
     save: 'Save key',
-    replace: 'Replace key',
     remove: 'Remove key',
     saving: 'Saving…',
+    verifying: 'Verifying…',
+    invalidOpenAlex: 'The OpenAlex key is invalid. Check it and try again.',
+    invalidSerpapi: 'The SerpAPI key is invalid. Check it and try again.',
+    verificationOpenAlex: 'We are temporarily unable to verify the OpenAlex key. Please retry later.',
+    verificationSerpapi: 'We are temporarily unable to verify the SerpAPI key. Please retry later.',
     removing: 'Removing…',
     saved: 'Key saved',
     removed: 'Key removed',
-    serpDescription:
-      'Optionally use SerpAPI for extra search when database checks are unresolved. This uses your own SerpAPI quota.',
-    serpLink: 'Sign up for SerpAPI and get a key',
-    serpLabel: 'Personal SerpAPI key',
-    serpSave: 'Save SerpAPI key',
-    serpReplace: 'Replace SerpAPI key',
     serpRemove: 'Remove SerpAPI key',
   },
 };
@@ -82,20 +76,24 @@ const copy = {
 export function ReferenceSettings({
   userId,
   headingRef,
+  showHeading = true,
 }: {
   userId: string;
   headingRef?: RefObject<HTMLHeadingElement | null>;
+  showHeading?: boolean;
 }) {
   // A new account gets a fresh component and no previous secret, hint or request.
-  return <ReferenceSettingsForAccount key={userId} userId={userId} headingRef={headingRef} />;
+  return <ReferenceSettingsForAccount key={userId} userId={userId} headingRef={headingRef} showHeading={showHeading} />;
 }
 
 function ReferenceSettingsForAccount({
   userId,
   headingRef,
+  showHeading,
 }: {
   userId: string;
   headingRef?: RefObject<HTMLHeadingElement | null>;
+  showHeading: boolean;
 }) {
   const locale = useSyncExternalStore(subscribe, getLocale, getLocale);
   const text = copy[locale === 'en' ? 'en' : 'zh'];
@@ -105,7 +103,8 @@ function ReferenceSettingsForAccount({
   const [pendingProvider, setPendingProvider] = useState<ReferenceProvider | null>(null);
   const [operation, setOperation] = useState<'loading' | 'saving' | 'removing' | null>('loading');
   const [message, setMessage] = useState<'saved' | 'removed' | null>(null);
-  const [error, setError] = useState<'loadError' | 'error' | null>(null);
+  const [error, setError] = useState<'loadError' | 'error' | 'invalidOpenAlex' | 'invalidSerpapi' | 'verificationOpenAlex' | 'verificationSerpapi' | null>(null);
+  const [errorProvider, setErrorProvider] = useState<ReferenceProvider | null>(null);
   const [retry, setRetry] = useState(0);
   const request = useRef<AbortController | null>(null);
 
@@ -114,6 +113,7 @@ function ReferenceSettingsForAccount({
     request.current = controller;
     setOperation('loading');
     setError(null);
+    setErrorProvider(null);
     void fetchReferenceSettings(controller.signal)
       .then((next) => {
         if (!controller.signal.aborted) setStatus(next);
@@ -138,6 +138,7 @@ function ReferenceSettingsForAccount({
     setPendingProvider(provider);
     setMessage(null);
     setError(null);
+    setErrorProvider(provider);
     // Clear immediately so a pending request never leaves a visible secret.
     const enteredKey = apiKeys[provider].trim();
     setApiKeys((values) => ({ ...values, [provider]: '' }));
@@ -149,9 +150,14 @@ function ReferenceSettingsForAccount({
         setStatus(next);
         setMessage(remove ? 'removed' : 'saved');
       }
-    } catch {
+    } catch (failure) {
       // Never render server/axios error text: it may include request credentials.
-      if (!controller.signal.aborted) setError('error');
+      if (!controller.signal.aborted) {
+        const code = (failure as { response?: { data?: { error_code?: unknown } } } | undefined)?.response?.data?.error_code;
+        const invalid = provider === 'openalex' ? 'invalid_api_key' : 'invalid_serpapi_key';
+        setError(code === invalid ? (provider === 'openalex' ? 'invalidOpenAlex' : 'invalidSerpapi')
+          : code === `${provider}_verification_unavailable` ? (provider === 'openalex' ? 'verificationOpenAlex' : 'verificationSerpapi') : 'error');
+      }
     } finally {
       if (!controller.signal.aborted) {
         setOperation(null);
@@ -162,39 +168,29 @@ function ReferenceSettingsForAccount({
 
   const busy = operation !== null;
   return (
-    <section className="reference-settings" aria-labelledby={`${id}-title`} aria-busy={busy}>
-      <div className="preferences-section-label reference-settings-heading">
+    <section className="reference-settings" aria-labelledby={showHeading ? `${id}-title` : undefined} aria-busy={busy}>
+      {showHeading ? <div className="preferences-section-label reference-settings-heading">
         <KeyRound size={17} aria-hidden="true" />
         <h3 id={`${id}-title`} ref={headingRef} tabIndex={-1}>
           {text.title}
         </h3>
         <span className="reference-settings-optional">{text.optional}</span>
-      </div>
+      </div> : null}
+      <div className="reference-settings-providers">
       {(['openalex', 'serpapi'] as const).map((provider) => {
         const serp = provider === 'serpapi';
+        const providerName = serp ? 'SerpAPI' : 'OpenAlex';
         const configured = serp ? status?.serpapi_configured : status?.configured;
         const hint = serp ? status?.serpapi_key_hint : status?.key_hint;
         const saving = pendingProvider === provider && operation === 'saving';
         const removing = pendingProvider === provider && operation === 'removing';
+        const providerError = error && errorProvider === provider ? error : null;
         return (
           <fieldset className="reference-settings-provider" key={provider}>
-            <legend>{serp ? 'SerpAPI' : 'OpenAlex'}</legend>
-            <p className="reference-settings-description">{serp ? text.serpDescription : text.description}</p>
-            {!serp ? (
-              <p className="reference-settings-fallback" id={`${id}-fallback`}>
-                {text.fallback}
-              </p>
-            ) : null}
-            <a
-              className="reference-settings-link"
-              href={serp ? 'https://serpapi.com/users/sign_up' : 'https://openalex.org/settings/api'}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {serp ? text.serpLink : text.link}
-              <ArrowUpRight size={14} aria-hidden="true" />
-            </a>
-            <div className="reference-settings-key-status">
+            <legend className="sr-only">{providerName}</legend>
+            <div className="reference-settings-provider-heading">
+              <h4 aria-hidden="true">{providerName}</h4>
+            <div className="reference-settings-key-status" data-configured={Boolean(configured)}>
               {operation === 'loading' ? (
                 <>
                   <Loader2 size={14} aria-hidden="true" />
@@ -208,6 +204,8 @@ function ReferenceSettingsForAccount({
                 </>
               ) : null}
             </div>
+            </div>
+            <p className="reference-settings-description">{text.description.replace('{provider}', providerName)}</p>
             <form
               onSubmit={(event) => {
                 event.preventDefault();
@@ -215,7 +213,7 @@ function ReferenceSettingsForAccount({
               }}
             >
               <label htmlFor={`${id}-${provider}-key`} className="reference-settings-label">
-                {serp ? text.serpLabel : text.label}
+                {text.label.replace('{provider}', providerName)}
               </label>
               <input
                 id={`${id}-${provider}-key`}
@@ -227,17 +225,15 @@ function ReferenceSettingsForAccount({
                 value={apiKeys[provider]}
                 placeholder={text.placeholder}
                 maxLength={512}
-                aria-describedby={`${id}-${provider}-privacy${serp ? '' : ` ${id}-fallback`}`}
+                aria-describedby={`${id}-privacy${providerError ? ` ${id}-${provider}-error` : ''}`}
+                aria-invalid={providerError === 'invalidOpenAlex' || providerError === 'invalidSerpapi' || undefined}
                 disabled={busy || !status?.storage_available || status.secure_transport_required}
                 onChange={(event) => {
                   setApiKeys((values) => ({ ...values, [provider]: event.target.value }));
                   setMessage(null);
+                  if (errorProvider === provider) { setError(null); setErrorProvider(null); }
                 }}
               />
-              <p id={`${id}-${provider}-privacy`} className="reference-settings-privacy">
-                <ShieldCheck size={14} aria-hidden="true" />
-                {text.secure}
-              </p>
               <div className="reference-settings-actions">
                 <Button
                   type="submit"
@@ -246,21 +242,19 @@ function ReferenceSettingsForAccount({
                     busy || !status?.storage_available || status.secure_transport_required || !apiKeys[provider].trim()
                   }
                 >
-                  {saving
-                    ? text.saving
-                    : configured
-                      ? serp
-                        ? text.serpReplace
-                        : text.replace
-                      : serp
-                        ? text.serpSave
-                        : text.save}
+                  {saving ? text.verifying : text.save}
                 </Button>
+              </div>
+              {providerError ? <p id={`${id}-${provider}-error`} className="reference-settings-error" role="alert">{text[providerError]}</p> : null}
+              <div className="reference-settings-provider-footer">
+                <a className="reference-settings-link" href={serp ? 'https://serpapi.com/users/sign_up' : 'https://openalex.org/settings/api'} target="_blank" rel="noopener noreferrer">
+                  {text.link.replace('{provider}', providerName)}<ArrowUpRight size={14} aria-hidden="true" />
+                </a>
                 {configured ? (
                   <Button
                     type="button"
                     size="sm"
-                    variant="outline"
+                    variant="ghost"
                     disabled={busy}
                     onClick={() => void update(provider, true)}
                   >
@@ -272,12 +266,14 @@ function ReferenceSettingsForAccount({
           </fieldset>
         );
       })}
+      </div>
+      <p id={`${id}-privacy`} className="reference-settings-privacy"><ShieldCheck size={15} aria-hidden="true" />{text.secure}</p>
       {status?.secure_transport_required ? (
         <p className="reference-settings-message">{text.secureTransport}</p>
       ) : status && !status.storage_available ? (
         <p className="reference-settings-message">{text.unavailable}</p>
       ) : null}
-      {error ? (
+      {error === 'loadError' ? (
         <div className="reference-settings-error" role="alert">
           {text[error]}
           {error === 'loadError' ? (

@@ -2,7 +2,7 @@ import express from 'express';
 import request from 'supertest';
 import { createRequire } from 'node:module';
 import { createDecipheriv } from 'node:crypto';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const require = createRequire(import.meta.url);
 const { createTestDatabaseHarness, get, all, run, closeDb, initializeDatabase, withTransaction } = require('../src/database');
@@ -18,6 +18,20 @@ const envKeys = ['REFERENCE_SETTINGS_ENCRYPTION_KEY', 'OPENALEX_API_KEY', 'OPENA
   'ARC_TRIAL_LOGIN_ORIGIN', 'ARC_TRIAL_LOGIN_ORIGINS', 'ARC_AUTH_MODE', 'NODE_ENV', 'REFERENCE_SETTINGS_ALLOW_INSECURE_DEVELOPMENT', 'PAPER_COMPILER_EVIDENCE_CONFIG'];
 const savedEnv = Object.fromEntries(envKeys.map(key => [key, process.env[key]]));
 let app, harness, aliceCookie, bobCookie;
+
+function authenticatedProviderResponse(input) {
+  const url = new URL(input);
+  const api_key = url.searchParams.get('api_key');
+  if (url.origin === 'https://api.openalex.org' && url.pathname === '/rate-limit') {
+    return Response.json({ api_key, rate_limit: { daily_budget_usd: 1, daily_used_usd: 0,
+      daily_remaining_usd: 1, resets_at: '2026-11-26T00:00:00.000Z', resets_in_seconds: 3600 } });
+  }
+  if (url.origin === 'https://serpapi.com' && url.pathname === '/account.json') {
+    return Response.json({ account_id: 'test-account', api_key, account_email: 'test@example.test',
+      account_status: 'Active', total_searches_left: 0 });
+  }
+  throw new Error('Unexpected provider verification destination');
+}
 
 function read(cookie = aliceCookie) {
   return request(app).get(endpoint).set('Cookie', cookie);
@@ -46,6 +60,7 @@ describe('private account reference settings', () => {
   });
 
   beforeEach(async () => {
+    vi.stubGlobal('fetch', vi.fn(async input => authenticatedProviderResponse(input)));
     for (const key of envKeys) delete process.env[key];
     Object.assign(process.env, { NODE_ENV: 'test', APP_PUBLIC_URL: origin, REFERENCE_SETTINGS_ENCRYPTION_KEY: deploymentKey,
       PAPER_COMPILER_EVIDENCE_CONFIG: `${harness.dbPath}.absent-evidence-config` });
@@ -53,6 +68,8 @@ describe('private account reference settings', () => {
       await run('DELETE FROM user_reference_settings');
     }
   });
+
+  afterEach(() => vi.unstubAllGlobals());
 
   afterAll(async () => {
     for (const key of envKeys) {
@@ -341,6 +358,61 @@ describe('private account reference settings', () => {
       expect(response.text).not.toContain('changed-openalex-secret');
       expect(await all('SELECT * FROM user_reference_settings ORDER BY provider')).toEqual(rows);
     }
+  });
+
+  it.each([
+    ['api_key', 'openalex', 'invalid_api_key'],
+    ['serpapi_key', 'serpapi', 'invalid_serpapi_key'],
+  ])('verifies %s with its provider before saving and preserves existing ciphertext on rejection', async (field, provider, code) => {
+    await write('put', { api_key: firstKey, serpapi_key: secondKey }).expect(200);
+    const rows = await all('SELECT * FROM user_reference_settings ORDER BY provider');
+    process.env.OPENALEX_API_KEY = 'platform-key-must-not-validate-personal-key';
+    globalThis.fetch = vi.fn(async () => Response.json({ error: 'private-provider-secret' }, { status: 401 }));
+    const response = await write('put', { [field]: 'invalid-personal-candidate' }).expect(400);
+    expect(response.body.error_code).toBe(code);
+    expect(response.text).not.toContain('private-provider-secret');
+    expect(response.text).not.toContain('invalid-personal-candidate');
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    const target = new URL(globalThis.fetch.mock.calls[0][0]);
+    expect(target.origin).toBe(provider === 'openalex' ? 'https://api.openalex.org' : 'https://serpapi.com');
+    expect(target.searchParams.get('api_key')).toBe('invalid-personal-candidate');
+    expect(await all('SELECT * FROM user_reference_settings ORDER BY provider')).toEqual(rows);
+    const credentials = await getReferenceCredentials('jaccount:alice');
+    expect(credentials.personalKey).toBe(firstKey);
+    expect(credentials.serpapiKey).toBe(secondKey);
+  });
+
+  it.each([
+    ['api_key', 'openalex_verification_unavailable'],
+    ['serpapi_key', 'serpapi_verification_unavailable'],
+  ])('reports a temporary provider failure for %s without replacing saved keys', async (field, code) => {
+    await write('put', { api_key: firstKey, serpapi_key: secondKey }).expect(200);
+    const rows = await all('SELECT * FROM user_reference_settings ORDER BY provider');
+    globalThis.fetch = vi.fn(async () => Response.json({ error: 'private-provider-secret' }, { status: 429 }));
+    const response = await write('put', { [field]: 'replacement-candidate' }).expect(503);
+    expect(response.body.error_code).toBe(code);
+    expect(response.text).not.toContain('private-provider-secret');
+    expect(response.text).not.toContain('replacement-candidate');
+    expect(await all('SELECT * FROM user_reference_settings ORDER BY provider')).toEqual(rows);
+  });
+
+  it('validates both providers before persisting either update', async () => {
+    await write('put', { api_key: firstKey, serpapi_key: secondKey }).expect(200);
+    const rows = await all('SELECT * FROM user_reference_settings ORDER BY provider');
+    globalThis.fetch = vi.fn(async input => new URL(input).hostname === 'serpapi.com'
+      ? Response.json({ error: 'Invalid private credential' }, { status: 403 }) : authenticatedProviderResponse(input));
+    const response = await write('put', { api_key: 'valid-new-openalex', serpapi_key: 'invalid-new-serpapi' }).expect(400);
+    expect(response.body.error_code).toBe('invalid_serpapi_key');
+    expect(await all('SELECT * FROM user_reference_settings ORDER BY provider')).toEqual(rows);
+  });
+
+  it('avoids provider verification before authentication, account and local credential preconditions pass', async () => {
+    await request(app).put(endpoint).send({ api_key: firstKey }).expect(401);
+    await write('put', { api_key: firstKey }, bobCookie).expect(409);
+    await write('put', { api_key: firstKey }, aliceCookie, { Origin: 'https://evil.example' }).expect(403);
+    await write('put', { api_key: firstKey, serpapi_key: 'bad key' }).expect(400);
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+    expect(await all('SELECT * FROM user_reference_settings')).toEqual([]);
   });
 
   it('deletes only the selected provider and rejects unrecognized selectors', async () => {

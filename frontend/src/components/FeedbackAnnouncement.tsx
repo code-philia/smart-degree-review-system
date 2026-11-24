@@ -24,8 +24,8 @@ const copy = {
 
 type Target = { left: number; top: number; width: number; height: number };
 
-export function FeedbackAnnouncement({ open, onAcknowledge, feedbackTarget, onOpenReferenceSettings }: {
-  open: boolean; onAcknowledge: () => void; feedbackTarget: RefObject<HTMLButtonElement | null>; onOpenReferenceSettings: () => void;
+export function FeedbackAnnouncement({ open, onAcknowledge, feedbackTarget, referenceTarget, onOpenReferenceSettings }: {
+  open: boolean; onAcknowledge: () => void; feedbackTarget: RefObject<HTMLButtonElement | null>; referenceTarget?: RefObject<HTMLButtonElement | null>; onOpenReferenceSettings: () => void;
 }) {
   const zh = copy.zh, en = copy.en;
   const maskId = useId().replace(/:/g, '');
@@ -36,10 +36,10 @@ export function FeedbackAnnouncement({ open, onAcknowledge, feedbackTarget, onOp
   const continueButton = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
-    if (!open || step !== 1) { setTarget(null); return; }
+    if (!open) { setTarget(null); return; }
     function measure() {
-      const button = feedbackTarget.current;
-      feedbackButton.current = button || null;
+      const button = step === 1 ? feedbackTarget.current : referenceTarget?.current;
+      if (step === 1) feedbackButton.current = button || null;
       if (!button) { setTarget(null); return; }
       const rect = button.getBoundingClientRect();
       const next = rect.width > 0 && rect.height > 0
@@ -50,10 +50,11 @@ export function FeedbackAnnouncement({ open, onAcknowledge, feedbackTarget, onOp
     const observer = new ResizeObserver(measure);
     observer.observe(document.documentElement);
     if (feedbackTarget.current) observer.observe(feedbackTarget.current);
+    if (referenceTarget?.current) observer.observe(referenceTarget.current);
     window.addEventListener('resize', measure);
     window.addEventListener('scroll', measure, true);
     return () => { observer.disconnect(); window.removeEventListener('resize', measure); window.removeEventListener('scroll', measure, true); };
-  }, [open, feedbackTarget, step]);
+  }, [open, feedbackTarget, referenceTarget, step]);
 
   const tipRight = target ? Math.max(20, window.innerWidth - target.left - target.width) : 24;
 
@@ -66,13 +67,13 @@ export function FeedbackAnnouncement({ open, onAcknowledge, feedbackTarget, onOp
         </svg>
         {target ? <>
           <div className="feedback-notice-target" style={{left:target.left,top:target.top,width:target.width,height:target.height}} aria-hidden="true"/>
-          <aside className="feedback-notice-tip" style={{top:target.top + target.height + 21, right:tipRight}} aria-hidden="true">
+          {step === 1 ? <aside className="feedback-notice-tip" style={{top:target.top + target.height + 21, right:tipRight}} aria-hidden="true">
             <span className="feedback-notice-tip-pointer"/>
             <span className="feedback-notice-tip-dot"/><div><strong lang="zh-CN">{zh.tip}</strong><span className="feedback-notice-tip-english" lang="en">{en.tip}</span></div>
-          </aside>
+          </aside> : null}
         </> : null}
       </Dialog.Overlay>
-      <Dialog.Content className="feedback-notice-card" onPointerDownOutside={(e)=>e.preventDefault()}
+      <Dialog.Content className={`feedback-notice-card${step===2?' reference-guide-card':''}`} onPointerDownOutside={(e)=>e.preventDefault()}
         onOpenAutoFocus={(e)=>{e.preventDefault();continueButton.current?.focus();}}
         onCloseAutoFocus={(e)=>{e.preventDefault();requestAnimationFrame(()=>{
           if(openSettingsAfterClose.current){openSettingsAfterClose.current=false;onOpenReferenceSettings();}
@@ -81,15 +82,21 @@ export function FeedbackAnnouncement({ open, onAcknowledge, feedbackTarget, onOp
         <Dialog.Close className="feedback-notice-close" aria-label={`${zh.close} / ${en.close}`}><X size={18}/></Dialog.Close>
         <div className="feedback-notice-intro">
           <div className="feedback-notice-eyebrow"><span aria-hidden="true"/><span lang="zh-CN">{zh.label}</span><span className="feedback-notice-label-separator" aria-hidden="true">/</span><span lang="en">{en.label}</span><span className="reference-guide-progress" aria-label={`${step} / 2`}>{step} / 2</span></div>
-          <Dialog.Title className="feedback-notice-title">{step===1?<span lang="zh-CN">{zh.title}</span>:<><span lang="zh-CN">参考文献核验</span><span className="reference-guide-title-english" lang="en">Reference verification</span></>}</Dialog.Title>
+          <Dialog.Title className="feedback-notice-title">{step===1?<span lang="zh-CN">{zh.title}</span>:<><span lang="zh-CN">规则：引用文献是否不存在</span><span className="reference-guide-title-english" lang="en">Rule: Nonexistent cited references</span></>}</Dialog.Title>
           {step===1?<>
           <Dialog.Description className="feedback-notice-description"><span lang="zh-CN">{zh.description}</span><span className="feedback-notice-description-english" lang="en">{en.description}</span></Dialog.Description>
           <a className="feedback-notice-group" href="https://feedback-chat-5d9.pages.dev/" target="_blank" rel="noopener noreferrer">
             <div><strong className="feedback-notice-group-title"><span className="feedback-notice-group-primary" lang="zh-CN">{zh.group}</span><span lang="en" className="feedback-notice-group-english">{en.group}</span></strong></div><ArrowUpRight size={20} strokeWidth={1.7} aria-hidden="true"/>
           </a>
           </>:<>
-            <Dialog.Description className="feedback-notice-description reference-guide-description"><span lang="zh-CN">在设置中可选添加 OpenAlex 或 SerpAPI 个人密钥，也可跳过，稍后配置。</span><span className="feedback-notice-description-english" lang="en">Optionally add a personal OpenAlex or SerpAPI key in Settings. You can skip this and set it up later.</span></Dialog.Description>
-            <div className="reference-guide-source"><span lang="zh-CN">数据库核验：个人 OpenAlex 密钥 → 平台 OpenAlex 密钥 → Crossref。</span><span lang="en">Database checks: Personal OpenAlex key → platform OpenAlex key → Crossref.</span><span lang="zh-CN">SerpAPI 用于数据库未能核验时的补充搜索，消耗您自己的 SerpAPI 配额。</span><span lang="en">SerpAPI adds search when database checks are unresolved and uses your own SerpAPI quota.</span></div>
+            <Dialog.Description className="feedback-notice-description reference-guide-description">
+              <span className="reference-guide-copy-lines" lang="zh-CN"><span>全站共享定量公共检索额度。</span><span>添加个人密钥，可使用自己的检索额度。</span></span>
+              <span className="feedback-notice-description-english reference-guide-copy-lines" lang="en"><span>Public search quota is shared across the site.</span><span>Add a personal key to use your own search quota.</span></span>
+            </Dialog.Description>
+            <ol className="reference-guide-steps">
+              <li><span className="reference-guide-step-number" aria-hidden="true">1</span><div><span lang="zh-CN">打开 API 设置，获取个人密钥</span><span lang="en">Open API settings and get a personal key</span></div></li>
+              <li><span className="reference-guide-step-number" aria-hidden="true">2</span><div><span lang="zh-CN">粘贴密钥，点击「保存密钥」</span><span lang="en">Paste the key and select Save key</span></div></li>
+            </ol>
           </>}
         </div>
         <footer className={`feedback-notice-footer${step===2?' reference-guide-footer':''}`}>

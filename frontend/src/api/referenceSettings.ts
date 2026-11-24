@@ -38,7 +38,9 @@ export async function saveReferenceKey(
   const response = await apiClient.put<ReferenceSettingsStatus>(
     '/auth/reference-settings',
     { [field]: apiKey, expected_user_id: userId },
-    { signal },
+    // Provider validation has an 8s deadline. Leave time for the result and
+    // encrypted transaction instead of inheriting the generic 5s timeout.
+    { signal, timeout: 12000 },
   );
   return publicStatus(response.data);
 }

@@ -1,10 +1,10 @@
 /* Translate the checks by their actual scope. Chinese keys remain unchanged. */
 export const RULE_ENGLISH = [
   {
-    id:'reference_verification_check', title:'Reference verification',
-    description:'Check references and their titles, authors, years and identifiers against multiple databases. Unverified entries require manual review.',
-    titles:['参考文献真实性核验'],
-    descriptions:['通过多个数据库核对参考文献及题名、作者、年份和标识符，未核验项保留人工复核。'],
+    id:'reference_verification_check', title:'Nonexistent cited references',
+    description:'Check for AI-fabricated, misattributed, or outdated references.',
+    titles:['引用文献是否不存在','参考文献真实性核验'],
+    descriptions:['检查是否存在AI编造的、张冠李戴的、已过时的引用','通过多个数据库核对参考文献及题名、作者、年份和标识符，未核验项保留人工复核。'],
   },
   {
     id:'sjtu_rule_18', title:'Equation cross-references',

@@ -1,12 +1,14 @@
 import { preserveText } from "../i18n/jsx-runtime";
 import { RichMessage } from '../i18n/jsx-runtime';
 import { SettingsDialog } from '../components/SettingsDialog';
+import { ReferenceSettingsDialog } from '../components/ReferenceSettingsDialog';
 import { NotificationBell } from '../components/NotificationBell';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
   ChevronDown,
   ClipboardList,
   History,
+  KeyRound,
   LogIn,
   LogOut,
   ShieldCheck,
@@ -210,15 +212,16 @@ function AccountMenu({ onLogout }: { onLogout: () => Promise<void> }) {
 
 function AppShell() {
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsSection, setSettingsSection] = useState<'reference' | undefined>();
+  const [referenceSettingsOpen, setReferenceSettingsOpen] = useState(false);
   const replayAfterSettingsClose = useRef(false);
   const settingsTriggerRef = useRef<HTMLButtonElement>(null);
+  const referenceTriggerRef = useRef<HTMLButtonElement>(null);
   const feedbackTriggerRef = useRef<HTMLButtonElement>(null);
   const navigationTriggerRef = useRef<HTMLButtonElement>(null);
   const { user, logout } = useAuthSession();
   const currentUserId = useRef(user?.id);
   currentUserId.current = user?.id;
-  useEffect(() => { setSettingsOpen(false); replayAfterSettingsClose.current=false; }, [user?.id]);
+  useEffect(() => { setSettingsOpen(false); setReferenceSettingsOpen(false); replayAfterSettingsClose.current=false; }, [user?.id]);
   const location = useLocation();
   const navigate = useNavigate();
   const role = user?.role ?? null;
@@ -344,6 +347,11 @@ function AppShell() {
               </Badge>
             </span>
             {user ? <NotificationBell userId={user.id} /> : null}
+            {user ? <Button ref={referenceTriggerRef} type="button" variant="ghost" size="icon-lg"
+              className="shrink-0 rounded-xl text-foreground/80" aria-label="参考文献 API" title="参考文献 API"
+              aria-haspopup="dialog" aria-expanded={referenceSettingsOpen} onClick={() => setReferenceSettingsOpen(true)}>
+              <KeyRound className="size-[18px]" strokeWidth={1.8} aria-hidden="true" />
+            </Button> : null}
             {user ? (
               <Button
                 ref={settingsTriggerRef}
@@ -355,7 +363,7 @@ function AppShell() {
                 title="设置"
                 aria-haspopup="dialog"
                 aria-expanded={settingsOpen}
-                onClick={() => { setSettingsSection(undefined); setSettingsOpen(true); }}
+                onClick={() => setSettingsOpen(true)}
               >
                 <Settings className="size-[18px]" strokeWidth={1.8} aria-hidden="true" />
               </Button>
@@ -370,11 +378,16 @@ function AppShell() {
           </div>
         </main>
       </SidebarInset>
-      {user ? <AccountAnnouncement userId={user.id} feedbackTarget={feedbackTriggerRef} onOpenReferenceSettings={() => {
+      {user ? <AccountAnnouncement userId={user.id} feedbackTarget={feedbackTriggerRef} referenceTarget={referenceTriggerRef} onOpenReferenceSettings={() => {
         if(currentUserId.current!==user.id)return;
-        setSettingsSection('reference');setSettingsOpen(true);
+        setReferenceSettingsOpen(true);
       }} /> : null}
-      <SettingsDialog open={settingsOpen} userId={user?.id} initialSection={settingsSection} onOpenChange={setSettingsOpen} onReplayGuide={() => {
+      <ReferenceSettingsDialog open={referenceSettingsOpen} userId={user?.id} onOpenChange={setReferenceSettingsOpen}
+        onCloseAutoFocus={event => {
+          const trigger=referenceTriggerRef.current?.isConnected ? referenceTriggerRef.current : navigationTriggerRef.current;
+          if(trigger){event.preventDefault();trigger.focus();}
+        }} />
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} onReplayGuide={() => {
         replayAfterSettingsClose.current=true;setSettingsOpen(false);
       }} onCloseAutoFocus={(event) => {
         if(replayAfterSettingsClose.current){

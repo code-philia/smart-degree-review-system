@@ -2,6 +2,7 @@ const express = require('express');
 const { requireAuth } = require('./authMiddleware');
 const { campusOnlyAuth, privateAdminRequest } = require('./loginPolicy');
 const settings = require('./referenceSettingsService');
+const { validateReferenceCredentials } = require('./referenceCredentialValidation');
 
 const router = express.Router();
 
@@ -94,12 +95,14 @@ for (const method of ['put', 'delete']) {
     // This is a precondition only. The session's ID is always the storage key.
     if (req.body?.expected_user_id !== req.user.id) return reject(res, 409, 'account_changed');
     try {
+      if (method === 'put') await validateReferenceCredentials(req.body);
       const result = method === 'put'
         ? await settings.saveReferenceSettings(req.user.id, req.body)
         : await settings.deleteReferenceSettings(req.user.id, req.body?.provider);
       return res.json(publicResponse(req, result));
     } catch (error) {
       if (['invalid_api_key', 'invalid_serpapi_key', 'invalid_provider'].includes(error.errorCode)) return reject(res, 400, error.errorCode);
+      if (['openalex_verification_unavailable', 'serpapi_verification_unavailable'].includes(error.errorCode)) return reject(res, 503, error.errorCode);
       return reject(res, 503, 'storage_unavailable');
     }
   });

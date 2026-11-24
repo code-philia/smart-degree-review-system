@@ -2,13 +2,13 @@ import { useEffect, useState, type RefObject } from 'react';
 import { announcementRequestId, claimFeedbackAnnouncement } from '../api/announcements';
 import { FeedbackAnnouncement } from './FeedbackAnnouncement';
 
-type AnnouncementProps = { userId: string; feedbackTarget: RefObject<HTMLButtonElement | null>; onOpenReferenceSettings: () => void };
+type AnnouncementProps = { userId: string; feedbackTarget: RefObject<HTMLButtonElement | null>; referenceTarget?: RefObject<HTMLButtonElement | null>; onOpenReferenceSettings: () => void };
 
 export function AccountAnnouncement(props: AnnouncementProps) {
   return <AnnouncementForAccount key={props.userId} {...props} />;
 }
 
-function AnnouncementForAccount({ userId, feedbackTarget, onOpenReferenceSettings }: AnnouncementProps) {
+function AnnouncementForAccount({ userId, feedbackTarget, referenceTarget, onOpenReferenceSettings }: AnnouncementProps) {
   const [open, setOpen] = useState(false);
   const [presentation, setPresentation] = useState(0);
   useEffect(() => {
@@ -27,5 +27,5 @@ function AnnouncementForAccount({ userId, feedbackTarget, onOpenReferenceSetting
     }, 0);
     return () => { active = false; window.removeEventListener('smart-degree:replay-guide', replay); window.clearTimeout(timer); controller.abort(); };
   }, [userId]);
-  return <FeedbackAnnouncement key={presentation} open={open} onAcknowledge={() => setOpen(false)} feedbackTarget={feedbackTarget} onOpenReferenceSettings={onOpenReferenceSettings} />;
+  return <FeedbackAnnouncement key={presentation} open={open} onAcknowledge={() => setOpen(false)} feedbackTarget={feedbackTarget} referenceTarget={referenceTarget} onOpenReferenceSettings={onOpenReferenceSettings} />;
 }

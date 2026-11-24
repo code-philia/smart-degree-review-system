@@ -4,8 +4,8 @@ const { summarizeRuleRuns } = require('./localFiveRulePaperLintService');
 
 const RULE_ID = 'reference_verification_check';
 const referenceVerificationRule = Object.freeze({
-  rule_id:RULE_ID, title:'参考文献真实性核验',
-  description:'通过多个数据库核对参考文献及题名、作者、年份和标识符，未核验项保留人工复核。',
+  rule_id:RULE_ID, title:'引用文献是否不存在',
+  description:'检查是否存在AI编造的、张冠李戴的、已过时的引用',
   family:'reference_database', runner:'reference_database', execution_mode:'deterministic',
   uses_external_model:false, default_severity:'info', default_enabled:false,
   enabled_in_mvp:true, default_selected:false, repair_supported:false, available:true, source:'sjtu-local',

@@ -83,7 +83,7 @@ function unavailableRuleRuns(admission, selectedRuleIds) {
     sjtu_rule_28: [issue('目录') || issue('主体'), '目录页码', ['目录', '主体']],
     sjtu_rule_31: [issue('参考文献'), '引用格式', ['参考文献']],
     sjtu_rule_32: [issue('参考文献'), '外部文献存在性', ['参考文献']],
-    reference_verification_check: [issue('参考文献'), '参考文献真实性核验', ['参考文献']],
+    reference_verification_check: [issue('参考文献'), '引用文献是否不存在', ['参考文献']],
     sjtu_rule_33: [issue('参考文献'), '引用文献完整性', ['参考文献']],
     keyword_count_check: [keywordIssue, '该摘要的关键词数量', ['摘要', '关键词']],
     abstract_object_number_check: [pairIssue, '完整摘要中的图表公式文献编号', abstracts],

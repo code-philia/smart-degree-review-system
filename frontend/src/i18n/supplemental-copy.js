@@ -5,7 +5,7 @@ export const SUPPLEMENTAL_COPY={
  '选中的报告及上传论文将被永久删除，此操作无法撤销。':'The selected reports and their uploaded theses will be permanently deleted. This cannot be undone.',
  '正在删除…':'Deleting…',
 
- '设置':'Settings','界面偏好':'Interface preferences',
+ '设置':'Settings','界面偏好':'Interface preferences','参考文献 API':'Reference API',
  '语言':'Language','界面语言':'Interface language','外观':'Appearance','显示主题':'Appearance',
  '浅色':'Light','深色':'Dark','跟随系统':'System','自动保存':'Saved automatically',
 

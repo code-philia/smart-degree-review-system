@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { AppearanceProvider } from '../src/AppearanceProvider';
 import { MemoryRouter, useNavigate } from 'react-router-dom';
 import { SettingsDialog } from '../src/components/SettingsDialog';
+import { ReferenceSettingsDialog } from '../src/components/ReferenceSettingsDialog';
 import { getLocale, setLocale } from '../src/i18n/locale';
 
 vi.mock('../src/api',()=>({default:{get:vi.fn(async()=>({data:{configured:false,key_hint:null,storage_available:true}}))}}));
@@ -58,16 +59,16 @@ it('switches the mounted settings language and persists the chosen locale', asyn
   expect(getLocale()).toBe('zh');
 });
 
-it('clears an unsaved key on close and labels autosave as interface preferences only', async () => {
+it('clears unsaved keys when the separate API dialog closes', async () => {
   const user=userEvent.setup();
-  const settings=(open:boolean)=><MemoryRouter><AppearanceProvider><SettingsDialog open={open} userId="account-a" onOpenChange={()=>undefined}/></AppearanceProvider></MemoryRouter>;
+  const settings=(open:boolean)=><MemoryRouter><AppearanceProvider><ReferenceSettingsDialog open={open} userId="account-a" onOpenChange={()=>undefined}/></AppearanceProvider></MemoryRouter>;
   const view=render(settings(true));
-  await user.type(await screen.findByLabelText('个人 API Key'),'unsaved-personal-key');
+  await user.type(await screen.findByLabelText('OpenAlex 个人密钥'),'unsaved-personal-key');
   await user.type(screen.getByLabelText('SerpAPI 个人密钥'),'unsaved-serp-key');
-  expect(screen.getByText('界面偏好自动保存')).toBeInTheDocument();
+  expect(screen.queryByText('界面偏好自动保存')).not.toBeInTheDocument();
   view.rerender(settings(false));
   view.rerender(settings(true));
-  expect(await screen.findByLabelText('个人 API Key')).toHaveValue('');
+  expect(await screen.findByLabelText('OpenAlex 个人密钥')).toHaveValue('');
   expect(screen.getByLabelText('SerpAPI 个人密钥')).toHaveValue('');
 });
 
