@@ -5,19 +5,26 @@ import AuthCampusScene from '../src/pages/authCampus/AuthCampusScene';
 import { isInPool, waterMaskAlpha, sourcePoint, WaterWaveSolver } from '../src/pages/authCampus/waterSurface';
 
 describe('formal sign-in and retained B-v5 scene', () => {
-  it('ships the formal illustration, filing number and real login without campus animation', () => {
+  it('ships only the selected login presentation with the same filing number and real login', () => {
     render(<AuthPage />);
-    expect(document.querySelector('.auth-split')).toBeInTheDocument();
-    expect(document.querySelector('.auth-illustration img')).toHaveAttribute('src', '/login-thesis-v2.png');
-    expect(document.querySelector('.scene')).not.toBeInTheDocument();
-    expect(document.querySelector('canvas')).not.toBeInTheDocument();
+    if (import.meta.env.VITE_LOGIN_VARIANT === 'split') {
+      expect(document.querySelector('.auth-split')).toBeInTheDocument();
+      expect(document.querySelector('.auth-illustration img')).toHaveAttribute('src', '/login-thesis-v2.png');
+      expect(document.querySelector('.scene')).not.toBeInTheDocument();
+      expect(document.querySelector('canvas')).not.toBeInTheDocument();
+      expect(document.querySelector('link[rel="preload"][as="image"]')).not.toBeInTheDocument();
+    } else {
+      expect(document.querySelector('.auth-split')).not.toBeInTheDocument();
+      expect(document.querySelector('.auth-illustration')).not.toBeInTheDocument();
+      expect(document.querySelector('.scene')).toBeInTheDocument();
+      expect(document.querySelectorAll('.breeze-leaf')).toHaveLength(5);
+    }
     expect(screen.getByRole('contentinfo', { name: '网站备案信息' })).toHaveTextContent('沪交ICP备20260352');
     expect(screen.getAllByText('沪交ICP备20260352')).toHaveLength(1);
     expect(screen.getByRole('link', { name: '使用 jAccount 登录' })).toHaveAttribute('href', '/api/auth/jaccount');
     expect(screen.queryByRole('button', { name: /齿轮/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('form')).not.toBeInTheDocument();
     expect(document.querySelectorAll('.service')).toHaveLength(3);
-    expect(document.querySelector('link[rel="preload"][as="image"]')).not.toBeInTheDocument();
     expect(screen.queryByText(/视觉设计稿|登录按钮仅供展示/)).not.toBeInTheDocument();
   });
   it('honors live reduced-motion changes and stops wind when the page is hidden', () => {

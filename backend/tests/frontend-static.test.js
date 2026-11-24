@@ -30,6 +30,7 @@ beforeEach(() => {
   root = mkdtempSync(path.join(tmpdir(), 'frontend-static-'));
   const files = {
     'index.html': html,
+    'login-variant.json': JSON.stringify({ schema_version: 1, variant: 'split' }),
     [backgroundPath.slice(1)]: approvedBackground,
     [avifPath.slice(1)]: Buffer.from('approved AVIF bytes'),
     [webpPath.slice(1)]: Buffer.from('approved WebP bytes'),
@@ -149,6 +150,30 @@ it('does not preload a login illustration for workspace pages or API responses',
     const response = await request(app).get(url).expect(200);
     expect(response.headers.link).toBeUndefined();
   }
+});
+
+it.each(['campus', 'split'])('uses the %s build manifest for the actual login preload', async variant => {
+  writeFileSync(path.join(root, 'login-variant.json'), JSON.stringify({ schema_version: 1, variant }));
+  const selected = express();
+  registerFrontendStatic(selected, root);
+  const response = await request(selected).get('/auth').expect(200);
+  expect(response.headers.link).toBe(variant === 'split'
+    ? '</login-thesis-v2.png>; rel=preload; as=image; type="image/png"; fetchpriority=high'
+    : `<${avifPath}>; rel=preload; as=image; type="image/avif"; fetchpriority=high`);
+});
+
+it('preserves campus preload for an existing build without a variant manifest', async () => {
+  rmSync(path.join(root, 'login-variant.json'));
+  const legacy = express();
+  registerFrontendStatic(legacy, root);
+  const response = await request(legacy).get('/auth').expect(200);
+  expect(response.headers.link).toContain(avifPath);
+  expect(response.headers.link).not.toContain('login-thesis');
+});
+
+it.each(['invalid json', JSON.stringify({ schema_version: 1, variant: 'other' }), JSON.stringify({ schema_version: 2, variant: 'split' })])('refuses an invalid build manifest rather than mismatching page and preload', contents => {
+  writeFileSync(path.join(root, 'login-variant.json'), contents);
+  expect(() => registerFrontendStatic(express(), root)).toThrow(/login.*variant|JSON/i);
 });
 
 

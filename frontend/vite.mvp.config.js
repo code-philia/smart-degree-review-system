@@ -1,9 +1,11 @@
 import baseConfig from './vite.config.js';
 
-export default {
-  ...baseConfig,
+export default (environment) => {
+  const config = typeof baseConfig === 'function' ? baseConfig(environment) : baseConfig;
+  return {
+  ...config,
   test: {
-    ...baseConfig.test,
+    ...config.test,
     include: [
       'tests/numeric-review-details.test.tsx',
       'tests/auth-password.test.tsx',
@@ -21,4 +23,5 @@ export default {
       'tests/paper-lint-workspace-navigation.test.tsx',
     ],
   },
+  };
 };

@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const { readFileSync } = require('fs');
 const { compressedAssets } = require('./compressedAssets');
 
 function resourceNotFound(_req, res) {
@@ -7,11 +8,25 @@ function resourceNotFound(_req, res) {
 }
 
 function registerFrontendStatic(app, frontendDistPath) {
+  let variant = 'campus';
+  try {
+    const manifest = JSON.parse(readFileSync(path.join(frontendDistPath, 'login-variant.json'), 'utf8'));
+    if (manifest?.schema_version !== 1 || !['campus', 'split'].includes(manifest.variant)) {
+      throw new Error('Invalid login variant manifest');
+    }
+    variant = manifest.variant;
+  } catch (error) {
+    // Existing builds predate the selector and use the campus page.
+    if (error.code !== 'ENOENT') throw error;
+  }
+  const preload = variant === 'split'
+    ? '</login-thesis-v2.png>; rel=preload; as=image; type="image/png"; fetchpriority=high'
+    : '</login-campus-B-v5-no-hand-emblem-2aa6fbc8.avif>; rel=preload; as=image; type="image/avif"; fetchpriority=high';
   const staticOptions = { index: false, redirect: false };
   const assetsPath = path.join(frontendDistPath, 'assets');
   app.get(/^\/auth\/?$/i, (_req, res, next) => {
-    // The formal login uses the split-layout illustration, not the campus scene.
-    res.append('Link', '</login-thesis-v2.png>; rel=preload; as=image; type="image/png"; fetchpriority=high');
+    // The selected build and early image preload share the same manifest.
+    res.append('Link', preload);
     next();
   });
   app.use('/assets', compressedAssets(assetsPath), express.static(assetsPath, staticOptions), resourceNotFound);

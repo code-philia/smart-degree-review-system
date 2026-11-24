@@ -6,6 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:login:campus": "node scripts/loginVariant.mjs campus build",
+    "build:login:split": "node scripts/loginVariant.mjs split build",
+    "dev:login:campus": "node scripts/loginVariant.mjs campus dev",
+    "dev:login:split": "node scripts/loginVariant.mjs split dev",
     "typecheck:shadcn": "tsc --noEmit -p tsconfig.shadcn.json",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

@@ -16,6 +16,7 @@ const apiPublicOrigin = 'http://121.36.247.138:3000';
 beforeEach(async () => {
   root = mkdtempSync(path.join(tmpdir(), 'login-split-preview-'));
   writeFileSync(path.join(root, 'index.html'), '<title>Formal login</title>');
+  writeFileSync(path.join(root, 'login-variant.json'), JSON.stringify({ schema_version: 1, variant: 'split' }));
   const upstream = express();
   upstream.use(express.raw({ type: () => true }));
   upstream.all('/api/probe', (req, res) => res.set('Set-Cookie', ['one=1; HttpOnly', 'two=2; SameSite=Lax']).status(201).json({

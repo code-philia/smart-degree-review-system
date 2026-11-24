@@ -1,10 +1,11 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { fileURLToPath, URL } from 'node:url';
 import { cpSync, existsSync, readFileSync, readdirSync, writeFileSync, realpathSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { resolve, join } from 'node:path';
+import { resolveLoginVariant, loginVariantManifest } from './build/loginVariant.js';
 
 const backendPort = Number(process.env.ARC_WEB_PORT || '3000');
 
@@ -62,13 +63,17 @@ function precompressAssets() {
 }
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const configuredLogin = JSON.parse(readFileSync(new URL('./config/login-variant.json', import.meta.url), 'utf8'));
+  const loginVariant = resolveLoginVariant(loadEnv(mode, process.cwd(), 'VITE_').VITE_LOGIN_VARIANT, configuredLogin.variant);
+  return {
+  define: { 'import.meta.env.VITE_LOGIN_VARIANT': JSON.stringify(loginVariant) },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
-  plugins: [react({ jsxImportSource: '@/i18n' }), tailwindcss(), copyPdfResources(), precompressAssets()],
+  plugins: [react({ jsxImportSource: '@/i18n' }), tailwindcss(), copyPdfResources(), precompressAssets(), loginVariantManifest(loginVariant)],
   test: {
     environment: 'jsdom',
     globals: true,
@@ -81,4 +86,5 @@ export default defineConfig({
       '/api': `http://127.0.0.1:${backendPort}`,
     },
   },
+  };
 });
