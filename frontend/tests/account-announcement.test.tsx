@@ -50,6 +50,12 @@ describe('real authenticated shell announcement',()=>{
     expect(dialog).not.toHaveTextContent('仅展示一次');expect(dialog).not.toHaveTextContent('直接交流');
     await user.click(screen.getByRole('button',{name:/下一步/}));
     expect(screen.getByRole('dialog',{name:/规则：引用文献是否不存在/})).toHaveTextContent('全站共享定量公共检索额度');
+    await user.click(screen.getByRole('button',{name:/上一步/}));
+    expect(screen.getByRole('dialog',{name:'欢迎反馈'})).toBeInTheDocument();
+    await waitFor(()=>expect(screen.getByRole('button',{name:/下一步/})).toHaveFocus());
+    await user.click(screen.getByRole('button',{name:/下一步/}));
+    expect(screen.getByRole('dialog',{name:/规则：引用文献是否不存在/})).toBeInTheDocument();
+    expect(mocks.post).toHaveBeenCalledTimes(1);
     await user.click(screen.getByRole('button',{name:/暂时跳过/}));
     await waitFor(()=>expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     await waitFor(()=>expect(screen.getByRole('button',{name:'使用反馈',exact:true})).toHaveFocus());

@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import { useEffect, useId, useRef, useState, type RefObject } from 'react';
 import { Dialog } from 'radix-ui';
-import { ArrowUpRight, X } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, X } from 'lucide-react';
 import './feedback-announcement.css';
 import './reference-settings.css';
 
@@ -12,6 +12,7 @@ const copy = {
     group: '吐槽微信群',
     continue: '下一步',
     tip: '反馈入口在这里', close: '关闭通告',
+    keyTip: '密钥入口在这里',
   },
   en: {
     label: 'NOTICE',
@@ -19,6 +20,7 @@ const copy = {
     group: 'WeChat feedback group',
     continue: 'Next',
     tip: 'Feedback is right here', close: 'Close announcement',
+    keyTip: 'API key settings are here',
   },
 };
 
@@ -34,6 +36,10 @@ export function FeedbackAnnouncement({ open, onAcknowledge, feedbackTarget, refe
   const openSettingsAfterClose = useRef(false);
   const feedbackButton = useRef<HTMLButtonElement | null>(null);
   const continueButton = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (open) continueButton.current?.focus();
+  }, [open, step]);
 
   useEffect(() => {
     if (!open) { setTarget(null); return; }
@@ -67,10 +73,10 @@ export function FeedbackAnnouncement({ open, onAcknowledge, feedbackTarget, refe
         </svg>
         {target ? <>
           <div className="feedback-notice-target" style={{left:target.left,top:target.top,width:target.width,height:target.height}} aria-hidden="true"/>
-          {step === 1 ? <aside className="feedback-notice-tip" style={{top:target.top + target.height + 21, right:tipRight}} aria-hidden="true">
+          <aside className="feedback-notice-tip" style={{top:target.top + target.height + 21, right:tipRight}} aria-hidden="true">
             <span className="feedback-notice-tip-pointer"/>
-            <span className="feedback-notice-tip-dot"/><div><strong lang="zh-CN">{zh.tip}</strong><span className="feedback-notice-tip-english" lang="en">{en.tip}</span></div>
-          </aside> : null}
+            <span className="feedback-notice-tip-dot"/><div><strong lang="zh-CN">{step===1?zh.tip:zh.keyTip}</strong><span className="feedback-notice-tip-english" lang="en">{step===1?en.tip:en.keyTip}</span></div>
+          </aside>
         </> : null}
       </Dialog.Overlay>
       <Dialog.Content className={`feedback-notice-card${step===2?' reference-guide-card':''}`} onPointerDownOutside={(e)=>e.preventDefault()}
@@ -79,9 +85,8 @@ export function FeedbackAnnouncement({ open, onAcknowledge, feedbackTarget, refe
           if(openSettingsAfterClose.current){openSettingsAfterClose.current=false;onOpenReferenceSettings();}
           else if(feedbackButton.current?.isConnected)feedbackButton.current.focus();
         });}}>
-        <Dialog.Close className="feedback-notice-close" aria-label={`${zh.close} / ${en.close}`}><X size={18}/></Dialog.Close>
         <div className="feedback-notice-intro">
-          <div className="feedback-notice-eyebrow"><span aria-hidden="true"/><span lang="zh-CN">{zh.label}</span><span className="feedback-notice-label-separator" aria-hidden="true">/</span><span lang="en">{en.label}</span><span className="reference-guide-progress" aria-label={`${step} / 2`}>{step} / 2</span></div>
+          <div className="feedback-notice-eyebrow">{step===2?<button type="button" className="feedback-notice-back" aria-label="上一步 / Back" title="上一步 / Back" onClick={()=>setStep(1)}><ArrowLeft size={17} aria-hidden="true"/></button>:<span aria-hidden="true"/>}<span lang="zh-CN">{zh.label}</span><span className="feedback-notice-label-separator" aria-hidden="true">/</span><span lang="en">{en.label}</span><span className="reference-guide-progress" aria-label={`${step} / 2`}>{step} / 2</span><Dialog.Close className="feedback-notice-close" aria-label={`${zh.close} / ${en.close}`}><X size={18}/></Dialog.Close></div>
           <Dialog.Title className="feedback-notice-title">{step===1?<span lang="zh-CN">{zh.title}</span>:<><span lang="zh-CN">规则：引用文献是否不存在</span><span className="reference-guide-title-english" lang="en">Rule: Nonexistent cited references</span></>}</Dialog.Title>
           {step===1?<>
           <Dialog.Description className="feedback-notice-description"><span lang="zh-CN">{zh.description}</span><span className="feedback-notice-description-english" lang="en">{en.description}</span></Dialog.Description>
@@ -100,7 +105,7 @@ export function FeedbackAnnouncement({ open, onAcknowledge, feedbackTarget, refe
           </>}
         </div>
         <footer className={`feedback-notice-footer${step===2?' reference-guide-footer':''}`}>
-          {step===2?<button type="button" className="reference-guide-skip" onClick={onAcknowledge}><span lang="zh-CN">暂时跳过</span><span aria-hidden="true"> / </span><span lang="en">Skip for now</span></button>:null}
+          {step===2?<button type="button" className="reference-guide-skip" onClick={onAcknowledge}><span lang="zh-CN">暂时跳过</span><span lang="en">Skip for now</span></button>:null}
           <button ref={continueButton} type="button" className="feedback-notice-continue" onClick={()=>{
             if(step===1)setStep(2);
             else{openSettingsAfterClose.current=true;onAcknowledge();}

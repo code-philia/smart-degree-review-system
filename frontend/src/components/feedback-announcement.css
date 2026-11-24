@@ -7,7 +7,7 @@
 .feedback-notice-tip-dot { flex-shrink:0; margin-top:6px; width:6px; height:6px; border-radius:50%; background:#3769e9; box-shadow:0 0 0 4px #3769e914; }
 .feedback-notice-tip strong { font-size:14px; font-weight:600; }
 .feedback-notice-tip-english { display:block; margin-top:4px; font-size:12px; line-height:1.5; color:#64748b; }
-.feedback-notice-card { position:fixed; z-index:80; left:50%; top:52%; transform:translate(-50%,-50%); width:484px; max-width:calc(100vw - 36px); max-height:calc(100dvh - 48px); overflow-y:auto; border:1px solid #fff; border-radius:22px; background:#fff; color:#192b46; box-shadow:0 28px 90px #06142a30; outline:none; }
+.feedback-notice-card { position:fixed; z-index:80; left:50%; top:52%; transform:translate(-50%,-50%); width:520px; max-width:calc(100vw - 36px); max-height:calc(100dvh - 48px); overflow-y:auto; border:1px solid #fff; border-radius:22px; background:#fff; color:#192b46; box-shadow:0 28px 90px #06142a30; outline:none; }
 .feedback-notice-intro { padding:31px 36px 28px; }
 .feedback-notice-eyebrow { display:flex; align-items:center; gap:8px; font-size:11px; line-height:16px; font-weight:500; color:#718198; }
 .feedback-notice-eyebrow>span:first-child { height:1px; width:17px; background:#9aabc5; }
@@ -29,8 +29,11 @@
 .feedback-notice-continue:hover { background:#244fcb; box-shadow:0 4px 9px #315ddf24; }
 .feedback-notice-continue:focus-visible,.feedback-notice-group:focus-visible,.feedback-notice-close:focus-visible { outline:2px solid #829fee; outline-offset:3px; }
 .feedback-notice-continue:focus-visible { outline:1px solid #8ea8e6; outline-offset:2px; }
-.feedback-notice-close { position:absolute; z-index:1; right:14px; top:14px; display:grid; place-items:center; width:28px; height:28px; border:0; border-radius:8px; background:transparent; color:#8b97ac; cursor:pointer; }
+.feedback-notice-close { display:grid; place-items:center; flex:none; width:28px; height:28px; border:0; border-radius:8px; background:transparent; color:#8b97ac; cursor:pointer; }
 .feedback-notice-close:hover { background:#f0f4fc; color:#315ddf; }
+.feedback-notice-back { display:grid; place-items:center; flex:none; width:28px; height:28px; border:0; border-radius:8px; background:transparent; color:#718198; cursor:pointer; }
+.feedback-notice-back:hover { background:#f0f4fc; color:#315ddf; }
+.feedback-notice-back:focus-visible { outline:2px solid #829fee; outline-offset:3px; }
 @media(prefers-reduced-motion:no-preference) {
  .feedback-notice-card { animation:notice-appear .4s cubic-bezier(.2,.8,.2,1) both; }
  .feedback-notice-tip { animation:notice-tip-in .4s .2s both; }
