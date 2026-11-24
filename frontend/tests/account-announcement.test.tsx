@@ -49,12 +49,8 @@ describe('real authenticated shell announcement',()=>{
     expect(dialog).not.toHaveTextContent('Share feedback');expect(dialog).not.toHaveTextContent('Get started');
     expect(dialog).not.toHaveTextContent('仅展示一次');expect(dialog).not.toHaveTextContent('直接交流');
     await user.click(screen.getByRole('button',{name:/下一步/}));
-    expect(screen.getByRole('dialog',{name:/规则：引用文献是否不存在/})).toHaveTextContent('全站共享定量公共检索额度');
-    await user.click(screen.getByRole('button',{name:/上一步/}));
-    expect(screen.getByRole('dialog',{name:'欢迎反馈'})).toBeInTheDocument();
-    await waitFor(()=>expect(screen.getByRole('button',{name:/下一步/})).toHaveFocus());
-    await user.click(screen.getByRole('button',{name:/下一步/}));
-    expect(screen.getByRole('dialog',{name:/规则：引用文献是否不存在/})).toBeInTheDocument();
+    expect(screen.getByRole('dialog',{name:/规则：引用文献是否不存在/})).toHaveTextContent('使用此规则前，请先保存自己的密钥');
+    expect(screen.queryByRole('button',{name:/上一步/})).not.toBeInTheDocument();
     expect(mocks.post).toHaveBeenCalledTimes(1);
     await user.click(screen.getByRole('button',{name:/暂时跳过/}));
     await waitFor(()=>expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
@@ -91,7 +87,7 @@ describe('real authenticated shell announcement',()=>{
     const user=userEvent.setup();render(<Shell/>);
     await screen.findByRole('dialog',{name:'欢迎反馈'});
     await user.keyboard('{Enter}');
-    expect(screen.getByRole('dialog',{name:/Rule: Nonexistent cited references/})).toHaveTextContent('use your own search quota');
+    expect(screen.getByRole('dialog',{name:/Rule: Nonexistent cited references/})).toHaveTextContent('Either OpenAlex or SerpAPI is sufficient.');
     await user.click(screen.getByRole('button',{name:/Open API settings/}));
     expect(await screen.findByRole('dialog',{name:'Reference API'})).toBeInTheDocument();
     expect(screen.getByLabelText('OpenAlex API key')).toHaveValue('');

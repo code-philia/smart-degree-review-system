@@ -149,6 +149,7 @@ function ReferenceSettingsForAccount({
       if (!controller.signal.aborted) {
         setStatus(next);
         setMessage(remove ? 'removed' : 'saved');
+        window.dispatchEvent(new Event('smart-degree:reference-settings-changed'));
       }
     } catch (failure) {
       // Never render server/axios error text: it may include request credentials.

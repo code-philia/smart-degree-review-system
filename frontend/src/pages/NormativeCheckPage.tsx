@@ -26,6 +26,7 @@ import { ThesisUploadPanel } from '../components/paperLint/ThesisUploadPanel';
 import { LivePaperLintReport } from '../components/paperLint/LivePaperLintReport';
 import { compilerPublicationLabel, compilerPublicationSummary, flattenPaperLintFindings, paperLintFeedbackItems, paperLintPresentation } from '../components/paperLint/model';
 import { usePaperLintCredit } from '../hooks/usePaperLintCredit';
+import { REFERENCE_RULE_ID, useReferenceKeyAccess } from '../hooks/useReferenceKeyAccess';
 import { CreditBalance, CreditEstimate, CreditInsufficientNotice, creditAllowsRules, isCreditInsufficient } from '../components/paperLint/PaperLintCredit';
 import { usePaperLintRepairSuggestions } from '../hooks/usePaperLintRepairSuggestions';
 import {
@@ -137,6 +138,10 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   const navigate = useNavigate();
   const [catalog, setCatalog] = useState<PaperLintCatalogResponse | null>(null);
   const [selectedRuleIds, setSelectedRuleIds] = useState<string[]>([]);
+  const referenceAccess = useReferenceKeyAccess(user?.id, selectedRuleIds.includes(REFERENCE_RULE_ID));
+  const preflightRef = useRef(false);
+  const currentOwner = useRef(user?.id);
+  currentOwner.current = user?.id;
   const [file, setFile] = useState<File | null>(null);
   const [resultFile, setResultFile] = useState<ResultFile | null>(null);
   const [rawResponse, setResponse] = useState<PaperLintRunResponse | null>(null);
@@ -183,7 +188,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
         const defaultRules = mode === 'semantic'
           ? rulesForMode(nextCatalog.rules, mode)
           : rulesForMode(nextCatalog.rules, mode).filter((rule) => isThirty ? rule.available : rule.default_enabled);
-        setSelectedRuleIds(defaultRules.map((rule) => rule.rule_id));
+        setSelectedRuleIds(defaultRules.filter(rule => rule.rule_id !== REFERENCE_RULE_ID).map((rule) => rule.rule_id));
       }
     } catch (error) {
       setCatalog(null);
@@ -541,7 +546,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   }
 
   async function runReview() {
-    if (running || stopping) return;
+    if (running || stopping || preflightRef.current) return;
     if (!file) {
       setRunError('请先选择 PDF 文件');
       return;
@@ -553,6 +558,13 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     if (!isThirty && selectedExternalRule && !externalConsent) {
       setRunError('运行 DeepSeek 语义规则前，请先确认论文相关文本允许发送至外部 API');
       return;
+    }
+    if (selectedRuleIds.includes(REFERENCE_RULE_ID)) {
+      const owner = user?.id;
+      preflightRef.current = true;
+      try {
+        if (!await referenceAccess.refresh() || currentOwner.current !== owner) return;
+      } finally { preflightRef.current = false; }
     }
     const generation = ++runGenerationRef.current;
     setRunning(true);
@@ -660,6 +672,8 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   if (isThirty) return <div className="space-y-6">{completedStopNotice}<ThesisUploadPanel
     quotaRetryAllowed={Boolean(recoverableRequestId && recoverableRequestId === requestIdRef.current)}
     credit={accountCredit.credit} creditUnavailable={accountCredit.error} onRefreshCredit={() => void accountCredit.refresh()}
+    referenceAccess={referenceAccess} onRefreshReferenceAccess={() => void referenceAccess.refresh()}
+    onConfigureReferenceKey={() => window.dispatchEvent(new Event('smart-degree:open-reference-settings'))}
     eta={eta}
     rules={visibleRules}
     selectedRuleIds={selectedRuleIds}

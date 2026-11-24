@@ -8,8 +8,13 @@ import { Button } from '../ui';
 import type { PaperLintCredit } from '../../api/paperLint';
 import {DetectionWaitNotice} from './DetectionWaitNotice';
 import type {PaperLintEta} from '../../api/paperLint';
+import { REFERENCE_RULE_ID, type ReferenceKeyAccess } from '../../hooks/useReferenceKeyAccess';
+import { ReferenceKeyNotice } from './ReferenceKeyNotice';
 
 type Props = {
+  referenceAccess?: ReferenceKeyAccess;
+  onConfigureReferenceKey?: () => void;
+  onRefreshReferenceAccess?: () => void;
   credit?: PaperLintCredit | null;
   quotaRetryAllowed?: boolean;
   creditUnavailable?: boolean;
@@ -188,7 +193,9 @@ export function ThesisUploadPanel(props: Props) {
   }, [running]);
   const ruleRegion = useId();
   const creditNoticeId = useId();
+  const referenceNoticeId = useId();
   const busy = running || stopping;
+  const referenceBlocked = !busy && selectedRuleIds.includes(REFERENCE_RULE_ID) && !props.referenceAccess?.ready;
   const creditBlocked = !busy && !props.quotaRetryAllowed && isCreditInsufficient(props.credit, selectedRuleIds, props.creditUnavailable);
   const available = rules.filter((rule) => rule.available);
   const selected = new Set(selectedRuleIds);
@@ -437,6 +444,9 @@ export function ThesisUploadPanel(props: Props) {
         </section>
 
         <div data-i18n-upload-footer="" className="border-t border-slate-100 bg-[#fbfcfe] px-[18px] py-4 sm:px-6">
+          {referenceBlocked ? <ReferenceKeyNotice id={referenceNoticeId} access={props.referenceAccess}
+            onConfigure={() => props.onConfigureReferenceKey?.()} onRetry={props.onRefreshReferenceAccess}
+            onDeselect={() => onSelectionChange(selectedRuleIds.filter(id => id !== REFERENCE_RULE_ID))} /> : null}
           {creditBlocked ? <CreditInsufficientNotice id={creditNoticeId}/> : null}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="flex items-center gap-1.5 text-xs text-slate-500">
@@ -458,13 +468,14 @@ export function ThesisUploadPanel(props: Props) {
               ) : null}
               <Button
                 className="min-w-32 rounded-xl px-6"
-                aria-describedby={creditBlocked ? creditNoticeId : undefined}
+                aria-describedby={[creditBlocked && creditNoticeId, referenceBlocked && referenceNoticeId].filter(Boolean).join(' ') || undefined}
                 disabled={
                   !file ||
                   !catalogReady ||
                   catalogLoading ||
                   noSelection ||
                   unavailableSelection ||
+                  referenceBlocked ||
                   (!creditAllowsRules(props.credit, selectedRuleIds, props.creditUnavailable) && !props.quotaRetryAllowed) ||
                   busy
                 }

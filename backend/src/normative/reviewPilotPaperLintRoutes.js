@@ -10,6 +10,7 @@ const defaultCompilerService = require('./paperCompilerService');
 const { getDailyQuota } = require('./paperLintQuota');
 const { getAccountCredit } = require('./paperLintCredit');
 const { getEnabledMvpRuleIds } = require('../../rules/registry');
+const { requireReferenceRuleAccess } = require('../auth/referencePersonalAccess');
 
 const allowedRoles = ['STUDENT', 'SUPERVISOR', 'SCHOOL_ADMIN', 'COLLEGE_ADMIN'];
 const managementRoles = ['SCHOOL_ADMIN', 'COLLEGE_ADMIN'];
@@ -27,7 +28,9 @@ function sendError(error, res, next) {
     if (error.quota && error.quota.used < error.quota.limit) {
       res.set('Retry-After', '30');
     }
-    res.status(error.status).json({ code: error.status, message: error.message, ...(error.quota ? { error_code: error.code, quota: error.quota } : {}), ...(error.credit ? {error_code:error.code,credit:error.credit}: {}) });
+    res.status(error.status).json({ code: error.status, message: error.message,
+      ...(error.code === 'reference_key_required' ? { error_code: 'reference_key_required' } : {}),
+      ...(error.quota ? { error_code: error.code, quota: error.quota } : {}), ...(error.credit ? {error_code:error.code,credit:error.credit}: {}) });
   } else {
     next(error);
   }
@@ -231,6 +234,7 @@ function createReviewPilotPaperLintRouter(service = defaultService, exampleServi
         }
         const externalProcessingConsent = req.get('x-paper-lint-external-processing-consent') === 'confirmed';
         service.validatePdf(req.body);
+        await requireReferenceRuleAccess(req.user.id, selectedRuleIds);
         const normalizedRuleIds = await service.normalizeSelectedRuleIds(selectedRuleIds, externalProcessingConsent);
         const job = await jobService.enqueue({
           userId: req.user.id,

@@ -222,6 +222,11 @@ function AppShell() {
   const currentUserId = useRef(user?.id);
   currentUserId.current = user?.id;
   useEffect(() => { setSettingsOpen(false); setReferenceSettingsOpen(false); replayAfterSettingsClose.current=false; }, [user?.id]);
+  useEffect(() => {
+    const open = () => { if (user?.id) setReferenceSettingsOpen(true); };
+    window.addEventListener('smart-degree:open-reference-settings', open);
+    return () => window.removeEventListener('smart-degree:open-reference-settings', open);
+  }, [user?.id]);
   const location = useLocation();
   const navigate = useNavigate();
   const role = user?.role ?? null;

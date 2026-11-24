@@ -5,6 +5,7 @@
 // Independent implementation; no upstream code or model calls. Optional personal
 // Scholar search is supplementary and never establishes nonexistence.
 const { createHash } = require('node:crypto');
+const { personalReferenceCredentials } = require('../auth/referencePersonalAccess');
 
 const REQUEST_TIMEOUT_MS = 4500;
 const TOTAL_TIMEOUT_MS = 18000;
@@ -453,27 +454,34 @@ async function verifyReference(input, options = {}) {
   const fetchImpl = options.fetchImpl || globalThis.fetch;
   if (typeof fetchImpl !== 'function') throw new TypeError('A fetch implementation is required');
   const entry = normalizeEntry(input);
-  const openalexKeys = [...new Set([options.personalKey, ...(Array.isArray(options.platformKeys) ? options.platformKeys : [])]
-    .filter(k => typeof k === 'string' && k.trim() && k.length <= 1024).map(k => k.trim()))].slice(0, 4);
-  const serpapiKey = typeof options.serpapiKey === 'string' && options.serpapiKey.trim() && options.serpapiKey.length <= 1024 ? options.serpapiKey.trim() : null;
+  // This private flag is supplied only by persisted local-account policy in
+  // referencePersonalAccess. HTTP inputs never become provider options.
+  const credentials = personalReferenceCredentials(options, options.allowSharedQuota === true);
+  const { personalKey, serpapiKey, allowSharedQuota } = credentials;
+  const openalexKeys = [...new Set([personalKey, ...(credentials.platformKeys || [])].filter(Boolean))].slice(0, 4);
+  const openalexEnabled = Boolean(personalKey || allowSharedQuota);
   const secrets = [...new Set([...openalexKeys, ...(serpapiKey ? [serpapiKey] : [])])];
-  const keys = openalexKeys.length ? openalexKeys : [null];
+  const keys = openalexKeys.length ? openalexKeys : allowSharedQuota ? [null] : [];
   const context = { fetchImpl, signal: options.signal, secrets, keys, deadline: Date.now() + TOTAL_TIMEOUT_MS };
-  // Hash account credentials in the private key; bodies and published links never contain them.
-  const cacheKey = createHash('sha256').update(JSON.stringify([entry, secrets])).digest('hex');
+  // Preserve provider roles and ordered platform fallback in the private hash:
+  // identical token bytes across providers do not imply the same access scope.
+  const credentialIdentity = { personal_openalex: personalKey, platform_openalex: credentials.platformKeys || [],
+    personal_serpapi: serpapiKey, shared_quota: Boolean(allowSharedQuota) };
+  const cacheKey = createHash('sha256').update(JSON.stringify([entry, credentialIdentity])).digest('hex');
   let cache = caches.get(fetchImpl);
   if (!cache) { cache = new Map(); caches.set(fetchImpl, cache); }
   const cached = cache.get(cacheKey);
   if (cached && cached.expires > Date.now()) return structuredClone(cached.value);
   cache.delete(cacheKey);
   const results = await Promise.all([
-    catalog('openalex', entry, context), catalog('crossref', entry, context),
+    openalexEnabled ? catalog('openalex', entry, context) : [], catalog('crossref', entry, context),
     entry.arxiv_id ? lookup('arxiv', 'arxiv', entry.arxiv_id, context).then(r => [r]) : [],
+    !openalexEnabled && serpapiKey && entry.title.length >= 12 ? scholar(entry, context, serpapiKey).then(r => [r]) : [],
   ]);
   checkAbort(options.signal);
   const lookups = results.flat();
   let value = decide(entry, lookups);
-  if (serpapiKey && ['unverified', 'suspected'].includes(value.category) && entry.title.length >= 12) {
+  if (openalexEnabled && serpapiKey && ['unverified', 'suspected'].includes(value.category) && entry.title.length >= 12) {
     lookups.push(await scholar(entry, context, serpapiKey));
     checkAbort(options.signal);
     value = decide(entry, lookups);

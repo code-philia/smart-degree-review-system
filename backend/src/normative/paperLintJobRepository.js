@@ -8,6 +8,7 @@ const { quotaAdmission, quotaExceeded } = require('./paperLintQuota');
 const { validatePdf } = require('./reviewPilotPaperLintService');
 const { visiblePaperLintResult } = require('../../../shared/paper-lint-presentation.mjs');
 const { isRetiredPaperLintRule } = require('../../../shared/paper-lint-rule-policy.mjs');
+const { requireReferenceRuleAccess } = require('../auth/referencePersonalAccess');
 
 async function requireTrustedBatchOwner(userId) {
   const owner = await get('SELECT role FROM auth_users WHERE id = ?', [userId]);
@@ -37,6 +38,7 @@ async function createJob({ userId, sourceFilename, pdfBuffer, selectedRuleIds, e
   // Only this server-side argument can create durable operator options.
   const envelope = reuse ? { ...reuse } : {};
   delete envelope.operator_options;
+  await requireReferenceRuleAccess(userId, selectedRuleIds.filter(ruleId => !envelope.result?.rule_runs?.some(run => run.rule_id === ruleId)));
   if (trustedBatchMaxPdfBytes !== undefined) {
     await requireTrustedBatchOwner(userId);
     validatePdf(pdfBuffer, trustedBatchMaxPdfBytes);

@@ -133,7 +133,8 @@ describe('private legacy OpenAlex platform credentials', () => {
     await harness.setup();
     try {
       const status = await getReferenceSettings('jaccount:unconfigured');
-      expect(Object.keys(status).sort()).toEqual(['configured', 'key_hint', 'serpapi_configured', 'serpapi_key_hint', 'storage_available']);
+      expect(Object.keys(status).sort()).toEqual(['can_verify_references', 'configured', 'key_hint', 'serpapi_configured', 'serpapi_key_hint', 'storage_available']);
+      expect(status.can_verify_references).toBe(false);
       expect(status.configured).toBe(false);
       expect(status.key_hint).toBeNull();
       expect(JSON.stringify(status)).not.toContain('private-file');

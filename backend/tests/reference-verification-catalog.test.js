@@ -7,7 +7,7 @@ it('exposes the new database check independently and keeps old reference checks 
   const ids=registry.getEnabledMvpRuleIds();
   expect(ids).toContain('reference_verification_check');expect(ids).not.toContain('sjtu_rule_32');
   const catalog=await service.getPaperLintCatalog({refresh:true});
-  expect(catalog.rules.find(r=>r.rule_id==='reference_verification_check')).toMatchObject({uses_external_model:false,repair_supported:false,execution_mode:'deterministic'});
+  expect(catalog.rules.find(r=>r.rule_id==='reference_verification_check')).toMatchObject({uses_external_model:false,repair_supported:false,execution_mode:'deterministic',default_enabled:false,default_selected:false});
   expect(service.validateSelectedRuleIds(catalog,['reference_verification_check'])).toEqual(['reference_verification_check']);
   expect(()=>service.validateSelectedRuleIds(catalog,['sjtu_rule_32'])).toThrow(/已下线/);
 });

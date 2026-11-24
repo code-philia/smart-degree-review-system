@@ -31,9 +31,6 @@
 .feedback-notice-continue:focus-visible { outline:1px solid #8ea8e6; outline-offset:2px; }
 .feedback-notice-close { display:grid; place-items:center; flex:none; width:28px; height:28px; border:0; border-radius:8px; background:transparent; color:#8b97ac; cursor:pointer; }
 .feedback-notice-close:hover { background:#f0f4fc; color:#315ddf; }
-.feedback-notice-back { display:grid; place-items:center; flex:none; width:28px; height:28px; border:0; border-radius:8px; background:transparent; color:#718198; cursor:pointer; }
-.feedback-notice-back:hover { background:#f0f4fc; color:#315ddf; }
-.feedback-notice-back:focus-visible { outline:2px solid #829fee; outline-offset:3px; }
 @media(prefers-reduced-motion:no-preference) {
  .feedback-notice-card { animation:notice-appear .4s cubic-bezier(.2,.8,.2,1) both; }
  .feedback-notice-tip { animation:notice-tip-in .4s .2s both; }

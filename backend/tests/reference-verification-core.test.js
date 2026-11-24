@@ -33,7 +33,7 @@ function fixture({ openalex = [], crossref = [], arxiv, handler } = {}) {
     if (url.hostname === 'export.arxiv.org') return arxiv ? arxiv() : new Response('<feed xmlns="http://www.w3.org/2005/Atom"></feed>');
     throw new Error('Unexpected outbound destination');
   };
-  return { fetchImpl, requests };
+  return { fetchImpl, requests, personalKey: 'fixture-personal-openalex' };
 }
 afterEach(() => vi.useRealTimers());
 
@@ -245,18 +245,18 @@ describe('database reference verification', () => {
     expect(value.coverage.complete).toBe(false);
   });
 
-  it('falls back through credentials on budget and authorization failures without exposing secrets', async () => {
+  it('never falls back to platform credentials after a personal budget failure', async () => {
     const f = fixture({ openalex: [oa()], handler: url => {
       if (url.hostname !== 'api.openalex.org') return undefined;
       if (url.searchParams.get('api_key') === 'private-secret-key') return json({ error: 'daily_budget_exceeded private-secret-key' }, 429, { 'retry-after': '3600' });
       if (url.searchParams.get('api_key') === 'platform-key-one') return json({}, 401);
     } });
     const value = await verifyReference(entry(), { ...f, personalKey: 'private-secret-key', platformKeys: ['platform-key-one', 'platform-key-two'] });
-    expect(value.category).toBe('incomplete');
+    expect(value.category).toBe('unverified');
     expect(f.requests.filter(r => r.url.hostname === 'api.openalex.org').map(r => r.url.searchParams.get('api_key')))
-      .toEqual(['private-secret-key', 'platform-key-one', 'platform-key-two']);
+      .toEqual(['private-secret-key']);
     expect(JSON.stringify(value)).not.toMatch(/private-secret-key|platform-key|api_key/);
-    expect(value.coverage.complete).toBe(true);
+    expect(value.coverage.complete).toBe(false);
   });
 
   it('does not let one account failure poison another account cache or return mutable cached objects', async () => {
@@ -271,6 +271,25 @@ describe('database reference verification', () => {
     const count = f.requests.length;
     const c = await verifyReference(entry(), { ...f, personalKey: 'working-account' });
     expect(c.matched.title).toBe(title); expect(f.requests).toHaveLength(count);
+  });
+
+  it('isolates a local shared-quota cache from an ordinary SerpAPI-only account using the same token', async () => {
+    const f = fixture({ openalex: [oa()], handler: url => url.hostname === 'serpapi.com' ? json({ organic_results: [{ title,
+      link: 'https://doi.org/10.1234/reliable', publication_info: { summary: 'John Smith - Journal, 2023', authors: [{ name: 'John Smith' }] } }] }) : undefined });
+    await verifyReference(entry(), { fetchImpl: f.fetchImpl, serpapiKey: 'same-owned-serp-key', allowSharedQuota: true });
+    const ordinary = await verifyReference(entry(), { fetchImpl: f.fetchImpl, serpapiKey: 'same-owned-serp-key' });
+    expect(ordinary.sources.some(source => source.provider === 'openalex')).toBe(false);
+    expect(f.requests.filter(row => row.url.hostname === 'serpapi.com')).toHaveLength(1);
+  });
+
+  it('isolates OpenAlex and SerpAPI credentials with identical token bytes in the cache identity', async () => {
+    const f = fixture({ openalex: [oa()], handler: url => url.hostname === 'serpapi.com' ? json({ organic_results: [{ title,
+      link: 'https://doi.org/10.1234/reliable', publication_info: { summary: 'John Smith - Journal, 2023', authors: [{ name: 'John Smith' }] } }] }) : undefined });
+    await verifyReference(entry(), { fetchImpl: f.fetchImpl, personalKey: 'identical-provider-token' });
+    const serpapiOnly = await verifyReference(entry(), { fetchImpl: f.fetchImpl, serpapiKey: 'identical-provider-token' });
+    expect(serpapiOnly.sources.some(source => source.provider === 'openalex')).toBe(false);
+    expect(serpapiOnly.sources.some(source => source.provider === 'serpapi' && source.status === 'success')).toBe(true);
+    expect(f.requests.filter(row => row.url.hostname === 'serpapi.com')).toHaveLength(1);
   });
 
   it('bounds a long Retry-After instead of retrying before the server allows it', async () => {

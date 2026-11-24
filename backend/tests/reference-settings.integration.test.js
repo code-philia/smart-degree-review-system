@@ -96,13 +96,13 @@ describe('private account reference settings', () => {
 
   it('returns only private noncached status when no personal key exists', async () => {
     const response = await read().expect(200);
-    expect(response.body).toEqual({ configured: false, key_hint: null, storage_available: true, serpapi_configured: false, serpapi_key_hint: null });
+    expect(response.body).toEqual({ configured: false, key_hint: null, storage_available: true, serpapi_configured: false, serpapi_key_hint: null, can_verify_references: false });
     expect(response.headers['cache-control']).toContain('no-store');
   });
 
   it('encrypts a saved key at rest and only returns its masked suffix', async () => {
     const saved = await write('put', { api_key: firstKey }).expect(200);
-    expect(saved.body).toEqual({ configured: true, key_hint: '••••1234', storage_available: true, serpapi_configured: false, serpapi_key_hint: null });
+    expect(saved.body).toEqual({ configured: true, key_hint: '••••1234', storage_available: true, serpapi_configured: false, serpapi_key_hint: null, can_verify_references: true });
     const row = await get('SELECT * FROM user_reference_settings WHERE user_id=?', ['jaccount:alice']);
     expect(row).not.toBeNull();
     expect(JSON.stringify(row)).not.toContain(firstKey);
@@ -145,7 +145,7 @@ describe('private account reference settings', () => {
     expect(await get('SELECT encrypted_api_key FROM user_reference_settings WHERE user_id=?', ['jaccount:alice'])).not.toEqual(previous);
     await write('put', { api_key: secondKey }).expect(200);
     await write('put', { api_key: firstKey, expected_user_id: 'jaccount:bob' }, bobCookie).expect(200);
-    expect((await write('delete').expect(200)).body).toEqual({ configured: false, key_hint: null, storage_available: true, serpapi_configured: false, serpapi_key_hint: null });
+    expect((await write('delete').expect(200)).body).toEqual({ configured: false, key_hint: null, storage_available: true, serpapi_configured: false, serpapi_key_hint: null, can_verify_references: false });
     await write('delete').expect(200);
     expect((await read(bobCookie).expect(200)).body.key_hint).toBe('••••1234');
     expect(await all('SELECT user_id FROM user_reference_settings')).toEqual([{ user_id: 'jaccount:bob' }]);
@@ -213,7 +213,7 @@ describe('private account reference settings', () => {
       expect(status.key_hint).toBeNull();
       expect(await get('SELECT * FROM user_reference_settings')).toEqual(row);
     }
-    expect((await write('delete').expect(200)).body).toEqual({ configured: false, key_hint: null, storage_available: false, serpapi_configured: false, serpapi_key_hint: null });
+    expect((await write('delete').expect(200)).body).toEqual({ configured: false, key_hint: null, storage_available: false, serpapi_configured: false, serpapi_key_hint: null, can_verify_references: false });
   });
 
   it('provides decrypted credentials only to private runtime callers for their own account', async () => {
@@ -246,7 +246,7 @@ describe('private account reference settings', () => {
     await run('INSERT INTO user_reference_settings(user_id,encrypted_api_key) VALUES(?,?)', ['jaccount:bob', row.encrypted_api_key]);
     expect(await getReferenceCredentials('jaccount:bob')).toEqual({ personalKey: null, serpapiKey: null, serpapi_credential_status: 'not_configured',
       platformKeys: ['platform-fallback'], credential_status: 'unavailable' });
-    expect((await read(bobCookie).expect(200)).body).toEqual({ configured: true, key_hint: null, storage_available: false, serpapi_configured: false, serpapi_key_hint: null });
+    expect((await read(bobCookie).expect(200)).body).toEqual({ configured: true, key_hint: null, storage_available: false, serpapi_configured: false, serpapi_key_hint: null, can_verify_references: false });
     expect((await getReferenceCredentials('jaccount:alice')).personalKey).toBe(firstKey);
   });
 
@@ -258,7 +258,7 @@ describe('private account reference settings', () => {
       else process.env.REFERENCE_SETTINGS_ENCRYPTION_KEY = key;
       expect(await getReferenceCredentials('jaccount:alice')).toEqual({ personalKey: null, serpapiKey: null, serpapi_credential_status: 'not_configured',
         platformKeys: ['platform-fallback'], credential_status: 'unavailable' });
-      expect((await read().expect(200)).body).toEqual({ configured: true, key_hint: null, storage_available: false, serpapi_configured: false, serpapi_key_hint: null });
+      expect((await read().expect(200)).body).toEqual({ configured: true, key_hint: null, storage_available: false, serpapi_configured: false, serpapi_key_hint: null, can_verify_references: false });
     }
     await write('put', { api_key: secondKey }).expect(200);
     expect((await getReferenceCredentials('jaccount:alice')).personalKey).toBe(secondKey);
@@ -273,7 +273,7 @@ describe('private account reference settings', () => {
       expect(credentials.personalKey).toBeNull();
       expect(credentials.credential_status).toBe('unavailable');
       const response = await read().expect(200);
-      expect(response.body).toEqual({ configured: true, key_hint: null, storage_available: false, serpapi_configured: false, serpapi_key_hint: null });
+      expect(response.body).toEqual({ configured: true, key_hint: null, storage_available: false, serpapi_configured: false, serpapi_key_hint: null, can_verify_references: false });
       expect(response.text).not.toContain(firstKey);
     }
   });
@@ -332,7 +332,7 @@ describe('private account reference settings', () => {
   it('saves either provider independently and preserves the other when replacing one key', async () => {
     const serpapiKey = 'personal-serpapi-secret-7890';
     const first = await write('put', { serpapi_key: serpapiKey }).expect(200);
-    expect(first.body).toEqual({ configured: false, key_hint: null, serpapi_configured: true, serpapi_key_hint: '••••7890', storage_available: true });
+    expect(first.body).toEqual({ configured: false, key_hint: null, serpapi_configured: true, serpapi_key_hint: '••••7890', storage_available: true, can_verify_references: true });
     expect((await getReferenceCredentials('jaccount:alice')).serpapiKey).toBe(serpapiKey);
     await write('put', { api_key: firstKey }).expect(200);
     expect((await getReferenceCredentials('jaccount:alice')).serpapiKey).toBe(serpapiKey);
@@ -342,7 +342,7 @@ describe('private account reference settings', () => {
     expect(credentials.serpapiKey).toBe(secondKey);
     expect(credentials.serpapi_credential_status).toBe('available');
     const status = await read().expect(200);
-    expect(status.body).toEqual({ configured: true, key_hint: '••••1234', serpapi_configured: true, serpapi_key_hint: '••••5678', storage_available: true });
+    expect(status.body).toEqual({ configured: true, key_hint: '••••1234', serpapi_configured: true, serpapi_key_hint: '••••5678', storage_available: true, can_verify_references: true });
     for (const secret of [firstKey, secondKey, serpapiKey]) {
       expect(status.text).not.toContain(secret);
       expect(JSON.stringify(await all('SELECT * FROM user_reference_settings'))).not.toContain(secret);
@@ -449,6 +449,15 @@ describe('private account reference settings', () => {
     expect((await getReferenceCredentials('jaccount:alice')).serpapiKey).toBe(secondKey);
   });
 
+  it('publishes usable personal access when either provider decrypts even if the other stored key is corrupt', async () => {
+    await write('put', { api_key: firstKey, serpapi_key: secondKey }).expect(200);
+    await run("UPDATE user_reference_settings SET encrypted_api_key='corrupt-old-envelope' WHERE provider='openalex'");
+    const status = await read().expect(200);
+    expect(status.body).toMatchObject({ storage_available: false, configured: true, serpapi_configured: true, can_verify_references: true });
+    const removed = await write('delete', { provider: 'serpapi' }).expect(200);
+    expect(removed.body.can_verify_references).toBe(false);
+  });
+
   it('requires the account precondition for SerpAPI writes and never borrows another account key', async () => {
     await write('put', { serpapi_key: secondKey }).expect(200);
     expect((await read(bobCookie).expect(200)).body.serpapi_configured).toBe(false);
@@ -458,7 +467,7 @@ describe('private account reference settings', () => {
     expect((await getReferenceCredentials('jaccount:alice')).serpapiKey).toBe(secondKey);
     delete process.env.REFERENCE_SETTINGS_ENCRYPTION_KEY;
     expect((await getReferenceCredentials('jaccount:alice')).serpapiKey).toBeNull();
-    expect((await read().expect(200)).body).toEqual({ configured: false, key_hint: null, serpapi_configured: true, serpapi_key_hint: null, storage_available: false });
+    expect((await read().expect(200)).body).toEqual({ configured: false, key_hint: null, serpapi_configured: true, serpapi_key_hint: null, storage_available: false, can_verify_references: false });
     await write('delete', { provider: 'serpapi' }).expect(200);
   });
 

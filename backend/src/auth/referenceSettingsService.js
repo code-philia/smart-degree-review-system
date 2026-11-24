@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const fs = require('node:fs/promises');
 const { constants: fileConstants } = require('node:fs');
 const { all, withTransaction } = require('../database');
+const { sharedReferenceQuotaAllowed } = require('./referencePersonalAccess');
 
 const MAX_API_KEY_LENGTH = 512;
 const MAX_PRIVATE_CONFIG_BYTES = 64 * 1024;
@@ -78,13 +79,14 @@ function decryptRows(userId, rows, key) {
   return result;
 }
 
-function publicSettings(userId, rows, key) {
+function publicSettings(userId, rows, key, sharedQuotaAllowed = false) {
   const credentials = decryptRows(userId, rows, key);
   return {
     configured: credentials.openalex.configured,
     key_hint: credentials.openalex.apiKey ? maskApiKey(credentials.openalex.apiKey) : null,
     serpapi_configured: credentials.serpapi.configured,
     serpapi_key_hint: credentials.serpapi.apiKey ? maskApiKey(credentials.serpapi.apiKey) : null,
+    can_verify_references: sharedQuotaAllowed || Boolean(credentials.openalex.apiKey || credentials.serpapi.apiKey),
     storage_available: Boolean(key) && Object.values(credentials).every(value => value.status !== 'unavailable'),
   };
 }
@@ -93,7 +95,7 @@ async function getReferenceSettings(userId) {
   if (!validUserId(userId)) throw settingsError('account_changed', 409);
   try {
     const rows = await all('SELECT provider,encrypted_api_key FROM user_reference_settings WHERE user_id=?', [userId]);
-    return publicSettings(userId, rows, encryptionKey());
+    return publicSettings(userId, rows, encryptionKey(), await sharedReferenceQuotaAllowed(userId));
   } catch {
     throw settingsError('storage_unavailable');
   }
@@ -112,6 +114,7 @@ async function saveReferenceSettings(userId, values) {
   if (!updates.length) throw settingsError('invalid_api_key', 400);
   const key = encryptionKey();
   if (!key) throw settingsError('storage_unavailable');
+  const sharedQuotaAllowed = await sharedReferenceQuotaAllowed(userId);
   try {
     return await withTransaction(async tx => {
       for (const { provider, apiKey } of updates) {
@@ -119,7 +122,7 @@ async function saveReferenceSettings(userId, values) {
         await tx.run(`INSERT INTO user_reference_settings (user_id,provider,encrypted_api_key) VALUES (?,?,?)
           ON CONFLICT(user_id,provider) DO UPDATE SET encrypted_api_key=excluded.encrypted_api_key,updated_at=CURRENT_TIMESTAMP`, [userId, provider, encrypted]);
       }
-      return publicSettings(userId, await tx.all('SELECT provider,encrypted_api_key FROM user_reference_settings WHERE user_id=?', [userId]), key);
+      return publicSettings(userId, await tx.all('SELECT provider,encrypted_api_key FROM user_reference_settings WHERE user_id=?', [userId]), key, sharedQuotaAllowed);
     });
   } catch {
     throw settingsError('storage_unavailable');
@@ -129,10 +132,11 @@ async function saveReferenceSettings(userId, values) {
 async function deleteReferenceSettings(userId, provider = 'openalex') {
   if (!validUserId(userId)) throw settingsError('account_changed', 409);
   if (!['openalex', 'serpapi'].includes(provider)) throw settingsError('invalid_provider', 400);
+  const sharedQuotaAllowed = await sharedReferenceQuotaAllowed(userId);
   try {
     return await withTransaction(async tx => {
       await tx.run('DELETE FROM user_reference_settings WHERE user_id=? AND provider=?', [userId, provider]);
-      return publicSettings(userId, await tx.all('SELECT provider,encrypted_api_key FROM user_reference_settings WHERE user_id=?', [userId]), encryptionKey());
+      return publicSettings(userId, await tx.all('SELECT provider,encrypted_api_key FROM user_reference_settings WHERE user_id=?', [userId]), encryptionKey(), sharedQuotaAllowed);
     });
   } catch {
     throw settingsError('storage_unavailable');
@@ -194,8 +198,8 @@ async function privatePlatformKeys() {
 
 // Private runtime interface. Never pass this object into results, job progress,
 // errors, caches or HTTP responses; the provider service alone consumes keys.
-async function getReferenceCredentials(userId) {
-  const credentials = { personalKey: null, serpapiKey: null, platformKeys: await privatePlatformKeys(),
+async function getReferenceCredentials(userId, { includePlatformKeys = true } = {}) {
+  const credentials = { personalKey: null, serpapiKey: null, platformKeys: includePlatformKeys ? await privatePlatformKeys() : [],
     credential_status: 'not_configured', serpapi_credential_status: 'not_configured' };
   if (!validUserId(userId)) return credentials;
   let rows;

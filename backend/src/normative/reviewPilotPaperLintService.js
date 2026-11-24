@@ -8,6 +8,7 @@ const { getSixRules, isSixRuleId, runSixRules, SIX_RULE_TIMEOUT_MS } = require('
 
 const { getCompilerRules, isCompilerRuleId, runCompilerRules } = require('./paperCompilerService');
 const { RULE_ID: REFERENCE_RULE_ID, referenceVerificationRule, runReferenceVerification } = require('./referenceVerificationService');
+const { requireReferenceRuleAccess } = require('../auth/referencePersonalAccess');
 const { runPaperLintRuleGroups, settleRuleTasks } = require('./paperLintRuleRunner');
 const { createRuleProgressStream, createRunTimeout } = require('./paperLintRuleProgress');
 const { listRuleDefinitions } = require('../../rules/registry');
@@ -383,6 +384,7 @@ function mergePaperLintResults(existingResult, localResult, selectedRuleIds) {
 
 async function runPaperLint({ pdfBuffer, selectedRuleIds, externalProcessingConsent = false, background = false, onProgress, signal, runId, maxPdfBytes = MAX_PDF_BYTES, trustedBatchProgress = false, creditContext, userId }) {
   validatePdf(pdfBuffer, maxPdfBytes);
+  await requireReferenceRuleAccess(userId, selectedRuleIds);
   // The deadline covers catalog loading, queueing, and both engines so a timed-out
   // browser request cannot later persist a seemingly successful report.
   const includesSixRules = Array.isArray(selectedRuleIds) &&

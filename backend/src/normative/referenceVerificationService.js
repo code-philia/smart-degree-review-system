@@ -1,6 +1,7 @@
 const path = require('path');
 const { runPaperLintProcess } = require('./paperLintProcess');
 const { summarizeRuleRuns } = require('./localFiveRulePaperLintService');
+const { personalReferenceCredentials, requirePersonalReferenceCredentials } = require('../auth/referencePersonalAccess');
 
 const RULE_ID = 'reference_verification_check';
 const referenceVerificationRule = Object.freeze({
@@ -61,8 +62,8 @@ function toResult(records,extraction) {
 }
 async function runReferenceVerification(pdfPath,{userId,signal,extractor=extractReferences,verify,credentials,onProgress}={}) {
   abortIfNeeded(signal);
+  const secretOptions=credentials ? personalReferenceCredentials(credentials) : await requirePersonalReferenceCredentials(userId);
   const extraction=await extractor(pdfPath,{signal});
-  const secretOptions=credentials || (userId?await require('../auth/referenceSettingsService').getReferenceCredentials(userId):{});
   const secretKeys=[secretOptions.personalKey,secretOptions.serpapiKey,...(secretOptions.platformKeys || [])].filter(key=>typeof key==='string'&&key);
   verify ||= require('./referenceVerificationCore').verifyReference;
   if(!extraction.entries.length)return toResult([{category:'unverified',reason_code:'bibliography_not_extracted',

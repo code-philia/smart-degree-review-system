@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import { useEffect, useId, useRef, useState, type RefObject } from 'react';
 import { Dialog } from 'radix-ui';
-import { ArrowLeft, ArrowUpRight, X } from 'lucide-react';
+import { ArrowUpRight, X } from 'lucide-react';
 import './feedback-announcement.css';
 import './reference-settings.css';
 
@@ -86,7 +86,7 @@ export function FeedbackAnnouncement({ open, onAcknowledge, feedbackTarget, refe
           else if(feedbackButton.current?.isConnected)feedbackButton.current.focus();
         });}}>
         <div className="feedback-notice-intro">
-          <div className="feedback-notice-eyebrow">{step===2?<button type="button" className="feedback-notice-back" aria-label="上一步 / Back" title="上一步 / Back" onClick={()=>setStep(1)}><ArrowLeft size={17} aria-hidden="true"/></button>:<span aria-hidden="true"/>}<span lang="zh-CN">{zh.label}</span><span className="feedback-notice-label-separator" aria-hidden="true">/</span><span lang="en">{en.label}</span><span className="reference-guide-progress" aria-label={`${step} / 2`}>{step} / 2</span><Dialog.Close className="feedback-notice-close" aria-label={`${zh.close} / ${en.close}`}><X size={18}/></Dialog.Close></div>
+          <div className="feedback-notice-eyebrow"><span aria-hidden="true"/><span lang="zh-CN">{zh.label}</span><span className="feedback-notice-label-separator" aria-hidden="true">/</span><span lang="en">{en.label}</span><span className="reference-guide-progress" aria-label={`${step} / 2`}>{step} / 2</span><Dialog.Close className="feedback-notice-close" aria-label={`${zh.close} / ${en.close}`}><X size={18}/></Dialog.Close></div>
           <Dialog.Title className="feedback-notice-title">{step===1?<span lang="zh-CN">{zh.title}</span>:<><span lang="zh-CN">规则：引用文献是否不存在</span><span className="reference-guide-title-english" lang="en">Rule: Nonexistent cited references</span></>}</Dialog.Title>
           {step===1?<>
           <Dialog.Description className="feedback-notice-description"><span lang="zh-CN">{zh.description}</span><span className="feedback-notice-description-english" lang="en">{en.description}</span></Dialog.Description>
@@ -95,8 +95,8 @@ export function FeedbackAnnouncement({ open, onAcknowledge, feedbackTarget, refe
           </a>
           </>:<>
             <Dialog.Description className="feedback-notice-description reference-guide-description">
-              <span className="reference-guide-copy-lines" lang="zh-CN"><span>全站共享定量公共检索额度。</span><span>添加个人密钥，可使用自己的检索额度。</span></span>
-              <span className="feedback-notice-description-english reference-guide-copy-lines" lang="en"><span>Public search quota is shared across the site.</span><span>Add a personal key to use your own search quota.</span></span>
+              <span className="reference-guide-copy-lines" lang="zh-CN"><span>使用此规则前，请先保存自己的密钥。</span><span>OpenAlex 或 SerpAPI，配置其中一个即可。</span></span>
+              <span className="feedback-notice-description-english reference-guide-copy-lines" lang="en"><span>Save your own API key before using this rule.</span><span>Either OpenAlex or SerpAPI is sufficient.</span></span>
             </Dialog.Description>
             <ol className="reference-guide-steps">
               <li><span className="reference-guide-step-number" aria-hidden="true">1</span><div><span lang="zh-CN">打开 API 设置，获取个人密钥</span><span lang="en">Open API settings and get a personal key</span></div></li>

@@ -6,6 +6,7 @@ const { removeBrowserPdf } = require('./browserPdf');
 const { CORE_RULE_ID, mergeCoreRuns, dedupeCorePrerequisites } = require('./paperStructureChecks');
 const { jobConcurrency } = require('./paperLintConcurrency');
 const {BILLABLE_RULE_IDS,beginCreditOperation,finishCreditOperation,recoverCreditOperations}=require('./paperLintCredit');
+const { requireReferenceRuleAccess } = require('../auth/referencePersonalAccess');
 
 function createPaperLintJobService(paperLintService = defaultPaperLintService) {
   const queue = [];
@@ -52,6 +53,7 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
           .map(run => [run.rule_id, run])).values()];
         const reusedIds = reusedRuns.map(run => run.rule_id);
         const pendingRuleIds = selectedRuleIds.filter(id => !reusedIds.includes(id));
+        await requireReferenceRuleAccess(job.user_id, pendingRuleIds);
         const publishProgress = progress => {
           const mergedRuns = [...[...reusedRuns, ...(progress.rule_runs || [])].reduce((runs, run) => {
             const previous = runs.get(run.rule_id);
@@ -182,6 +184,7 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
       && run.execution_status === 'completed' && run.outcome !== 'inconclusive');
     const toRun = allIds.filter(id => !reusedRuns.some(run => run.rule_id === id));
     if (!toRun.length) throw Object.assign(new Error('所选规则均已完成，请选择新增规则后再补跑'), { status: 400 });
+    await requireReferenceRuleAccess(userId, toRun);
     await paperLintService.normalizeSelectedRuleIds(toRun, externalProcessingConsent);
     const pdf = await reportRepository.getPaperLintReportPdfFile(reportId, userId);
     if (!pdf?.path) throw Object.assign(new Error('原 PDF 已不可用，无法增量补跑，请重新上传'), { status: 410 });
@@ -213,6 +216,7 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
       throw Object.assign(new Error('该任务已结束，不能重新启动'), { status: 409 });
     }
     if (job.status === 'pending') {
+      await requireReferenceRuleAccess(userId, JSON.parse(job.selected_rule_ids_json));
       if (!options.start_requested) {
         let pdfBuffer;
         try { pdfBuffer = await fs.promises.readFile(job.source_pdf_path); }

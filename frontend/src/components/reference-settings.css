@@ -68,9 +68,8 @@
 .dark .reference-guide-step-number { border-color:#3d5275; background:var(--popover); color:#b6cdff; }
 .dark .reference-guide-footer { background:color-mix(in srgb,var(--popover) 80%,var(--background)); }
 .dark .reference-guide-title-english,.dark .reference-guide-steps [lang=en] { color:var(--muted-foreground); }
-.dark .reference-guide-skip,.dark .feedback-notice-back { color:var(--muted-foreground); }
+.dark .reference-guide-skip { color:var(--muted-foreground); }
 .dark .reference-guide-skip:hover { color:#d5e2ff; }
-.dark .feedback-notice-back:hover { background:var(--secondary); color:#d5e2ff; }
 @media(max-width:520px) {
  .reference-api-header { padding:19px 20px; }
  .reference-api-title-row { gap:9px; }

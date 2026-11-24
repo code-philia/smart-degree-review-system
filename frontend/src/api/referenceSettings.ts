@@ -7,6 +7,7 @@ export type ReferenceSettingsStatus = {
   serpapi_configured: boolean;
   serpapi_key_hint: string | null;
   secure_transport_required: boolean;
+  can_verify_references?: boolean;
 };
 
 export type ReferenceProvider = 'openalex' | 'serpapi';
@@ -20,6 +21,8 @@ function publicStatus(data: ReferenceSettingsStatus): ReferenceSettingsStatus {
     serpapi_configured: data.serpapi_configured === true,
     serpapi_key_hint: typeof data.serpapi_key_hint === 'string' ? data.serpapi_key_hint : null,
     secure_transport_required: data.secure_transport_required === true,
+    can_verify_references: typeof data.can_verify_references === 'boolean' ? data.can_verify_references
+      : data.storage_available === true && (data.configured === true || data.serpapi_configured === true),
   };
 }
 

@@ -17,7 +17,7 @@ it('keeps verified entries in structured results without fabricating a finding',
 });
 
 it('keeps extraction gaps unverified and preserves native location plus source evidence',async()=>{
-  const result=await runReferenceVerification('unused.pdf',{extractor:async()=>({...extracted,coverage_complete:false}),credentials:{},
+  const result=await runReferenceVerification('unused.pdf',{extractor:async()=>({...extracted,coverage_complete:false}),credentials:{personalKey:'private'},
     verify:async()=>({category:'mismatch',reason_code:'metadata_mismatch',comparisons:[{field:'year',cited:2024,matched:2023,status:'different'}],sources:[{provider:'crossref',url:'https://doi.org/10.1234/example',status:'ok'}],coverage:{complete:true}})});
   const run=result.rule_runs[0];expect(run.findings[0].location).toEqual(entry.location);
   expect(run.findings[0].reference_check.category).toBe('mismatch');
@@ -27,18 +27,18 @@ it('keeps extraction gaps unverified and preserves native location plus source e
 });
 
 it('does not treat an empty unreadable bibliography as passed',async()=>{
-  const result=await runReferenceVerification('unused.pdf',{extractor:async()=>({entries:[],coverage_complete:false}),credentials:{},verify:vi.fn()});
+  const result=await runReferenceVerification('unused.pdf',{extractor:async()=>({entries:[],coverage_complete:false}),credentials:{personalKey:'private'},verify:vi.fn()});
   const run=result.rule_runs[0];expect(run.outcome).toBe('inconclusive');
   expect(run.findings[0].reference_check.category).toBe('unverified');
 });
 it('counts an explicit unverified-entry result once rather than adding a duplicate generic execution warning',async()=>{
   const {displayedReportSummary}=await import('../../shared/paper-lint-presentation.mjs');
-  const result=await runReferenceVerification('unused.pdf',{extractor:async()=>extracted,credentials:{},verify:async()=>({category:'unverified',reason_code:'provider_unavailable',sources:[],comparisons:[],coverage:{complete:false}})});
+  const result=await runReferenceVerification('unused.pdf',{extractor:async()=>extracted,credentials:{personalKey:'private'},verify:async()=>({category:'unverified',reason_code:'provider_unavailable',sources:[],comparisons:[],coverage:{complete:false}})});
   expect(displayedReportSummary(result)).toMatchObject({finding_count:1,execution_warning_count:0});
 });
 
 it('sanitizes per-entry failures but propagates task cancellation',async()=>{
-  const options={extractor:async()=>extracted,credentials:{},verify:async()=>{throw new Error('secret-key-in-upstream-error');}};
+  const options={extractor:async()=>extracted,credentials:{personalKey:'private'},verify:async()=>{throw new Error('secret-key-in-upstream-error');}};
   const result=await runReferenceVerification('unused.pdf',options);
   expect(result.rule_runs[0].findings[0].reference_check.category).toBe('unverified');
   expect(JSON.stringify(result)).not.toContain('secret-key');
