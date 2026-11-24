@@ -35,3 +35,6 @@
  .auth-split .signin{grid-area:1/2/2/3;position:relative;z-index:1;align-self:center;justify-self:end;margin:24px 0;max-width:440px;height:auto;display:block}
 }
 @media(max-width:760px){.auth-split .composition{padding:24px 0}.auth-split .signin{background:#fff}}
+
+/* Keep the shared language control clear of the formal masthead on every screen. */
+.campus-signin.auth-split .i18n-login-language{position:fixed;left:clamp(20px,3vw,44px);right:auto;top:auto;bottom:max(20px,env(safe-area-inset-bottom));z-index:30}
