@@ -129,19 +129,19 @@ it('caches the approved background without changing bytes or range delivery', as
   expect(unversioned.headers['cache-control']).not.toContain('immutable');
 });
 
-it.each(['/auth', '/AUTH', '/auth/', '/auth?return_to=%2Fpaper-upload'])('preloads only typed AVIF from the sign-in response at %s', async (url) => {
+it.each(['/auth', '/AUTH', '/auth/', '/auth?return_to=%2Fpaper-upload'])('preloads only the formal illustration from the sign-in response at %s', async (url) => {
   const response = await request(app).get(url).expect(200);
   expect(response.text).toBe(html);
-  expect(response.headers.link).toBe(`<${avifPath}>; rel=preload; as=image; type="image/avif"; fetchpriority=high`);
+  expect(response.headers.link).toBe('</login-thesis-v2.png>; rel=preload; as=image; type="image/png"; fetchpriority=high');
   expect(response.headers['cache-control']).toMatch(/no-store/);
 });
 
 it('preloads the same preferred background as the sign-in component to avoid a second image download', async () => {
-  const component = readFileSync(new URL('../../frontend/src/pages/authCampus/AuthCampusScene.tsx', import.meta.url), 'utf8');
-  const preferred = component.match(/<source[^>]*type="image\/avif"[^>]*srcSet="([^"]+)"/)?.[1];
+  const component = readFileSync(new URL('../../frontend/src/pages/AuthPage.tsx', import.meta.url), 'utf8');
+  const preferred = component.match(/<img[^>]*src="(\/login-thesis-[^"]+)"/)?.[1];
   expect(preferred).toBeTruthy();
   const response = await request(app).get('/auth').expect(200);
-  expect(response.headers.link).toBe(`<${preferred}>; rel=preload; as=image; type="image/avif"; fetchpriority=high`);
+  expect(response.headers.link).toBe(`<${preferred}>; rel=preload; as=image; type="image/png"; fetchpriority=high`);
 });
 
 it('does not preload a login illustration for workspace pages or API responses', async () => {

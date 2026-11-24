@@ -10,8 +10,8 @@ function registerFrontendStatic(app, frontendDistPath) {
   const staticOptions = { index: false, redirect: false };
   const assetsPath = path.join(frontendDistPath, 'assets');
   app.get(/^\/auth\/?$/i, (_req, res, next) => {
-    // Preload the preferred format only; unsupported browsers use the picture fallback.
-    res.append('Link', '</login-campus-B-v5-no-hand-emblem-2aa6fbc8.avif>; rel=preload; as=image; type="image/avif"; fetchpriority=high');
+    // The formal login uses the split-layout illustration, not the campus scene.
+    res.append('Link', '</login-thesis-v2.png>; rel=preload; as=image; type="image/png"; fetchpriority=high');
     next();
   });
   app.use('/assets', compressedAssets(assetsPath), express.static(assetsPath, staticOptions), resourceNotFound);

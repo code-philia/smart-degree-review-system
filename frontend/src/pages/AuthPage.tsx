@@ -39,7 +39,7 @@ export default function AuthPage({returnTo}:{returnTo?:string|null}={}) {
  <header className="masthead">
   <p className="auth-version">试点验证版 V0.9</p>
   <div className="brand"><TrialAccountEntry /><h1><RichMessage name="login-brand">智慧学位AI评阅辅助系统</RichMessage></h1></div>
-  <p className="description">本系统依托人工智能技术，对照国家标准与学校规范，为学位论文提供格式排版、文字表述、语言规范等自动化检测，并给出修改建议。<br /><RichMessage name="login-description-rest">论文数据均在校内处理，保障信息安全。检测结果仅供参考，系统尚在测试中，欢迎通过“使用反馈”提出建议，我们将持续优化。</RichMessage></p>
+  <p className="description" aria-label="系统说明">本系统依托人工智能技术，对照国家标准与学校规范，为学位论文提供格式排版、文字表述、语言规范等自动化检测，并给出修改建议。<br /><RichMessage name="login-description-rest">论文数据均在校内处理，保障信息安全。检测结果仅供参考，系统尚在测试中，欢迎通过“使用反馈”提出建议，我们将持续优化。</RichMessage></p>
  </header>
  <div className="composition">
   <div className="auth-illustration"><img src="/login-thesis-v2.png" alt="学位论文与人工智能审查主题插画，包含交通大学校门" /></div>
