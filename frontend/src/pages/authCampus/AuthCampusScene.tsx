@@ -39,12 +39,12 @@ export default function AuthCampusScene() {
     };
   }, [backgroundSrc]);
   return <>
-    <link rel="preload" as="image" href="/login-campus-B-v5-no-hand-emblem-0b7ede1d.avif" type="image/avif" fetchPriority="high" />
+    <link rel="preload" as="image" href="/login-campus-B-v5-no-hand-emblem-2aa6fbc8.avif" type="image/avif" fetchPriority="high" />
     <picture hidden aria-hidden="true">
-      {fallback === 0 ? <source type="image/avif" srcSet="/login-campus-B-v5-no-hand-emblem-0b7ede1d.avif" /> : null}
+      {fallback === 0 ? <source type="image/avif" srcSet="/login-campus-B-v5-no-hand-emblem-2aa6fbc8.avif" /> : null}
       <img
         alt=""
-        src={fallback < 2 ? '/login-campus-B-v5-no-hand-emblem-d2e64627.webp' : '/login-campus-B-v5-no-hand-emblem-7917acdf.png'}
+        src={fallback < 2 ? '/login-campus-B-v5-no-hand-emblem-f1efd7f2.webp' : '/login-campus-B-v5-no-hand-emblem-7917acdf.png'}
         fetchPriority="high"
         decoding="async"
         onLoad={event => setBackgroundSrc(event.currentTarget.currentSrc || event.currentTarget.src)}

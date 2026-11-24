@@ -1,7 +1,7 @@
 import express from 'express';
 import request from 'supertest';
 import { gzipSync } from 'node:zlib';
-import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -13,8 +13,8 @@ const { registerFrontendStatic } = require('../src/frontendStatic');
 const html = '<!doctype html><title>Frontend fixture</title><div id="root">SPA fixture</div>';
 const approvedBackground = Buffer.from('unchanged approved PNG bytes');
 const backgroundPath = '/login-campus-B-v5-b25c6008.png';
-const avifPath = '/login-campus-B-v5-750f63ec.avif';
-const webpPath = '/login-campus-B-v5-229caf6d.webp';
+const avifPath = '/login-campus-B-v5-no-hand-emblem-2aa6fbc8.avif';
+const webpPath = '/login-campus-B-v5-no-hand-emblem-f1efd7f2.webp';
 const workerText = 'const worker = "PDF viewer";\n'.repeat(1000);
 let root;
 let app;
@@ -134,6 +134,14 @@ it.each(['/auth', '/AUTH', '/auth/', '/auth?return_to=%2Fpaper-upload'])('preloa
   expect(response.text).toBe(html);
   expect(response.headers.link).toBe(`<${avifPath}>; rel=preload; as=image; type="image/avif"; fetchpriority=high`);
   expect(response.headers['cache-control']).toMatch(/no-store/);
+});
+
+it('preloads the same preferred background as the sign-in component to avoid a second image download', async () => {
+  const component = readFileSync(new URL('../../frontend/src/pages/authCampus/AuthCampusScene.tsx', import.meta.url), 'utf8');
+  const preferred = component.match(/<source[^>]*type="image\/avif"[^>]*srcSet="([^"]+)"/)?.[1];
+  expect(preferred).toBeTruthy();
+  const response = await request(app).get('/auth').expect(200);
+  expect(response.headers.link).toBe(`<${preferred}>; rel=preload; as=image; type="image/avif"; fetchpriority=high`);
 });
 
 it('does not preload a login illustration for workspace pages or API responses', async () => {
