@@ -39,5 +39,7 @@
 /* Keep the shared language control clear of the formal masthead on every screen. */
 .campus-signin.auth-split .i18n-login-language{position:fixed;left:clamp(20px,3vw,44px);right:auto;top:auto;bottom:max(20px,env(safe-area-inset-bottom));z-index:30}
 
-/* The split card is narrower than the campus card's wide-screen English title. */
-html[lang=en] .campus-signin.auth-split .signin h2{white-space:normal;max-width:100%}
+/* Give the single-line English title more room without changing the illustration. */
+.campus-signin.auth-split .signin{max-width:560px}
+html[lang=en] .campus-signin.auth-split .signin h2{white-space:nowrap;text-wrap:nowrap;max-width:100%;font-size:clamp(13px,5.2cqw,25px);letter-spacing:-.02em}
+html[lang=en] .campus-signin.auth-split .signin h2 .i18n-brand-phrase,html[lang=en] .campus-signin.auth-split .signin h2 .i18n-brand-separator{display:inline}
