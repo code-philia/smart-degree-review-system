@@ -32,7 +32,44 @@
 .reference-verification-comparison .reference-cell-different { background:color-mix(in srgb,#f59e0b 10%,var(--background)); color:#92400e; }
 .reference-verification-comparison .reference-cell-missing, .reference-verification-comparison .reference-cell-equivalent { background:color-mix(in srgb,var(--primary) 5%,var(--background)); }
 .reference-field-status { display:block; margin-top:4px; color:var(--muted-foreground); font-size:11px; font-weight:400; line-height:1.5; }
-.dark .reference-verification-comparison .reference-cell-different { color:#fcd68a; }
+.dark .reference-verification-comparison table {
+  color: #edf4ff;
+  background: #111e32;
+  border-color: #526b8c;
+}
+.dark .reference-verification-comparison thead th {
+  color: #edf4ff;
+  background: #253b58;
+}
+.dark .reference-verification-comparison tbody th {
+  color: #d4e1f3;
+  background: #192b45;
+}
+.dark .reference-verification-comparison tbody td {
+  color: #edf4ff;
+  background: #111e32;
+}
+.dark .reference-verification-comparison tbody th,
+.dark .reference-verification-comparison tbody td {
+  border-top-color: #526b8c;
+}
+.dark .reference-verification-comparison td.reference-cell-different {
+  color: #ffedc7;
+  background: #4b311c;
+}
+.dark .reference-verification-comparison td.reference-cell-missing,
+.dark .reference-verification-comparison td.reference-cell-equivalent {
+  color: #f0f6ff;
+  background: #203d5d;
+}
+.dark .reference-verification-comparison .reference-field-status {
+  color: #c8d9f0;
+  font-size: 12px;
+  font-weight: 500;
+}
+.dark .reference-verification-comparison > summary {
+  color: #d4e1f3;
+}
 .reference-verification-links { display:flex; flex-wrap:wrap; align-items:center; gap:4px 16px; margin-top:13px; }
 .reference-verification-links a { display:inline-flex; align-items:center; gap:4px; min-height:30px; color:var(--primary); font-size:13px; font-weight:500; text-decoration:none; }
 .reference-verification-links a > svg { flex:none; }
