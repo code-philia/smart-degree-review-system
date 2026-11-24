@@ -48,6 +48,16 @@ async function assertLayout(page) {
   base.expect(dimensions.document, `Document should fit the ${limit}px viewport; only the table may scroll internally`).toBeLessThanOrEqual(limit + 2);
 }
 async function checkA11y(page, testInfo) {
+  // Visibility alone does not mean a fade-in has reached its final opacity.
+  // Wait for finite running UI animations, without delaying on repeating effects.
+  await page.evaluate(async () => {
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    const animations = document.getAnimations().filter(animation =>
+      animation.playState === 'running' &&
+      Number.isFinite(animation.effect?.getComputedTiming().activeDuration));
+    await Promise.all(animations.map(animation => animation.finished.catch(() => {})));
+    await new Promise(resolve => requestAnimationFrame(resolve));
+  });
   const result = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
   const violations = result.violations.map(v => ({ id: v.id, impact: v.impact, description: v.description, help: v.help, helpUrl: v.helpUrl, nodes: v.nodes.map(n => ({ target: n.target, failureSummary: n.failureSummary })) }));
   await testInfo.attach('accessibility.json', { body: Buffer.from(JSON.stringify({ violations, passes: result.passes.length }, null, 2)), contentType: 'application/json' });
