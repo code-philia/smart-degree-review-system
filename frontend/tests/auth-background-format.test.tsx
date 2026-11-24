@@ -2,9 +2,9 @@ import { fireEvent, render } from '@testing-library/react';
 import { expect, it } from 'vitest';
 import AuthCampusScene from '../src/pages/authCampus/AuthCampusScene';
 
-const avif='/login-campus-B-v5-750f63ec.avif';
-const webp='/login-campus-B-v5-229caf6d.webp';
-const png='/login-campus-B-v5-b25c6008.png';
+const avif='/login-campus-B-v5-no-hand-emblem-0b7ede1d.avif';
+const webp='/login-campus-B-v5-no-hand-emblem-d2e64627.webp';
+const png='/login-campus-B-v5-no-hand-emblem-7917acdf.png';
 
 it('preloads the preferred AVIF and uses the browser-selected exact image for the scene', () => {
   const {container}=render(<AuthCampusScene />);
