@@ -1,0 +1,27 @@
+/* Login V2: scoped layout overrides preserve shared trial-account controls. */
+.campus-signin.auth-split{--ink:#272b32;--muted:#69717b;--red:#8f2938;background:#fff;color:var(--ink)}
+.auth-split .page{min-height:100svh;padding:44px clamp(24px,5vw,88px) 24px;max-width:1800px;margin:auto}
+.auth-split .masthead{text-align:left;max-width:none}
+.auth-split .masthead::before{display:none}
+.auth-split .auth-version{margin:0 0 14px;color:#7b6870;font-size:12px;letter-spacing:.04em}
+.auth-split .brand{margin:0;justify-content:flex-start;gap:16px}
+.auth-split .brand h1{font-size:clamp(22px,2.2vw,34px);color:var(--ink);letter-spacing:.02em;line-height:1.4}
+.auth-split .brand img{width:52px;height:52px}
+.auth-split .description{max-width:1000px;text-align:left;margin:20px 0 0;font-size:14px;line-height:1.9;color:#69717b}
+.auth-split .composition{width:100%;grid-template-columns:minmax(0,1.45fr) minmax(340px,1fr);gap:clamp(32px,5vw,88px);margin:32px 0;min-height:460px;padding:24px 0;flex:1}
+.auth-split .auth-illustration{min-width:0;background:#fdf4f4;border:1px solid #f3e5e6;border-radius:8px;overflow:hidden}
+.auth-split .auth-illustration img{display:block;width:100%;height:auto;aspect-ratio:1672/941;object-fit:contain}
+.auth-split .signin{position:static;left:auto;top:auto;width:100%;max-width:440px;justify-self:center;padding:38px 34px;background:#fff;border:1px solid #e3e6ea;border-radius:10px;box-shadow:0 8px 32px #19233106;backdrop-filter:none;-webkit-backdrop-filter:none}
+.auth-split .welcome{font-size:14px;color:#737b86;margin-bottom:10px}
+.auth-split .signin h2{font-size:clamp(20px,1.7vw,25px);color:#272b32;white-space:normal;overflow-wrap:anywhere;line-height:1.55;margin-bottom:30px}
+.auth-split .login-button{min-height:54px;border-radius:6px;font-size:16px;box-shadow:none;transition:background .15s}
+.auth-split .login-button:hover{background:#76202e}
+.auth-split .hint{margin:17px 0 0;font-size:14px;color:#69717b}
+.auth-split .signin .services{margin-top:30px;padding-top:25px;border-color:#e7e9ed}
+.auth-split .service{font-size:12px;color:#69717b;gap:10px}
+.auth-split .service svg{color:#8f2938;width:23px;height:23px}
+.auth-split .service+.service{border-color:#e7e9ed}
+.auth-split .filing-footer{color:#818792;font-size:12px;text-shadow:none;justify-content:center}
+.auth-split .i18n-login-language{position:absolute;right:clamp(24px,5vw,88px);top:20px}
+@media(max-width:1000px){.auth-split .composition{grid-template-columns:minmax(0,1.1fr) minmax(320px,1fr);gap:28px}.auth-split .signin{padding:30px 24px}.auth-split .page{padding-top:58px}}
+@media(max-width:760px){.auth-split .page{padding:64px 20px 20px}.auth-split .brand{gap:12px}.auth-split .brand img{width:42px;height:42px}.auth-split .brand h1{font-size:22px}.auth-split .description{font-size:13px;margin-top:18px}.auth-split .composition{display:flex;flex-direction:column;gap:24px;margin:24px 0;min-height:0;padding:0}.auth-split .auth-illustration{width:100%;max-width:560px}.auth-split .signin{order:0;max-width:440px;padding:28px 24px}.auth-split .filing-footer{margin-top:16px}.auth-split .i18n-login-language{right:20px;top:18px}}
