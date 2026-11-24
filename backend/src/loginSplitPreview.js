@@ -56,8 +56,9 @@ function createSplitPreviewApp({ frontendDistPath, upstreamPort = 3000,
 
 if (require.main === module) {
   const port = Number(process.env.PORT || 3003);
-  if (!Number.isInteger(port) || port < 1024 || port > 65535 || [3000, 3001, 3002].includes(port)) {
-    throw new Error('Choose a separate, unprivileged preview port');
+  if (!Number.isInteger(port) || port < 1 || (port < 1024 && port !== 443)
+      || port > 65535 || [3000, 3001, 3002].includes(port)) {
+    throw new Error('Choose a separate preview port');
   }
   const app = createSplitPreviewApp({
     frontendDistPath: path.resolve(__dirname, '../../frontend/dist'),
