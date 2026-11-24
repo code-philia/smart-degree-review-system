@@ -38,3 +38,6 @@
 
 /* Keep the shared language control clear of the formal masthead on every screen. */
 .campus-signin.auth-split .i18n-login-language{position:fixed;left:clamp(20px,3vw,44px);right:auto;top:auto;bottom:max(20px,env(safe-area-inset-bottom));z-index:30}
+
+/* The split card is narrower than the campus card's wide-screen English title. */
+html[lang=en] .campus-signin.auth-split .signin h2{white-space:normal;max-width:100%}
