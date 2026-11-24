@@ -45,7 +45,8 @@ it.each([false, true])('orders All cards by severity, dropdown rule order and PD
   expect(screen.queryByText(intro)).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: '跳到 PDF 第 30 页' }));
   expect(onFindingClick).toHaveBeenCalledWith('error-2');
-  expect(container.querySelector('[data-finding-key="error-2"]')).toHaveAttribute('aria-current', 'true');
+  const activeCard = container.querySelector('[data-finding-key="error-2"]') as HTMLElement;
+  expect(within(within(activeCard).getByRole('heading', { level: 3 })).getByRole('button')).toHaveAttribute('aria-current', 'true');
   expect(JSON.stringify(findings)).toBe(original);
   fireEvent.keyDown(screen.getByRole('combobox'), { key: 'ArrowDown' });
   const list = await screen.findByRole('listbox');

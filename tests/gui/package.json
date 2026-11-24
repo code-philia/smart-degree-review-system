@@ -1,0 +1,14 @@
+{
+  "name": "campus-gui-audit",
+  "private": true,
+  "scripts": {
+    "test": "node audit.cjs",
+    "test:read": "playwright test --project chromium-desktop --project chromium-mobile --project firefox-desktop --project webkit-desktop",
+    "report": "playwright show-report ../../output/campus-gui-20261125/html/read"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.57.0",
+    "@axe-core/playwright": "4.10.2",
+    "fflate": "0.8.3"
+  }
+}

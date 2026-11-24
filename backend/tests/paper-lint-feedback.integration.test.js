@@ -10,6 +10,7 @@ const suggestionService = require('../src/normative/paperLintRepairSuggestionSer
 const { buildPaperLintReportRepairRequest } = require('../src/normative/legacyRepairAdapter');
 const { feedbackRouter } = require('../src/normative/paperLintFeedbackRoutes');
 const { createPaperLintRepairSuggestionRouter } = require('../src/normative/paperLintRepairSuggestionRoutes');
+const { documentRejectionResult } = require('../src/normative/paperDocumentAdmission');
 const database = require('../src/database/db_runtime');
 
 const harness = createTestDatabaseHarness({ label: 'paper-lint-feedback' });
@@ -96,6 +97,69 @@ async function replaceRuns(runs) {
   return resultJson;
 }
 
+describe('document admission finding feedback', () => {
+  const url = '/api/normative/feedback/reports/rejected-report/findings/document_type_check/document_not_paper/feedback';
+
+  beforeEach(async () => {
+    await reportRepository.createPaperLintReport({
+      userId: 'owner', reportId: 'rejected-report', sourceFilename: 'non-paper.pdf',
+      pdfBuffer: Buffer.from('%PDF-1.7'), selectedRuleIds: ['sjtu_rule_15'],
+      result: documentRejectionResult({ status: 'rejected', reason_code: 'non_paper_identity', reason: '推荐表不是论文。' }, ['sjtu_rule_15']),
+    });
+  });
+
+  it('persists, restores, updates and cancels feedback without changing the rejected report', async () => {
+    const original = await database.get('SELECT result_json FROM paper_lint_reports WHERE id=?', ['rejected-report']);
+    await request(app).get(url).set('Cookie', 'arc_session=owner-session').expect(200)
+      .expect(({ body }) => expect(body.feedback).toBeNull());
+    const saved = await request(app).put(url).set('Cookie', 'arc_session=owner-session')
+      .send({ feedback_value: 'negative', reason_code: 'false_positive', reason_text: '这是论文正文' }).expect(200);
+    await request(app).get(url).set('Cookie', 'arc_session=owner-session').expect(200)
+      .expect(({ body }) => expect(body.feedback).toMatchObject({
+        id: saved.body.feedback.id, feedback_value: 'negative', reason_code: 'false_positive', reason_text: '这是论文正文',
+      }));
+    await request(app).put(url).set('Cookie', 'arc_session=owner-session')
+      .send({ feedback_value: 'positive' }).expect(200)
+      .expect(({ body }) => expect(body.feedback).toMatchObject({
+        id: saved.body.feedback.id, feedback_value: 'positive', reason_code: null, reason_text: null,
+      }));
+    expect(await database.all('SELECT rule_id, finding_id FROM paper_lint_finding_feedback')).toEqual([
+      { rule_id: 'document_type_check', finding_id: 'document_not_paper' },
+    ]);
+    await request(app).delete(url).set('Cookie', 'arc_session=owner-session').expect(204);
+    await request(app).get(url).set('Cookie', 'arc_session=owner-session').expect(200)
+      .expect(({ body }) => expect(body.feedback).toBeNull());
+    expect(await database.get('SELECT result_json FROM paper_lint_reports WHERE id=?', ['rejected-report'])).toEqual(original);
+  });
+
+  it('rejects unauthenticated, foreign-owner and absent finding targets without storing feedback', async () => {
+    for (const method of ['get', 'put', 'delete']) {
+      await request(app)[method](url).send({ feedback_value: 'positive' }).expect(401);
+      await request(app)[method](url).set('Cookie', 'arc_session=other-session').send({ feedback_value: 'positive' }).expect(404);
+      for (const target of [
+        url.replace('rejected-report', 'missing-report'),
+        url.replace('document_type_check', 'unknown_rule'),
+        url.replace('document_type_check', 'sjtu_rule_15'),
+        url.replace('document_not_paper', 'unknown-finding'),
+        url.replace('document_not_paper', 'finding-15-1'),
+        url.replace('document_not_paper', encodeURIComponent('execution-warning:document_type_check:generic')),
+      ]) {
+        await request(app)[method](target).set('Cookie', 'arc_session=owner-session').send({ feedback_value: 'positive' }).expect(404);
+      }
+    }
+    expect(await database.all('SELECT id FROM paper_lint_finding_feedback')).toEqual([]);
+  });
+
+  it('keeps AI repair requests unsupported for a document admission finding', async () => {
+    const repairUrl = '/api/normative/paper-lint/reports/rejected-report/repair-suggestions';
+    await request(app).get(repairUrl).set('Cookie', 'arc_session=owner-session')
+      .query({ rule_id: 'document_type_check', finding_id: 'document_not_paper' }).expect(422);
+    await request(app).post(repairUrl).set('Cookie', 'arc_session=owner-session')
+      .send({ rule_id: 'document_type_check', finding_id: 'document_not_paper' }).expect(422);
+    expect(await database.all('SELECT id FROM paper_lint_repair_suggestions')).toEqual([]);
+  });
+});
+
 describe('execution warning feedback through the existing finding-feedback API', () => {
   it('persists, restores, changes and cancels a numeric precondition warning without rewriting the report', async () => {
     const original = await replaceRuns([{ rule_id: numericRule, execution_status: 'completed', params: { preconditions: [
@@ -141,12 +205,16 @@ describe('execution warning feedback through the existing finding-feedback API',
       .expect(({ body }) => expect(body.feedback.feedback_value).toBe('negative'));
   });
 
-  it('allows existing generic warnings without enabling AI repairs or unsupported actual findings', async () => {
+  it('allows saved findings and generic warnings without enabling unsupported AI repairs', async () => {
     const ruleId = 'saved_custom_rule';
     await replaceRuns([{ rule_id: ruleId, execution_status: 'unsupported', findings: [{ finding_id: 'raw', message: 'raw finding' }] }]);
     await request(app).put(warningUrl(ruleId, `execution-warning:${ruleId}:generic`)).set('Cookie', 'arc_session=owner-session').send({ feedback_value: 'positive' }).expect(200);
-    await request(app).put(warningUrl(ruleId, 'raw')).set('Cookie', 'arc_session=owner-session').send({ feedback_value: 'positive' }).expect(422);
-    await expect(suggestionService.getPaperLintReportFinding({ reportId: 'report-1', userId: 'owner', ruleId, findingId: `execution-warning:${ruleId}:generic` })).rejects.toMatchObject({ status: 422 });
+    await request(app).put(warningUrl(ruleId, 'raw')).set('Cookie', 'arc_session=owner-session').send({ feedback_value: 'negative' }).expect(200);
+    await request(app).get(warningUrl(ruleId, 'raw')).set('Cookie', 'arc_session=owner-session').expect(200)
+      .expect(({ body }) => expect(body.feedback.feedback_value).toBe('negative'));
+    for (const findingId of ['raw', `execution-warning:${ruleId}:generic`]) {
+      await expect(suggestionService.getPaperLintReportFinding({ reportId: 'report-1', userId: 'owner', ruleId, findingId })).rejects.toMatchObject({ status: 422 });
+    }
   });
 
   it('rejects absent, skipped and forged warnings and enforces report ownership', async () => {
@@ -160,21 +228,33 @@ describe('execution warning feedback through the existing finding-feedback API',
     expect(await database.all('SELECT id FROM paper_lint_finding_feedback')).toEqual([]);
   });
 
-  it('persists a reference resource warning beside actual findings using the same owner boundary', async () => {
-    const ruleId = 'sjtu_rule_32';
-    const original = await replaceRuns([{ rule_id: ruleId, execution_status: 'completed', outcome: 'issues_found', params: { reference_resources_unavailable: true, reference_verification: { unresolved: 1, unavailable: 1 } }, findings: [
-      { finding_id: 'real-reference', rule_id: ruleId, message: '已有检索结果', reference_review: 'supported_suspicion' },
+  it('persists an execution failure warning beside actual findings using the same owner boundary', async () => {
+    const ruleId = 'keyword_count_check';
+    const original = await replaceRuns([{ rule_id: ruleId, execution_status: 'error', outcome: 'inconclusive', findings: [
+      { finding_id: 'real-keyword', rule_id: ruleId, message: '已有关键词结果' },
     ] }]);
     const url = warningUrl(ruleId, `execution-warning:${ruleId}:generic`);
     await request(app).put(url).set('Cookie', 'arc_session=owner-session').send({ feedback_value: 'positive' }).expect(200);
     await request(app).get(url).set('Cookie', 'arc_session=owner-session').expect(200)
       .expect(({ body }) => expect(body.feedback.feedback_value).toBe('positive'));
-    await request(app).get(warningUrl(ruleId, 'real-reference')).set('Cookie', 'arc_session=owner-session').expect(200)
+    await request(app).get(warningUrl(ruleId, 'real-keyword')).set('Cookie', 'arc_session=owner-session').expect(200)
       .expect(({ body }) => expect(body.feedback).toBeNull());
     for (const method of ['get', 'put', 'delete']) {
       await request(app)[method](url).set('Cookie', 'arc_session=other-session').send({ feedback_value: 'negative' }).expect(404);
     }
     expect((await database.get('SELECT result_json FROM paper_lint_reports WHERE id=?', ['report-1'])).result_json).toBe(original);
+  });
+
+  it('rejects actual findings and execution warnings hidden by rule retirement', async () => {
+    const ruleId = 'sjtu_rule_32';
+    await replaceRuns([{ rule_id: ruleId, execution_status: 'error', findings: [{ finding_id: 'retired-finding', message: '旧引用问题' }] }]);
+    for (const findingId of ['retired-finding', `execution-warning:${ruleId}:generic`]) {
+      for (const method of ['get', 'put', 'delete']) {
+        await request(app)[method](warningUrl(ruleId, findingId)).set('Cookie', 'arc_session=owner-session')
+          .send({ feedback_value: 'positive' }).expect(404);
+      }
+    }
+    expect(await database.all('SELECT id FROM paper_lint_finding_feedback')).toEqual([]);
   });
 
   it('validates negative warning feedback before storing it', async () => {

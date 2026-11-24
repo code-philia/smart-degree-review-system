@@ -3,7 +3,7 @@
 .credit-balance:hover{border-color:#b6c9e9;box-shadow:0 4px 16px #10264708}
 .credit-balance-icon{display:grid;place-items:center;width:38px;height:38px;flex-shrink:0;border:1px solid #c9eade;border-radius:11px;background:#effbf6;color:#0b9279}
 .credit-balance-copy{display:flex;flex-direction:column;gap:2px;min-width:90px}
-.credit-balance-copy>span{font-size:11px;line-height:16px;color:#728297}
+.credit-balance-copy>span{font-size:11px;line-height:16px;color:#647489}
 .credit-balance strong{font-size:21px;line-height:25px;letter-spacing:-.025em;font-weight:650;color:#24364e;font-variant-numeric:tabular-nums}
 .credit-currency{font-size:15px;font-weight:500;margin-right:3px}
 .credit-balance>.lucide-chevron-down{margin-left:2px;color:#8f9bb0}
@@ -11,7 +11,7 @@
 .credit-rule-price svg{color:inherit;flex-shrink:0}
 .credit-estimate{display:flex;align-items:baseline;justify-content:flex-end;gap:6px;flex-wrap:wrap;color:#62738c;font-size:12px;line-height:20px}
 .credit-estimate strong{font-size:17px;line-height:22px;font-weight:650;color:#24364e;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-.credit-estimate-note{font-size:10px;color:#8996a8;margin-left:3px;white-space:nowrap}
+.credit-estimate-note{font-size:10px;color:#657389;margin-left:3px;white-space:nowrap}
 .credit-free-note{display:flex;align-items:center;gap:6px;font-size:11px;line-height:18px;color:#72829b}
 .credit-free-note svg{color:#708ca9;flex-shrink:0}
 .credit-popover{width:276px;border-color:#dce5f2;border-radius:14px;padding:18px;background:#fff;box-shadow:0 10px 35px #1d35591a}
@@ -50,15 +50,15 @@
 .credit-rule-copy{flex:1;display:block;min-width:0}
 .credit-rule-heading{display:flex;align-items:center;gap:7px;min-height:24px;line-height:22px}
 .credit-rule-name{min-width:0;color:#24364e;font-size:13px;font-weight:500;line-height:22px}
-.credit-rule-description{display:block;margin-top:4px;color:#7d8ba0;font-size:12px;line-height:20px}
+.credit-rule-description{display:block;margin-top:4px;color:#657389;font-size:12px;line-height:20px}
 .credit-rule-price{margin-left:auto;gap:2px;padding:1px 6px;border:1px solid #bde8d9;border-radius:6px;background:#effbf6;font-size:13px;line-height:20px;font-weight:500;color:#087f68}
 .credit-rule-price svg{display:block;width:14px;height:14px;color:inherit}
 .credit-rule-heading>span:has(.lucide-flask-conical){flex-shrink:0}
 .credit-estimate{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:2px;margin-right:3px;line-height:20px}
 .credit-estimate-main{display:flex;align-items:baseline;gap:9px;white-space:nowrap}
-.credit-estimate-main>span{color:#748198;font-size:12px;line-height:20px}
+.credit-estimate-main>span{color:#637289;font-size:12px;line-height:20px}
 .credit-estimate-main>strong{color:#24364e;font-size:18px;line-height:22px;font-weight:600;letter-spacing:0;font-variant-numeric:tabular-nums}
-.credit-estimate-note{display:block;margin:0;color:#8895a8;font-size:11px;line-height:17px}
+.credit-estimate-note{display:block;margin:0;color:#657389;font-size:11px;line-height:17px}
 .credit-balance{min-height:40px;gap:8px;padding:8px 10px;border-color:#dce6e3;border-radius:9px;background:#ffffffd9;box-shadow:none}
 .credit-balance:hover{background:#fff;border-color:#bed4cd;box-shadow:none}
 .credit-balance-icon{width:32px;height:32px;border:1px solid #c9eade;border-radius:9px;background:#effbf6}

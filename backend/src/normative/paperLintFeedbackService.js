@@ -53,16 +53,15 @@ function mapFeedback(row) {
 }
 
 async function validateFindingFeedbackTarget({ reportId, userId, ruleId, findingId }) {
-  if (!findingId.startsWith(`execution-warning:${ruleId}:`)) {
-    return suggestionService.getPaperLintReportFinding({ reportId, userId, ruleId, findingId });
-  }
   const report = await reportRepository.findPaperLintReportByIdForUser(reportId, userId);
   if (!report) throw problem(404, '未找到该审查报告');
   const ruleRun = report.result?.rule_runs?.find(run => run.rule_id === ruleId);
-  const { executionWarningFeedbackTargets } = await presentation;
-  if (ruleRun && executionWarningFeedbackTargets(ruleRun).some(target => target.findingId === findingId)) return;
-  // Preserve the existing actual-finding and AI-repair eligibility checks.
-  await suggestionService.getPaperLintReportFinding({ reportId, userId, ruleId, findingId });
+  if (ruleRun?.findings?.some(finding => finding.finding_id === findingId)) return;
+  if (ruleRun && findingId.startsWith(`execution-warning:${ruleId}:`)) {
+    const { executionWarningFeedbackTargets } = await presentation;
+    if (executionWarningFeedbackTargets(ruleRun).some(target => target.findingId === findingId)) return;
+  }
+  throw problem(404, '该报告中不存在指定告警');
 }
 
 async function getFindingFeedback({ reportId, userId, ruleId, findingId }) {

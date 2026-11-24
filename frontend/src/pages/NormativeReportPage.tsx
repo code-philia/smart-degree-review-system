@@ -68,12 +68,14 @@ function NormativeReportPage({ mode = 'basic' }: { mode?: 'basic' | 'thirty' }) 
     setSelectedReportIds([]);
     setPendingDelete(null);
     setDeleteError(null);
+    setHistory([]);
+    setPdfReports([]);
 
     const request = reportId
       ? fetchNormativeDetectionReport(reportId)
       : Promise.all([
           isThirty ? Promise.resolve([] as DetectionTaskResponse[]) : fetchNormativeDetectionHistory(),
-          fetchPaperLintReports().catch(() => []),
+          fetchPaperLintReports(),
         ]);
     request
       .then((response) => {

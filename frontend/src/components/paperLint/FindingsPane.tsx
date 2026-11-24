@@ -307,16 +307,10 @@ export function FindingsPane({
                 className={`cursor-pointer rounded-lg border border-l-4 p-3 transition ${
                   active ? numeric ? 'border-brand-300 bg-white ring-1 ring-brand-100' : 'border-brand-500 bg-brand-50 ring-1 ring-brand-100' : 'border-slate-200 hover:bg-slate-50'
                 }`}
-                role="button"
-                tabIndex={0}
-                aria-current={active || undefined}
-                onClick={() => onFindingClick(item.key)}
-                onKeyDown={(event) => {
-                  if (event.target !== event.currentTarget) return;
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    onFindingClick(item.key);
-                  }
+                onClick={(event) => {
+                  // Keep the card surface clickable without treating its independent controls as selection.
+                  if (event.target instanceof Element && event.target.closest('button, a, input, select, textarea, summary, [role="button"], [role="link"], [contenteditable="true"]')) return;
+                  onFindingClick(item.key);
                 }}
               >
                 <div className="flex items-start justify-between gap-2">
@@ -325,7 +319,14 @@ export function FindingsPane({
                       {severityLabels[item.ruleRun.severity]}
                     </StatusBadge>
                     <h3 className="mt-2 text-sm font-bold text-slate-900">
-                      {findingTitle(item, ruleNames.get(item.ruleRun.rule_id) || item.ruleRun.rule_id)}
+                      <button
+                        type="button"
+                        className="rounded-sm text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+                        aria-current={active || undefined}
+                        onClick={() => onFindingClick(item.key)}
+                      >
+                        {findingTitle(item, ruleNames.get(item.ruleRun.rule_id) || item.ruleRun.rule_id)}
+                      </button>
                     </h3>
                   </div>
                   <div className="flex items-center gap-1">

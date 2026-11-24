@@ -102,4 +102,17 @@ describe('Chinese read-only supervision console',()=>{
     expect(screen.getByText('这是用户点踩的已保存建议')).toBeInTheDocument();
     expect(screen.getByRole('link',{name:'查看关联报告'})).toHaveAttribute('href','/admin/reports/report-b');
   });
+  it('returns focus to the selected feedback details button after Escape or close',async()=>{
+    mount('/admin/feedback');const user=userEvent.setup();
+    await screen.findByText('建议与原文不符');
+    const trigger=screen.getAllByRole('button',{name:'查看反馈详情'})[1];
+    await user.click(trigger);
+    expect(await screen.findByRole('dialog',{name:'反馈详情'})).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    await waitFor(()=>expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(()=>expect(trigger).toHaveFocus());
+    await user.keyboard('{Enter}');
+    await user.click(await screen.findByRole('button',{name:'关闭反馈详情'}));
+    await waitFor(()=>expect(trigger).toHaveFocus());
+  });
 });

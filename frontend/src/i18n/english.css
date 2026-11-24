@@ -1,6 +1,6 @@
 .i18n-languages{display:inline-flex;align-items:center;gap:2px;padding:3px;border:1px solid #dfe5ee;background:#fff;border-radius:8px;flex-shrink:0;line-height:1.25;white-space:nowrap}
 .i18n-languages>svg{color:#718099;margin:0 5px;flex-shrink:0}
-.i18n-languages button{font:inherit;font-size:12px;line-height:20px;padding:2px 7px;border:0;border-radius:5px;cursor:pointer;background:transparent;color:#69768b}
+.i18n-languages button{font:inherit;font-size:12px;line-height:20px;padding:2px 7px;border:0;border-radius:5px;cursor:pointer;background:transparent;color:#647186}
 .i18n-languages button[aria-pressed=true]{background:#edf2ff;color:#284d9b;font-weight:600}
 .i18n-languages button:focus-visible{outline:2px solid #3564d9;outline-offset:3px}
 .i18n-login-language{position:fixed;bottom:25px;left:28px;z-index:90}

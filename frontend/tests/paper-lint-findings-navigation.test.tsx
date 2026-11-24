@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { FindingsPane } from '../src/components/paperLint/FindingsPane';
 import type { PaperLintFindingItem } from '../src/components/paperLint/model';
@@ -28,6 +29,78 @@ const item: PaperLintFindingItem = {
 };
 
 describe('PDF issue card', () => {
+  it('exposes an article with a keyboard-operable title separate from its other controls', async () => {
+    const user = userEvent.setup();
+    const onFindingClick = vi.fn();
+    render(<FindingsPane findings={[item]} rules={[]} activeFindingKey={item.key} activeAnchorId={null}
+      onFindingClick={onFindingClick} onAnchorClick={vi.fn()} />);
+
+    const card = screen.getByRole('article');
+    const title = within(within(card).getByRole('heading', { level: 3 })).getByRole('button');
+    expect(title).toHaveAttribute('aria-current', 'true');
+    expect(card).not.toHaveAttribute('tabindex');
+    for (const button of within(card).getAllByRole('button')) {
+      expect(button.parentElement?.closest('button, [role="button"]')).toBeNull();
+    }
+
+    // Tabbing into a card first reaches its title, then the independent controls.
+    screen.getByRole('combobox', { name: '按检查项筛选' }).focus();
+    await user.tab();
+    expect(title).toHaveFocus();
+    await user.keyboard('{Enter} ');
+    expect(onFindingClick.mock.calls).toEqual([[item.key], [item.key]]);
+    await user.tab();
+    expect(within(card).getByRole('button', { name: '标记为已处理' })).toHaveFocus();
+  });
+
+  it('selects from the card body and title without duplicating the page-jump action', async () => {
+    const user = userEvent.setup();
+    const onFindingClick = vi.fn();
+    render(<FindingsPane findings={[item]} rules={[]} activeFindingKey={null} activeAnchorId={null}
+      onFindingClick={onFindingClick} onAnchorClick={vi.fn()} />);
+    const card = screen.getByRole('article');
+    await user.click(card);
+    await user.click(within(card).getByText(item.finding.message));
+    await user.click(within(within(card).getByRole('heading', { level: 3 })).getByRole('button'));
+    const jump = within(card).getByRole('button', { name: '跳到 PDF 第 99 页' });
+    await user.click(jump);
+    await user.keyboard('{Enter} ');
+    expect(onFindingClick.mock.calls).toEqual(Array.from({ length: 6 }, () => [item.key]));
+  });
+
+  it('keeps handled, repair, feedback and evidence controls independent of card selection', async () => {
+    const user = userEvent.setup();
+    const onFindingClick = vi.fn();
+    const onAnchorClick = vi.fn();
+    const onGenerateRepairSuggestion = vi.fn();
+    const onFindingFeedback = vi.fn();
+    const anchoredItem = { ...item, finding: { ...item.finding, anchors: [
+      { anchor_id: 'source-99', role: 'source_span', label: '证据 1', location: item.finding.location! },
+    ] } };
+    render(<FindingsPane findings={[anchoredItem]} rules={[]} activeFindingKey={item.key} activeAnchorId={null}
+      onFindingClick={onFindingClick} onAnchorClick={onAnchorClick}
+      onGenerateRepairSuggestion={onGenerateRepairSuggestion} onFindingFeedback={onFindingFeedback} />);
+    const card = screen.getByRole('article');
+    const handled = within(card).getByRole('button', { name: '标记为已处理' });
+    handled.focus();
+    await user.keyboard('{Enter}');
+    expect(within(card).getByText('已标记为本次已处理')).toBeInTheDocument();
+    await user.keyboard(' ');
+    expect(within(card).queryByText('已标记为本次已处理')).toBeNull();
+
+    const repair = within(card).getByRole('button', { name: '获取修复建议' });
+    await user.click(repair);
+    await user.keyboard('{Enter} ');
+    expect(onGenerateRepairSuggestion.mock.calls).toEqual([[anchoredItem], [anchoredItem], [anchoredItem]]);
+    await user.click(within(card).getByRole('button', { name: '有帮助' }));
+    expect(onFindingFeedback).toHaveBeenCalledExactlyOnceWith(anchoredItem, 'positive');
+    const evidence = within(card).getByRole('button', { name: '证据 1' });
+    await user.click(evidence);
+    await user.keyboard('{Enter} ');
+    expect(onAnchorClick.mock.calls).toEqual([[item.key, 'source-99'], [item.key, 'source-99'], [item.key, 'source-99']]);
+    expect(onFindingClick).not.toHaveBeenCalled();
+  });
+
   it('offers an explicit page-jump control for a located issue', () => {
     const onFindingClick = vi.fn();
     render(
