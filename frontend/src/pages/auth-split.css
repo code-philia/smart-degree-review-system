@@ -41,5 +41,5 @@
 
 /* Give the single-line English title more room without changing the illustration. */
 .campus-signin.auth-split .signin{max-width:560px}
-html[lang=en] .campus-signin.auth-split .signin h2{white-space:nowrap;text-wrap:nowrap;max-width:100%;font-size:clamp(13px,5.2cqw,25px);letter-spacing:-.02em}
+html[lang=en] .campus-signin.auth-split .signin h2{white-space:nowrap;text-wrap:nowrap;max-width:100%;font-size:clamp(12.5px,5.2cqw,25px);letter-spacing:-.02em}
 html[lang=en] .campus-signin.auth-split .signin h2 .i18n-brand-phrase,html[lang=en] .campus-signin.auth-split .signin h2 .i18n-brand-separator{display:inline}
