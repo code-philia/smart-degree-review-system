@@ -13,7 +13,7 @@ from typing import Any
 RULE = 'abstract_numeric_consistency_check'
 CONTEXT_VERSION = 'numeric-context/4.4'
 CONTRACT_VERSION = 'numeric-contract/3.0'
-RETRIEVAL_VERSION = 'numeric-lexical/1.6'
+RETRIEVAL_VERSION = 'numeric-lexical/1.7'
 TABLE_RECOVERY_VERSION = 'native-table-recovery/1.1'
 CONDITIONS = {'abstract_numeric', 'contribution_mapping', 'experiment_subsection'}
 FIXED_PRECONDITION_SUGGESTIONS = {
@@ -1208,6 +1208,7 @@ METRIC_ALIASES = [
     ('加速比', 'speedup', '倍'), ('提升', 'improvement', '百分点', 'percentage point'),
     ('软件攻击面', '攻击面', 'attack surface', 'atk_red'),
     ('程序体积', '代码体积', 'program size', 'size_red'),
+    ('电压', 'cell voltage', 'voltage reduction', 'voltage saving', 'voltage'),
 ]
 
 
@@ -1255,8 +1256,85 @@ def retrieval_signals(declaration, block):
     return score, signals
 
 
+def chapter_recall_blocks(declaration, mapping, model, experiment_ids, max_chars=8000):
+    """Bound native sibling evidence by chapter, experimental title, method and metric.
+
+    Matching a number is never sufficient or required. This also recalls rival
+    values and equivalent units; the verifier still decides the full conditions.
+    """
+    sections, blocks = model['sections'], model['blocks']
+    chapter = mapping.get('chapter_id')
+    audit = {'chapter_id': chapter, 'selected_block_ids': [], 'omitted_block_ids': []}
+    if chapter not in sections or sections[chapter].get('parent_id') is not None:
+        return [], audit
+    method = declaration.get('method')
+    terms = [t.strip() for t in re.split(r'[，,；;、|/]+', method) if len(lexical(t)) >= 3] if isinstance(method, str) else []
+    generic = {'本方法', '本文方法', '本模型', '本文模型', '所提方法', '所提模型', '本研究',
+               '所提出的方法', '所提出的模型', '提出的方法', '提出的模型',
+               'proposedmethod', 'proposedmodel', 'proposedapproach', 'theproposedmethod',
+               'theproposedmodel', 'theproposedapproach', 'ourmethod', 'ourmodel', 'ourapproach',
+               'thismethod', 'thismodel', 'thisapproach', 'thiswork', 'ourwork'}
+    terms = [term for term in terms if lexical(term) not in generic]
+    if not terms:
+        return [], audit
+    experimental = re.compile(r'实验|评估|评测|性能|结果|experiment|evaluat|performance|results|findings', re.I)
+    background = re.compile(r'引言|绪论|相关工作|综述|结论|小结|参考文献|\bintroduction\b|\bbackground\b|related work|literature review|\bconclusions?\b|\breferences\b|\bbibliography\b', re.I)
+    def anchored(text, term):
+        pattern = re.escape(term).replace(r'\ ', r'\s*').replace(r'\-', r'-\s*')
+        if re.match(r'[A-Za-z0-9]', term): pattern = r'(?<![A-Za-z0-9_-])' + pattern
+        if re.search(r'[A-Za-z0-9]$', term): pattern += r'(?![A-Za-z0-9_-])'
+        return re.search(pattern, text, re.I) is not None
+    ranked, native_paths = [], {}
+    for index, block in enumerate(blocks):
+        sid = block.get('section_id')
+        if (block.get('block_type') != 'Paragraph' or not descendant(model, sid, chapter)
+                or any(sid == e or descendant(model, sid, e) for e in experiment_ids)):
+            continue
+        path, source_path, seen, current = [], [], set(), sid
+        while current in sections and current != chapter and current not in seen:
+            seen.add(current); path.append(sections[current].get('title', ''))
+            source_path.append({'section_id': current, 'title': sections[current].get('title', '')})
+            current = sections[current].get('parent_id')
+        if current != chapter or any(background.search(title) for title in path) or not any(experimental.search(title) for title in path):
+            continue
+        if not any(anchored(block['text'], term) for term in terms):
+            continue
+        native_paths[sid] = [{'section_id': chapter, 'title': sections[chapter].get('title', '')}] + list(reversed(source_path))
+        score, signals = retrieval_signals(declaration, block)
+        if not any(s['kind'] == 'metric' for s in signals):
+            continue
+        ranked.append((score, index, signals))
+    ranked.sort(key=lambda item: (-item[0], item[1]))
+    selected, per_section = [], {}
+    for row in ranked:
+        sid = blocks[row[1]]['section_id']
+        if per_section.get(sid, 0) >= 2: continue
+        selected.append(row); per_section[sid] = per_section.get(sid, 0) + 1
+        if len(selected) == 4: break
+    output, included, size = [], set(), 0
+    def include(index, primary, score=0, signals=None):
+        nonlocal size
+        block = blocks[index]
+        if index in included: return
+        if size + len(block['text']) > max_chars:
+            audit['omitted_block_ids'].append(block['block_id']); return
+        included.add(index); size += len(block['text'])
+        output.append({**block, 'is_primary': primary, 'retrieval_scope': 'chapter_recall',
+                       'source_section_path': native_paths[block['section_id']],
+                       'retrieval_score': score, 'matched_signals': signals or [], 'context': []})
+        audit['selected_block_ids'].append(block['block_id'])
+    for score, index, signals in selected: include(index, True, score, signals)
+    for _, index, _ in selected:
+        if index not in included: continue
+        for neighbor in [index - 1, index + 1]:
+            if 0 <= neighbor < len(blocks) and blocks[neighbor]['section_id'] == blocks[index]['section_id'] and blocks[neighbor]['block_type'] == 'Paragraph':
+                include(neighbor, False)
+    audit.update(primary_block_ids=[b['block_id'] for b in output if b['is_primary']], characters=size)
+    return output, audit
+
+
 def retrieve_candidates(declarations, mappings, model, top_k=6):
-    """Numeric verifier internal lexical retrieval; never searches outside mapped scope."""
+    """Retrieve mapped experiments plus bounded source-anchored sibling results."""
     require(type(top_k) is int and 1 <= top_k <= 30, 'invalid Top-K')
     candidates, traces = [], []
     for d in declarations:
@@ -1362,7 +1440,13 @@ def retrieve_candidates(declarations, mappings, model, top_k=6):
                 'declaration_id': d['id'], 'block_type': 'ExperimentalContext', 'evidence_role': 'experiment_context',
                 'is_primary': False, 'retrieval_rank': None, 'retrieval_score': 0, 'context': []})
             selected_ids.append(setup['block_id'])
+        recalled, chapter_recall = chapter_recall_blocks(d, mapping, model, experiment_ids)
+        for recall_index, block in enumerate(recalled, 1):
+            candidates.append({**block, 'candidate_id': d['id'] + ':r' + str(recall_index),
+                               'declaration_id': d['id'], 'retrieval_rank': recall_index})
+            selected_ids.append(block['block_id'])
         traces.append({'declaration_id': d['id'], 'scope': experiment_ids, 'fallback': fallback,
+                       'chapter_recall': chapter_recall,
                        'top_k': top_k, 'scope_block_ids': [b['block_id'] for b in scoped],
                        'selected_block_ids': selected_ids,
                        'omitted_block_ids': [b['block_id'] for i, b in enumerate(scoped) if i not in chosen],
@@ -1455,6 +1539,8 @@ def verifier_prompt(structure, candidates):
         if candidate.get('evidence_role'):
             public['evidence_role'] = candidate['evidence_role']
             public['evidence_kinds'] = candidate.get('evidence_kinds', [])
+        if candidate.get('source_section_path'):
+            public['source_section_path'] = candidate['source_section_path']
         table = candidate.get('table_structure')
         if table:
             from numeric_native_tables import compact_table_context
@@ -1504,6 +1590,7 @@ def verifier_prompt(structure, candidates):
             '先在reason中列出与该声明相关的全部数值和各自条件，然后进行比较。合理舍入必须遵守声明精度的四舍五入，不能任意截断小数；作者若可能使用概数但未写明，应提示核实精度，不能直接认证相等。'
             '候选已按相关度排列，is_primary=true是必须逐项检查的主证据，不能读到一个相同数字就停止。最高值声明尤其要检查其他数据集或实验设置中的更大值；reason列出检查过的相关主证据ID及数值。'
             '同数字不代表一致；未检索到数字不代表不一致。证据不足或表格行列关系不明时为inconclusive。'
+            'source_section_path是候选所属的原生章节标题，必须据此核对方法、数据集和实验条件；不同分支的条件不得互相套用，标题本身不证明实验数值。'
             '若原文明确报告同一指标、方法和实验条件的目标数值，应优先核对该直接陈述；'
             '不能用另一指标的计算值否定它。原文明确写约、大约、approximately、about的概数按原文含义核验，不能自行施加精确等式要求。'
             '同一方法、数据集下，表格与正文若把不同数值明确称为同一目标指标，即使表格支持摘要仍存在待核对的矛盾。'
