@@ -3,14 +3,14 @@ import { fetchPaperLintActivity, type PaperLintActivity } from '../api/paperLint
 
 export function usePaperLintActivity(owner: string | undefined) {
   const [state, setState] = useState<{ owner: string; activity: PaperLintActivity } | null>(null);
-  const refreshRef = useRef<() => Promise<void>>(async () => {});
+  const refreshRef = useRef<() => Promise<PaperLintActivity | null>>(async () => null);
   const refresh = useCallback(() => refreshRef.current(), []);
   useEffect(() => {
-    if (!owner) { setState(null); refreshRef.current = async () => {}; return; }
-    let disposed = false, inFlight: Promise<void> | null = null;
+    if (!owner) { setState(null); refreshRef.current = async () => null; return; }
+    let disposed = false, inFlight: Promise<PaperLintActivity | null> | null = null;
     let timer: ReturnType<typeof setTimeout>;
-    const load = (): Promise<void> => {
-      if (disposed) return Promise.resolve();
+    const load = (): Promise<PaperLintActivity | null> => {
+      if (disposed) return Promise.resolve(null);
       if (inFlight) return inFlight;
       clearTimeout(timer);
       inFlight = (async () => {
@@ -22,7 +22,8 @@ export function usePaperLintActivity(owner: string | undefined) {
           }
           if (!disposed) setState({ owner, activity });
           delay = activity.busy ? 1500 : 5000;
-        } catch { /* The server still enforces admission if a status refresh fails. */ }
+          return disposed ? null : activity;
+        } catch { return null; }
         finally { inFlight = null; if (!disposed) timer = setTimeout(() => void load(), delay); }
       })();
       return inFlight;
@@ -31,7 +32,7 @@ export function usePaperLintActivity(owner: string | undefined) {
     const reload = () => { void load(); };
     const visible = () => { if (document.visibilityState === 'visible') reload(); };
     void load(); window.addEventListener('focus', reload); document.addEventListener('visibilitychange', visible);
-    return () => { disposed = true; clearTimeout(timer); refreshRef.current = async () => {}; window.removeEventListener('focus', reload); document.removeEventListener('visibilitychange', visible); };
+    return () => { disposed = true; clearTimeout(timer); refreshRef.current = async () => null; window.removeEventListener('focus', reload); document.removeEventListener('visibilitychange', visible); };
   }, [owner]);
-  return { activity: state?.owner === owner ? state.activity : null, refresh };
+  return { activity: state && state.owner === owner ? state.activity : null, refresh };
 }

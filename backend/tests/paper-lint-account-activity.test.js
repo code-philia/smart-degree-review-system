@@ -34,7 +34,7 @@ beforeAll(async () => {
     cookies[name] = response.headers['set-cookie'].find(value => value.startsWith('arc_session='));
   }
 });
-beforeEach(async () => { await run('DELETE FROM paper_lint_jobs'); await run('DELETE FROM paper_lint_upload_leases'); });
+beforeEach(async () => { await run('DELETE FROM paper_lint_jobs'); await run('DELETE FROM paper_lint_upload_leases'); await run('DELETE FROM paper_lint_observed_uploads'); });
 afterAll(async () => { await harness.cleanup(); fs.rmSync(directory, { recursive: true, force: true }); if (originalJobs === undefined) delete process.env.PAPER_LINT_JOBS_DIR; else process.env.PAPER_LINT_JOBS_DIR = originalJobs; });
 
 it('admits exactly one unfinished paper even when ordinary-account submissions race', async () => {
@@ -71,6 +71,12 @@ it('returns the signed-in account active task so any browser can restore its pro
   expect(other.body).toMatchObject({ busy: false, active_job: null });
   await request(app).get('/api/normative/paper-lint/activity').expect(401);
 });
+it.each(['student01', 'supervisor01', 'college_admin01', 'school_admin01'])('reports %s activity to the UI while preserving unrestricted backend admission', async name => {
+  const first = await repository.createJob(payload(name));
+  const state = await request(app).get('/api/normative/paper-lint/activity').set('Cookie', cookies[name]).expect(200);
+  expect(state.body).toMatchObject({ user_id: name, limited: false, busy: true, active_job: { job_id: first, user_id: name } });
+  await expect(repository.createJob(payload(name))).resolves.toBeTruthy();
+});
 it('rejects a new upload for an occupied ordinary account before parsing its PDF body', async () => {
   await repository.createJob(payload('ordinary-a'));
   const response = await request(app).post('/api/normative/paper-lint/run').set('Cookie', cookies['ordinary-a'])
@@ -86,6 +92,18 @@ it('holds one upload reservation across independent clients and lets only its ow
   expect(await activity.getAccountActivity('ordinary-a')).toMatchObject({ uploading: true, source_filename: 'first.pdf' });
   await expect(repository.createJob({ ...payload('ordinary-a'), uploadToken: first.token })).resolves.toBeTruthy();
   await activity.releaseUpload('ordinary-a', first.token);
+});
+it('exposes local uploads to the UI without restricting concurrent backend uploads or jobs', async () => {
+  const activity = require('../src/normative/paperLintAccountActivity');
+  const first = await activity.acquireUpload('student01', 'local-a', 'first.pdf');
+  expect(await activity.getAccountActivity('student01')).toMatchObject({ limited: false, busy: true, uploading: true, source_filename: 'first.pdf' });
+  const second = await activity.acquireUpload('student01', 'local-b', 'second.pdf');
+  expect(second.token).toBeTruthy(); expect(second.token).not.toBe(first.token);
+  await activity.releaseUpload('student01', first.token);
+  expect(await activity.getAccountActivity('student01')).toMatchObject({ busy: true, uploading: true, source_filename: 'second.pdf' });
+  await expect(repository.createJob(payload('student01'))).resolves.toBeTruthy();
+  await expect(repository.createJob(payload('student01'))).resolves.toBeTruthy();
+  await activity.releaseUpload('student01', second.token);
 });
 it('serializes a direct enqueue racing an upload reservation', async () => {
   const activity = require('../src/normative/paperLintAccountActivity');

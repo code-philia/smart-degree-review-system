@@ -13,10 +13,11 @@ function publicActiveJob(row) {
 async function getAccountActivity(userId, query = { get }, now = Date.now()) {
   const user = await query.get('SELECT id,username,role FROM auth_users WHERE id=?', [userId]);
   if (!user) throw Object.assign(new Error('未找到当前用户'), { status: 404 });
-  if (trialUserAllowed(user)) return { user_id: userId, limited: false, busy: false, uploading: false, active_job: null };
+  const limited = !trialUserAllowed(user);
   const job = await query.get(`SELECT * FROM paper_lint_jobs WHERE user_id=? AND ${ACTIVE} ORDER BY rowid LIMIT 1`, [userId]);
-  const lease = await query.get('SELECT source_filename FROM paper_lint_upload_leases WHERE user_id=? AND expires_at>?', [userId, new Date(now).toISOString()]);
-  return { user_id: userId, limited: true, busy: Boolean(job || lease), uploading: Boolean(lease && !job),
+  const lease = await query.get('SELECT source_filename FROM paper_lint_upload_leases WHERE user_id=? AND expires_at>?', [userId, new Date(now).toISOString()])
+    || await query.get('SELECT source_filename FROM paper_lint_observed_uploads WHERE user_id=? AND expires_at>? ORDER BY rowid LIMIT 1', [userId, new Date(now).toISOString()]);
+  return { user_id: userId, limited, busy: Boolean(job || lease), uploading: Boolean(lease && !job),
     source_filename: job?.source_filename || lease?.source_filename || null, active_job: publicActiveJob(job) };
 }
 
@@ -40,12 +41,18 @@ async function acquireUpload(userId, requestId, sourceFilename) {
   return withTransaction(async tx => {
     const now = Date.now();
     await tx.run('DELETE FROM paper_lint_upload_leases WHERE user_id=? AND expires_at<=?', [userId, new Date(now).toISOString()]);
+    await tx.run('DELETE FROM paper_lint_observed_uploads WHERE user_id=? AND expires_at<=?', [userId, new Date(now).toISOString()]);
     const activity = await getAccountActivity(userId, tx, now);
     if (requestId) {
       const existing = await tx.get('SELECT id FROM paper_lint_jobs WHERE user_id=? AND request_id=?', [userId, requestId]);
       if (existing) return { existingJobId: existing.id };
     }
-    if (!activity.limited) return {};
+    if (!activity.limited) {
+      const token = randomUUID();
+      await tx.run('INSERT INTO paper_lint_observed_uploads (user_id,token,source_filename,expires_at) VALUES (?,?,?,?)',
+        [userId, token, sourceFilename, new Date(now + UPLOAD_LEASE_MS).toISOString()]);
+      return { token };
+    }
     if (activity.busy) throw activityConflict(activity);
     const token = randomUUID();
     await tx.run('INSERT INTO paper_lint_upload_leases (user_id,token,source_filename,expires_at) VALUES (?,?,?,?)',
@@ -57,9 +64,14 @@ async function acquireUpload(userId, requestId, sourceFilename) {
 async function renewUpload(userId, token) {
   await run('UPDATE paper_lint_upload_leases SET expires_at=? WHERE user_id=? AND token=?',
     [new Date(Date.now() + UPLOAD_LEASE_MS).toISOString(), userId, token]);
+  await run('UPDATE paper_lint_observed_uploads SET expires_at=? WHERE user_id=? AND token=?',
+    [new Date(Date.now() + UPLOAD_LEASE_MS).toISOString(), userId, token]);
 }
 async function releaseUpload(userId, token) {
-  if (token) await run('DELETE FROM paper_lint_upload_leases WHERE user_id=? AND token=?', [userId, token]);
+  if (token) {
+    await run('DELETE FROM paper_lint_upload_leases WHERE user_id=? AND token=?', [userId, token]);
+    await run('DELETE FROM paper_lint_observed_uploads WHERE user_id=? AND token=?', [userId, token]);
+  }
 }
 
 module.exports = { getAccountActivity, accountAdmission, activityConflict, acquireUpload, renewUpload, releaseUpload };

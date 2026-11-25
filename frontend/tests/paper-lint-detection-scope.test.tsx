@@ -7,6 +7,7 @@ import {
   type PaperLintRule, type PaperLintRunResponse,
 } from '../src/api/paperLint';
 import PaperLintReportPage from '../src/pages/PaperLintReportPage';
+vi.mock('../src/auth/AuthSessionProvider', () => ({ useAuthSession: () => ({ status: 'authenticated', user: { id: 'student01' } }) }));
 import { fixture } from './fixtures/reportExport';
 
 vi.mock('../src/api/paperLint', async () => ({

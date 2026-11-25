@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, expect, it, vi } from 'vitest';
 import PaperLintReportPage from '../src/pages/PaperLintReportPage';
+vi.mock('../src/auth/AuthSessionProvider', () => ({ useAuthSession: () => ({ status: 'authenticated', user: { id: 'student01' } }) }));
 import { fetchPaperLintReport, fetchPaperLintDocumentMetrics, fetchReviewPilotPaperLintRules, type PaperLintRunResponse } from '../src/api/paperLint';
 
 vi.mock('../src/api/paperLint', async () => ({

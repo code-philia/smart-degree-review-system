@@ -1,9 +1,11 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { IncrementalRerunDialog } from '../src/components/paperLint/IncrementalRerunDialog';
-import { fetchPaperLintDailyQuota, rerunPaperLintReport } from '../src/api/paperLint';
-vi.mock('../src/api/paperLint', async () => ({ ...await vi.importActual('../src/api/paperLint'), fetchPaperLintDailyQuota: vi.fn(), rerunPaperLintReport: vi.fn() }));
+import { fetchPaperLintActivity, fetchPaperLintDailyQuota, rerunPaperLintReport } from '../src/api/paperLint';
+vi.mock('../src/api/paperLint', async () => ({ ...await vi.importActual('../src/api/paperLint'), fetchPaperLintActivity: vi.fn(), fetchPaperLintDailyQuota: vi.fn(), rerunPaperLintReport: vi.fn() }));
+vi.mock('../src/auth/AuthSessionProvider', () => ({ useAuthSession: () => ({ user: { id: 'student' }, status: 'authenticated' }) }));
+beforeEach(() => vi.mocked(fetchPaperLintActivity).mockResolvedValue({user_id:'student',limited:false,busy:false,uploading:false,active_job:null}));
 afterEach(() => { localStorage.clear(); vi.clearAllMocks(); vi.unstubAllGlobals(); });
 const report = { id: 'old-report', source_filename: 'original.pdf', selected_rule_ids: ['sjtu_rule_18', 'sjtu_rule_22'], result: { rule_runs: [
   { rule_id: 'sjtu_rule_18', execution_status: 'completed', outcome: 'issues_found', findings: [] },
@@ -18,6 +20,13 @@ function show() { render(<MemoryRouter initialEntries={['/report']}><Routes>
   <Route path="/report" element={<IncrementalRerunDialog report={report} rules={rules} initiallyOpen />} />
   <Route path="/paper-upload" element={<p>已进入检测进度页</p>} />
 </Routes></MemoryRouter>); }
+it('blocks incremental submissions in the UI even when backend admission is unrestricted', async () => {
+  vi.mocked(fetchPaperLintActivity).mockResolvedValue({user_id:'student',limited:false,busy:true,uploading:true,active_job:null});
+  show();
+  expect(await screen.findByText('您已有一篇论文正在上传、排队或检测，请等待当前任务结束后再提交。')).toBeVisible();
+  expect(screen.getByRole('button',{name:'开始增量检测（1 项）'})).toBeDisabled();
+  expect(rerunPaperLintReport).not.toHaveBeenCalled();
+});
 it('reuses the original PDF, submits only added rules, and restores the queued job on HTTP origins', async () => {
   vi.stubGlobal('crypto', {});
   vi.mocked(rerunPaperLintReport).mockResolvedValue({ job_id: 'new-job', user_id: 'student', source_filename: 'original.pdf',
@@ -65,4 +74,17 @@ it('recovers a reserved rerun after a lost response without creating a new reque
  await waitFor(()=>expect(start).toBeEnabled());fireEvent.click(start);
  expect(await screen.findByText('已进入检测进度页')).toBeVisible();
  expect(vi.mocked(rerunPaperLintReport).mock.calls[1][2]).toBe(vi.mocked(rerunPaperLintReport).mock.calls[0][2]);
+});
+it('recovers its own accepted rerun when the response is lost and the account is now busy', async () => {
+ vi.mocked(fetchPaperLintDailyQuota).mockResolvedValue({limited:false} as any);
+ vi.mocked(rerunPaperLintReport).mockImplementationOnce(async (_id,_rules,requestId) => {
+  vi.mocked(fetchPaperLintActivity).mockResolvedValue({user_id:'student',limited:false,busy:true,uploading:false,
+   active_job:{job_id:'accepted-rerun',request_id:requestId,user_id:'student',status:'pending',report_id:null,error_message:null,created_at:'',updated_at:'',source_filename:'original.pdf'}});
+  throw Object.assign(new Error('Network Error'),{isAxiosError:true});
+ });
+ show();const start=screen.getByRole('button',{name:'开始增量检测（1 项）'});fireEvent.click(start);
+ expect(await screen.findByRole('alert')).toHaveTextContent('Network Error');
+ await waitFor(()=>expect(start).toBeEnabled());fireEvent.click(start);
+ expect(await screen.findByText('已进入检测进度页')).toBeInTheDocument();
+ expect(rerunPaperLintReport).toHaveBeenCalledTimes(1);
 });

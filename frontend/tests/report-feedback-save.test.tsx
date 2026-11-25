@@ -17,6 +17,7 @@ vi.mock('../src/hooks/usePaperLintRepairSuggestions', () => ({ usePaperLintRepai
 vi.mock('../src/components/paperLint/PdfPane', () => ({ PdfPane: () => null }));
 vi.mock('../src/api/paperLint', async () => ({
   ...(await vi.importActual('../src/api/paperLint')),
+  fetchPaperLintActivity: vi.fn(async () => ({user_id:'test',limited:false,busy:false,uploading:false,active_job:null})),
   fetchPaperLintReport: vi.fn(async () => ({ ...fixture, id: 'r' })),
   fetchPaperLintJob: vi.fn(async () => ({ status: 'completed', report_id: 'r' })),
   fetchPaperLintDocumentMetrics: vi.fn(async () => ({ page_count: 20, word_count: 12345, text_available: true })),

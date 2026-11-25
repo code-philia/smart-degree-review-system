@@ -173,7 +173,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   const accountCredit = usePaperLintCredit(user?.id, Boolean(activeJobId || running), `${activeJobId ?? ''}:${running}:${stopping}`);
   const accountActivity = usePaperLintActivity(user?.id);
   const recoveredServerJob = useRef<{ owner: string | undefined; id: string } | null>(null);
-  const accountBlocked = Boolean(accountActivity.activity?.limited && accountActivity.activity.busy && !running && !stopping);
+  const accountBlocked = Boolean(accountActivity.activity?.busy && !running && !stopping);
   const creditNoticeId = useId();
   const creditBlocked = !running && !stopping && !(recoverableRequestId && recoverableRequestId === requestIdRef.current)
     && isCreditInsufficient(accountCredit.credit, selectedRuleIds, accountCredit.error);
@@ -184,6 +184,8 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   const [jobProgress, setJobProgress] = useState<{ completed: number; total: number } | null>(null);
   const [semanticStage, setSemanticStage] = useState<0 | 1 | 2>(0);
   const [externalConsent, setExternalConsent] = useState(false);
+  const currentInputs = useRef({ file, selectedRuleIds, externalConsent });
+  currentInputs.current = { file, selectedRuleIds, externalConsent };
   useEffect(() => () => { runGenerationRef.current += 1; }, []);
 
   const loadCatalog = async () => {
@@ -503,7 +505,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   useEffect(() => {
     const activity = accountActivity.activity;
     const job = activity?.active_job;
-    if (!activity?.limited || !job) return;
+    if (!job) return;
     if (job.job_id === activeJobId) { recoveredServerJob.current = { owner: user?.id, id: job.job_id }; return; }
     if (running || stopping || (recoveredServerJob.current?.owner === user?.id && recoveredServerJob.current.id === job.job_id)) return;
     recoveredServerJob.current = { owner: user?.id, id: job.job_id };
@@ -587,13 +589,16 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
       setRunError('运行 DeepSeek 语义规则前，请先确认论文相关文本允许发送至外部 API');
       return;
     }
-    if (selectedRuleIds.includes(REFERENCE_RULE_ID)) {
-      const owner = user?.id;
-      preflightRef.current = true;
-      try {
-        if (!await referenceAccess.refresh() || currentOwner.current !== owner) return;
-      } finally { preflightRef.current = false; }
-    }
+    const owner = user?.id;
+    preflightRef.current = true;
+    try {
+      const activity = await accountActivity.refresh();
+      if (currentOwner.current !== owner) return;
+      if (!activity) { setRunError('连接异常，正在确认任务状态'); return; }
+      if (activity.busy) return;
+      if (selectedRuleIds.includes(REFERENCE_RULE_ID) && (!await referenceAccess.refresh() || currentOwner.current !== owner)) return;
+      if (currentInputs.current.file !== file || currentInputs.current.selectedRuleIds !== selectedRuleIds || currentInputs.current.externalConsent !== externalConsent) return;
+    } finally { preflightRef.current = false; }
     const generation = ++runGenerationRef.current;
     setRunning(true);
     setCompletedRuns([]);

@@ -2,14 +2,14 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import NormativeCheckPage from '../src/pages/NormativeCheckPage';
-import { cancelPaperLintJob, fetchPaperLintJob, fetchPaperLintReport, fetchReviewPilotPaperLintRules, runReviewPilotPaperLint } from '../src/api/paperLint';
+import { cancelPaperLintJob, fetchPaperLintActivity, fetchPaperLintJob, fetchPaperLintReport, fetchReviewPilotPaperLintRules, runReviewPilotPaperLint } from '../src/api/paperLint';
 import { setLocale, translate } from '../src/i18n/locale';
 import { fixture } from './fixtures/reportExport';
 const { user } = vi.hoisted(() => ({ user: { id: 'student01' } }));
 vi.mock('../src/auth/AuthSessionProvider', () => ({ useAuthSession: () => ({ status: 'authenticated', user }) }));
 vi.mock('../src/api/paperLint', async () => ({
   ...await vi.importActual('../src/api/paperLint'),
-  cancelPaperLintJob: vi.fn(), fetchPaperLintJob: vi.fn(), fetchPaperLintReport: vi.fn(),
+  cancelPaperLintJob: vi.fn(), fetchPaperLintActivity: vi.fn(), fetchPaperLintJob: vi.fn(), fetchPaperLintReport: vi.fn(),
   fetchReviewPilotPaperLintRules: vi.fn(), runReviewPilotPaperLint: vi.fn(),
 }));
 vi.mock('../src/components/paperLint/Workspace', () => ({ PaperLintWorkspace: () => <div /> }));
@@ -17,6 +17,7 @@ const job = { job_id: 'active-check', status: 'running' as const, report_id: nul
 
 beforeEach(() => {
   localStorage.clear(); vi.clearAllMocks(); setLocale('zh');
+  vi.mocked(fetchPaperLintActivity).mockResolvedValue({ user_id: user.id, limited: false, busy: false, uploading: false, active_job: null });
   vi.mocked(fetchReviewPilotPaperLintRules).mockResolvedValue({
     engine: 'sjtu-local', mode: 'pdf_lint', semantic_model: '',
     rules: [{ rule_id: 'sjtu_rule_22', title: '正文引文引用编号缺失', description: '', default_severity: 'warning',

@@ -9,16 +9,23 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { DailyQuotaHint } from './DailyQuotaHint';
 import { usePaperLintDailyQuota } from '../../hooks/usePaperLintDailyQuota';
 import { REVIEW_ROUTES } from '../../nav/reviewRoutes';
+import { useAuthSession } from '../../auth/AuthSessionProvider';
+import { usePaperLintActivity } from '../../hooks/usePaperLintActivity';
 
 type Props = { report: PaperLintRunResponse; rules: PaperLintRule[]; initiallyOpen?: boolean };
 export function IncrementalRerunDialog({ report, rules, initiallyOpen = false }: Props) {
   const navigate = useNavigate();
+  const { user } = useAuthSession();
+  const currentOwner = useRef(user?.id); currentOwner.current = user?.id;
   const [open, setOpen] = useState(initiallyOpen);
   const [extraIds, setExtraIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const activity = usePaperLintActivity(open ? user?.id : undefined);
+  const busyMessage = '您已有一篇论文正在上传、排队或检测，请等待当前任务结束后再提交。';
   const dailyQuota = usePaperLintDailyQuota(open ? `rerun:${report.id}` : null, submitting);
   const [error, setError] = useState<string | null>(null);
   const requestId = useRef<string | null>(null);
+  const accountBusy = Boolean(activity.activity?.busy && !(requestId.current && activity.activity.active_job?.request_id === requestId.current));
   const [recoverableRequestId, setRecoverableRequestId] = useState<string | null>(null);
   const names = new Map(rules.map(rule => [rule.rule_id, rule.title]));
   const successful = new Set(report.result.rule_runs.filter(run => run.execution_status === 'completed' && run.outcome !== 'inconclusive').map(run => run.rule_id));
@@ -31,7 +38,13 @@ export function IncrementalRerunDialog({ report, rules, initiallyOpen = false }:
     requestId.current ||= typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
       ? crypto.randomUUID() : `rerun-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     try {
-      const job = await rerunPaperLintReport(report.id, extraIds, requestId.current);
+      const owner = user?.id;
+      const current = await activity.refresh();
+      if (owner !== currentOwner.current) return;
+      if (!current) throw new Error('连接异常，正在确认任务状态');
+      const recoveringOwnJob = current.busy && current.active_job?.request_id === requestId.current;
+      if (current.busy && !recoveringOwnJob) throw new Error(busyMessage);
+      const job = recoveringOwnJob ? current.active_job! : await rerunPaperLintReport(report.id, extraIds, requestId.current);
       if (!job.user_id) throw new Error('任务已提交，请从论文上传页恢复查看');
       localStorage.setItem(`paper-lint-active-job:${job.user_id}`, JSON.stringify({
         jobId: job.job_id, requestId: requestId.current, filename: job.source_filename || report.source_filename,
@@ -43,6 +56,7 @@ export function IncrementalRerunDialog({ report, rules, initiallyOpen = false }:
       setRecoverableRequestId(axios.isAxiosError(cause) && (!cause.response || cause.response.status >= 500) ? requestId.current : null);
       setError(message || (cause instanceof Error ? cause.message : '增量补跑提交失败，请重试'));
       void dailyQuota.refresh();
+      void activity.refresh();
     }
     finally { setSubmitting(false); }
   }
@@ -66,10 +80,11 @@ export function IncrementalRerunDialog({ report, rules, initiallyOpen = false }:
         </label>)}
       </div>
       {!count ? <p className="text-xs leading-6 text-slate-500">已有规则均已完成，请勾选新增规则后补跑。</p> : null}
+      {accountBusy && !error ? <p role="status" className="rounded-lg border border-brand-100 bg-brand-50 p-3 text-sm text-brand-700">{busyMessage}</p> : null}
       {error ? <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
       <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-3">
       <DailyQuotaHint quota={dailyQuota.quota} unavailable={dailyQuota.error} onRetry={() => void dailyQuota.refresh()} />
-      <Button disabled={!count || submitting || (dailyQuota.quota?.limited && dailyQuota.quota.remaining === 0 && !(recoverableRequestId && recoverableRequestId === requestId.current))} onClick={() => void submit()}>
+      <Button disabled={!count || submitting || accountBusy || (dailyQuota.quota?.limited && dailyQuota.quota.remaining === 0 && !(recoverableRequestId && recoverableRequestId === requestId.current))} onClick={() => void submit()}>
         {submitting ? <LoaderCircle className="size-4 animate-spin" /> : <RotateCw className="size-4" />}
         {submitting ? '正在加入队列…' : `开始增量检测（${count} 项）`}
       </Button>

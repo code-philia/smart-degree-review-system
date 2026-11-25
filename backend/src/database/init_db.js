@@ -399,6 +399,11 @@ async function initializeDatabase(options = {}) {
       user_id TEXT PRIMARY KEY, token TEXT NOT NULL, source_filename TEXT NOT NULL, expires_at TEXT NOT NULL,
       FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE
     );`);
+    // Non-exclusive observations keep the UI informed without limiting local API clients.
+    await runStatement(database, `CREATE TABLE IF NOT EXISTS paper_lint_observed_uploads (
+      token TEXT PRIMARY KEY, user_id TEXT NOT NULL, source_filename TEXT NOT NULL, expires_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE
+    );`);
     // Personal example-derived rules are deliberately isolated from normative rules.
     await runStatement(database, `CREATE TABLE IF NOT EXISTS example_rule_documents (
       id TEXT PRIMARY KEY, user_id TEXT NOT NULL, source_filename TEXT NOT NULL,

@@ -9,7 +9,7 @@ import { setLocale } from '../src/i18n/locale';
 
 vi.mock('../src/auth/AuthSessionProvider',()=>({useAuthSession:()=>({status:'authenticated',user:{id:'personal-key-student'}})}));
 vi.mock('../src/api/referenceSettings',()=>({fetchReferenceSettings:vi.fn()}));
-vi.mock('../src/api/paperLint',async()=>({...await vi.importActual('../src/api/paperLint'),fetchReviewPilotPaperLintRules:vi.fn(),fetchPaperLintCredit:vi.fn(),runReviewPilotPaperLint:vi.fn(),fetchPaperLintJob:vi.fn(()=>new Promise(()=>{}))}));
+vi.mock('../src/api/paperLint',async()=>({...await vi.importActual('../src/api/paperLint'),fetchPaperLintActivity:vi.fn(async()=>({user_id:'personal-key-student',limited:true,busy:false,uploading:false,active_job:null})),fetchReviewPilotPaperLintRules:vi.fn(),fetchPaperLintCredit:vi.fn(),runReviewPilotPaperLint:vi.fn(),fetchPaperLintJob:vi.fn(()=>new Promise(()=>{}))}));
 vi.mock('../src/hooks/usePaperLintRepairSuggestions',()=>({usePaperLintRepairSuggestions:()=>({repairSuggestionByFindingKey:{}})}));
 const reference='reference_verification_check';
 const catalog={engine:'sjtu-local',mode:'pdf_lint',semantic_model:'deepseek-v4-flash',rules:[

@@ -173,6 +173,7 @@ it('keeps one task card through upload and queueing, with progress controlled by
   showUpload();
   await choosePdf();
   fireEvent.click(screen.getByRole('button', { name: '开始检测', exact: true }));
+  await waitFor(() => expect(runReviewPilotPaperLint).toHaveBeenCalledTimes(1));
   await act(async () => uploadProgress(37));
   const taskCard=screen.getByRole('region',{name:'检测任务状态'});
   const progressRing=screen.getByRole('progressbar',{name:'检测进度'});
@@ -468,8 +469,8 @@ it('recovers an unconfirmed final-slot submission after reloading and reselectin
  expect(vi.mocked(runReviewPilotPaperLint).mock.calls[0][3]).toBe('unconfirmed-original');
 });
 
-it('restores an ordinary account running paper from the server after refreshing without browser records', async () => {
-  vi.mocked(fetchPaperLintActivity).mockResolvedValue({ user_id: 'upload-student', limited: true, busy: true, uploading: false,
+it.each([true, false])('restores the running paper in the UI regardless of backend account limit (limited=%s)', async limited => {
+  vi.mocked(fetchPaperLintActivity).mockResolvedValue({ user_id: 'upload-student', limited, busy: true, uploading: false,
     active_job: { ...pendingJob, user_id: 'upload-student', job_id: 'account-current', request_id: 'account-request', source_filename: '当前论文.pdf', selected_rule_ids: ['sjtu_rule_18'] } });
   vi.mocked(fetchPaperLintJob).mockResolvedValue({ ...pendingJob, job_id: 'account-current', status: 'completed', report_id: fixture.id });
   showUpload();
@@ -481,13 +482,61 @@ it('restores an ordinary account running paper from the server after refreshing 
   expect(runReviewPilotPaperLint).not.toHaveBeenCalled();
 });
 
-it('blocks another tab while the ordinary account is uploading and explains automatic progress recovery', async () => {
-  vi.mocked(fetchPaperLintActivity).mockResolvedValue({ user_id: 'upload-student', limited: true, busy: true, uploading: true, active_job: null });
+it.each([true, false])('blocks a busy account in the UI regardless of backend account limit (limited=%s)', async limited => {
+  vi.mocked(fetchPaperLintActivity).mockResolvedValue({ user_id: 'upload-student', limited, busy: true, uploading: true, active_job: null });
   showUpload();
   expect(await screen.findByText('当前账号已有一篇论文正在上传')).toBeVisible();
   expect(screen.getByLabelText('上传待审查 PDF')).toBeDisabled();
   expect(screen.getByRole('button', { name: '开始检测', exact: true })).toBeDisabled();
   expect(screen.getByText('上传完成后，将自动显示检测进度。请勿重复提交。')).toBeVisible();
+});
+
+it('checks current activity before submitting from a tab with an outdated idle state', async () => {
+  showUpload();
+  await choosePdf();
+  await waitFor(() => expect(fetchPaperLintActivity).toHaveBeenCalled());
+  vi.mocked(fetchPaperLintActivity).mockResolvedValue({ user_id: 'upload-student', limited: false, busy: true, uploading: false,
+    active_job: { ...pendingJob, user_id: 'upload-student', job_id: 'another-tab-current', source_filename: '另一页论文.pdf' } });
+  fireEvent.click(screen.getByRole('button', { name: '开始检测', exact: true }));
+  await waitFor(() => expect(fetchPaperLintJob).toHaveBeenCalledWith('another-tab-current'));
+  expect(runReviewPilotPaperLint).not.toHaveBeenCalled();
+  expect(screen.getByLabelText('上传待审查 PDF')).toBeDisabled();
+});
+
+it.each(['network', 'account'])('does not upload when the current account activity cannot be confirmed (%s)', async cause => {
+  showUpload();
+  await choosePdf();
+  await waitFor(() => expect(fetchPaperLintActivity).toHaveBeenCalled());
+  if (cause === 'network') vi.mocked(fetchPaperLintActivity).mockRejectedValueOnce(new Error('Network Error'));
+  else vi.mocked(fetchPaperLintActivity).mockResolvedValueOnce({ user_id: 'another-account', limited: false, busy: false, uploading: false, active_job: null });
+  fireEvent.click(screen.getByRole('button', { name: '开始检测', exact: true }));
+  expect(await screen.findByText('连接异常，正在确认任务状态')).toBeVisible();
+  expect(runReviewPilotPaperLint).not.toHaveBeenCalled();
+});
+
+it('does not submit an earlier file after the selection changes during an activity check', async () => {
+  showUpload(); await choosePdf();
+  let finish!: (value: any) => void;
+  vi.mocked(fetchPaperLintActivity).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  fireEvent.click(screen.getByRole('button', { name: '开始检测', exact: true }));
+  await waitFor(() => expect(finish).toBeTypeOf('function'));
+  fireEvent.change(screen.getByLabelText('上传待审查 PDF'), { target: { files: [new File(['%PDF-1.7'], '新版论文.pdf', {type:'application/pdf'})] } });
+  await act(async () => finish({ user_id:'upload-student', limited:false, busy:false, uploading:false, active_job:null }));
+  expect(runReviewPilotPaperLint).not.toHaveBeenCalled();
+  expect(screen.getByText('新版论文.pdf')).toBeVisible();
+});
+it('honors consent withdrawn while the activity check is waiting', async () => {
+  vi.mocked(fetchReviewPilotPaperLintRules).mockResolvedValue({ ...catalog, rules:[{...rules[0], enabled_in_mvp:false, default_enabled:true, uses_external_model:true}] } as never);
+  render(<MemoryRouter><NormativeCheckPage /></MemoryRouter>);
+  const consent=await screen.findByRole('checkbox',{name:'我确认本次论文相关文本允许发送至校内 DeepSeek API进行语义检测。'});
+  fireEvent.click(consent);
+  fireEvent.change(screen.getByLabelText('上传待审查 PDF'),{target:{files:[pdf()]}});
+  let finish!: (value:any)=>void;
+  vi.mocked(fetchPaperLintActivity).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+  fireEvent.click(screen.getByRole('button',{name:'开始检查'}));
+  await waitFor(()=>expect(finish).toBeTypeOf('function'));fireEvent.click(consent);
+  await act(async()=>finish({user_id:'upload-student',limited:false,busy:false,uploading:false,active_job:null}));
+  expect(runReviewPilotPaperLint).not.toHaveBeenCalled();
 });
 
 it('does not recover another account task when a shared browser cookie changes identity', async () => {
