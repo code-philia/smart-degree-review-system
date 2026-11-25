@@ -9,6 +9,7 @@ const { validatePdf } = require('./reviewPilotPaperLintService');
 const { visiblePaperLintResult } = require('../../../shared/paper-lint-presentation.mjs');
 const { isRetiredPaperLintRule } = require('../../../shared/paper-lint-rule-policy.mjs');
 const { requireReferenceRuleAccess } = require('../auth/referencePersonalAccess');
+const { accountAdmission, getAccountActivity, activityConflict } = require('./paperLintAccountActivity');
 
 async function requireTrustedBatchOwner(userId) {
   const owner = await get('SELECT role FROM auth_users WHERE id = ?', [userId]);
@@ -34,7 +35,7 @@ function publicJob(row) {
   };
 }
 
-async function createJob({ userId, sourceFilename, pdfBuffer, selectedRuleIds, externalProcessingConsent, requestId = null, reuse = null, notificationLocale = 'zh', notifyCompletion = true, trustedBatchMaxPdfBytes }) {
+async function createJob({ userId, sourceFilename, pdfBuffer, selectedRuleIds, externalProcessingConsent, requestId = null, reuse = null, notificationLocale = 'zh', notifyCompletion = true, trustedBatchMaxPdfBytes, uploadToken = null }) {
   // Only this server-side argument can create durable operator options.
   const envelope = reuse ? { ...reuse } : {};
   delete envelope.operator_options;
@@ -56,17 +57,20 @@ async function createJob({ userId, sourceFilename, pdfBuffer, selectedRuleIds, e
   try {
     const now = new Date().toISOString();
     const guard = quotaAdmission(userId, now, selectedRuleIds.filter(ruleId=>!envelope.result?.rule_runs?.some(run=>run.rule_id===ruleId)));
-    const inserted = await run(`INSERT INTO paper_lint_jobs (id,user_id,source_filename,source_pdf_path,selected_rule_ids_json,external_consent,request_id,status,attempts,created_at,updated_at,reuse_json,notification_locale,notify_completion)
-      SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,? WHERE (${guard.sql})`,
+    const accountGuard = accountAdmission(userId, uploadToken);
+    const inserted = await withTransaction(tx => tx.run(`INSERT INTO paper_lint_jobs (id,user_id,source_filename,source_pdf_path,selected_rule_ids_json,external_consent,request_id,status,attempts,created_at,updated_at,reuse_json,notification_locale,notify_completion)
+      SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,? WHERE (${guard.sql}) AND (${accountGuard.sql})`,
       [id, userId, sourceFilename, pdfPath, JSON.stringify(selectedRuleIds),
         externalProcessingConsent ? 1 : 0, requestId, 'pending', 0, now, now, Object.keys(envelope).length ? JSON.stringify(envelope) : null,
-        notificationLocale === 'en' ? 'en' : 'zh', notifyCompletion === false ? 0 : 1, ...guard.params]);
+        notificationLocale === 'en' ? 'en' : 'zh', notifyCompletion === false ? 0 : 1, ...guard.params, ...accountGuard.params]));
     if (!inserted.changes) {
       await fs.promises.rm(pdfPath, { force: true });
       if (requestId) {
         const existing = await get('SELECT id FROM paper_lint_jobs WHERE user_id = ? AND request_id = ?', [userId, requestId]);
         if (existing) return existing.id;
       }
+      const activity = await getAccountActivity(userId);
+      if (activity.limited && activity.busy) throw activityConflict(activity);
       throw await quotaExceeded(userId);
     }
   } catch (error) {

@@ -32,7 +32,10 @@ it('grants existing and new accounts exactly once across migration/restart',asyn
   expect((await get('SELECT count(*) AS n FROM paper_lint_credit_accounts')).n).toBeGreaterThanOrEqual(3);
 });
 it('replaces the three-report cap and keeps request admission idempotent',async()=>{
-  for(let i=0;i<6;i++)await jobs.createJob(input());
+  for(let i=0;i<6;i++){
+    const id=await jobs.createJob(input());
+    await jobs.cancelJobForUser(id,'credit-a');
+  }
   const ids=await Promise.all(Array.from({length:5},()=>jobs.createJob(input('credit-a',[],'same'))));
   expect(new Set(ids).size).toBe(1);
   expect((await credit.getAccountCredit('credit-a')).available_cny).toBe('100.000000000');
@@ -64,7 +67,9 @@ it('retains a live worker reservation, then releases it once after exit without 
 it('blocks only paid admission at zero balance, without role/name exemptions',async()=>{
   await run("UPDATE paper_lint_credit_accounts SET spent_nano=granted_nano WHERE user_id='credit-a'");
   await expect(jobs.createJob(input('credit-a',[paid]))).rejects.toMatchObject({status:402,code:'PAPER_LINT_CREDIT'});
-  await expect(jobs.createJob(input('credit-a',['keyword_count_check']))).resolves.toBeTypeOf('string');
+  const freeJob=await jobs.createJob(input('credit-a',['keyword_count_check']));
+  expect(freeJob).toBeTypeOf('string');
+  await jobs.cancelJobForUser(freeJob,'credit-a');
   await expect(jobs.createJob(input('credit-b',[paid]))).resolves.toBeTypeOf('string');
   await run("UPDATE auth_users SET role='SCHOOL_ADMIN' WHERE id='credit-a'");
   await expect(jobs.createJob(input('credit-a',[paid]))).rejects.toMatchObject({status:402});

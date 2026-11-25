@@ -210,6 +210,13 @@ export function isPaperLintJobResponse(
 ): value is PaperLintJobResponse {
   return 'job_id' in value;
 }
+export type PaperLintActivity = {
+  user_id: string; limited: boolean; busy: boolean; uploading: boolean; source_filename?: string | null;
+  active_job: (PaperLintJobResponse & { request_id?: string | null }) | null;
+};
+export async function fetchPaperLintActivity(): Promise<PaperLintActivity> {
+  return (await apiClient.get<PaperLintActivity>('/normative/paper-lint/activity')).data;
+}
 export type PaperLintReportSummary = {
   finding_count: number;
   error_finding_count: number;

@@ -38,4 +38,5 @@ if (!globalThis.ResizeObserver) {
 
 afterEach(() => {
   cleanup();
+  sessionStorage.clear();
 });

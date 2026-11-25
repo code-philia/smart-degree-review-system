@@ -11,6 +11,7 @@ const { getDailyQuota } = require('./paperLintQuota');
 const { getAccountCredit } = require('./paperLintCredit');
 const { getEnabledMvpRuleIds } = require('../../rules/registry');
 const { requireReferenceRuleAccess } = require('../auth/referencePersonalAccess');
+const accountActivity = require('./paperLintAccountActivity');
 
 const allowedRoles = ['STUDENT', 'SUPERVISOR', 'SCHOOL_ADMIN', 'COLLEGE_ADMIN'];
 const managementRoles = ['SCHOOL_ADMIN', 'COLLEGE_ADMIN'];
@@ -30,6 +31,7 @@ function sendError(error, res, next) {
     }
     res.status(error.status).json({ code: error.status, message: error.message,
       ...(error.code === 'reference_key_required' ? { error_code: 'reference_key_required' } : {}),
+      ...(error.activity ? { error_code: error.code, activity: error.activity } : {}),
       ...(error.quota ? { error_code: error.code, quota: error.quota } : {}), ...(error.credit ? {error_code:error.code,credit:error.credit}: {}) });
   } else {
     next(error);
@@ -38,6 +40,39 @@ function sendError(error, res, next) {
 
 function createReviewPilotPaperLintRouter(service = defaultService, exampleService = defaultExampleService, jobService = defaultJobService, compilerService = defaultCompilerService) {
   const router = express.Router();
+
+  router.get('/activity', requireAuth({ allowedRoles }), async (req, res, next) => {
+    try { res.set('Cache-Control', 'private, no-store'); res.json(await accountActivity.getAccountActivity(req.user.id)); }
+    catch (error) { sendError(error, res, next); }
+  });
+
+  async function reserveUpload(req, res, next) {
+    try {
+      const reservation = await accountActivity.acquireUpload(req.user.id,
+        req.get('x-paper-lint-request-id') || null, typeof req.query.filename === 'string' ? req.query.filename.slice(0, 255) : '论文.pdf');
+      if (reservation.existingJobId) {
+        req.resume();
+        return res.status(202).json(await jobService.getForUser(reservation.existingJobId, req.user.id));
+      }
+      req.paperLintUploadToken = reservation.token;
+      if (req.aborted || res.destroyed) {
+        await accountActivity.releaseUpload(req.user.id, reservation.token);
+        return;
+      }
+      if (reservation.token) {
+        let released = false;
+        const timer = setInterval(() => { void accountActivity.renewUpload(req.user.id, reservation.token).catch(() => {}); }, 30000);
+        timer.unref();
+        const release = () => {
+          if (released) return;
+          released = true; clearInterval(timer);
+          void accountActivity.releaseUpload(req.user.id, reservation.token).catch(() => {});
+        };
+        req.once('aborted', release); res.once('finish', release); res.once('close', release);
+      }
+      next();
+    } catch (error) { req.resume(); sendError(error, res, next); }
+  }
 
   router.get('/control', requireAuth({ allowedRoles: managementRoles }), async (_req, res, next) => {
     try { res.json(await compilerService.runCompilerControl('status')); }
@@ -221,6 +256,7 @@ function createReviewPilotPaperLintRouter(service = defaultService, exampleServi
   router.post(
     '/run',
     requireAuth({ allowedRoles }),
+    reserveUpload,
     express.raw({ type: 'application/pdf', limit: service.MAX_PDF_BYTES }),
     async (req, res, next) => {
       try {
@@ -242,6 +278,7 @@ function createReviewPilotPaperLintRouter(service = defaultService, exampleServi
           requestId: typeof req.get('x-paper-lint-request-id') === 'string' ? req.get('x-paper-lint-request-id') : null,
           pdfBuffer: req.body, selectedRuleIds: normalizedRuleIds, externalProcessingConsent,
           notificationLocale: req.get('x-paper-lint-notification-locale'),
+          uploadToken: req.paperLintUploadToken,
         });
         return res.status(202).json(job);
       } catch (error) {

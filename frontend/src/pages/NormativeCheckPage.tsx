@@ -26,6 +26,7 @@ import { ThesisUploadPanel } from '../components/paperLint/ThesisUploadPanel';
 import { LivePaperLintReport } from '../components/paperLint/LivePaperLintReport';
 import { compilerPublicationLabel, compilerPublicationSummary, flattenPaperLintFindings, paperLintFeedbackItems, paperLintPresentation } from '../components/paperLint/model';
 import { usePaperLintCredit } from '../hooks/usePaperLintCredit';
+import { usePaperLintActivity } from '../hooks/usePaperLintActivity';
 import { REFERENCE_RULE_ID, useReferenceKeyAccess } from '../hooks/useReferenceKeyAccess';
 import { CreditBalance, CreditEstimate, CreditInsufficientNotice, creditAllowsRules, isCreditInsufficient } from '../components/paperLint/PaperLintCredit';
 import { usePaperLintRepairSuggestions } from '../hooks/usePaperLintRepairSuggestions';
@@ -59,14 +60,19 @@ type ResultFile = File | { name: string; url: string };
 type StoredPaperLintJob = { canRecover?: boolean; jobId: string | null; requestId: string; filename: string; selectedRuleIds: string[] };
 
 function activeJobStorageKey(userId: string, mode?: CheckMode) {
-  if (mode === 'thirty' && !localStorage.getItem(`paper-lint-active-job:${userId}`)) {
-    const legacy = localStorage.getItem(`numeric-review-active-job:${userId}`);
-    if (legacy) {
-      localStorage.setItem(`paper-lint-active-job:${userId}`, legacy);
-      localStorage.removeItem(`numeric-review-active-job:${userId}`);
+  const key = mode === 'semantic' ? `numeric-review-active-job:${userId}` : `paper-lint-active-job:${userId}`;
+  // Ordinary users also recover from the server; tab-local records keep the
+  // four unrestricted accounts' independent tasks from overwriting each other.
+  if (!sessionStorage.getItem(`${key}:tab-v1`)) {
+    if (!sessionStorage.getItem(key)) {
+      for (const legacyKey of mode === 'thirty' ? [key, `numeric-review-active-job:${userId}`] : [key]) {
+        const legacy = localStorage.getItem(legacyKey);
+        if (legacy) { sessionStorage.setItem(key, legacy); localStorage.removeItem(legacyKey); break; }
+      }
     }
+    sessionStorage.setItem(`${key}:tab-v1`, '1');
   }
-  return mode === 'semantic' ? `numeric-review-active-job:${userId}` : `paper-lint-active-job:${userId}`;
+  return key;
 }
 
 function newRequestId() {
@@ -165,6 +171,9 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   const requestIdRef = useRef<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const accountCredit = usePaperLintCredit(user?.id, Boolean(activeJobId || running), `${activeJobId ?? ''}:${running}:${stopping}`);
+  const accountActivity = usePaperLintActivity(user?.id);
+  const recoveredServerJob = useRef<{ owner: string | undefined; id: string } | null>(null);
+  const accountBlocked = Boolean(accountActivity.activity?.limited && accountActivity.activity.busy && !running && !stopping);
   const creditNoticeId = useId();
   const creditBlocked = !running && !stopping && !(recoverableRequestId && recoverableRequestId === requestIdRef.current)
     && isCreditInsufficient(accountCredit.credit, selectedRuleIds, accountCredit.error);
@@ -183,7 +192,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     try {
       const nextCatalog = await fetchReviewPilotPaperLintRules();
       setCatalog(nextCatalog);
-      const hasRestoredSelection = user && localStorage.getItem(activeJobStorageKey(user.id, mode));
+      const hasRestoredSelection = user && sessionStorage.getItem(activeJobStorageKey(user.id, mode));
       if (!hasRestoredSelection) {
         const defaultRules = mode === 'semantic'
           ? rulesForMode(nextCatalog.rules, mode)
@@ -311,13 +320,13 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
 
   function saveActiveJob(job: StoredPaperLintJob) {
     if (!user) return;
-    localStorage.setItem(activeJobStorageKey(user.id, mode), JSON.stringify(job));
+    sessionStorage.setItem(activeJobStorageKey(user.id, mode), JSON.stringify(job));
     setActiveJobId(job.jobId);
   }
 
   function savePendingRequest(requestId: string, filename: string, selectedRuleIdsToSave: string[], canRecover = true) {
     if (!user) return;
-    localStorage.setItem(activeJobStorageKey(user.id, mode), JSON.stringify({
+    sessionStorage.setItem(activeJobStorageKey(user.id, mode), JSON.stringify({
       jobId: null,
       canRecover,
       requestId,
@@ -327,7 +336,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   }
 
   function clearActiveJob() {
-    if (user) localStorage.removeItem(activeJobStorageKey(user.id, mode));
+    if (user) sessionStorage.removeItem(activeJobStorageKey(user.id, mode));
     setActiveJobId(null);
     requestIdRef.current = null;
   }
@@ -413,7 +422,8 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
         return;
       } catch (error) {
         if (generation !== runGenerationRef.current) return;
-        if (error instanceof Error && !/网络|连接|timeout|Network|ECONN/i.test(error.message)) throw error;
+        const transient = axios.isAxiosError(error) && (!error.response || error.response.status >= 500);
+        if (!transient && error instanceof Error && !/网络|连接|timeout|Network|ECONN/i.test(error.message)) throw error;
         disconnected = true;
         setRunError('连接中断，请重试获取检测状态');
         await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -465,9 +475,9 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     let cancelled = false;
     let stored: StoredPaperLintJob | null = null;
     try {
-      stored = JSON.parse(localStorage.getItem(activeJobStorageKey(user.id, mode)) || 'null') as StoredPaperLintJob | null;
+      stored = JSON.parse(sessionStorage.getItem(activeJobStorageKey(user.id, mode)) || 'null') as StoredPaperLintJob | null;
     } catch {
-      localStorage.removeItem(activeJobStorageKey(user.id, mode));
+      sessionStorage.removeItem(activeJobStorageKey(user.id, mode));
     }
     if (!stored?.requestId || !stored.filename) return;
     requestIdRef.current = stored.requestId || null;
@@ -490,8 +500,26 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     return () => { cancelled = true; if (generation === runGenerationRef.current) runGenerationRef.current += 1; };
   }, [user?.id]);
 
+  useEffect(() => {
+    const activity = accountActivity.activity;
+    const job = activity?.active_job;
+    if (!activity?.limited || !job) return;
+    if (job.job_id === activeJobId) { recoveredServerJob.current = { owner: user?.id, id: job.job_id }; return; }
+    if (running || stopping || (recoveredServerJob.current?.owner === user?.id && recoveredServerJob.current.id === job.job_id)) return;
+    recoveredServerJob.current = { owner: user?.id, id: job.job_id };
+    const generation = ++runGenerationRef.current;
+    const requestId = job.request_id || job.job_id;
+    requestIdRef.current = requestId;
+    setFile(null); setActiveFilename(job.source_filename || '论文.pdf');
+    setSelectedRuleIds(job.selected_rule_ids || []); setRunError(null); setRunning(true);
+    saveActiveJob({ jobId: job.job_id, requestId, filename: job.source_filename || '论文.pdf', selectedRuleIds: job.selected_rule_ids || [] });
+    void pollJob(job.job_id, job.source_filename || '论文.pdf', undefined, generation)
+      .catch(error => { if (generation === runGenerationRef.current) setRunError(errorMessage(error, '检测任务恢复失败')); })
+      .finally(() => { if (generation === runGenerationRef.current) setRunning(false); });
+  }, [accountActivity.activity?.active_job?.job_id, running, stopping, activeJobId]);
+
   function chooseFile(nextFile: File | null) {
-    if (running || stopping) return;
+    if (running || stopping || accountBlocked) return;
     setActiveFilename(nextFile?.name || null);
     setStopped(false);
     setRunError(null);
@@ -503,7 +531,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
     if (activeJobId) clearActiveJob();
     if (user && requestIdRef.current && !activeJobId) {
       try {
-        const stored = JSON.parse(localStorage.getItem(activeJobStorageKey(user.id, mode)) || 'null') as StoredPaperLintJob | null;
+        const stored = JSON.parse(sessionStorage.getItem(activeJobStorageKey(user.id, mode)) || 'null') as StoredPaperLintJob | null;
         if (!nextFile || (stored?.jobId === null && stored.filename !== nextFile.name)) clearActiveJob();
       } catch {
         clearActiveJob();
@@ -546,7 +574,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   }
 
   async function runReview() {
-    if (running || stopping || preflightRef.current) return;
+    if (running || stopping || preflightRef.current || accountBlocked) return;
     if (!file) {
       setRunError('请先选择 PDF 文件');
       return;
@@ -612,6 +640,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
         if (!submissionAccepted && !uncertain) savePendingRequest(requestId, file.name, selectedRuleIds, false);
       }
       void accountCredit.refresh();
+      void accountActivity.refresh();
     } finally {
       if (generation === runGenerationRef.current) {
         setUploadPercent(null);
@@ -670,6 +699,7 @@ function NormativeCheckPage({ mode = 'basic' }: { mode?: CheckMode }) {
   }
 
   if (isThirty) return <div className="space-y-6">{completedStopNotice}<ThesisUploadPanel
+    accountBlocked={accountBlocked}
     quotaRetryAllowed={Boolean(recoverableRequestId && recoverableRequestId === requestIdRef.current)}
     credit={accountCredit.credit} creditUnavailable={accountCredit.error} onRefreshCredit={() => void accountCredit.refresh()}
     referenceAccess={referenceAccess} onRefreshReferenceAccess={() => void referenceAccess.refresh()}

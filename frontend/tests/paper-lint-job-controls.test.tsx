@@ -116,7 +116,7 @@ it.each(['pending','running'])('does not claim cancellation succeeded when the s
   fireEvent.click(await screen.findByRole('button', { name: '停止检测' }));
   expect(await screen.findByText('尚未确认停止检测，请稍后重试。')).toBeInTheDocument();
   expect(screen.queryByText('已停止检测，可以重新开始。')).not.toBeInTheDocument();
-  expect(localStorage.getItem('paper-lint-active-job:student01')).not.toBeNull();
+  expect(sessionStorage.getItem('paper-lint-active-job:student01')).not.toBeNull();
 });
 
 it('holds an already in-flight report response until the pending cancel response can explain completion',async()=>{

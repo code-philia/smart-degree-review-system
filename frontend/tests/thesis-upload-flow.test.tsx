@@ -5,6 +5,7 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import NormativeCheckPage from '../src/pages/NormativeCheckPage';
 import {
   fetchPaperLintCredit,
+  fetchPaperLintActivity,
   fetchPaperLintJob,
   fetchPaperLintReport,
   fetchReviewPilotPaperLintRules,
@@ -21,6 +22,7 @@ vi.mock('../src/api/paperLint', async () => ({
   fetchReviewPilotPaperLintRules: vi.fn(),
   runReviewPilotPaperLint: vi.fn(),
   fetchPaperLintCredit: vi.fn(),
+  fetchPaperLintActivity: vi.fn(),
   fetchPaperLintJob: vi.fn(),
   fetchPaperLintReport: vi.fn(),
 }));
@@ -78,8 +80,10 @@ async function choosePdf() {
 }
 beforeEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
   vi.clearAllMocks();
   vi.mocked(fetchPaperLintCredit).mockResolvedValue(credit());
+  vi.mocked(fetchPaperLintActivity).mockResolvedValue({ user_id: 'upload-student', limited: false, busy: false, uploading: false, active_job: null });
   vi.mocked(fetchReviewPilotPaperLintRules).mockResolvedValue(catalog as never);
   vi.mocked(runReviewPilotPaperLint).mockResolvedValue(pendingJob);
   vi.mocked(fetchPaperLintJob).mockImplementation(() => new Promise(() => {}));
@@ -462,4 +466,47 @@ it('recovers an unconfirmed final-slot submission after reloading and reselectin
  const start=screen.getByRole('button',{name:'开始检测',exact:true});expect(start).toBeEnabled();fireEvent.click(start);
  await waitFor(()=>expect(runReviewPilotPaperLint).toHaveBeenCalledTimes(1));
  expect(vi.mocked(runReviewPilotPaperLint).mock.calls[0][3]).toBe('unconfirmed-original');
+});
+
+it('restores an ordinary account running paper from the server after refreshing without browser records', async () => {
+  vi.mocked(fetchPaperLintActivity).mockResolvedValue({ user_id: 'upload-student', limited: true, busy: true, uploading: false,
+    active_job: { ...pendingJob, user_id: 'upload-student', job_id: 'account-current', request_id: 'account-request', source_filename: '当前论文.pdf', selected_rule_ids: ['sjtu_rule_18'] } });
+  vi.mocked(fetchPaperLintJob).mockResolvedValue({ ...pendingJob, job_id: 'account-current', status: 'completed', report_id: fixture.id });
+  showUpload();
+  await waitFor(() => expect(fetchPaperLintActivity).toHaveBeenCalled());
+  await waitFor(() => expect(fetchPaperLintJob).toHaveBeenCalledWith('account-current'));
+  await waitFor(() => expect(fetchPaperLintReport).toHaveBeenCalledWith(fixture.id));
+  expect(await screen.findByRole('heading', { name: `报告详情 ${fixture.id}` })).toBeInTheDocument();
+  expect(fetchPaperLintJob).toHaveBeenCalledWith('account-current');
+  expect(runReviewPilotPaperLint).not.toHaveBeenCalled();
+});
+
+it('blocks another tab while the ordinary account is uploading and explains automatic progress recovery', async () => {
+  vi.mocked(fetchPaperLintActivity).mockResolvedValue({ user_id: 'upload-student', limited: true, busy: true, uploading: true, active_job: null });
+  showUpload();
+  expect(await screen.findByText('当前账号已有一篇论文正在上传')).toBeVisible();
+  expect(screen.getByLabelText('上传待审查 PDF')).toBeDisabled();
+  expect(screen.getByRole('button', { name: '开始检测', exact: true })).toBeDisabled();
+  expect(screen.getByText('上传完成后，将自动显示检测进度。请勿重复提交。')).toBeVisible();
+});
+
+it('does not recover another account task when a shared browser cookie changes identity', async () => {
+  vi.mocked(fetchPaperLintActivity).mockResolvedValue({ user_id: 'another-account', limited: true, busy: true, uploading: false,
+    active_job: { ...pendingJob, user_id: 'another-account', job_id: 'other-task', source_filename: 'other.pdf' } });
+  showUpload(); await screen.findByText('已选择全部可用检测规则');
+  await act(async () => {});
+  expect(fetchPaperLintJob).not.toHaveBeenCalled();
+  expect(screen.queryByText('other.pdf')).not.toBeInTheDocument();
+});
+
+it('keeps a recovered active task visible and retries a transient polling server failure', async () => {
+  vi.mocked(fetchPaperLintActivity).mockResolvedValue({ user_id: 'upload-student', limited: true, busy: true, uploading: false,
+    active_job: { ...pendingJob, user_id: 'upload-student', job_id: 'recover-after-500', source_filename: 'running.pdf' } });
+  vi.mocked(fetchPaperLintJob).mockRejectedValueOnce(Object.assign(new Error('Request failed with status code 500'), { isAxiosError: true, response: { status: 500 } }))
+    .mockImplementation(() => new Promise(() => {}));
+  showUpload();
+  await waitFor(() => expect(fetchPaperLintJob).toHaveBeenCalledWith('recover-after-500'));
+  expect(await screen.findByText('连接中断，请重试获取检测状态')).toBeVisible();
+  expect(screen.getByRole('button', { name: '停止检测', exact: true })).toBeEnabled();
+  await waitFor(() => expect(fetchPaperLintJob).toHaveBeenCalledTimes(2), { timeout: 3000 });
 });

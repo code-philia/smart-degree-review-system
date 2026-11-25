@@ -167,9 +167,9 @@ function createPaperLintJobService(paperLintService = defaultPaperLintService) {
   }
 
   async function enqueue({ userId, sourceFilename, pdfBuffer, selectedRuleIds,
-                           externalProcessingConsent, requestId, reuse = null, notificationLocale }) {
+                           externalProcessingConsent, requestId, reuse = null, notificationLocale, uploadToken }) {
     const id = await repository.createJob({
-      userId, sourceFilename, pdfBuffer, selectedRuleIds, externalProcessingConsent, requestId, reuse, notificationLocale,
+      userId, sourceFilename, pdfBuffer, selectedRuleIds, externalProcessingConsent, requestId, reuse, notificationLocale, uploadToken,
     });
     add(id);
     return repository.getJobForUser(id, userId);

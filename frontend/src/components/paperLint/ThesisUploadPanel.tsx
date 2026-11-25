@@ -12,6 +12,7 @@ import { REFERENCE_RULE_ID, type ReferenceKeyAccess } from '../../hooks/useRefer
 import { ReferenceKeyNotice } from './ReferenceKeyNotice';
 
 type Props = {
+  accountBlocked?: boolean;
   referenceAccess?: ReferenceKeyAccess;
   onConfigureReferenceKey?: () => void;
   onRefreshReferenceAccess?: () => void;
@@ -195,6 +196,7 @@ export function ThesisUploadPanel(props: Props) {
   const creditNoticeId = useId();
   const referenceNoticeId = useId();
   const busy = running || stopping;
+  const uploadDisabled = busy || props.accountBlocked;
   const referenceBlocked = !busy && selectedRuleIds.includes(REFERENCE_RULE_ID) && !props.referenceAccess?.ready;
   const creditBlocked = !busy && !props.quotaRetryAllowed && isCreditInsufficient(props.credit, selectedRuleIds, props.creditUnavailable);
   const available = rules.filter((rule) => rule.available);
@@ -227,17 +229,17 @@ export function ThesisUploadPanel(props: Props) {
           <label
             data-appearance-upload-dropzone=""
             className={`flex min-h-48 flex-col items-center justify-center rounded-[14px] border border-dashed px-4 py-5 text-center transition sm:min-h-54 sm:px-5 sm:py-6 ${busy ? 'cursor-not-allowed border-slate-200 bg-slate-50/70' : dragging ? 'cursor-pointer border-brand-500 bg-brand-50' : 'cursor-pointer border-[#c9d7ef] bg-linear-to-br from-[#fafcff] to-[#f4f7fc] hover:border-brand-400 hover:from-brand-50 hover:to-brand-50/60 focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-100'}`}
-            aria-disabled={busy}
+            aria-disabled={uploadDisabled}
             onDragEnter={(event) => {
               event.preventDefault();
-              if (!busy) setDragging(true);
+              if (!uploadDisabled) setDragging(true);
             }}
             onDragOver={(event) => event.preventDefault()}
             onDragLeave={() => setDragging(false)}
             onDrop={(event) => {
               event.preventDefault();
               setDragging(false);
-              if (!busy) onChooseFile(event.dataTransfer.files?.[0] || null);
+              if (!uploadDisabled) onChooseFile(event.dataTransfer.files?.[0] || null);
             }}
           >
             <input
@@ -245,7 +247,7 @@ export function ThesisUploadPanel(props: Props) {
               type="file"
               accept=".pdf,application/pdf"
               aria-label="上传待审查 PDF"
-              disabled={busy}
+              disabled={uploadDisabled}
               onChange={(event) => {
                 onChooseFile(event.currentTarget.files?.[0] || null);
                 event.currentTarget.value = '';
@@ -274,6 +276,10 @@ export function ThesisUploadPanel(props: Props) {
               </>
             )}
           </label>
+          {props.accountBlocked ? <div role="status" className="mt-4 flex gap-3 rounded-xl border border-brand-100 bg-brand-50/60 px-4 py-3 text-brand-700">
+            <LoaderCircle className="mt-0.5 size-5 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+            <div><p className="font-semibold">当前账号已有一篇论文正在上传</p><p className="mt-1 text-sm leading-6">上传完成后，将自动显示检测进度。请勿重复提交。</p></div>
+          </div> : null}
           {file ? (
             <div className="mt-2 flex justify-end">
               <Button size="sm" variant="ghost" disabled={busy} onClick={() => onChooseFile(null)}>
@@ -478,6 +484,7 @@ export function ThesisUploadPanel(props: Props) {
                   referenceBlocked ||
                   (!creditAllowsRules(props.credit, selectedRuleIds, props.creditUnavailable) && !props.quotaRetryAllowed) ||
                   busy
+                  || props.accountBlocked
                 }
                 onClick={onStart}
               >

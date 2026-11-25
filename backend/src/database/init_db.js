@@ -395,6 +395,10 @@ async function initializeDatabase(options = {}) {
       ON paper_lint_jobs (status, created_at);`);
     await runStatement(database, `CREATE INDEX IF NOT EXISTS idx_paper_lint_jobs_user_created
       ON paper_lint_jobs (user_id, created_at);`);
+    await runStatement(database, `CREATE TABLE IF NOT EXISTS paper_lint_upload_leases (
+      user_id TEXT PRIMARY KEY, token TEXT NOT NULL, source_filename TEXT NOT NULL, expires_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE
+    );`);
     // Personal example-derived rules are deliberately isolated from normative rules.
     await runStatement(database, `CREATE TABLE IF NOT EXISTS example_rule_documents (
       id TEXT PRIMARY KEY, user_id TEXT NOT NULL, source_filename TEXT NOT NULL,
