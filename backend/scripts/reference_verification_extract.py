@@ -13,7 +13,7 @@ from paper_compiler.frontend import _build_source_tree, _observe
 from fast_local_detector import native_coverage
 
 
-LABEL = re.compile(r'^\s*(?:\[\d{1,4}\]|\d{1,4}[.、])\s*')
+LABEL = re.compile(r'^\s*(?:\[\d{1,4}\][.、]?|\d{1,4}[.、])\s*')
 TYPE = re.compile(r'\[([A-Za-z]{1,3})(?:/[A-Za-z]{1,2})?\]')
 DOI = re.compile(r'(?:https?://(?:dx\.)?doi\.org/|doi\s*:\s*)?(10\.\d{4,9}/[^\s"，；]+)', re.I)
 YEAR = re.compile(r'(?<!\d)((?:19|20)\d{2})(?!\d)')
@@ -31,7 +31,9 @@ def _authors(value):
         part = part.strip(' ,.;')
         if not part:
             continue
-        if names and re.fullmatch(r'(?:[A-Z][. ]*){1,4}', part):
+        # Only standalone initials belong to the preceding APA surname. A
+        # short uppercase surname such as LI, SUN or BA starts another author.
+        if names and re.fullmatch(r'[A-Z](?:\.?\s+[A-Z])*\.?|(?:[A-Z]\.)+[A-Z]?', part):
             names[-1] += ' ' + part
         else:
             names.append(part)
@@ -68,7 +70,10 @@ def parse_entry(text):
     quoted = re.search(r'["“]([^"”]{8,500})["”]', value)
     apa = re.search(r'\((?:19|20)\d{2}[a-z]?\)\s*[.．]?\s*', value)
     year_boundary = re.search(r'(?<!\d)(?:19|20)\d{2}[a-z]?\.\s+', value)
-    if quoted:
+    # Quotation marks may enclose only the opening phrase of a GB/T title.
+    # Preserve the remainder before its type marker instead of truncating it.
+    whole_quoted_title = quoted and (not type_match or not re.search(r'\w', value[quoted.end():type_match.start()]))
+    if whole_quoted_title:
         title = quoted.group(1).strip(' ,，.;')
         authors = _authors(value[:quoted.start()])
         confidence = 'high'
@@ -83,7 +88,8 @@ def parse_entry(text):
                       and not re.match(rf'(?:and\s+)?{INITIAL_NAME}',prefix[candidate.end():])), None)
         separators = list(re.finditer(r'(?:\bet\s+al\.|[.。．])\s+(?=[^\s])', prefix, re.I))
         separator = next((candidate for candidate in separators
-                          if not re.search(r'(?:^|[,;]\s*)(?:[A-Za-z]\.\s*)*[A-Za-z]$', prefix[:candidate.start()])), None)
+                          if not re.search(r'(?:^|[,;]\s*)(?:[A-Za-z]\.\s*)*[A-Za-z]$', prefix[:candidate.start()])
+                          and not re.match(r'(?:[A-Z]\.?\s+){1,3}[A-Z]\.?\s*[,;]', prefix[candidate.end():])), None)
         # Initial-first names require a complete author-prefix parse, otherwise
         # a dot inside M.-T. Huang could be mistaken for the title boundary.
         if re.match(r'[A-Z]\.',prefix) and separator and not INITIAL_AUTHORS.fullmatch(prefix[:separator.start()].strip()):
@@ -111,7 +117,7 @@ def parse_entry(text):
         title, confidence = '', 'partial'
     if len(doi_values) > 1:
         confidence = 'partial'
-    years = YEAR.findall(DOI.sub('', year_scope))
+    years = YEAR.findall(ARXIV.sub('', DOI.sub('', year_scope)))
     arxiv_doi = re.fullmatch(r'10\.48550/arxiv\.(.+)', doi, re.I) if doi else None
     result = {
         'text': source, 'title': title, 'authors': authors,

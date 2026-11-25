@@ -51,7 +51,6 @@ const copy = {
     summary: '参考文献核验概览',
     processed: (n: number) => `已处理 ${n} 条`,
     verifiedEntries: (n: number) => `已核验条目（${n}）`,
-    native: '基于 PDF 原生文字提取',
     jumpToPage: (page: number) => `跳到 PDF 第 ${page} 页`,
     advice: {
       verified: '标识符或文献元数据已得到来源支持。',
@@ -108,7 +107,6 @@ const copy = {
     summary: 'Reference verification summary',
     processed: (n: number) => `${n} ${n === 1 ? 'reference' : 'references'} processed`,
     verifiedEntries: (n: number) => `Verified references (${n})`,
-    native: 'Extracted from native PDF text',
     jumpToPage: (page: number) => `Jump to PDF page ${page}`,
     advice: {
       verified: 'The identifier or reference metadata is supported by the sources.',
@@ -281,7 +279,6 @@ export function ReferenceVerificationOverview({ summary, onSelectEntry }: {
           </div>
         ))}
       </dl>
-      {summary.native_only ? <p className="reference-verification-native">{text.native}</p> : null}
       {verified.length ? (
         <details className="reference-verification-verified">
           <summary>

@@ -13,8 +13,8 @@ const oa = (extra = {}) => ({ id: 'https://openalex.org/W123', title, publicatio
 const cr = (extra = {}) => ({ DOI: '10.1234/reliable', title: [title], type: 'journal-article',
   author: [{ given: 'John', family: 'Smith' }], published: { 'date-parts': [[2023, 1, 1]] }, ...extra });
 const json = (body, status = 200, headers = {}) => new Response(JSON.stringify(body), { status, headers });
-const xml = (extra = '') => new Response(`<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom" xmlns:arxiv="http://arxiv.org/schemas/atom"><entry>
-  <id>http://arxiv.org/abs/2301.01234v2</id><title>${title}</title><author><name>John Smith</name></author>
+const xml = (extra = '', version = 'v2', identifier = '2301.01234') => new Response(`<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom" xmlns:arxiv="http://arxiv.org/schemas/atom"><entry>
+  <id>http://arxiv.org/abs/${identifier}${version}</id><title>${title}</title><author><name>John Smith</name></author>
   <published>2023-01-10T00:00:00Z</published>${extra}</entry></feed>`, { headers: { 'content-type': 'application/atom+xml' } });
 function fixture({ openalex = [], crossref = [], arxiv, handler } = {}) {
   const requests = [];
@@ -30,7 +30,7 @@ function fixture({ openalex = [], crossref = [], arxiv, handler } = {}) {
       if (url.pathname !== '/works') return crossref.length ? json({ status: 'ok', message: crossref[0] }) : json({}, 404);
       return json({ status: 'ok', message: { items: crossref } });
     }
-    if (url.hostname === 'export.arxiv.org') return arxiv ? arxiv() : new Response('<feed xmlns="http://www.w3.org/2005/Atom"></feed>');
+    if (url.hostname === 'export.arxiv.org') return arxiv ? arxiv(url) : new Response('<feed xmlns="http://www.w3.org/2005/Atom"></feed>');
     if (url.hostname === 'api.datacite.org') return url.pathname === '/dois' ? json({ data: [] }) : json({}, 404);
     throw new Error('Unexpected outbound destination');
   };
@@ -157,12 +157,12 @@ describe('database reference verification', () => {
     expect(value.matched.doi).toBe('10.1234/reliable');
   });
 
-  it('uses exact arXiv metadata with canonical versionless identifiers', async () => {
-    const f = fixture({ arxiv: () => xml() });
+  it('preserves explicit arXiv versions while exposing canonical base identifiers', async () => {
+    const f = fixture({ arxiv: () => xml('', 'v3') });
     const value = await verifyReference(entry({ arxiv_id: 'https://arxiv.org/abs/2301.01234v3', type_code: 'EB' }), f);
     expect(value.category).toBe('verified');
     expect(value.matched.arxiv_id).toBe('2301.01234');
-    expect(f.requests.some(r => r.url.searchParams.get('id_list') === '2301.01234')).toBe(true);
+    expect(f.requests.some(r => r.url.searchParams.get('id_list') === '2301.01234v3')).toBe(true);
   });
 
   it('offers a publication upgrade only when arXiv relation and publication metadata corroborate it', async () => {
@@ -336,7 +336,7 @@ describe('database reference verification', () => {
 
   it('paces exact arXiv requests across references on the same transport', async () => {
     vi.useFakeTimers();
-    const f = fixture({ arxiv: () => xml() });
+    const f = fixture({ arxiv: url => xml('', 'v2', url.searchParams.get('id_list')) });
     const first = verifyReference(entry({ arxiv_id: '2301.01234' }), f);
     await vi.advanceTimersByTimeAsync(0); await first;
     const second = verifyReference(entry({ arxiv_id: '2301.01235' }), f);

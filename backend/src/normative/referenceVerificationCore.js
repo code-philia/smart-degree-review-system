@@ -7,6 +7,7 @@
 const { createHash } = require('node:crypto');
 const { personalReferenceCredentials } = require('../auth/referencePersonalAccess');
 const { createCrossrefScheduler, crossrefScheduler } = require('./referenceRequestScheduler');
+const { risFields, arxivHeader } = require('./referenceMetadataEvidence');
 
 const REQUEST_TIMEOUT_MS = 4500;
 const TOTAL_TIMEOUT_MS = 18000;
@@ -52,7 +53,12 @@ function arxivFromDoi(doi) {
   return doi?.startsWith('10.48550/arxiv.') ? normalizeArxiv(doi.slice('10.48550/arxiv.'.length)) : null;
 }
 function titleKey(value) {
+  const latin = { 'ł':'l','Ł':'L','ø':'o','Ø':'O','đ':'d','Đ':'D','ð':'d','Ð':'D','æ':'ae','Æ':'AE','œ':'oe','Œ':'OE','ß':'ss' };
+  const greek = { tau:'τ',alpha:'α',beta:'β',gamma:'γ',delta:'δ',theta:'θ',lambda:'λ',mu:'μ',sigma:'σ',phi:'φ',psi:'ψ',omega:'ω' };
   return decodeEntities(clean(value).replace(/<[^>]*>/g, '')).normalize('NFKD').replace(/\p{M}/gu, '')
+    .replace(/[łŁøØđĐðÐæÆœŒß]/g, char => latin[char])
+    .replace(/\\(tau|alpha|beta|gamma|delta|theta|lambda|mu|sigma|phi|psi|omega)\b/g, (_, name) => greek[name])
+    .replace(/([\p{L}\p{N}])\s*\^\s*\{?(\d+)\}?/gu, '$1$2')
     .toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim().replace(/\s+/g, ' ');
 }
 function strongTitle(a, b) {
@@ -70,7 +76,7 @@ function strongTitle(a, b) {
 }
 function authorParts(name) {
   const comma = name.includes(',');
-  const parts = titleKey(name).split(' ').filter(p => !['et', 'al', 'and', 'jr'].includes(p));
+  const parts = titleKey(name).split(' ').filter(p => p && !['et', 'al', 'and', 'jr'].includes(p));
   if (!parts.length) return null;
   let suffixStart = parts.length;
   while (suffixStart > 1 && parts[suffixStart - 1].length === 1) suffixStart--;
@@ -83,8 +89,22 @@ function authorParts(name) {
 function authorMatch(left, right) {
   const a = left.map(authorParts).filter(Boolean), b = right.map(authorParts).filter(Boolean);
   if (!a.length || !b.length) return null;
-  const x = a[0], y = b[0];
-  return x.key === y.key || (x.surname === y.surname && (!x.initial || !y.initial || x.initial === y.initial));
+  const same = (x, y) => x.key === y.key || (x.surname === y.surname && (!x.initial || !y.initial || x.initial === y.initial));
+  if (same(a[0], b[0])) return true;
+  // Some feeds prepend an organization to an ordered personal author list.
+  // Require two corroborating personal names; do not skip a real first person
+  // merely because the cited name appears somewhere later in the list.
+  const organization = name => /\b(?:team|group|consortium|collaboration)\b/i.test(name)
+    || /^[^\s,]*[a-z][^\s,]*(?:AI|LLM|Labs?|Research)$/.test(name);
+  const colonHeader = right[1]?.trim() === ':';
+  if (a.length >= 2 && (organization(right[0]) || colonHeader) && b.length > 2) {
+    const offset = 1;
+    if (same(a[0], b[offset]) && same(a[1], b[offset + 1])) return true;
+  }
+  // A collective attribution versus individual names requires corroborating
+  // document metadata, not a guessed alias or a hard-coded research-team list.
+  if (organization(left[0]) !== organization(right[0])) return null;
+  return false;
 }
 function hanLatinDifference(left, right) {
   const a = clean(left), b = clean(right);
@@ -107,6 +127,7 @@ function normalizeEntry(entry) {
     title, title_search_variants: [...new Set(titleVariants)],
     authors: Array.isArray(entry?.authors) ? entry.authors.slice(0, 30).map(a => clean(a, 150)).filter(Boolean) : [],
     year: yearValue(entry?.year), doi, arxiv_id,
+    arxiv_version: arxiv_id ? clean(entry?.arxiv_id, 150).match(/v(\d+)(?:\.pdf)?$/i)?.[1] || null : null,
     has_doi: Boolean(clean(entry?.doi)), has_arxiv: Boolean(clean(entry?.arxiv_id) || arxiv_id),
     type_code: clean(entry?.type_code, 20).toUpperCase(), extraction_confidence: entry?.extraction_confidence === 'high' ? 'high' : 'partial',
   };
@@ -134,12 +155,15 @@ function openalexRecord(value) {
     url: doi ? doiUrl(doi) : aid ? arxivUrl(aid) : workId, related_doi: null };
 }
 function crossrefRecord(value) {
-  const doi = normalizeDoi(value?.DOI), title = clean(Array.isArray(value?.title) ? value.title[0] : value?.title);
-  if (!doi || !title) return null;
+  const doi = normalizeDoi(value?.DOI), heading = clean(Array.isArray(value?.title) ? value.title[0] : value?.title);
+  const subtitle = clean(Array.isArray(value?.subtitle) ? value.subtitle[0] : value?.subtitle);
+  const title = subtitle && !titleKey(heading).endsWith(titleKey(subtitle)) ? `${heading}: ${subtitle}` : heading;
+  if (!doi || !heading) return null;
   const dates = [value.published, value['published-print'], value['published-online'], value.issued];
-  const year = dates.map(d => yearValue(d?.['date-parts']?.[0]?.[0])).find(Boolean) || null;
+  const years = [...new Set(dates.map(d => yearValue(d?.['date-parts']?.[0]?.[0])).filter(Boolean))];
+  const year = years[0] || null;
   const related = value.relation?.['is-preprint-of'] || [];
-  return { title, doi, arxiv_id: null, year, provider: 'crossref', type: clean(value.type, 50), url: doiUrl(doi),
+  return { title, doi, arxiv_id: null, year, year_candidates: years, provider: 'crossref', type: clean(value.type, 50), url: doiUrl(doi),
     authors: (Array.isArray(value.author) ? value.author : []).slice(0, 30).map(a => clean([a.given, a.family].filter(Boolean).join(' ') || a.name, 150)).filter(Boolean),
     related_doi: normalizeDoi(related.find(r => r['id-type'] === 'doi')?.id) };
 }
@@ -152,7 +176,7 @@ function dataciteRecord(value) {
   const related = Array.isArray(data.relatedIdentifiers) ? data.relatedIdentifiers : [];
   const arxiv = related.find(item => ['IsVersionOf', 'IsIdenticalTo'].includes(item.relationType) && item.relatedIdentifierType === 'arXiv');
   return { doi, title, year: yearValue(data.publicationYear), type, provider: 'datacite', url: doiUrl(doi), related_doi: null,
-    arxiv_id: arxiv ? normalizeArxiv(arxiv.relatedIdentifier) : null,
+    arxiv_id: arxivFromDoi(doi) || (arxiv ? normalizeArxiv(arxiv.relatedIdentifier) : null),
     authors: (Array.isArray(data.creators) ? data.creators : []).slice(0, 30)
       .map(a => clean([a.givenName, a.familyName].filter(Boolean).join(' ') || a.name, 150)).filter(Boolean) };
 }
@@ -168,8 +192,13 @@ function parseArxiv(text) {
   return entries.slice(0, 5).map(entry => {
     const source = entry[1], id = normalizeArxiv(tag(source, 'id')), title = tag(source, 'title');
     if (!id || !title) throw new Error('invalid_payload');
-    return { title, arxiv_id: id, doi: null, related_doi: normalizeDoi(tag(source, 'doi')), provider: 'arxiv', type: 'preprint',
-      year: yearValue(Number(tag(source, 'published').slice(0, 4))),
+    const year = yearValue(Number(tag(source, 'published').slice(0, 4)));
+    const updated = yearValue(Number(tag(source, 'updated').slice(0, 4)));
+    const version = tag(source, 'id').match(/v(\d+)$/i)?.[1] || null;
+    if (version && !/^[1-9]\d*$/.test(version)) throw new Error('invalid_payload');
+    return { title, arxiv_id: id, arxiv_version: version,
+      doi: null, related_doi: normalizeDoi(tag(source, 'doi')), provider: 'arxiv', type: 'preprint',
+      year, year_candidates: [...new Set([year, updated && (!year || updated >= year) ? updated : null].filter(Boolean))],
       authors: [...source.matchAll(/<(?:\w+:)?author\b[^>]*>([\s\S]*?)<\/(?:\w+:)?author\s*>/gi)].slice(0, 30).map(a => tag(a[1], 'name')).filter(Boolean), url: arxivUrl(id) };
   });
 }
@@ -182,12 +211,13 @@ function wait(ms, signal) {
     signal?.addEventListener('abort', cancel, { once: true });
   });
 }
-async function readBody(response) {
-  if (Number(response.headers?.get('content-length')) > MAX_BODY_BYTES) throw new Error('invalid_payload');
+async function readBody(response, prefixOnly = false) {
+  const limit = prefixOnly ? 64 * 1024 : MAX_BODY_BYTES;
+  if (!prefixOnly && Number(response.headers?.get('content-length')) > limit) throw new Error('invalid_payload');
   if (!response.body?.getReader) {
     const body = await response.text();
-    if (Buffer.byteLength(body) > MAX_BODY_BYTES) throw new Error('invalid_payload');
-    return body;
+    if (!prefixOnly && Buffer.byteLength(body) > limit) throw new Error('invalid_payload');
+    return prefixOnly ? Buffer.from(body).subarray(0, limit).toString('utf8') : body;
   }
   const reader = response.body.getReader();
   const chunks = []; let length = 0;
@@ -195,11 +225,18 @@ async function readBody(response) {
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
+      const room = limit - length;
       length += value.byteLength;
-      if (length > MAX_BODY_BYTES) throw new Error('invalid_payload');
-      chunks.push(Buffer.from(value));
+      if (!prefixOnly && length > limit) throw new Error('invalid_payload');
+      chunks.push(Buffer.from(prefixOnly ? value.subarray(0, room) : value));
+      if (prefixOnly) {
+        const prefix = Buffer.concat(chunks).toString('utf8');
+        // Only the document header is needed. A slow article body must not
+        // delay already complete author evidence until the prefix cap is hit.
+        if (length >= limit || arxivHeader(prefix)) return prefix;
+      }
     }
-    return Buffer.concat(chunks).toString('utf8');
+    return Buffer.concat(chunks).subarray(0, limit).toString('utf8');
   } finally { void reader.cancel().catch(() => {}); }
 }
 function retryAfter(response) {
@@ -234,7 +271,7 @@ function coolDown(url, context, delay) {
   if (!providers) { providers = new Map(); cooldowns.set(context.fetchImpl, providers); }
   providers.set(url.hostname, Math.max(providers.get(url.hostname) || 0, Date.now() + delay));
 }
-async function request(url, context, { credentialFallback = false, maxAttempts = url.hostname === 'api.crossref.org' ? 3 : 2 } = {}) {
+async function request(url, context, { credentialFallback = false, maxAttempts = url.hostname === 'api.crossref.org' ? 3 : 2, prefixOnly = false, timeoutMs = REQUEST_TIMEOUT_MS } = {}) {
   const isCrossref = url.hostname === 'api.crossref.org';
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     checkAbort(context.signal);
@@ -248,7 +285,7 @@ async function request(url, context, { credentialFallback = false, maxAttempts =
       const controller = new AbortController();
       let timer, abortListener;
       const stopped = new Promise((_, reject) => {
-        timer = setTimeout(() => { controller.abort(); reject(new Error('timeout')); }, Math.min(REQUEST_TIMEOUT_MS, remaining));
+        timer = setTimeout(() => { controller.abort(); reject(new Error('timeout')); }, Math.min(timeoutMs, remaining));
         abortListener = () => { controller.abort(); reject(abortError()); };
         context.signal?.addEventListener('abort', abortListener, { once: true });
       });
@@ -258,7 +295,7 @@ async function request(url, context, { credentialFallback = false, maxAttempts =
           (async () => {
             const fetched = await context.fetchImpl(url.toString(), { signal: controller.signal, redirect: 'error',
               headers: { accept: 'application/json, application/atom+xml;q=0.9', 'user-agent': 'AcademicReferenceVerifier/1.0' } });
-            return { response: fetched, body: fetched.ok || fetched.status === 429 ? await readBody(fetched) : '' };
+            return { response: fetched, body: fetched.ok || fetched.status === 429 ? await readBody(fetched, prefixOnly) : '' };
           })(), stopped,
         ]);
         ({ response, body } = result);
@@ -306,11 +343,16 @@ function comparison(entry, record) {
   const authors = authorMatch(entry.authors, record.authors);
   const year = entry.year && record.year ? Math.abs(entry.year - record.year) <= 1 : null;
   const exactDoi = Boolean(entry.doi && record.doi === entry.doi);
-  const exactArxiv = Boolean(entry.arxiv_id && record.arxiv_id === entry.arxiv_id);
-  const arxivDoiAlias = Boolean(record.arxiv_id && arxivFromDoi(entry.doi) === record.arxiv_id);
+  const exactArxiv = Boolean(entry.arxiv_id && record.arxiv_id === entry.arxiv_id
+    && isPreprint(record)
+    && (!entry.arxiv_version || record.arxiv_version === entry.arxiv_version));
+  const arxivDoiAlias = Boolean(exactArxiv && arxivFromDoi(entry.doi) === record.arxiv_id);
   const crossLanguage = (!title && hanLatinDifference(entry.title, record.title))
     || (authors === false && hanLatinDifference(entry.authors[0], record.authors[0]));
-  return { title, authors, year, arxivDoiAlias, crossLanguage, exact: exactDoi || exactArxiv || arxivDoiAlias, strong: title && authors === true && year === true };
+  const alternateYear = Boolean(entry.year && (exactDoi || exactArxiv || arxivDoiAlias) && record.year_candidates?.includes(entry.year));
+  const supportedYear = year === true || alternateYear ? true : year;
+  return { title, authors, year: supportedYear, alternateYear: alternateYear && year !== true, exactArxiv, arxivDoiAlias, crossLanguage,
+    exact: exactDoi || exactArxiv || arxivDoiAlias, strong: title && authors === true && supportedYear === true };
 }
 async function lookup(provider, kind, identifier, context) {
   let url;
@@ -339,7 +381,11 @@ async function lookup(provider, kind, identifier, context) {
   if (result.status !== 'success') return { source: { provider, url: publicUrl, status: result.status }, records: [], success: false, kind };
   try {
     let records;
-    if (provider === 'arxiv') records = parseArxiv(result.body);
+    if (provider === 'arxiv') {
+      records = parseArxiv(result.body);
+      const version = identifier.match(/v(\d+)$/i)?.[1] || null;
+      if (records.some(record => record.arxiv_id !== normalizeArxiv(identifier) || version && record.arxiv_version !== version)) throw new Error('invalid_payload');
+    }
     else {
       const payload = JSON.parse(result.body);
       const raw = provider === 'openalex' ? (kind === 'doi' ? [payload] : payload.results)
@@ -424,16 +470,58 @@ function comparisons(entry, record, equivalent = false) {
   return [
     { field: 'title', cited: entry.title || null, matched: record.title, status: !entry.title ? 'missing' : c.title ? 'match' : c.crossLanguage ? 'unknown' : 'different' },
     { field: 'authors', cited: entry.authors, matched: record.authors, status: !entry.authors.length ? 'missing' : c.authors === null ? 'unknown' : c.authors ? 'match' : c.crossLanguage ? 'unknown' : 'different' },
-    { field: 'year', cited: entry.year, matched: record.year, status: !entry.year ? 'missing' : !record.year ? 'unknown' : c.year ? 'match' : equivalent ? 'equivalent' : 'different' },
+    { field: 'year', cited: entry.year, matched: record.year, status: !entry.year ? 'missing' : !record.year ? 'unknown' : c.alternateYear ? 'equivalent' : c.year ? 'match' : equivalent ? 'equivalent' : 'different' },
     { field: 'doi', cited: entry.doi, matched: record.doi || (c.arxivDoiAlias ? arxivUrl(record.arxiv_id) : null),
       status: c.arxivDoiAlias ? 'equivalent' : !entry.doi ? (record.doi ? 'missing' : 'unknown') : !record.doi ? 'unknown' : entry.doi === record.doi ? 'match' : equivalent ? 'equivalent' : 'different' },
     ...(entry.arxiv_id || record.arxiv_id ? [{ field: 'arxiv_id', cited: entry.arxiv_id, matched: record.arxiv_id,
-      status: !entry.arxiv_id ? 'missing' : !record.arxiv_id ? 'unknown' : entry.arxiv_id === record.arxiv_id ? 'match' : 'different' }] : []),
+      status: !entry.arxiv_id ? 'missing' : !record.arxiv_id ? 'unknown' : c.exactArxiv ? 'match' : entry.arxiv_id === record.arxiv_id ? 'unknown' : 'different' }] : []),
   ];
 }
 function isPreprint(record) {
-  return ['preprint', 'posted-content'].includes(record.type) || Boolean(arxivFromDoi(record.doi))
-    || Boolean(record.arxiv_id && record.provider === 'openalex' && record.type === 'article');
+  return ['preprint', 'posted-content'].includes(record.type) || Boolean(arxivFromDoi(record.doi));
+}
+function needsPublisherYear(entry, value, lookups) {
+  if (!entry.doi?.startsWith('10.1007/') || !entry.year || value.category !== 'mismatch' || !value.matched) return false;
+  const c = comparison(entry, value.matched);
+  // A discovery catalog's old-book date is not definitive when the DOI
+  // registry has no date. Ask the publisher's machine-readable citation.
+  return c.title && c.authors === true && c.year === false && value.matched.provider === 'openalex'
+    && lookups.some(result => result.records.some(record => record.provider === 'crossref'
+      && record.doi === entry.doi && record.type === 'book-chapter' && !record.year));
+}
+async function publisherYearEvidence(entry, context) {
+  const url = new URL(`https://citation-needed.springer.com/v2/references/${entry.doi.split('/').map(encodeURIComponent).join('/')}`);
+  url.searchParams.set('flavour', 'citation'); url.searchParams.set('format', 'refman');
+  const result = await request(url, context, { maxAttempts: 1 });
+  const source = { provider: 'publisher', url: url.toString(), status: result.status };
+  const failure = () => ({ source: { ...source, status: result.status === 'success' ? 'unavailable' : result.status }, success: false, records: [], kind: 'doi' });
+  if (result.status !== 'success') return failure();
+  const fields = risFields(result.body);
+  const identifiers = [...(fields?.DO || []), ...(fields?.ID || [])].map(normalizeDoi).filter(Boolean);
+  const heading = clean(fields?.TI?.[0] || fields?.T1?.[0]);
+  const year = yearValue(Number(fields?.PY?.[0]?.match(/^\d{4}/)?.[0]));
+  const authors = (fields?.AU || []).map(name => clean(name, 150)).filter(Boolean).slice(0, 30);
+  if (!identifiers.length || identifiers.some(doi => doi !== entry.doi) || !heading || !year || !authors.length) return failure();
+  const record = sanitizeRecord({ title: heading, authors, year, doi: entry.doi, arxiv_id: null, related_doi: null,
+    provider: 'publisher', type: 'book-chapter', url: doiUrl(entry.doi) }, context.secrets);
+  return { source: { ...source, status: 'success' }, records: [record], success: true, kind: 'doi' };
+}
+async function collectiveArxivEvidence(entry, record, context) {
+  const version = entry.arxiv_version || 1;
+  const url = new URL(`https://arxiv.org/html/${entry.arxiv_id}v${version}`);
+  const result = await request(url, context, { maxAttempts: 1, prefixOnly: true, timeoutMs: 8000 });
+  const source = { provider: 'arxiv', url: url.toString(), status: result.status };
+  const failure = () => ({ source: { ...source, status: result.status === 'success' ? 'unavailable' : result.status }, success: false, records: [], kind: 'arxiv' });
+  if (result.status !== 'success') return failure();
+  const fields = arxivHeader(result.body);
+  const plain = value => clean(decodeEntities(value.replace(/<[^>]*>/g, '')));
+  if (!fields || fields.identity && normalizeArxiv(fields.identity) !== entry.arxiv_id
+    || fields.identity && /v\d+$/i.test(fields.identity) && fields.identity.match(/v(\d+)$/i)[1] !== String(version)
+    || titleKey(plain(fields.title)) !== titleKey(record.title)) return failure();
+  const authors = fields.authors.map(plain).filter(Boolean);
+  const corroborated = sanitizeRecord({ ...record, arxiv_version: String(version), authors, url: url.toString(),
+    year_candidates: [record.year].filter(Boolean) }, context.secrets);
+  return { source: { ...source, status: 'success' }, records: [corroborated], success: true, kind: 'arxiv' };
 }
 function decide(entry, lookups) {
   const records = lookups.flatMap(r => r.records).sort((a, b) => {
@@ -464,7 +552,8 @@ function decide(entry, lookups) {
     category = 'upgrade'; reason_code = 'publication_available'; matched = publication; equivalent = true;
   } else if (exacts.length) {
     // Prefer the exact preprint record over a later publication's year or title variants.
-    matched = exacts.find(r => r.doi === entry.doi) || preprint || exacts.find(r => comparison(entry, r).strong) || exacts[0];
+    matched = exacts.find(r => comparison(entry, r).strong) || exacts.find(r => r.provider === 'publisher')
+      || exacts.find(r => r.doi === entry.doi) || preprint || exacts[0];
     const c = comparison(entry, matched);
     if (c.crossLanguage) { category = 'unverified'; reason_code = 'cross_language_metadata'; }
     else if (!fullMetadata) { category = 'verified'; reason_code = 'identifier_verified'; }
@@ -484,7 +573,7 @@ function decide(entry, lookups) {
       category = 'unverified'; reason_code = 'identifier_unresolved'; matched = null;
     } else if ((entry.has_doi && !entry.doi) || (entry.has_arxiv && matched.arxiv_id && matched.arxiv_id !== entry.arxiv_id)) {
       category = 'mismatch'; reason_code = 'identifier_conflict';
-    } else if (entry.has_arxiv && !matched.arxiv_id) { category = 'unverified'; reason_code = 'identifier_unresolved'; }
+    } else if (entry.has_arxiv && !comparison(entry, matched).exactArxiv) { category = 'unverified'; reason_code = 'identifier_unresolved'; matched = null; }
     else if (!entry.doi && matched.doi && !entry.arxiv_id) { category = 'incomplete'; reason_code = 'missing_doi'; }
     else { category = 'verified'; reason_code = 'metadata_verified'; }
   } else if (!fullMetadata) reason_code = 'incomplete_extraction';
@@ -498,11 +587,18 @@ function decide(entry, lookups) {
       category = 'suspected'; reason_code = 'not_found_in_checked_databases'; coverage.advisory = true;
     } else reason_code = records.length ? 'ambiguous_catalog_candidates' : 'outside_database_coverage';
   }
-  if (['verified', 'incomplete'].includes(category) && entry.arxiv_id && !records.some(r => r.arxiv_id === entry.arxiv_id)
-    && lookups.some(r => r.source.provider === 'arxiv' && r.source.status === 'not_found')) {
-    category = 'unverified'; reason_code = 'identifier_unresolved';
+  if (['verified', 'incomplete', 'upgrade'].includes(category) && entry.arxiv_id
+    && !records.some(r => comparison(entry, r).exactArxiv)
+    && (entry.arxiv_version || lookups.some(r => r.source.provider === 'arxiv' && r.source.status === 'not_found'))) {
+    category = 'unverified'; reason_code = 'identifier_unresolved'; matched = null;
   }
+  const historicalTitleUnresolved = category === 'mismatch' && entry.arxiv_id && !entry.arxiv_version
+    && matched?.provider === 'arxiv' && matched.arxiv_version !== '1' && !comparison(entry, matched).title
+    && comparison(entry, matched).authors === true && comparison(entry, matched).year === true
+    && lookups.some(result => result.historical && (!result.success || !result.records.length));
+  if (historicalTitleUnresolved) { category = 'unverified'; reason_code = 'incomplete_catalog_metadata'; }
   const fieldComparisons = comparisons(entry, matched, equivalent);
+  if (historicalTitleUnresolved) fieldComparisons.filter(field => field.field === 'title').forEach(field => { field.status = 'unknown'; });
   if (entry.extraction_confidence !== 'high') fieldComparisons.forEach(c => { if (c.status === 'different') c.status = 'unknown'; });
   return { category, reason_code, matched, comparisons: fieldComparisons, sources: lookups.map(r => r.source), coverage };
 }
@@ -534,12 +630,38 @@ async function verifyReference(input, options = {}) {
   cache.delete(cacheKey);
   const results = await Promise.all([
     openalexEnabled ? catalog('openalex', entry, context) : [], catalog('crossref', entry, context),
-    entry.arxiv_id ? lookup('arxiv', 'arxiv', entry.arxiv_id, context).then(r => [r]) : [],
+    entry.arxiv_id ? lookup('arxiv', 'arxiv', entry.arxiv_id + (entry.arxiv_version ? `v${entry.arxiv_version}` : ''), context).then(r => [r]) : [],
     !openalexEnabled && serpapiKey && entry.title.length >= 12 ? scholar(entry, context, serpapiKey).then(r => [r]) : [],
   ]);
   checkAbort(options.signal);
   const lookups = results.flat();
   let value = decide(entry, lookups);
+  if (entry.arxiv_id && !entry.arxiv_version
+    && !lookups.some(result => result.records.some(record => comparison(entry, record).exactArxiv))) {
+    // A later journal article may link this arXiv ID. Its publication date is
+    // not evidence of the cited preprint's date. Resolve the canonical preprint
+    // DOI if the arXiv API is unavailable, without substituting an explicit vN.
+    lookups.push(await lookup('datacite', 'doi', `10.48550/arxiv.${entry.arxiv_id}`, context));
+    value = decide(entry, lookups);
+  }
+  if (entry.arxiv_id && !entry.arxiv_version && value.category === 'mismatch'
+    && value.matched?.provider === 'arxiv' && value.matched.arxiv_version !== '1' && !comparison(entry, value.matched).title) {
+    lookups.push({ ...await lookup('arxiv', 'arxiv', `${entry.arxiv_id}v1`, context), historical: true });
+    value = decide(entry, lookups);
+  }
+  if (entry.arxiv_id && value.category === 'unverified' && value.matched?.provider === 'arxiv'
+    && comparison(entry, value.matched).title && comparison(entry, value.matched).authors === null) {
+    lookups.push(await collectiveArxivEvidence(entry, value.matched, context));
+    value = decide(entry, lookups);
+  }
+  if (needsPublisherYear(entry, value, lookups)) {
+    const publication = await publisherYearEvidence(entry, context);
+    lookups.push(publication); value = decide(entry, lookups);
+    if (!publication.records.length && value.category === 'mismatch') {
+      value.category = 'unverified'; value.reason_code = 'incomplete_catalog_metadata';
+      value.comparisons.filter(field => field.field === 'year').forEach(field => { field.status = 'unknown'; });
+    }
+  }
   const exactCited = lookups.flatMap(result => result.records).filter(record => record.doi === entry.doi || comparison(entry, record).exact);
   if (entry.doi && (!exactCited.length || (value.category === 'mismatch' && !exactCited.some(record => record.provider === 'crossref')))) {
     lookups.push(await lookup('datacite', 'doi', entry.doi, context));
