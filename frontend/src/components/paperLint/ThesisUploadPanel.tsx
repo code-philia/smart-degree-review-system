@@ -433,7 +433,7 @@ export function ThesisUploadPanel(props: Props) {
           ) : null}
           {noSelection ? (
             <p role="alert" className="mt-3 text-xs text-amber-700">
-              {available.length ? '请至少选择一项检测规则' : '当前暂无可用检测规则，请稍后重试或联系管理员。'}
+              {available.length ? '请至少选择一项检测规则' : '当前暂无可用检测规则，请稍后重试或联系管理员，联系邮箱：j82279240@gmail.com'}
             </p>
           ) : null}
           {unavailableSelection && !busy ? (

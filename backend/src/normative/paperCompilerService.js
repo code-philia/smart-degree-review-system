@@ -189,7 +189,7 @@ function compilerBudget(name) {
   if (['SJTU_API_KEY', 'SJTU_API_BASE_URL', 'SJTU_API_MODEL'].every(key => process.env[key]?.trim())) return '0';
   const value = process.env[name] === undefined ? '200' : process.env[name].trim();
   if (!/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(value) || !Number.isFinite(Number(value)) || Number(value) <= 0 || Number(value) > 500)
-    throw failure(503,'COMPILER_BUDGET_CONFIG_INVALID','检测预算配置无效，请联系管理员');
+    throw failure(503,'COMPILER_BUDGET_CONFIG_INVALID','检测预算配置无效，请联系管理员，联系邮箱：j82279240@gmail.com');
   return value;
 }
 async function runCompilerRules(pdfPath,selectedRuleIds,options={}) {
@@ -213,7 +213,7 @@ function controlRoot() { return path.resolve(process.env.PAPER_COMPILER_CONTROL_
 async function runCompilerControl(action,{version}={}) {
   if(!['status','freeze','unfreeze','history','rollback'].includes(action))throw failure(400,'COMPILER_CONTROL_ACTION','请选择有效管理操作');
   if(action==='rollback' && (typeof version!=='string' || !version.trim()))throw failure(400,'COMPILER_CONTROL_VERSION','请选择有效历史版本');
-  if(process.env.PAPER_COMPILER_ENABLED!=='1')throw failure(503,'COMPILER_UNAVAILABLE','自动迭代管理尚未启用，请联系管理员配置检测服务');
+  if(process.env.PAPER_COMPILER_ENABLED!=='1')throw failure(503,'COMPILER_UNAVAILABLE','自动迭代管理尚未启用，请联系管理员配置检测服务，联系邮箱：j82279240@gmail.com');
   const args=[SCRIPT,'control','--action',action,'--control-root',controlRoot()];
   if(action==='rollback')args.push('--version',version);
   let result=await runJsonProcess(process.env.PAPER_COMPILER_PYTHON || 'python3',args,{timeoutMs:45000,maxBytes:4*1024*1024,allowArray:action==='history'});

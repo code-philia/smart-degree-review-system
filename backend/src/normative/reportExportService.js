@@ -19,7 +19,7 @@ function validateExportModel(model, reportId) {
     report[key].some(item => isRetiredPaperLintRule(item?.rule_id || item?.id))))) {
     throw failure(400, '该审查规则已下线，请刷新报告后重试。');
   }
-  if (Buffer.byteLength(JSON.stringify(model), 'utf8') > MAX_MODEL_BYTES) throw failure(413, '报告内容过大，请联系系统管理员。');
+  if (Buffer.byteLength(JSON.stringify(model), 'utf8') > MAX_MODEL_BYTES) throw failure(413, '报告内容过大，请联系系统管理员，联系邮箱：j82279240@gmail.com');
   function object(value) { if (!value || typeof value!=='object' || Array.isArray(value)) invalid(); }
   function text(value, max = 100000) { if (typeof value !== 'string' || value.length > max) invalid(); }
   function identifier(value, max = 100000) { text(value,max); if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(value)) invalid(); }
@@ -100,12 +100,12 @@ async function renderReport({userId,report,model,format,signal}) {
     });
     const output=path.join(directory,format==='pdf'?'report.pdf':'report-images.zip');
     const size=(await fs.stat(output)).size;
-    if(size>40*1024*1024)throw failure(413,'导出文件过大，请联系系统管理员。');
+    if(size>40*1024*1024)throw failure(413,'导出文件过大，请联系系统管理员，联系邮箱：j82279240@gmail.com');
     return {content:await fs.readFile(output),contentType:format==='pdf'?'application/pdf':'application/zip',filename:safeFilename(report.source_filename)+(normalized.reports[0].language==='en'?'_Review_Report':'_检测报告')+(format==='pdf'?'.pdf':normalized.reports[0].language==='en'?'_Images.zip':'_图片.zip')};
   } catch(error) {
     if(error.status)throw error;
     if(error.name==='AbortError')throw error;
-    if(String(error.stderr || '').includes('EXPORT_TOO_MANY_PAGES'))throw failure(413,'导出文件过大，请联系系统管理员。');
+    if(String(error.stderr || '').includes('EXPORT_TOO_MANY_PAGES'))throw failure(413,'导出文件过大，请联系系统管理员，联系邮箱：j82279240@gmail.com');
     const timeout=error.killed || error.code==='ETIMEDOUT';
     throw failure(timeout?504:503,timeout?'报告导出超时，请稍后重试。':'报告导出暂不可用，请稍后重试。');
   } finally {

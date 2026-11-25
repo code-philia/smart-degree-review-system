@@ -262,7 +262,7 @@ it('leaves detection disabled when the catalog has no available rules', async ()
     rules: rules.map((rule) => ({ ...rule, available: false })),
   } as never);
   showUpload();
-  expect(await screen.findByText('当前暂无可用检测规则，请稍后重试或联系管理员。')).toBeInTheDocument();
+  expect(await screen.findByText(/当前暂无可用检测规则.*j82279240@gmail\.com/)).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('上传待审查 PDF'), { target: { files: [pdf()] } });
   expect(screen.getByRole('button', { name: '开始检测', exact: true })).toBeDisabled();
   expect(runReviewPilotPaperLint).not.toHaveBeenCalled();

@@ -8,7 +8,7 @@ from collections import Counter, defaultdict
 import re
 
 
-VERSION = 'numeric-navigation/1.3'
+VERSION = 'numeric-navigation/1.4'
 
 
 def title_key(text):
@@ -79,7 +79,20 @@ def _heading_row(row, body_size):
     # A heading is one compact typographic run. Multiple table columns cannot
     # become a title simply because the left cell resembles a section number.
     if any(abs((_line_size(l) or size) - size) > .7 for l in lines):
-        return False
+        # Some English thesis styles use a 16 pt number and a 14 pt title.
+        # Admit only that compact two-run, explicitly bold heading pattern;
+        # the existing baseline, column-gap and numeric-tail guards still apply.
+        split_bold_heading = (len(lines) == 2
+            and re.fullmatch(r'\d+(?:\.\d+){1,3}', lines[0]['text'].strip())
+            and _title_text(lines[1]['text'])
+            and re.search(r'[A-Za-z]', lines[1]['text'])
+            and max(_line_size(l) for l in lines) - min(_line_size(l) for l in lines) <= 2.1
+            and all(_line_size(l) >= body_size + .8 for l in lines)
+            and all(any(c.get('text', '').strip() for c in l.get('chars', []))
+                    and all(re.search(r'bold|black|heavy', c.get('font', ''), re.I)
+                            for c in l.get('chars', []) if c.get('text', '').strip()) for l in lines))
+        if not split_bold_heading:
+            return False
     if any(re.fullmatch(r'[+\-−]?\d+(?:[.,]\d+)*(?:[eE][+\-]?\d+)?', l['text'].strip()) for l in lines[1:]):
         return False
     if any(not -1 <= b['bbox'][0] - a['bbox'][2] <= size * 2.2 for a, b in zip(lines, lines[1:])):
@@ -94,7 +107,7 @@ def _heading_row(row, body_size):
 
 
 def _title_text(text):
-    return (2 <= len(text.strip()) <= 120 and bool(re.search(r'[A-Za-z\u3400-\u9fff]', text))
+    return (2 <= len(text.strip()) <= 240 and bool(re.search(r'[A-Za-z\u3400-\u9fff]', text))
             and not _LEADER.search(text) and not re.search(r'[。；;!?！？=<>±×%]|\d\s*[（(]', text)
             and not re.match(r'^\d+(?:\.\d+)?(?:\s|$)', text.strip()))
 

@@ -82,7 +82,7 @@ function documentRejectionResult(assessment, selectedRuleIds) {
       severity: 'error', message: structureError ? message : message + ' ' + assessment.reason,
       suggestion: structureError
         ? `请核对并补齐${affectedSections.length ? affectedSections.join('、') : '缺失或不完整的核心章节'}，上传完整、文字可读取的论文 PDF 后重试。`
-        : compilationError ? '请确认论文 PDF 完整且文字可读取，然后重试；若仍失败，请联系管理员核查编译过程。'
+        : compilationError ? '请确认论文 PDF 完整且文字可读取，然后重试；若仍失败，请联系管理员核查编译过程，联系邮箱：j82279240@gmail.com'
         : '请上传论文正文 PDF；推荐表、申请材料、说明文档等不能作为论文检测。' }] };
   return { type: 'paper_lint', paper_title: '上传文档的 Paper Model 编译失败',
     ruleset: { id: 'paper-document-admission', name: '论文编译校验', version_number: 2, version_label: VERSION },

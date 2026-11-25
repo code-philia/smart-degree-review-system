@@ -69,6 +69,6 @@ describe('numeric results in the unified report', () => {
     expect(screen.getByRole('button', { name: '警告 0', exact: true })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /检测异常提醒/ }));
     expect(screen.getByText('研究贡献下不存在明确的实验章节')).toBeTruthy();
-    expect(screen.getByText(/请稍后重试/)).toBeTruthy();
+    expect(screen.getByText(/请联系管理员处理.*j82279240@gmail\.com/)).toBeTruthy();
   });
 });

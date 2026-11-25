@@ -57,6 +57,46 @@ function warningFeedbackItem(run: PaperLintRuleRun, findingId: string, index: nu
     finding: { finding_id: findingId, rule_id: run.rule_id, message: run.message || '' } };
 }
 
+function numericFailureCopy(params: PaperLintRuleRun['params']) {
+  // Inspect final failure diagnostics, never quoted thesis/model content or
+  // transient errors from earlier successful retries.
+  const failures = [params?.failure, ...(Array.isArray(params?.validation_errors) ? params.validation_errors : [])];
+  const detail = failures.map(failure => {
+    if (typeof failure === 'string') return failure;
+    if (!failure || typeof failure !== 'object') return '';
+    const info = failure as Record<string, unknown>;
+    return [info.error_type, info.type, info.message,
+      ...(Array.isArray(info.errors) ? info.errors.filter(e => typeof e === 'string') : [])].join(' ');
+  }).join('\n');
+  const validationFailed = failures.some(failure => {
+    if (!failure || typeof failure !== 'object') return false;
+    const diagnostic = failure as Record<string, unknown>;
+    if (diagnostic.kind === 'unknown_declaration') return true;
+    const errors = diagnostic.errors;
+    return Array.isArray(errors) && errors.some(error => typeof error === 'string'
+      && error !== 'model_call_failed' && error !== 'source_conflict_audit_failed');
+  });
+  const internal = validationFailed || /ContractError|ValueError|JSONDecodeError|model_contract|schema|validation/i.test(detail);
+  const contact = '请联系管理员处理，修复后重新检测，联系邮箱：j82279240@gmail.com';
+  const retry = '请稍后重试；若持续失败，请联系管理员检查运行记录，联系邮箱：j82279240@gmail.com';
+  if (/numeric value is not a candidate in declaration source/.test(detail)) {
+    return {reason:'系统解析部分数值及单位时出错，未能完成本项检测。此提示不代表论文存在问题。', suggestion:contact};
+  }
+  if (internal) {
+    return {reason:'模型返回结果未通过校验，未能完成本项检测。此提示不代表论文存在问题。', suggestion:contact};
+  }
+  if (/\bHTTP(?:\s+Error)?[\s_:(（]*429\b|\brate.?limit(?:ed|ing)?\b|\btoo many requests\b/i.test(detail)) {
+    return {reason:'模型服务请求受限，本项检测未完成。已完成的有效结果仍予以保留。', suggestion:retry};
+  }
+  if (/\bTimeoutError\b|\btimeout\b|\btimed out\b/i.test(detail)) {
+    return {reason:'模型服务连接超时，本项检测未完成。已完成的有效结果仍予以保留。', suggestion:retry};
+  }
+  if (/\bHTTP(?:\s+Error)?[\s_:(（]*50\d\b|\bURLError\b|\bConnection(?:Error|ResetError|RefusedError)\b|\bservice unavailable\b/i.test(detail)) {
+    return {reason:'模型服务暂不可用，本项检测未完成。已完成的有效结果仍予以保留。', suggestion:retry};
+  }
+  return {reason:'系统处理异常，未能完成本项检测。此提示不代表论文存在问题。', suggestion:contact};
+}
+
 export function numericExecutionWarnings(run?: PaperLintRuleRun): RuleExecutionWarning[] {
   if (!run || run.rule_id !== numericRule) return [];
   const params = run.params || {};
@@ -99,7 +139,7 @@ export function numericExecutionWarnings(run?: PaperLintRuleRun): RuleExecutionW
     };
   });
   if (run.execution_status === 'error' || params.failure || (Array.isArray(params.validation_errors) && params.validation_errors.length)) {
-    warnings.push({ title: '论点论据一致性检测未完成', reason: '当前系统使用人数较多，API 调用暂时繁忙，部分核验未完成。已完成的有效结果仍予以保留。', suggestion: '请稍后重试；若持续失败，请联系管理员检查运行记录，联系邮箱：j82279240@gmail.com' });
+    warnings.push({ title: '论点论据一致性检测未完成', ...numericFailureCopy(params) });
   }
   return warnings.map((warning, index) => ({ ...warning, ruleId: numericRule,
     feedbackTarget: warningFeedbackItem(run, targets[index].findingId, index) }));

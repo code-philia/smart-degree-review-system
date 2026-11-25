@@ -68,7 +68,7 @@ if __name__ == '__main__':
     try:
         output = main()
     except BudgetExceeded:
-        output = {'status': 'error', 'http_status': 429, 'message': '修复建议预算已用尽，请联系管理员'}
+        output = {'status': 'error', 'http_status': 429, 'message': '修复建议预算已用尽，请联系管理员，联系邮箱：j82279240@gmail.com'}
     except ModelHTTPError as error:
         status = 429 if error.status == 429 else (502 if error.status >= 500 else 424)
         message = '校内模型请求过于频繁，请稍后重试' if error.status == 429 else f'校内模型请求失败（HTTP {error.status}）'

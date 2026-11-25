@@ -327,7 +327,7 @@ function validateSelectedRuleIds(catalog, selectedRuleIds) {
     (rule) => normalized.includes(rule.rule_id) && rule.available === false,
   );
   if (unavailable) {
-    throw createHttpError(503, `${unavailable.title || unavailable.rule_id}暂不可用，请联系管理员配置检测服务`);
+    throw createHttpError(503, `${unavailable.title || unavailable.rule_id}暂不可用，请联系管理员配置检测服务，联系邮箱：j82279240@gmail.com`);
   }
   return normalized;
 }

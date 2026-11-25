@@ -295,8 +295,8 @@ Object.assign(COPY,{
  'jAccount 登录已过期，请重新登录。':'Your jAccount sign-in expired. Please sign in again.',
  'jAccount 登录暂未完成，请重试。':'jAccount sign-in was not completed. Please try again.',
  '已取消 jAccount 登录，可重新登录。':'jAccount sign-in was cancelled. You can sign in again.',
- 'jAccount 登录暂不可用，请稍后重试或联系系统管理员。':'jAccount sign-in is unavailable. Try again later or contact the administrator.',
- '此账号无法通过 jAccount 登录，请联系系统管理员。':'This account cannot sign in with jAccount. Contact the administrator.',
+ 'jAccount 登录暂不可用，请稍后重试或联系系统管理员，联系邮箱：j82279240@gmail.com':'jAccount sign-in is unavailable. Try again later or contact the administrator. Contact email: j82279240@gmail.com',
+ '此账号无法通过 jAccount 登录，请联系系统管理员，联系邮箱：j82279240@gmail.com':'This account cannot sign in with jAccount. Contact the administrator. Contact email: j82279240@gmail.com',
  'Translation is not ready. Please retry before exporting.':'Translation is not ready. Please retry before exporting.'
 });
 if(typeof window!=='undefined')window.addEventListener('storage',event=>{if(event.key===STORAGE_KEY){manualLocale=event.newValue==='en'||event.newValue==='zh';locale=manualLocale?event.newValue:browserLocale();localizeDocument();emit();}});

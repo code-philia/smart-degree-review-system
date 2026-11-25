@@ -18,7 +18,7 @@ it('provides the exact contact advice for generic resource failures',()=>{
  expect(paperLintFeedbackItems({rule_runs:[source]})[0].key).toBe('execution-warning:bilingual_keywords_correspondence_check:generic');
 });
 it('includes the same email for numeric API failures',()=>{
- expect(numericExecutionWarnings({...run,rule_id:'abstract_numeric_consistency_check',execution_status:'error',params:{failure:'busy'}} as any)[0].suggestion).toBe(message);
+ expect(numericExecutionWarnings({...run,rule_id:'abstract_numeric_consistency_check',execution_status:'error',params:{failure:{error_type:'HTTPError',message:'HTTP 429'}}} as any)[0].suggestion).toBe(message);
 });
 it.each(['zh','en'] as const)('renders the renamed %s alert category and contact advice',locale=>{
  setLocale(locale);

@@ -72,6 +72,48 @@ def test_recovers_wrapped_chapter_title_without_absorbing_prose(monkeypatch):
     assert title.endswith('修复方法 设计') and '本章' not in title
 
 
+def test_long_english_chapter_does_not_discard_the_complete_native_chain(monkeypatch):
+    title = ('Decrypting Interfacial Water Dynamics and Lattice Oxygen Mechanism in '
+             'Multimetallic Transition Metal Selenides for Enhanced Water Splitting')
+    first, second = title.split('Multimetallic', 1)
+    rows = chapters()[:3] + [row(3, 'CHAPTER 2 ' + first, y=125, size=16, right=524),
+        row(3, 'Multimetallic' + second, y=153, size=16, right=524),
+        row(3, '2.1 Experimental Results', y=210, size=14),
+        row(3, 'This paragraph describes the measured experimental results.', y=250,
+            size=12, font='TimesNewRomanPSMT')]
+    ir = native_ir(monkeypatch, rows); original = copy.deepcopy(ir)
+    attach_navigation('unused.pdf', ir)
+    sections = ir['numeric_navigation']['sections']
+    root = next(s for s in sections if s['title'] == 'CHAPTER 2 ' + title)
+    assert next(s for s in sections if s['title'] == '2.1 Experimental Results')['parent_id'] == root['section_id']
+    assert ir['nodes'] == original['nodes'] and ir['layout'] == original['layout']
+
+
+def test_native_english_number_and_title_can_have_distinct_bold_font_sizes(monkeypatch):
+    rows = chapters() + [row(3, '2.1', x=72, y=220, size=15.96, right=96.5, font='Arial-BoldMT'),
+        row(3, 'Results and Discussion', x=108, y=222, size=14.04, right=248, font='TimesNewRomanPS-BoldMT'),
+        row(3, '2.1.1 Electrochemical Performance', y=280, size=12, font='TimesNewRomanPS-BoldMT')]
+    ir = native_ir(monkeypatch, rows); attach_navigation('unused.pdf', ir)
+    sections = ir['numeric_navigation']['sections']
+    parent = next(s for s in sections if s['title'] == '2.1 Results and Discussion')
+    assert next(s for s in sections if s['title'] == '2.1.1 Electrochemical Performance')['parent_id'] == parent['section_id']
+
+
+@pytest.mark.parametrize('title_size,title_font,title_x,numeric_tail', [
+    (12, 'TimesNewRomanPSMT', 108, False),
+    (14.04, 'TimesNewRomanPSMT', 108, False),
+    (10, 'TimesNewRomanPS-BoldMT', 108, False),
+    (14.04, 'TimesNewRomanPS-BoldMT', 300, False),
+    (14.04, 'TimesNewRomanPS-BoldMT', 108, True),
+])
+def test_mixed_size_support_keeps_prose_table_and_spacing_guards(monkeypatch, title_size, title_font, title_x, numeric_tail):
+    rows = chapters() + [row(3, '2.1', x=72, y=220, size=15.96, right=96.5, font='Arial-BoldMT'),
+        row(3, 'Accuracy', x=title_x, y=222, size=title_size, right=title_x+90, font=title_font)]
+    if numeric_tail: rows.append(row(3, '98.5', x=210, y=222, size=14.04, right=240, font=title_font))
+    ir = native_ir(monkeypatch, rows); attach_navigation('unused.pdf', ir)
+    assert len(ir['numeric_navigation']['sections']) == 2
+
+
 @pytest.mark.parametrize('noise', [
     [row(1, '第1 章 绪论....................................1', y=160, size=16)],
     [row(2, '第1 章', 400, y=74, size=9, right=427, font='FandolSong-Regular'), row(2, '绪论', 436, y=74, size=9, right=454, font='FandolSong-Regular')],

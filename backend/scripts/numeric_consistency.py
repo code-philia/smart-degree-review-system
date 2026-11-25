@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 RULE = 'abstract_numeric_consistency_check'
-CONTEXT_VERSION = 'numeric-context/4.3'
+CONTEXT_VERSION = 'numeric-context/4.4'
 CONTRACT_VERSION = 'numeric-contract/3.0'
 RETRIEVAL_VERSION = 'numeric-lexical/1.6'
 TABLE_RECOVERY_VERSION = 'native-table-recovery/1.1'
@@ -434,6 +434,8 @@ def percentage_values(text):
 _METRIC_EXTENSION = re.compile(r'偏差|速度|加快|(?<![A-Za-z0-9_])(?:RMSD|R\s*(?:\^\s*)?2)(?![A-Za-z0-9_.])', re.I)
 _DATA_SIZE_UNIT = re.compile(r'\s*([KMGT]i?B|bytes?)(?![A-Za-z0-9_])', re.I)
 _MEASURED_UNIT = re.compile(r'\s*(?:[%％]|毫秒|秒|分钟|小时|厘米|毫米|米|次|倍|ms\b|s\b|cm\b|mm\b|m\b)', re.I)
+# SI symbols may directly precede Chinese text; reject ASCII identifier suffixes.
+_ELECTRICAL_UNIT = re.compile(r'\s*(?:[fpnumkMGTµμ]?[VA]|毫伏|微伏|千伏|伏特|伏|毫安|微安|安培)(?![A-Za-z0-9_])')
 _CHINESE_MULTIPLIER = re.compile(
     r'(?<![A-Za-z0-9零〇一二两三四五六七八九十百千万亿兆点分之负正第几多余半])'
     r'([一二两三四五六七八九]|十[一二三四五六七八九]?|[二三四五六七八九]十[一二三四五六七八九]?)'
@@ -487,7 +489,7 @@ def numeric_candidates(text):
             before, after = source[:match.start()], source[match.end():]
             reason = None
             data_unit = _DATA_SIZE_UNIT.match(after)
-            measured_unit = _MEASURED_UNIT.match(after) or data_unit
+            measured_unit = _MEASURED_UNIT.match(after) or _ELECTRICAL_UNIT.match(after) or data_unit
             # A measured interval's right endpoint is not an identifier suffix.
             # Require a source-admitted left endpoint, an explicit unit, and no
             # identifier/formula prefix; keep original values and offsets.

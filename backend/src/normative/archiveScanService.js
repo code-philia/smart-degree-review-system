@@ -156,7 +156,7 @@ function createArchiveScanService({
       throw problem(400, '请选择已开放的归档扫描规则');
     const selectedRules = getArchiveRules().filter((rule) => ruleIds.includes(rule.rule_id));
     if (selectedRules.some((rule) => !rule.available))
-      throw problem(400, '所选规则暂不可用，请联系管理员配置检测服务');
+      throw problem(400, '所选规则暂不可用，请联系管理员配置检测服务，联系邮箱：j82279240@gmail.com');
     if (selectedRules.some(rule => rule.uses_external_model) && !externalProcessingConsent)
       throw problem(400, '运行引用语义规则前，请确认论文相关文本允许发送至外部 API');
     ruleIds = selectedRules.map((rule) => rule.rule_id);

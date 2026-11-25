@@ -12,8 +12,8 @@ function JaccountEntry({returnTo}:{returnTo?:string|null}) {
     state: 'jAccount 登录已过期，请重新登录。',
     provider: 'jAccount 登录暂未完成，请重试。',
     denied: '已取消 jAccount 登录，可重新登录。',
-    unavailable: 'jAccount 登录暂不可用，请稍后重试或联系系统管理员。',
-    forbidden_role: '此账号无法通过 jAccount 登录，请联系系统管理员。',
+    unavailable: 'jAccount 登录暂不可用，请稍后重试或联系系统管理员，联系邮箱：j82279240@gmail.com',
+    forbidden_role: '此账号无法通过 jAccount 登录，请联系系统管理员，联系邮箱：j82279240@gmail.com',
   };
   return (
     <section aria-label="校内账号登录">

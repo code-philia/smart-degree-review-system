@@ -11,7 +11,7 @@ export function CompletionEmailSettings({userId,busy,onChange}:{userId:string;bu
   return <div className="border-t border-slate-100 px-[18px] py-3 sm:px-6" aria-label="检测完成通知">
     <div className="flex items-start gap-2.5 text-xs leading-6 text-slate-500"><Mail className="mt-1 size-4 shrink-0 text-brand-500" aria-hidden="true"/>
       <div className="min-w-0"><span className="font-medium text-slate-700">完成通知</span>
-        {settings.email?<span className="ml-2 break-all">{settings.email}</span>:<span className="ml-2">{settings.fixed?'当前账号暂无可用通知邮箱，请联系管理员。':'补充邮箱，检测完成后接收报告通知'}</span>}
+        {settings.email?<span className="ml-2 break-all">{settings.email}</span>:<span className="ml-2">{settings.fixed?'当前账号暂无可用通知邮箱，请联系管理员，联系邮箱：j82279240@gmail.com':'补充邮箱，检测完成后接收报告通知'}</span>}
         {!settings.delivery_available?<span className="ml-2 inline-block rounded bg-slate-100 px-1.5 text-[11px] text-slate-500">邮件通知暂未开通</span>:null}
       </div>
     </div>

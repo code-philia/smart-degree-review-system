@@ -11,11 +11,11 @@ type Options = { signal?: AbortSignal; onProgress?: ExportProgress; locale?: 'zh
 
 const exportErrors: Record<string, string> = {
   '导出报告内容无效，请刷新报告后重试。': 'The report export content is invalid. Refresh the report and try again.',
-  '报告内容过大，请联系系统管理员。': 'The report content is too large. Contact the system administrator.',
+  '报告内容过大，请联系系统管理员，联系邮箱：j82279240@gmail.com': 'The report content is too large. Contact the system administrator. Contact email: j82279240@gmail.com',
   '报告正在导出，请稍后重试。': 'This report is already being exported. Try again shortly.',
   '报告导出超时，请稍后重试。': 'The report export timed out. Try again shortly.',
   '报告导出暂不可用，请稍后重试。': 'Report export is temporarily unavailable. Try again shortly.',
-  '导出文件过大，请联系系统管理员。': 'The exported file is too large. Contact the system administrator.',
+  '导出文件过大，请联系系统管理员，联系邮箱：j82279240@gmail.com': 'The exported file is too large. Contact the system administrator. Contact email: j82279240@gmail.com',
 };
 async function exportFailure(error: unknown, locale: string): Promise<Error> {
   const failure = error as { message?: string; code?: string; response?: { status?: number; data?: unknown } };
@@ -34,7 +34,7 @@ async function exportFailure(error: unknown, locale: string): Promise<Error> {
     401: ['请重新登录后导出报告。', 'Sign in again before exporting the report.'],
     403: ['无权导出此报告。', 'You do not have permission to export this report.'],
     404: ['未找到已保存的报告。', 'The saved report could not be found.'],
-    413: ['报告内容过大，请联系系统管理员。', exportErrors['报告内容过大，请联系系统管理员。']],
+    413: ['报告内容过大，请联系系统管理员，联系邮箱：j82279240@gmail.com', exportErrors['报告内容过大，请联系系统管理员，联系邮箱：j82279240@gmail.com']],
     429: ['报告正在导出，请稍后重试。', exportErrors['报告正在导出，请稍后重试。']],
     503: ['报告导出暂不可用，请稍后重试。', exportErrors['报告导出暂不可用，请稍后重试。']],
     504: ['报告导出超时，请稍后重试。', exportErrors['报告导出超时，请稍后重试。']],

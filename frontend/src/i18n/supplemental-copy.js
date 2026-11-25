@@ -61,7 +61,7 @@ export const SUPPLEMENTAL_COPY={
  '未在 SerpAPI 中查到该参考文献':'This reference was not found in SerpAPI','此处展示前 100 项，完整记录保存在检测报告中。':'The first 100 entries are shown. The complete records are saved in the report.',
  '运行异常':'Execution error','当前证据不足以得出结论。':'The current evidence is insufficient to reach a conclusion.',
  '邮箱保存失败，请确认地址后重试。':'The email address could not be saved. Check the address and try again.',
- '检测完成通知':'Review completion notification','完成通知':'Completion notification','当前账号暂无可用通知邮箱，请联系管理员。':'No notification email is available for this account. Contact the administrator.',
+ '检测完成通知':'Review completion notification','完成通知':'Completion notification','当前账号暂无可用通知邮箱，请联系管理员，联系邮箱：j82279240@gmail.com':'No notification email is available for this account. Contact the administrator. Contact email: j82279240@gmail.com',
  '补充邮箱，检测完成后接收报告通知':'Add an email address to receive a notification when the report is ready','邮件通知暂未开通':'Email notifications are not enabled','接收通知邮箱':'Notification email','输入接收邮箱':'Enter notification email','保存中…':'Saving…','保存邮箱':'Save email',
  '请人工复核该条引用及其原始来源。':'Verify this reference and its original source manually.','该处来自变异内容，未标记为原始 PDF 中的文本。':'This location comes from modified content and is not marked as original PDF text.',
  '摘要中存在可核验的论点':'The abstract contains verifiable claims','论点已映射到研究贡献':'Claims are mapped to research contributions','论点已映射到实验子章节':'Claims are mapped to experimental sections',

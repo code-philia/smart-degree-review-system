@@ -80,7 +80,7 @@ router.post('/trial-login', async (req, res, next) => {
   res.set('Cache-Control', 'no-store');
   try {
     if (!trialLoginRequest(req)) {
-      res.status(403).json({ code: 403, message: '试验账号登录暂不可用，请联系管理员。' });
+      res.status(403).json({ code: 403, message: '试验账号登录暂不可用，请联系管理员，联系邮箱：j82279240@gmail.com' });
       return;
     }
     const retryAfter = trialAttempts.consume(req);
