@@ -79,7 +79,8 @@ def api_config() -> tuple[str, str, str, str]:
     return key, "https://api.deepseek.com", "deepseek-v4-flash", "deepseek"
 
 
-def request_json(messages: list[dict[str, str]], *, observer=None, response_contract=None) -> tuple[dict[str, Any], dict[str, int]]:
+def request_json(messages: list[dict[str, str]], *, observer=None, response_contract=None,
+                 _format_retry=False) -> tuple[dict[str, Any], dict[str, int]]:
     global _LAST_REQUEST_AT
     key, base_url, model, _provider = api_config()
     if _provider != "sjtu":
@@ -157,20 +158,33 @@ def request_json(messages: list[dict[str, str]], *, observer=None, response_cont
     if observer:
         observer('raw_response', {'body': raw.decode('utf-8', 'replace')})
     data = json.loads(raw)
-    if observer and (data.get('choices') or [{}])[0].get('finish_reason') == 'length':
-        raise ValueError('模型输出达到上限，数值核验未完成')
-    content = (((data.get("choices") or [{}])[0]).get("message") or {}).get("content")
-    if isinstance(content, dict):
-        result = content
-    else:
-        result = _json_object(content)
+    usage = data.get("usage") or {}
+    known_usage = {"input_tokens": int(usage.get("prompt_tokens") or 0),
+                   "output_tokens": int(usage.get("completion_tokens") or 0)}
+    try:
+        if (observer or response_contract == 'typo-discovery') and (data.get('choices') or [{}])[0].get('finish_reason') == 'length':
+            raise ValueError('模型输出达到上限，数值核验未完成')
+        content = (((data.get("choices") or [{}])[0]).get("message") or {}).get("content")
+        result = content if isinstance(content, dict) else _json_object(content)
+    except ValueError as error:
+        # A malformed discovery answer is not a clean chunk. Retry only its
+        # format once; every HTTP attempt still passes the queue and billing.
+        if response_contract == 'typo-discovery' and not _format_retry:
+            try:
+                result, retried_usage = request_json(messages, observer=observer,
+                    response_contract=response_contract, _format_retry=True)
+            except Exception as retried_error:
+                previous = getattr(retried_error, 'known_model_usage', {})
+                retried_error.known_model_usage = {key: value + previous.get(key, 0)
+                                                 for key, value in known_usage.items()}
+                raise
+            return result, {key: value + retried_usage.get(key, 0)
+                            for key, value in known_usage.items()}
+        error.known_model_usage = known_usage
+        raise
     if cache and (data.get('choices') or [{}])[0].get('finish_reason') == 'stop':
         cache.write(result)
-    usage = data.get("usage") or {}
-    return result, {
-        "input_tokens": int(usage.get("prompt_tokens") or 0),
-        "output_tokens": int(usage.get("completion_tokens") or 0),
-    }
+    return result, known_usage
 
 
 def prompt_for(rule_id: str, facts: dict[str, Any]) -> str | None:
@@ -657,6 +671,8 @@ def run_typo_rule_from_ir(ir: dict[str, Any], *, on_chunk_complete=None, max_wor
                 # other completed chunks.  Continue collecting them, but retain
                 # the failed chunk in the run status for a retryable result.
                 failure = failure or (str(exc)[:300] or type(exc).__name__)
+                for key in usage_total:
+                    usage_total[key] += getattr(exc, 'known_model_usage', {}).get(key, 0)
                 continue
             usage_total["input_tokens"] += usage["input_tokens"]
             usage_total["output_tokens"] += usage["output_tokens"]
@@ -830,6 +846,9 @@ def run_numeric_consistency_rule(ir: dict[str, Any], run_id=None) -> dict[str, A
     from numeric_consistency import run_numeric
     from numeric_run_trace import NumericRunTrace
     from numeric_navigation import attach_navigation
+    # Navigation adds a root key. Sibling rule workers must keep their shared
+    # source dictionary stable while the native typo scope deep-copies it.
+    ir = dict(ir)
     source = next((a.get('path') for a in ir.get('source_artifacts', []) if a.get('kind') == 'pdf'), None)
     if source and Path(source).is_file():
         attach_navigation(source, ir)

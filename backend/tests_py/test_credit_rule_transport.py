@@ -73,3 +73,21 @@ def test_provider_429_retry_has_a_released_attempt_and_one_final_charge(provider
     with __import__('sqlite3').connect(path) as db:
         assert sorted(r[0] for r in db.execute('SELECT status FROM paper_lint_credit_calls'))==['released','settled']
     assert row(path,"SELECT spent_nano FROM paper_lint_credit_accounts WHERE user_id='alice'")['spent_nano']==180_000
+
+
+def test_typo_format_retry_settles_both_actual_responses_and_keeps_cache_free(provider,tmp_path,monkeypatch):
+    path,_=provider;attempts=[]
+    monkeypatch.setenv('SJTU_API_RESPONSE_CACHE_DIR',str(tmp_path/'retry-cache'))
+    def opened(*args,**kwargs):
+        attempts.append(True)
+        content='not JSON' if len(attempts)==1 else '{"errors":[]}'
+        return io.BytesIO(json.dumps({'usage':{'prompt_tokens':100,'completion_tokens':20},
+            'choices':[{'finish_reason':'stop','message':{'content':content}}]}).encode())
+    monkeypatch.setattr(lint.urllib.request,'build_opener',lambda *a:SimpleNamespace(open=opened))
+    with billing_rule('typo_detection_check'):
+        payload,usage=lint.request_json([{'role':'user','content':'same chunk'}],response_contract='typo-discovery')
+        _,cached=lint.request_json([{'role':'user','content':'same chunk'}],response_contract='typo-discovery')
+    assert payload=={'errors':[]} and len(attempts)==2
+    assert usage=={'input_tokens':200,'output_tokens':40} and cached=={'input_tokens':0,'output_tokens':0}
+    assert row(path,'SELECT count(*) AS n FROM paper_lint_credit_calls')['n']==2
+    assert row(path,"SELECT spent_nano FROM paper_lint_credit_accounts WHERE user_id='alice'")['spent_nano']==360_000

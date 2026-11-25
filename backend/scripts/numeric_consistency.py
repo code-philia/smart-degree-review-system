@@ -1699,13 +1699,12 @@ def audit_source_conflicts(results, structure, candidates, model, request, trace
               'evidence必须至少引用两处相互矛盾的真实来源，其中包含表格与正文。'
               '不擅自决定哪处正确，不生成论文之外的新论据。继续采用下述JSON契约。\n' +
               verifier_prompt(task, scoped))
-    try:
-        require(len(prompt) <= 100000, 'source conflict context exceeds budget')
-        output = request(prompt)
-        checked, problems = validated_results(resolve_citations(output, scoped), declarations, scoped)
-        if problems and repair:
-            output = repair(prompt, output, problems, 'source_contradiction_audit')
+    def validate(output):
+        try:
             checked, problems = validated_results(resolve_citations(output, scoped), declarations, scoped)
+        except ContractError as exc:
+            return [], [{'declaration_id': d['id'], 'errors': [str(exc)],
+                         'type': type(exc).__name__} for d in declarations]
         for current in checked:
             if current['status'] not in {'consistent', 'inconclusive'}:
                 problems.append({'declaration_id': current['declaration_id'], 'errors': ['invalid_conflict_audit_status']})
@@ -1714,6 +1713,15 @@ def audit_source_conflicts(results, structure, candidates, model, request, trace
                 pair = next(item for item in sources if item['declaration']['id'] == current['declaration_id'])
                 if not (cited & pair['table_ids'] and cited & pair['paragraph_ids']):
                     problems.append({'declaration_id': current['declaration_id'], 'errors': ['conflicting_sources_required']})
+        return checked, problems
+
+    try:
+        require(len(prompt) <= 100000, 'source conflict context exceeds budget')
+        output = request(prompt)
+        checked, problems = validate(output)
+        if problems and repair:
+            output = repair(prompt, output, problems, 'source_contradiction_audit')
+            checked, problems = validate(output)
         if trace:
             trace('source_contradiction_audit', {'declaration_ids': sorted(ids), 'output': output, 'errors': problems})
     except Exception as exc:

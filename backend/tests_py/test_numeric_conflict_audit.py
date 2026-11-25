@@ -94,3 +94,36 @@ def test_native_parent_dataset_heading_is_kept_for_a_nested_result_paragraph():
         'parent_id': 'chapter', 'title': 'DataA evaluation'}
     candidates[1]['text'] = 'ProposedModel MAE 3.56 kcal/mol.'
     assert n.conflict_audit_declarations([row], candidates, source) == [d]
+
+
+def test_observed_tasks_envelope_gets_one_strict_contract_repair():
+    d,source,candidates,row=case();repairs=[]
+    valid={'results':[{'declaration_id':'d1','status':'consistent','reason':'表格匹配，其他条件已核对。','suggestion':'','evidence':[{'candidate_id':'d1:t1'}]}]}
+    def repair(prompt,output,errors,stage):
+        repairs.append((errors,stage))
+        assert output=={'tasks':valid['results']}
+        return valid
+    errors=n.audit_source_conflicts([row],{'declarations':[d],'mappings':[]},candidates,source,
+        lambda p:{'tasks':valid['results']},repair=repair)
+    assert not errors and row['status']=='consistent'
+    assert len(repairs)==1 and repairs[0][1]=='source_contradiction_audit'
+
+
+def test_audit_semantic_errors_are_repaired_then_fully_revalidated():
+    d,source,candidates,row=case();repairs=[]
+    invalid={'results':[{'declaration_id':'d1','status':'inconclusive','reason':'两处冲突','suggestion':'','evidence':[{'candidate_id':'d1:t1'}]}]}
+    valid=copy.deepcopy(invalid);valid['results'][0]['evidence'].append({'candidate_id':'d1:e1'})
+    def repair(prompt,output,errors,stage):
+        repairs.append(errors)
+        return valid
+    errors=n.audit_source_conflicts([row],{'declarations':[d],'mappings':[]},candidates,source,lambda p:invalid,repair=repair)
+    assert not errors and row['status']=='inconclusive' and len(row['evidence'])==2
+    assert len(repairs)==1
+
+
+def test_persistent_audit_schema_error_stays_unverified_after_one_repair():
+    d,source,candidates,row=case();repairs=[]
+    def repair(*args):repairs.append(True);return {'tasks':[]}
+    errors=n.audit_source_conflicts([row],{'declarations':[d],'mappings':[]},candidates,source,lambda p:{'tasks':[]},repair=repair)
+    assert len(repairs)==1 and errors
+    assert row['status']=='execution_error' and not row['evidence']
