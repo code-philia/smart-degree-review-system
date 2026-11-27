@@ -25,7 +25,7 @@ def semantic(tmp_path, monkeypatch):
             calls.append(json.loads(request.data))
             return Response()
     monkeypatch.setattr(module.urllib.request, 'build_opener', lambda *args: Opener())
-    monkeypatch.setattr(module, 'campus_request', lambda url, headers, timeout, send: send(10))
+    monkeypatch.setattr(module, 'campus_request', lambda url, headers, timeout, send, **kwargs: send(10))
     return module, calls, response, tmp_path / 'responses'
 
 

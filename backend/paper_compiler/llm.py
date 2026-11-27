@@ -93,6 +93,7 @@ def _http(url, headers, payload, timeout, *, request_limits=None):
     from .campus_requests import campus_request
     return campus_request(url, headers, timeout,
                           lambda remaining: _http_request(url, headers, payload, remaining),
+                          payload=payload,
                           remaining_time=request_limits.remaining if request_limits is not None else None)
 
 

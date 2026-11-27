@@ -151,7 +151,7 @@ def request_json(messages: list[dict[str, str]], *, observer=None, response_cont
         # receipt; valid usage settles before answer decoding or validation.
         return bill_model_request(payload, transport)
     try:
-        raw = campus_request(request.full_url, dict(request.header_items()), request_timeout, send)
+        raw = campus_request(request.full_url, dict(request.header_items()), request_timeout, send, payload=payload)
     except urllib.error.HTTPError as error:
         detail = error.read(2000).decode("utf-8", "replace")
         raise RuntimeError(f"校内 DeepSeek 请求失败（HTTP {error.code}）：{detail[:500]}") from error

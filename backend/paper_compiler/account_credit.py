@@ -20,6 +20,11 @@ class CreditError(RuntimeError):
     code = 'PAPER_LINT_CREDIT'
 
 
+class RequestNotSentError(CreditError):
+    """A billing preflight rejected the request before its transport callback."""
+    request_not_sent = True
+
+
 def _now():
     return datetime.now(timezone.utc).isoformat()
 
@@ -167,8 +172,11 @@ def bill_model_request(payload, send, *, rule_id=None):
             raise ValueError('invalid credit context')
         credit = AccountCredit(value['database_file'],value['operation_id'])
     except (ValueError,KeyError,OSError,TypeError) as error:
-        raise CreditError('模型检测额度配置无效，请联系管理员。') from error
-    call_id = credit.reserve(rule_id or _RULE.get(),payload)
+        raise RequestNotSentError('模型检测额度配置无效，请联系管理员。') from error
+    try:
+        call_id = credit.reserve(rule_id or _RULE.get(),payload)
+    except CreditError as error:
+        raise RequestNotSentError(str(error)) from error
     try:
         raw = send()
     except BaseException as error:

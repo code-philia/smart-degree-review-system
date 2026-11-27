@@ -65,11 +65,12 @@ def test_cli_progress_and_final_result_are_utf8_safe_without_altering_source(mon
     from types import SimpleNamespace
     source = '中文 α∑𝛼 source \ud8351 and \udc00'
     completed = {'rule_id': semantic.NUMERIC_RULE, 'findings': [{'evidence': source}]}
-    def run(pdf, rules, *, run_id, on_rule_complete):
+    def run(pdf, rules, *, run_id, on_rule_complete, **kwargs):
         on_rule_complete(completed)
         return {'rule_runs': [completed]}
     monkeypatch.setattr(semantic, 'parse_args', lambda: SimpleNamespace(
-        pdf=Path('input.pdf'), rule=[semantic.NUMERIC_RULE], run_id=None, progress_jsonl=True))
+        pdf=Path('input.pdf'), rule=[semantic.NUMERIC_RULE], run_id=None, progress_jsonl=True,
+        allow_incomplete_structure=False, typo_workers=None))
     monkeypatch.setattr(semantic, 'run', run)
     buffer = io.BytesIO()
     stream = io.TextIOWrapper(buffer, encoding='utf-8', errors='strict')

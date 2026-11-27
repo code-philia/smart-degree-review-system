@@ -16,7 +16,7 @@ def provider(account,monkeypatch):
     monkeypatch.setenv('SJTU_API_KEY','test-only')
     monkeypatch.setenv('SJTU_API_BASE_URL','https://models.sjtu.edu.cn/api/v1')
     monkeypatch.setenv('SJTU_API_MODEL','deepseek-chat')
-    monkeypatch.setattr(lint,'campus_request',lambda url,headers,timeout,send:send(timeout))
+    monkeypatch.setattr(lint,'campus_request',lambda url,headers,timeout,send,**kwargs:send(timeout))
     def install(content):
         raw=json.dumps({'usage':{'prompt_tokens':100,'completion_tokens':20},
              'choices':[{'finish_reason':'stop','message':{'content':content}}]}).encode()
@@ -64,7 +64,7 @@ def test_provider_429_retry_has_a_released_attempt_and_one_final_charge(provider
         attempts.append(True)
         if len(attempts)==1:raise lint.urllib.error.HTTPError('https://models.sjtu.edu.cn',429,'busy',{},io.BytesIO())
         return io.BytesIO(raw)
-    def queued(url,headers,timeout,send):
+    def queued(url,headers,timeout,send,**kwargs):
         try:return send(timeout)
         except lint.urllib.error.HTTPError:return send(timeout)
     monkeypatch.setattr(lint.urllib.request,'build_opener',lambda *args:SimpleNamespace(open=opened))
