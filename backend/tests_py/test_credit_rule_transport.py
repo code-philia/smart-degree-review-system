@@ -91,3 +91,19 @@ def test_typo_format_retry_settles_both_actual_responses_and_keeps_cache_free(pr
     assert usage=={'input_tokens':200,'output_tokens':40} and cached=={'input_tokens':0,'output_tokens':0}
     assert row(path,'SELECT count(*) AS n FROM paper_lint_credit_calls')['n']==2
     assert row(path,"SELECT spent_nano FROM paper_lint_credit_accounts WHERE user_id='alice'")['spent_nano']==360_000
+
+
+def test_read_timeout_has_unknown_receipt_and_only_success_is_charged(provider,monkeypatch):
+    from paper_compiler import timeout_recovery
+    path,_=provider;attempts=[]
+    monkeypatch.setattr(timeout_recovery.time,'sleep',lambda _:None)
+    def opened(*args,**kwargs):
+        attempts.append(True)
+        if len(attempts)==1:raise TimeoutError('read timed out')
+        return io.BytesIO(json.dumps({'usage':{'prompt_tokens':100,'completion_tokens':20},
+            'choices':[{'finish_reason':'stop','message':{'content':'{}'}}]}).encode())
+    monkeypatch.setattr(lint.urllib.request,'build_opener',lambda *args:SimpleNamespace(open=opened))
+    with billing_rule(RULE):lint.request_json([])
+    with __import__('sqlite3').connect(path) as db:
+        assert sorted(row[0] for row in db.execute('SELECT status FROM paper_lint_credit_calls'))==['settled','unknown']
+    assert row(path,"SELECT spent_nano FROM paper_lint_credit_accounts WHERE user_id='alice'")['spent_nano']==180_000

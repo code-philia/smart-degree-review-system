@@ -45,7 +45,7 @@ def test_typo_chunks_overlap_without_changing_usage_totals(monkeypatch):
     monkeypatch.setattr(lint, '_body_chunks', lambda *_, **__: chunks)
     def request(messages, **_local_options):
         barrier.wait()
-        return {'findings': []}, {'input_tokens': 3, 'output_tokens': 2}
+        return {'errors': []}, {'input_tokens': 3, 'output_tokens': 2}
     monkeypatch.setattr(lint, 'request_json', request)
     result = lint.run_typo_rule_from_ir({})
     assert result['execution_status'] == 'completed'
@@ -62,7 +62,7 @@ def test_eight_typo_chunks_can_run_together(monkeypatch):
     monkeypatch.setattr(lint, '_body_chunks', lambda *_, **__: chunks)
     def request(messages, **_local_options):
         barrier.wait()
-        return {'findings': []}, {'input_tokens': 3, 'output_tokens': 2}
+        return {'errors': []}, {'input_tokens': 3, 'output_tokens': 2}
     monkeypatch.setattr(lint, 'request_json', request)
     result = lint.run_typo_rule_from_ir({})
     assert result['execution_status'] == 'completed'
@@ -365,7 +365,8 @@ def test_private_typo_worker_limit_keeps_two_requests_in_flight_and_preserves_us
         result = lint.run(Path('input.pdf'), [lint.TYPO_RULE], typo_workers=2)['rule_runs'][0]
     assert peak == 2
     assert result['execution_status'] == 'completed'
-    assert result['params'] == {'chunk_count':8,'chunk_size':1200}
+    assert result['params'] == {'chunk_count':8,'chunk_size':1200,'completed_chunk_count':8,
+                                'failed_chunk_indices':[],'timeout_split_chunk_indices':[]}
     assert result['model_usage'] == {'input_tokens':24,'output_tokens':16}
 
 

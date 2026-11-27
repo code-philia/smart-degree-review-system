@@ -15,6 +15,13 @@ import { createTranslator } from '../src/i18n/locale';
 vi.mock('../src/api', () => ({ default: { post: vi.fn() } }));
 beforeEach(() => { clearReportTranslations(); clearTranslations(); setLocale('zh'); vi.clearAllMocks(); });
 afterEach(cleanup);
+it('localizes incomplete typo read-timeout results without claiming heavy usage', () => {
+  setLocale('en');
+  const text=translate('错别字分块检测未完成：API 响应超时，部分检测未完成。已完成的有效结果仍予以保留。');
+  expect(text).toContain('timed out');
+  expect(text).not.toMatch(/[\u3400-\u9fff]/);
+  expect(text).not.toContain('heavy use');
+});
 it('persists locale and preserves every Chinese string exactly', () => {
   const text='  检测规则\n'; expect(translate(text)).toBe(text);
   setLocale('en'); expect(localStorage.getItem('sjtu-ui-locale')).toBe('en');

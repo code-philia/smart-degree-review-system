@@ -53,6 +53,8 @@ export const REVIEW_COPY={
  '本规则因缺少必要的论文结构，暂无法可靠判定。':'This check is currently inconclusive because the required document structure is missing.',
  '论点论据一致性检测未完成':'Claims and evidence check incomplete',
  '当前系统使用人数较多，API 调用暂时繁忙，部分核验未完成。已完成的有效结果仍予以保留。':'The system is under heavy use and the API is busy. Some verification could not be completed. Valid completed results have been retained.',
+ 'API 响应超时，部分检测未完成。已完成的有效结果仍予以保留。':'The API response timed out. Some checks remain incomplete. Valid completed results have been retained.',
+ '错别字分块检测未完成：API 响应超时，部分检测未完成。已完成的有效结果仍予以保留。':'Typo check incomplete: the API response timed out. Some chunks remain incomplete. Valid completed results have been retained.',
  '请稍后重试；若持续失败，请联系管理员检查运行记录。':'Try again later. If the problem persists, contact the administrator to check the run logs. Contact email: j82279240@gmail.com',
  '发现问题（部分未检测）':'Findings available; some checks incomplete','执行失败':'Failed',
  '检测说明：':'About this check: ',

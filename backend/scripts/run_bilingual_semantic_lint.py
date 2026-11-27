@@ -24,6 +24,8 @@ from paper_compiler.campus_requests import campus_request
 from paper_compiler.semantic_cache import SemanticResponseCache
 from paper_compiler.storage import json_bytes
 from paper_compiler.account_credit import bill_model_request, billing_rule
+from paper_compiler.timeout_recovery import (new_retry_state, read_timeout_retry, recover_typo_chunk,
+                                            is_read_timeout, is_socket_timeout, ProviderReadTimeout)
 
 
 BILINGUAL_RULES = {
@@ -34,6 +36,7 @@ TYPO_RULE = "typo_detection_check"
 NUMERIC_RULE = "abstract_numeric_consistency_check"
 API_CAPACITY_MESSAGE = "当前系统使用人数较多，API 调用暂时繁忙，请稍后重试。"
 RULE_RETRY_MESSAGE = "当前规则暂时无法完成，请稍后重试。"
+API_TIMEOUT_MESSAGE = "API 响应超时，部分检测未完成。已完成的有效结果仍予以保留。"
 
 
 def public_failure_message(error: object) -> str:
@@ -41,8 +44,11 @@ def public_failure_message(error: object) -> str:
     if str(error).startswith('可用额度不足'):
         return '可用额度不足，无法继续模型检测；您仍可使用不消耗额度的规则。'
     detail = str(error or "").lower()
+    if is_read_timeout(error) or detail in ('timed out','<urlopen error timed out>') or any(
+            marker in detail for marker in ('read operation timed out','read timed out','read timeout','socket timed out')):
+        return API_TIMEOUT_MESSAGE
     capacity_markers = (
-        "database is locked", "locked", "timeout", "timed out", "http 429",
+        "database is locked", "locked", "http 429",
         "http_429", "rate limit", "too many requests", "api request", "connection",
         "deepseek", "campus api", "shared slot", "service unavailable",
     )
@@ -80,8 +86,10 @@ def api_config() -> tuple[str, str, str, str]:
 
 
 def request_json(messages: list[dict[str, str]], *, observer=None, response_contract=None,
-                 _format_retry=False) -> tuple[dict[str, Any], dict[str, int]]:
+                 _format_retry=False, _timeout_state=None, remaining_time=None) -> tuple[dict[str, Any], dict[str, int]]:
     global _LAST_REQUEST_AT
+    timeout_state=_timeout_state if _timeout_state is not None else new_retry_state()
+    if remaining_time is not None:remaining_time()
     key, base_url, model, _provider = api_config()
     if _provider != "sjtu":
         try:
@@ -90,7 +98,8 @@ def request_json(messages: list[dict[str, str]], *, observer=None, response_cont
             min_interval = 6.0
         wait = min_interval - (time.monotonic() - _LAST_REQUEST_AT)
         if wait > 0:
-            time.sleep(wait)
+            time.sleep(min(wait,max(0,remaining_time())) if remaining_time is not None else wait)
+            if remaining_time is not None:remaining_time()
         _LAST_REQUEST_AT = time.monotonic()
     # PDF font maps may expose unpaired UTF-16 code units. Keep those units as
     # literal escapes in model input: campus proxies also require scalar UTF-8
@@ -141,8 +150,21 @@ def request_json(messages: list[dict[str, str]], *, observer=None, response_cont
             if observer:
                 observer('request_attempt', {'attempt': attempts})
             try:
-                with opener.open(request, timeout=remaining) as response:
-                    return response.read(8 * 1024 * 1024 + 1)
+                available=min(remaining,remaining_time()) if remaining_time is not None else remaining
+                try:
+                    response=opener.open(request,timeout=available)
+                except Exception as error:
+                    # A connect/task/queue timeout is not a response-read timeout.
+                    # SSL header reads can expose this explicit read error here.
+                    if is_socket_timeout(error) and any(marker in str(error).lower() for marker in
+                            ('read operation timed out','read timed out','read timeout')):
+                        raise ProviderReadTimeout(str(error)) from error
+                    raise
+                with response:
+                    try:return response.read(8 * 1024 * 1024 + 1)
+                    except Exception as error:
+                        if is_socket_timeout(error):raise ProviderReadTimeout(str(error)) from error
+                        raise
             except urllib.error.HTTPError as error:
                 if observer:
                     observer('http_error', {'attempt': attempts, 'status': error.code})
@@ -151,7 +173,10 @@ def request_json(messages: list[dict[str, str]], *, observer=None, response_cont
         # receipt; valid usage settles before answer decoding or validation.
         return bill_model_request(payload, transport)
     try:
-        raw = campus_request(request.full_url, dict(request.header_items()), request_timeout, send, payload=payload)
+        options={'payload':payload}
+        if remaining_time is not None:options['remaining_time']=remaining_time
+        raw = read_timeout_retry(lambda:campus_request(request.full_url,dict(request.header_items()),request_timeout,send,**options),
+                                 state=timeout_state,remaining_time=remaining_time,observer=observer)
     except urllib.error.HTTPError as error:
         detail = error.read(2000).decode("utf-8", "replace")
         raise RuntimeError(f"校内 DeepSeek 请求失败（HTTP {error.code}）：{detail[:500]}") from error
@@ -170,9 +195,11 @@ def request_json(messages: list[dict[str, str]], *, observer=None, response_cont
         # A malformed discovery answer is not a clean chunk. Retry only its
         # format once; every HTTP attempt still passes the queue and billing.
         if response_contract == 'typo-discovery' and not _format_retry:
+            timeout_state['reason']='format'
             try:
                 result, retried_usage = request_json(messages, observer=observer,
-                    response_contract=response_contract, _format_retry=True)
+                    response_contract=response_contract, _format_retry=True,
+                    _timeout_state=timeout_state,remaining_time=remaining_time)
             except Exception as retried_error:
                 previous = getattr(retried_error, 'known_model_usage', {})
                 retried_error.known_model_usage = {key: value + previous.get(key, 0)
@@ -664,15 +691,22 @@ def run_typo_rule_from_ir(ir: dict[str, Any], *, on_chunk_complete=None, max_wor
                 'findings':[],'model_usage':usage_total}
     failure = None
     completed_chunks = 0
+    failed_chunks=[];split_chunks=[]
+    def discover(chunk):
+        return recover_typo_chunk(chunk['model_text'],lambda text:request_json(
+            [{'role':'user','content':typo_prompt(text)}],response_contract='typo-discovery'))
     workers = max_workers if max_workers is not None else (8 if all(os.environ.get(name, '').strip() for name in
                        ('SJTU_API_KEY', 'SJTU_API_BASE_URL', 'SJTU_API_MODEL')) else 4)
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = [pool.submit(copy_context().run, request_json, [{"role": "user", "content": typo_prompt(chunk["model_text"])}],
-                               response_contract='typo-discovery') for chunk in chunks]
+        futures = [pool.submit(copy_context().run, discover, chunk) for chunk in chunks]
         for index, chunk in enumerate(chunks):
             chunk_failed = False
             try:
-                payload, usage = futures[index].result()
+                payload, usage, discovery_failure, recovered = futures[index].result()
+                if recovered:split_chunks.append(index)
+                if discovery_failure is not None:
+                    chunk_failed=True
+                    failure=failure or (str(discovery_failure)[:300] or type(discovery_failure).__name__)
             except Exception as exc:
                 # A transient API/cache failure must not discard findings from
                 # other completed chunks.  Continue collecting them, but retain
@@ -680,17 +714,18 @@ def run_typo_rule_from_ir(ir: dict[str, Any], *, on_chunk_complete=None, max_wor
                 failure = failure or (str(exc)[:300] or type(exc).__name__)
                 for key in usage_total:
                     usage_total[key] += getattr(exc, 'known_model_usage', {}).get(key, 0)
+                failed_chunks.append(index)
                 continue
             usage_total["input_tokens"] += usage["input_tokens"]
             usage_total["output_tokens"] += usage["output_tokens"]
             # Progress is stricter than the legacy report adapter: malformed
             # provider envelopes cannot prolong a task's execution budget.
-            chunk_failed = not (isinstance(payload, dict) and 'errors' in payload
+            chunk_failed = chunk_failed or not (isinstance(payload, dict) and 'errors' in payload
                                 and SemanticResponseCache.reusable(payload, 'typo-discovery'))
             rows = payload.get("errors") if isinstance(payload, dict) else []
             if not isinstance(rows, list):
                 rows = []
-            for row in rows[:20]:
+            for row in rows[:40 if recovered else 20]:
                 if not isinstance(row, dict):
                     continue
                 raw_original = str(row.get("original") or "").strip()
@@ -723,6 +758,7 @@ def run_typo_rule_from_ir(ir: dict[str, Any], *, on_chunk_complete=None, max_wor
                     except Exception as exc:
                         chunk_failed = True
                         failure = failure or (str(exc)[:300] or type(exc).__name__)
+                        for key in usage_total:usage_total[key]+=getattr(exc,'known_model_usage',{}).get(key,0)
                         continue
                     chunk_failed = chunk_failed or not (isinstance(repaired, dict)
                         and type(repaired.get('accepted')) is bool and SemanticResponseCache.reusable(repaired, 'typo-fields'))
@@ -748,8 +784,10 @@ def run_typo_rule_from_ir(ir: dict[str, Any], *, on_chunk_complete=None, max_wor
                 if _looks_like_code_or_math(original) or _looks_like_code_or_math(suggestion):
                     continue
                 model_text = chunk.get("model_text", "")
-                context_start = model_text.find(context)
-                if context_start < 0:
+                window=row.get('_recovery_span') if recovered else (0,len(model_text))
+                if (not isinstance(window,(tuple,list)) or len(window)!=2
+                        or any(type(value) is not int for value in window)
+                        or not 0<=window[0]<window[1]<=len(model_text)):
                     continue
                 # Keep the model's full word and its one differing-character
                 # offset; searching the reduced character can hit an earlier,
@@ -760,6 +798,20 @@ def run_typo_rule_from_ir(ir: dict[str, Any], *, on_chunk_complete=None, max_wor
                     continue
                 difference = next((i for i, pair in enumerate(zip(raw_original, raw_suggestion))
                                    if pair[0] != pair[1]), 0) if repaired_reason is None else 0
+                offset=context.find(surface)+difference
+                positions=[];position=model_text.find(context,*window)
+                while position>=0:
+                    positions.append(position)
+                    position=model_text.find(context,position+1,window[1])
+                if not positions:continue
+                if recovered:
+                    owned=row['_recovery_owned_span']
+                    owned_positions=[position for position in positions if owned[0]<=position+offset<owned[1]]
+                    if owned_positions:positions=owned_positions
+                if len(positions)!=1:
+                    chunk_failed=True;failure=failure or '错别字候选无法唯一定位。'
+                    continue
+                context_start=positions[0]
                 match_start = context_start + context.find(surface) + difference
                 match_end = match_start + len(original)
                 if _looks_like_code_context(model_text, match_start, match_end):
@@ -781,6 +833,7 @@ def run_typo_rule_from_ir(ir: dict[str, Any], *, on_chunk_complete=None, max_wor
                 except Exception as exc:
                     chunk_failed = True
                     failure = failure or (str(exc)[:300] or type(exc).__name__)
+                    for key in usage_total:usage_total[key]+=getattr(exc,'known_model_usage',{}).get(key,0)
                     continue
                 chunk_failed = chunk_failed or not (isinstance(verification, dict)
                     and type(verification.get('accepted')) is bool and SemanticResponseCache.reusable(verification, 'typo-review'))
@@ -836,12 +889,17 @@ def run_typo_rule_from_ir(ir: dict[str, Any], *, on_chunk_complete=None, max_wor
                                   "provider": "repo-paper-model", "quote": context[:120]}],
                     "reason": (repaired_reason or str(row.get("reason") or ""))[:300],
                 })
-            if on_chunk_complete and not chunk_failed:
+            if chunk_failed:
+                failed_chunks.append(index)
+                failure=failure or '错别字分块返回结果不完整。'
+            else:
                 completed_chunks += 1
-                on_chunk_complete({'chunk_index': index, 'completed_chunks': completed_chunks,
+                if on_chunk_complete:on_chunk_complete({'chunk_index': index, 'completed_chunks': completed_chunks,
                                    'total_chunks': len(chunks)})
     return {"rule_run_id": f"run_{TYPO_RULE}", "rule_id": TYPO_RULE, "severity": "warning",
             "params": {"chunk_count": len(chunks), "chunk_size": 1200,
+                       'completed_chunk_count':completed_chunks,'failed_chunk_indices':failed_chunks,
+                       'timeout_split_chunk_indices':split_chunks,
                        **({'native_text_scope':scope} if scope is not None else {}),
                        **({"technical_failure": failure} if failure else {})},
             "execution_status": "error" if failure else "completed", "evidence_mode": "derived",
