@@ -67,7 +67,7 @@ def estimate_request_tokens(payload):
 
 
 def _actual_tokens(response):
-    """Validate actual usage independently of answer parsing and quota reservation."""
+    """Only trustworthy usage can reduce a reservation; answer parsing is separate."""
     try:
         if isinstance(response, (str, bytes, bytearray)):
             response = json.loads(response)
@@ -128,12 +128,6 @@ class CampusRequestCoordinator:
             # control group is stopped, allow a full quiet provider window.
             db.execute('INSERT OR IGNORE INTO quota_meta VALUES (?,?)',
                        ('tpm', time.time() + 60 if legacy else 0))
-            added = db.execute('INSERT OR IGNORE INTO quota_meta VALUES (?,?)',
-                               ('tpm-deferred-refund-v1', 0)).rowcount
-            if added and 'token_reservations' in tables:
-                # Old settled rows may have already discarded output reservations.
-                # After restart, cover those unknown balances for one full window.
-                db.execute("UPDATE quota_meta SET ready_at=max(ready_at,?) WHERE id='tpm'", (time.time() + 60,))
             db.commit()
         os.chmod(self.path, 0o600)
 
@@ -273,14 +267,13 @@ class CampusRequestCoordinator:
                 row = db.execute('SELECT state FROM token_reservations WHERE id=?', (identity,)).fetchone()
                 if row:
                     actual = budget.get('actual')
-                    if row[0] == 0 or budget.get('rejected') is True:
+                    if row[0] == 0 or actual == 0:
                         db.execute('DELETE FROM token_reservations WHERE id=?', (identity,))
                     else:
-                        # Receiving a response does not acknowledge the gateway's
-                        # asynchronous refund. Keep at least the full estimate for
-                        # one completion window; actual usage may increase it.
+                        # Start the accounting window at completion: long-running
+                        # in-flight requests must never lose their reserved budget.
                         if type(actual) is int and 0 <= actual <= 2**63 - 1:
-                            db.execute('UPDATE token_reservations SET tokens=? WHERE id=?', (min(max(tokens, actual), self.tokens_per_minute), identity))
+                            db.execute('UPDATE token_reservations SET tokens=? WHERE id=?', (min(actual, self.tokens_per_minute), identity))
                         db.execute('UPDATE token_reservations SET state=2,expires_at=? WHERE id=?', (time.time() + 60, identity))
                 db.commit()
 
@@ -440,7 +433,7 @@ def campus_request(url, headers, timeout, send, *, remaining_time=None, payload=
                 except Exception as error:
                     if budget is not None and (getattr(error, 'code', getattr(error, 'status', None)) == 429
                                                or getattr(error, 'request_not_sent', False) is True):
-                        budget['rejected'] = True  # Known rejection/preflight; inference never ran.
+                        budget['actual'] = 0  # Known rejection/preflight; inference never ran.
                     raise
                 if budget is not None:
                     budget['actual'] = _actual_tokens(response)

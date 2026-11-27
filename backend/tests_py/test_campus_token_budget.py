@@ -50,16 +50,16 @@ def test_estimate_matches_verified_gateway_text_policy(body,expected):
 def test_invalid_declared_output_budget_is_rejected(bad):
     with pytest.raises(ValueError):api.estimate_request_tokens(payload(bad))
 
-def test_settled_reservation_holds_a_full_window_without_changing_rpm_pacing(controlled):
+def test_actual_usage_releases_unused_reservation_without_changing_rpm_pacing(controlled):
     clock,path=controlled;starts=[]
     def send(timeout):
         starts.append(clock.now)
         with sqlite3.connect(path) as db:
             assert db.execute('SELECT sum(tokens) FROM token_reservations').fetchone()[0]<=100
         return usage()
-    for _ in range(6):api.campus_request(URL,{},.1,send,payload=payload(19))
-    assert starts[:5]==pytest.approx([1000,1000.6,1001.2,1001.8,1002.4])
-    assert starts[5]>=1060
+    for _ in range(5):api.campus_request(URL,{},.1,send,payload=payload())
+    assert starts[:4]==pytest.approx([1000,1000.6,1001.2,1001.8])
+    assert starts[4]>=1060
     assert counts(path)['leases']==counts(path)['waiters']==counts(path)['token_waiters']==0
 
 def test_tpm_wait_uses_no_rpm_ticket_or_concurrent_slot(controlled):
@@ -112,9 +112,6 @@ def test_inflight_budget_is_shared_and_does_not_expire_after_one_minute(controll
                 with second.token_slot('same',{'estimated':30},timeout=.1):pytest.fail('In-flight budget was lost')
             with second.token_slot('other',{'estimated':100},timeout=.1):pass
             budget['actual']=10
-    with pytest.raises(TimeoutError):
-        with second.token_slot('same',{'estimated':80},timeout=1):pytest.fail('Response is not a refund acknowledgement')
-    clock.now+=61
     with second.token_slot('same',{'estimated':80},timeout=1):pass
     assert counts(path)['token_waiters']==0
 
@@ -185,7 +182,7 @@ def test_known_429_rejection_refunds_budget_and_retains_shared_retry_after(contr
         return usage()
     api.campus_request(URL,{},.1,send,payload=payload(79))
     assert starts==pytest.approx([1000,1002])
-    with sqlite3.connect(path) as db:assert db.execute('SELECT sum(tokens) FROM token_reservations').fetchone()[0]==80
+    with sqlite3.connect(path) as db:assert db.execute('SELECT sum(tokens) FROM token_reservations').fetchone()[0]==10
 
 def test_transport_timeout_releases_slot_but_keeps_uncertain_budget(controlled):
     clock,path=controlled
@@ -254,8 +251,7 @@ def _budget_process(path,ready,start,result):
     budget={'estimated':70}
     with gate.token_slot('shared',budget,timeout=10,wait_for_capacity=True) as identity:
         with gate.slot('shared',timeout=10,token_reservation=identity):
-            # A confirmed preflight rejection refunds this synthetic attempt.
-            began=time.time();time.sleep(1.2);budget['rejected']=True;result.put((began,time.time()))
+            began=time.time();time.sleep(1.2);budget['actual']=0;result.put((began,time.time()))
 
 def test_tpm_reservation_is_atomic_across_real_processes(tmp_path):
     context=multiprocessing.get_context('spawn');ready=context.Queue();result=context.Queue();start=context.Event()
