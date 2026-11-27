@@ -496,6 +496,214 @@ def test_real_paper_sentence_bounds_require_model_repair_in_reverse_direction(mo
     assert result['params']['alignment']['from_english'][source_id-1]['target_ids']==[1]
 
 
+@pytest.mark.parametrize('zh_count,en_count', [(17,18),(33,38),(40,53)])
+def test_out_of_range_target_is_repaired_with_actual_sentence_quotes(monkeypatch,zh_count,en_count):
+    import copy,json
+    lint=module();facts,valid=_alignment_fixture(zh_count,en_count)
+    bad=copy.deepcopy(valid)
+    bad['from_english'][-1]['target_ids']=[zh_count,zh_count+1]
+    original=copy.deepcopy(bad);calls=[]
+    chinese=lint._abstract_sentences(facts['chinese_abstract'])
+    def request(messages):
+        calls.append(copy.deepcopy(messages))
+        if len(calls)==1:return copy.deepcopy(bad),{'input_tokens':2,'output_tokens':3}
+        return {'repairs':[{'direction':'from_english','source_id':en_count,
+            'status':'matched','target_quotes':[chinese[-1]]}]},{'input_tokens':5,'output_tokens':7}
+    monkeypatch.setattr(lint,'request_json',request)
+    result=lint._run_aligned_abstract({},facts)
+    assert result['execution_status']=='completed' and len(calls)==2
+    feedback=json.loads(calls[1][-1]['content'])
+    assert feedback['repair_mode']=='grounded_target_selection'
+    assert feedback['repair_rows']==[{'direction':'from_english','source_id':en_count}]
+    repaired=result['params']['alignment']
+    assert repaired['from_english'][-1]['target_ids']==[zh_count]
+    assert repaired['from_english'][:-1]==original['from_english'][:-1]
+    assert repaired['from_chinese']==original['from_chinese']
+    assert bad==original
+    assert result['model_usage']=={'input_tokens':7,'output_tokens':10}
+    assert result['params']['alignment_repair']['strategy']=='grounded_target_selection'
+
+
+@pytest.mark.parametrize('quotes', [[],['并不存在于任何目标句中的文字。']])
+def test_target_quote_repair_does_not_silently_drop_or_invent_targets(monkeypatch,quotes):
+    import copy
+    lint=module();facts,bad=_alignment_fixture(1,1)
+    bad['from_english'][0]['target_ids']=[2]
+    calls=[]
+    def request(messages):
+        calls.append(messages)
+        if len(calls)==1:return copy.deepcopy(bad),{'input_tokens':2,'output_tokens':3}
+        return {'repairs':[{'direction':'from_english','source_id':1,
+            'status':'matched','target_quotes':quotes}]},{'input_tokens':5,'output_tokens':7}
+    monkeypatch.setattr(lint,'request_json',request)
+    with pytest.raises(ValueError,match='target quote') as error:lint._run_aligned_abstract({},facts)
+    assert len(calls)==2
+    assert error.value.known_model_usage=={'input_tokens':7,'output_tokens':10}
+    assert error.value.alignment_repair['status']=='failed'
+
+
+@pytest.mark.parametrize('kind',['omitted','duplicate','unknown_source','bool_source','partial_quote'])
+def test_grounded_target_repair_requires_exact_source_coverage_and_whole_quotes(monkeypatch,kind):
+    import copy
+    lint=module();facts,bad=_alignment_fixture(1,1);bad['from_english'][0]['target_ids']=[2]
+    quote=lint._abstract_sentences(facts['chinese_abstract'])[0]
+    repair={'direction':'from_english','source_id':1,'status':'matched','target_quotes':[quote]}
+    rows=[repair]
+    if kind=='omitted':rows=[]
+    elif kind=='duplicate':rows=[repair,copy.deepcopy(repair)]
+    elif kind=='unknown_source':repair['source_id']=2
+    elif kind=='bool_source':repair['source_id']=True
+    else:repair['target_quotes']=[quote[:-1]]
+    calls=[]
+    def request(messages):
+        calls.append(messages)
+        return copy.deepcopy(bad if len(calls)==1 else {'repairs':rows}),{'input_tokens':1,'output_tokens':1}
+    monkeypatch.setattr(lint,'request_json',request)
+    with pytest.raises(ValueError,match='target quote'):lint._run_aligned_abstract({},facts)
+    assert len(calls)==2
+
+
+def test_grounded_target_repair_keeps_missing_fact_in_semantic_review(monkeypatch):
+    import copy,json
+    lint=module();facts,bad=_alignment_fixture(1,1);bad['from_english'][0]['target_ids']=[2]
+    calls=[]
+    def request(messages):
+        calls.append(copy.deepcopy(messages))
+        if len(calls)==1:return copy.deepcopy(bad),{'input_tokens':1,'output_tokens':1}
+        if len(calls)==2:return {'repairs':[{'direction':'from_english','source_id':1,
+            'status':'missing','target_quotes':[]}]},{'input_tokens':1,'output_tokens':1}
+        assert 'English fact 1.' in messages[0]['content']
+        return {'reviews':[{'candidate_id':'from_english:1','verdict':'uncertain','reason':'证据不足'}]}, {'input_tokens':1,'output_tokens':1}
+    monkeypatch.setattr(lint,'request_json',request)
+    result=lint._run_aligned_abstract({},facts)
+    assert len(calls)==3
+    assert result['params']['alignment']['from_english'][0]['status']=='missing'
+    assert result['params']['candidate_reviews'][0]['candidate_id']=='from_english:1'
+    assert result['model_usage']=={'input_tokens':3,'output_tokens':3}
+
+
+def test_grounded_quote_feedback_keeps_the_final_payload_bounded_without_losing_sources(monkeypatch):
+    import copy,json
+    lint=module();facts,valid=_alignment_fixture(300,300);bad=copy.deepcopy(valid)
+    for row in bad['from_english']:row['target_ids']=[301]
+    calls=[]
+    def request(messages):
+        calls.append(copy.deepcopy(messages))
+        return copy.deepcopy(bad if len(calls)==1 else valid),{'input_tokens':1,'output_tokens':1}
+    monkeypatch.setattr(lint,'request_json',request)
+    result=lint._run_aligned_abstract({},facts)
+    feedback=json.loads(calls[1][-1]['content'])
+    assert len(calls[1][-1]['content'].encode('utf-8'))<=6144
+    assert feedback['repair_mode']=='grounded_target_selection'
+    assert feedback['repair_rows_by_direction']=={'from_english':list(range(1,301))}
+    assert feedback['total_errors']==300 and feedback['omitted_errors']>0
+    assert result['execution_status']=='completed'
+
+
+def test_target_quote_matching_ignores_chinese_pdf_layout_break_after_comma(monkeypatch):
+    import copy
+    lint=module()
+    facts={'chinese_abstract':'本文构建可信的 AI 系统，\n推动实际应用。',
+           'english_abstract':'We build a reliable AI system and promote practical applications.'}
+    bad={'from_chinese':[{'source_id':1,'target_ids':[1],'status':'matched'}],
+         'from_english':[{'source_id':1,'target_ids':[2],'status':'matched'}]}
+    calls=[]
+    def request(messages):
+        calls.append(messages)
+        if len(calls)==1:return copy.deepcopy(bad),{'input_tokens':1,'output_tokens':1}
+        return {'repairs':[{'direction':'from_english','source_id':1,'status':'matched',
+            'target_quotes':['本文构建可信的 AI 系统，推动实际应用。']}]},{'input_tokens':1,'output_tokens':1}
+    monkeypatch.setattr(lint,'request_json',request)
+    result=lint._run_aligned_abstract({},facts)
+    assert result['execution_status']=='completed'
+    assert result['params']['alignment']['from_english'][0]['target_ids']==[1]
+
+
+@pytest.mark.parametrize('target,quote',[('We are not able to run.','We are notable to run.'),('Speed is 1 0 m.','Speed is 10 m.')])
+def test_target_quote_matching_preserves_latin_and_numeric_token_boundaries(monkeypatch,target,quote):
+    import copy
+    lint=module();facts={'chinese_abstract':'这是中文事实。','english_abstract':target}
+    bad={'from_chinese':[{'source_id':1,'target_ids':[2],'status':'matched'}],
+         'from_english':[{'source_id':1,'target_ids':[1],'status':'matched'}]}
+    calls=[]
+    def request(messages):
+        calls.append(messages)
+        if len(calls)==1:return copy.deepcopy(bad),{'input_tokens':1,'output_tokens':1}
+        return {'repairs':[{'direction':'from_chinese','source_id':1,'status':'matched',
+            'target_quotes':[quote]}]},{'input_tokens':1,'output_tokens':1}
+    monkeypatch.setattr(lint,'request_json',request)
+    with pytest.raises(ValueError,match='not an existing complete sentence'):lint._run_aligned_abstract({},facts)
+
+
+def test_index_repair_selects_an_existing_content_key_without_retyping_the_sentence(monkeypatch):
+    import copy,re
+    lint=module();facts,bad=_alignment_fixture(17,18);bad['from_english'][-1]['target_ids']=[17,18]
+    calls=[]
+    def request(messages):
+        calls.append(copy.deepcopy(messages))
+        if len(calls)==1:return copy.deepcopy(bad),{'input_tokens':1,'output_tokens':1}
+        match=re.search(r'\[17; key=(zh_[0-9a-f_]+)\]',messages[0]['content'])
+        assert match,'Repair must select from source-owned sentence keys present in the actual prompt'
+        return {'repairs':[{'direction':'from_english','source_id':18,'status':'matched',
+            'target_keys':[match[1]]}]},{'input_tokens':1,'output_tokens':1}
+    monkeypatch.setattr(lint,'request_json',request)
+    result=lint._run_aligned_abstract({},facts)
+    assert result['execution_status']=='completed' and len(calls)==2
+    assert result['params']['alignment']['from_english'][-1]['target_ids']==[17]
+
+
+@pytest.mark.parametrize('keys',[[],['zh_not_a_real_sentence']])
+def test_index_repair_rejects_missing_or_invented_content_keys(monkeypatch,keys):
+    import copy
+    lint=module();facts,bad=_alignment_fixture(1,1);bad['from_english'][0]['target_ids']=[2]
+    calls=[]
+    def request(messages):
+        calls.append(messages)
+        if len(calls)==1:return copy.deepcopy(bad),{'input_tokens':1,'output_tokens':1}
+        return {'repairs':[{'direction':'from_english','source_id':1,'status':'matched',
+            'target_keys':keys}]},{'input_tokens':1,'output_tokens':1}
+    monkeypatch.setattr(lint,'request_json',request)
+    with pytest.raises(ValueError,match='target key'):lint._run_aligned_abstract({},facts)
+    assert len(calls)==2
+
+
+def test_content_keys_preserve_pdf_surrogates_in_initial_request_and_repair(monkeypatch):
+    import copy,re
+    lint=module();facts={'chinese_abstract':'中文公式\ud8351。','english_abstract':'A formula.'}
+    bad={'from_chinese':[{'source_id':1,'target_ids':[1],'status':'matched'}],
+         'from_english':[{'source_id':1,'target_ids':[2],'status':'matched'}]}
+    calls=[]
+    def request(messages):
+        calls.append(messages)
+        assert '\ud835' in messages[0]['content']
+        if len(calls)==1:return copy.deepcopy(bad),{'input_tokens':1,'output_tokens':1}
+        key=re.search(r'\[1; key=(zh_[0-9a-f_]+)\]',messages[0]['content'])[1]
+        return {'repairs':[{'direction':'from_english','source_id':1,'status':'matched',
+            'target_keys':[key]}]},{'input_tokens':1,'output_tokens':1}
+    monkeypatch.setattr(lint,'request_json',request)
+    result=lint._run_aligned_abstract({},facts)
+    assert result['execution_status']=='completed' and len(calls)==2
+    assert result['params']['alignment']['from_english'][0]['target_ids']==[1]
+
+
+def test_alignment_keys_are_kept_out_of_subsequent_semantic_review(monkeypatch):
+    import copy,re
+    lint=module();facts,bad=_alignment_fixture(1,1);bad['from_english'][0]['target_ids']=[2]
+    calls=[]
+    def request(messages):
+        calls.append(messages)
+        if len(calls)==1:return copy.deepcopy(bad),{'input_tokens':1,'output_tokens':1}
+        if len(calls)==2:
+            key=re.search(r'\[1; key=(zh_[0-9a-f_]+)\]',messages[0]['content'])[1]
+            return {'repairs':[{'direction':'from_english','source_id':1,'status':'partial',
+                'target_keys':[key]}]},{'input_tokens':1,'output_tokens':1}
+        assert '; key=' not in messages[0]['content']
+        return {'reviews':[{'candidate_id':'from_english:1','verdict':'uncertain','reason':'证据不足'}]}, {'input_tokens':1,'output_tokens':1}
+    monkeypatch.setattr(lint,'request_json',request)
+    result=lint._run_aligned_abstract({},facts)
+    assert result['execution_status']=='completed' and len(calls)==3
+
+
 def test_failed_alignment_repair_remains_an_auditable_error_in_final_rule(monkeypatch):
     import copy
     lint=module();facts,valid=_alignment_fixture(1,1);bad=copy.deepcopy(valid);bad['from_english'][0]['target_ids']=[2]

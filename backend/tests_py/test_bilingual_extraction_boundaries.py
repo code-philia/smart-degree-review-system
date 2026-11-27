@@ -206,7 +206,8 @@ def test_english_abstract_with_chinese_heading_reaches_semantic_rule(monkeypatch
     assert facts['locations']['english_abstract']['page_number'] == 2
     def model(messages):
         assert chinese in messages[0]['content'] and english in messages[0]['content']
-        return {'outcome': 'consistent'}, {'input_tokens': 1, 'output_tokens': 1}
+        return {'from_chinese': [{'source_id': 1, 'target_ids': [1], 'status': 'matched'}],
+                'from_english': [{'source_id': 1, 'target_ids': [1], 'status': 'matched'}]}, {'input_tokens': 1, 'output_tokens': 1}
     monkeypatch.setattr(runner, 'request_json', model)
     result = runner._run_semantic_rule({}, facts, 'bilingual_abstract_consistency_check')
     assert result['outcome'] == 'passed'

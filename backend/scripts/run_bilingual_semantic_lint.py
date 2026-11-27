@@ -224,8 +224,15 @@ def _abstract_sentences(text: str) -> list[str]:
     return [sentence.strip() for sentence in sentences if sentence.strip()]
 
 
-def _numbered_abstract(sentences: list[str]) -> str:
-    return "\n".join(f"[{index}] {sentence}" for index, sentence in enumerate(sentences, 1))
+def _numbered_abstract(sentences: list[str], keys=None) -> str:
+    return "\n".join((f"[{index}; key={keys[index-1]}] " if keys else f"[{index}] ") + sentence
+                     for index, sentence in enumerate(sentences, 1))
+
+
+def _alignment_sentence_keys(sentences, language):
+    import hashlib
+    return [f'{language}_{index:x}_{hashlib.sha256(sentence.encode("utf-8", errors="surrogatepass")).hexdigest()[:8]}'
+            for index, sentence in enumerate(sentences, 1)]
 
 
 def _compact_claim(value: Any) -> str:
@@ -1074,6 +1081,105 @@ def _alignment_audit_error(error, audit, usage):
     return error
 
 
+def _alignment_target_repair_rows(alignment, chinese, english):
+    """Narrow an index-only failure without repairing source coverage in code."""
+    if not isinstance(alignment, dict):
+        return None
+    repair_rows = []
+    for name, sources, targets in (('from_chinese', chinese, english), ('from_english', english, chinese)):
+        rows = alignment.get(name)
+        if not isinstance(rows, list):
+            return None
+        seen = []
+        for row in rows:
+            if not isinstance(row, dict):
+                return None
+            sid, status, tids = row.get('source_id'), row.get('status'), row.get('target_ids')
+            if type(sid) is not int or not 1 <= sid <= len(sources):
+                return None
+            if not isinstance(status, str) or status not in {'matched', 'partial', 'missing', 'conflict'}:
+                return None
+            seen.append(sid)
+            if tids is None and status in {'partial', 'missing'}:
+                tids = []
+            if not isinstance(tids, list) or (not tids and status in {'matched', 'conflict'}):
+                return None
+            if any(type(i) is not int or not 1 <= i <= len(targets) for i in tids):
+                repair_rows.append({'direction': name, 'source_id': sid})
+        if sorted(seen) != list(range(1, len(sources) + 1)):
+            return None
+    return repair_rows or None
+
+
+def _grounded_alignment_target_repair(response, alignment, repair_rows, chinese, english):
+    """Resolve closed source-owned keys or complete quotes; never clamp an ID."""
+    import copy
+    def quote_key(value):
+        # Chinese PDF line breaks/spaces carry no word-boundary meaning. Keep
+        # Latin/numeric boundaries: "not able" must never match "notable".
+        collapsed = ' '.join(value.split())
+        return re.sub(r'(?<=[\u3400-\u9fff，。！？；：、])\s+|\s+(?=[\u3400-\u9fff，。！？；：、])', '', collapsed)
+    requested = {(row['direction'], row['source_id']) for row in repair_rows}
+    if isinstance(response, dict) and 'repairs' not in response:
+        # A complete legacy response is still acceptable if independently valid
+        # and no already-valid record has been rewritten in this narrow repair.
+        _alignment_candidates(response, chinese, english)
+        for direction in ('from_chinese', 'from_english'):
+            by_id = {row['source_id']: row for row in response[direction]}
+            for row in alignment[direction]:
+                if (direction, row['source_id']) not in requested and by_id[row['source_id']] != row:
+                    raise ValueError('abstract target quote repair changed an unaffected source')
+        return response
+    repairs = response.get('repairs') if isinstance(response, dict) else None
+    if not isinstance(repairs, list):
+        raise ValueError('abstract target quote repair requires records')
+    result, seen = copy.deepcopy(alignment), set()
+    for row in repairs:
+        if not isinstance(row, dict):
+            raise ValueError('invalid abstract target quote repair record')
+        direction, sid = row.get('direction'), row.get('source_id')
+        if not isinstance(direction, str) or type(sid) is not int:
+            raise ValueError('invalid abstract target quote repair source')
+        key = (direction, sid)
+        if key not in requested or key in seen:
+            raise ValueError('unexpected or duplicate abstract target quote repair source')
+        seen.add(key)
+        status = row.get('status')
+        if not isinstance(status, str) or status not in {'matched', 'partial', 'missing', 'conflict'}:
+            raise ValueError('invalid abstract target quote repair status')
+        use_keys = 'target_keys' in row
+        if use_keys and 'target_quotes' in row:
+            raise ValueError('ambiguous abstract target key and quote repair')
+        references = row.get('target_keys' if use_keys else 'target_quotes')
+        if not isinstance(references, list) or (not references and status in {'matched', 'conflict'}):
+            raise ValueError('abstract target key repair requires actual keys' if use_keys
+                             else 'abstract target quote repair requires actual target quotes')
+        targets = english if direction == 'from_chinese' else chinese
+        ids = []
+        if use_keys:
+            known = {key: i for i, key in enumerate(_alignment_sentence_keys(
+                targets, 'en' if direction == 'from_chinese' else 'zh'), 1)}
+            for key in references:
+                if not isinstance(key, str) or key not in known:
+                    raise ValueError('abstract target key is not an existing target sentence')
+                if known[key] not in ids:
+                    ids.append(known[key])
+        else:
+            for quote in references:
+                if not isinstance(quote, str) or not quote.strip():
+                    raise ValueError('invalid abstract target quote')
+                matches = [i for i, sentence in enumerate(targets, 1)
+                           if quote_key(sentence) == quote_key(quote)]
+                if not matches:
+                    raise ValueError('abstract target quote is not an existing complete sentence')
+                ids.extend(i for i in matches if i not in ids)
+        index = next(i for i, old in enumerate(result[direction]) if old['source_id'] == sid)
+        result[direction][index] = {**result[direction][index], 'status': status, 'target_ids': ids}
+    if seen != requested:
+        raise ValueError('abstract target quote repair omitted a source')
+    return result
+
+
 def _alignment_review_request(messages, audit, usage):
     try:
         return request_json(messages)
@@ -1088,6 +1194,9 @@ def _run_aligned_abstract(ir, facts):
     english = _abstract_sentences(str(facts['english_abstract']))
     context = ('中文摘要全文：\n' + _numbered_abstract(chinese)
                + '\n英文摘要全文：\n' + _numbered_abstract(english)
+               + _terminology_prompt(facts))
+    alignment_context = ('中文摘要全文：\n' + _numbered_abstract(chinese, _alignment_sentence_keys(chinese, 'zh'))
+               + '\n英文摘要全文：\n' + _numbered_abstract(english, _alignment_sentence_keys(english, 'en'))
                + _terminology_prompt(facts))
     policy = (
         '按句级语义建立双向对应，允许一对多、多对一、拆句合句和跨顺序对应。'
@@ -1117,17 +1226,51 @@ def _run_aligned_abstract(ir, facts):
         'partial、missing、conflict 仅是候选，不是最终告警。'
         '只输出一个JSON对象，必须同时含有from_chinese和from_english两个数组。'
         '每条记录只写source_id、target_ids、status，不写理由或原文。'
+        f'编号范围：from_chinese的source_id为1到{len(chinese)}，target_ids仅可选1到{len(english)}；'
+        f'from_english的source_id为1到{len(english)}，target_ids仅可选1到{len(chinese)}。不得用源侧编号范围代替目标侧范围。'
         '以下为结构示例，实际必须覆盖两侧所有编号：'
         '{"from_chinese":[{"source_id":1,"target_ids":[1],"status":"matched"}],'
-        '"from_english":[{"source_id":1,"target_ids":[1],"status":"matched"}]}。\n' + context)}]
+        '"from_english":[{"source_id":1,"target_ids":[1],"status":"matched"}]}。\n' + alignment_context)}]
     alignment, usage = request_json(alignment_messages)
     alignment_repair = None
     try:
         candidates = _alignment_candidates(alignment, chinese, english)
     except (ValueError, TypeError) as initial_error:
         feedback = _alignment_repair_diagnostics(alignment, chinese, english, initial_error)
+        repair_rows = _alignment_target_repair_rows(alignment, chinese, english)
+        if repair_rows:
+            feedback.update(
+                repair_mode='grounded_target_selection', repair_rows=repair_rows,
+                task='仅重新核对repair_rows列出的对应关系，从原始目标句旁的key选择对应句；其他记录由程序原样保留。',
+                requirements=[
+                    '仅返回repairs数组，每个repair_rows源句恰好一条记录；不得输出或修改其他源句。',
+                    'target_keys只能从目标语言摘要中实际标注的key选择，程序据此换算真实编号；不要返回target_ids，也不要抄写或改写原句。',
+                    'from_chinese的目标key以en_开头，from_english的目标key以zh_开头；可选多句，必须重新核对事实对应。不得编造key。',
+                    'status仍为matched|partial|missing|conflict；matched或conflict必须提供实际对应句的key。',
+                    '不得截断旧编号、删掉越界编号或用missing规避问题；partial或missing必须由原文事实支持，仍会交给后续语义复核。',
+                ],
+                response_schema={'repairs': [{'direction': 'from_english', 'source_id': 1,
+                    'status': 'matched|partial|missing|conflict', 'target_keys': ['选择实际目标句旁的key']} ]})
+            def feedback_size():
+                return len(json.dumps(feedback, ensure_ascii=True, separators=(',', ':')).encode('utf-8'))
+            if feedback_size() > 6144:
+                grouped = {}
+                for row in repair_rows:
+                    grouped.setdefault(row['direction'], []).append(row['source_id'])
+                feedback.pop('repair_rows')
+                feedback['repair_rows_by_direction'] = grouped
+                feedback['task'] = '仅修复repair_rows_by_direction中每个方向列出的source_id，从目标句旁的key选择对应句，返回同样的repairs格式。'
+            while feedback['errors'] and feedback_size() > 6144:
+                feedback['errors'].pop()
+                feedback['omitted_errors'] = feedback['total_errors'] - len(feedback['errors'])
+            if feedback_size() > 6144:
+                # Extremely large source-ID sets retain the original full repair
+                # contract rather than silently omitting requested repair rows.
+                feedback = _alignment_repair_diagnostics(alignment, chinese, english, initial_error)
+                repair_rows = None
         audit = {'attempts': 1, 'status': 'started', 'initial_error': str(initial_error)[:300],
-                 'total_errors': feedback['total_errors'], 'omitted_errors': feedback['omitted_errors']}
+                 'total_errors': feedback['total_errors'], 'omitted_errors': feedback['omitted_errors'],
+                 'strategy': 'grounded_target_selection' if repair_rows else 'full_alignment'}
         try:
             repaired, used = request_json(alignment_messages + [
                 {'role': 'assistant', 'content': json.dumps(alignment, ensure_ascii=True)},
@@ -1135,6 +1278,8 @@ def _run_aligned_abstract(ir, facts):
             ])
             for key in usage:
                 usage[key] += used[key]
+            if repair_rows:
+                repaired = _grounded_alignment_target_repair(repaired, alignment, repair_rows, chinese, english)
             candidates = _alignment_candidates(repaired, chinese, english)
         except Exception as repair_error:
             repair_error.alignment_repair = {**audit, 'status': 'failed'}
