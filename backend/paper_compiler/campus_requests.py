@@ -1,5 +1,5 @@
 """Share separate campus TPM-budget and paced RPM-dispatch queues across workers."""
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from functools import lru_cache
 import hashlib
 import json
@@ -128,6 +128,14 @@ class CampusRequestCoordinator:
             # control group is stopped, allow a full quiet provider window.
             db.execute('INSERT OR IGNORE INTO quota_meta VALUES (?,?)',
                        ('tpm', time.time() + 60 if legacy else 0))
+            if db.execute('SELECT 1 FROM waiters JOIN token_waiters USING(ticket) LIMIT 1').fetchone():
+                # Older versions allocated each queue independently. Re-ticket
+                # overlapping live rows once, preserving each queue's FIFO order.
+                rows = db.execute("SELECT ticket,id,'waiters' FROM waiters UNION ALL "
+                                  "SELECT ticket,id,'token_waiters' FROM token_waiters ORDER BY 1,3").fetchall()
+                ticket = self._next_waiter_ticket(db)
+                for offset, (_, identity, table) in enumerate(rows):
+                    db.execute('UPDATE '+table+' SET ticket=? WHERE id=?', (ticket+offset, identity))
             db.commit()
         os.chmod(self.path, 0o600)
 
@@ -139,6 +147,11 @@ class CampusRequestCoordinator:
             yield db
         finally:
             db.close()
+
+    @staticmethod
+    def _next_waiter_ticket(db):
+        return db.execute('SELECT coalesce(max(ticket),0)+1 FROM '
+                          '(SELECT ticket FROM waiters UNION ALL SELECT ticket FROM token_waiters)').fetchone()[0]
 
     def _reap(self, db, now):
         # 0 = waiting for dispatch, 1 = admitted/in flight, 2 = settled or
@@ -238,8 +251,8 @@ class CampusRequestCoordinator:
                             remaining = timeout if deadline is None else deadline - time.monotonic()
                             if remaining <= 0:
                                 raise TimeoutError('campus API request timed out waiting for token budget')
-                            db.execute('INSERT OR IGNORE INTO token_waiters (id,account_id,pid,expires_at) VALUES (?,?,?,?)',
-                                       (identity, account, os.getpid(), now + (lifetime if deadline is None else remaining)))
+                            db.execute('INSERT OR IGNORE INTO token_waiters (ticket,id,account_id,pid,expires_at) VALUES (?,?,?,?,?)',
+                                       (self._next_waiter_ticket(db), identity, account, os.getpid(), now + (lifetime if deadline is None else remaining)))
                             if not registered:
                                 renew_at = now + lifetime / 3
                             first = db.execute('SELECT id FROM token_waiters WHERE account_id=? ORDER BY ticket LIMIT 1', (account,)).fetchone()[0]
@@ -278,15 +291,28 @@ class CampusRequestCoordinator:
                 db.commit()
 
     @contextmanager
-    def slot(self, account, *, timeout, wait_for_capacity=False, remaining_time=None, token_reservation=None):
+    def slot(self, account, *, timeout, wait_for_capacity=False, remaining_time=None,
+             token_reservation=None, token_budget=None):
+        """Check RPM first; occupy both quotas only in the dispatch transaction.
+
+        The legacy explicit token_reservation argument is retained for low-level
+        callers. Shipping transports pass token_budget and never pre-reserve it.
+        """
         timeout = float(timeout)
         if not math.isfinite(timeout) or timeout <= 0:
             raise ValueError('campus request timeout must be positive and finite')
+        if token_budget is not None:
+            tokens = token_budget['estimated']
+            if type(tokens) is not int or not 1 <= tokens <= self.tokens_per_minute:
+                raise ValueError('request token budget exceeds the campus TPM limit')
+            if token_reservation is not None:
+                raise ValueError('token budget cannot be pre-reserved')
         deadline = None if wait_for_capacity else time.monotonic() + timeout
         ticket_lifetime = max(30.0, timeout)
-        renew_at = 0.0
+        lease_lifetime = max(30.0, timeout + 5)
         identity = token_reservation or uuid.uuid4().hex
-        registered = False
+        phase = 'waiters'
+        registered, renew_at = False, 0.0
         try:
             while True:
                 if remaining_time is not None:
@@ -298,29 +324,18 @@ class CampusRequestCoordinator:
                 try:
                     with self._connection(timeout=min(1, remaining)) as db:
                         now = time.time()
-                        if registered and deadline is None and now >= renew_at:
-                            # Keep the same FIFO ticket alive during a long wait.
-                            # Renew infrequently so followers do not starve the head.
-                            db.execute('UPDATE waiters SET expires_at=? WHERE id=?',
-                                       (now + ticket_lifetime, identity))
-                            renew_at = now + ticket_lifetime / 3
                         read_only_wait = False
-                        if registered:
-                            # Followers only observe a live head. Repeated writer
-                            # transactions here can starve the one eligible caller.
-                            now = time.time()
-                            first = db.execute('SELECT id,pid,expires_at FROM waiters WHERE account_id=? ORDER BY ticket LIMIT 1',
-                                               (account,)).fetchone()
-                            if (first and first[0] != identity and first[2] > now
-                                    and self._process_alive(first[1])):
-                                pacing = db.execute('SELECT next_at,blocked_until FROM accounts WHERE id=?',
-                                                    (account,)).fetchone()
+                        if registered and phase == 'waiters' and now < renew_at:
+                            first = db.execute('SELECT id,ticket,pid,expires_at FROM waiters WHERE account_id=? ORDER BY ticket LIMIT 1', (account,)).fetchone()
+                            own = db.execute('SELECT ticket FROM waiters WHERE id=?', (identity,)).fetchone()
+                            if (first and own and first[1] < own[0] and first[3] > now
+                                    and self._process_alive(first[2])):
+                                # Followers only observe the older live head. Do
+                                # not make them contend for its dispatch write lock.
+                                pacing = db.execute('SELECT next_at,blocked_until FROM accounts WHERE id=?', (account,)).fetchone()
                                 if pacing:
-                                    count = db.execute('SELECT count(*) FROM leases WHERE account_id=? AND expires_at>?',
-                                                       (account, now)).fetchone()[0]
-                                    if count < self.max_concurrent:
-                                        wait = max(.05, max(pacing) - now)
-                                    read_only_wait = True
+                                    wait = max(.05, max(pacing) - now)
+                                read_only_wait = True
                         if not read_only_wait:
                             db.execute('BEGIN IMMEDIATE')
                             remaining = timeout if deadline is None else deadline - time.monotonic()
@@ -329,44 +344,79 @@ class CampusRequestCoordinator:
                             now = time.time()
                             self._reap(db, now)
                             db.execute('INSERT OR IGNORE INTO accounts VALUES (?,0,0)', (account,))
-                            # Persist registration while waiting. Later chunks or workers
-                            # cannot repeatedly steal capacity from an older request.
-                            db.execute('INSERT OR IGNORE INTO waiters (id,account_id,pid,expires_at) VALUES (?,?,?,?)',
-                                       (identity, account, os.getpid(), now + (ticket_lifetime if deadline is None else remaining)))
-                            if deadline is None and not registered:
-                                renew_at = now + ticket_lifetime / 3
-                            first = db.execute('SELECT id FROM waiters WHERE account_id=? ORDER BY ticket LIMIT 1',
-                                               (account,)).fetchone()[0]
+                            expiry = now + (ticket_lifetime if deadline is None else remaining)
+                            row = db.execute('SELECT ticket FROM '+phase+' WHERE id=?', (identity,)).fetchone()
+                            if row:
+                                ticket = row[0]
+                                db.execute('UPDATE '+phase+' SET expires_at=? WHERE id=?', (expiry, identity))
+                            else:
+                                # One ticket sequence across both waiting queues. Keep
+                                # this ticket when transferring so a newer call cannot
+                                # repeatedly overtake a caller returning from TPM.
+                                ticket = self._next_waiter_ticket(db)
+                                db.execute('INSERT INTO '+phase+' VALUES (?,?,?,?,?)',
+                                           (ticket, identity, account, os.getpid(), expiry))
+                            first = db.execute('SELECT id,ticket,pid,expires_at FROM waiters WHERE account_id=? ORDER BY ticket LIMIT 1', (account,)).fetchone()
+                            rpm_head = first[1] if first else None
                             next_at, blocked_until = db.execute('SELECT next_at,blocked_until FROM accounts WHERE id=?', (account,)).fetchone()
                             count = db.execute('SELECT count(*) FROM leases WHERE account_id=?', (account,)).fetchone()[0]
-                            ready_at = max(next_at, blocked_until)
-                            if first == identity and count < self.max_concurrent and ready_at <= now:
-                                db.execute('DELETE FROM waiters WHERE id=?', (identity,))
-                                lease_lifetime = max(30.0, remaining + 5) if token_reservation else remaining + 5
+                            rpm_ready = max(next_at, blocked_until) <= now and count < self.max_concurrent
+                            target_phase = 'waiters'
+                            allowed = rpm_ready and (rpm_head is None or rpm_head >= ticket)
+                            if allowed and token_budget is not None:
+                                used = db.execute('SELECT coalesce(sum(tokens),0) FROM token_reservations WHERE account_id=?', (account,)).fetchone()[0]
+                                token_head = db.execute('SELECT min(ticket) FROM token_waiters WHERE account_id=?', (account,)).fetchone()[0]
+                                ready_at = db.execute('SELECT ready_at FROM quota_meta WHERE id=?', ('tpm',)).fetchone()[0]
+                                allowed = (used + tokens <= self.tokens_per_minute and ready_at <= now
+                                           and (token_head is None or token_head >= ticket))
+                                if not allowed:
+                                    target_phase = 'token_waiters'
+                            if allowed:
+                                # Caller cancellation and its task deadline must be
+                                # checked before either quota is consumed.
+                                available = timeout if deadline is None else deadline - time.monotonic()
+                                if remaining_time is not None:
+                                    available = min(available, remaining_time())
+                                if deadline is not None:
+                                    available = min(available, deadline - time.monotonic())
+                                if available <= 0:
+                                    raise TimeoutError('campus API request timed out before dispatch')
+                                now = time.time()
+                                db.execute('DELETE FROM '+phase+' WHERE id=?', (identity,))
+                                lease_lifetime = max(30.0, available + 5) if (token_reservation or token_budget is not None) else available + 5
+                                if token_budget is not None:
+                                    db.execute('INSERT INTO token_reservations VALUES (?,?,?,?,1,?)',
+                                               (identity, account, tokens, os.getpid(), now + lease_lifetime))
+                                if token_reservation:
+                                    changed = db.execute('UPDATE token_reservations SET state=1,expires_at=? WHERE id=? AND account_id=? AND state=0',
+                                                         (now + lease_lifetime, identity, account)).rowcount
+                                    if changed != 1:
+                                        raise RuntimeError('campus token reservation was lost before dispatch')
                                 db.execute('INSERT INTO leases VALUES (?,?,?,?)', (identity, account, os.getpid(), now + lease_lifetime))
                                 db.execute('UPDATE accounts SET next_at=? WHERE id=?', (now + self.interval, account))
                                 db.commit()
                                 break
-                            if count < self.max_concurrent:
-                                wait = max(.001 if first == identity else .05, ready_at - now)
+                            if target_phase != phase:
+                                db.execute('DELETE FROM '+phase+' WHERE id=?', (identity,))
+                                db.execute('INSERT INTO '+target_phase+' VALUES (?,?,?,?,?)',
+                                           (ticket, identity, account, os.getpid(), expiry))
+                            if target_phase == 'token_waiters':
+                                wait = .25
+                            elif count < self.max_concurrent:
+                                wait = max(.001 if rpm_head is None or rpm_head >= ticket else .05, max(next_at, blocked_until) - now)
                             db.commit()
+                            phase = target_phase
                             registered = True
+                            renew_at = now + ticket_lifetime / 3
                 except sqlite3.OperationalError as error:
                     if 'locked' not in str(error).lower():
                         raise
                 remaining = timeout if deadline is None else max(0, deadline - time.monotonic())
                 time.sleep(min(wait, .25, remaining))
             try:
-                available = timeout if deadline is None else max(.001, deadline - time.monotonic())
-                if remaining_time is not None:
-                    available = min(available, remaining_time())
-                if token_reservation:
-                    with self._connection() as db:
-                        changed = db.execute('UPDATE token_reservations SET state=1,expires_at=? WHERE id=? AND account_id=? AND state=0',
-                                             (time.time() + max(30.0, available + 5), identity, account)).rowcount
-                        if changed != 1:
-                            raise RuntimeError('campus token reservation was lost before dispatch')
-                yield available
+                with (self._keep_reservation_alive(identity, lease_lifetime)
+                      if token_budget is not None else nullcontext()):
+                    yield available
             except Exception as error:
                 if getattr(error, 'code', getattr(error, 'status', None)) == 429:
                     retry = getattr(error, 'retry_after', None)
@@ -383,8 +433,21 @@ class CampusRequestCoordinator:
         finally:
             # Also release a queued ticket on timeout, exception or cancellation.
             with self._connection() as db:
+                db.execute('BEGIN IMMEDIATE')
                 db.execute('DELETE FROM waiters WHERE id=?', (identity,))
+                db.execute('DELETE FROM token_waiters WHERE id=?', (identity,))
                 db.execute('DELETE FROM leases WHERE id=?', (identity,))
+                if token_budget is not None:
+                    row = db.execute('SELECT state FROM token_reservations WHERE id=?', (identity,)).fetchone()
+                    if row:
+                        actual = token_budget.get('actual')
+                        if actual == 0:
+                            db.execute('DELETE FROM token_reservations WHERE id=?', (identity,))
+                        else:
+                            if type(actual) is int and 0 <= actual <= 2**63 - 1:
+                                db.execute('UPDATE token_reservations SET tokens=? WHERE id=?', (min(actual, self.tokens_per_minute), identity))
+                            db.execute('UPDATE token_reservations SET state=2,expires_at=? WHERE id=?', (time.time()+60, identity))
+                db.commit()
 
 
 @lru_cache(maxsize=8)
@@ -406,15 +469,8 @@ def campus_request_slot(url, headers, timeout, *, wait_for_capacity=False, remai
     account = hashlib.sha256((target.netloc + '\0' + authorization).encode()).hexdigest()
     gate = _coordinator(path, _setting('SJTU_API_MAX_CONCURRENCY', 16, 32),
                         campus_requests_per_minute(), _setting('SJTU_API_TOKENS_PER_MINUTE', 300000, 300000))
-    if token_budget is not None:
-        with gate.token_slot(account, token_budget, timeout=timeout, wait_for_capacity=wait_for_capacity,
-                             remaining_time=remaining_time) as identity:
-            with gate.slot(account, timeout=timeout, wait_for_capacity=wait_for_capacity,
-                           remaining_time=remaining_time, token_reservation=identity) as remaining:
-                yield remaining
-        return
     with gate.slot(account, timeout=timeout, wait_for_capacity=wait_for_capacity,
-                   remaining_time=remaining_time) as remaining:
+                   remaining_time=remaining_time, token_budget=token_budget) as remaining:
         yield remaining
 
 

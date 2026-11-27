@@ -1,4 +1,4 @@
-"""TPM budgets queue before the separate, paced campus dispatch queue."""
+"""TPM budget lifecycle and shared quota behavior across campus transports."""
 import importlib.util
 import json
 import multiprocessing
@@ -249,9 +249,8 @@ def _budget_process(path,ready,start,result):
     gate=api.CampusRequestCoordinator(path,max_concurrent=32,tokens_per_minute=100)
     ready.put(True);assert start.wait(10)
     budget={'estimated':70}
-    with gate.token_slot('shared',budget,timeout=10,wait_for_capacity=True) as identity:
-        with gate.slot('shared',timeout=10,token_reservation=identity):
-            began=time.time();time.sleep(1.2);budget['actual']=0;result.put((began,time.time()))
+    with gate.slot('shared',timeout=10,wait_for_capacity=True,token_budget=budget):
+        began=time.time();time.sleep(1.2);budget['actual']=0;result.put((began,time.time()))
 
 def test_tpm_reservation_is_atomic_across_real_processes(tmp_path):
     context=multiprocessing.get_context('spawn');ready=context.Queue();result=context.Queue();start=context.Event()
