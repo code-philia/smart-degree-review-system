@@ -200,7 +200,7 @@ def test_reordered_and_merged_sentence_mapping_needs_no_review(monkeypatch):
 def test_missing_sentence_alignment_is_technical_failure(monkeypatch):
     lint=module()
     monkeypatch.setattr(lint,'request_json',lambda _: ({'from_chinese':[], 'from_english':[]},{'input_tokens':1,'output_tokens':1}))
-    with pytest.raises(ValueError,match='missing or duplicate'):
+    with pytest.raises(ValueError,match='invalid single abstract review'):
         lint._run_semantic_rule({}, {'chinese_abstract':'方法有效。','english_abstract':'It works.'},'bilingual_abstract_consistency_check')
 
 
@@ -250,13 +250,17 @@ def test_verified_omissions_stay_independent_and_capped(monkeypatch):
 
 
 def test_review_cannot_invent_candidates(monkeypatch):
-    lint=module()
-    replies=iter([{'from_chinese':[dict(source_id=1,status='missing',target_ids=[])],
-                   'from_english':[dict(source_id=1,status='matched',target_ids=[1])]},
-                  {'reviews':[dict(candidate_id='invented',accepted=True,verdict='core_omission')]}])
-    monkeypatch.setattr(lint,'request_json',lambda _:(next(replies),{'input_tokens':1,'output_tokens':1}))
-    with pytest.raises(ValueError,match='missing or duplicate candidates'):
+    lint=module();calls=[]
+    alignment={'from_chinese':[dict(source_id=1,status='missing',target_ids=[])],
+               'from_english':[dict(source_id=1,status='matched',target_ids=[1])]}
+    invented={'reviews':[dict(candidate_id='invented',accepted=True,verdict='core_omission')]}
+    def request(messages):
+        calls.append(messages)
+        return alignment if len(calls)==1 else invented,{'input_tokens':1,'output_tokens':1}
+    monkeypatch.setattr(lint,'request_json',request)
+    with pytest.raises(ValueError,match='evidence from its assigned source'):
         lint._run_semantic_rule({},dict(chinese_abstract='本文贡献。',english_abstract='A study.'),'bilingual_abstract_consistency_check')
+    assert len(calls)==3
 
 
 def test_explanation_explicitly_dismissing_difference_is_rejected():
@@ -436,7 +440,7 @@ def test_alignment_repair_still_rejects_incomplete_or_invalid_second_output(monk
         return copy.deepcopy(bad if len(calls)==1 else second),{'input_tokens':1,'output_tokens':1}
     monkeypatch.setattr(lint,'request_json',request)
     with pytest.raises(ValueError) as error: lint._run_aligned_abstract({},facts)
-    assert len(calls)==2
+    assert len(calls)==4
     assert error.value.alignment_repair['status']=='failed'
     assert 'invalid abstract alignment target' in error.value.alignment_repair['initial_error']
 
@@ -536,9 +540,9 @@ def test_target_quote_repair_does_not_silently_drop_or_invent_targets(monkeypatc
         return {'repairs':[{'direction':'from_english','source_id':1,
             'status':'matched','target_quotes':quotes}]},{'input_tokens':5,'output_tokens':7}
     monkeypatch.setattr(lint,'request_json',request)
-    with pytest.raises(ValueError,match='target quote') as error:lint._run_aligned_abstract({},facts)
-    assert len(calls)==2
-    assert error.value.known_model_usage=={'input_tokens':7,'output_tokens':10}
+    with pytest.raises(ValueError,match='single abstract review') as error:lint._run_aligned_abstract({},facts)
+    assert len(calls)==4
+    assert error.value.known_model_usage=={'input_tokens':17,'output_tokens':24}
     assert error.value.alignment_repair['status']=='failed'
 
 
@@ -559,8 +563,8 @@ def test_grounded_target_repair_requires_exact_source_coverage_and_whole_quotes(
         calls.append(messages)
         return copy.deepcopy(bad if len(calls)==1 else {'repairs':rows}),{'input_tokens':1,'output_tokens':1}
     monkeypatch.setattr(lint,'request_json',request)
-    with pytest.raises(ValueError,match='target quote'):lint._run_aligned_abstract({},facts)
-    assert len(calls)==2
+    with pytest.raises(ValueError,match='single abstract review'):lint._run_aligned_abstract({},facts)
+    assert len(calls)==4
 
 
 def test_grounded_target_repair_keeps_missing_fact_in_semantic_review(monkeypatch):
@@ -632,7 +636,7 @@ def test_target_quote_matching_preserves_latin_and_numeric_token_boundaries(monk
         return {'repairs':[{'direction':'from_chinese','source_id':1,'status':'matched',
             'target_quotes':[quote]}]},{'input_tokens':1,'output_tokens':1}
     monkeypatch.setattr(lint,'request_json',request)
-    with pytest.raises(ValueError,match='not an existing complete sentence'):lint._run_aligned_abstract({},facts)
+    with pytest.raises(ValueError,match='single abstract review'):lint._run_aligned_abstract({},facts)
 
 
 def test_index_repair_selects_an_existing_content_key_without_retyping_the_sentence(monkeypatch):
@@ -663,8 +667,8 @@ def test_index_repair_rejects_missing_or_invented_content_keys(monkeypatch,keys)
         return {'repairs':[{'direction':'from_english','source_id':1,'status':'matched',
             'target_keys':keys}]},{'input_tokens':1,'output_tokens':1}
     monkeypatch.setattr(lint,'request_json',request)
-    with pytest.raises(ValueError,match='target key'):lint._run_aligned_abstract({},facts)
-    assert len(calls)==2
+    with pytest.raises(ValueError,match='single abstract review'):lint._run_aligned_abstract({},facts)
+    assert len(calls)==4
 
 
 def test_content_keys_preserve_pdf_surrogates_in_initial_request_and_repair(monkeypatch):
@@ -704,6 +708,181 @@ def test_alignment_keys_are_kept_out_of_subsequent_semantic_review(monkeypatch):
     assert result['execution_status']=='completed' and len(calls)==3
 
 
+def test_failed_index_repair_is_verified_against_real_full_target_context(monkeypatch):
+    import copy
+    lint=module();facts={'chinese_abstract':'我们提出该方法。','english_abstract':'We propose the method.'}
+    bad={'from_chinese':[{'source_id':1,'target_ids':[1],'status':'matched'}],
+         'from_english':[{'source_id':1,'target_ids':[2],'status':'matched'}]}
+    calls=[]
+    def request(messages):
+        calls.append(copy.deepcopy(messages))
+        if len(calls)==1:return copy.deepcopy(bad),{'input_tokens':1,'output_tokens':1}
+        if len(calls)==2:return {'repairs':[{'direction':'from_english','source_id':1,'status':'matched',
+            'target_keys':['zh_invented_key']}]},{'input_tokens':1,'output_tokens':1}
+        assert facts['chinese_abstract'] in messages[0]['content']
+        assert facts['english_abstract'] in messages[0]['content']
+        return {'reviews':[{'candidate_id':'from_english:1','verdict':'equivalent',
+            'fact_checks':[{'source_quote':facts['english_abstract'],'relation':'covered',
+                            'target_quote':facts['chinese_abstract']}]}]}, {'input_tokens':1,'output_tokens':1}
+    monkeypatch.setattr(lint,'request_json',request)
+    result=lint._run_aligned_abstract({},facts)
+    assert len(calls)==3 and result['execution_status']=='completed' and result['outcome']=='passed'
+    assert result['params']['raw_alignment']==bad
+    assert result['params']['alignment']['from_english'][0]['status']=='partial'
+    assert result['params']['alignment_repair']['fallback_mode']=='full_context_semantic_review'
+    assert result['params']['alignment_repair']['status']=='resolved_by_semantic_review'
+    assert result['model_usage']=={'input_tokens':3,'output_tokens':3}
+
+
+def test_missing_batch_review_is_recovered_by_a_program_owned_single_candidate(monkeypatch):
+    import copy,json
+    lint=module();facts={'chinese_abstract':'我们提出方法甲。我们提出方法乙。',
+                        'english_abstract':'We propose method A. We propose method B.'}
+    alignment={'from_chinese':[{'source_id':i,'target_ids':[i],'status':'partial'} for i in [1,2]],
+               'from_english':[{'source_id':i,'target_ids':[i],'status':'matched'} for i in [1,2]]}
+    rows=[{'candidate_id':f'from_chinese:{i}','verdict':'equivalent','fact_checks':[{
+        'source_quote':z,'relation':'covered','target_quote':e}]} for i,z,e in [
+        (1,'我们提出方法甲。','We propose method A.'),(2,'我们提出方法乙。','We propose method B.')]]
+    calls=[]
+    def request(messages):
+        calls.append(copy.deepcopy(messages))
+        if len(calls)==1:return copy.deepcopy(alignment),{'input_tokens':1,'output_tokens':1}
+        if len(calls)==2:return {'reviews':[copy.deepcopy(rows[0])]}, {'input_tokens':1,'output_tokens':1}
+        assert 'from_chinese:2' in messages[0]['content']
+        answer=copy.deepcopy(rows[1]);answer['candidate_id']='model-generated-wrong-id';answer['target_ids']=[999]
+        return answer,{'input_tokens':1,'output_tokens':1}
+    monkeypatch.setattr(lint,'request_json',request)
+    result=lint._run_aligned_abstract({},facts)
+    assert len(calls)==3 and result['execution_status']=='completed'
+    assert [r['candidate_id'] for r in result['params']['candidate_reviews']]==['from_chinese:1','from_chinese:2']
+    assert result['params']['candidate_reviews'][1]['target_ids']==[1,2]
+    assert result['params']['review_recovery']['recovered_candidate_ids']==['from_chinese:2']
+    assert result['model_usage']=={'input_tokens':3,'output_tokens':3}
+
+
+def test_fallback_counts_usage_from_a_repair_response_that_could_not_be_decoded(monkeypatch):
+    import copy
+    lint=module();facts,bad=_alignment_fixture(1,1);bad['from_english'][0]['target_ids']=[2]
+    calls=[]
+    def request(messages):
+        calls.append(messages)
+        if len(calls)==1:return copy.deepcopy(bad),{'input_tokens':2,'output_tokens':3}
+        if len(calls)==2:
+            error=ValueError('controlled invalid repair JSON');error.known_model_usage={'input_tokens':5,'output_tokens':7};raise error
+        return {'reviews':[{'candidate_id':'from_english:1','verdict':'equivalent','fact_checks':[{
+            'source_quote':'English fact 1.','relation':'covered','target_quote':'中文事实1。'}]}]}, {'input_tokens':11,'output_tokens':13}
+    monkeypatch.setattr(lint,'request_json',request)
+    result=lint._run_aligned_abstract({},facts)
+    assert result['execution_status']=='completed' and len(calls)==3
+    assert result['model_usage']=={'input_tokens':18,'output_tokens':23}
+
+
+def test_recovered_but_uncertain_review_does_not_become_a_verified_pass(monkeypatch):
+    lint=module();facts,alignment=_alignment_fixture(1,1)
+    alignment['from_chinese'][0].update(status='partial',target_ids=[])
+    replies=iter([alignment,{'reviews':[]},{'verdict':'uncertain','reason':'无法确认'}])
+    monkeypatch.setattr(lint,'request_json',lambda _: (next(replies),{'input_tokens':1,'output_tokens':1}))
+    result=lint._run_aligned_abstract({},facts)
+    assert result['execution_status']=='completed' and result['outcome']=='inconclusive'
+    assert result['findings']==[] and result['params']['validation_incomplete']
+
+
+@pytest.mark.parametrize('real_evidence',[True,False])
+def test_unresolved_review_uses_owned_scope_but_still_requires_actual_fact_evidence(monkeypatch,real_evidence):
+    import copy
+    lint=module();facts,bad=_alignment_fixture(1,1);bad['from_english'][0]['target_ids']=[2]
+    calls=[]
+    def request(messages):
+        calls.append(messages)
+        if len(calls)<=2:return copy.deepcopy(bad),{'input_tokens':1,'output_tokens':1}
+        return {'reviews':[{'candidate_id':'from_english:1','verdict':'equivalent','target_ids':[999],
+            'fact_checks':[{'source_quote':'English fact 1.','relation':'covered',
+                           'target_quote':'中文事实1。' if real_evidence else '并不存在的目标事实。'}]}]}, {'input_tokens':1,'output_tokens':1}
+    monkeypatch.setattr(lint,'request_json',request)
+    result=lint._run_aligned_abstract({},facts)
+    assert result['execution_status']=='completed'
+    assert result['outcome']==('passed' if real_evidence else 'inconclusive')
+    assert result['params']['raw_candidate_reviews'][0]['target_ids']==[999]
+    assert result['params']['candidate_reviews'][0]['target_ids']==[1]
+
+
+def test_single_review_binding_does_not_merge_latin_word_boundaries(monkeypatch):
+    lint=module();facts={'chinese_abstract':'我们无法运行该方法。','english_abstract':'We are not able to run.'}
+    alignment={'from_chinese':[{'source_id':1,'target_ids':[1],'status':'matched'}],
+               'from_english':[{'source_id':1,'target_ids':[],'status':'partial'}]}
+    replies=iter([alignment,{'reviews':[]},{'verdict':'partial_omission','missing_in':'chinese',
+        'reason':'缺少事实。','fact_checks':[{'source_quote':'We are notable to run.',
+            'relation':'missing','target_quote':''}]}])
+    monkeypatch.setattr(lint,'request_json',lambda _: (next(replies),{'input_tokens':1,'output_tokens':1}))
+    with pytest.raises(ValueError,match='evidence from its assigned source'):lint._run_aligned_abstract({},facts)
+
+
+@pytest.mark.parametrize('individual',[False,True])
+@pytest.mark.parametrize('verdict,relation,expected',[
+    ('equivalent','uncertain','inconclusive'),('contradiction','covered','passed')])
+def test_recovered_conclusions_are_controlled_by_verified_fact_relations(monkeypatch,individual,verdict,relation,expected):
+    import copy
+    lint=module();facts={'chinese_abstract':'我们提出该方法。','english_abstract':'We propose the method.'}
+    initial={'from_chinese':[{'source_id':1,'target_ids':[1],'status':'matched'}],
+             'from_english':[{'source_id':1,'target_ids':[] if individual else [2],'status':'partial' if individual else 'matched'}]}
+    answer={'candidate_id':'from_english:1','verdict':verdict,'reason':'模型的总结不能替代事实证据。',
+        'fact_checks':[{'source_quote':facts['english_abstract'],'relation':relation,
+                       'target_quote':facts['chinese_abstract'] if relation=='covered' else ''}]}
+    calls=[]
+    def request(messages):
+        calls.append(messages)
+        if len(calls)==1:return copy.deepcopy(initial),{'input_tokens':1,'output_tokens':1}
+        if len(calls)==2:return ({'reviews':[]} if individual else copy.deepcopy(initial)),{'input_tokens':1,'output_tokens':1}
+        return (copy.deepcopy(answer) if individual else {'reviews':[copy.deepcopy(answer)]}),{'input_tokens':1,'output_tokens':1}
+    monkeypatch.setattr(lint,'request_json',request)
+    result=lint._run_aligned_abstract({},facts)
+    assert result['execution_status']=='completed' and result['outcome']==expected
+    assert result['findings']==[]
+    assert result['params']['validation_incomplete']==(relation=='uncertain')
+
+
+@pytest.mark.parametrize('bad_side',['source','target'])
+def test_unresolved_batch_fact_binding_preserves_latin_word_boundaries(monkeypatch,bad_side):
+    import copy
+    lint=module();facts={'chinese_abstract':'我们无法运行该方法。','english_abstract':'We are not able to run.'}
+    direction='from_english' if bad_side=='source' else 'from_chinese'
+    alignment={'from_chinese':[{'source_id':1,'target_ids':[1],'status':'matched'}],
+               'from_english':[{'source_id':1,'target_ids':[1],'status':'matched'}]}
+    alignment[direction][0]['target_ids']=[2]
+    answer={'candidate_id':direction+':1','verdict':'equivalent','fact_checks':[{
+        'source_quote':'We are notable to run.' if bad_side=='source' else facts['chinese_abstract'],
+        'relation':'covered','target_quote':facts['chinese_abstract'] if bad_side=='source' else 'We are notable to run.'}]}
+    calls=[]
+    def request(messages):
+        calls.append(messages)
+        return (copy.deepcopy(alignment) if len(calls)<=2 else {'reviews':[copy.deepcopy(answer)]}),{'input_tokens':1,'output_tokens':1}
+    monkeypatch.setattr(lint,'request_json',request)
+    result=lint._run_aligned_abstract({},facts)
+    assert result['execution_status']=='completed' and result['outcome']=='inconclusive'
+    assert result['params']['validation_incomplete'] and result['findings']==[]
+
+
+@pytest.mark.parametrize('relation',['missing','contradiction'])
+def test_verified_recovered_findings_survive_other_uncertain_facts(monkeypatch,relation):
+    import copy
+    lint=module();facts={'chinese_abstract':'本文只讨论背景。' if relation=='missing' else '我们提出方法甲。',
+                        'english_abstract':'We propose method B and achieve good results.'}
+    bad={'from_chinese':[{'source_id':1,'target_ids':[1],'status':'matched'}],
+         'from_english':[{'source_id':1,'target_ids':[2],'status':'matched'}]}
+    answer={'candidate_id':'from_english:1','verdict':'equivalent','fact_checks':[
+        {'source_quote':'method B','relation':relation,'target_quote':'方法甲' if relation=='contradiction' else ''},
+        {'source_quote':'good results','relation':'uncertain','target_quote':''}]}
+    calls=[]
+    def request(messages):
+        calls.append(messages)
+        return (copy.deepcopy(bad) if len(calls)<=2 else {'reviews':[copy.deepcopy(answer)]}),{'input_tokens':1,'output_tokens':1}
+    monkeypatch.setattr(lint,'request_json',request)
+    result=lint._run_aligned_abstract({},facts)
+    assert result['execution_status']=='completed' and result['outcome']=='issues_found'
+    assert len(result['findings'])==1 and result['params']['validation_incomplete']
+    assert result['params']['alignment_repair']['status']=='inconclusive_by_semantic_review'
+
+
 def test_failed_alignment_repair_remains_an_auditable_error_in_final_rule(monkeypatch):
     import copy
     lint=module();facts,valid=_alignment_fixture(1,1);bad=copy.deepcopy(valid);bad['from_english'][0]['target_ids']=[2]
@@ -717,7 +896,9 @@ def test_failed_alignment_repair_remains_an_auditable_error_in_final_rule(monkey
     assert run['execution_status']=='error' and run['outcome']=='inconclusive'
     assert run['params']['alignment_repair']['attempts']==1
     assert run['params']['alignment_repair']['status']=='failed'
-    assert len(calls)==2
+    assert len(calls)==4
+    assert run['params']['raw_alignment']==bad
+    assert run['params']['raw_review_batch']==bad
 
 
 
@@ -777,5 +958,5 @@ def test_accepted_alignment_repair_audit_survives_a_later_review_failure(monkeyp
     assert run['execution_status']=='error' and run['outcome']=='inconclusive'
     assert run['params']['alignment_repair']['status']=='accepted'
     assert run['params']['alignment_repair']['attempts']==1
-    assert run['model_usage']==({'input_tokens':7,'output_tokens':10} if failure=='transport' else {'input_tokens':18,'output_tokens':23})
-    assert len(calls)==3
+    assert run['model_usage']==({'input_tokens':7,'output_tokens':10} if failure=='transport' else {'input_tokens':29,'output_tokens':36})
+    assert len(calls)==(3 if failure=='transport' else 4)

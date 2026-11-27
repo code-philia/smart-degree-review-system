@@ -1077,7 +1077,8 @@ def _alignment_repair_diagnostics(alignment, chinese, english, initial_error):
 def _alignment_audit_error(error, audit, usage):
     if audit:
         error.alignment_repair = dict(audit)
-        error.known_model_usage = dict(usage)
+    previous = getattr(error, 'known_model_usage', {})
+    error.known_model_usage = {key: max(value, previous.get(key, 0)) for key, value in usage.items()}
     return error
 
 
@@ -1111,14 +1112,16 @@ def _alignment_target_repair_rows(alignment, chinese, english):
     return repair_rows or None
 
 
+def _abstract_quote_key(value):
+    # CJK PDF layout whitespace carries no word-boundary meaning. Latin and
+    # numeric boundaries must survive: "not able" must not match "notable".
+    collapsed = ' '.join(value.split())
+    return re.sub(r'(?<=[\u3400-\u9fff，。！？；：、])\s+|\s+(?=[\u3400-\u9fff，。！？；：、])', '', collapsed)
+
+
 def _grounded_alignment_target_repair(response, alignment, repair_rows, chinese, english):
     """Resolve closed source-owned keys or complete quotes; never clamp an ID."""
     import copy
-    def quote_key(value):
-        # Chinese PDF line breaks/spaces carry no word-boundary meaning. Keep
-        # Latin/numeric boundaries: "not able" must never match "notable".
-        collapsed = ' '.join(value.split())
-        return re.sub(r'(?<=[\u3400-\u9fff，。！？；：、])\s+|\s+(?=[\u3400-\u9fff，。！？；：、])', '', collapsed)
     requested = {(row['direction'], row['source_id']) for row in repair_rows}
     if isinstance(response, dict) and 'repairs' not in response:
         # A complete legacy response is still acceptable if independently valid
@@ -1169,7 +1172,7 @@ def _grounded_alignment_target_repair(response, alignment, repair_rows, chinese,
                 if not isinstance(quote, str) or not quote.strip():
                     raise ValueError('invalid abstract target quote')
                 matches = [i for i, sentence in enumerate(targets, 1)
-                           if quote_key(sentence) == quote_key(quote)]
+                           if _abstract_quote_key(sentence) == _abstract_quote_key(quote)]
                 if not matches:
                     raise ValueError('abstract target quote is not an existing complete sentence')
                 ids.extend(i for i in matches if i not in ids)
@@ -1180,12 +1183,102 @@ def _grounded_alignment_target_repair(response, alignment, repair_rows, chinese,
     return result
 
 
+def _alignment_full_context_review(alignment, chinese, english):
+    """Route unresolved metadata to real semantic checks, never to a match."""
+    import copy
+    result, unresolved = {}, []
+    for direction, sources, targets in (('from_chinese', chinese, english), ('from_english', english, chinese)):
+        rows = alignment.get(direction) if isinstance(alignment, dict) else None
+        grouped = {}
+        for row in rows if isinstance(rows, list) else []:
+            if isinstance(row, dict) and type(row.get('source_id')) is int:
+                grouped.setdefault(row['source_id'], []).append(row)
+        result[direction] = []
+        for sid in range(1, len(sources) + 1):
+            options = grouped.get(sid, [])
+            row = copy.deepcopy(options[0]) if len(options) == 1 else {}
+            status, tids = row.get('status'), row.get('target_ids')
+            if tids is None and status in ('partial', 'missing'):
+                tids = []
+                row['target_ids'] = tids
+            valid = (isinstance(status, str) and status in {'matched','partial','missing','conflict'}
+                     and isinstance(tids, list)
+                     and all(type(i) is int and 1 <= i <= len(targets) for i in tids)
+                     and (bool(tids) or status in {'partial','missing'}))
+            if not valid:
+                # These are provisional review candidates, not assertions that
+                # the source is missing or matched. The following model call
+                # must actually check this real source against the full target.
+                row = dict(source_id=sid, target_ids=list(range(1,len(targets)+1)),
+                           status='partial', needs_semantic_review=True)
+                unresolved.append(f'{direction}:{sid}')
+            result[direction].append(row)
+    return result, unresolved
+
+
 def _alignment_review_request(messages, audit, usage):
     try:
         return request_json(messages)
     except Exception as error:
-        _alignment_audit_error(error, audit, usage)
+        failed_usage = getattr(error, 'known_model_usage', {})
+        _alignment_audit_error(error, audit, {key: value + failed_usage.get(key,0) for key,value in usage.items()})
         raise
+
+
+def _recover_abstract_reviews(review, candidates, messages, chinese, english, audit, usage):
+    """Keep valid batch answers; verify missing jobs individually with owned IDs."""
+    rows = review.get('reviews') if isinstance(review, dict) else None
+    expected = {c['candidate_id'] for c in candidates}
+    grouped = {}
+    for row in rows if isinstance(rows, list) else []:
+        cid = row.get('candidate_id') if isinstance(row, dict) else None
+        if isinstance(cid,str) and cid in expected:
+            grouped.setdefault(cid, []).append(row)
+    if (isinstance(rows,list) and len(rows)==len(expected)
+            and len(grouped)==len(expected) and all(len(v)==1 for v in grouped.values())):
+        return rows, None
+    accepted = {cid:values[0] for cid,values in grouped.items() if len(values)==1}
+    recovery = dict(status='started',attempts=0,initial_record_count=len(rows) if isinstance(rows,list) else 0,
+                    recovered_candidate_ids=[],raw_responses=[])
+    prefix = messages[0]['content'].rsplit('\n候选：\n',1)[0]
+    for candidate in candidates:
+        cid = candidate['candidate_id']
+        if cid in accepted:
+            continue
+        targets = english if candidate['direction']=='from_chinese' else chinese
+        scope = {**candidate,'target_ids':list(range(1,len(targets)+1)), 'target_sentences':targets}
+        prompt = (prefix + '\n本请求只核验下面这一条实际源句，对照完整目标摘要逐项检查事实。'
+                  '只返回一个review对象（verdict、missing_in、source_fact、target_fact、fact_checks、reason），'
+                  '不要reviews数组，不要candidate_id或target_ids；任务标识和比较范围由程序绑定。'
+                  '\n候选：\n' + json.dumps([scope],ensure_ascii=True))
+        recovery['attempts'] += 1
+        try:
+            answer, used = _alignment_review_request([{'role':'user','content':prompt}], audit, usage)
+            for key in usage:
+                usage[key] += used[key]
+            recovery['raw_responses'].append(dict(candidate_id=cid,response=json.loads(json.dumps(answer,ensure_ascii=True))))
+            if isinstance(answer,dict) and 'reviews' in answer:
+                entries = answer['reviews']
+                answer = entries[0] if isinstance(entries,list) and len(entries)==1 else None
+            if not isinstance(answer,dict) or not isinstance(answer.get('verdict'),str):
+                raise ValueError('invalid single abstract review')
+            if answer['verdict']!='uncertain':
+                checks = answer.get('fact_checks')
+                source = _abstract_quote_key(candidate['source_sentence'])
+                if (not isinstance(checks,list) or not checks or any(
+                        not isinstance(check,dict) or not str(check.get('source_quote') or '').strip()
+                        or not isinstance(check['source_quote'],str)
+                        or _abstract_quote_key(check['source_quote']) not in source for check in checks)):
+                    raise ValueError('single abstract review requires evidence from its assigned source')
+            accepted[cid] = {**answer,'candidate_id':cid,
+                             'target_ids':[] if answer['verdict']=='core_omission' else scope['target_ids']}
+            recovery['recovered_candidate_ids'].append(cid)
+        except Exception as error:
+            error.review_recovery = {**recovery,'status':'failed'}
+            _alignment_audit_error(error,audit,usage)
+            raise
+    recovery['status'] = 'completed'
+    return [accepted[c['candidate_id']] for c in candidates], recovery
 
 
 def _run_aligned_abstract(ir, facts):
@@ -1232,6 +1325,7 @@ def _run_aligned_abstract(ir, facts):
         '{"from_chinese":[{"source_id":1,"target_ids":[1],"status":"matched"}],'
         '"from_english":[{"source_id":1,"target_ids":[1],"status":"matched"}]}。\n' + alignment_context)}]
     alignment, usage = request_json(alignment_messages)
+    raw_alignment = json.loads(json.dumps(alignment,ensure_ascii=True))
     alignment_repair = None
     try:
         candidates = _alignment_candidates(alignment, chinese, english)
@@ -1271,6 +1365,7 @@ def _run_aligned_abstract(ir, facts):
         audit = {'attempts': 1, 'status': 'started', 'initial_error': str(initial_error)[:300],
                  'total_errors': feedback['total_errors'], 'omitted_errors': feedback['omitted_errors'],
                  'strategy': 'grounded_target_selection' if repair_rows else 'full_alignment'}
+        repair_usage_recorded = False
         try:
             repaired, used = request_json(alignment_messages + [
                 {'role': 'assistant', 'content': json.dumps(alignment, ensure_ascii=True)},
@@ -1278,18 +1373,29 @@ def _run_aligned_abstract(ir, facts):
             ])
             for key in usage:
                 usage[key] += used[key]
+            repair_usage_recorded = True
             if repair_rows:
                 repaired = _grounded_alignment_target_repair(repaired, alignment, repair_rows, chinese, english)
             candidates = _alignment_candidates(repaired, chinese, english)
         except Exception as repair_error:
-            repair_error.alignment_repair = {**audit, 'status': 'failed'}
-            repair_error.known_model_usage = dict(usage)
-            raise
+            if not repair_usage_recorded:
+                known = getattr(repair_error,'known_model_usage',{})
+                for key in usage:
+                    usage[key] += known.get(key,0)
+            if not isinstance(repair_error,(ValueError,TypeError)):
+                _alignment_audit_error(repair_error,{**audit,'status':'failed'},usage)
+                raise
+            repaired, unresolved = _alignment_full_context_review(alignment,chinese,english)
+            candidates = _alignment_candidates(repaired,chinese,english)
+            audit.update(fallback_mode='full_context_semantic_review',unresolved_sources=unresolved,
+                         repair_error=str(repair_error)[:300])
         alignment = repaired
-        alignment_repair = {**audit, 'status': 'accepted'}
+        alignment_repair = {**audit, 'status': 'requires_semantic_review' if audit.get('fallback_mode') else 'accepted'}
     reviews = []
+    review_recovery = None
+    raw_review_response = None
     if candidates:
-        review, used = _alignment_review_request([{'role':'user','content':(
+        review_messages = [{'role':'user','content':(
             policy + '\n复核以下每个候选，重新搜索另一摘要全文中的等价表达。不得补造新候选。'
             'equivalent、detail_difference、uncertain 不报警；detail_difference仅限不损失事实的语言表达差异。'
             'partial_omission用于存在对应句组、但其中部分具体事实没有对应表达的情况。'
@@ -1335,26 +1441,33 @@ def _run_aligned_abstract(ir, facts):
             '"fact_checks":[{"source_quote":"源句中的一项事实",'
             '"relation":"covered|missing|contradiction|uncertain","target_quote":"目标原文或空串"}],'
             '"target_ids":[1],"reason":"依据"}]}。\n'
-            + context + '\n候选：\n' + json.dumps(candidates, ensure_ascii=False))}], alignment_repair, usage)
-        for key in usage:
-            usage[key] += used[key]
-        reviews = review.get('reviews') if isinstance(review, dict) else None
-        expected = {r['candidate_id'] for r in candidates}
+            + context + '\n候选：\n' + json.dumps(candidates, ensure_ascii=False))}]
         try:
-            if not isinstance(reviews,list) or any(not isinstance(r,dict) for r in reviews):
-                raise ValueError('invalid abstract review')
-            if len(reviews) != len(expected) or {r.get('candidate_id') for r in reviews} != expected:
-                raise ValueError('abstract review has missing or duplicate candidates')
+            review, used = _alignment_review_request(review_messages, alignment_repair, usage)
+            for key in usage:
+                usage[key] += used[key]
+            raw_review_response = json.loads(json.dumps(review,ensure_ascii=True))
+            reviews, review_recovery = _recover_abstract_reviews(review,candidates,review_messages,
+                chinese,english,alignment_repair,usage)
         except Exception as review_error:
-            _alignment_audit_error(review_error, alignment_repair, usage)
+            failed_audit = ({**alignment_repair,'status':'failed','fallback_status':'failed'}
+                            if alignment_repair and alignment_repair.get('fallback_mode') else alignment_repair)
+            _alignment_audit_error(review_error, failed_audit, usage)
+            if alignment_repair and alignment_repair.get('fallback_mode'):
+                review_error.raw_alignment = raw_alignment
+            review_error.raw_review_batch = raw_review_response
             raise
     raw_reviews = json.loads(json.dumps(reviews, ensure_ascii=True))
     validation_diagnostics = []
     lookup = {r['candidate_id']:r for r in candidates}
+    unresolved_scope = set(alignment_repair.get('unresolved_sources',[])) if alignment_repair else set()
+    recovered_scope = set(review_recovery['recovered_candidate_ids']) if review_recovery else set()
     mismatches, seen = [], {}
     for review in reviews:
         try:
             candidate = lookup[review['candidate_id']]
+            owned_scope = review['candidate_id'] in unresolved_scope | recovered_scope
+            compact = _abstract_quote_key if owned_scope else _compact_claim
             zh = candidate['direction'] == 'from_chinese'
             sources, targets = (chinese,english) if zh else (english,chinese)
             verdict = review.get('verdict')
@@ -1363,6 +1476,14 @@ def _run_aligned_abstract(ir, facts):
                 'equivalent','detail_difference','uncertain','core_omission','partial_omission','contradiction'
             }:
                 raise ValueError('invalid abstract review verdict')
+            if review['candidate_id'] in unresolved_scope:
+                review['model_target_ids'] = review.get('target_ids')
+                # This fresh review compared the real source with the complete
+                # opposite abstract. The scope belongs to the task, not the LLM.
+                review['target_ids'] = [] if verdict=='core_omission' else list(range(1,len(targets)+1))
+            if review['candidate_id'] in unresolved_scope | recovered_scope and verdict!='uncertain':
+                if not isinstance(review.get('fact_checks'),list) or not review['fact_checks']:
+                    raise ValueError('recovered abstract review requires source-grounded fact evidence')
             tids = review.get('target_ids',candidate['target_ids'])
             if not isinstance(tids,list) or any(type(i) is not int or not 1 <= i <= len(targets) for i in tids):
                 raise ValueError('invalid reviewed abstract target')
@@ -1373,10 +1494,11 @@ def _run_aligned_abstract(ir, facts):
             if checks is not None:
                 if not isinstance(checks,list) or not checks:
                     raise ValueError('invalid abstract fact coverage')
-                source_text = _compact_claim(sources[candidate['source_id']-1])
-                target_text = _compact_claim(' '.join(targets))
+                source_text = compact(sources[candidate['source_id']-1])
+                target_text = compact(' '.join(targets))
                 missing = []
                 conflicts = []
+                uncertain_facts = []
                 invalid_checks = False
                 for fact_index, check in enumerate(checks, 1):
                     try:
@@ -1385,40 +1507,45 @@ def _run_aligned_abstract(ir, facts):
                         quote = str(check.get('source_quote') or '').strip()
                         target_quote = str(check.get('target_quote') or '').strip()
                         relation = check.get('relation')
-                        if not quote or _compact_claim(quote) not in source_text or relation not in {'covered','missing','contradiction','uncertain'}:
+                        if not quote or compact(quote) not in source_text or relation not in {'covered','missing','contradiction','uncertain'}:
                             raise ValueError('abstract fact check has invalid source evidence: ' + repr(quote)[:200])
-                        if relation == 'covered' and (not target_quote or _compact_claim(target_quote) not in target_text):
+                        if relation == 'covered' and (not target_quote or compact(target_quote) not in target_text):
                             raise ValueError('abstract fact check has untraceable target evidence')
                         if relation == 'contradiction':
-                            if not target_quote or _compact_claim(target_quote) not in _compact_claim(target):
+                            if not target_quote or compact(target_quote) not in compact(target):
                                 raise ValueError('abstract conflict has no target evidence in aligned sentences')
                             conflicts.append((quote, target_quote) if zh else (target_quote, quote))
                         if relation == 'missing':
                             if target_quote:
                                 raise ValueError('missing abstract fact cannot have target evidence')
                             missing.append(quote)
+                        if relation == 'uncertain':
+                            uncertain_facts.append(fact_index)
                     except (ValueError, TypeError, KeyError) as error:
                         invalid_checks = True
                         diagnostic = dict(candidate_id=review['candidate_id'], stage='fact_evidence', fact_index=fact_index, reason=str(error))
                         validation_diagnostics.append(diagnostic)
                         review.setdefault('validation_errors', []).append(diagnostic)
+                if owned_scope and uncertain_facts:
+                    validation_diagnostics.append(dict(candidate_id=review['candidate_id'],stage='fact_evidence',
+                        fact_indices=uncertain_facts,reason='Some source facts remained uncertain after semantic review.'))
                 if conflicts:
                     verdict = 'contradiction'
                     left, right = conflicts[0]
-                    opposite_quote = _compact_claim(right if zh else left)
-                    matching_targets = [i for i in tids if opposite_quote in _compact_claim(targets[i-1])]
+                    opposite_quote = compact(right if zh else left)
+                    matching_targets = [i for i in tids if opposite_quote in compact(targets[i-1])]
                     if len(matching_targets) == 1:
                         target = targets[matching_targets[0]-1]
                     review.update(verdict=verdict, missing_in=None,
                                   reason=f'中文写作「{left}」，英文写作「{right}」，对应事实表述不一致。')
-                elif missing and verdict != 'contradiction':
+                elif missing and (verdict != 'contradiction' or owned_scope):
                     verdict = 'partial_omission'
                     review.update(verdict=verdict,missing_in='english' if zh else 'chinese',
                                   reason=('英文摘要' if zh else '中文摘要')+'未对应说明：'+'；'.join(missing))
-                elif invalid_checks:
+                elif invalid_checks or (owned_scope and uncertain_facts):
                     verdict = 'uncertain'
                     review['verdict'] = verdict
-                elif all(check['relation']=='covered' for check in checks) and verdict != 'contradiction':
+                elif all(check['relation']=='covered' for check in checks) and (verdict != 'contradiction' or owned_scope):
                     verdict = 'equivalent'
                     review.update(verdict=verdict,missing_in=None)
             if verdict not in {'core_omission','partial_omission','contradiction'}:
@@ -1452,8 +1579,19 @@ def _run_aligned_abstract(ir, facts):
             validation_diagnostics.append(diagnostic)
             review['validation_status'] = 'unverified'
             review['validation_error'] = str(error)
+            if review['candidate_id'] in unresolved_scope | recovered_scope:
+                review['verdict'] = 'uncertain'
             continue
     mismatches.sort(key=lambda row: row['mismatch_type'] != 'conflict')
+    unresolved = set(alignment_repair.get('unresolved_sources',[])) if alignment_repair else set()
+    recovered = set(review_recovery['recovered_candidate_ids']) if review_recovery else set()
+    for review in reviews:
+        if review['candidate_id'] in unresolved | recovered and review.get('verdict')=='uncertain':
+            validation_diagnostics.append(dict(candidate_id=review['candidate_id'],stage='semantic_recovery',
+                reason='The source-bound semantic check remained uncertain; no match was inferred.'))
+    if alignment_repair and alignment_repair.get('fallback_mode'):
+        alignment_repair['status'] = ('inconclusive_by_semantic_review' if validation_diagnostics
+                                      else 'resolved_by_semantic_review')
     findings = []
     for index,row in enumerate(mismatches[:3],1):
         anchors,evidence = _abstract_issue_anchors(ir,facts,row)
@@ -1466,8 +1604,11 @@ def _run_aligned_abstract(ir, facts):
         outcome='issues_found' if findings else ('inconclusive' if validation_diagnostics else 'passed'),
         message=('摘要对照已完成，部分候选的证据暂未核实。已保留核实通过的结果；可稍后重新检测。'
                  if validation_diagnostics else None),findings=findings,model_usage=usage,
-        params=dict(comparison_mode='full_sentence_alignment_v5.3',alignment=alignment,
+        params=dict(comparison_mode='full_sentence_alignment_v5.4',alignment=alignment,
                     **({'alignment_repair': alignment_repair} if alignment_repair else {}),
+                    **({'raw_alignment': raw_alignment} if alignment_repair and alignment_repair.get('fallback_mode') else {}),
+                    **({'review_recovery': review_recovery} if review_recovery else {}),
+                    **({'raw_review_batch': raw_review_response} if review_recovery else {}),
                     candidate_reviews=reviews,raw_candidate_reviews=raw_reviews,
                     validation_incomplete=bool(validation_diagnostics),
                     validation_diagnostics=validation_diagnostics,mismatches=mismatches[:3]))
@@ -1576,7 +1717,14 @@ def run(pdf: Path, rule_ids: list[str], run_id=None, on_rule_complete=None,
                 }
                 if hasattr(error, 'alignment_repair'):
                     completed['params']['alignment_repair'] = error.alignment_repair
+                if hasattr(error, 'known_model_usage'):
                     completed['model_usage'] = error.known_model_usage
+                if hasattr(error, 'review_recovery'):
+                    completed['params']['review_recovery'] = error.review_recovery
+                if hasattr(error, 'raw_alignment'):
+                    completed['params']['raw_alignment'] = error.raw_alignment
+                if hasattr(error, 'raw_review_batch'):
+                    completed['params']['raw_review_batch'] = error.raw_review_batch
             runs[futures[future]] = completed
             if on_rule_complete:
                 on_rule_complete(completed)
