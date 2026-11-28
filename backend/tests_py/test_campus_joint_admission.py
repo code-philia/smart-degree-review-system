@@ -19,7 +19,7 @@ def test_rpm_wait_never_reserves_tokens(controlled, monkeypatch):
         original_sleep(seconds)
     monkeypatch.setattr(clock, 'sleep', inspect)
     api.campus_request(URL, {}, 1, lambda _: usage(), payload=payload())
-    assert observed and set(observed) == {10}
+    assert observed and set(observed) == {61}
 
 
 def test_both_unavailable_waits_for_rpm_first(controlled, monkeypatch):

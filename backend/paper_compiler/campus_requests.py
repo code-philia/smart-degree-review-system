@@ -67,7 +67,7 @@ def estimate_request_tokens(payload):
 
 
 def _actual_tokens(response):
-    """Only trustworthy usage can reduce a reservation; answer parsing is separate."""
+    """Actual usage is independent of the gateway's asynchronous refund window."""
     try:
         if isinstance(response, (str, bytes, bytearray)):
             response = json.loads(response)
@@ -128,6 +128,9 @@ class CampusRequestCoordinator:
             # control group is stopped, allow a full quiet provider window.
             db.execute('INSERT OR IGNORE INTO quota_meta VALUES (?,?)',
                        ('tpm', time.time() + 60 if legacy else 0))
+            added=db.execute('INSERT OR IGNORE INTO quota_meta VALUES (?,?)',('tpm-safe-window-v2',0)).rowcount
+            if added and 'token_reservations' in tables:
+                db.execute("UPDATE quota_meta SET ready_at=max(ready_at,?) WHERE id='tpm'",(time.time()+60,))
             if db.execute('SELECT 1 FROM waiters JOIN token_waiters USING(ticket) LIMIT 1').fetchone():
                 # Older versions allocated each queue independently. Re-ticket
                 # overlapping live rows once, preserving each queue's FIFO order.
@@ -280,13 +283,13 @@ class CampusRequestCoordinator:
                 row = db.execute('SELECT state FROM token_reservations WHERE id=?', (identity,)).fetchone()
                 if row:
                     actual = budget.get('actual')
-                    if row[0] == 0 or actual == 0:
+                    if row[0] == 0 or budget.get('rejected') is True:
                         db.execute('DELETE FROM token_reservations WHERE id=?', (identity,))
                     else:
-                        # Start the accounting window at completion: long-running
-                        # in-flight requests must never lose their reserved budget.
+                        # The response does not acknowledge the gateway's async
+                        # refund. Keep at least the estimate for one full window.
                         if type(actual) is int and 0 <= actual <= 2**63 - 1:
-                            db.execute('UPDATE token_reservations SET tokens=? WHERE id=?', (min(actual, self.tokens_per_minute), identity))
+                            db.execute('UPDATE token_reservations SET tokens=? WHERE id=?', (min(max(tokens,actual), self.tokens_per_minute), identity))
                         db.execute('UPDATE token_reservations SET state=2,expires_at=? WHERE id=?', (time.time() + 60, identity))
                 db.commit()
 
@@ -441,11 +444,11 @@ class CampusRequestCoordinator:
                     row = db.execute('SELECT state FROM token_reservations WHERE id=?', (identity,)).fetchone()
                     if row:
                         actual = token_budget.get('actual')
-                        if actual == 0:
+                        if token_budget.get('rejected') is True:
                             db.execute('DELETE FROM token_reservations WHERE id=?', (identity,))
                         else:
                             if type(actual) is int and 0 <= actual <= 2**63 - 1:
-                                db.execute('UPDATE token_reservations SET tokens=? WHERE id=?', (min(actual, self.tokens_per_minute), identity))
+                                db.execute('UPDATE token_reservations SET tokens=? WHERE id=?', (min(max(tokens,actual), self.tokens_per_minute), identity))
                             db.execute('UPDATE token_reservations SET state=2,expires_at=? WHERE id=?', (time.time()+60, identity))
                 db.commit()
 
@@ -489,7 +492,7 @@ def campus_request(url, headers, timeout, send, *, remaining_time=None, payload=
                 except Exception as error:
                     if budget is not None and (getattr(error, 'code', getattr(error, 'status', None)) == 429
                                                or getattr(error, 'request_not_sent', False) is True):
-                        budget['actual'] = 0  # Known rejection/preflight; inference never ran.
+                        budget['rejected'] = True  # Known rejection/preflight; inference never ran.
                     raise
                 if budget is not None:
                     budget['actual'] = _actual_tokens(response)

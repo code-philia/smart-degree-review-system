@@ -140,7 +140,7 @@ def test_timeout_retry_reacquires_tpm_budget_and_keeps_unknown_attempt(provider,
         def sleep(self,seconds):self.now+=seconds
     clock=Clock();path=tmp_path/'quota.sqlite';starts=[]
     provider.setattr(api,'time',clock);provider.setattr(recovery.time,'sleep',clock.sleep)
-    provider.setenv('SJTU_API_COORDINATOR_DB',str(path));provider.setenv('SJTU_API_TOKENS_PER_MINUTE','10000')
+    provider.setenv('SJTU_API_COORDINATOR_DB',str(path));provider.setenv('SJTU_API_TOKENS_PER_MINUTE','3000')
     provider.setattr(lint,'campus_request',api.campus_request)
     def opened(*args,**kwargs):
         starts.append(clock.now)

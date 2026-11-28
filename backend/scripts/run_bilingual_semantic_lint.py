@@ -43,6 +43,7 @@ _TYPO_JSON_SCHEMAS = {
     'typo-review': '只返回含 accepted 和 reason 的 JSON 对象。accepted 必须为 JSON 布尔值，reason 必须为非空字符串。',
     'typo-fields': '只返回含 accepted 和 reason 的 JSON 对象。accepted 必须为 JSON 布尔值，reason 必须为非空字符串；accepted 为 true 时还必须含非空字符串 original、corrected。',
 }
+_TYPO_OUTPUT_LIMITS = {'typo-discovery':2048,'typo-review':512,'typo-fields':512}
 
 
 def public_failure_message(error: object) -> str:
@@ -91,8 +92,37 @@ def api_config() -> tuple[str, str, str, str]:
     return key, "https://api.deepseek.com", "deepseek-v4-flash", "deepseek"
 
 
+def _typo_json(content,contract):
+    """Decode the whole answer; recover only complete top-level array prefixes."""
+    if isinstance(content,dict):return content
+    if not isinstance(content,str):raise ValueError('错别字模型未返回 JSON 对象')
+    text=content.strip()
+    fenced=re.fullmatch(r'```(?:json)?\s*(.*?)\s*```',text,re.S|re.I)
+    if fenced:text=fenced.group(1)
+    try:return json.loads(text)
+    except ValueError as error:
+        if contract!='typo-discovery':raise ValueError('错别字模型未返回完整 JSON') from error
+        # Never promote a nested object from a malformed outer envelope. The
+        # only salvageable prefix starts with the actual errors array.
+        prefix=re.sub(r'\A```(?:json)?\s*','',text,flags=re.I)
+        start=re.match(r'\A\s*\{\s*"errors"\s*:\s*\[',prefix)
+        rows=[]
+        if start:
+            position=start.end();decoder=json.JSONDecoder()
+            while len(rows)<20:
+                while position<len(prefix) and prefix[position].isspace():position+=1
+                try:row,position=decoder.raw_decode(prefix,position)
+                except ValueError:break
+                rows.append(row)
+                while position<len(prefix) and prefix[position].isspace():position+=1
+                if position>=len(prefix) or prefix[position]!=',':break
+                position+=1
+        raise TypoDiscoveryFormatError({'errors':rows}) from error
+
+
 def request_json(messages: list[dict[str, str]], *, observer=None, response_contract=None,
-                 _format_retry=False, _timeout_state=None, remaining_time=None) -> tuple[dict[str, Any], dict[str, int]]:
+                 _format_retry=False, _timeout_state=None, remaining_time=None,
+                 _output_limit=None) -> tuple[dict[str, Any], dict[str, int]]:
     global _LAST_REQUEST_AT
     timeout_state=_timeout_state if _timeout_state is not None else new_retry_state()
     if remaining_time is not None:remaining_time()
@@ -117,11 +147,12 @@ def request_json(messages: list[dict[str, str]], *, observer=None, response_cont
         model_messages.append({'role':'user','content':
             '上次返回未满足 JSON 格式要求，请重新完成原任务。'+_TYPO_JSON_SCHEMAS[response_contract]+
             '沿用原任务的判断标准和原文范围，不得补造候选或省略核验。'})
+    output_limit=_output_limit if _output_limit is not None else _TYPO_OUTPUT_LIMITS.get(response_contract,8192)
     payload = {
         "model": model,
         "messages": model_messages,
         "temperature": 0,
-        "max_tokens": 8192,
+        "max_tokens": output_limit,
         "response_format": {"type": "json_object"},
     }
     if _provider == 'sjtu' and observer is None:
@@ -198,22 +229,32 @@ def request_json(messages: list[dict[str, str]], *, observer=None, response_cont
     known_usage = {"input_tokens": int(usage.get("prompt_tokens") or 0),
                    "output_tokens": int(usage.get("completion_tokens") or 0)}
     timeout_state['cacheable_response'] = (data.get('choices') or [{}])[0].get('finish_reason') == 'stop'
+    truncated=(data.get('choices') or [{}])[0].get('finish_reason') == 'length'
     try:
-        if (observer or response_contract in _TYPO_JSON_SCHEMAS) and (data.get('choices') or [{}])[0].get('finish_reason') == 'length':
-            raise ValueError('模型输出达到上限，数值核验未完成')
         content = (((data.get("choices") or [{}])[0]).get("message") or {}).get("content")
-        result = content if isinstance(content, dict) else _json_object(content)
+        result = (_typo_json(content,response_contract) if response_contract in _TYPO_JSON_SCHEMAS
+                  else content if isinstance(content, dict) else _json_object(content))
+        if (observer or response_contract in _TYPO_JSON_SCHEMAS) and truncated:
+            if response_contract=='typo-discovery':raise TypoDiscoveryFormatError(result)
+            raise ValueError('模型输出达到上限，检测未完成')
+        if response_contract in _TYPO_JSON_SCHEMAS and not timeout_state['cacheable_response']:
+            if response_contract=='typo-discovery':raise TypoDiscoveryFormatError(result)
+            raise ValueError('错别字模型响应未完整结束')
         if response_contract in _TYPO_JSON_SCHEMAS and not SemanticResponseCache.reusable(result,response_contract):
             if response_contract=='typo-discovery':raise TypoDiscoveryFormatError(result)
             raise ValueError(f'错别字模型返回字段不完整（{response_contract}）')
     except ValueError as error:
+        if truncated:
+            error.args=('模型输出达到上限，检测未完成',)
         # A malformed discovery answer is not a clean chunk. Retry only its
         # format once; every HTTP attempt still passes the queue and billing.
-        if response_contract in _TYPO_JSON_SCHEMAS and not _format_retry:
-            timeout_state['reason']='format'
+        expand=truncated and output_limit<8192
+        if response_contract in _TYPO_JSON_SCHEMAS and (expand or (not truncated and not _format_retry)):
+            timeout_state['reason']='output_limit' if expand else 'format'
             try:
                 result, retried_usage = request_json(messages, observer=observer,
-                    response_contract=response_contract, _format_retry=True,
+                    response_contract=response_contract, _format_retry=_format_retry if expand else True,
+                    _output_limit=min(8192,output_limit*2) if expand else output_limit,
                     _timeout_state=timeout_state,remaining_time=remaining_time)
             except Exception as retried_error:
                 if response_contract=='typo-discovery' and getattr(error,'partial_typo_result',None):
