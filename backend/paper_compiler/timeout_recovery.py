@@ -19,6 +19,29 @@ class ReadTimeoutExhausted(ProviderReadTimeout):
     """Only a provider read timeout that exhausted its one retry may split."""
 
 
+def merge_typo_discoveries(*payloads):
+    """Keep individually valid candidates, with the existing 20-row chunk cap."""
+    rows=[];seen=set()
+    for payload in payloads:
+        if not isinstance(payload,dict) or any(k in payload for k in ('error','error_type','technical_failure')):
+            continue
+        candidates=payload.get('errors')
+        if not isinstance(candidates,list):continue
+        for row in candidates[:20]:
+            if not SemanticResponseCache.reusable({'errors':[row]},'typo-discovery'):continue
+            identity=tuple(row[key] for key in ('original','corrected','context'))
+            if identity in seen:continue
+            seen.add(identity);rows.append(row)
+            if len(rows)==20:return {'errors':rows}
+    return {'errors':rows}
+
+
+class TypoDiscoveryFormatError(ValueError):
+    def __init__(self,payload):
+        super().__init__('错别字模型返回字段不完整（typo-discovery）')
+        self.partial_typo_result=merge_typo_discoveries(payload)
+
+
 def current_attempt():
     return _ATTEMPT.get()
 
@@ -92,22 +115,34 @@ def recover_typo_chunk(text, ask):
         payload,usage=ask(text)
         return payload,usage,None,False
     except Exception as error:
-        if not isinstance(error,ReadTimeoutExhausted):raise
+        partial=getattr(error,'partial_typo_result',None)
+        if not isinstance(error,ReadTimeoutExhausted):
+            if partial is None:raise
+            total={'input_tokens':0,'output_tokens':0}
+            _add_usage(total,getattr(error,'known_model_usage',{}))
+            return partial,total,error,False
         windows=sentence_windows(text)
-        if not windows:raise
         total={'input_tokens':0,'output_tokens':0}
         _add_usage(total,getattr(error,'known_model_usage',{}))
-    rows=[];failure=None
+        if not windows:
+            if partial is not None:return partial,total,error,False
+            raise
+    rows=[{**row,'_recovery_span':(0,len(text)),'_recovery_owned_span':(0,len(text))}
+          for row in merge_typo_discoveries(partial)['errors']]
+    failure=None
     for position,(start,end) in enumerate(windows):
         try:
             payload,usage=ask(text[start:end])
             _add_usage(total,usage)
             if not SemanticResponseCache.reusable(payload,'typo-discovery'):
-                raise ValueError('invalid recovered typo discovery response')
+                raise TypoDiscoveryFormatError(payload)
             rows.extend({**row,'_recovery_span':(start,end),
                          '_recovery_owned_span':(0 if position==0 else windows[0][1],end)}
                         for row in payload['errors'][:20])
         except Exception as error:
             _add_usage(total,getattr(error,'known_model_usage',{}))
+            rows.extend({**row,'_recovery_span':(start,end),
+                         '_recovery_owned_span':(0 if position==0 else windows[0][1],end)}
+                        for row in merge_typo_discoveries(getattr(error,'partial_typo_result',None))['errors'])
             failure=failure or error
     return {'errors':rows},total,failure,True

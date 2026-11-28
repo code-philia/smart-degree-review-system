@@ -25,7 +25,8 @@ from paper_compiler.semantic_cache import SemanticResponseCache
 from paper_compiler.storage import json_bytes
 from paper_compiler.account_credit import bill_model_request, billing_rule
 from paper_compiler.timeout_recovery import (new_retry_state, read_timeout_retry, recover_typo_chunk,
-                                            is_read_timeout, is_socket_timeout, ProviderReadTimeout)
+                                            is_read_timeout, is_socket_timeout, ProviderReadTimeout,
+                                            TypoDiscoveryFormatError, merge_typo_discoveries)
 
 
 BILINGUAL_RULES = {
@@ -37,6 +38,11 @@ NUMERIC_RULE = "abstract_numeric_consistency_check"
 API_CAPACITY_MESSAGE = "当前系统使用人数较多，API 调用暂时繁忙，请稍后重试。"
 RULE_RETRY_MESSAGE = "当前规则暂时无法完成，请稍后重试。"
 API_TIMEOUT_MESSAGE = "API 响应超时，部分检测未完成。已完成的有效结果仍予以保留。"
+_TYPO_JSON_SCHEMAS = {
+    'typo-discovery': '只返回含 errors 数组的 JSON 对象。数组每项必须含非空字符串 original、corrected、context、reason。没有候选时返回 {"errors":[]}。',
+    'typo-review': '只返回含 accepted 和 reason 的 JSON 对象。accepted 必须为 JSON 布尔值，reason 必须为非空字符串。',
+    'typo-fields': '只返回含 accepted 和 reason 的 JSON 对象。accepted 必须为 JSON 布尔值，reason 必须为非空字符串；accepted 为 true 时还必须含非空字符串 original、corrected。',
+}
 
 
 def public_failure_message(error: object) -> str:
@@ -107,6 +113,10 @@ def request_json(messages: list[dict[str, str]], *, observer=None, response_cont
     model_messages = [{name: value.encode('utf-8', 'backslashreplace').decode('utf-8')
                        if isinstance(value, str) else value for name, value in message.items()}
                       for message in messages]
+    if _format_retry and response_contract in _TYPO_JSON_SCHEMAS:
+        model_messages.append({'role':'user','content':
+            '上次返回未满足 JSON 格式要求，请重新完成原任务。'+_TYPO_JSON_SCHEMAS[response_contract]+
+            '沿用原任务的判断标准和原文范围，不得补造候选或省略核验。'})
     payload = {
         "model": model,
         "messages": model_messages,
@@ -124,6 +134,7 @@ def request_json(messages: list[dict[str, str]], *, observer=None, response_cont
         cache = SemanticResponseCache(cache_root, base_url, key, payload, response_contract=response_contract)
         cached = cache.read()
         if cached is not None:
+            timeout_state['cacheable_response'] = True
             return cached, {'input_tokens': 0, 'output_tokens': 0}
     if observer:
         from urllib.parse import urlsplit
@@ -186,25 +197,36 @@ def request_json(messages: list[dict[str, str]], *, observer=None, response_cont
     usage = data.get("usage") or {}
     known_usage = {"input_tokens": int(usage.get("prompt_tokens") or 0),
                    "output_tokens": int(usage.get("completion_tokens") or 0)}
+    timeout_state['cacheable_response'] = (data.get('choices') or [{}])[0].get('finish_reason') == 'stop'
     try:
-        if (observer or response_contract == 'typo-discovery') and (data.get('choices') or [{}])[0].get('finish_reason') == 'length':
+        if (observer or response_contract in _TYPO_JSON_SCHEMAS) and (data.get('choices') or [{}])[0].get('finish_reason') == 'length':
             raise ValueError('模型输出达到上限，数值核验未完成')
         content = (((data.get("choices") or [{}])[0]).get("message") or {}).get("content")
         result = content if isinstance(content, dict) else _json_object(content)
+        if response_contract in _TYPO_JSON_SCHEMAS and not SemanticResponseCache.reusable(result,response_contract):
+            if response_contract=='typo-discovery':raise TypoDiscoveryFormatError(result)
+            raise ValueError(f'错别字模型返回字段不完整（{response_contract}）')
     except ValueError as error:
         # A malformed discovery answer is not a clean chunk. Retry only its
         # format once; every HTTP attempt still passes the queue and billing.
-        if response_contract == 'typo-discovery' and not _format_retry:
+        if response_contract in _TYPO_JSON_SCHEMAS and not _format_retry:
             timeout_state['reason']='format'
             try:
                 result, retried_usage = request_json(messages, observer=observer,
                     response_contract=response_contract, _format_retry=True,
                     _timeout_state=timeout_state,remaining_time=remaining_time)
             except Exception as retried_error:
+                if response_contract=='typo-discovery' and getattr(error,'partial_typo_result',None):
+                    retried_error.partial_typo_result=merge_typo_discoveries(
+                        error.partial_typo_result,getattr(retried_error,'partial_typo_result',None))
                 previous = getattr(retried_error, 'known_model_usage', {})
                 retried_error.known_model_usage = {key: value + previous.get(key, 0)
                                                  for key, value in known_usage.items()}
                 raise
+            if response_contract=='typo-discovery':
+                result=merge_typo_discoveries(getattr(error,'partial_typo_result',None),result)
+            if cache and timeout_state.get('cacheable_response'):
+                cache.write(result)
             return result, {key: value + retried_usage.get(key, 0)
                             for key, value in known_usage.items()}
         error.known_model_usage = known_usage
@@ -725,7 +747,8 @@ def run_typo_rule_from_ir(ir: dict[str, Any], *, on_chunk_complete=None, max_wor
             rows = payload.get("errors") if isinstance(payload, dict) else []
             if not isinstance(rows, list):
                 rows = []
-            for row in rows[:40 if recovered else 20]:
+            # A split can retain 20 parent candidates and 20 per child.
+            for row in rows[:60 if recovered else 20]:
                 if not isinstance(row, dict):
                     continue
                 raw_original = str(row.get("original") or "").strip()

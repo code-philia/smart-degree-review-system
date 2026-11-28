@@ -180,7 +180,6 @@ def test_malformed_or_failed_typo_responses_are_never_cached(semantic, result):
 @pytest.mark.parametrize('contract,result,expected_calls', [
     ('typo-discovery', {'errors':[]}, 1),
     ('typo-review', {'accepted':True,'reason':'确认'}, 1),
-    ('typo-fields', {'accepted':True,'reason':'缺字段'}, 2),
     ('typo-fields', {'accepted':True,'reason':'确认','original':'布','corrected':'部'}, 1),
     ('typo-fields', {'accepted':False,'reason':'不支持'}, 1),
 ])
@@ -189,3 +188,12 @@ def test_typo_cache_validates_the_specific_stage_schema_before_reuse(semantic, c
     response['choices'][0]['message']['content'] = json.dumps(result)
     for _ in range(2): module.request_json([{'role':'user','content':'identical exact source'}], response_contract=contract)
     assert len(calls) == expected_calls
+
+
+def test_incomplete_fields_contract_retries_then_remains_uncached(semantic):
+    module,calls,response,root=semantic
+    response['choices'][0]['message']['content']='{"accepted":true,"reason":"缺字段"}'
+    for _ in range(2):
+        with pytest.raises(ValueError,match='字段不完整'):
+            module.request_json([{'role':'user','content':'same source'}],response_contract='typo-fields')
+    assert len(calls)==4 and not list(root.glob('*.json'))
