@@ -12,7 +12,7 @@ from typing import Any
 
 RULE = 'abstract_numeric_consistency_check'
 CONTEXT_VERSION = 'numeric-context/4.4'
-CONTRACT_VERSION = 'numeric-contract/3.0'
+CONTRACT_VERSION = 'numeric-contract/3.1'
 RETRIEVAL_VERSION = 'numeric-lexical/1.7'
 TABLE_RECOVERY_VERSION = 'native-table-recovery/1.1'
 CONDITIONS = {'abstract_numeric', 'contribution_mapping', 'experiment_subsection'}
@@ -1652,7 +1652,13 @@ def validated_results(payload, declarations, candidates):
         if len(entries) != 1:
             problems.append('missing_result' if not entries else 'duplicate_result')
         else:
-            entry = entries[0]
+            entry = dict(entries[0])
+            normalizations = []
+            # An absent/empty optional suggestion carries no factual claim.
+            # Required fields and other non-string values still need repair.
+            if entry.get('suggestion') is None:
+                normalizations.append('null_suggestion' if 'suggestion' in entry else 'missing_suggestion')
+                entry['suggestion'] = ''
             if not isinstance(entry.get('status'), str) or entry.get('status') not in {'consistent', 'inconsistent', 'inconclusive'}:
                 problems.append('invalid_status')
             if not isinstance(entry.get('reason'), str) or not entry.get('reason', '').strip() or not isinstance(entry.get('suggestion'), str):
@@ -1675,9 +1681,18 @@ def validated_results(payload, declarations, candidates):
                                   **({'evidence_role':candidate['evidence_role']} if candidate.get('evidence_role') else {})})
             result_evidence = [e for e in valid if e.get('evidence_role') not in {'metric_definition', 'experiment_context'}]
             if entry.get('status') in ('consistent', 'inconsistent') and not result_evidence:
-                problems.append('supporting_evidence_required')
+                if evidence == [] and not problems:
+                    # Neither a positive nor a negative verdict is established
+                    # without cited evidence. Preserve the model's explanation
+                    # as uncertainty, never as a passed or conflicting claim.
+                    entry['status'] = 'inconclusive'
+                    normalizations.append('verdict_without_cited_evidence')
+                else:
+                    problems.append('supporting_evidence_required')
             if not problems:
                 row.update(status=entry['status'], reason=entry['reason'], suggestion=entry['suggestion'], evidence=valid)
+                if normalizations:
+                    row['contract_normalizations'] = normalizations
         if problems:
             row['status'] = 'execution_error'
             row['reason'] = '结果校验未通过：' + ', '.join(sorted(set(problems)))
@@ -2052,7 +2067,7 @@ def apply_structure_repair_patch(previous_output, response):
 
 def run_numeric(ir, facts, request, trace=None, verification_mode=None):
     usage = {'input_tokens': 0, 'output_tokens': 0}
-    params = {'stage': 'structure_locator', 'versions': {'context': CONTEXT_VERSION, 'retrieval': RETRIEVAL_VERSION, 'contract': CONTRACT_VERSION, 'prompts': 'numeric-prompts/3.1', 'structure_locator': 'structure-locator/3.1', 'numeric_verifier': 'numeric-verifier/2.6', 'citation_resolution': 'candidate-exact/1.0', 'source_conflict_audit': 'native-table-prose/1.0'}}
+    params = {'stage': 'structure_locator', 'versions': {'context': CONTEXT_VERSION, 'retrieval': RETRIEVAL_VERSION, 'contract': CONTRACT_VERSION, 'prompts': 'numeric-prompts/3.1', 'structure_locator': 'structure-locator/3.1', 'numeric_verifier': 'numeric-verifier/2.7', 'citation_resolution': 'candidate-exact/1.0', 'source_conflict_audit': 'native-table-prose/1.0'}}
     params['versions']['contract_repair_policy'] = 'once-per-call/1.1'
     mode = verification_mode or os.environ.get('PAPER_NUMERIC_VERIFIER_MODE', 'per_declaration')
     require(mode in {'batch', 'per_declaration'}, 'invalid numeric verifier mode')
