@@ -43,11 +43,11 @@ def test_persistently_incomplete_discovery_is_not_a_clean_chunk_or_unbounded_ret
     assert not list(root.glob('*.json'))
 
 
-def test_cached_repair_restores_original_key_after_truncated_response(semantic,monkeypatch):
+def test_cached_repair_restores_original_key_after_unconfirmed_response(semantic,monkeypatch):
     module,_,_,root=semantic;calls=[]
     def opened(request,**kwargs):
         calls.append(json.loads(request.data));n=len(calls)
-        return io.BytesIO(json.dumps({'choices':[{'finish_reason':'length' if n==3 else 'stop',
+        return io.BytesIO(json.dumps({'choices':[{'finish_reason':None if n==3 else 'stop',
             'message':{'content':'{}' if n in (1,3) else '{"errors":[]}'}}],
             'usage':{'prompt_tokens':12,'completion_tokens':7}}).encode())
     monkeypatch.setattr(module.urllib.request,'build_opener',lambda *a:SimpleNamespace(open=opened))
