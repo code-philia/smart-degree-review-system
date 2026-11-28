@@ -94,6 +94,7 @@ class CampusRequestCoordinator:
         self.path = Path(path)
         self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         self.max_concurrent = max_concurrent
+        self.requests_per_minute = requests_per_minute
         self.interval = 60.0 / requests_per_minute
         self.tokens_per_minute = tokens_per_minute
         with self._connection() as db:
@@ -108,6 +109,9 @@ class CampusRequestCoordinator:
                     id TEXT PRIMARY KEY, account_id TEXT NOT NULL, pid INTEGER NOT NULL,
                     expires_at REAL NOT NULL);
                 CREATE INDEX IF NOT EXISTS leases_by_account ON leases(account_id);
+                CREATE TABLE IF NOT EXISTS request_completions (
+                    id TEXT PRIMARY KEY, account_id TEXT NOT NULL, expires_at REAL NOT NULL);
+                CREATE INDEX IF NOT EXISTS requests_by_account ON request_completions(account_id,expires_at);
                 CREATE TABLE IF NOT EXISTS waiters (
                     ticket INTEGER PRIMARY KEY, id TEXT NOT NULL UNIQUE,
                     account_id TEXT NOT NULL, pid INTEGER NOT NULL, expires_at REAL NOT NULL);
@@ -131,6 +135,13 @@ class CampusRequestCoordinator:
             added=db.execute('INSERT OR IGNORE INTO quota_meta VALUES (?,?)',('tpm-safe-window-v2',0)).rowcount
             if added and 'token_reservations' in tables:
                 db.execute("UPDATE quota_meta SET ready_at=max(ready_at,?) WHERE id='tpm'",(time.time()+60,))
+            rpm_upgrade='accounts' in tables and 'request_completions' not in tables
+            db.execute('INSERT OR IGNORE INTO quota_meta VALUES (?,?)',('rpm',time.time()+60 if rpm_upgrade else 0))
+            if rpm_upgrade:
+                # Prior request completions were not recorded. This upgrade's
+                # one quiet window covers that unknown history; fresh stores
+                # and subsequent constructors do not receive this delay.
+                self._reap(db,time.time())
             if db.execute('SELECT 1 FROM waiters JOIN token_waiters USING(ticket) LIMIT 1').fetchone():
                 # Older versions allocated each queue independently. Re-ticket
                 # overlapping live rows once, preserving each queue's FIFO order.
@@ -159,6 +170,8 @@ class CampusRequestCoordinator:
     def _reap(self, db, now):
         # 0 = waiting for dispatch, 1 = admitted/in flight, 2 = settled or
         # uncertain. An expired transport lease is uncertain for one more minute.
+        db.execute('DELETE FROM request_completions WHERE expires_at<=?',(now,))
+        db.execute('INSERT OR IGNORE INTO request_completions SELECT id,account_id,? FROM leases WHERE expires_at<=?',(now+60,now))
         db.execute('UPDATE token_reservations SET state=2,expires_at=? WHERE state=1 AND expires_at<=?',
                    (now + 60, now))
         db.execute('DELETE FROM token_reservations WHERE state=2 AND expires_at<=?', (now,))
@@ -172,6 +185,7 @@ class CampusRequestCoordinator:
                           'UNION SELECT pid FROM token_reservations WHERE state<>2').fetchall()
         for (pid,) in pids:
             if not self._process_alive(pid):
+                db.execute('INSERT OR IGNORE INTO request_completions SELECT id,account_id,? FROM leases WHERE pid=?',(now+60,pid))
                 db.execute('DELETE FROM leases WHERE pid=?', (pid,))
                 db.execute('DELETE FROM waiters WHERE pid=?', (pid,))
                 db.execute('DELETE FROM token_waiters WHERE pid=?', (pid,))
@@ -316,6 +330,7 @@ class CampusRequestCoordinator:
         identity = token_reservation or uuid.uuid4().hex
         phase = 'waiters'
         registered, renew_at = False, 0.0
+        admitted,request_not_sent=False,False
         try:
             while True:
                 if remaining_time is not None:
@@ -363,7 +378,10 @@ class CampusRequestCoordinator:
                             rpm_head = first[1] if first else None
                             next_at, blocked_until = db.execute('SELECT next_at,blocked_until FROM accounts WHERE id=?', (account,)).fetchone()
                             count = db.execute('SELECT count(*) FROM leases WHERE account_id=?', (account,)).fetchone()[0]
-                            rpm_ready = max(next_at, blocked_until) <= now and count < self.max_concurrent
+                            completed = db.execute('SELECT count(*) FROM request_completions WHERE account_id=?',(account,)).fetchone()[0]
+                            rpm_full=count+completed>=self.requests_per_minute
+                            rpm_ready_at=db.execute("SELECT ready_at FROM quota_meta WHERE id='rpm'").fetchone()[0]
+                            rpm_ready = max(next_at, blocked_until,rpm_ready_at) <= now and count < self.max_concurrent and not rpm_full
                             target_phase = 'waiters'
                             allowed = rpm_ready and (rpm_head is None or rpm_head >= ticket)
                             if allowed and token_budget is not None:
@@ -398,6 +416,7 @@ class CampusRequestCoordinator:
                                 db.execute('INSERT INTO leases VALUES (?,?,?,?)', (identity, account, os.getpid(), now + lease_lifetime))
                                 db.execute('UPDATE accounts SET next_at=? WHERE id=?', (now + self.interval, account))
                                 db.commit()
+                                admitted=True
                                 break
                             if target_phase != phase:
                                 db.execute('DELETE FROM '+phase+' WHERE id=?', (identity,))
@@ -405,8 +424,12 @@ class CampusRequestCoordinator:
                                            (ticket, identity, account, os.getpid(), expiry))
                             if target_phase == 'token_waiters':
                                 wait = .25
+                            elif rpm_full:
+                                # In-flight grants stay charged, then expire a
+                                # minute after completion, not after acquisition.
+                                wait=.25
                             elif count < self.max_concurrent:
-                                wait = max(.001 if rpm_head is None or rpm_head >= ticket else .05, max(next_at, blocked_until) - now)
+                                wait = max(.001 if rpm_head is None or rpm_head >= ticket else .05, max(next_at, blocked_until,rpm_ready_at) - now)
                             db.commit()
                             phase = target_phase
                             registered = True
@@ -421,6 +444,7 @@ class CampusRequestCoordinator:
                       if token_budget is not None else nullcontext()):
                     yield available
             except Exception as error:
+                request_not_sent=getattr(error,'request_not_sent',False) is True
                 if getattr(error, 'code', getattr(error, 'status', None)) == 429:
                     retry = getattr(error, 'retry_after', None)
                     if retry is None and getattr(error, 'headers', None):
@@ -440,6 +464,11 @@ class CampusRequestCoordinator:
                 db.execute('DELETE FROM waiters WHERE id=?', (identity,))
                 db.execute('DELETE FROM token_waiters WHERE id=?', (identity,))
                 db.execute('DELETE FROM leases WHERE id=?', (identity,))
+                if admitted:
+                    if request_not_sent:
+                        db.execute('DELETE FROM request_completions WHERE id=?',(identity,))
+                    else:
+                        db.execute('INSERT OR REPLACE INTO request_completions VALUES (?,?,?)',(identity,account,time.time()+60))
                 if token_budget is not None:
                     row = db.execute('SELECT state FROM token_reservations WHERE id=?', (identity,)).fetchone()
                     if row:

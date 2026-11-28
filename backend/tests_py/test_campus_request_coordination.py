@@ -414,6 +414,7 @@ def test_legacy_database_upgrade_preserves_existing_pacing_and_active_lease(tmp_
         with sqlite3.connect(path) as db:
             assert db.execute('SELECT * FROM accounts').fetchall() == old_accounts
             assert db.execute('SELECT * FROM leases').fetchall() == old_leases
+            assert db.execute("SELECT ready_at FROM quota_meta WHERE id='rpm'").fetchone()[0]==1000+60
     with pytest.raises(TimeoutError):
         with gate.slot('same', timeout=.5):
             pytest.fail('An active pre-upgrade lease still occupies capacity')
@@ -421,7 +422,7 @@ def test_legacy_database_upgrade_preserves_existing_pacing_and_active_lease(tmp_
         assert db.execute('SELECT count(*) FROM waiters').fetchone()[0] == 0
         assert db.execute('SELECT * FROM accounts').fetchall() == old_accounts
         assert db.execute('SELECT * FROM leases').fetchall() == old_leases
-    clock.now += 4
+    clock.now += 61  # Unknown pre-upgrade RPM history receives one quiet window.
     with gate.slot('same', timeout=1):
         pass
 
